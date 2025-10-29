@@ -11,6 +11,7 @@ class DatabaseServer extends Model
 {
     /** @use HasFactory<DatabaseServerFactory> */
     use HasFactory;
+
     use HasUlids;
 
     protected $fillable = [

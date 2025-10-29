@@ -17,7 +17,14 @@ class DatabaseServerFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->company().' '.fake()->randomElement(['MySQL', 'PostgreSQL', 'MariaDB']).' Server',
+            'host' => fake()->randomElement(['localhost', '127.0.0.1', fake()->ipv4()]),
+            'port' => fake()->randomElement([3306, 5432, 3307, 5433]),
+            'database_type' => fake()->randomElement(['mysql', 'postgresql', 'mariadb', 'sqlite']),
+            'username' => fake()->userName(),
+            'password' => fake()->password(),
+            'database_name' => fake()->optional()->word(),
+            'description' => fake()->optional()->sentence(),
         ];
     }
 }

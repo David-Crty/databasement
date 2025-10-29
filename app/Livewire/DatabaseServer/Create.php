@@ -40,11 +40,12 @@ class Create extends Component
 
         session()->flash('status', 'Database server created successfully!');
 
-        return $this->redirect(route('database-servers.create'), navigate: true);
+        return $this->redirect(route('database-servers.index'), navigate: true);
     }
 
     public function render()
     {
-        return view('livewire.database-server.create');
+        return view('livewire.database-server.create')
+            ->layout('components.layouts.app', ['title' => __('Create Database Server')]);
     }
 }

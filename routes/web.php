@@ -13,8 +13,12 @@ Route::view('dashboard', 'dashboard')
     ->name('dashboard');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('database-servers', \App\Livewire\DatabaseServer\Index::class)
+        ->name('database-servers.index');
     Route::get('database-servers/create', \App\Livewire\DatabaseServer\Create::class)
         ->name('database-servers.create');
+    Route::get('database-servers/{server}/edit', \App\Livewire\DatabaseServer\Edit::class)
+        ->name('database-servers.edit');
 });
 
 Route::middleware(['auth'])->group(function () {
