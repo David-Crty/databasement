@@ -64,8 +64,10 @@ class DatabaseServerForm extends Form
 
         // Load backup data if exists
         if ($server->backup) {
-            $this->volume_id = $server->backup->volume_id;
-            $this->recurrence = $server->backup->recurrence;
+            /** @var \App\Models\Backup $backup */
+            $backup = $server->backup;
+            $this->volume_id = $backup->volume_id;
+            $this->recurrence = $backup->recurrence;
         }
     }
 

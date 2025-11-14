@@ -33,12 +33,15 @@ class VolumeForm extends Form
         $this->name = $volume->name;
         $this->type = $volume->type;
 
+        /** @var array<string, mixed> $config */
+        $config = $volume->config;
+
         // Load config based on type
         if ($volume->type === 's3') {
-            $this->bucket = $volume->config['bucket'] ?? '';
-            $this->prefix = $volume->config['prefix'] ?? '';
+            $this->bucket = $config['bucket'] ?? '';
+            $this->prefix = $config['prefix'] ?? '';
         } elseif ($volume->type === 'local') {
-            $this->path = $volume->config['path'] ?? '';
+            $this->path = $config['path'] ?? '';
         }
     }
 
@@ -92,6 +95,7 @@ class VolumeForm extends Form
             'local' => [
                 'path' => $this->path,
             ],
+            default => throw new \InvalidArgumentException("Invalid volume type: {$this->type}"),
         };
     }
 }

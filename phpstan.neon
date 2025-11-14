@@ -1,0 +1,18 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app
+        - database
+        - routes
+
+    # Level 5 is a good starting point for Laravel projects
+    # You can increase this to level 6-9 for stricter analysis
+    level: 5
+
+    excludePaths:
+        - database/migrations/*
+        - bootstrap/cache/*
+        - storage/*
+        - tests/*

@@ -38,6 +38,7 @@ class VolumeFactory extends Factory
             'local' => [
                 'path' => '/var/backups/'.fake()->slug(),
             ],
+            default => throw new \InvalidArgumentException("Invalid volume type: {$type}"),
         };
     }
 

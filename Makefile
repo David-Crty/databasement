@@ -44,6 +44,14 @@ lint-fix: ## Fix code style with Laravel Pint
 
 lint: lint-fix ## Alias for lint-fix
 
+phpstan: ## Run PHPStan static analysis
+	vendor/bin/phpstan analyse --memory-limit=1G
+
+phpstan-baseline: ## Generate PHPStan baseline
+	vendor/bin/phpstan analyse --memory-limit=1G --generate-baseline
+
+analyse: phpstan ## Alias for phpstan
+
 ##@ Database
 
 migrate: ## Run database migrations
