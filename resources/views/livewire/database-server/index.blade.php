@@ -102,6 +102,9 @@
                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
                                 {{ __('Database') }}
                             </th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
+                                {{ __('Backup') }}
+                            </th>
                             <th class="px-4 py-3 text-left">
                                 <button wire:click="sortBy('created_at')" class="group flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100">
                                     {{ __('Created') }}
@@ -149,6 +152,10 @@
                                 <td class="px-4 py-4 text-sm text-zinc-700 dark:text-zinc-300">
                                     {{ $server->database_name ?? '-' }}
                                 </td>
+                                <td class="px-4 py-4">
+                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">{{ $server->backup->volume->name }}</div>
+                                    <div class="text-xs text-zinc-500 dark:text-zinc-400 capitalize">{{ $server->backup->recurrence }}</div>
+                                </td>
                                 <td class="px-4 py-4 text-sm text-zinc-500 dark:text-zinc-400">
                                     {{ $server->created_at->diffForHumans() }}
                                 </td>
@@ -165,7 +172,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                <td colspan="7" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
                                     @if($search)
                                         {{ __('No database servers found matching your search.') }}
                                     @else
