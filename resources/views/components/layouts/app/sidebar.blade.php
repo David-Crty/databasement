@@ -15,6 +15,7 @@
                 <flux:navlist.group :heading="__('Platform')" class="grid">
                     <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
                     <flux:navlist.item icon="layout-grid" :href="route('database-servers.index')" :current="request()->routeIs('database-servers.*')" wire:navigate>{{ __('Database Servers') }}</flux:navlist.item>
+                    <flux:navlist.item icon="circle-stack" :href="route('volumes.index')" :current="request()->routeIs('volumes.*')" wire:navigate>{{ __('Volumes') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 

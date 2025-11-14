@@ -19,6 +19,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('database-servers.create');
     Route::get('database-servers/{server}/edit', \App\Livewire\DatabaseServer\Edit::class)
         ->name('database-servers.edit');
+
+    Route::get('volumes', \App\Livewire\Volume\Index::class)
+        ->name('volumes.index');
+    Route::get('volumes/create', \App\Livewire\Volume\Create::class)
+        ->name('volumes.create');
+    Route::get('volumes/{volume}/edit', \App\Livewire\Volume\Edit::class)
+        ->name('volumes.edit');
 });
 
 Route::middleware(['auth'])->group(function () {
