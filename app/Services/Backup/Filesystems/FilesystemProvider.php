@@ -24,7 +24,7 @@ class FilesystemProvider
 
         foreach ($this->filesystems as $filesystem) {
             if ($filesystem->handles($type)) {
-                return $filesystem->get($this->config->get($name));
+                return $filesystem->get($this->config[$name] ?? []);
             }
         }
 
@@ -33,11 +33,15 @@ class FilesystemProvider
 
     public function getConfig($name, $key = null)
     {
-        return $this->config->get($name, $key);
+        if ($key === null) {
+            return $this->config[$name] ?? null;
+        }
+
+        return $this->config[$name][$key] ?? null;
     }
 
     public function getAvailableProviders()
     {
-        return array_keys($this->config->getItems());
+        return array_keys($this->config);
     }
 }

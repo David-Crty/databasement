@@ -40,15 +40,29 @@ class BackupTask
         $workingFile = $this->getWorkingFile('local');
         $filesystem = $this->filesystemProvider->get($databaseServer->backup->volume->type);
 
-        $this->dumpDatabase($databaseServer, $workingFile);
-        $archive = $this->compress($workingFile);
-        $this->transfer($archive, $filesystem);
+        // Configure database interface with server credentials
+        $this->configureDatabaseInterface($databaseServer);
+
+        try {
+            $this->dumpDatabase($databaseServer, $workingFile);
+            $archive = $this->compress($workingFile);
+            $this->transfer($databaseServer, $archive, $filesystem);
+        } finally {
+            // Clean up temporary files
+            if (file_exists($workingFile)) {
+                unlink($workingFile);
+            }
+            if (isset($archive) && file_exists($archive)) {
+                unlink($archive);
+            }
+        }
     }
 
     private function dumpDatabase(DatabaseServer $databaseServer, string $outputPath): void
     {
-        switch ($databaseServer->type) {
+        switch ($databaseServer->database_type) {
             case 'mysql':
+            case 'mariadb':
                 $this->shellProcessor->process(
                     Process::fromShellCommandline(
                         $this->mysqlDatabase->getDumpCommandLine($outputPath)
@@ -63,7 +77,7 @@ class BackupTask
                 );
                 break;
             default:
-                throw new \Exception('Database type not supported');
+                throw new \Exception("Database type {$databaseServer->database_type} not supported");
         }
     }
 
@@ -75,11 +89,49 @@ class BackupTask
             )
         );
 
-        return $this->compressor->getDecompressedPath($path);
+        return $this->compressor->getCompressedPath($path);
     }
 
-    private function transfer(string $path, Filesystem $filesystem): void
+    private function transfer(DatabaseServer $databaseServer, string $path, Filesystem $filesystem): void
     {
-        $filesystem->writeStream($path, fopen($path, 'r'));
+        $stream = fopen($path, 'r');
+        if ($stream === false) {
+            throw new \RuntimeException("Failed to open file: {$path}");
+        }
+
+        try {
+            $destinationPath = $this->generateBackupFilename($databaseServer);
+            $filesystem->writeStream($destinationPath, $stream);
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+    }
+
+    private function generateBackupFilename(DatabaseServer $databaseServer): string
+    {
+        $timestamp = now()->format('Y-m-d-His');
+        $serverName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->name);
+        $databaseName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->database_name ?? 'db');
+
+        return sprintf('%s-%s-%s.sql.gz', $serverName, $databaseName, $timestamp);
+    }
+
+    private function configureDatabaseInterface(DatabaseServer $databaseServer): void
+    {
+        $config = [
+            'host' => $databaseServer->host,
+            'port' => $databaseServer->port,
+            'user' => $databaseServer->username,
+            'pass' => $databaseServer->password,
+            'database' => $databaseServer->database_name,
+        ];
+
+        match ($databaseServer->database_type) {
+            'mysql', 'mariadb' => $this->mysqlDatabase->setConfig($config),
+            'postgresql' => $this->postgresqlDatabase->setConfig($config),
+            default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
+        };
     }
 }
