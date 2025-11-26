@@ -6,7 +6,6 @@ use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\Backup\DatabaseListService;
 use App\Services\Backup\RestoreTask;
-use Flux;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Masmerise\Toaster\Toaster;
@@ -25,6 +24,8 @@ class RestoreModal extends Component
 
     public array $existingDatabases = [];
 
+    public bool $showModal = false;
+
     public function mount(?string $targetServerId = null)
     {
         if ($targetServerId) {
@@ -39,7 +40,7 @@ class RestoreModal extends Component
         $this->targetServer = DatabaseServer::find($targetServerId);
         $this->currentStep = 1;
 
-        Flux::modal('restore-modal')->show();
+        $this->showModal = true;
     }
 
     public function selectSourceServer(string $serverId): void
@@ -105,7 +106,7 @@ class RestoreModal extends Component
 
             Toaster::success("Database restored successfully to '{$this->schemaName}'!");
 
-            Flux::modal('restore-modal')->close();
+            $this->showModal = false;
 
             $this->dispatch('restore-completed');
         } catch (\Exception $e) {

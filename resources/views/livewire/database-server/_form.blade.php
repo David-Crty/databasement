@@ -1,124 +1,129 @@
 @props(['form', 'submitLabel' => 'Save', 'cancelRoute' => 'database-servers.index', 'isEdit' => false])
 
+@php
+$databaseTypes = [
+    ['id' => 'mysql', 'name' => 'MySQL'],
+    ['id' => 'mariadb', 'name' => 'MariaDB'],
+    ['id' => 'postgresql', 'name' => 'PostgreSQL'],
+    ['id' => 'sqlite', 'name' => 'SQLite'],
+];
+
+$recurrenceOptions = [
+    ['id' => 'daily', 'name' => __('Daily')],
+    ['id' => 'weekly', 'name' => __('Weekly')],
+];
+
+$volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
+    'id' => $v->id,
+    'name' => "{$v->name} ({$v->type})",
+])->toArray();
+@endphp
+
 <form wire:submit="save" class="space-y-6">
     <!-- Basic Information -->
     <div class="space-y-4">
-        <flux:heading size="lg">{{ __('Basic Information') }}</flux:heading>
+        <h3 class="text-lg font-semibold">{{ __('Basic Information') }}</h3>
 
-        <flux:input
+        <x-input
             wire:model="form.name"
-            :label="__('Server Name')"
-            :placeholder="__('e.g., Production MySQL Server')"
+            label="{{ __('Server Name') }}"
+            placeholder="{{ __('e.g., Production MySQL Server') }}"
             type="text"
             required
-            autofocus
         />
 
-        <flux:textarea
+        <x-textarea
             wire:model="form.description"
-            :label="__('Description')"
-            :placeholder="__('Optional description for this server')"
+            label="{{ __('Description') }}"
+            placeholder="{{ __('Optional description for this server') }}"
             rows="3"
         />
     </div>
 
     <!-- Connection Details -->
-    <flux:separator />
+    <x-hr />
 
     <div class="space-y-4">
-        <flux:heading size="lg">{{ __('Connection Details') }}</flux:heading>
+        <h3 class="text-lg font-semibold">{{ __('Connection Details') }}</h3>
 
-        <flux:select
+        <x-select
             wire:model="form.database_type"
-            :label="__('Database Type')"
-        >
-            <option value="mysql">MySQL</option>
-            <option value="mariadb">MariaDB</option>
-            <option value="postgresql">PostgreSQL</option>
-            <option value="sqlite">SQLite</option>
-        </flux:select>
+            label="{{ __('Database Type') }}"
+            :options="$databaseTypes"
+        />
 
         <div class="grid gap-4 md:grid-cols-2">
-            <div>
-                <flux:input
-                    wire:model="form.host"
-                    :label="__('Host')"
-                    :placeholder="__('e.g., localhost or 192.168.1.100')"
-                    type="text"
-                    required
-                />
-            </div>
+            <x-input
+                wire:model="form.host"
+                label="{{ __('Host') }}"
+                placeholder="{{ __('e.g., localhost or 192.168.1.100') }}"
+                type="text"
+                required
+            />
 
-            <div>
-                <flux:input
-                    wire:model="form.port"
-                    :label="__('Port')"
-                    :placeholder="__('e.g., 3306')"
-                    type="number"
-                    required
-                />
-            </div>
+            <x-input
+                wire:model="form.port"
+                label="{{ __('Port') }}"
+                placeholder="{{ __('e.g., 3306') }}"
+                type="number"
+                required
+            />
         </div>
 
-        <flux:input
+        <x-input
             wire:model="form.database_name"
-            :label="__('Database Name')"
+            label="{{ __('Database Name') }}"
             type="text"
         />
     </div>
 
     <div class="space-y-4">
-
         <div class="grid gap-4 md:grid-cols-2">
-            <flux:input
+            <x-input
                 wire:model="form.username"
-                :label="__('Username')"
-                :placeholder="__('Database username')"
+                label="{{ __('Username') }}"
+                placeholder="{{ __('Database username') }}"
                 type="text"
                 required
                 autocomplete="off"
             />
-            @error('form.username') <flux:error>{{ $message }}</flux:error> @enderror
 
-            <div>
-                <flux:input
-                    wire:model="form.password"
-                    :label="__('Password')"
-                    :placeholder="$isEdit ? __('Leave blank to keep current password') : __('Database password')"
-                    type="password"
-                    :required="!$isEdit"
-                    autocomplete="off"
-                />
-            </div>
+            <x-password
+                wire:model="form.password"
+                label="{{ __('Password') }}"
+                placeholder="{{ $isEdit ? __('Leave blank to keep current password') : __('Database password') }}"
+                :required="!$isEdit"
+                autocomplete="off"
+            />
         </div>
 
         <!-- Test Connection Button -->
         <div class="pt-2">
-            <flux:button
-                class="w-full"
+            <x-button
+                class="w-full btn-outline"
                 type="button"
-                icon="arrow-path"
-                variant="outline"
+                icon="o-arrow-path"
                 wire:click="testConnection"
                 :disabled="$form->testingConnection"
+                spinner="testConnection"
             >
                 @if($form->testingConnection)
                     {{ __('Testing Connection...') }}
                 @else
                     {{ __('Test Connection') }}
                 @endif
-            </flux:button>
+            </x-button>
         </div>
 
         <!-- Connection Test Result -->
         @if($form->connectionTestMessage)
             <div class="mt-2">
                 @if($form->connectionTestSuccess)
-                    <x-alert variant="success">
+                    <x-alert class="alert-success" icon="o-check-circle">
                         {{ $form->connectionTestMessage }}
                     </x-alert>
                 @else
-                    <x-alert variant="error">
+                    <x-alert class="alert-error" icon="o-x-circle">
                         {{ $form->connectionTestMessage }}
                     </x-alert>
                 @endif
@@ -127,41 +132,35 @@
     </div>
 
     <!-- Backup Configuration -->
-    <flux:separator />
+    <x-hr />
 
     <div class="space-y-4">
-        <flux:heading size="lg">{{ __('Backup Configuration') }}</flux:heading>
+        <h3 class="text-lg font-semibold">{{ __('Backup Configuration') }}</h3>
 
-        <flux:select
+        <x-select
             wire:model="form.volume_id"
-            :label="__('Storage Volume')"
+            label="{{ __('Storage Volume') }}"
+            :options="$volumes"
+            placeholder="{{ __('Select a volume') }}"
+            placeholder-value=""
             required
-        >
-            <option value="">{{ __('Select a volume') }}</option>
-            @foreach(\App\Models\Volume::orderBy('name')->get() as $volume)
-                <option value="{{ $volume->id }}">{{ $volume->name }} ({{ $volume->type }})</option>
-            @endforeach
-        </flux:select>
-        @error('form.volume_id') <flux:error>{{ $message }}</flux:error> @enderror
+        />
 
-        <flux:select
+        <x-select
             wire:model="form.recurrence"
-            :label="__('Backup Frequency')"
+            label="{{ __('Backup Frequency') }}"
+            :options="$recurrenceOptions"
             required
-        >
-            <option value="daily">{{ __('Daily') }}</option>
-            <option value="weekly">{{ __('Weekly') }}</option>
-        </flux:select>
-        @error('form.recurrence') <flux:error>{{ $message }}</flux:error> @enderror
+        />
     </div>
 
     <!-- Submit Button -->
     <div class="flex items-center justify-end gap-3 pt-4">
-        <flux:button variant="ghost" :href="route($cancelRoute)" wire:navigate>
+        <x-button class="btn-ghost" link="{{ route($cancelRoute) }}" wire:navigate>
             {{ __('Cancel') }}
-        </flux:button>
-        <flux:button variant="primary" type="submit">
+        </x-button>
+        <x-button class="btn-primary" type="submit">
             {{ __($submitLabel) }}
-        </flux:button>
+        </x-button>
     </div>
 </form>

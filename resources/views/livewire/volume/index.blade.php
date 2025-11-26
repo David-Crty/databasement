@@ -3,28 +3,28 @@
         <!-- Header -->
         <div class="mb-6 flex items-center justify-between">
             <div>
-                <flux:heading size="xl">{{ __('Volumes') }}</flux:heading>
-                <flux:subheading>{{ __('Manage your backup storage volumes') }}</flux:subheading>
+                <x-header title="{{ __('Volumes') }}" subtitle="{{ __('Manage your backup storage volumes') }}" size="text-2xl" separator />
             </div>
-            <flux:button variant="primary" :href="route('volumes.create')" icon="plus" wire:navigate>
+            <x-button class="btn-primary" link="{{ route('volumes.create') }}" icon="o-plus" wire:navigate>
                 {{ __('Add Volume') }}
-            </flux:button>
+            </x-button>
         </div>
 
         @if (session('status'))
-            <x-alert variant="success" dismissible class="mb-6">
+            <x-alert class="alert-success mb-6" icon="o-check-circle" dismissible>
                 {{ session('status') }}
             </x-alert>
         @endif
 
         <x-card :padding="false">
             <!-- Search Bar -->
-            <div class="border-b border-zinc-200 p-4 dark:border-zinc-700">
-                <flux:input
+            <div class="border-b border-base-300 p-4">
+                <x-input
                     wire:model.live.debounce.300ms="search"
                     placeholder="{{ __('Search by name or type...') }}"
-                    icon="magnifying-glass"
+                    icon="o-magnifying-glass"
                     type="search"
+                    clearable
                 />
             </div>
 
@@ -36,21 +36,11 @@
                             <th class="table-th">
                                 <button wire:click="sortBy('name')" class="group table-th-sortable">
                                     {{ __('Name') }}
-                                    <span class="text-zinc-400">
+                                    <span class="opacity-50">
                                         @if($sortField === 'name')
-                                            @if($sortDirection === 'asc')
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                                </svg>
-                                            @else
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            @endif
+                                            <x-icon name="{{ $sortDirection === 'asc' ? 'o-chevron-up' : 'o-chevron-down' }}" class="w-4 h-4" />
                                         @else
-                                            <svg class="h-4 w-4 opacity-0 group-hover:opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                            </svg>
+                                            <x-icon name="o-arrows-up-down" class="w-4 h-4 opacity-0 group-hover:opacity-50" />
                                         @endif
                                     </span>
                                 </button>
@@ -58,21 +48,11 @@
                             <th class="table-th">
                                 <button wire:click="sortBy('type')" class="group table-th-sortable">
                                     {{ __('Type') }}
-                                    <span class="text-zinc-400">
+                                    <span class="opacity-50">
                                         @if($sortField === 'type')
-                                            @if($sortDirection === 'asc')
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                                </svg>
-                                            @else
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            @endif
+                                            <x-icon name="{{ $sortDirection === 'asc' ? 'o-chevron-up' : 'o-chevron-down' }}" class="w-4 h-4" />
                                         @else
-                                            <svg class="h-4 w-4 opacity-0 group-hover:opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                            </svg>
+                                            <x-icon name="o-arrows-up-down" class="w-4 h-4 opacity-0 group-hover:opacity-50" />
                                         @endif
                                     </span>
                                 </button>
@@ -83,21 +63,11 @@
                             <th class="table-th">
                                 <button wire:click="sortBy('created_at')" class="group table-th-sortable">
                                     {{ __('Created') }}
-                                    <span class="text-zinc-400">
+                                    <span class="opacity-50">
                                         @if($sortField === 'created_at')
-                                            @if($sortDirection === 'asc')
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                                </svg>
-                                            @else
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            @endif
+                                            <x-icon name="{{ $sortDirection === 'asc' ? 'o-chevron-up' : 'o-chevron-down' }}" class="w-4 h-4" />
                                         @else
-                                            <svg class="h-4 w-4 opacity-0 group-hover:opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                            </svg>
+                                            <x-icon name="o-arrows-up-down" class="w-4 h-4 opacity-0 group-hover:opacity-50" />
                                         @endif
                                     </span>
                                 </button>
@@ -131,12 +101,21 @@
                                 </td>
                                 <td class="text-right">
                                     <div class="table-actions">
-                                        <flux:button size="sm" variant="ghost" :href="route('volumes.edit', $volume)" icon="pencil" wire:navigate>
+                                        <x-button
+                                            class="btn-ghost btn-sm"
+                                            link="{{ route('volumes.edit', $volume) }}"
+                                            icon="o-pencil"
+                                            wire:navigate
+                                        >
                                             {{ __('Edit') }}
-                                        </flux:button>
-                                        <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDelete('{{ $volume->id }}')" class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                                        </x-button>
+                                        <x-button
+                                            class="btn-ghost btn-sm text-error"
+                                            icon="o-trash"
+                                            wire:click="confirmDelete('{{ $volume->id }}')"
+                                        >
                                             {{ __('Delete') }}
-                                        </flux:button>
+                                        </x-button>
                                     </div>
                                 </td>
                             </tr>
@@ -147,7 +126,7 @@
                                         {{ __('No volumes found matching your search.') }}
                                     @else
                                         {{ __('No volumes yet.') }}
-                                        <a href="{{ route('volumes.create') }}" class="text-zinc-900 underline dark:text-zinc-100" wire:navigate>
+                                        <a href="{{ route('volumes.create') }}" class="link link-primary" wire:navigate>
                                             {{ __('Create your first one.') }}
                                         </a>
                                     @endif
@@ -160,7 +139,7 @@
 
             <!-- Pagination -->
             @if($volumes->hasPages())
-                <div class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                <div class="border-t border-base-300 px-4 py-3">
                     {{ $volumes->links() }}
                 </div>
             @endif

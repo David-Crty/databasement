@@ -9,17 +9,17 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.4",
+        "php": "^8.3",
         "ext-pdo": "*",
         "blade-ui-kit/blade-icons": "^1.8",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",
-        "livewire/flux": "^2.1.1",
         "livewire/volt": "^1.7.0",
         "masmerise/livewire-toaster": "^2.8",
-        "owenvoke/blade-fontawesome": "^3.0"
+        "owenvoke/blade-fontawesome": "^2.7",
+        "robsontenorio/mary": "^2.4"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.6",
@@ -95,6 +95,9 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
+        },
+        "audit": {
+            "ignore": ["PKSA-365x-2zjk-pt47"]
         }
     },
     "minimum-stability": "stable",

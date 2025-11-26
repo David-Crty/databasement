@@ -4,7 +4,6 @@ namespace App\Livewire\DatabaseServer;
 
 use App\Models\DatabaseServer;
 use App\Services\Backup\BackupTask;
-use Flux;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -27,6 +26,8 @@ class Index extends Component
 
     public ?string $restoreId = null;
 
+    public bool $showDeleteModal = false;
+
     public function updatingSearch()
     {
         $this->resetPage();
@@ -45,7 +46,7 @@ class Index extends Component
     public function confirmDelete(string $id)
     {
         $this->deleteId = $id;
-        Flux::modal('delete-confirmation')->show();
+        $this->showDeleteModal = true;
     }
 
     public function delete()
@@ -55,7 +56,7 @@ class Index extends Component
             $this->deleteId = null;
 
             session()->flash('status', 'Database server deleted successfully!');
-            Flux::modal('delete-confirmation')->close();
+            $this->showDeleteModal = false;
         }
     }
 

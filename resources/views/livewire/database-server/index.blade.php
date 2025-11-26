@@ -3,34 +3,34 @@
         <!-- Header -->
         <div class="mb-6 flex items-center justify-between">
             <div>
-                <flux:heading size="xl">{{ __('Database Servers') }}</flux:heading>
-                <flux:subheading>{{ __('Manage your database server connections') }}</flux:subheading>
+                <x-header title="{{ __('Database Servers') }}" subtitle="{{ __('Manage your database server connections') }}" size="text-2xl" separator />
             </div>
-            <flux:button variant="primary" :href="route('database-servers.create')" icon="plus" wire:navigate>
+            <x-button class="btn-primary" link="{{ route('database-servers.create') }}" icon="o-plus" wire:navigate>
                 {{ __('Add Server') }}
-            </flux:button>
+            </x-button>
         </div>
 
         @if (session('status'))
-            <x-alert variant="success" dismissible class="mb-6">
+            <x-alert class="alert-success mb-6" icon="o-check-circle" dismissible>
                 {{ session('status') }}
             </x-alert>
         @endif
 
         @if (session('error'))
-            <x-alert variant="error" dismissible class="mb-6">
+            <x-alert class="alert-error mb-6" icon="o-x-circle" dismissible>
                 {{ session('error') }}
             </x-alert>
         @endif
 
         <x-card :padding="false">
             <!-- Search Bar -->
-            <div class="border-b border-zinc-200 p-4 dark:border-zinc-700">
-                <flux:input
+            <div class="border-b border-base-300 p-4">
+                <x-input
                     wire:model.live.debounce.300ms="search"
                     placeholder="{{ __('Search by name, host, type, or description...') }}"
-                    icon="magnifying-glass"
+                    icon="o-magnifying-glass"
                     type="search"
+                    clearable
                 />
             </div>
 
@@ -42,21 +42,11 @@
                             <th class="table-th">
                                 <button wire:click="sortBy('name')" class="group table-th-sortable">
                                     {{ __('Name') }}
-                                    <span class="text-zinc-400">
+                                    <span class="opacity-50">
                                         @if($sortField === 'name')
-                                            @if($sortDirection === 'asc')
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                                </svg>
-                                            @else
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            @endif
+                                            <x-icon name="{{ $sortDirection === 'asc' ? 'o-chevron-up' : 'o-chevron-down' }}" class="w-4 h-4" />
                                         @else
-                                            <svg class="h-4 w-4 opacity-0 group-hover:opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                            </svg>
+                                            <x-icon name="o-arrows-up-down" class="w-4 h-4 opacity-0 group-hover:opacity-50" />
                                         @endif
                                     </span>
                                 </button>
@@ -64,21 +54,11 @@
                             <th class="table-th">
                                 <button wire:click="sortBy('database_type')" class="group table-th-sortable">
                                     {{ __('Type') }}
-                                    <span class="text-zinc-400">
+                                    <span class="opacity-50">
                                         @if($sortField === 'database_type')
-                                            @if($sortDirection === 'asc')
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                                </svg>
-                                            @else
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            @endif
+                                            <x-icon name="{{ $sortDirection === 'asc' ? 'o-chevron-up' : 'o-chevron-down' }}" class="w-4 h-4" />
                                         @else
-                                            <svg class="h-4 w-4 opacity-0 group-hover:opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                            </svg>
+                                            <x-icon name="o-arrows-up-down" class="w-4 h-4 opacity-0 group-hover:opacity-50" />
                                         @endif
                                     </span>
                                 </button>
@@ -86,21 +66,11 @@
                             <th class="table-th">
                                 <button wire:click="sortBy('host')" class="group table-th-sortable">
                                     {{ __('Host') }}
-                                    <span class="text-zinc-400">
+                                    <span class="opacity-50">
                                         @if($sortField === 'host')
-                                            @if($sortDirection === 'asc')
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                                </svg>
-                                            @else
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            @endif
+                                            <x-icon name="{{ $sortDirection === 'asc' ? 'o-chevron-up' : 'o-chevron-down' }}" class="w-4 h-4" />
                                         @else
-                                            <svg class="h-4 w-4 opacity-0 group-hover:opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                            </svg>
+                                            <x-icon name="o-arrows-up-down" class="w-4 h-4 opacity-0 group-hover:opacity-50" />
                                         @endif
                                     </span>
                                 </button>
@@ -114,21 +84,11 @@
                             <th class="table-th">
                                 <button wire:click="sortBy('created_at')" class="group table-th-sortable">
                                     {{ __('Created') }}
-                                    <span class="text-zinc-400">
+                                    <span class="opacity-50">
                                         @if($sortField === 'created_at')
-                                            @if($sortDirection === 'asc')
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-                                                </svg>
-                                            @else
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            @endif
+                                            <x-icon name="{{ $sortDirection === 'asc' ? 'o-chevron-up' : 'o-chevron-down' }}" class="w-4 h-4" />
                                         @else
-                                            <svg class="h-4 w-4 opacity-0 group-hover:opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                                            </svg>
+                                            <x-icon name="o-arrows-up-down" class="w-4 h-4 opacity-0 group-hover:opacity-50" />
                                         @endif
                                     </span>
                                 </button>
@@ -147,7 +107,7 @@
                                         <div>{{ Str::limit($server->description, 50) }}</div>
                                     @endif
                                 </td>
-                                <td >
+                                <td>
                                     <x-table-badge>{{ $server->database_type }}</x-table-badge>
                                 </td>
                                 <td>
@@ -158,7 +118,7 @@
                                 </td>
                                 <td>
                                     <div class="table-cell-primary">{{ $server->backup->volume->name }}</div>
-                                    <div capitalize>{{ $server->backup->recurrence }}</div>
+                                    <div class="capitalize">{{ $server->backup->recurrence }}</div>
                                 </td>
                                 <td>
                                     {{ $server->created_at->diffForHumans() }}
@@ -166,19 +126,36 @@
                                 <td class="text-right">
                                     <div class="table-actions">
                                         @if($server->backup)
-                                            <flux:button size="sm" variant="ghost" icon="arrow-down-tray" wire:click="runBackup('{{ $server->id }}')" class="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                                            <x-button
+                                                class="btn-ghost btn-sm text-info"
+                                                icon="o-arrow-down-tray"
+                                                wire:click="runBackup('{{ $server->id }}')"
+                                            >
                                                 {{ __('Backup Now') }}
-                                            </flux:button>
+                                            </x-button>
                                         @endif
-                                        <flux:button size="sm" variant="ghost" icon="arrow-up-tray" wire:click="confirmRestore('{{ $server->id }}')" class="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300">
+                                        <x-button
+                                            class="btn-ghost btn-sm text-success"
+                                            icon="o-arrow-up-tray"
+                                            wire:click="confirmRestore('{{ $server->id }}')"
+                                        >
                                             {{ __('Restore') }}
-                                        </flux:button>
-                                        <flux:button size="sm" variant="ghost" :href="route('database-servers.edit', $server)" icon="pencil" wire:navigate>
+                                        </x-button>
+                                        <x-button
+                                            class="btn-ghost btn-sm"
+                                            link="{{ route('database-servers.edit', $server) }}"
+                                            icon="o-pencil"
+                                            wire:navigate
+                                        >
                                             {{ __('Edit') }}
-                                        </flux:button>
-                                        <flux:button size="sm" variant="ghost" icon="trash" wire:click="confirmDelete('{{ $server->id }}')" class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                                        </x-button>
+                                        <x-button
+                                            class="btn-ghost btn-sm text-error"
+                                            icon="o-trash"
+                                            wire:click="confirmDelete('{{ $server->id }}')"
+                                        >
                                             {{ __('Delete') }}
-                                        </flux:button>
+                                        </x-button>
                                     </div>
                                 </td>
                             </tr>
@@ -189,7 +166,7 @@
                                         {{ __('No database servers found matching your search.') }}
                                     @else
                                         {{ __('No database servers yet.') }}
-                                        <a href="{{ route('database-servers.create') }}" class="text-zinc-900 underline dark:text-zinc-100" wire:navigate>
+                                        <a href="{{ route('database-servers.create') }}" class="link link-primary" wire:navigate>
                                             {{ __('Create your first one.') }}
                                         </a>
                                     @endif
@@ -202,7 +179,7 @@
 
             <!-- Pagination -->
             @if($servers->hasPages())
-                <div class="border-t border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                <div class="border-t border-base-300 px-4 py-3">
                     {{ $servers->links() }}
                 </div>
             @endif

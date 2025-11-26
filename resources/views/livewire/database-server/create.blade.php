@@ -1,10 +1,9 @@
 <div>
     <div class="mx-auto max-w-4xl">
-        <flux:heading size="xl" class="mb-2">{{ __('Create Database Server') }}</flux:heading>
-        <flux:subheading class="mb-6">{{ __('Add a new database server to manage backups') }}</flux:subheading>
+        <x-header title="{{ __('Create Database Server') }}" subtitle="{{ __('Add a new database server to manage backups') }}" size="text-2xl" separator class="mb-6" />
 
         @if (session('status'))
-            <x-alert variant="success" dismissible class="mb-6">
+            <x-alert class="alert-success mb-6" icon="o-check-circle" dismissible>
                 {{ session('status') }}
             </x-alert>
         @endif

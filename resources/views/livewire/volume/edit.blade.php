@@ -1,10 +1,9 @@
 <div>
     <div class="mx-auto max-w-4xl">
-        <flux:heading size="xl" class="mb-2">{{ __('Edit Volume') }}</flux:heading>
-        <flux:subheading class="mb-6">{{ __('Update storage volume configuration') }}</flux:subheading>
+        <x-header title="{{ __('Edit Volume') }}" subtitle="{{ __('Update storage volume configuration') }}" size="text-2xl" separator class="mb-6" />
 
         @if (session('status'))
-            <x-alert variant="success" dismissible class="mb-6">
+            <x-alert class="alert-success mb-6" icon="o-check-circle" dismissible>
                 {{ session('status') }}
             </x-alert>
         @endif

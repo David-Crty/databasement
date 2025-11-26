@@ -4,7 +4,6 @@ namespace App\Livewire\Snapshot;
 
 use App\Models\Snapshot;
 use App\Services\Backup\Filesystems\FilesystemProvider;
-use Flux;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -27,6 +26,8 @@ class Index extends Component
     public string $sortDirection = 'desc';
 
     public ?string $deleteId = null;
+
+    public bool $showDeleteModal = false;
 
     public function updatingSearch()
     {
@@ -51,7 +52,7 @@ class Index extends Component
     public function confirmDelete(string $id)
     {
         $this->deleteId = $id;
-        Flux::modal('delete-confirmation')->show();
+        $this->showDeleteModal = true;
     }
 
     public function delete()
@@ -62,7 +63,7 @@ class Index extends Component
             $this->deleteId = null;
 
             session()->flash('status', 'Snapshot deleted successfully!');
-            Flux::modal('delete-confirmation')->close();
+            $this->showDeleteModal = false;
         }
     }
 
