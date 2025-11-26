@@ -1,0 +1,106 @@
+name: e2e-tests
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  backup-restore:
+    runs-on: ubuntu-latest
+    environment: Testing
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+          MYSQL_DATABASE: testdb
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.4
+          tools: composer:v2
+          extensions: pdo, pdo_mysql, pdo_pgsql
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client postgresql-client
+
+      - name: Install Node Dependencies
+        run: npm i
+
+#      - name: Add Flux Credentials Loaded From ENV
+#        run: composer config http-basic.composer.fluxui.dev "${{ secrets.FLUX_USERNAME }}" "${{ secrets.FLUX_LICENSE_KEY }}"
+
+      - name: Install Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Generate Application Key
+        run: php artisan key:generate
+
+      - name: Build Assets
+        run: npm run build
+
+      - name: Run Database Migrations
+        run: php artisan migrate --force
+
+      - name: Run Backup & Restore E2E Tests
+        env:
+          E2E_MYSQL_HOST: 127.0.0.1
+          E2E_MYSQL_PORT: 3306
+          E2E_MYSQL_USERNAME: root
+          E2E_MYSQL_PASSWORD: test_password
+          E2E_MYSQL_DATABASE: testdb
+          E2E_POSTGRES_HOST: 127.0.0.1
+          E2E_POSTGRES_PORT: 5432
+          E2E_POSTGRES_USERNAME: postgres
+          E2E_POSTGRES_PASSWORD: test_password
+          E2E_POSTGRES_DATABASE: testdb
+        run: php artisan backup:test
+
+      - name: Show Logs on Failure
+        if: failure()
+        run: |
+          if [ -f storage/logs/laravel.log ]; then
+            echo "=== Laravel Logs ==="
+            tail -n 100 storage/logs/laravel.log
+          fi
