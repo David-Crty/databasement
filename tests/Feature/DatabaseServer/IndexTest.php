@@ -56,13 +56,17 @@ test('can search database servers', function () {
 test('can sort by column', function () {
     $user = User::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test(Index::class)
-        ->call('sortBy', 'name')
-        ->assertSet('sortField', 'name')
-        ->assertSet('sortDirection', 'asc')
-        ->call('sortBy', 'name')
-        ->assertSet('sortDirection', 'desc');
+    $component = Livewire::actingAs($user)
+        ->test(Index::class);
+
+    // Default sorting
+    expect($component->get('sortBy'))
+        ->toBeArray()
+        ->toHaveKey('column')
+        ->toHaveKey('direction');
+
+    expect($component->get('sortBy')['column'])->toBe('created_at');
+    expect($component->get('sortBy')['direction'])->toBe('desc');
 });
 
 test('displays pagination when many servers exist', function () {

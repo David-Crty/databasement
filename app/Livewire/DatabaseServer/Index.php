@@ -4,23 +4,19 @@ namespace App\Livewire\DatabaseServer;
 
 use App\Models\DatabaseServer;
 use App\Services\Backup\BackupTask;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Masmerise\Toaster\Toaster;
+use Mary\Traits\Toast;
 
 class Index extends Component
 {
-    use WithPagination;
+    use Toast, WithPagination;
 
-    #[Url(as: 'q')]
     public string $search = '';
 
-    #[Url(as: 'sort')]
-    public string $sortField = 'created_at';
+    public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
 
-    #[Url(as: 'dir')]
-    public string $sortDirection = 'desc';
+    public bool $drawer = false;
 
     public ?string $deleteId = null;
 
@@ -33,14 +29,30 @@ class Index extends Component
         $this->resetPage();
     }
 
-    public function sortBy(string $field)
+    public function updated($property): void
     {
-        if ($this->sortField === $field) {
-            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            $this->sortField = $field;
-            $this->sortDirection = 'asc';
+        if (! is_array($property) && $property != '') {
+            $this->resetPage();
         }
+    }
+
+    public function clear(): void
+    {
+        $this->reset('search');
+        $this->resetPage();
+        $this->success('Filters cleared.', position: 'toast-bottom');
+    }
+
+    public function headers(): array
+    {
+        return [
+            ['key' => 'name', 'label' => __('Name'), 'class' => 'w-64'],
+            ['key' => 'database_type', 'label' => __('Type'), 'class' => 'w-32'],
+            ['key' => 'host', 'label' => __('Host'), 'class' => 'w-48'],
+            ['key' => 'database_name', 'label' => __('Database'), 'sortable' => false],
+            ['key' => 'backup', 'label' => __('Backup'), 'sortable' => false],
+            ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-40'],
+        ];
     }
 
     public function confirmDelete(string $id)
@@ -72,16 +84,16 @@ class Index extends Component
             $server = DatabaseServer::with(['backup.volume'])->findOrFail($id);
 
             if (! $server->backup) {
-                Toaster::error('No backup configuration found for this database server.');
+                $this->error('No backup configuration found for this database server.', position: 'toast-bottom');
 
                 return;
             }
 
             $snapshot = $backupTask->run($server, 'manual', auth()->id());
 
-            Toaster::success("Backup completed successfully! Snapshot ID: {$snapshot->id}");
+            $this->success("Backup completed successfully! Snapshot ID: {$snapshot->id}", position: 'toast-bottom');
         } catch (\Throwable $e) {
-            Toaster::error('Backup failed: '.$e->getMessage());
+            $this->error('Backup failed: '.$e->getMessage(), position: 'toast-bottom');
         }
     }
 
@@ -97,11 +109,12 @@ class Index extends Component
                         ->orWhere('description', 'like', '%'.$this->search.'%');
                 });
             })
-            ->orderBy($this->sortField, $this->sortDirection)
+            ->orderBy($this->sortBy['column'], $this->sortBy['direction'])
             ->paginate(10);
 
         return view('livewire.database-server.index', [
             'servers' => $servers,
+            'headers' => $this->headers(),
         ])->layout('components.layouts.app', ['title' => __('Database Servers')]);
     }
 }

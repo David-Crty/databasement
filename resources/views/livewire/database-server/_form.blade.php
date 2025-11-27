@@ -19,7 +19,7 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
 ])->toArray();
 @endphp
 
-<form wire:submit="save" class="space-y-6">
+<x-form wire:submit="save">
     <!-- Basic Information -->
     <div class="space-y-4">
         <h3 class="text-lg font-semibold">{{ __('Basic Information') }}</h3>
@@ -163,4 +163,4 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
             {{ __($submitLabel) }}
         </x-button>
     </div>
-</form>
+</x-form>

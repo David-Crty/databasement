@@ -17,7 +17,6 @@
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",
         "livewire/volt": "^1.7.0",
-        "masmerise/livewire-toaster": "^2.8",
         "owenvoke/blade-fontawesome": "^2.7",
         "robsontenorio/mary": "^2.4"
     },

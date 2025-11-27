@@ -21,7 +21,7 @@ class MysqlDatabase implements DatabaseInterface
 
     public function __construct()
     {
-        $this->mysqlCliUsed = env('MYSQL_CLI_TYPE', 'mariadb');
+        $this->mysqlCliUsed = config('backup.mysql_cli_type', 'mariadb');
     }
 
     public function handles($type): bool

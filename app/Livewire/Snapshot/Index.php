@@ -4,26 +4,22 @@ namespace App\Livewire\Snapshot;
 
 use App\Models\Snapshot;
 use App\Services\Backup\Filesystems\FilesystemProvider;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Mary\Traits\Toast;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Index extends Component
 {
-    use WithPagination;
+    use Toast, WithPagination;
 
-    #[Url(as: 'q')]
     public string $search = '';
 
-    #[Url(as: 'status')]
     public string $statusFilter = 'all';
 
-    #[Url(as: 'sort')]
-    public string $sortField = 'started_at';
+    public array $sortBy = ['column' => 'started_at', 'direction' => 'desc'];
 
-    #[Url(as: 'dir')]
-    public string $sortDirection = 'desc';
+    public bool $drawer = false;
 
     public ?string $deleteId = null;
 
@@ -39,14 +35,42 @@ class Index extends Component
         $this->resetPage();
     }
 
-    public function sortBy(string $field)
+    public function updated($property): void
     {
-        if ($this->sortField === $field) {
-            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            $this->sortField = $field;
-            $this->sortDirection = 'asc';
+        if (! is_array($property) && $property != '') {
+            $this->resetPage();
         }
+    }
+
+    public function clear(): void
+    {
+        $this->reset('search', 'statusFilter');
+        $this->resetPage();
+        $this->success('Filters cleared.', position: 'toast-bottom');
+    }
+
+    public function headers(): array
+    {
+        return [
+            ['key' => 'started_at', 'label' => __('Started'), 'class' => 'w-48'],
+            ['key' => 'server', 'label' => __('Server'), 'sortable' => false],
+            ['key' => 'database', 'label' => __('Database'), 'sortable' => false],
+            ['key' => 'status', 'label' => __('Status'), 'sortable' => false, 'class' => 'w-32'],
+            ['key' => 'duration', 'label' => __('Duration'), 'sortable' => false, 'class' => 'w-32'],
+            ['key' => 'size', 'label' => __('Size'), 'sortable' => false, 'class' => 'w-40'],
+            ['key' => 'method', 'label' => __('Method'), 'sortable' => false, 'class' => 'w-32'],
+        ];
+    }
+
+    public function statusOptions(): array
+    {
+        return [
+            ['id' => 'all', 'name' => __('All Statuses')],
+            ['id' => 'completed', 'name' => __('Completed')],
+            ['id' => 'failed', 'name' => __('Failed')],
+            ['id' => 'running', 'name' => __('Running')],
+            ['id' => 'pending', 'name' => __('Pending')],
+        ];
     }
 
     public function confirmDelete(string $id)
@@ -62,7 +86,7 @@ class Index extends Component
             $snapshot->delete();
             $this->deleteId = null;
 
-            session()->flash('status', 'Snapshot deleted successfully!');
+            $this->success('Snapshot deleted successfully!', position: 'toast-bottom');
             $this->showDeleteModal = false;
         }
     }
@@ -75,7 +99,7 @@ class Index extends Component
             $filesystem = $filesystemProvider->get($snapshot->volume->type);
 
             if (! $filesystem->fileExists($snapshot->path)) {
-                session()->flash('error', 'Backup file not found.');
+                $this->error('Backup file not found.', position: 'toast-bottom');
 
                 return response()->streamDownload(function () {}, 'error.txt');
             }
@@ -92,7 +116,7 @@ class Index extends Component
                 'Content-Length' => $snapshot->file_size,
             ]);
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to download backup: '.$e->getMessage());
+            $this->error('Failed to download backup: '.$e->getMessage(), position: 'toast-bottom');
 
             return response()->streamDownload(function () {}, 'error.txt');
         }
@@ -115,11 +139,13 @@ class Index extends Component
             ->when($this->statusFilter !== 'all', function ($query) {
                 $query->where('status', $this->statusFilter);
             })
-            ->orderBy($this->sortField, $this->sortDirection)
+            ->orderBy($this->sortBy['column'], $this->sortBy['direction'])
             ->paginate(15);
 
         return view('livewire.snapshot.index', [
             'snapshots' => $snapshots,
+            'headers' => $this->headers(),
+            'statusOptions' => $this->statusOptions(),
         ])->layout('components.layouts.app', ['title' => __('Snapshots')]);
     }
 }

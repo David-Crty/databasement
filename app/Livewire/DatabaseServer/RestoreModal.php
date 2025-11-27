@@ -8,10 +8,12 @@ use App\Services\Backup\DatabaseListService;
 use App\Services\Backup\RestoreTask;
 use Livewire\Attributes\On;
 use Livewire\Component;
-use Masmerise\Toaster\Toaster;
+use Mary\Traits\Toast;
 
 class RestoreModal extends Component
 {
+    use Toast;
+
     public ?DatabaseServer $targetServer = null;
 
     public ?string $selectedSourceServerId = null;
@@ -104,13 +106,13 @@ class RestoreModal extends Component
 
             $restoreTask->run($this->targetServer, $snapshot, $this->schemaName);
 
-            Toaster::success("Database restored successfully to '{$this->schemaName}'!");
+            $this->success("Database restored successfully to '{$this->schemaName}'!");
 
             $this->showModal = false;
 
             $this->dispatch('restore-completed');
         } catch (\Exception $e) {
-            Toaster::error('Restore failed: '.$e->getMessage());
+            $this->error('Restore failed: '.$e->getMessage());
         }
     }
 

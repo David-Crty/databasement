@@ -15,7 +15,8 @@
       "Bash(make backup-test:*)",
       "WebFetch(domain:mary-ui.com)",
       "Bash(tree:*)",
-      "Bash(docker compose exec:*)"
+      "Bash(docker compose exec:*)",
+      "Bash(make test-filter:*)"
     ],
     "deny": [],
     "ask": []

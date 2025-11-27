@@ -3,22 +3,19 @@
 namespace App\Livewire\Volume;
 
 use App\Models\Volume;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Mary\Traits\Toast;
 
 class Index extends Component
 {
-    use WithPagination;
+    use Toast, WithPagination;
 
-    #[Url(as: 'q')]
     public string $search = '';
 
-    #[Url(as: 'sort')]
-    public string $sortField = 'created_at';
+    public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
 
-    #[Url(as: 'dir')]
-    public string $sortDirection = 'desc';
+    public bool $drawer = false;
 
     public ?string $deleteId = null;
 
@@ -29,14 +26,28 @@ class Index extends Component
         $this->resetPage();
     }
 
-    public function sortBy(string $field)
+    public function updated($property): void
     {
-        if ($this->sortField === $field) {
-            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            $this->sortField = $field;
-            $this->sortDirection = 'asc';
+        if (! is_array($property) && $property != '') {
+            $this->resetPage();
         }
+    }
+
+    public function clear(): void
+    {
+        $this->reset('search');
+        $this->resetPage();
+        $this->success('Filters cleared.', position: 'toast-bottom');
+    }
+
+    public function headers(): array
+    {
+        return [
+            ['key' => 'name', 'label' => __('Name'), 'class' => 'w-64'],
+            ['key' => 'type', 'label' => __('Type'), 'class' => 'w-32'],
+            ['key' => 'config', 'label' => __('Configuration'), 'sortable' => false],
+            ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-40'],
+        ];
     }
 
     public function confirmDelete(string $id)
@@ -51,7 +62,7 @@ class Index extends Component
             Volume::findOrFail($this->deleteId)->delete();
             $this->deleteId = null;
 
-            session()->flash('status', 'Volume deleted successfully!');
+            $this->success('Volume deleted successfully!', position: 'toast-bottom');
             $this->showDeleteModal = false;
         }
     }
@@ -65,11 +76,12 @@ class Index extends Component
                         ->orWhere('type', 'like', '%'.$this->search.'%');
                 });
             })
-            ->orderBy($this->sortField, $this->sortDirection)
+            ->orderBy($this->sortBy['column'], $this->sortBy['direction'])
             ->paginate(10);
 
         return view('livewire.volume.index', [
             'volumes' => $volumes,
+            'headers' => $this->headers(),
         ])->layout('components.layouts.app', ['title' => __('Volumes')]);
     }
 }
