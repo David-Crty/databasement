@@ -29,8 +29,13 @@ class RestoreTask
      *
      * @throws \Exception
      */
-    public function run(DatabaseServer $targetServer, Snapshot $snapshot, string $schemaName, ?JobInterface $restore = null): void
-    {
+    public function run(
+        DatabaseServer $targetServer,
+        Snapshot $snapshot,
+        string $schemaName,
+        string $workingDirectory = '/tmp',
+        ?JobInterface $restore = null
+    ): void {
         // Configure shell processor to log to restore if available
         if ($restore) {
             $this->shellProcessor->setLogger($restore);
@@ -57,9 +62,8 @@ class RestoreTask
             $restore->log('Connection test successful', 'success');
         }
 
-        $workingFile = $this->getWorkingFile('local');
         $compressedFile = null;
-        $filesystem = $this->filesystemProvider->get($snapshot->volume->type);
+        $workingFile = null;
 
         try {
             // Download snapshot from volume
@@ -69,7 +73,8 @@ class RestoreTask
                     'volume_type' => $snapshot->volume->type,
                 ]);
             }
-            $compressedFile = $this->download($snapshot, $filesystem);
+            $compressedFile = $workingDirectory.'/'.basename($snapshot->path);
+            $this->filesystemProvider->download($snapshot, $compressedFile);
             if ($restore) {
                 $restore->log('Snapshot downloaded successfully', 'success', [
                     'file_size' => filesize($compressedFile),
@@ -80,7 +85,7 @@ class RestoreTask
             if ($restore) {
                 $restore->log('Decompressing snapshot file', 'info');
             }
-            $this->decompress($compressedFile, $workingFile);
+            $workingFile = $this->decompress($compressedFile);
             if ($restore) {
                 $restore->log('Decompression completed successfully', 'success', [
                     'decompressed_size' => filesize($workingFile),
@@ -165,32 +170,7 @@ class RestoreTask
         }
     }
 
-    private function download(Snapshot $snapshot, $filesystem): string
-    {
-        $tempFile = $this->getWorkingFile('local', 'restore-'.uniqid().'.sql.gz');
-
-        $stream = $filesystem->readStream($snapshot->path);
-        $localStream = fopen($tempFile, 'w');
-
-        if ($stream === false || $localStream === false) {
-            throw new \RuntimeException('Failed to open streams for download');
-        }
-
-        try {
-            stream_copy_to_stream($stream, $localStream);
-
-            return $tempFile;
-        } finally {
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-            if (is_resource($localStream)) {
-                fclose($localStream);
-            }
-        }
-    }
-
-    private function decompress(string $compressedFile, string $outputFile): void
+    private function decompress(string $compressedFile): string
     {
         // Copy the compressed file to a temporary location for decompression
         $tempCompressed = $compressedFile.'.tmp.gz';
@@ -210,7 +190,7 @@ class RestoreTask
         }
 
         // Move to final location
-        rename($decompressedFile, $outputFile);
+        return $decompressedFile;
     }
 
     protected function prepareDatabase(DatabaseServer $targetServer, string $schemaName, ?JobInterface $restore = null): void
@@ -354,21 +334,5 @@ class RestoreTask
             ),
             default => throw new \Exception("Database type {$targetServer->database_type} not supported"),
         };
-    }
-
-    private function getWorkingFile(string $name, ?string $filename = null): string
-    {
-        if (is_null($filename)) {
-            $filename = uniqid();
-        }
-
-        return sprintf('%s/%s', $this->getRootPath($name), $filename);
-    }
-
-    private function getRootPath(string $name): string
-    {
-        $path = $this->filesystemProvider->getConfig($name, 'root');
-
-        return preg_replace('/\/$/', '', $path);
     }
 }

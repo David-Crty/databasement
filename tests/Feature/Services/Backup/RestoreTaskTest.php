@@ -9,20 +9,21 @@ use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\GzipCompressor;
 use App\Services\Backup\RestoreTask;
-use App\Services\Backup\ShellProcessor;
 use App\Services\DatabaseConnectionTester;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use League\Flysystem\Filesystem;
+use Tests\Support\TestShellProcessor;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    // Mock dependencies (but use REAL ShellProcessor!)
-    $this->mysqlDatabase = Mockery::mock(MysqlDatabase::class);
-    $this->postgresqlDatabase = Mockery::mock(PostgresqlDatabase::class);
-    $this->shellProcessor = new ShellProcessor;  // Use REAL ShellProcessor ✓
+    // Use REAL services for command building
+    $this->mysqlDatabase = new MysqlDatabase;  // ✓ Real command building
+    $this->postgresqlDatabase = new PostgresqlDatabase;  // ✓ Real command building
+    $this->compressor = new GzipCompressor;  // ✓ Real path manipulation
+    $this->shellProcessor = new TestShellProcessor;  // ✓ Captures commands without executing
+
+    // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
-    $this->compressor = Mockery::mock(GzipCompressor::class);
     $this->connectionTester = Mockery::mock(DatabaseConnectionTester::class);
 
     // Create a partial mock of RestoreTask to mock prepareDatabase
@@ -87,14 +88,8 @@ function createRestoreSnapshot(DatabaseServer $databaseServer, array $attributes
 function setupRestoreExpectations(
     DatabaseServer $targetServer,
     Snapshot $snapshot,
-    string $schemaName,
-    $databaseInterface,
-    string $restoreCommand = 'mysql'
+    string $schemaName
 ): void {
-    $compressedFile = test()->tempDir.'/restore-'.uniqid().'.sql.gz';
-    $decompressedFile = test()->tempDir.'/restore-'.uniqid().'.sql';
-    $filesystem = Mockery::mock(Filesystem::class);
-
     // Connection test
     test()->connectionTester
         ->shouldReceive('test')
@@ -108,62 +103,13 @@ function setupRestoreExpectations(
         ->with($targetServer, $schemaName, Mockery::any())
         ->andReturnNull();
 
-    // Filesystem provider for working directory
+    // Mock download - create a compressed file that will be decompressed
     test()->filesystemProvider
-        ->shouldReceive('getConfig')
-        ->with('local', 'root')
-        ->andReturn(test()->tempDir);
-
-    // Get filesystem for snapshot volume
-    test()->filesystemProvider
-        ->shouldReceive('get')
-        ->with($snapshot->volume->type)
-        ->andReturn($filesystem);
-
-    // Download snapshot
-    $filesystem
-        ->shouldReceive('readStream')
+        ->shouldReceive('download')
         ->once()
-        ->with($snapshot->path)
-        ->andReturnUsing(function () use ($compressedFile) {
-            file_put_contents($compressedFile, 'compressed backup data');
-
-            return fopen($compressedFile, 'r');
-        });
-
-    // Decompression - use real command that creates the file
-    test()->compressor
-        ->shouldReceive('getDecompressCommandLine')
-        ->once()
-        ->andReturnUsing(function () use ($decompressedFile) {
-            // Return a safe command that creates the decompressed file
-            return sprintf('echo "decompressed backup data" > %s', escapeshellarg($decompressedFile));
-        });
-
-    test()->compressor
-        ->shouldReceive('getDecompressedPath')
-        ->once()
-        ->andReturn($decompressedFile);
-
-    // Database interface configuration
-    $databaseInterface
-        ->shouldReceive('setConfig')
-        ->once()
-        ->with([
-            'host' => $targetServer->host,
-            'port' => $targetServer->port,
-            'user' => $targetServer->username,
-            'pass' => $targetServer->password,
-            'database' => $schemaName,
-        ]);
-
-    // Restore command - use a safe real command
-    $databaseInterface
-        ->shouldReceive('getRestoreCommandLine')
-        ->once()
-        ->andReturnUsing(function () {
-            // Return a safe shell command that simulates a restore
-            return 'echo "fake database restore"';
+        ->with($snapshot, Mockery::any())
+        ->andReturnUsing(function ($snap, $destination) {
+            file_put_contents($destination, 'compressed backup data');
         });
 }
 
@@ -205,15 +151,27 @@ test('run executes mysql restore workflow successfully', function () {
         'database_name' => 'targetdb',
     ]);
 
-    $snapshot = createRestoreSnapshot($sourceServer);
+    // Create snapshot with a known path
+    $snapshot = createRestoreSnapshot($sourceServer, ['path' => 'backup.sql.gz']);
 
-    setupRestoreExpectations($targetServer, $snapshot, 'restored_db', $this->mysqlDatabase, 'mysql restored_db');
+    setupRestoreExpectations($targetServer, $snapshot, 'restored_db');
 
     // Act
-    $this->restoreTask->run($targetServer, $snapshot, 'restored_db');
+    $this->restoreTask->run($targetServer, $snapshot, 'restored_db', $this->tempDir);
 
-    // Assert
-    expect(true)->toBeTrue();
+    // Build expected file paths
+    $compressedFile = $this->tempDir.'/backup.sql.gz';
+    $tempCompressed = $compressedFile.'.tmp.gz';
+    $decompressedFile = $this->tempDir.'/backup.sql.gz.tmp';
+
+    // Expected commands
+    $expectedCommands = [
+        "gzip -d '$tempCompressed'",
+        "mariadb --host='target.localhost' --port='3306' --user='root' --password='secret' --skip_ssl 'restored_db' -e \"source $decompressedFile\"",
+    ];
+
+    $commands = $this->shellProcessor->getCommands();
+    expect($commands)->toEqual($expectedCommands);
 });
 
 test('run executes postgresql restore workflow successfully', function () {
@@ -238,15 +196,30 @@ test('run executes postgresql restore workflow successfully', function () {
         'database_name' => 'targetdb',
     ]);
 
-    $snapshot = createRestoreSnapshot($sourceServer, ['database_type' => 'postgresql']);
+    // Create snapshot with a known path
+    $snapshot = createRestoreSnapshot($sourceServer, [
+        'database_type' => 'postgresql',
+        'path' => 'pg_backup.sql.gz',
+    ]);
 
-    setupRestoreExpectations($targetServer, $snapshot, 'restored_db', $this->postgresqlDatabase, 'psql restored_db');
+    setupRestoreExpectations($targetServer, $snapshot, 'restored_db');
 
     // Act
-    $this->restoreTask->run($targetServer, $snapshot, 'restored_db');
+    $this->restoreTask->run($targetServer, $snapshot, 'restored_db', $this->tempDir);
 
-    // Assert
-    expect(true)->toBeTrue();
+    // Build expected file paths
+    $compressedFile = $this->tempDir.'/pg_backup.sql.gz';
+    $tempCompressed = $compressedFile.'.tmp.gz';
+    $decompressedFile = $this->tempDir.'/pg_backup.sql.gz.tmp';
+
+    // Expected commands (PostgreSQL uses escapeshellarg on paths, adding quotes)
+    $expectedCommands = [
+        "gzip -d '$tempCompressed'",
+        "PGPASSWORD='secret' psql --host='target.localhost' --port='5432' --user='postgres' 'restored_db' -f '$decompressedFile'",
+    ];
+
+    $commands = $this->shellProcessor->getCommands();
+    expect($commands)->toEqual($expectedCommands);
 });
 
 test('run throws exception when database types are incompatible', function () {
@@ -344,32 +317,13 @@ test('run throws exception for unsupported database type', function () {
         ->andReturn(['success' => true, 'message' => 'Connected']);
 
     $this->filesystemProvider
-        ->shouldReceive('getConfig')
-        ->with('local', 'root')
-        ->andReturn($this->tempDir);
-
-    $filesystem = Mockery::mock(Filesystem::class);
-    $this->filesystemProvider
-        ->shouldReceive('get')
-        ->andReturn($filesystem);
-
-    $filesystem
-        ->shouldReceive('readStream')
-        ->andReturn(fopen('php://memory', 'r'));
-
-    $decompressedFile = $this->tempDir.'/test.sql';
-    $this->compressor
-        ->shouldReceive('getDecompressCommandLine')
-        ->andReturnUsing(function () use ($decompressedFile) {
-            // Create the file with a real command
-            return sprintf('echo "test data" > %s', escapeshellarg($decompressedFile));
+        ->shouldReceive('download')
+        ->once()
+        ->andReturnUsing(function ($snap, $destination) {
+            file_put_contents($destination, 'compressed test data');
         });
 
-    $this->compressor
-        ->shouldReceive('getDecompressedPath')
-        ->andReturn($decompressedFile);
-
     // Act & Assert
-    expect(fn () => $this->restoreTask->run($targetServer, $snapshot, 'restored_db'))
+    expect(fn () => $this->restoreTask->run($targetServer, $snapshot, 'restored_db', $this->tempDir))
         ->toThrow(\Exception::class, 'Database type oracle not supported');
 });

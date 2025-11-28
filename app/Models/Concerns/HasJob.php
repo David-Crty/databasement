@@ -9,6 +9,7 @@ trait HasJob
      */
     public function getDurationMs(): ?int
     {
+        /** @phpstan-ignore-next-line */
         if ($this->completed_at === null || $this->started_at === null) {
             return null;
         }

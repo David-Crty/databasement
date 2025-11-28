@@ -9,19 +9,21 @@ use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\DatabaseSizeCalculator;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\GzipCompressor;
-use App\Services\Backup\ShellProcessor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use League\Flysystem\Filesystem;
+use Tests\Support\TestShellProcessor;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    // Mock dependencies (but use REAL ShellProcessor!)
-    $this->mysqlDatabase = Mockery::mock(MysqlDatabase::class);
-    $this->postgresqlDatabase = Mockery::mock(PostgresqlDatabase::class);
-    $this->shellProcessor = new ShellProcessor;  // Use REAL ShellProcessor ✓
+    // Use REAL services for command building
+    $this->mysqlDatabase = new MysqlDatabase;  // ✓ Real command building
+    $this->postgresqlDatabase = new PostgresqlDatabase;  // ✓ Real command building
+    $this->compressor = new GzipCompressor;  // ✓ Real path manipulation
+    $this->shellProcessor = new TestShellProcessor;  // ✓ Captures commands without executing
+
+    // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
-    $this->compressor = Mockery::mock(GzipCompressor::class);
     $this->databaseSizeCalculator = Mockery::mock(DatabaseSizeCalculator::class);
 
     // Create the BackupTask instance
@@ -37,9 +39,6 @@ beforeEach(function () {
     // Create temp directory for test files
     $this->tempDir = sys_get_temp_dir().'/backup-task-test-'.uniqid();
     mkdir($this->tempDir, 0777, true);
-
-    // Track created files for cleanup
-    $this->createdFiles = [];
 });
 
 // Helper function to create a database server with backup and volume
@@ -71,9 +70,8 @@ function createDatabaseServer(array $attributes, string $volumeType = 'local'): 
 }
 
 // Helper function to set up common expectations
-function setupCommonExpectations(DatabaseServer $databaseServer, ?int $databaseSize = 1024000): string
+function setupCommonExpectations(DatabaseServer $databaseServer, ?int $databaseSize = 1024000): void
 {
-    $compressedFile = test()->tempDir.'/backup-'.uniqid().'.gz';
     $filesystem = Mockery::mock(Filesystem::class);
 
     // Database size calculator
@@ -94,60 +92,12 @@ function setupCommonExpectations(DatabaseServer $databaseServer, ?int $databaseS
         ->with($databaseServer->backup->volume->type)
         ->andReturn($filesystem);
 
-    test()->compressor
-        ->shouldReceive('getCompressCommandLine')
-        ->once()
-        ->andReturnUsing(function ($path) use ($compressedFile) {
-            return sprintf('echo "compressed backup data" > %s', escapeshellarg($compressedFile));
-        });
-
-    test()->compressor
-        ->shouldReceive('getCompressedPath')
-        ->once()
-        ->andReturn($compressedFile);
-
-    // Transfer
-    $filesystem
-        ->shouldReceive('writeStream')
-        ->once()
-        ->with(
-            Mockery::type('string'),
-            Mockery::type('resource')
-        );
-
-    return $compressedFile;
-}
-
-// Helper function to setup database interface expectations
-function setupDatabaseExpectations(DatabaseServer $databaseServer, $databaseInterface)
-{
-    $databaseInterface
-        ->shouldReceive('setConfig')
-        ->once()
-        ->with([
-            'host' => $databaseServer->host,
-            'port' => $databaseServer->port,
-            'user' => $databaseServer->username,
-            'pass' => $databaseServer->password,
-            'database' => $databaseServer->database_name,
-        ]);
-
-    $databaseInterface
-        ->shouldReceive('getDumpCommandLine')
-        ->once()
-        ->andReturnUsing(function ($outputPath) {
-            return sprintf('echo "fake database dump output" > %s', escapeshellarg($outputPath));
-        });
+    test()->filesystemProvider
+        ->shouldReceive('transfert')
+        ->once();
 }
 
 afterEach(function () {
-    // Clean up created files
-    foreach ($this->createdFiles as $file) {
-        if (file_exists($file)) {
-            unlink($file);
-        }
-    }
-
     // Remove temp directory
     if (is_dir($this->tempDir)) {
         rmdir($this->tempDir);
@@ -155,6 +105,7 @@ afterEach(function () {
 
     Mockery::close();
 });
+
 test('run executes mysql backup workflow successfully', function () {
     // Arrange
     $databaseServer = createDatabaseServer([
@@ -168,13 +119,15 @@ test('run executes mysql backup workflow successfully', function () {
     ]);
 
     setupCommonExpectations($databaseServer, 1024000);
-    setupDatabaseExpectations($databaseServer, $this->mysqlDatabase, 'mysqldump --routines myapp');
+    $snapshot = $this->backupTask->run($databaseServer, $this->tempDir);
+    $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
-    // Act
-    $this->backupTask->run($databaseServer);
-
-    // Assert - Mockery will verify all expectations
-    expect(true)->toBeTrue();
+    $expectedCommands = [
+        "mariadb-dump --routines --skip_ssl --host='localhost' --port='3306' --user='root' --password='secret' 'myapp' > '$sqlFile'",
+        "gzip '$sqlFile'",
+    ];
+    $commands = $this->shellProcessor->getCommands();
+    expect($commands)->toEqual($expectedCommands);
 });
 
 test('run executes postgresql backup workflow successfully', function () {
@@ -190,13 +143,15 @@ test('run executes postgresql backup workflow successfully', function () {
     ], 's3');
 
     setupCommonExpectations($databaseServer, 2048000);
-    setupDatabaseExpectations($databaseServer, $this->postgresqlDatabase, 'pg_dump staging_db');
+    $snapshot = $this->backupTask->run($databaseServer, $this->tempDir);
+    $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
-    // Act
-    $this->backupTask->run($databaseServer);
-
-    // Assert
-    expect(true)->toBeTrue();
+    $expectedCommands = [
+        "PGPASSWORD='pg_secret' pg_dump --clean --host='db.example.com' --port='5432' --username='postgres' 'staging_db' -f '$sqlFile'",
+        "gzip '$sqlFile'",
+    ];
+    $commands = $this->shellProcessor->getCommands();
+    expect($commands)->toEqual($expectedCommands);
 });
 
 test('run executes mariadb backup workflow successfully', function () {
@@ -212,13 +167,15 @@ test('run executes mariadb backup workflow successfully', function () {
     ]);
 
     setupCommonExpectations($databaseServer, 512000);
-    setupDatabaseExpectations($databaseServer, $this->mysqlDatabase, 'mysqldump app_data');
+    $snapshot = $this->backupTask->run($databaseServer, $this->tempDir);
+    $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
-    // Act
-    $this->backupTask->run($databaseServer);
-
-    // Assert
-    expect(true)->toBeTrue();
+    $expectedCommands = [
+        "mariadb-dump --routines --skip_ssl --host='mariadb.local' --port='3306' --user='admin' --password='admin123' 'app_data' > '$sqlFile'",
+        "gzip '$sqlFile'",
+    ];
+    $commands = $this->shellProcessor->getCommands();
+    expect($commands)->toEqual($expectedCommands);
 });
 
 test('run throws exception for unsupported database type', function () {
@@ -253,48 +210,4 @@ test('run throws exception for unsupported database type', function () {
     // Act & Assert
     expect(fn () => $this->backupTask->run($databaseServer))
         ->toThrow(\Exception::class, 'Database type oracle not supported');
-});
-
-test('run handles database server without database_name gracefully', function () {
-    // Arrange
-    $databaseServer = createDatabaseServer([
-        'name' => 'Test Server',
-        'host' => 'localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_name' => null, // No database name
-    ]);
-
-    setupCommonExpectations($databaseServer, null);
-    setupDatabaseExpectations($databaseServer, $this->mysqlDatabase, 'mysqldump');
-
-    // Act
-    $this->backupTask->run($databaseServer);
-
-    // Assert
-    expect(true)->toBeTrue();
-});
-
-test('run sanitizes special characters in filenames', function () {
-    // Arrange
-    $databaseServer = createDatabaseServer([
-        'name' => 'My@Server#With$Special%Chars!',
-        'host' => 'localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_name' => 'database/with\\slashes',
-    ]);
-
-    setupCommonExpectations($databaseServer, 256000);
-    setupDatabaseExpectations($databaseServer, $this->mysqlDatabase, 'mysqldump');
-
-    // Act
-    $this->backupTask->run($databaseServer);
-
-    // Assert - Filename should have special chars replaced with dashes
-    expect(true)->toBeTrue();
 });

@@ -186,7 +186,7 @@ class EndToEndTestBackup extends Command
     {
         $this->info("\n💾 Running backup task...");
 
-        $this->snapshot = $backupTask->run($this->databaseServer, 'manual');
+        $this->snapshot = $backupTask->run($this->databaseServer);
 
         $this->line("   ✓ Snapshot created (ID: {$this->snapshot->id})");
         $this->line("   ✓ Status: {$this->snapshot->status}");

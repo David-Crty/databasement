@@ -7,7 +7,6 @@ use App\Models\Snapshot;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
-use League\Flysystem\Filesystem;
 use Symfony\Component\Process\Process;
 
 class BackupTask
@@ -21,31 +20,19 @@ class BackupTask
         private readonly DatabaseSizeCalculator $databaseSizeCalculator
     ) {}
 
-    protected function getWorkingFile($name, $filename = null): string
-    {
-        if (is_null($filename)) {
-            $filename = uniqid();
-        }
-
-        return sprintf('%s/%s', $this->getRootPath($name), $filename);
-    }
-
-    protected function getRootPath($name): string
-    {
-        $path = $this->filesystemProvider->getConfig($name, 'root');
-
-        return preg_replace('/\/$/', '', $path);
-    }
-
-    public function run(DatabaseServer $databaseServer, string $method = 'manual', ?string $userId = null): Snapshot
-    {
+    public function run(
+        DatabaseServer $databaseServer,
+        string $workingDirectory = '/tmp',
+        string $method = 'manual',
+        ?string $userId = null
+    ): Snapshot {
         // Create snapshot record
         $snapshot = $this->createSnapshot($databaseServer, $method, $userId);
 
         // Configure shell processor to log to snapshot
         $this->shellProcessor->setLogger($snapshot);
 
-        $workingFile = $this->getWorkingFile('local');
+        $workingFile = $workingDirectory.'/'.$snapshot->id.'.sql';
         $filesystem = $this->filesystemProvider->get($databaseServer->backup->volume->type);
 
         // Configure database interface with server credentials
@@ -73,7 +60,12 @@ class BackupTask
             $snapshot->log("Transferring backup to volume: {$databaseServer->backup->volume->name}", 'info', [
                 'volume_type' => $databaseServer->backup->volume->type,
             ]);
-            $destinationPath = $this->transfer($databaseServer, $archive, $filesystem);
+            $destinationPath = $this->generateBackupFilename($databaseServer);
+            $this->filesystemProvider->transfert(
+                $databaseServer->backup->volume,
+                $archive,
+                $destinationPath
+            );
             $snapshot->log('Transfer completed successfully', 'success', [
                 'destination_path' => $destinationPath,
             ]);
@@ -151,25 +143,6 @@ class BackupTask
         );
 
         return $this->compressor->getCompressedPath($path);
-    }
-
-    private function transfer(DatabaseServer $databaseServer, string $path, Filesystem $filesystem): string
-    {
-        $stream = fopen($path, 'r');
-        if ($stream === false) {
-            throw new \RuntimeException("Failed to open file: {$path}");
-        }
-
-        try {
-            $destinationPath = $this->generateBackupFilename($databaseServer);
-            $filesystem->writeStream($destinationPath, $stream);
-
-            return $destinationPath;
-        } finally {
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-        }
     }
 
     private function generateBackupFilename(DatabaseServer $databaseServer): string
