@@ -66,7 +66,15 @@ function createRestoreSnapshot(DatabaseServer $databaseServer, array $attributes
         'database_server_id' => $databaseServer->id,
     ]);
 
-    $snapshot = Snapshot::create(array_merge([
+    // Create BackupJob first (required for snapshot)
+    $job = \App\Models\BackupJob::create([
+        'status' => 'completed',
+        'started_at' => now(),
+        'completed_at' => now(),
+    ]);
+
+    return Snapshot::create(array_merge([
+        'backup_job_id' => $job->id,
         'database_server_id' => $databaseServer->id,
         'backup_id' => $backup->id,
         'volume_id' => $volume->id,
@@ -80,16 +88,6 @@ function createRestoreSnapshot(DatabaseServer $databaseServer, array $attributes
         'compression_type' => 'gzip',
         'method' => 'manual',
     ], $attributes));
-
-    // Create associated BackupJob with completed status
-    \App\Models\BackupJob::create([
-        'snapshot_id' => $snapshot->id,
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
-
-    return $snapshot;
 }
 
 // Helper function to set up common expectations for restore

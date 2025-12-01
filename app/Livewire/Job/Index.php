@@ -137,9 +137,9 @@ class Index extends Component
             })
             ->when($this->typeFilter !== 'all', function ($query) {
                 if ($this->typeFilter === 'backup') {
-                    $query->whereNotNull('snapshot_id');
+                    $query->whereHas('snapshot');
                 } else {
-                    $query->whereNotNull('restore_id');
+                    $query->whereHas('restore');
                 }
             })
             ->orderBy($this->sortBy['column'], $this->sortBy['direction'])

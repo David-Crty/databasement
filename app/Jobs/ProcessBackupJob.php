@@ -58,10 +58,7 @@ class ProcessBackupJob implements ShouldQueue
         // If snapshot was pre-created, fetch it and update its job with the queue job ID
         if ($this->snapshotId) {
             $snapshot = Snapshot::with('job')->findOrFail($this->snapshotId);
-
-            if ($snapshot->job) {
-                $snapshot->job->update(['job_id' => $this->job->getJobId()]);
-            }
+            $snapshot->job->update(['job_id' => $this->job->getJobId()]);
         }
 
         // Run the backup task (it will create snapshot and job, handling status updates)
@@ -92,7 +89,7 @@ class ProcessBackupJob implements ShouldQueue
         // If snapshot was pre-created, mark its job as failed
         if ($this->snapshotId) {
             $snapshot = Snapshot::with('job')->find($this->snapshotId);
-            if ($snapshot && $snapshot->job && $snapshot->job->status !== 'failed') {
+            if ($snapshot && $snapshot->job->status !== 'failed') {
                 $snapshot->job->markFailed($exception);
             }
         }

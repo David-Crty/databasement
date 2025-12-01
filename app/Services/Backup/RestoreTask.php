@@ -38,14 +38,13 @@ class RestoreTask
         string $method = 'manual',
         ?string $userId = null
     ): Restore {
-        // Create restore record
-        $restore = $this->createRestore($targetServer, $snapshot, $schemaName, $userId);
-
-        // Create backup job for this restore
+        // Create backup job first (required for restore)
         $job = BackupJob::create([
-            'restore_id' => $restore->id,
             'status' => 'pending',
         ]);
+
+        // Create restore record with job reference
+        $restore = $this->createRestore($targetServer, $snapshot, $job, $schemaName, $userId);
 
         // Configure shell processor to log to job
         $this->shellProcessor->setLogger($job);
@@ -332,10 +331,12 @@ class RestoreTask
     private function createRestore(
         DatabaseServer $targetServer,
         Snapshot $snapshot,
+        BackupJob $job,
         string $schemaName,
         ?string $userId
     ): Restore {
         return Restore::create([
+            'backup_job_id' => $job->id,
             'snapshot_id' => $snapshot->id,
             'target_server_id' => $targetServer->id,
             'schema_name' => $schemaName,

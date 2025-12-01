@@ -18,7 +18,15 @@ beforeEach(function () {
 
 function createSnapshotForServer(DatabaseServer $server, array $attributes = []): Snapshot
 {
+    // Create BackupJob first (required for snapshot)
+    $job = BackupJob::create([
+        'status' => 'completed',
+        'started_at' => now(),
+        'completed_at' => now(),
+    ]);
+
     return Snapshot::create(array_merge([
+        'backup_job_id' => $job->id,
         'database_server_id' => $server->id,
         'backup_id' => $server->backup->id,
         'volume_id' => $server->backup->volume_id,
@@ -57,14 +65,6 @@ test('can navigate through restore wizard steps', function () {
 
     $snapshot = createSnapshotForServer($sourceServer);
 
-    // Create job for snapshot
-    BackupJob::create([
-        'snapshot_id' => $snapshot->id,
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
-
     $component = Livewire::test(RestoreModal::class)
         ->set('targetServer', $targetServer)
         ->set('showModal', true);
@@ -99,13 +99,6 @@ test('can queue restore job with valid data', function () {
 
     $snapshot = createSnapshotForServer($sourceServer, ['database_name' => 'test_db']);
 
-    BackupJob::create([
-        'snapshot_id' => $snapshot->id,
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
-
     Livewire::test(RestoreModal::class)
         ->set('targetServer', $targetServer)
         ->set('selectedSourceServerId', $sourceServer->id)
@@ -137,13 +130,6 @@ test('validates schema name is required', function () {
 
     $snapshot = createSnapshotForServer($sourceServer);
 
-    BackupJob::create([
-        'snapshot_id' => $snapshot->id,
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
-
     Livewire::test(RestoreModal::class)
         ->set('targetServer', $targetServer)
         ->set('selectedSourceServerId', $sourceServer->id)
@@ -165,13 +151,6 @@ test('validates schema name format', function () {
 
     $snapshot = createSnapshotForServer($sourceServer);
 
-    BackupJob::create([
-        'snapshot_id' => $snapshot->id,
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
-
     Livewire::test(RestoreModal::class)
         ->set('targetServer', $targetServer)
         ->set('selectedSourceServerId', $sourceServer->id)
@@ -192,28 +171,14 @@ test('only shows compatible servers with same database type', function () {
         'database_type' => 'mysql',
     ]);
 
-    $mysqlSnapshot = createSnapshotForServer($mysqlServer);
-
-    BackupJob::create([
-        'snapshot_id' => $mysqlSnapshot->id,
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
+    createSnapshotForServer($mysqlServer);
 
     // Create PostgreSQL server with snapshot (should NOT be shown)
     $postgresServer = DatabaseServer::factory()->create([
         'database_type' => 'postgresql',
     ]);
 
-    $postgresSnapshot = createSnapshotForServer($postgresServer);
-
-    BackupJob::create([
-        'snapshot_id' => $postgresSnapshot->id,
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
+    createSnapshotForServer($postgresServer);
 
     Livewire::test(RestoreModal::class)
         ->set('targetServer', $targetServer)
@@ -232,13 +197,6 @@ test('can go back to previous steps', function () {
     ]);
 
     $snapshot = createSnapshotForServer($sourceServer);
-
-    BackupJob::create([
-        'snapshot_id' => $snapshot->id,
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
 
     Livewire::test(RestoreModal::class)
         ->set('targetServer', $targetServer)

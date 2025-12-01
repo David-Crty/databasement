@@ -5,10 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property string $id
+ * @property string $backup_job_id
  * @property string $snapshot_id
  * @property string $target_server_id
  * @property string $schema_name
@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property-read \App\Models\Snapshot $snapshot
  * @property-read \App\Models\DatabaseServer $targetServer
  * @property-read \App\Models\User|null $triggeredBy
- * @property-read \App\Models\BackupJob|null $job
+ * @property-read \App\Models\BackupJob $job
  *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Restore newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Restore newQuery()
@@ -31,6 +31,7 @@ class Restore extends Model
     use HasUlids;
 
     protected $fillable = [
+        'backup_job_id',
         'snapshot_id',
         'target_server_id',
         'schema_name',
@@ -52,9 +53,9 @@ class Restore extends Model
         return $this->belongsTo(User::class, 'triggered_by_user_id');
     }
 
-    public function job(): HasOne
+    public function job(): BelongsTo
     {
-        return $this->hasOne(BackupJob::class);
+        return $this->belongsTo(BackupJob::class, 'backup_job_id');
     }
 
     /**

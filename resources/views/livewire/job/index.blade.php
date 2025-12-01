@@ -23,7 +23,7 @@
             </x-slot:empty>
 
             @scope('cell_type', $job)
-                @if($job->snapshot_id)
+                @if($job->snapshot)
                     <x-badge value="{{ __('Backup') }}" class="badge-primary" />
                 @else
                     <x-badge value="{{ __('Restore') }}" class="badge-secondary" />
@@ -40,13 +40,13 @@
             @endscope
 
             @scope('cell_server', $job)
-                @if($job->snapshot_id && $job->snapshot)
+                @if($job->snapshot)
                     <div class="table-cell-primary">{{ $job->snapshot->databaseServer->name }}</div>
                     <div class="text-sm text-base-content/70">
                         <x-badge :value="$job->snapshot->database_type" class="badge-xs" />
                         {{ $job->snapshot->database_name }}
                     </div>
-                @elseif($job->restore_id && $job->restore)
+                @elseif($job->restore)
                     <div class="table-cell-primary">{{ $job->restore->targetServer->name }} (Target)</div>
                     <div class="text-sm text-base-content/70">
                         @if($job->restore->snapshot)
@@ -90,7 +90,7 @@
 
             @scope('cell_triggered_by', $job)
                 @php
-                    $triggeredBy = $job->snapshot_id ? $job->snapshot?->triggeredBy : $job->restore?->triggeredBy;
+                    $triggeredBy = $job->snapshot ? $job->snapshot->triggeredBy : $job->restore?->triggeredBy;
                 @endphp
                 @if($triggeredBy)
                     <div class="flex items-center gap-2">
@@ -150,12 +150,12 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <div class="text-sm text-base-content/70">
-                                {{ $this->selectedJob->snapshot_id ? 'Backup' : 'Restore' }} Job
+                                {{ $this->selectedJob->snapshot ? 'Backup' : 'Restore' }} Job
                             </div>
                             <div class="font-semibold">
-                                @if($this->selectedJob->snapshot_id && $this->selectedJob->snapshot)
+                                @if($this->selectedJob->snapshot)
                                     {{ $this->selectedJob->snapshot->databaseServer->name }} / {{ $this->selectedJob->snapshot->database_name }}
-                                @elseif($this->selectedJob->restore_id && $this->selectedJob->restore)
+                                @elseif($this->selectedJob->restore)
                                     {{ $this->selectedJob->restore->targetServer->name }} / {{ $this->selectedJob->restore->schema_name }}
                                 @endif
                             </div>

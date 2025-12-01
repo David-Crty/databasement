@@ -189,8 +189,8 @@ class EndToEndTestBackup extends Command
         $this->snapshot = $backupTask->run($this->databaseServer);
 
         $this->line("   ✓ Snapshot created (ID: {$this->snapshot->id})");
-        $this->line("   ✓ Status: {$this->snapshot->job?->status}");
-        $this->line("   ✓ Duration: {$this->snapshot->job?->getHumanDuration()}");
+        $this->line("   ✓ Status: {$this->snapshot->job->status}");
+        $this->line("   ✓ Duration: {$this->snapshot->job->getHumanDuration()}");
         $this->line("   ✓ File size: {$this->snapshot->getHumanFileSize()}");
 
         if ($this->snapshot->database_size_bytes) {

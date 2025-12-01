@@ -5,12 +5,10 @@ namespace App\Models;
 use App\Contracts\JobInterface;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property string $id
- * @property string|null $snapshot_id
- * @property string|null $restore_id
  * @property string|null $job_id
  * @property string $status
  * @property \Illuminate\Support\Carbon|null $started_at
@@ -34,8 +32,6 @@ class BackupJob extends Model implements JobInterface
     use HasUlids;
 
     protected $fillable = [
-        'snapshot_id',
-        'restore_id',
         'job_id',
         'status',
         'started_at',
@@ -54,14 +50,14 @@ class BackupJob extends Model implements JobInterface
         ];
     }
 
-    public function snapshot(): BelongsTo
+    public function snapshot(): HasOne
     {
-        return $this->belongsTo(Snapshot::class);
+        return $this->hasOne(Snapshot::class);
     }
 
-    public function restore(): BelongsTo
+    public function restore(): HasOne
     {
-        return $this->belongsTo(Restore::class);
+        return $this->hasOne(Restore::class);
     }
 
     /**

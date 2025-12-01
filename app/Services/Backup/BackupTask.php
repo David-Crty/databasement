@@ -27,20 +27,18 @@ class BackupTask
         string $method = 'manual',
         ?string $userId = null
     ): Snapshot {
-        // Create snapshot record
-        $snapshot = $this->createSnapshot($databaseServer, $method, $userId);
-
-        // Create backup job for this snapshot
+        // Create backup job first (required for snapshot)
         $job = BackupJob::create([
-            'snapshot_id' => $snapshot->id,
             'status' => 'pending',
         ]);
+
+        // Create snapshot record with job reference
+        $snapshot = $this->createSnapshot($databaseServer, $job, $method, $userId);
 
         // Configure shell processor to log to job
         $this->shellProcessor->setLogger($job);
 
         $workingFile = $workingDirectory.'/'.$snapshot->id.'.sql';
-        $filesystem = $this->filesystemProvider->get($databaseServer->backup->volume->type);
 
         // Configure database interface with server credentials
         $this->configureDatabaseInterface($databaseServer);
@@ -179,12 +177,13 @@ class BackupTask
         };
     }
 
-    private function createSnapshot(DatabaseServer $databaseServer, string $method, ?string $userId): Snapshot
+    private function createSnapshot(DatabaseServer $databaseServer, BackupJob $job, string $method, ?string $userId): Snapshot
     {
         // Calculate database size
         $databaseSize = $this->databaseSizeCalculator->calculate($databaseServer);
 
         return Snapshot::create([
+            'backup_job_id' => $job->id,
             'database_server_id' => $databaseServer->id,
             'backup_id' => $databaseServer->backup->id,
             'volume_id' => $databaseServer->backup->volume_id,

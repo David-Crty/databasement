@@ -5,10 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @property string $id
+ * @property string $backup_job_id
  * @property string $database_server_id
  * @property string $backup_id
  * @property string $volume_id
@@ -30,7 +30,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property-read \App\Models\Backup $backup
  * @property-read \App\Models\Volume $volume
  * @property-read \App\Models\User|null $triggeredBy
- * @property-read \App\Models\BackupJob|null $job
+ * @property-read \App\Models\BackupJob $job
  *
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot newQuery()
@@ -43,6 +43,7 @@ class Snapshot extends Model
     use HasUlids;
 
     protected $fillable = [
+        'backup_job_id',
         'database_server_id',
         'backup_id',
         'volume_id',
@@ -98,9 +99,9 @@ class Snapshot extends Model
         return $this->belongsTo(User::class, 'triggered_by_user_id');
     }
 
-    public function job(): HasOne
+    public function job(): BelongsTo
     {
-        return $this->hasOne(BackupJob::class);
+        return $this->belongsTo(BackupJob::class, 'backup_job_id');
     }
 
     /**
@@ -145,7 +146,7 @@ class Snapshot extends Model
         try {
             // Get the filesystem for this volume
             $filesystemProvider = app(\App\Services\Backup\Filesystems\FilesystemProvider::class);
-            $filesystem = $filesystemProvider->get($this->volume->type);
+            $filesystem = $filesystemProvider->getForVolume($this->volume);
 
             // Delete the file if it exists
             if ($filesystem->fileExists($this->path)) {
@@ -177,9 +178,7 @@ class Snapshot extends Model
         ]);
 
         // Mark the job as completed
-        if ($this->job) {
-            $this->job->markCompleted();
-        }
+        $this->job->markCompleted();
     }
 
     /**
