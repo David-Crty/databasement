@@ -3,33 +3,19 @@
 <x-modal wire:model="showCopyModal" class="backdrop-blur" title="{{ $title }}" separator persistent>
     <p class="mb-4">{{ $message }}</p>
 
-    <div class="flex gap-2" x-data="{ copied: false }">
-        <x-input
-            wire:model="invitationUrl"
-            readonly
-            class="flex-1"
-        />
+    <div class="flex gap-2">
+        <div class="flex-1">
+            <x-input
+                wire:model="invitationUrl"
+                readonly
+                class="w-full"
+            />
+        </div>
         <x-button
             icon="o-clipboard-document"
             class="btn-primary"
-            x-on:click="
-                const text = $wire.invitationUrl;
-                if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(text);
-                } else {
-                    const textArea = document.createElement('textarea');
-                    textArea.value = text;
-                    textArea.style.position = 'fixed';
-                    textArea.style.left = '-999999px';
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    textArea.remove();
-                }
-                copied = true;
-                setTimeout(() => copied = false, 2000);
-                $wire.success('{{ __('Link copied to clipboard!') }}', null, 'toast-bottom');
-            "
+            x-clipboard="$wire.invitationUrl"
+            x-on:clipboard-copied="$wire.success('{{ __('Link copied to clipboard!') }}', null, 'toast-bottom')"
             tooltip="{{ __('Copy') }}"
         />
     </div>

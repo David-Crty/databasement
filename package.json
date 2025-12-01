@@ -11,6 +11,7 @@
     "autoprefixer": "^10.4.20",
     "axios": "^1.7.4",
     "concurrently": "^9.0.1",
+    "copy-to-clipboard": "^3.3.3",
     "laravel-vite-plugin": "^2.0",
     "tailwindcss": "^4.1.16",
     "vite": "^7.0.4"
