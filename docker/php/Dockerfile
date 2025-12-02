@@ -34,6 +34,7 @@ RUN adduser -u ${USER_ID} -D -h /home/${USER} ${USER} && \
     chown -R ${USER}:${USER} /data/caddy && chown -R ${USER}:${USER} /config/caddy
 
 RUN mkdir -p /app && chown -R ${USER}:${USER} /app && chmod -R 775 /app
+COPY init.sh /
 WORKDIR /app
 USER 1000
 
