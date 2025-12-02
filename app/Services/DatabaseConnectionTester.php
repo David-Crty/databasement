@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\DatabaseType;
 use Exception;
 use PDO;
 use PDOException;
@@ -17,8 +18,16 @@ class DatabaseConnectionTester
     public function test(array $config): array
     {
         try {
-            $dsn = $this->buildDsn(
-                $config['database_type'],
+            $databaseType = DatabaseType::tryFrom($config['database_type']);
+
+            if ($databaseType === null) {
+                return [
+                    'success' => false,
+                    'message' => "Unsupported database type: {$config['database_type']}",
+                ];
+            }
+
+            $dsn = $databaseType->buildDsn(
                 $config['host'],
                 $config['port'],
                 $config['database_name'] ?? null
@@ -52,29 +61,6 @@ class DatabaseConnectionTester
                 'message' => 'Failed to connect: '.$e->getMessage(),
             ];
         }
-    }
-
-    /**
-     * Build a DSN string for the given database type.
-     */
-    private function buildDsn(string $type, string $host, int $port, ?string $database): string
-    {
-        return match ($type) {
-            'mysql', 'mariadb' => sprintf(
-                'mysql:host=%s;port=%d%s;charset=utf8mb4',
-                $host,
-                $port,
-                $database ? ";dbname={$database}" : ''
-            ),
-            'postgresql' => sprintf(
-                'pgsql:host=%s;port=%d%s',
-                $host,
-                $port,
-                $database ? ";dbname={$database}" : ''
-            ),
-            'sqlite' => "sqlite:{$host}",
-            default => throw new Exception("Unsupported database type: {$type}"),
-        };
     }
 
     /**

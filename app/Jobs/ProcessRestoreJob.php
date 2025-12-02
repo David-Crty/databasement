@@ -70,7 +70,7 @@ class ProcessRestoreJob implements ShouldQueue
         ]);
 
         // Mark the job as failed
-        $restore = Restore::with('job')->find($this->restoreId);
+        $restore = Restore::with('job')->findOrFail($this->restoreId);
         if ($restore->job->status !== 'failed') {
             $restore->job->markFailed($exception);
         }

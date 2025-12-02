@@ -38,7 +38,7 @@ class DatabaseServerForm extends Form
 
     public bool $testingConnection = false;
 
-    public function setServer(DatabaseServer $server)
+    public function setServer(DatabaseServer $server): void
     {
         $this->server = $server;
         $this->name = $server->name;
@@ -60,7 +60,10 @@ class DatabaseServerForm extends Form
         }
     }
 
-    public function formValidate()
+    /**
+     * @return array<string, mixed>
+     */
+    public function formValidate(): array
     {
         return $this->validate([
             'name' => 'required|string|max:255',
@@ -134,7 +137,7 @@ class DatabaseServerForm extends Form
         return true;
     }
 
-    public function testConnection()
+    public function testConnection(): void
     {
         $this->testingConnection = true;
         $this->connectionTestMessage = null;

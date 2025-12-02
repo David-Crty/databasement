@@ -81,7 +81,7 @@ test('getForVolume supports both root and path config keys for local filesystem'
     expect(file_exists($this->tempDir.'/path-test.txt'))->toBeTrue();
 });
 
-test('transfert writes file to volume configured path', function () {
+test('transfer writes file to volume configured path', function () {
     // Create a source file
     $sourceFile = $this->tempDir.'/source.sql.gz';
     $sourceContent = 'Backup data content '.uniqid();
@@ -99,7 +99,7 @@ test('transfert writes file to volume configured path', function () {
     ]);
 
     // Transfer the file using FilesystemProvider
-    $this->filesystemProvider->transfert($volume, $sourceFile, 'backup.sql.gz');
+    $this->filesystemProvider->transfer($volume, $sourceFile, 'backup.sql.gz');
 
     // Verify file was written to the Volume's configured path
     $expectedPath = $destDir.'/backup.sql.gz';

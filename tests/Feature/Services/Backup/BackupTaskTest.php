@@ -88,7 +88,7 @@ function setupCommonExpectations(Snapshot $snapshot): void
         ->andReturn($filesystem);
 
     test()->filesystemProvider
-        ->shouldReceive('transfert')
+        ->shouldReceive('transfer')
         ->once();
 }
 

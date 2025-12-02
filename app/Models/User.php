@@ -185,13 +185,4 @@ class User extends Authenticatable
     {
         return $query->whereNotNull('invitation_accepted_at');
     }
-
-    /**
-     * @param  \Illuminate\Database\Eloquent\Builder<static>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<static>
-     */
-    public function scopePending($query)
-    {
-        return $query->whereNull('invitation_accepted_at');
-    }
 }

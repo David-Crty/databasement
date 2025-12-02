@@ -20,14 +20,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property-read \App\Models\Restore|null $restore
  * @property-read \App\Models\Snapshot|null $snapshot
  *
- * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob completed()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob failed()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob pending()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob queued()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob running()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob whereCompletedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|BackupJob whereErrorMessage($value)
@@ -212,45 +207,5 @@ class BackupJob extends Model
     public function getCommandLogs(): array
     {
         return $this->getLogsByType('command');
-    }
-
-    /**
-     * Scope to filter by status
-     */
-    public function scopeCompleted($query)
-    {
-        return $query->where('status', 'completed');
-    }
-
-    /**
-     * Scope to filter by status
-     */
-    public function scopeFailed($query)
-    {
-        return $query->where('status', 'failed');
-    }
-
-    /**
-     * Scope to filter by status
-     */
-    public function scopeRunning($query)
-    {
-        return $query->where('status', 'running');
-    }
-
-    /**
-     * Scope to filter by status
-     */
-    public function scopePending($query)
-    {
-        return $query->where('status', 'pending');
-    }
-
-    /**
-     * Scope to filter by status (for restores)
-     */
-    public function scopeQueued($query)
-    {
-        return $query->where('status', 'queued');
     }
 }

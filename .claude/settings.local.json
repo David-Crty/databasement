@@ -20,7 +20,8 @@
       "Bash(php artisan:*)",
       "Bash(cat:*)",
       "WebFetch(domain:livewire.laravel.com)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(php -d xdebug.mode=coverage ./vendor/bin/pest:*)"
     ],
     "deny": [],
     "ask": []

@@ -2,14 +2,8 @@
 
 namespace App\Services;
 
-use App\Services\Backup\Filesystems\FilesystemProvider;
-
 readonly class VolumeConnectionTester
 {
-    public function __construct(
-        private FilesystemProvider $filesystemProvider
-    ) {}
-
     /**
      * Test if a volume is accessible by creating and deleting a test file.
      *
@@ -159,11 +153,6 @@ readonly class VolumeConnectionTester
                 'secret' => $secret,
                 'region' => $region,
             ];
-
-            // Get the S3 filesystem
-            foreach ($this->filesystemProvider->getAvailableProviders() as $provider) {
-                // We need to test S3 directly
-            }
 
             // Create a temporary Volume-like object to test
             $testFilename = '.backup-manager-test-'.uniqid();

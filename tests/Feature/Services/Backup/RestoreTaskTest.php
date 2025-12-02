@@ -10,6 +10,7 @@ use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\GzipCompressor;
 use App\Services\Backup\RestoreTask;
+use App\Services\ConnectionFactory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\TestShellProcessor;
 
@@ -24,6 +25,7 @@ beforeEach(function () {
 
     // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
+    $this->connectionFactory = Mockery::mock(ConnectionFactory::class);
 
     // Create a partial mock of RestoreTask to mock prepareDatabase
     $this->restoreTask = Mockery::mock(
@@ -34,6 +36,7 @@ beforeEach(function () {
             $this->shellProcessor,
             $this->filesystemProvider,
             $this->compressor,
+            $this->connectionFactory,
         ]
     )->makePartial()
         ->shouldAllowMockingProtectedMethods();
@@ -144,10 +147,10 @@ test('run executes mysql restore workflow successfully', function () {
     $compressedFile = $this->tempDir.'/backup.sql.gz';
     $decompressedFile = $this->tempDir.'/backup.sql';
 
-    // Expected commands
+    // Expected commands (note: inputPath is now escaped with escapeshellarg)
     $expectedCommands = [
         "gzip -d '$compressedFile'",
-        "mariadb --host='target.localhost' --port='3306' --user='root' --password='secret' --skip_ssl 'restored_db' -e \"source $decompressedFile\"",
+        "mariadb --host='target.localhost' --port='3306' --user='root' --password='secret' --skip_ssl 'restored_db' -e \"source '$decompressedFile'\"",
     ];
 
     $commands = $this->shellProcessor->getCommands();
@@ -235,7 +238,7 @@ test('run throws exception when database types are incompatible', function () {
 
     // Act & Assert
     expect(fn () => $this->restoreTask->run($restore))
-        ->toThrow(\Exception::class, 'Cannot restore mysql snapshot to postgresql server');
+        ->toThrow(\App\Exceptions\Backup\RestoreException::class, 'Cannot restore mysql snapshot to postgresql server');
 });
 
 test('run throws exception when restore command failed', function () {
@@ -295,6 +298,7 @@ test('run throws exception when restore command failed', function () {
             $shellProcessor,
             $this->filesystemProvider,
             $compressor,
+            $this->connectionFactory,
         ]
     )->makePartial()
         ->shouldAllowMockingProtectedMethods();
@@ -336,24 +340,25 @@ test('run throws exception when restore command failed', function () {
 });
 
 test('run throws exception for unsupported database type', function () {
-    // Arrange
+    // Arrange - use sqlite as unsupported for backup/restore operations
+    // (sqlite is valid in the enum but not supported in RestoreTask operations)
     $sourceServer = createRestoreDatabaseServer([
-        'name' => 'Source Oracle',
-        'host' => 'localhost',
-        'port' => 1521,
-        'database_type' => 'oracle',
-        'username' => 'system',
-        'password' => 'secret',
+        'name' => 'Source SQLite',
+        'host' => '/tmp/test.db',
+        'port' => 0,
+        'database_type' => 'sqlite',
+        'username' => '',
+        'password' => '',
         'database_name' => 'sourcedb',
     ]);
 
     $targetServer = createRestoreDatabaseServer([
-        'name' => 'Target Oracle',
-        'host' => 'localhost',
-        'port' => 1521,
-        'database_type' => 'oracle',
-        'username' => 'system',
-        'password' => 'secret',
+        'name' => 'Target SQLite',
+        'host' => '/tmp/test.db',
+        'port' => 0,
+        'database_type' => 'sqlite',
+        'username' => '',
+        'password' => '',
         'database_name' => 'targetdb',
     ]);
 
@@ -372,7 +377,13 @@ test('run throws exception for unsupported database type', function () {
             file_put_contents($destination, 'compressed test data');
         });
 
-    // Act & Assert
+    // Mock createAdminConnection - it will be called before the exception is thrown
+    $this->connectionFactory
+        ->shouldReceive('createAdminConnection')
+        ->once()
+        ->andReturn(Mockery::mock(\PDO::class));
+
+    // Act & Assert - SQLite is not supported in RestoreTask
     expect(fn () => $this->restoreTask->run($restore, $this->tempDir))
-        ->toThrow(\Exception::class, 'Database type oracle not supported');
+        ->toThrow(\App\Exceptions\Backup\UnsupportedDatabaseTypeException::class, "Database type 'sqlite' is not supported");
 });

@@ -71,7 +71,7 @@ class ProcessBackupJob implements ShouldQueue
         ]);
 
         // Mark the job as failed
-        $snapshot = Snapshot::with('job')->find($this->snapshotId);
+        $snapshot = Snapshot::with('job')->findOrFail($this->snapshotId);
         if ($snapshot->job->status !== 'failed') {
             $snapshot->job->markFailed($exception);
         }

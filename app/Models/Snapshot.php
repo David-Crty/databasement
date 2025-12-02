@@ -31,14 +31,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property-read \App\Models\User|null $triggeredBy
  * @property-read \App\Models\Volume $volume
  *
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot completed()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot failed()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot forDatabaseServer(\App\Models\DatabaseServer $databaseServer)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot pending()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot running()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereBackupId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereBackupJobId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereChecksum($value)
@@ -188,37 +184,5 @@ class Snapshot extends Model
     public function scopeForDatabaseServer($query, DatabaseServer $databaseServer)
     {
         return $query->where('database_server_id', $databaseServer->id);
-    }
-
-    /**
-     * Scope to filter by completed status
-     */
-    public function scopeCompleted($query)
-    {
-        return $query->whereHas('job', fn ($q) => $q->where('status', 'completed'));
-    }
-
-    /**
-     * Scope to filter by failed status
-     */
-    public function scopeFailed($query)
-    {
-        return $query->whereHas('job', fn ($q) => $q->where('status', 'failed'));
-    }
-
-    /**
-     * Scope to filter by running status
-     */
-    public function scopeRunning($query)
-    {
-        return $query->whereHas('job', fn ($q) => $q->where('status', 'running'));
-    }
-
-    /**
-     * Scope to filter by pending status
-     */
-    public function scopePending($query)
-    {
-        return $query->whereHas('job', fn ($q) => $q->where('status', 'pending'));
     }
 }

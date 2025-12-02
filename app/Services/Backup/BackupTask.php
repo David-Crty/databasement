@@ -63,7 +63,7 @@ class BackupTask
                 'volume_type' => $snapshot->volume->type,
             ]);
             $destinationPath = $this->generateBackupFilename($databaseServer);
-            $this->filesystemProvider->transfert(
+            $this->filesystemProvider->transfer(
                 $snapshot->volume,
                 $archive,
                 $destinationPath

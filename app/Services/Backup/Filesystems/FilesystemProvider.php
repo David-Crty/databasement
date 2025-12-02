@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup\Filesystems;
 
+use App\Exceptions\Backup\FilesystemException;
 use App\Models\Snapshot;
 use App\Models\Volume;
 use League\Flysystem\Filesystem;
@@ -34,7 +35,7 @@ class FilesystemProvider
             }
         }
 
-        throw new \Exception("The requested filesystem type {$volume->type} is not currently supported.");
+        throw new FilesystemException("The requested filesystem type {$volume->type} is not currently supported.");
     }
 
     /**
@@ -52,7 +53,7 @@ class FilesystemProvider
             }
         }
 
-        throw new \Exception("The requested filesystem type {$type} is not currently supported.");
+        throw new FilesystemException("The requested filesystem type {$type} is not currently supported.");
     }
 
     public function getConfig(string $name, ?string $key = null): mixed
@@ -72,12 +73,12 @@ class FilesystemProvider
         return array_keys($this->config);
     }
 
-    public function transfert(Volume $volume, string $source, string $destination): void
+    public function transfer(Volume $volume, string $source, string $destination): void
     {
         $filesystem = $this->getForVolume($volume);
         $stream = fopen($source, 'r');
         if ($stream === false) {
-            throw new \RuntimeException("Failed to open file: {$source}");
+            throw new FilesystemException("Failed to open file: {$source}");
         }
 
         try {
@@ -96,7 +97,7 @@ class FilesystemProvider
         $localStream = fopen($destination, 'w');
 
         if ($localStream === false) {
-            throw new \RuntimeException("Failed to open destination file: {$destination}");
+            throw new FilesystemException("Failed to open destination file: {$destination}");
         }
 
         try {

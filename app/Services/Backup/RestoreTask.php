@@ -2,6 +2,10 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\DatabaseType;
+use App\Exceptions\Backup\ConnectionException;
+use App\Exceptions\Backup\RestoreException;
+use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
@@ -9,6 +13,7 @@ use App\Models\Snapshot;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use App\Services\ConnectionFactory;
 use PDO;
 use PDOException;
 
@@ -19,7 +24,8 @@ class RestoreTask
         private readonly PostgresqlDatabase $postgresqlDatabase,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
-        private readonly GzipCompressor $compressor
+        private readonly GzipCompressor $compressor,
+        private readonly ConnectionFactory $connectionFactory
     ) {}
 
     /**
@@ -112,7 +118,7 @@ class RestoreTask
     private function validateCompatibility(DatabaseServer $targetServer, Snapshot $snapshot): void
     {
         if ($targetServer->database_type !== $snapshot->database_type) {
-            throw new \Exception(
+            throw new RestoreException(
                 "Cannot restore {$snapshot->database_type} snapshot to {$targetServer->database_type} server"
             );
         }
@@ -121,15 +127,18 @@ class RestoreTask
     protected function prepareDatabase(DatabaseServer $targetServer, string $schemaName, BackupJob $job): void
     {
         try {
-            $pdo = $this->createConnection($targetServer);
+            $pdo = $this->connectionFactory->createAdminConnection($targetServer);
+            $databaseType = DatabaseType::from($targetServer->database_type);
 
-            match ($targetServer->database_type) {
-                'mysql', 'mariadb' => $this->prepareMysqlDatabase($pdo, $schemaName, $job),
-                'postgresql' => $this->preparePostgresqlDatabase($pdo, $schemaName, $job),
-                default => throw new \Exception("Database type {$targetServer->database_type} not supported"),
-            };
+            if ($databaseType->isMysqlFamily()) {
+                $this->prepareMysqlDatabase($pdo, $schemaName, $job);
+            } elseif ($databaseType === DatabaseType::POSTGRESQL) {
+                $this->preparePostgresqlDatabase($pdo, $schemaName, $job);
+            } else {
+                throw new UnsupportedDatabaseTypeException($targetServer->database_type);
+            }
         } catch (PDOException $e) {
-            throw new \Exception("Failed to prepare database: {$e->getMessage()}", 0, $e);
+            throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }
     }
 
@@ -175,10 +184,12 @@ class RestoreTask
 
     private function restoreDatabase(DatabaseServer $targetServer, string $inputPath): void
     {
-        $command = match ($targetServer->database_type) {
-            'mysql', 'mariadb' => $this->mysqlDatabase->getRestoreCommandLine($inputPath),
-            'postgresql' => $this->postgresqlDatabase->getRestoreCommandLine($inputPath),
-            default => throw new \Exception("Database type {$targetServer->database_type} not supported"),
+        $databaseType = DatabaseType::from($targetServer->database_type);
+
+        $command = match (true) {
+            $databaseType->isMysqlFamily() => $this->mysqlDatabase->getRestoreCommandLine($inputPath),
+            $databaseType === DatabaseType::POSTGRESQL => $this->postgresqlDatabase->getRestoreCommandLine($inputPath),
+            default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
         };
 
         $this->shellProcessor->process($command);
@@ -194,42 +205,14 @@ class RestoreTask
             'database' => $schemaName,
         ];
 
-        match ($targetServer->database_type) {
-            'mysql', 'mariadb' => $this->mysqlDatabase->setConfig($config),
-            'postgresql' => $this->postgresqlDatabase->setConfig($config),
-            default => throw new \Exception("Database type {$targetServer->database_type} not supported"),
-        };
-    }
+        $databaseType = DatabaseType::from($targetServer->database_type);
 
-    private function createConnection(DatabaseServer $targetServer): PDO
-    {
-        $dsn = $this->buildDsn($targetServer);
-
-        return new PDO(
-            $dsn,
-            $targetServer->username,
-            $targetServer->password,
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_TIMEOUT => 30,
-            ]
-        );
-    }
-
-    private function buildDsn(DatabaseServer $targetServer): string
-    {
-        return match ($targetServer->database_type) {
-            'mysql', 'mariadb' => sprintf(
-                'mysql:host=%s;port=%d',
-                $targetServer->host,
-                $targetServer->port
-            ),
-            'postgresql' => sprintf(
-                'pgsql:host=%s;port=%d;dbname=postgres',
-                $targetServer->host,
-                $targetServer->port
-            ),
-            default => throw new \Exception("Database type {$targetServer->database_type} not supported"),
-        };
+        if ($databaseType->isMysqlFamily()) {
+            $this->mysqlDatabase->setConfig($config);
+        } elseif ($databaseType === DatabaseType::POSTGRESQL) {
+            $this->postgresqlDatabase->setConfig($config);
+        } else {
+            throw new UnsupportedDatabaseTypeException($targetServer->database_type);
+        }
     }
 }

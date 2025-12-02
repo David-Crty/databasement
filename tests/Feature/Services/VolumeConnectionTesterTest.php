@@ -1,11 +1,9 @@
 <?php
 
-use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\VolumeConnectionTester;
 
 beforeEach(function () {
-    $this->filesystemProvider = app(FilesystemProvider::class);
-    $this->tester = new VolumeConnectionTester($this->filesystemProvider);
+    $this->tester = new VolumeConnectionTester;
 });
 
 describe('local volume connection testing', function () {
