@@ -142,5 +142,5 @@
     </x-drawer>
 
     <!-- LOGS MODAL -->
-    @include('livewire.job._logs-modal')
+    @include('livewire.backup-job._logs-modal')
 </div>

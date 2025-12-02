@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Job;
+namespace App\Livewire\BackupJob;
 
 use App\Models\BackupJob;
 use Livewire\Component;
@@ -145,7 +145,7 @@ class Index extends Component
             ->orderBy($this->sortBy['column'], $this->sortBy['direction'])
             ->paginate(15);
 
-        return view('livewire.job.index', [
+        return view('livewire.backup-job.index', [
             'jobs' => $jobs,
             'headers' => $this->headers(),
             'statusOptions' => $this->statusOptions(),

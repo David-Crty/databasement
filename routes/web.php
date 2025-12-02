@@ -33,7 +33,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('volumes.index');
     Route::get('snapshots', \App\Livewire\Snapshot\Index::class)
         ->name('snapshots.index');
-    Route::get('jobs', \App\Livewire\Job\Index::class)
+    Route::get('jobs', \App\Livewire\BackupJob\Index::class)
         ->name('jobs.index');
 
     // Users index - viewable by all (actions restricted in component)
