@@ -19,7 +19,8 @@
       "Bash(make test-filter:*)",
       "Bash(php artisan:*)",
       "Bash(cat:*)",
-      "WebFetch(domain:livewire.laravel.com)"
+      "WebFetch(domain:livewire.laravel.com)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []
