@@ -94,7 +94,7 @@ class MysqlDatabase implements DatabaseInterface
             $this->mysqlCli[$this->mysqlCliUsed]['restore'],
             $params,
             escapeshellarg($this->config['database']),
-            escapeshellarg($inputPath)
+            $inputPath
         );
     }
 

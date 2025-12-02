@@ -147,10 +147,10 @@ test('run executes mysql restore workflow successfully', function () {
     $compressedFile = $this->tempDir.'/backup.sql.gz';
     $decompressedFile = $this->tempDir.'/backup.sql';
 
-    // Expected commands (note: inputPath is now escaped with escapeshellarg)
+    // Expected commands
     $expectedCommands = [
         "gzip -d '$compressedFile'",
-        "mariadb --host='target.localhost' --port='3306' --user='root' --password='secret' --skip_ssl 'restored_db' -e \"source '$decompressedFile'\"",
+        "mariadb --host='target.localhost' --port='3306' --user='root' --password='secret' --skip_ssl 'restored_db' -e \"source $decompressedFile\"",
     ];
 
     $commands = $this->shellProcessor->getCommands();
