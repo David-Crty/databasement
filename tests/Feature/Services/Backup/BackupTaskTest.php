@@ -2,11 +2,12 @@
 
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Models\Volume;
+use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
-use App\Services\Backup\DatabaseSizeCalculator;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\GzipCompressor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,7 +25,6 @@ beforeEach(function () {
 
     // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
-    $this->databaseSizeCalculator = Mockery::mock(DatabaseSizeCalculator::class);
 
     // Create the BackupTask instance
     $this->backupTask = new BackupTask(
@@ -32,9 +32,11 @@ beforeEach(function () {
         $this->postgresqlDatabase,
         $this->shellProcessor,
         $this->filesystemProvider,
-        $this->compressor,
-        $this->databaseSizeCalculator
+        $this->compressor
     );
+
+    // Use real BackupJobFactory
+    $this->backupJobFactory = new BackupJobFactory;
 
     // Create temp directory for test files
     $this->tempDir = sys_get_temp_dir().'/backup-task-test-'.uniqid();
@@ -70,16 +72,9 @@ function createDatabaseServer(array $attributes, string $volumeType = 'local'): 
 }
 
 // Helper function to set up common expectations
-function setupCommonExpectations(DatabaseServer $databaseServer, ?int $databaseSize = 1024000): void
+function setupCommonExpectations(Snapshot $snapshot): void
 {
     $filesystem = Mockery::mock(Filesystem::class);
-
-    // Database size calculator
-    test()->databaseSizeCalculator
-        ->shouldReceive('calculate')
-        ->once()
-        ->with($databaseServer)
-        ->andReturn($databaseSize);
 
     // Filesystem provider
     test()->filesystemProvider
@@ -89,7 +84,7 @@ function setupCommonExpectations(DatabaseServer $databaseServer, ?int $databaseS
 
     test()->filesystemProvider
         ->shouldReceive('get')
-        ->with($databaseServer->backup->volume->type)
+        ->with($snapshot->databaseServer->backup->volume->type)
         ->andReturn($filesystem);
 
     test()->filesystemProvider
@@ -118,8 +113,10 @@ test('run executes mysql backup workflow successfully', function () {
         'database_name' => 'myapp',
     ]);
 
-    setupCommonExpectations($databaseServer, 1024000);
-    $snapshot = $this->backupTask->run($databaseServer, $this->tempDir);
+    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+
+    setupCommonExpectations($snapshot);
+    $this->backupTask->run($snapshot, $this->tempDir);
     $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
     $expectedCommands = [
@@ -142,8 +139,10 @@ test('run executes postgresql backup workflow successfully', function () {
         'database_name' => 'staging_db',
     ], 's3');
 
-    setupCommonExpectations($databaseServer, 2048000);
-    $snapshot = $this->backupTask->run($databaseServer, $this->tempDir);
+    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+
+    setupCommonExpectations($snapshot);
+    $this->backupTask->run($snapshot, $this->tempDir);
     $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
     $expectedCommands = [
@@ -166,8 +165,10 @@ test('run executes mariadb backup workflow successfully', function () {
         'database_name' => 'app_data',
     ]);
 
-    setupCommonExpectations($databaseServer, 512000);
-    $snapshot = $this->backupTask->run($databaseServer, $this->tempDir);
+    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+
+    setupCommonExpectations($snapshot);
+    $this->backupTask->run($snapshot, $this->tempDir);
     $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
     $expectedCommands = [
@@ -190,25 +191,10 @@ test('run throws exception for unsupported database type', function () {
         'database_name' => 'orcl',
     ]);
 
-    // Only set up expectations for operations that happen before the exception
-    $this->databaseSizeCalculator
-        ->shouldReceive('calculate')
-        ->once()
-        ->with($databaseServer)
-        ->andReturn(null);
-
-    $this->filesystemProvider
-        ->shouldReceive('getConfig')
-        ->with('local', 'root')
-        ->andReturn($this->tempDir);
-
-    $this->filesystemProvider
-        ->shouldReceive('get')
-        ->with('local')
-        ->andReturn(Mockery::mock(\League\Flysystem\Filesystem::class));
+    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
 
     // Act & Assert
-    expect(fn () => $this->backupTask->run($databaseServer))
+    expect(fn () => $this->backupTask->run($snapshot))
         ->toThrow(\Exception::class, 'Database type oracle not supported');
 });
 
@@ -224,6 +210,8 @@ test('run throws exception when backup command failed', function () {
         'database_name' => 'myapp',
     ]);
 
+    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+
     // Create a shell processor that fails on dump command
     $shellProcessor = Mockery::mock(\App\Services\Backup\ShellProcessor::class);
     $shellProcessor->shouldReceive('setLogger')->once();
@@ -237,24 +225,13 @@ test('run throws exception when backup command failed', function () {
         $this->postgresqlDatabase,
         $shellProcessor,
         $this->filesystemProvider,
-        $this->compressor,
-        $this->databaseSizeCalculator
+        $this->compressor
     );
-
-    // Set up expectations for operations before the failure
-    $this->databaseSizeCalculator
-        ->shouldReceive('calculate')
-        ->once()
-        ->with($databaseServer)
-        ->andReturn(1024000);
-
-    // Count jobs before to verify a new one is created
-    $jobCountBefore = \App\Models\BackupJob::count();
 
     // Act & Assert
     $exception = null;
     try {
-        $backupTask->run($databaseServer, $this->tempDir);
+        $backupTask->run($snapshot, $this->tempDir);
     } catch (\App\Exceptions\ShellProcessFailed $e) {
         $exception = $e;
     }
@@ -263,12 +240,9 @@ test('run throws exception when backup command failed', function () {
     expect($exception->getMessage())->toBe('Access denied for user');
 
     // Verify the job status is set to failed
-    // Get the backup job (should have a snapshot relationship)
-    $snapshot = \App\Models\Snapshot::whereDatabaseServerId($databaseServer->id)->first();
+    $snapshot->refresh();
     $job = $snapshot->job;
 
-    // Ensure we got the new job
-    expect(\App\Models\BackupJob::count())->toBe($jobCountBefore + 1);
     expect($job)->not->toBeNull();
     expect($job->status)->toBe('failed');
     expect($job->error_message)->toBe('Access denied for user');

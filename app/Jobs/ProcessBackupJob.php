@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\Backup\BackupTask;
 use Illuminate\Bus\Queueable;
@@ -35,10 +34,7 @@ class ProcessBackupJob implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        public string $databaseServerId,
-        public string $method = 'manual',
-        public ?string $userId = null,
-        public ?string $snapshotId = null
+        public string $snapshotId
     ) {
         $this->onQueue('backups');
     }
@@ -48,29 +44,18 @@ class ProcessBackupJob implements ShouldQueue
      */
     public function handle(BackupTask $backupTask): void
     {
-        // Fetch the database server with relationships
-        $databaseServer = DatabaseServer::with(['backup.volume'])->findOrFail($this->databaseServerId);
+        $snapshot = Snapshot::with(['job', 'volume', 'databaseServer'])->findOrFail($this->snapshotId);
 
-        if (! $databaseServer->backup) {
-            throw new \RuntimeException('No backup configuration found for this database server.');
-        }
+        // Update job with queue job ID for tracking
+        $snapshot->job->update(['job_id' => $this->job->getJobId()]);
 
-        // If snapshot was pre-created, fetch it and update its job with the queue job ID
-        if ($this->snapshotId) {
-            $snapshot = Snapshot::with('job')->findOrFail($this->snapshotId);
-            $snapshot->job->update(['job_id' => $this->job->getJobId()]);
-        }
-
-        // Run the backup task (it will create snapshot and job, handling status updates)
-        $backupTask->run(
-            databaseServer: $databaseServer,
-            method: $this->method,
-            userId: $this->userId
-        );
+        // Run the backup task
+        $backupTask->run($snapshot);
 
         Log::info('Backup completed successfully', [
-            'database_server_id' => $this->databaseServerId,
-            'method' => $this->method,
+            'snapshot_id' => $this->snapshotId,
+            'database_server_id' => $snapshot->databaseServer->id,
+            'method' => $snapshot->method,
         ]);
     }
 
@@ -80,18 +65,15 @@ class ProcessBackupJob implements ShouldQueue
     public function failed(\Throwable $exception): void
     {
         Log::error('Backup job failed', [
-            'database_server_id' => $this->databaseServerId,
-            'method' => $this->method,
+            'snapshot_id' => $this->snapshotId,
             'error' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString(),
         ]);
 
-        // If snapshot was pre-created, mark its job as failed
-        if ($this->snapshotId) {
-            $snapshot = Snapshot::with('job')->find($this->snapshotId);
-            if ($snapshot && $snapshot->job->status !== 'failed') {
-                $snapshot->job->markFailed($exception);
-            }
+        // Mark the job as failed
+        $snapshot = Snapshot::with('job')->find($this->snapshotId);
+        if ($snapshot->job->status !== 'failed') {
+            $snapshot->job->markFailed($exception);
         }
     }
 }

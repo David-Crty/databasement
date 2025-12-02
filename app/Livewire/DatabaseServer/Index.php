@@ -4,6 +4,7 @@ namespace App\Livewire\DatabaseServer;
 
 use App\Jobs\ProcessBackupJob;
 use App\Models\DatabaseServer;
+use App\Services\Backup\BackupJobFactory;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -96,7 +97,7 @@ class Index extends Component
         $this->dispatch('open-restore-modal', targetServerId: $id);
     }
 
-    public function runBackup(string $id)
+    public function runBackup(string $id, BackupJobFactory $backupJobFactory)
     {
         $server = DatabaseServer::with(['backup.volume'])->findOrFail($id);
 
@@ -109,10 +110,15 @@ class Index extends Component
         }
 
         try {
-            // Dispatch the backup job
-            ProcessBackupJob::dispatch($id, 'manual', auth()->id());
+            $snapshot = $backupJobFactory->createBackupJob(
+                server: $server,
+                method: 'manual',
+                triggeredByUserId: auth()->id()
+            );
 
-            $this->success('Backup queued successfully! You will see the snapshot in the list shortly.', position: 'toast-bottom');
+            ProcessBackupJob::dispatch($snapshot->id);
+
+            $this->success('Backup queued successfully!', position: 'toast-bottom');
         } catch (\Throwable $e) {
             $this->error('Failed to queue backup: '.$e->getMessage(), position: 'toast-bottom');
         }

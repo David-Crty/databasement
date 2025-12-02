@@ -2,8 +2,9 @@
 
 use App\Models\Backup;
 use App\Models\DatabaseServer;
-use App\Models\Snapshot;
+use App\Models\Restore;
 use App\Models\Volume;
+use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -37,25 +38,24 @@ beforeEach(function () {
     )->makePartial()
         ->shouldAllowMockingProtectedMethods();
 
+    // Use real BackupJobFactory
+    $this->backupJobFactory = new BackupJobFactory;
+
     // Create temp directory for test files
     $this->tempDir = sys_get_temp_dir().'/restore-task-test-'.uniqid();
     mkdir($this->tempDir, 0777, true);
 });
 
-// Helper function to create a database server for restore tests
+// Helper function to create a database server with backup and volume for restore tests
 function createRestoreDatabaseServer(array $attributes): DatabaseServer
 {
-    return DatabaseServer::create($attributes);
-}
-
-// Helper function to create a snapshot for restore tests
-function createRestoreSnapshot(DatabaseServer $databaseServer, array $attributes = []): Snapshot
-{
     $volume = Volume::create([
-        'name' => 'Test Volume',
+        'name' => 'Test Volume '.uniqid(),
         'type' => 'local',
         'config' => ['root' => test()->tempDir],
     ]);
+
+    $databaseServer = DatabaseServer::create($attributes);
 
     $backup = Backup::create([
         'recurrence' => 'daily',
@@ -63,49 +63,27 @@ function createRestoreSnapshot(DatabaseServer $databaseServer, array $attributes
         'database_server_id' => $databaseServer->id,
     ]);
 
-    // Create BackupJob first (required for snapshot)
-    $job = \App\Models\BackupJob::create([
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
+    $databaseServer->update(['backup_id' => $backup->id]);
+    $databaseServer->load('backup.volume');
 
-    return Snapshot::create(array_merge([
-        'backup_job_id' => $job->id,
-        'database_server_id' => $databaseServer->id,
-        'backup_id' => $backup->id,
-        'volume_id' => $volume->id,
-        'path' => 'test-backup.sql.gz',
-        'file_size' => 1024,
-        'started_at' => now(),
-        'database_name' => $databaseServer->database_name ?? 'testdb',
-        'database_type' => $databaseServer->database_type,
-        'database_host' => $databaseServer->host,
-        'database_port' => $databaseServer->port,
-        'compression_type' => 'gzip',
-        'method' => 'manual',
-    ], $attributes));
+    return $databaseServer;
 }
 
 // Helper function to set up common expectations for restore
-function setupRestoreExpectations(
-    DatabaseServer $targetServer,
-    Snapshot $snapshot,
-    string $schemaName
-): void {
-
+function setupRestoreExpectations(Restore $restore): void
+{
     // Mock prepareDatabase to avoid real database operations
     test()->restoreTask
         ->shouldReceive('prepareDatabase')
         ->once()
-        ->with($targetServer, $schemaName, Mockery::any())
+        ->with($restore->targetServer, $restore->schema_name, Mockery::any())
         ->andReturnNull();
 
     // Mock download - create a compressed file that will be decompressed
     test()->filesystemProvider
         ->shouldReceive('download')
         ->once()
-        ->with($snapshot, Mockery::any())
+        ->with($restore->snapshot, Mockery::any())
         ->andReturnUsing(function ($snap, $destination) {
             file_put_contents($destination, 'compressed backup data');
         });
@@ -149,13 +127,18 @@ test('run executes mysql restore workflow successfully', function () {
         'database_name' => 'targetdb',
     ]);
 
-    // Create snapshot with a known path
-    $snapshot = createRestoreSnapshot($sourceServer, ['path' => 'backup.sql.gz']);
+    // Create snapshot and update path for restore test
+    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshot->update(['path' => 'backup.sql.gz']);
+    $snapshot->job->markCompleted();
 
-    setupRestoreExpectations($targetServer, $snapshot, 'restored_db');
+    // Create restore job
+    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
+
+    setupRestoreExpectations($restore);
 
     // Act
-    $this->restoreTask->run($targetServer, $snapshot, 'restored_db', $this->tempDir);
+    $this->restoreTask->run($restore, $this->tempDir);
 
     // Build expected file paths
     $compressedFile = $this->tempDir.'/backup.sql.gz';
@@ -193,16 +176,18 @@ test('run executes postgresql restore workflow successfully', function () {
         'database_name' => 'targetdb',
     ]);
 
-    // Create snapshot with a known path
-    $snapshot = createRestoreSnapshot($sourceServer, [
-        'database_type' => 'postgresql',
-        'path' => 'pg_backup.sql.gz',
-    ]);
+    // Create snapshot and update path for restore test
+    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshot->update(['path' => 'pg_backup.sql.gz']);
+    $snapshot->job->markCompleted();
 
-    setupRestoreExpectations($targetServer, $snapshot, 'restored_db');
+    // Create restore job
+    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
+
+    setupRestoreExpectations($restore);
 
     // Act
-    $this->restoreTask->run($targetServer, $snapshot, 'restored_db', $this->tempDir);
+    $this->restoreTask->run($restore, $this->tempDir);
 
     // Build expected file paths
     $compressedFile = $this->tempDir.'/pg_backup.sql.gz';
@@ -240,10 +225,16 @@ test('run throws exception when database types are incompatible', function () {
         'database_name' => 'targetdb',
     ]);
 
-    $snapshot = createRestoreSnapshot($sourceServer);
+    // Create snapshot and mark as completed
+    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshot->update(['path' => 'backup.sql.gz']);
+    $snapshot->job->markCompleted();
+
+    // Create restore job
+    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
 
     // Act & Assert
-    expect(fn () => $this->restoreTask->run($targetServer, $snapshot, 'restored_db'))
+    expect(fn () => $this->restoreTask->run($restore))
         ->toThrow(\Exception::class, 'Cannot restore mysql snapshot to postgresql server');
 });
 
@@ -269,7 +260,13 @@ test('run throws exception when restore command failed', function () {
         'database_name' => 'targetdb',
     ]);
 
-    $snapshot = createRestoreSnapshot($sourceServer, ['path' => 'backup.sql.gz']);
+    // Create snapshot and mark as completed
+    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshot->update(['path' => 'backup.sql.gz']);
+    $snapshot->job->markCompleted();
+
+    // Create restore job
+    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
 
     // Create a shell processor that fails on restore command (the second call after decompress)
     $shellProcessor = Mockery::mock(\App\Services\Backup\ShellProcessor::class);
@@ -317,13 +314,10 @@ test('run throws exception when restore command failed', function () {
             file_put_contents($destination, 'compressed backup data');
         });
 
-    // Count jobs before to find the new one created during restore
-    $jobCountBefore = \App\Models\BackupJob::count();
-
     // Act & Assert
     $exception = null;
     try {
-        $restoreTask->run($targetServer, $snapshot, 'restored_db', $this->tempDir);
+        $restoreTask->run($restore, $this->tempDir);
     } catch (\App\Exceptions\ShellProcessFailed $e) {
         $exception = $e;
     }
@@ -332,12 +326,9 @@ test('run throws exception when restore command failed', function () {
     expect($exception->getMessage())->toBe('Access denied for user');
 
     // Verify the job status is set to failed
-    // Get the restore job (should have a restore relationship)
-    $restore = \App\Models\Restore::whereSnapshotId($snapshot->id)->first();
+    $restore->refresh();
     $job = $restore->job;
 
-    // Ensure we got the new job
-    expect(\App\Models\BackupJob::count())->toBe($jobCountBefore + 1);
     expect($job)->not->toBeNull();
     expect($job->status)->toBe('failed');
     expect($job->error_message)->toBe('Access denied for user');
@@ -366,7 +357,13 @@ test('run throws exception for unsupported database type', function () {
         'database_name' => 'targetdb',
     ]);
 
-    $snapshot = createRestoreSnapshot($sourceServer, ['database_type' => 'oracle']);
+    // Create snapshot and mark as completed
+    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshot->update(['path' => 'backup.sql.gz']);
+    $snapshot->job->markCompleted();
+
+    // Create restore job
+    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
 
     $this->filesystemProvider
         ->shouldReceive('download')
@@ -376,6 +373,6 @@ test('run throws exception for unsupported database type', function () {
         });
 
     // Act & Assert
-    expect(fn () => $this->restoreTask->run($targetServer, $snapshot, 'restored_db', $this->tempDir))
+    expect(fn () => $this->restoreTask->run($restore, $this->tempDir))
         ->toThrow(\Exception::class, 'Database type oracle not supported');
 });

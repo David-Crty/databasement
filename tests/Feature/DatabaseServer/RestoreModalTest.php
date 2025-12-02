@@ -106,15 +106,23 @@ test('can queue restore job with valid data', function () {
         ->call('restore')
         ->assertDispatched('restore-completed');
 
-    // Verify the job was pushed with correct parameters
+    // Verify the job was pushed
     Queue::assertPushed(ProcessRestoreJob::class, 1);
 
+    // Verify that Restore and BackupJob records were created
+    $restore = \App\Models\Restore::where('snapshot_id', $snapshot->id)
+        ->where('target_server_id', $targetServer->id)
+        ->first();
+
+    expect($restore)->not->toBeNull();
+    expect($restore->schema_name)->toBe('restored_db');
+    expect((string) $restore->triggered_by_user_id)->toBe((string) $this->user->id);
+    expect($restore->job)->not->toBeNull();
+    expect($restore->job->status)->toBe('pending');
+
+    // Verify the job was pushed with the restore ID
     $pushedJob = Queue::pushed(ProcessRestoreJob::class)->first();
-    expect($pushedJob->snapshotId)->toBe($snapshot->id);
-    expect($pushedJob->targetServerId)->toBe($targetServer->id);
-    expect($pushedJob->schemaName)->toBe('restored_db');
-    expect($pushedJob->method)->toBe('manual');
-    expect((string) $pushedJob->userId)->toBe((string) $this->user->id);
+    expect($pushedJob->restoreId)->toBe($restore->id);
 });
 
 test('validates schema name is required', function () {

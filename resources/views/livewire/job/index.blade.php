@@ -25,28 +25,26 @@
             @scope('cell_type', $job)
                 @if($job->snapshot)
                     <x-badge value="{{ __('Backup') }}" class="badge-primary" />
-                @else
+                @elseif($job->restore)
                     <x-badge value="{{ __('Restore') }}" class="badge-secondary" />
+                @else
+                    <x-badge value="{{ __('Unknown') }}" class="badge-ghost" />
                 @endif
             @endscope
 
-            @scope('cell_started_at', $job)
-                @if($job->started_at)
-                    <div class="table-cell-primary">{{ $job->started_at->format('M d, Y H:i') }}</div>
-                    <div class="text-sm text-base-content/70">{{ $job->started_at->diffForHumans() }}</div>
-                @else
-                    <span class="text-base-content/50">-</span>
-                @endif
+            @scope('cell_created_at', $job)
+                <div class="table-cell-primary">{{ $job->created_at->format('M d, Y H:i') }}</div>
+                <div class="text-sm text-base-content/70">{{ $job->created_at->diffForHumans() }}</div>
             @endscope
 
             @scope('cell_server', $job)
-                @if($job->snapshot)
+                @if($job->snapshot && $job->snapshot->databaseServer)
                     <div class="table-cell-primary">{{ $job->snapshot->databaseServer->name }}</div>
                     <div class="text-sm text-base-content/70">
                         <x-badge :value="$job->snapshot->database_type" class="badge-xs" />
                         {{ $job->snapshot->database_name }}
                     </div>
-                @elseif($job->restore)
+                @elseif($job->restore && $job->restore->targetServer)
                     <div class="table-cell-primary">{{ $job->restore->targetServer->name }} (Target)</div>
                     <div class="text-sm text-base-content/70">
                         @if($job->restore->snapshot)
@@ -57,6 +55,8 @@
                     @if($job->restore->snapshot && $job->restore->snapshot->databaseServer)
                         <div class="text-xs text-base-content/50">From: {{ $job->restore->snapshot->databaseServer->name }}</div>
                     @endif
+                @else
+                    <span class="text-base-content/50">{{ __('Loading...') }}</span>
                 @endif
             @endscope
 

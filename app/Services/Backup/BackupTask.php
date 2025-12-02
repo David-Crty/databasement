@@ -16,8 +16,7 @@ class BackupTask
         private readonly PostgresqlDatabase $postgresqlDatabase,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
-        private readonly GzipCompressor $compressor,
-        private readonly DatabaseSizeCalculator $databaseSizeCalculator
+        private readonly GzipCompressor $compressor
     ) {}
 
     public function setLogger(BackupJob $job): void
@@ -26,18 +25,11 @@ class BackupTask
     }
 
     public function run(
-        DatabaseServer $databaseServer,
-        string $workingDirectory = '/tmp',
-        string $method = 'manual',
-        ?string $userId = null
+        Snapshot $snapshot,
+        string $workingDirectory = '/tmp'
     ): Snapshot {
-        // Create backup job first (required for snapshot)
-        $job = BackupJob::create([
-            'status' => 'pending',
-        ]);
-
-        // Create snapshot record with job reference
-        $snapshot = $this->createSnapshot($databaseServer, $job, $method, $userId);
+        $databaseServer = $snapshot->databaseServer;
+        $job = $snapshot->job;
 
         // Configure shell processor to log to job
         $this->setLogger($job);
@@ -58,22 +50,21 @@ class BackupTask
                     'database_type' => $databaseServer->database_type,
                 ],
                 'volume' => [
-                    'id' => $databaseServer->backup->volume_id,
-                    'type' => $databaseServer->backup->volume->type,
-                    'config' => $databaseServer->backup->volume->config,
+                    'id' => $snapshot->volume_id,
+                    'type' => $snapshot->volume->type,
                 ],
-                'method' => $method,
+                'method' => $snapshot->method,
             ]);
 
             $this->dumpDatabase($databaseServer, $workingFile);
             $archive = $this->compressor->compress($workingFile);
 
-            $job->log("Transferring backup to volume: {$databaseServer->backup->volume->name}", 'info', [
-                'volume_type' => $databaseServer->backup->volume->type,
+            $job->log("Transferring backup to volume: {$snapshot->volume->name}", 'info', [
+                'volume_type' => $snapshot->volume->type,
             ]);
             $destinationPath = $this->generateBackupFilename($databaseServer);
             $this->filesystemProvider->transfert(
-                $databaseServer->backup->volume,
+                $snapshot->volume,
                 $archive,
                 $destinationPath
             );
@@ -157,30 +148,5 @@ class BackupTask
             'postgresql' => $this->postgresqlDatabase->setConfig($config),
             default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
         };
-    }
-
-    private function createSnapshot(DatabaseServer $databaseServer, BackupJob $job, string $method, ?string $userId): Snapshot
-    {
-        // Calculate database size
-        $databaseSize = $this->databaseSizeCalculator->calculate($databaseServer);
-
-        return Snapshot::create([
-            'backup_job_id' => $job->id,
-            'database_server_id' => $databaseServer->id,
-            'backup_id' => $databaseServer->backup->id,
-            'volume_id' => $databaseServer->backup->volume_id,
-            'path' => '', // Will be updated after transfer
-            'file_size' => 0, // Will be updated after transfer
-            'checksum' => null, // Will be updated after transfer
-            'started_at' => now(),
-            'database_name' => $databaseServer->database_name ?? '',
-            'database_type' => $databaseServer->database_type,
-            'database_host' => $databaseServer->host,
-            'database_port' => $databaseServer->port,
-            'database_size_bytes' => $databaseSize,
-            'compression_type' => 'gzip',
-            'method' => $method,
-            'triggered_by_user_id' => $userId,
-        ]);
     }
 }

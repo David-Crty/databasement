@@ -6,6 +6,7 @@ use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\Volume;
+use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\RestoreTask;
 use Illuminate\Console\Command;
@@ -28,7 +29,7 @@ class EndToEndTestBackup extends Command
 
     private ?string $restoredDatabaseName = null;
 
-    public function handle(BackupTask $backupTask, RestoreTask $restoreTask): int
+    public function handle(BackupTask $backupTask, RestoreTask $restoreTask, BackupJobFactory $backupJobFactory): int
     {
         $types = $this->option('type');
 
@@ -53,7 +54,7 @@ class EndToEndTestBackup extends Command
 
         foreach ($types as $type) {
             try {
-                $this->runTestForType($type, $backupTask, $restoreTask);
+                $this->runTestForType($type, $backupTask, $restoreTask, $backupJobFactory);
             } catch (\Exception $e) {
                 $this->error("\n❌ Test failed for {$type}: {$e->getMessage()}");
                 $this->error("Stack trace:\n{$e->getTraceAsString()}");
@@ -81,7 +82,7 @@ class EndToEndTestBackup extends Command
         }
     }
 
-    private function runTestForType(string $type, BackupTask $backupTask, RestoreTask $restoreTask): void
+    private function runTestForType(string $type, BackupTask $backupTask, RestoreTask $restoreTask, BackupJobFactory $backupJobFactory): void
     {
         $this->info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         $this->info("🧪 Testing {$type}");
@@ -94,13 +95,13 @@ class EndToEndTestBackup extends Command
         $this->createModels($type);
 
         // Step 3: Run backup
-        $this->runBackup($backupTask);
+        $this->runBackup($backupTask, $backupJobFactory);
 
         // Step 4: Verify backup
         $this->verifyBackup();
 
         // Step 5: Run restore
-        $this->runRestore($restoreTask, $type);
+        $this->runRestore($restoreTask, $backupJobFactory);
 
         // Step 6: Verify restore
         $this->verifyRestore($type);
@@ -128,9 +129,12 @@ class EndToEndTestBackup extends Command
     {
         $this->info("\n📝 Creating test models for {$type}...");
 
-        // Create Volume
+        // Clean up any leftover test data from previous runs
+        $this->cleanupLeftoverTestData($type);
+
+        // Create Volume with unique name per type
         $this->volume = Volume::create([
-            'name' => 'E2E Test Local Volume',
+            'name' => "E2E Test Local Volume ({$type})",
             'type' => 'local',
             'config' => [
                 'root' => '/tmp/backups',
@@ -182,20 +186,27 @@ class EndToEndTestBackup extends Command
         };
     }
 
-    private function runBackup(BackupTask $backupTask): void
+    private function runBackup(BackupTask $backupTask, BackupJobFactory $backupJobFactory): void
     {
         $this->info("\n💾 Running backup task...");
 
-        $this->snapshot = $backupTask->run($this->databaseServer);
+        $this->snapshot = $backupJobFactory->createBackupJob(
+            server: $this->databaseServer,
+            method: 'manual',
+            triggeredByUserId: null
+        );
+
+        // Run the backup task with existing snapshot
+        $backupTask->run($this->snapshot);
+
+        // Refresh to get updated data
+        $this->snapshot->refresh();
+        $this->snapshot->load('job');
 
         $this->line("   ✓ Snapshot created (ID: {$this->snapshot->id})");
         $this->line("   ✓ Status: {$this->snapshot->job->status}");
         $this->line("   ✓ Duration: {$this->snapshot->job->getHumanDuration()}");
         $this->line("   ✓ File size: {$this->snapshot->getHumanFileSize()}");
-
-        if ($this->snapshot->database_size_bytes) {
-            $this->line("   ✓ Database size: {$this->snapshot->getHumanDatabaseSize()}");
-        }
 
         if ($this->snapshot->checksum) {
             $this->line('   ✓ Checksum: '.substr($this->snapshot->checksum, 0, 16).'...');
@@ -255,7 +266,7 @@ class EndToEndTestBackup extends Command
         }
     }
 
-    private function runRestore(RestoreTask $restoreTask, string $type): void
+    private function runRestore(RestoreTask $restoreTask, BackupJobFactory $backupJobFactory): void
     {
         $this->info("\n🔄 Running restore task...");
 
@@ -268,7 +279,14 @@ class EndToEndTestBackup extends Command
 
         $this->line("   ℹ Restoring to new database: {$this->restoredDatabaseName}");
 
-        $restoreTask->run($this->databaseServer, $this->snapshot, $this->restoredDatabaseName);
+        $restore = $backupJobFactory->createRestoreJob(
+            snapshot: $this->snapshot,
+            targetServer: $this->databaseServer,
+            schemaName: $this->restoredDatabaseName,
+        );
+
+        // Run the restore task with existing restore record
+        $restoreTask->run($restore);
 
         $this->line('   ✓ Restore completed successfully!');
     }
@@ -361,6 +379,31 @@ class EndToEndTestBackup extends Command
         $this->snapshot = null;
         $this->backupFilePath = null;
         $this->restoredDatabaseName = null;
+    }
+
+    private function cleanupLeftoverTestData(string $type): void
+    {
+        // Clean up any leftover test data from previous failed runs
+        $volumeName = "E2E Test Local Volume ({$type})";
+        $serverName = match ($type) {
+            'mysql' => 'E2E Test MySQL Server',
+            'postgres' => 'E2E Test PostgreSQL Server',
+            default => null,
+        };
+
+        // Delete leftover database server (will cascade to backup and snapshots)
+        if ($serverName) {
+            $leftoverServer = DatabaseServer::where('name', $serverName)->first();
+            if ($leftoverServer) {
+                $leftoverServer->delete();
+            }
+        }
+
+        // Delete leftover volume
+        $leftoverVolume = Volume::where('name', $volumeName)->first();
+        if ($leftoverVolume) {
+            $leftoverVolume->delete();
+        }
     }
 
     private function dropRestoredDatabase(string $type): void

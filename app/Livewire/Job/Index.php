@@ -17,7 +17,7 @@ class Index extends Component
 
     public string $typeFilter = 'all';
 
-    public array $sortBy = ['column' => 'started_at', 'direction' => 'desc'];
+    public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
 
     public bool $drawer = false;
 
@@ -58,7 +58,7 @@ class Index extends Component
     {
         return [
             ['key' => 'type', 'label' => __('Type'), 'sortable' => false, 'class' => 'w-32'],
-            ['key' => 'started_at', 'label' => __('Started'), 'class' => 'w-48'],
+            ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-48'],
             ['key' => 'server', 'label' => __('Server / Database'), 'sortable' => false],
             ['key' => 'status', 'label' => __('Status'), 'sortable' => false, 'class' => 'w-32'],
             ['key' => 'duration', 'label' => __('Duration'), 'sortable' => false, 'class' => 'w-32'],

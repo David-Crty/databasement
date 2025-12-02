@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Jobs\ProcessBackupJob;
 use App\Models\Backup;
+use App\Services\Backup\BackupJobFactory;
 use Illuminate\Console\Command;
 
 class RunScheduledBackups extends Command
@@ -12,7 +13,7 @@ class RunScheduledBackups extends Command
 
     protected $description = 'Run scheduled backups based on recurrence type';
 
-    public function handle(): int
+    public function handle(BackupJobFactory $backupJobFactory): int
     {
         $recurrence = $this->argument('recurrence');
 
@@ -22,7 +23,7 @@ class RunScheduledBackups extends Command
             return self::FAILURE;
         }
 
-        $backups = Backup::with('databaseServer')
+        $backups = Backup::with(['databaseServer', 'volume'])
             ->where('recurrence', $recurrence)
             ->get();
 
@@ -35,12 +36,16 @@ class RunScheduledBackups extends Command
         $this->info("Dispatching {$backups->count()} {$recurrence} backup(s)...");
 
         foreach ($backups as $backup) {
-            ProcessBackupJob::dispatch(
-                databaseServerId: $backup->database_server_id,
-                method: 'scheduled'
+            $server = $backup->databaseServer;
+
+            $snapshot = $backupJobFactory->createBackupJob(
+                server: $server,
+                method: 'scheduled',
             );
 
-            $this->line("  → Dispatched backup for: {$backup->databaseServer->name}");
+            ProcessBackupJob::dispatch($snapshot->id);
+
+            $this->line("  → Dispatched backup for: {$server->name}");
         }
 
         $this->info('All backup jobs dispatched successfully.');

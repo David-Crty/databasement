@@ -5,6 +5,7 @@ namespace App\Livewire\DatabaseServer;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\DatabaseListService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
@@ -98,7 +99,7 @@ class RestoreModal extends Component
         }
     }
 
-    public function restore(): void
+    public function restore(BackupJobFactory $backupJobFactory): void
     {
         $this->authorize('restore', $this->targetServer);
 
@@ -112,16 +113,18 @@ class RestoreModal extends Component
         ]);
 
         try {
-            // Dispatch the restore job (it will create the restore record and job)
-            ProcessRestoreJob::dispatch(
-                snapshotId: $this->selectedSnapshotId,
-                targetServerId: $this->targetServer->id,
+            $snapshot = Snapshot::findOrFail($this->selectedSnapshotId);
+
+            $restore = $backupJobFactory->createRestoreJob(
+                snapshot: $snapshot,
+                targetServer: $this->targetServer,
                 schemaName: $this->schemaName,
-                method: 'manual',
-                userId: auth()->id()
+                triggeredByUserId: auth()->id()
             );
 
-            $this->success("Restore queued successfully! You'll be notified when it completes.");
+            ProcessRestoreJob::dispatch($restore->id);
+
+            $this->success('Restore queued successfully!');
 
             $this->showModal = false;
 

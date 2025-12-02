@@ -60,9 +60,6 @@
 
             @scope('cell_size', $snapshot)
                 <div class="table-cell-primary">{{ $snapshot->getHumanFileSize() }}</div>
-                @if($snapshot->database_size_bytes)
-                    <div class="text-sm text-base-content/70">DB: {{ $snapshot->getHumanDatabaseSize() }}</div>
-                @endif
             @endscope
 
             @scope('cell_method', $snapshot)

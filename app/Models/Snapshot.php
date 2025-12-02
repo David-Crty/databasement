@@ -19,7 +19,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $database_type
  * @property string $database_host
  * @property int $database_port
- * @property int|null $database_size_bytes
  * @property string $compression_type
  * @property string $method
  * @property string|null $triggered_by_user_id
@@ -49,7 +48,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereDatabaseName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereDatabasePort($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereDatabaseServerId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereDatabaseSizeBytes($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereDatabaseType($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereFileSize($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Snapshot whereId($value)
@@ -79,7 +77,6 @@ class Snapshot extends Model
         'database_type',
         'database_host',
         'database_port',
-        'database_size_bytes',
         'compression_type',
         'method',
         'triggered_by_user_id',
@@ -91,7 +88,6 @@ class Snapshot extends Model
             'started_at' => 'datetime',
             'file_size' => 'integer',
             'database_port' => 'integer',
-            'database_size_bytes' => 'integer',
         ];
     }
 
@@ -134,25 +130,6 @@ class Snapshot extends Model
     public function getHumanFileSize(): string
     {
         $bytes = $this->file_size;
-        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-
-        for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
-            $bytes /= 1024;
-        }
-
-        return round($bytes, 2).' '.$units[$i];
-    }
-
-    /**
-     * Get human-readable database size
-     */
-    public function getHumanDatabaseSize(): ?string
-    {
-        if ($this->database_size_bytes === null) {
-            return null;
-        }
-
-        $bytes = $this->database_size_bytes;
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
 
         for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {

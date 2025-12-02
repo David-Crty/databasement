@@ -2,8 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\DatabaseServer;
-use App\Models\Snapshot;
+use App\Models\Restore;
 use App\Services\Backup\RestoreTask;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -32,11 +31,7 @@ class ProcessRestoreJob implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        public string $snapshotId,
-        public string $targetServerId,
-        public string $schemaName,
-        public string $method = 'manual',
-        public ?string $userId = null
+        public string $restoreId
     ) {
         $this->onQueue('backups');
     }
@@ -46,24 +41,20 @@ class ProcessRestoreJob implements ShouldQueue
      */
     public function handle(RestoreTask $restoreTask): void
     {
-        // Fetch the snapshot and target server with relationships
-        $snapshot = Snapshot::with(['volume'])->findOrFail($this->snapshotId);
-        $targetServer = DatabaseServer::findOrFail($this->targetServerId);
+        $restore = Restore::with(['job', 'snapshot.volume', 'snapshot.databaseServer', 'targetServer'])
+            ->findOrFail($this->restoreId);
 
-        // Run the restore task (it will create restore and job, handling status updates)
-        $restoreTask->run(
-            targetServer: $targetServer,
-            snapshot: $snapshot,
-            schemaName: $this->schemaName,
-            method: $this->method,
-            userId: $this->userId
-        );
+        // Update job with queue job ID for tracking
+        $restore->job->update(['job_id' => $this->job->getJobId()]);
+
+        // Run the restore task
+        $restoreTask->run($restore);
 
         Log::info('Restore completed successfully', [
-            'snapshot_id' => $this->snapshotId,
-            'target_server_id' => $this->targetServerId,
-            'schema_name' => $this->schemaName,
-            'method' => $this->method,
+            'restore_id' => $this->restoreId,
+            'snapshot_id' => $restore->snapshot_id,
+            'target_server_id' => $restore->target_server_id,
+            'schema_name' => $restore->schema_name,
         ]);
     }
 
@@ -73,12 +64,15 @@ class ProcessRestoreJob implements ShouldQueue
     public function failed(\Throwable $exception): void
     {
         Log::error('Restore job failed', [
-            'snapshot_id' => $this->snapshotId,
-            'target_server_id' => $this->targetServerId,
-            'schema_name' => $this->schemaName,
-            'method' => $this->method,
+            'restore_id' => $this->restoreId,
             'error' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString(),
         ]);
+
+        // Mark the job as failed
+        $restore = Restore::with('job')->find($this->restoreId);
+        if ($restore->job->status !== 'failed') {
+            $restore->job->markFailed($exception);
+        }
     }
 }

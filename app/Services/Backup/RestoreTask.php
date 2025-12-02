@@ -28,22 +28,15 @@ class RestoreTask
      * @throws \Exception
      */
     public function run(
-        DatabaseServer $targetServer,
-        Snapshot $snapshot,
-        string $schemaName,
-        string $workingDirectory = '/tmp',
-        string $method = 'manual',
-        ?string $userId = null
+        Restore $restore,
+        string $workingDirectory = '/tmp'
     ): Restore {
+        $targetServer = $restore->targetServer;
+        $snapshot = $restore->snapshot;
+
         $this->validateCompatibility($targetServer, $snapshot);
 
-        // Create backup job first (required for restore)
-        $job = BackupJob::create([
-            'status' => 'pending',
-        ]);
-
-        // Create restore record with job reference
-        $restore = $this->createRestore($targetServer, $snapshot, $job, $schemaName, $userId);
+        $job = $restore->job;
 
         // Configure shell processor to log to job
         $this->shellProcessor->setLogger($job);
@@ -57,7 +50,7 @@ class RestoreTask
                 'target_database_server' => [
                     'id' => $targetServer->id,
                     'name' => $targetServer->name,
-                    'database_name' => $schemaName,
+                    'database_name' => $restore->schema_name,
                     'database_type' => $targetServer->database_type,
                 ],
                 'snapshot' => [
@@ -69,7 +62,6 @@ class RestoreTask
                         'database_type' => $snapshot->databaseServer->database_type,
                     ],
                 ],
-                'method' => $method,
             ]);
 
             // Download snapshot from volume
@@ -83,11 +75,11 @@ class RestoreTask
                 'file_size' => filesize($compressedFile),
             ]);
             $workingFile = $this->compressor->decompress($compressedFile);
-            $this->prepareDatabase($targetServer, $schemaName, $job);
-            $this->configureDatabaseInterface($targetServer, $schemaName);
+            $this->prepareDatabase($targetServer, $restore->schema_name, $job);
+            $this->configureDatabaseInterface($targetServer, $restore->schema_name);
             $job->log('Restoring database from snapshot', 'info', [
                 'source_database' => $snapshot->database_name,
-                'target_database' => $schemaName,
+                'target_database' => $restore->schema_name,
             ]);
             $this->restoreDatabase($targetServer, $workingFile);
 
@@ -239,21 +231,5 @@ class RestoreTask
             ),
             default => throw new \Exception("Database type {$targetServer->database_type} not supported"),
         };
-    }
-
-    private function createRestore(
-        DatabaseServer $targetServer,
-        Snapshot $snapshot,
-        BackupJob $job,
-        string $schemaName,
-        ?string $userId
-    ): Restore {
-        return Restore::create([
-            'backup_job_id' => $job->id,
-            'snapshot_id' => $snapshot->id,
-            'target_server_id' => $targetServer->id,
-            'schema_name' => $schemaName,
-            'triggered_by_user_id' => $userId,
-        ]);
     }
 }
