@@ -12,10 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('backups', function (Blueprint $table) {
-            $table->ulid('id')->primary();
-            $table->foreignUlid('database_server_id')->unique()->constrained()->cascadeOnDelete();
-            $table->foreignUlid('volume_id')->constrained()->cascadeOnDelete();
-            $table->string('recurrence')->default('daily'); // daily, weekly
+            $table->char('id', 26)->primary();
+            $table->char('database_server_id', 26)->unique();
+            $table->char('volume_id', 26)->index('backups_volume_id_foreign');
+            $table->string('recurrence')->default('daily');
             $table->timestamps();
         });
     }

@@ -12,11 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('database_servers', function (Blueprint $table) {
-            $table->ulid('id')->primary();
+            $table->char('id', 26)->primary();
             $table->string('name');
             $table->string('host');
             $table->integer('port')->default(3306);
-            $table->string('database_type')->default('mysql'); // mysql, postgresql, mariadb, etc.
+            $table->string('database_type')->default('mysql');
             $table->string('username');
             $table->string('password');
             $table->string('database_name')->nullable();

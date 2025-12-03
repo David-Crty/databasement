@@ -11,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('snapshots', function (Blueprint $table) {
-            $table->json('logs')->nullable()->after('triggered_by_user_id');
+        Schema::create('volumes', function (Blueprint $table) {
+            $table->char('id', 26)->primary();
+            $table->string('name')->unique();
+            $table->string('type')->default('local');
+            $table->json('config');
+            $table->timestamps();
         });
     }
 
@@ -21,8 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('snapshots', function (Blueprint $table) {
-            $table->dropColumn('logs');
-        });
+        Schema::dropIfExists('volumes');
     }
 };

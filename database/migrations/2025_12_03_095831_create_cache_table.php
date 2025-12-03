@@ -11,8 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('snapshots', function (Blueprint $table) {
-            $table->string('job_id')->nullable()->after('volume_id');
+        Schema::create('cache', function (Blueprint $table) {
+            $table->string('key')->primary();
+            $table->mediumText('value');
+            $table->integer('expiration');
         });
     }
 
@@ -21,8 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('snapshots', function (Blueprint $table) {
-            $table->dropColumn('job_id');
-        });
+        Schema::dropIfExists('cache');
     }
 };
