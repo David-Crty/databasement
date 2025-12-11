@@ -115,7 +115,7 @@ class RestoreModal extends Component
         try {
             $snapshot = Snapshot::findOrFail($this->selectedSnapshotId);
 
-            $restore = $backupJobFactory->createRestoreJob(
+            $restore = $backupJobFactory->createRestore(
                 snapshot: $snapshot,
                 targetServer: $this->targetServer,
                 schemaName: $this->schemaName,

@@ -36,17 +36,18 @@ class BackupTask
 
         $workingFile = $workingDirectory.'/'.$snapshot->id.'.sql';
 
-        // Configure database interface with server credentials
-        $this->configureDatabaseInterface($databaseServer);
-
         try {
             // Mark as running
             $job->markRunning();
-            $job->log("Starting backup for database: {$databaseServer->database_name}", 'info', [
+
+            // Use the database name from the snapshot (important for multi-database backups)
+            $databaseName = $snapshot->database_name;
+
+            $job->log("Starting backup for database: {$databaseName}", 'info', [
                 'database_server' => [
                     'id' => $databaseServer->id,
                     'name' => $databaseServer->name,
-                    'database_name' => $databaseServer->database_name,
+                    'database_name' => $databaseName,
                     'database_type' => $databaseServer->database_type,
                 ],
                 'volume' => [
@@ -56,13 +57,13 @@ class BackupTask
                 'method' => $snapshot->method,
             ]);
 
-            $this->dumpDatabase($databaseServer, $workingFile);
+            $this->dumpDatabase($databaseServer, $databaseName, $workingFile);
             $archive = $this->compressor->compress($workingFile);
 
             $job->log("Transferring backup to volume: {$snapshot->volume->name}", 'info', [
                 'volume_type' => $snapshot->volume->type,
             ]);
-            $destinationPath = $this->generateBackupFilename($databaseServer);
+            $destinationPath = $this->generateBackupFilename($databaseServer, $databaseName);
             $transferStart = microtime(true);
             $this->filesystemProvider->transfer(
                 $snapshot->volume,
@@ -103,6 +104,7 @@ class BackupTask
                 'line' => $e->getLine(),
             ]);
             $job->markFailed($e);
+
             throw $e;
         } finally {
             // Clean up temporary files
@@ -116,8 +118,11 @@ class BackupTask
         }
     }
 
-    private function dumpDatabase(DatabaseServer $databaseServer, string $outputPath): void
+    private function dumpDatabase(DatabaseServer $databaseServer, string $databaseName, string $outputPath): void
     {
+        // Configure database interface with the specific database name
+        $this->configureDatabaseInterface($databaseServer, $databaseName);
+
         $command = match ($databaseServer->database_type) {
             'mysql', 'mariadb' => $this->mysqlDatabase->getDumpCommandLine($outputPath),
             'postgresql' => $this->postgresqlDatabase->getDumpCommandLine($outputPath),
@@ -127,23 +132,23 @@ class BackupTask
         $this->shellProcessor->process($command);
     }
 
-    private function generateBackupFilename(DatabaseServer $databaseServer): string
+    private function generateBackupFilename(DatabaseServer $databaseServer, string $databaseName): string
     {
         $timestamp = now()->format('Y-m-d-His');
         $serverName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->name);
-        $databaseName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->database_name ?? 'db');
+        $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName);
 
-        return sprintf('%s-%s-%s.sql.gz', $serverName, $databaseName, $timestamp);
+        return sprintf('%s-%s-%s.sql.gz', $serverName, $sanitizedDbName, $timestamp);
     }
 
-    private function configureDatabaseInterface(DatabaseServer $databaseServer): void
+    private function configureDatabaseInterface(DatabaseServer $databaseServer, string $databaseName): void
     {
         $config = [
             'host' => $databaseServer->host,
             'port' => $databaseServer->port,
             'user' => $databaseServer->username,
             'pass' => $databaseServer->password,
-            'database' => $databaseServer->database_name,
+            'database' => $databaseName,
         ];
 
         match ($databaseServer->database_type) {

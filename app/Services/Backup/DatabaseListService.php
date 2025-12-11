@@ -8,6 +8,15 @@ use PDOException;
 
 class DatabaseListService
 {
+    private const EXCLUDED_MYSQL_DATABASES = [
+        'information_schema',
+        'performance_schema',
+        'mysql',
+        'sys',
+    ];
+
+    private const EXCLUDED_POSTGRESQL_DATABASES = [];
+
     /**
      * Get list of databases/schemas from a database server
      *
@@ -38,7 +47,7 @@ class DatabaseListService
 
         // Filter out system databases
         return array_values(array_filter($databases, function ($db) {
-            return ! in_array($db, ['information_schema', 'performance_schema', 'mysql', 'sys']);
+            return ! in_array($db, self::EXCLUDED_MYSQL_DATABASES);
         }));
     }
 
@@ -48,10 +57,14 @@ class DatabaseListService
     private function listPostgresqlDatabases(PDO $pdo): array
     {
         $statement = $pdo->query(
-            "SELECT datname FROM pg_database WHERE datistemplate = false AND datname NOT IN ('postgres')"
+            'SELECT datname FROM pg_database WHERE datistemplate = false'
         );
 
-        return $statement->fetchAll(PDO::FETCH_COLUMN, 0);
+        $databases = $statement->fetchAll(PDO::FETCH_COLUMN, 0);
+
+        return array_values(array_filter($databases, function ($db) {
+            return ! in_array($db, self::EXCLUDED_POSTGRESQL_DATABASES);
+        }));
     }
 
     protected function createConnection(DatabaseServer $databaseServer): PDO

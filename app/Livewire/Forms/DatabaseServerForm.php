@@ -5,6 +5,7 @@ namespace App\Livewire\Forms;
 use App\Facades\DatabaseConnectionTester;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Services\Backup\DatabaseListService;
 use Livewire\Attributes\Validate;
 use Livewire\Form;
 
@@ -26,6 +27,8 @@ class DatabaseServerForm extends Form
 
     public ?string $database_name = null;
 
+    public bool $backup_all_databases = false;
+
     public ?string $description = null;
 
     public string $volume_id = '';
@@ -38,6 +41,11 @@ class DatabaseServerForm extends Form
 
     public bool $testingConnection = false;
 
+    /** @var array<array{id: string, name: string}> */
+    public array $availableDatabases = [];
+
+    public bool $loadingDatabases = false;
+
     public function setServer(DatabaseServer $server): void
     {
         $this->server = $server;
@@ -47,6 +55,7 @@ class DatabaseServerForm extends Form
         $this->database_type = $server->database_type;
         $this->username = $server->username;
         $this->database_name = $server->database_name;
+        $this->backup_all_databases = $server->backup_all_databases;
         $this->description = $server->description;
         // Don't populate password for security
         $this->password = '';
@@ -58,6 +67,12 @@ class DatabaseServerForm extends Form
             $this->volume_id = $backup->volume_id;
             $this->recurrence = $backup->recurrence;
         }
+
+        // Mark connection as already tested for existing servers
+        // and load available databases
+        $this->connectionTestSuccess = true;
+        $this->connectionTestMessage = __('Connection verified');
+        $this->loadAvailableDatabases();
     }
 
     /**
@@ -72,7 +87,8 @@ class DatabaseServerForm extends Form
             'database_type' => 'required|string|in:mysql,postgresql,mariadb,sqlite',
             'username' => 'required|string|max:255',
             'password' => 'nullable',
-            'database_name' => 'required|string|max:255',
+            'backup_all_databases' => 'boolean',
+            'database_name' => $this->backup_all_databases ? 'nullable|string|max:255' : 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
             'volume_id' => 'required|exists:volumes,id',
             'recurrence' => 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES),
@@ -141,6 +157,7 @@ class DatabaseServerForm extends Form
     {
         $this->testingConnection = true;
         $this->connectionTestMessage = null;
+        $this->availableDatabases = [];
 
         // Validate only the connection-related fields
         try {
@@ -159,17 +176,56 @@ class DatabaseServerForm extends Form
             return;
         }
 
+        // Test connection without specific database (server-level connection)
         $result = DatabaseConnectionTester::test([
             'database_type' => $this->database_type,
             'host' => $this->host,
             'port' => $this->port,
             'username' => $this->username,
-            'password' => ($this->password) ?: $this->server->password,
-            'database_name' => $this->database_name,
+            'password' => ($this->password) ?: $this->server?->password,
+            'database_name' => null,
         ]);
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
         $this->testingConnection = false;
+
+        // If connection successful, load available databases
+        if ($this->connectionTestSuccess) {
+            $this->loadAvailableDatabases();
+        }
+    }
+
+    /**
+     * Load available databases from the server for selection
+     */
+    public function loadAvailableDatabases(): void
+    {
+        $this->loadingDatabases = true;
+        $this->availableDatabases = [];
+
+        try {
+            // Create a temporary DatabaseServer object for the service
+            $tempServer = new DatabaseServer([
+                'host' => $this->host,
+                'port' => $this->port,
+                'database_type' => $this->database_type,
+                'username' => $this->username,
+                'password' => ($this->password) ?: $this->server?->password,
+            ]);
+
+            $databaseListService = app(DatabaseListService::class);
+            $databases = $databaseListService->listDatabases($tempServer);
+
+            // Format for select options
+            $this->availableDatabases = collect($databases)
+                ->map(fn (string $db) => ['id' => $db, 'name' => $db])
+                ->toArray();
+        } catch (\Exception $e) {
+            // If we can't list databases, the user can still type manually
+            $this->availableDatabases = [];
+        }
+
+        $this->loadingDatabases = false;
     }
 }

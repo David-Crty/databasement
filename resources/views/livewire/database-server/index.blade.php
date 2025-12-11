@@ -44,7 +44,11 @@
             @endscope
 
             @scope('cell_database_name', $server)
-                {{ $server->database_name ?? '-' }}
+                @if($server->backup_all_databases)
+                    <x-badge value="{{ __('All') }}" class="badge-info badge-soft" />
+                @else
+                    {{ $server->database_name ?? '-' }}
+                @endif
             @endscope
 
             @scope('cell_backup', $server)

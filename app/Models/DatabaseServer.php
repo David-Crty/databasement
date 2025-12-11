@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property string $username
  * @property string $password
  * @property string|null $database_name
+ * @property bool $backup_all_databases
  * @property string|null $description
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -58,6 +59,7 @@ class DatabaseServer extends Model
         'username',
         'password',
         'database_name',
+        'backup_all_databases',
         'description',
     ];
 
@@ -69,6 +71,7 @@ class DatabaseServer extends Model
     {
         return [
             'port' => 'integer',
+            'backup_all_databases' => 'boolean',
         ];
     }
 

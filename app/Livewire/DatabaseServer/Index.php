@@ -110,15 +110,23 @@ class Index extends Component
         }
 
         try {
-            $snapshot = $backupJobFactory->createBackupJob(
+            $snapshots = $backupJobFactory->createSnapshots(
                 server: $server,
                 method: 'manual',
                 triggeredByUserId: auth()->id()
             );
 
-            ProcessBackupJob::dispatch($snapshot->id);
+            // Dispatch a job for each snapshot (parallel execution)
+            foreach ($snapshots as $snapshot) {
+                ProcessBackupJob::dispatch($snapshot->id);
+            }
 
-            $this->success('Backup queued successfully!', position: 'toast-bottom');
+            $count = count($snapshots);
+            $message = $count === 1
+                ? 'Backup queued successfully!'
+                : "{$count} database backups queued successfully!";
+
+            $this->success($message, position: 'toast-bottom');
         } catch (\Throwable $e) {
             $this->error('Failed to queue backup: '.$e->getMessage(), position: 'toast-bottom');
         }

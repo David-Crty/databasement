@@ -38,14 +38,19 @@ class RunScheduledBackups extends Command
         foreach ($backups as $backup) {
             $server = $backup->databaseServer;
 
-            $snapshot = $backupJobFactory->createBackupJob(
+            $snapshots = $backupJobFactory->createSnapshots(
                 server: $server,
                 method: 'scheduled',
             );
 
-            ProcessBackupJob::dispatch($snapshot->id);
+            // Dispatch a job for each snapshot (parallel execution)
+            foreach ($snapshots as $snapshot) {
+                ProcessBackupJob::dispatch($snapshot->id);
+            }
 
-            $this->line("  → Dispatched backup for: {$server->name}");
+            $count = count($snapshots);
+            $dbInfo = $count === 1 ? '1 database' : "{$count} databases";
+            $this->line("  → Dispatched backup for: {$server->name} ({$dbInfo})");
         }
 
         $this->info('All backup jobs dispatched successfully.');

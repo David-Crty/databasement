@@ -41,8 +41,8 @@ beforeEach(function () {
     )->makePartial()
         ->shouldAllowMockingProtectedMethods();
 
-    // Use real BackupJobFactory
-    $this->backupJobFactory = new BackupJobFactory;
+    // Use real BackupJobFactory from container
+    $this->backupJobFactory = app(BackupJobFactory::class);
 
     // Create temp directory for test files
     $this->tempDir = sys_get_temp_dir().'/restore-task-test-'.uniqid();
@@ -131,12 +131,13 @@ test('run executes mysql restore workflow successfully', function () {
     ]);
 
     // Create snapshot and update path for restore test
-    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
+    $snapshot = $snapshots[0];
     $snapshot->update(['path' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     // Create restore job
-    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
+    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
 
     setupRestoreExpectations($restore);
 
@@ -180,12 +181,13 @@ test('run executes postgresql restore workflow successfully', function () {
     ]);
 
     // Create snapshot and update path for restore test
-    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
+    $snapshot = $snapshots[0];
     $snapshot->update(['path' => 'pg_backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     // Create restore job
-    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
+    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
 
     setupRestoreExpectations($restore);
 
@@ -229,12 +231,13 @@ test('run throws exception when database types are incompatible', function () {
     ]);
 
     // Create snapshot and mark as completed
-    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
+    $snapshot = $snapshots[0];
     $snapshot->update(['path' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     // Create restore job
-    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
+    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
 
     // Act & Assert
     expect(fn () => $this->restoreTask->run($restore))
@@ -264,12 +267,13 @@ test('run throws exception when restore command failed', function () {
     ]);
 
     // Create snapshot and mark as completed
-    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
+    $snapshot = $snapshots[0];
     $snapshot->update(['path' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     // Create restore job
-    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
+    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
 
     // Create a shell processor that fails on restore command (the second call after decompress)
     $shellProcessor = Mockery::mock(\App\Services\Backup\ShellProcessor::class);
@@ -363,12 +367,13 @@ test('run throws exception for unsupported database type', function () {
     ]);
 
     // Create snapshot and mark as completed
-    $snapshot = $this->backupJobFactory->createBackupJob($sourceServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
+    $snapshot = $snapshots[0];
     $snapshot->update(['path' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     // Create restore job
-    $restore = $this->backupJobFactory->createRestoreJob($snapshot, $targetServer, 'restored_db');
+    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
 
     $this->filesystemProvider
         ->shouldReceive('download')

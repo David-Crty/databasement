@@ -6,6 +6,7 @@ use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
+use App\Services\Backup\DatabaseListService;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -35,8 +36,8 @@ beforeEach(function () {
         $this->compressor
     );
 
-    // Use real BackupJobFactory
-    $this->backupJobFactory = new BackupJobFactory;
+    // Use real BackupJobFactory from container
+    $this->backupJobFactory = app(BackupJobFactory::class);
 
     // Create temp directory for test files
     $this->tempDir = sys_get_temp_dir().'/backup-task-test-'.uniqid();
@@ -113,7 +114,8 @@ test('run executes mysql backup workflow successfully', function () {
         'database_name' => 'myapp',
     ]);
 
-    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
+    $snapshot = $snapshots[0];
 
     setupCommonExpectations($snapshot);
     $this->backupTask->run($snapshot, $this->tempDir);
@@ -139,7 +141,8 @@ test('run executes postgresql backup workflow successfully', function () {
         'database_name' => 'staging_db',
     ], 's3');
 
-    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
+    $snapshot = $snapshots[0];
 
     setupCommonExpectations($snapshot);
     $this->backupTask->run($snapshot, $this->tempDir);
@@ -165,7 +168,8 @@ test('run executes mariadb backup workflow successfully', function () {
         'database_name' => 'app_data',
     ]);
 
-    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
+    $snapshot = $snapshots[0];
 
     setupCommonExpectations($snapshot);
     $this->backupTask->run($snapshot, $this->tempDir);
@@ -191,7 +195,8 @@ test('run throws exception for unsupported database type', function () {
         'database_name' => 'orcl',
     ]);
 
-    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
+    $snapshot = $snapshots[0];
 
     // Act & Assert
     expect(fn () => $this->backupTask->run($snapshot))
@@ -210,7 +215,8 @@ test('run throws exception when backup command failed', function () {
         'database_name' => 'myapp',
     ]);
 
-    $snapshot = $this->backupJobFactory->createBackupJob($databaseServer, 'manual');
+    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
+    $snapshot = $snapshots[0];
 
     // Create a shell processor that fails on dump command
     $shellProcessor = Mockery::mock(\App\Services\Backup\ShellProcessor::class);
@@ -247,4 +253,112 @@ test('run throws exception when backup command failed', function () {
     expect($job->status)->toBe('failed');
     expect($job->error_message)->toBe('Access denied for user');
     expect($job->completed_at)->not->toBeNull();
+});
+
+test('createSnapshots creates multiple snapshots when backup_all_databases is enabled', function () {
+    // Arrange - Mock DatabaseListService to return multiple databases
+    $mockDatabaseListService = Mockery::mock(DatabaseListService::class);
+    $mockDatabaseListService->shouldReceive('listDatabases')
+        ->once()
+        ->andReturn(['app_db', 'analytics_db', 'logs_db']);
+
+    // Create BackupJobFactory with mocked service
+    $backupJobFactory = new BackupJobFactory($mockDatabaseListService);
+
+    $databaseServer = createDatabaseServer([
+        'name' => 'Multi-DB MySQL Server',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_name' => null, // Not used when backup_all_databases is true
+        'backup_all_databases' => true,
+    ]);
+
+    // Act
+    $snapshots = $backupJobFactory->createSnapshots($databaseServer, 'manual');
+
+    // Assert - Should create 3 snapshots, one for each database
+    expect($snapshots)->toHaveCount(3)
+        ->and($snapshots[0]->database_name)->toBe('app_db')
+        ->and($snapshots[1]->database_name)->toBe('analytics_db')
+        ->and($snapshots[2]->database_name)->toBe('logs_db');
+
+    // All snapshots should share the same server but have independent jobs
+    foreach ($snapshots as $snapshot) {
+        expect($snapshot->database_server_id)->toBe($databaseServer->id)
+            ->and($snapshot->database_type)->toBe('mysql')
+            ->and($snapshot->job)->not->toBeNull()
+            ->and($snapshot->job->status)->toBe('pending');
+    }
+
+    // Each snapshot should have a unique job
+    $jobIds = array_map(fn ($s) => $s->job->id, $snapshots);
+    expect(array_unique($jobIds))->toHaveCount(3);
+});
+
+test('run executes backup for each database when backup_all_databases is enabled', function () {
+    // Arrange - Mock DatabaseListService
+    $mockDatabaseListService = Mockery::mock(DatabaseListService::class);
+    $mockDatabaseListService->shouldReceive('listDatabases')
+        ->once()
+        ->andReturn(['app_db', 'users_db']);
+
+    $backupJobFactory = new BackupJobFactory($mockDatabaseListService);
+
+    $databaseServer = createDatabaseServer([
+        'name' => 'Multi-DB Server',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_name' => null,
+        'backup_all_databases' => true,
+    ]);
+
+    $snapshots = $backupJobFactory->createSnapshots($databaseServer, 'scheduled');
+
+    // Setup expectations for each snapshot and run backup
+    foreach ($snapshots as $snapshot) {
+        $this->shellProcessor->clearCommands();
+        setupCommonExpectations($snapshot);
+        $this->backupTask->run($snapshot, $this->tempDir);
+    }
+
+    // Verify both snapshots were processed
+    expect($snapshots)->toHaveCount(2);
+
+    foreach ($snapshots as $snapshot) {
+        $snapshot->refresh();
+        expect($snapshot->job->status)->toBe('completed')
+            ->and($snapshot->path)->not->toBeEmpty()
+            ->and($snapshot->file_size)->toBeGreaterThan(0);
+    }
+});
+
+test('createSnapshots throws exception when backup_all_databases is enabled but no databases found', function () {
+    // Arrange - Mock DatabaseListService to return empty list
+    $mockDatabaseListService = Mockery::mock(DatabaseListService::class);
+    $mockDatabaseListService->shouldReceive('listDatabases')
+        ->once()
+        ->andReturn([]);
+
+    $backupJobFactory = new BackupJobFactory($mockDatabaseListService);
+
+    $databaseServer = createDatabaseServer([
+        'name' => 'Empty Server',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_name' => null,
+        'backup_all_databases' => true,
+    ]);
+
+    // Act & Assert
+    expect(fn () => $backupJobFactory->createSnapshots($databaseServer, 'manual'))
+        ->toThrow(\RuntimeException::class, 'No databases found on the server to backup.');
 });

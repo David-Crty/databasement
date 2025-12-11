@@ -85,4 +85,12 @@ class TestShellProcessor extends ShellProcessor
     {
         return in_array($command, $this->executedCommands);
     }
+
+    /**
+     * Clear all captured commands
+     */
+    public function clearCommands(): void
+    {
+        $this->executedCommands = [];
+    }
 }

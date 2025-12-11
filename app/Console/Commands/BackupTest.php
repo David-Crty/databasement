@@ -190,11 +190,14 @@ class BackupTest extends Command
     {
         $this->info("\n💾 Running backup task...");
 
-        $this->snapshot = $backupJobFactory->createBackupJob(
+        $snapshots = $backupJobFactory->createSnapshots(
             server: $this->databaseServer,
             method: 'manual',
             triggeredByUserId: null
         );
+
+        // Get the first (and only for single-database backup) snapshot
+        $this->snapshot = $snapshots[0];
 
         // Run the backup task with existing snapshot
         $backupTask->run($this->snapshot);
@@ -279,7 +282,7 @@ class BackupTest extends Command
 
         $this->line("   ℹ Restoring to new database: {$this->restoredDatabaseName}");
 
-        $restore = $backupJobFactory->createRestoreJob(
+        $restore = $backupJobFactory->createRestore(
             snapshot: $this->snapshot,
             targetServer: $this->databaseServer,
             schemaName: $this->restoredDatabaseName,
