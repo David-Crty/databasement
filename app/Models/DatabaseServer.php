@@ -51,6 +51,17 @@ class DatabaseServer extends Model
 
     use HasUlids;
 
+    protected static function booted(): void
+    {
+        // Delete snapshots through Eloquent to trigger their deleting events
+        // (which clean up associated BackupJobs and Restores)
+        static::deleting(function (DatabaseServer $server) {
+            foreach ($server->snapshots as $snapshot) {
+                $snapshot->delete();
+            }
+        });
+    }
+
     protected $fillable = [
         'name',
         'host',

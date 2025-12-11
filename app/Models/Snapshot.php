@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $id
@@ -89,9 +90,17 @@ class Snapshot extends Model
 
     protected static function booted(): void
     {
-        // Delete the backup file when snapshot is deleted
+        // Delete the backup file, associated restores and job when snapshot is deleted
         static::deleting(function (Snapshot $snapshot) {
             $snapshot->deleteBackupFile();
+
+            // Delete restores first (this triggers their booted method to delete their jobs)
+            foreach ($snapshot->restores as $restore) {
+                $restore->delete();
+            }
+
+            // Delete the snapshot's own job
+            $snapshot->job->delete();
         });
     }
 
@@ -118,6 +127,11 @@ class Snapshot extends Model
     public function job(): BelongsTo
     {
         return $this->belongsTo(BackupJob::class, 'backup_job_id');
+    }
+
+    public function restores(): HasMany
+    {
+        return $this->hasMany(Restore::class);
     }
 
     /**

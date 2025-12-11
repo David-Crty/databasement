@@ -38,6 +38,14 @@ class Restore extends Model
 {
     use HasUlids;
 
+    protected static function booted(): void
+    {
+        // Delete the associated job when restore is deleted
+        static::deleting(function (Restore $restore) {
+            $restore->job->delete();
+        });
+    }
+
     protected $fillable = [
         'backup_job_id',
         'snapshot_id',
