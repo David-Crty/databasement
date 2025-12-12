@@ -6,7 +6,7 @@ services:
     volumes:
       - .:/app
     ports:
-      - "8001:8000"
+      - "8000:8000"
 
   mysql:
     image: mysql:8.0

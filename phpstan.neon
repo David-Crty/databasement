@@ -16,3 +16,9 @@ parameters:
         - bootstrap/cache/*
         - storage/*
         - tests/*
+
+    ignoreErrors:
+        # Spatie Query Builder uses a different pattern that PHPStan doesn't understand
+        -
+            message: '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder<.*>::allowedFilters\(\)#'
+            reportUnmatched: false

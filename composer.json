@@ -15,7 +15,6 @@
         "knuckleswtf/scribe": "^5.6",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^12.0",
-        "laravel/octane": "^2.13",
         "laravel/sanctum": "^4.2",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",
@@ -25,6 +24,7 @@
         "spatie/laravel-query-builder": "^6.3"
     },
     "require-dev": {
+        "ext-zlib": "*",
         "barryvdh/laravel-ide-helper": "^3.6",
         "fakerphp/faker": "^1.23",
         "larastan/larastan": "^3.8",
@@ -35,8 +35,7 @@
         "nunomaduro/collision": "^8.6",
         "pestphp/pest": "^4.1",
         "pestphp/pest-plugin-laravel": "^4.0",
-        "phpstan/phpstan": "^2.1",
-        "ext-zlib": "*"
+        "phpstan/phpstan": "^2.1"
     },
     "autoload": {
         "psr-4": {
