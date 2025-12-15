@@ -45,7 +45,7 @@ docker run -d \
   --name databasement \
   -p 8000:8000 \
   -v databasement-data:/app/storage \
-  david-crty/databasement:latest
+  davidcrty/databasement:latest
 ```
 
 Then open http://localhost:8000 in your browser.

@@ -16,7 +16,7 @@ The simplest way to run Databasement with SQLite as the database:
 
 ```bash
 # Generate an application key
-APP_KEY=$(docker run --rm david-crty/databasement:latest php artisan key:generate --show)
+APP_KEY=$(docker run --rm davidcrty/databasement:latest php artisan key:generate --show)
 
 # Run the container
 docker run -d \
@@ -27,7 +27,7 @@ docker run -d \
   -e DB_DATABASE=/app/database/database.sqlite \
   -v databasement-storage:/app/storage \
   -v databasement-database:/app/database \
-  david-crty/databasement:latest
+  davidcrty/databasement:latest
 ```
 
 Access the application at http://localhost:8000
@@ -39,7 +39,7 @@ For production, we recommend using MySQL or PostgreSQL instead of SQLite.
 ### 1. Generate the Application Key
 
 ```bash
-docker run --rm david-crty/databasement:latest php artisan key:generate --show
+docker run --rm davidcrty/databasement:latest php artisan key:generate --show
 ```
 
 Save this key - you'll need it for the `APP_KEY` environment variable.
@@ -82,7 +82,7 @@ docker run -d \
   -e DB_PASSWORD=your-secure-password \
   -e LOG_CHANNEL=stderr \
   -v databasement-storage:/app/storage \
-  david-crty/databasement:latest
+  davidcrty/databasement:latest
 ```
 
 ### 4. Access the Application
@@ -119,7 +119,7 @@ docker run -d \
   -p 8000:8000 \
   --env-file .env \
   -v databasement-storage:/app/storage \
-  david-crty/databasement:latest
+  davidcrty/databasement:latest
 ```
 
 ## Behind a Reverse Proxy
@@ -155,7 +155,7 @@ To update to the latest version:
 
 ```bash
 # Pull the latest image
-docker pull david-crty/databasement:latest
+docker pull davidcrty/databasement:latest
 
 # Stop and remove the old container
 docker stop databasement
@@ -167,7 +167,7 @@ docker run -d \
   -p 8000:8000 \
   --env-file .env \
   -v databasement-storage:/app/storage \
-  david-crty/databasement:latest
+  davidcrty/databasement:latest
 ```
 
 The container automatically runs database migrations on startup, so your data will be migrated to the new schema.

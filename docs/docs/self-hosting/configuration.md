@@ -21,7 +21,7 @@ This page contains all the environment variables you can use to configure Databa
 The `APP_KEY` is required for encryption. Generate one with:
 
 ```bash
-docker run --rm david-crty/databasement:latest php artisan key:generate --show
+docker run --rm davidcrty/databasement:latest php artisan key:generate --show
 ```
 
 Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.

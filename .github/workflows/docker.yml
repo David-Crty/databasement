@@ -41,7 +41,7 @@ jobs:
         with:
           context: docker/php
           push: true
-          tags: david-crty/databasement-php:latest
+          tags: davidcrty/databasement-php:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -66,6 +66,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: david-crty/databasement:latest
+          tags: davidcrty/databasement:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

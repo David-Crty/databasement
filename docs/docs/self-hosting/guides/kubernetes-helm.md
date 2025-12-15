@@ -104,7 +104,7 @@ kubectl get ingress -n databasement
 Before deploying, generate an application key:
 
 ```bash
-kubectl run --rm -it keygen --image=david-crty/databasement:latest --restart=Never -- php artisan key:generate --show
+kubectl run --rm -it keygen --image=davidcrty/databasement:latest --restart=Never -- php artisan key:generate --show
 ```
 
 Copy the output and use it as `app.key` in your values file.

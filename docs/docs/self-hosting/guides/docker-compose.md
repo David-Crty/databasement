@@ -21,7 +21,7 @@ mkdir databasement && cd databasement
 ### 2. Generate Application Key
 
 ```bash
-docker run --rm david-crty/databasement:latest php artisan key:generate --show
+docker run --rm davidcrty/databasement:latest php artisan key:generate --show
 ```
 
 Save this key for the next step.
@@ -31,7 +31,7 @@ Save this key for the next step.
 ```yaml title="docker-compose.yml"
 services:
   app:
-    image: david-crty/databasement:latest
+    image: davidcrty/databasement:latest
     container_name: databasement
     restart: unless-stopped
     ports:
@@ -95,7 +95,7 @@ If you prefer PostgreSQL:
 ```yaml title="docker-compose.yml"
 services:
   app:
-    image: david-crty/databasement:latest
+    image: davidcrty/databasement:latest
     container_name: databasement
     restart: unless-stopped
     ports:
@@ -168,7 +168,7 @@ services:
       - letsencrypt:/letsencrypt
 
   app:
-    image: david-crty/databasement:latest
+    image: davidcrty/databasement:latest
     container_name: databasement
     restart: unless-stopped
     environment:
@@ -253,7 +253,7 @@ Then reference it in your compose file:
 ```yaml title="docker-compose.yml"
 services:
   app:
-    image: david-crty/databasement:latest
+    image: davidcrty/databasement:latest
     env_file: .env
     # ... rest of config
 ```
