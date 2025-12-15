@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 <head>
-    <title>Laravel API Documentation</title>
+    <title>Databasement API Documentation</title>
     <meta charset="utf-8"/>
     <meta
         name="viewport"

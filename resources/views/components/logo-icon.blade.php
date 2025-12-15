@@ -1,0 +1,88 @@
+@props(['class' => 'w-8 h-8'])
+
+@php
+    $gradientId = 'logo-gradient-' . uniqid();
+@endphp
+
+
+<svg {{ $attributes->merge(['class' => $class]) }}xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs>
+        <!-- Top layer gradients (brightest) -->
+        <linearGradient id="{{ $gradientId }}-top-face" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#00d4ff"></stop>
+            <stop offset="50%" stop-color="#a855f7"></stop>
+            <stop offset="100%" stop-color="#1a1a2e"></stop>
+        </linearGradient>
+        <linearGradient id="{{ $gradientId }}-top-left" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#00a8cc"></stop>
+            <stop offset="50%" stop-color="#7c3aed"></stop>
+            <stop offset="100%" stop-color="#15152a"></stop>
+        </linearGradient>
+        <linearGradient id="{{ $gradientId }}-top-right" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#0090b0"></stop>
+            <stop offset="50%" stop-color="#6d28d9"></stop>
+            <stop offset="100%" stop-color="#0f0f1a"></stop>
+        </linearGradient>
+
+        <!-- Middle layer gradients (noticeably darker) -->
+        <linearGradient id="{{ $gradientId }}-mid-face" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#007a99"></stop>
+            <stop offset="50%" stop-color="#6b21a8"></stop>
+            <stop offset="100%" stop-color="#0f0f1a"></stop>
+        </linearGradient>
+        <linearGradient id="{{ $gradientId }}-mid-left" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#005c73"></stop>
+            <stop offset="50%" stop-color="#4c1d95"></stop>
+            <stop offset="100%" stop-color="#0a0a14"></stop>
+        </linearGradient>
+        <linearGradient id="{{ $gradientId }}-mid-right" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#004d60"></stop>
+            <stop offset="50%" stop-color="#3b1580"></stop>
+            <stop offset="100%" stop-color="#08080f"></stop>
+        </linearGradient>
+
+        <!-- Bottom layer gradients (much darker) -->
+        <linearGradient id="{{ $gradientId }}-bot-face" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#004455"></stop>
+            <stop offset="50%" stop-color="#4c1d95"></stop>
+            <stop offset="100%" stop-color="#080812"></stop>
+        </linearGradient>
+        <linearGradient id="{{ $gradientId }}-bot-left" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#003040"></stop>
+            <stop offset="50%" stop-color="#2e1065"></stop>
+            <stop offset="100%" stop-color="#05050a"></stop>
+        </linearGradient>
+        <linearGradient id="{{ $gradientId }}-bot-right" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="#002530"></stop>
+            <stop offset="50%" stop-color="#1e0a50"></stop>
+            <stop offset="100%" stop-color="#030308"></stop>
+        </linearGradient>
+    </defs>
+
+    <!-- Bottom layer (much darker) -->
+    <g transform="translate(0, 12)">
+        <path d="M50 35 L15 55 L50 75 L85 55 Z" fill="url(#{{ $gradientId }}-bot-face)" stroke="none"></path>
+        <path d="M15 55 L15 62 L50 82 L50 75 Z" fill="url(#{{ $gradientId }}-bot-left)" stroke="none"></path>
+        <path d="M85 55 L85 62 L50 82 L50 75 Z" fill="url(#{{ $gradientId }}-bot-right)" stroke="none"></path>
+        <path d="M50 35 L15 55 L15 62 L50 82 L85 62 L85 55 Z" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+        <path d="M15 55 L50 75 L85 55" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+    </g>
+
+    <!-- Middle layer (noticeably darker) -->
+    <g transform="translate(0, 0)">
+        <path d="M50 35 L15 55 L50 75 L85 55 Z" fill="url(#{{ $gradientId }}-mid-face)" stroke="none"></path>
+        <path d="M15 55 L15 62 L50 82 L50 75 Z" fill="url(#{{ $gradientId }}-mid-left)" stroke="none"></path>
+        <path d="M85 55 L85 62 L50 82 L50 75 Z" fill="url(#{{ $gradientId }}-mid-right)" stroke="none"></path>
+        <path d="M50 35 L15 55 L15 62 L50 82 L85 62 L85 55 Z" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+        <path d="M15 55 L50 75 L85 55" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+    </g>
+
+    <!-- Top layer (brightest) -->
+    <g transform="translate(0, -12)">
+        <path d="M50 35 L15 55 L50 75 L85 55 Z" fill="url(#{{ $gradientId }}-top-face)" stroke="none"></path>
+        <path d="M15 55 L15 62 L50 82 L50 75 Z" fill="url(#{{ $gradientId }}-top-left)" stroke="none"></path>
+        <path d="M85 55 L85 62 L50 82 L50 75 Z" fill="url(#{{ $gradientId }}-top-right)" stroke="none"></path>
+        <path d="M50 35 L15 55 L15 62 L50 82 L85 62 L85 55 Z" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+        <path d="M15 55 L50 75 L85 55" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+    </g>
+</svg>
