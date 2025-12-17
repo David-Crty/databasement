@@ -1,0 +1,15 @@
+suite: pvc tests
+templates:
+  - templates/pvc.yaml
+tests:
+  - it: should render pvc with default values (sqlite)
+    asserts:
+      - matchSnapshot: {}
+
+  - it: should not render when persistence is disabled
+    set:
+      persistence:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

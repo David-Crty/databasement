@@ -1,0 +1,125 @@
+# Default values for databasement
+# This is a YAML-formatted file.
+
+replicaCount: 1
+
+image:
+  repository: david-crty/databasement
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Application configuration
+app:
+  name: Databasement
+  env: production
+  debug: false
+  url: http://localhost:8000
+  # Application encryption key (required)
+  # Generate with: docker run --rm davidcrty/databasement:latest php artisan key:generate --show
+  key: ""
+  # Use existing secret for app key
+  existingSecret: ""
+  secretKeys:
+    appKey: APP_KEY
+
+# Database configuration
+database:
+  # Database driver: sqlite, mysql, pgsql
+  connection: sqlite
+  # For SQLite
+  sqlitePath: /app/database/database.sqlite
+  # For MySQL/PostgreSQL
+  host: ""
+  port: 3306
+  name: databasement
+  username: databasement
+  password: ""
+  # Use existing secret for database password
+  existingSecret: ""
+  secretKeys:
+    password: DB_PASSWORD
+
+# Logging
+logging:
+  channel: stderr
+  level: warning
+
+# MySQL CLI type for backup operations (mysql or mariadb)
+mysqlCliType: mariadb
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: databasement.local
+  tlsSecretName: ""
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+# Persistence for storage volume
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+
+# Liveness and readiness probes
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

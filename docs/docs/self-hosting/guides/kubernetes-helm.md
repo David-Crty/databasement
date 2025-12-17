@@ -21,52 +21,62 @@ helm repo add databasement https://david-crty.github.io/databasement/charts
 helm repo update
 ```
 
-### 2. Create a Values File
+### 2. Generate an Application Key
+
+Before deploying, generate an application encryption key:
+
+```bash
+docker run --rm davidcrty/databasement:latest php artisan key:generate --show
+```
+
+Copy the output (e.g., `base64:abc123...`) for use in your values file.
+
+### 3. Create a Values File
+
+#### Minimal Configuration (SQLite)
+
+For simple deployments using SQLite:
 
 ```yaml title="values.yaml"
-# Application configuration
+app:
+  url: https://backup.yourdomain.com
+  key: "base64:your-generated-key-here"
+
+ingress:
+  enabled: true
+  className: nginx
+  host: backup.yourdomain.com
+  tlsSecretName: databasement-tls  # Optional: for HTTPS
+```
+
+#### Production Configuration (External Database)
+
+For production with an external MySQL/PostgreSQL database:
+
+```yaml title="values.yaml"
 app:
   name: Databasement
   env: production
   debug: false
   url: https://backup.yourdomain.com
-  key: base64:your-generated-key-here
+  key: "base64:your-generated-key-here"
 
-# Database configuration
 database:
-  # Use an existing database
-  external: true
-  connection: mysql
+  connection: mysql  # or pgsql
   host: your-mysql-host.example.com
   port: 3306
   name: databasement
   username: databasement
   password: your-secure-password
 
-  # Or deploy a MySQL container (not recommended for production)
-  # external: false
-  # mysql:
-  #   enabled: true
-  #   rootPassword: root-password
-  #   password: databasement-password
-
-# Ingress configuration
 ingress:
   enabled: true
   className: nginx
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
-  hosts:
-    - host: backup.yourdomain.com
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: databasement-tls
-      hosts:
-        - backup.yourdomain.com
+  host: backup.yourdomain.com
+  tlsSecretName: databasement-tls
 
-# Resource limits
 resources:
   limits:
     cpu: 500m
@@ -75,23 +85,22 @@ resources:
     cpu: 100m
     memory: 256Mi
 
-# Persistence
 persistence:
   enabled: true
   size: 10Gi
   storageClass: ""  # Use default storage class
-
-# Replica count
-replicaCount: 1
 ```
 
-### 3. Install the Chart
+### 4. Install the Chart
 
 ```bash
-helm install databasement databasement/databasement -f values.yaml -n databasement --create-namespace
+helm install databasement databasement/databasement \
+  -f values.yaml \
+  -n databasement \
+  --create-namespace
 ```
 
-### 4. Verify the Deployment
+### 5. Verify the Deployment
 
 ```bash
 kubectl get pods -n databasement
@@ -99,19 +108,9 @@ kubectl get svc -n databasement
 kubectl get ingress -n databasement
 ```
 
-## Generating the Application Key
+## Configuration Reference
 
-Before deploying, generate an application key:
-
-```bash
-kubectl run --rm -it keygen --image=davidcrty/databasement:latest --restart=Never -- php artisan key:generate --show
-```
-
-Copy the output and use it as `app.key` in your values file.
-
-## Configuration Options
-
-### Full Values Reference
+### Application Settings
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
@@ -119,23 +118,55 @@ Copy the output and use it as `app.key` in your values file.
 | `app.env` | Environment (`production`, `local`) | `production` |
 | `app.debug` | Enable debug mode | `false` |
 | `app.url` | Public URL | `http://localhost:8000` |
-| `app.key` | Application encryption key | `""` (required) |
-| `database.external` | Use external database | `true` |
-| `database.connection` | Database type (`mysql`, `pgsql`, `sqlite`) | `mysql` |
-| `database.host` | Database host | `""` |
+| `app.key` | Application encryption key (required) | `""` |
+| `app.existingSecret` | Use existing secret for app key | `""` |
+
+### Database Settings
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `database.connection` | Database type (`sqlite`, `mysql`, `pgsql`) | `sqlite` |
+| `database.sqlitePath` | SQLite database path | `/app/database/database.sqlite` |
+| `database.host` | Database host (for mysql/pgsql) | `""` |
 | `database.port` | Database port | `3306` |
 | `database.name` | Database name | `databasement` |
 | `database.username` | Database username | `databasement` |
 | `database.password` | Database password | `""` |
+| `database.existingSecret` | Use existing secret for DB password | `""` |
+
+### Ingress Settings
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
 | `ingress.enabled` | Enable ingress | `false` |
-| `ingress.className` | Ingress class | `""` |
-| `persistence.enabled` | Enable persistence | `true` |
+| `ingress.className` | Ingress class name | `""` |
+| `ingress.annotations` | Ingress annotations | `{}` |
+| `ingress.host` | Hostname for the ingress | `databasement.local` |
+| `ingress.tlsSecretName` | TLS secret name (enables HTTPS) | `""` |
+
+### Storage Settings
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `persistence.enabled` | Enable persistent storage | `true` |
+| `persistence.storageClass` | Storage class name | `""` (default) |
+| `persistence.accessModes` | PVC access modes | `[ReadWriteOnce]` |
 | `persistence.size` | PVC size | `10Gi` |
+
+### Other Settings
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
 | `replicaCount` | Number of replicas | `1` |
+| `image.repository` | Image repository | `david-crty/databasement` |
+| `image.tag` | Image tag | `latest` |
+| `serviceAccount.create` | Create service account | `true` |
 | `resources.limits.cpu` | CPU limit | `500m` |
 | `resources.limits.memory` | Memory limit | `512Mi` |
+| `resources.requests.cpu` | CPU request | `100m` |
+| `resources.requests.memory` | Memory request | `256Mi` |
 
-### Using External Secrets
+## Using External Secrets
 
 For production, use Kubernetes secrets instead of plain values:
 
@@ -146,6 +177,8 @@ app:
     appKey: APP_KEY
 
 database:
+  connection: mysql
+  host: mysql.example.com
   existingSecret: databasement-db-secrets
   secretKeys:
     password: DB_PASSWORD
@@ -162,38 +195,6 @@ kubectl create secret generic databasement-db-secrets \
   --from-literal=DB_PASSWORD='your-db-password' \
   -n databasement
 ```
-
-## High Availability
-
-For high availability deployments:
-
-```yaml title="values-ha.yaml"
-replicaCount: 3
-
-# Use external database for session/cache
-# when running multiple replicas
-
-podDisruptionBudget:
-  enabled: true
-  minAvailable: 1
-
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app.kubernetes.io/name
-                operator: In
-                values:
-                  - databasement
-          topologyKey: kubernetes.io/hostname
-```
-
-:::warning
-When running multiple replicas, ensure your database can handle concurrent connections and that session storage is shared (database or Redis).
-:::
 
 ## Upgrading
 
@@ -239,5 +240,5 @@ kubectl exec -it deployment/databasement -n databasement -- sh
 
 ```bash
 kubectl exec deployment/databasement -n databasement -- php artisan migrate:status
-kubectl exec deployment/databasement -n databasement -- php artisan queue:work --once
+kubectl exec deployment/databasement -n databasement -- php artisan config:show database
 ```

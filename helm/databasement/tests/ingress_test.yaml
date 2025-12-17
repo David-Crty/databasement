@@ -1,0 +1,16 @@
+suite: ingress tests
+templates:
+  - templates/ingress.yaml
+tests:
+  - it: should not render ingress when disabled
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render ingress when enabled
+    set:
+      ingress:
+        enabled: true
+        host: databasement.example.com
+    asserts:
+      - matchSnapshot: {}

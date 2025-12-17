@@ -1,0 +1,210 @@
+should render deployment with default values:
+  1: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: databasement
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: databasement-0.1.0
+      name: RELEASE-NAME-databasement
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app.kubernetes.io/instance: RELEASE-NAME
+          app.kubernetes.io/name: databasement
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/instance: RELEASE-NAME
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: databasement
+            app.kubernetes.io/version: 1.0.0
+            helm.sh/chart: databasement-0.1.0
+        spec:
+          containers:
+            - env:
+                - name: APP_NAME
+                  value: Databasement
+                - name: APP_ENV
+                  value: production
+                - name: APP_DEBUG
+                  value: "false"
+                - name: APP_URL
+                  value: http://localhost:8000
+                - name: DB_CONNECTION
+                  value: sqlite
+                - name: DB_DATABASE
+                  value: /app/database/database.sqlite
+                - name: LOG_CHANNEL
+                  value: stderr
+                - name: LOG_LEVEL
+                  value: warning
+                - name: MYSQL_CLI_TYPE
+                  value: mariadb
+                - name: QUEUE_CONNECTION
+                  value: database
+                - name: SESSION_DRIVER
+                  value: database
+                - name: CACHE_STORE
+                  value: database
+              image: david-crty/databasement:latest
+              imagePullPolicy: IfNotPresent
+              livenessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+              name: databasement
+              ports:
+                - containerPort: 8000
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 10
+                periodSeconds: 5
+                timeoutSeconds: 3
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+              securityContext:
+                runAsGroup: 1000
+                runAsNonRoot: true
+                runAsUser: 1000
+              volumeMounts:
+                - mountPath: /app/storage
+                  name: storage
+                - mountPath: /app/database
+                  name: database
+          securityContext:
+            fsGroup: 1000
+          serviceAccountName: RELEASE-NAME-databasement
+          volumes:
+            - name: storage
+              persistentVolumeClaim:
+                claimName: RELEASE-NAME-databasement-storage
+            - name: database
+              persistentVolumeClaim:
+                claimName: RELEASE-NAME-databasement-database
+should render deployment with mysql database:
+  1: |
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: databasement
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: databasement-0.1.0
+      name: RELEASE-NAME-databasement
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app.kubernetes.io/instance: RELEASE-NAME
+          app.kubernetes.io/name: databasement
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/instance: RELEASE-NAME
+            app.kubernetes.io/managed-by: Helm
+            app.kubernetes.io/name: databasement
+            app.kubernetes.io/version: 1.0.0
+            helm.sh/chart: databasement-0.1.0
+        spec:
+          containers:
+            - env:
+                - name: APP_NAME
+                  value: Databasement
+                - name: APP_ENV
+                  value: production
+                - name: APP_DEBUG
+                  value: "false"
+                - name: APP_URL
+                  value: http://localhost:8000
+                - name: DB_CONNECTION
+                  value: mysql
+                - name: DB_HOST
+                  value: mysql.example.com
+                - name: DB_PORT
+                  value: "3306"
+                - name: DB_DATABASE
+                  value: mydb
+                - name: DB_USERNAME
+                  value: myuser
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      key: db-password
+                      name: RELEASE-NAME-databasement
+                - name: LOG_CHANNEL
+                  value: stderr
+                - name: LOG_LEVEL
+                  value: warning
+                - name: MYSQL_CLI_TYPE
+                  value: mariadb
+                - name: QUEUE_CONNECTION
+                  value: database
+                - name: SESSION_DRIVER
+                  value: database
+                - name: CACHE_STORE
+                  value: database
+              image: david-crty/databasement:latest
+              imagePullPolicy: IfNotPresent
+              livenessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+              name: databasement
+              ports:
+                - containerPort: 8000
+                  name: http
+                  protocol: TCP
+              readinessProbe:
+                failureThreshold: 3
+                httpGet:
+                  path: /
+                  port: http
+                initialDelaySeconds: 10
+                periodSeconds: 5
+                timeoutSeconds: 3
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+              securityContext:
+                runAsGroup: 1000
+                runAsNonRoot: true
+                runAsUser: 1000
+              volumeMounts:
+                - mountPath: /app/storage
+                  name: storage
+          securityContext:
+            fsGroup: 1000
+          serviceAccountName: RELEASE-NAME-databasement
+          volumes:
+            - name: storage
+              persistentVolumeClaim:
+                claimName: RELEASE-NAME-databasement-storage

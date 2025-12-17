@@ -1,0 +1,7 @@
+suite: service tests
+templates:
+  - templates/service.yaml
+tests:
+  - it: should render service with default values
+    asserts:
+      - matchSnapshot: {}

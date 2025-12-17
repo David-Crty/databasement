@@ -1,0 +1,24 @@
+should render ingress when enabled:
+  1: |
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: databasement
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: databasement-0.1.0
+      name: RELEASE-NAME-databasement
+    spec:
+      rules:
+        - host: databasement.example.com
+          http:
+            paths:
+              - backend:
+                  service:
+                    name: RELEASE-NAME-databasement
+                    port:
+                      name: http
+                path: /
+                pathType: Prefix

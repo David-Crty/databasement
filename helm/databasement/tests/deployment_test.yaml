@@ -1,0 +1,19 @@
+suite: deployment tests
+templates:
+  - templates/deployment.yaml
+tests:
+  - it: should render deployment with default values
+    asserts:
+      - matchSnapshot: {}
+
+  - it: should render deployment with mysql database
+    set:
+      database:
+        connection: mysql
+        host: mysql.example.com
+        port: 3306
+        name: mydb
+        username: myuser
+        password: mypassword
+    asserts:
+      - matchSnapshot: {}

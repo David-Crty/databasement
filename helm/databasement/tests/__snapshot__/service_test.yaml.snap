@@ -1,0 +1,22 @@
+should render service with default values:
+  1: |
+    apiVersion: v1
+    kind: Service
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: databasement
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: databasement-0.1.0
+      name: RELEASE-NAME-databasement
+    spec:
+      ports:
+        - name: http
+          port: 80
+          protocol: TCP
+          targetPort: http
+      selector:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/name: databasement
+      type: ClusterIP

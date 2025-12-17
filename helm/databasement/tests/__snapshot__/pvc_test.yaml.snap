@@ -1,0 +1,35 @@
+should render pvc with default values (sqlite):
+  1: |
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: databasement
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: databasement-0.1.0
+      name: RELEASE-NAME-databasement-storage
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  2: |
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      labels:
+        app.kubernetes.io/instance: RELEASE-NAME
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: databasement
+        app.kubernetes.io/version: 1.0.0
+        helm.sh/chart: databasement-0.1.0
+      name: RELEASE-NAME-databasement-database
+    spec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
