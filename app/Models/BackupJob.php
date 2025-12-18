@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -86,26 +87,7 @@ class BackupJob extends Model
      */
     public function getHumanDuration(): ?string
     {
-        $ms = $this->getDurationMs();
-
-        if ($ms === null) {
-            return null;
-        }
-
-        if ($ms < 1000) {
-            return "{$ms}ms";
-        }
-
-        $seconds = round($ms / 1000, 2);
-
-        if ($seconds < 60) {
-            return "{$seconds}s";
-        }
-
-        $minutes = floor($seconds / 60);
-        $remainingSeconds = round($seconds % 60, 2);
-
-        return "{$minutes}m {$remainingSeconds}s";
+        return Formatters::humanDuration($this->getDurationMs());
     }
 
     /**

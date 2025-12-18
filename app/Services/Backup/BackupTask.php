@@ -8,6 +8,7 @@ use App\Models\Snapshot;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use App\Support\Formatters;
 
 class BackupTask
 {
@@ -70,10 +71,10 @@ class BackupTask
                 $archive,
                 $destinationPath
             );
-            $transferDuration = round(microtime(true) - $transferStart, 1);
-            $job->log('Transfer completed successfully in '.$transferDuration.'s', 'success', [
+            $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
+            $job->log('Transfer completed successfully in '.$transferDuration, 'success', [
                 'destination_path' => $destinationPath,
-                'duration_seconds' => $transferDuration,
+                'duration' => $transferDuration,
             ]);
 
             // Calculate file size and checksum

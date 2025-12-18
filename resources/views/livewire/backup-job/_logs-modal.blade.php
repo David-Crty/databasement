@@ -135,7 +135,7 @@
                                                             @endif
                                                             @if(isset($log['duration_ms']))
                                                                 <span class="text-xs text-base-content/50">{{ __('Duration') }}:</span>
-                                                                <span class="text-xs text-base-content/80">{{ $log['duration_ms'] }}ms</span>
+                                                                <span class="text-xs text-base-content/80">{{ \App\Support\Formatters::humanDuration($log['duration_ms']) }}</span>
                                                             @endif
                                                         </div>
                                                     @endif
