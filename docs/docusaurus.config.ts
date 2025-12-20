@@ -17,8 +17,12 @@ const config: Config = {
     organizationName: 'David-Crty',
     projectName: 'databasement',
 
+    markdown: {
+        hooks: {
+            onBrokenMarkdownLinks: 'throw',
+        }
+    },
     onBrokenLinks: 'throw',
-    onBrokenMarkdownLinks: 'warn',
 
     i18n: {
         defaultLocale: 'en',
