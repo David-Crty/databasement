@@ -86,7 +86,7 @@ Configure where backup files are stored temporarily during operations.
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `BACKUP_LOCAL_ROOT` | Local temp directory for backups | `/tmp/backups` |
+| `BACKUP_TMP_FOLDER` | Local temp directory for backups | `/tmp/backups` |
 
 ### S3 Storage (Optional)
 

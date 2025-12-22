@@ -33,9 +33,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Register FilesystemProvider with configuration
         $this->app->singleton(FilesystemProvider::class, function ($app) {
-            $config = config('backup.filesystems');
-
-            $provider = new FilesystemProvider($config);
+            $provider = new FilesystemProvider([]);
 
             // Register filesystem implementations
             $provider->add(new LocalFilesystem);

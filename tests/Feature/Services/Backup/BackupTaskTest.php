@@ -39,9 +39,10 @@ beforeEach(function () {
     // Use real BackupJobFactory from container
     $this->backupJobFactory = app(BackupJobFactory::class);
 
-    // Create temp directory for test files
+    // Create temp directory for test files and set config
     $this->tempDir = sys_get_temp_dir().'/backup-task-test-'.uniqid();
     mkdir($this->tempDir, 0777, true);
+    config(['backup.tmp_folder' => $this->tempDir]);
 });
 
 // Helper function to create a database server with backup and volume
@@ -118,7 +119,7 @@ test('run executes mysql backup workflow successfully', function () {
     $snapshot = $snapshots[0];
 
     setupCommonExpectations($snapshot);
-    $this->backupTask->run($snapshot, $this->tempDir);
+    $this->backupTask->run($snapshot);
     $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
     $expectedCommands = [
@@ -145,7 +146,7 @@ test('run executes postgresql backup workflow successfully', function () {
     $snapshot = $snapshots[0];
 
     setupCommonExpectations($snapshot);
-    $this->backupTask->run($snapshot, $this->tempDir);
+    $this->backupTask->run($snapshot);
     $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
     $expectedCommands = [
@@ -172,7 +173,7 @@ test('run executes mariadb backup workflow successfully', function () {
     $snapshot = $snapshots[0];
 
     setupCommonExpectations($snapshot);
-    $this->backupTask->run($snapshot, $this->tempDir);
+    $this->backupTask->run($snapshot);
     $sqlFile = $this->tempDir.'/'.$snapshot->id.'.sql';
 
     $expectedCommands = [
@@ -237,7 +238,7 @@ test('run throws exception when backup command failed', function () {
     // Act & Assert
     $exception = null;
     try {
-        $backupTask->run($snapshot, $this->tempDir);
+        $backupTask->run($snapshot);
     } catch (\App\Exceptions\ShellProcessFailed $e) {
         $exception = $e;
     }
@@ -324,7 +325,7 @@ test('run executes backup for each database when backup_all_databases is enabled
     foreach ($snapshots as $snapshot) {
         $this->shellProcessor->clearCommands();
         setupCommonExpectations($snapshot);
-        $this->backupTask->run($snapshot, $this->tempDir);
+        $this->backupTask->run($snapshot);
     }
 
     // Verify both snapshots were processed

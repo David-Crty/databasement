@@ -26,16 +26,15 @@ class BackupTask
         $this->shellProcessor->setLogger($job);
     }
 
-    public function run(
-        Snapshot $snapshot,
-        string $workingDirectory = '/tmp'
-    ): Snapshot {
+    public function run(Snapshot $snapshot): Snapshot
+    {
         $databaseServer = $snapshot->databaseServer;
         $job = $snapshot->job;
 
         // Configure shell processor to log to job
         $this->setLogger($job);
 
+        $workingDirectory = config('backup.tmp_folder');
         $workingFile = $workingDirectory.'/'.$snapshot->id.'.sql';
 
         try {
