@@ -83,6 +83,7 @@ class DatabaseServer extends Model
         return [
             'port' => 'integer',
             'backup_all_databases' => 'boolean',
+            'password' => 'encrypted',
         ];
     }
 
