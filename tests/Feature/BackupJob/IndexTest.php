@@ -3,7 +3,9 @@
 use App\Livewire\BackupJob\Index;
 use App\Models\DatabaseServer;
 use App\Models\User;
+use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
+use App\Services\Backup\Filesystems\Awss3Filesystem;
 use Livewire\Livewire;
 
 test('guests cannot access backup jobs index page', function () {
@@ -60,4 +62,130 @@ test('can filter backup jobs by status', function () {
         ->set('statusFilter', 'completed')
         ->assertSee('completed_db')
         ->assertDontSee('failed_db');
+});
+
+test('can filter backup jobs by type', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_name' => 'test_db']);
+
+    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots[0]->job->update(['status' => 'completed']);
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('typeFilter', 'backup')
+        ->assertSee('test_db')
+        ->set('typeFilter', 'restore')
+        ->assertDontSee('test_db');
+});
+
+test('can download snapshot from local storage', function () {
+    $user = User::factory()->create();
+
+    // Create a temporary file to serve as the backup
+    $tempDir = sys_get_temp_dir().'/snapshot-test-'.uniqid();
+    mkdir($tempDir, 0755, true);
+    $tempFile = $tempDir.'/test-backup.sql.gz';
+    file_put_contents($tempFile, 'test backup content');
+
+    $volume = Volume::factory()->create([
+        'type' => 'local',
+        'config' => ['path' => $tempDir],
+    ]);
+
+    $server = DatabaseServer::factory()->create([
+        'database_name' => 'test_db',
+    ]);
+    $server->backup->update(['volume_id' => $volume->id]);
+
+    $factory = app(BackupJobFactory::class);
+    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshot = $snapshots[0];
+    $snapshot->update([
+        'storage_uri' => "local://{$tempFile}",
+        'file_size' => filesize($tempFile),
+    ]);
+    $snapshot->job->markCompleted();
+
+    // Test download returns file response
+    $response = Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('download', $snapshot->id);
+
+    $response->assertFileDownloaded($snapshot->getFilename());
+
+    // Cleanup
+    unlink($tempFile);
+    rmdir($tempDir);
+});
+
+test('can download snapshot from s3 storage redirects to presigned url', function () {
+    $user = User::factory()->create();
+
+    $volume = Volume::factory()->create([
+        'type' => 's3',
+        'config' => [
+            'bucket' => 'test-bucket',
+            'region' => 'us-east-1',
+            'key' => 'test-key',
+            'secret' => 'test-secret',
+        ],
+    ]);
+
+    $server = DatabaseServer::factory()->create([
+        'database_name' => 'test_db',
+    ]);
+    $server->backup->update(['volume_id' => $volume->id]);
+
+    $factory = app(BackupJobFactory::class);
+    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshot = $snapshots[0];
+    $snapshot->update([
+        'storage_uri' => 's3://test-bucket/backups/test-backup.sql.gz',
+        'file_size' => 1024,
+    ]);
+    $snapshot->job->markCompleted();
+
+    // Mock the S3 filesystem to return a presigned URL
+    $mockS3Filesystem = Mockery::mock(Awss3Filesystem::class);
+    $mockS3Filesystem->shouldReceive('getPresignedUrl')
+        ->once()
+        ->with(
+            $volume->config,
+            'backups/test-backup.sql.gz',
+            Mockery::any()
+        )
+        ->andReturn('https://test-bucket.s3.amazonaws.com/backups/test-backup.sql.gz?presigned=token');
+
+    app()->instance(Awss3Filesystem::class, $mockS3Filesystem);
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('download', $snapshot->id)
+        ->assertRedirect('https://test-bucket.s3.amazonaws.com/backups/test-backup.sql.gz?presigned=token');
+});
+
+test('can delete snapshot', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server = DatabaseServer::factory()->create(['database_name' => 'test_db']);
+
+    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshot = $snapshots[0];
+    $snapshot->job->markCompleted();
+
+    expect($snapshot->fresh())->not->toBeNull();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('confirmDeleteSnapshot', $snapshot->id)
+        ->assertSet('showDeleteModal', true)
+        ->assertSet('deleteSnapshotId', $snapshot->id)
+        ->call('deleteSnapshot')
+        ->assertSet('showDeleteModal', false);
+
+    expect($snapshot->fresh())->toBeNull();
 });

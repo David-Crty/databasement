@@ -84,16 +84,30 @@
                 @endif
             @endscope
 
-            @scope('cell_duration', $job)
+            @scope('cell_info', $job)
                 @if($job->getHumanDuration())
-                    {{ $job->getHumanDuration() }}
-                @else
+                    <div>{{ $job->getHumanDuration() }}</div>
+                @endif
+                @if($job->snapshot && $job->status === 'completed')
+                    <div class="text-sm text-base-content/70">{{ $job->snapshot->getHumanFileSize() }}</div>
+                @elseif(!$job->getHumanDuration())
                     <span class="text-base-content/50">-</span>
                 @endif
             @endscope
 
             @scope('actions', $job)
                 <div class="flex gap-2 justify-end">
+                    @if($job->snapshot && $job->status === 'completed')
+                        @can('download', $job->snapshot)
+                            <x-button
+                                icon="o-arrow-down-tray"
+                                wire:click="download('{{ $job->snapshot->id }}')"
+                                spinner
+                                tooltip="{{ __('Download') }}"
+                                class="btn-ghost btn-sm text-info"
+                            />
+                        @endcan
+                    @endif
                     <x-button
                         icon="o-document-text"
                         wire:click="viewLogs('{{ $job->id }}')"
@@ -102,6 +116,16 @@
                         :class="empty($job->logs) ? 'opacity-30' : ''"
                         :disabled="empty($job->logs)"
                     />
+                    @if($job->snapshot)
+                        @can('delete', $job->snapshot)
+                            <x-button
+                                icon="o-trash"
+                                wire:click="confirmDeleteSnapshot('{{ $job->snapshot->id }}')"
+                                tooltip="{{ __('Delete') }}"
+                                class="btn-ghost btn-sm text-error"
+                            />
+                        @endcan
+                    @endif
                 </div>
             @endscope
         </x-table>
@@ -133,4 +157,15 @@
 
     <!-- LOGS MODAL -->
     @include('livewire.backup-job._logs-modal')
+
+    <!-- DELETE CONFIRMATION MODAL -->
+    <x-modal wire:model="showDeleteModal" title="{{ __('Delete Snapshot') }}" separator>
+        <div class="py-4">
+            {{ __('Are you sure you want to delete this snapshot? The backup file will be permanently removed.') }}
+        </div>
+        <x-slot:actions>
+            <x-button label="{{ __('Cancel') }}" @click="$wire.showDeleteModal = false" />
+            <x-button label="{{ __('Delete') }}" class="btn-error" wire:click="deleteSnapshot" spinner />
+        </x-slot:actions>
+    </x-modal>
 </div>

@@ -3,15 +3,20 @@
 namespace App\Livewire\BackupJob;
 
 use App\Models\BackupJob;
+use App\Models\Snapshot;
 use App\Queries\BackupJobQuery;
+use App\Services\Backup\Filesystems\Awss3Filesystem;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class Index extends Component
 {
-    use Toast, WithPagination;
+    use AuthorizesRequests, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -29,6 +34,11 @@ class Index extends Component
     public bool $showLogsModal = false;
 
     public ?string $selectedJobId = null;
+
+    #[Locked]
+    public ?string $deleteSnapshotId = null;
+
+    public bool $showDeleteModal = false;
 
     public function updatingSearch()
     {
@@ -66,7 +76,7 @@ class Index extends Component
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-48'],
             ['key' => 'server', 'label' => __('Server / Database'), 'sortable' => false],
             ['key' => 'status', 'label' => __('Status'), 'sortable' => false, 'class' => 'w-32'],
-            ['key' => 'duration', 'label' => __('Duration'), 'sortable' => false, 'class' => 'w-32'],
+            ['key' => 'info', 'label' => __('Info'), 'sortable' => false, 'class' => 'w-32'],
         ];
     }
 
@@ -105,6 +115,89 @@ class Index extends Component
             ['id' => 'backup', 'name' => __('Backup')],
             ['id' => 'restore', 'name' => __('Restore')],
         ];
+    }
+
+    public function download(string $snapshotId): ?BinaryFileResponse
+    {
+        $snapshot = Snapshot::with('volume')->findOrFail($snapshotId);
+
+        $this->authorize('download', $snapshot);
+
+        try {
+            $storageType = $snapshot->getStorageType();
+            $storagePath = $snapshot->getStoragePath();
+
+            if ($storageType === 'local') {
+                return $this->downloadLocal($snapshot, $storagePath);
+            }
+
+            if ($storageType === 's3') {
+                $this->downloadS3($snapshot, $storagePath);
+
+                return null;
+            }
+
+            $this->error(__('Unsupported storage type.'), position: 'toast-bottom');
+
+            return null;
+        } catch (\Exception $e) {
+            $this->error(__('Failed to download backup: ').$e->getMessage(), position: 'toast-bottom');
+
+            return null;
+        }
+    }
+
+    private function downloadLocal(Snapshot $snapshot, string $storagePath): ?BinaryFileResponse
+    {
+        if (! file_exists($storagePath)) {
+            $this->error(__('Backup file not found.'), position: 'toast-bottom');
+
+            return null;
+        }
+
+        return response()->file($storagePath, [
+            'Content-Type' => 'application/gzip',
+            'Content-Disposition' => 'attachment; filename="'.$snapshot->getFilename().'"',
+        ]);
+    }
+
+    private function downloadS3(Snapshot $snapshot, string $storagePath): void
+    {
+        $s3Filesystem = app(Awss3Filesystem::class);
+        $presignedUrl = $s3Filesystem->getPresignedUrl(
+            $snapshot->volume->config,
+            $storagePath,
+            expiresInMinutes: 15
+        );
+
+        $this->redirect($presignedUrl);
+    }
+
+    public function confirmDeleteSnapshot(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('delete', $snapshot);
+
+        $this->deleteSnapshotId = $snapshotId;
+        $this->showDeleteModal = true;
+    }
+
+    public function deleteSnapshot(): void
+    {
+        if (! $this->deleteSnapshotId) {
+            return;
+        }
+
+        $snapshot = Snapshot::findOrFail($this->deleteSnapshotId);
+
+        $this->authorize('delete', $snapshot);
+
+        $snapshot->delete();
+        $this->deleteSnapshotId = null;
+        $this->showDeleteModal = false;
+
+        $this->success(__('Snapshot deleted successfully!'), position: 'toast-bottom');
     }
 
     public function render()
