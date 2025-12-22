@@ -18,9 +18,12 @@ RUN npm run build
 
 FROM davidcrty/databasement-php:latest
 
+ARG APP_COMMIT_HASH=""
+
 USER 1000
 ENV APP_ENV="production"
 ENV APP_DEBUG="false"
+ENV APP_COMMIT_HASH="${APP_COMMIT_HASH}"
 
 COPY --from=backend-build /app /app
 COPY --from=frontend-build /app/public/build /app/public/build

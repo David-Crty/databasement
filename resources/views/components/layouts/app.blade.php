@@ -85,6 +85,44 @@
     {{-- The `$slot` goes here --}}
     <x-slot:content>
         {{ $slot }}
+
+        {{-- FOOTER --}}
+        @php
+            $commitHash = \App\Support\GitInfo::getCommitHash();
+            $commitUrl = \App\Support\GitInfo::getCommitUrl();
+            $githubRepo = \App\Support\GitInfo::getGitHubRepo();
+            $newIssueUrl = \App\Support\GitInfo::getNewIssueUrl();
+        @endphp
+        <footer class="mt-12 py-6 border-t border-base-300">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-base-content/60">
+                <div class="flex items-center gap-4">
+                    <span>
+                        Made with <span class="text-error">&#10084;</span> by
+                        <a href="https://crty.dev" target="_blank" rel="noopener" class="link link-hover">David-Crty</a>
+                    </span>
+                    <span class="hidden sm:inline">·</span>
+                    <a href="{{ $githubRepo }}" target="_blank" rel="noopener" class="link link-hover flex items-center gap-1">
+                        <x-fab-github class="w-4 h-4" />
+                        GitHub
+                    </a>
+                </div>
+                <div class="flex items-center gap-4">
+                    @if($commitHash)
+                        <a href="{{ $commitUrl }}" target="_blank" rel="noopener" class="link link-hover font-mono text-xs">
+                            {{ $commitHash }}
+                        </a>
+                        <span>·</span>
+                    @endif
+                    <a href="{{ $newIssueUrl }}" target="_blank" rel="noopener" class="link link-hover">
+                        Report an issue
+                    </a>
+                    <span>·</span>
+                    <a href="{{ $githubRepo }}/blob/main/LICENSE" target="_blank" rel="noopener" class="link link-hover">
+                        MIT License
+                    </a>
+                </div>
+            </div>
+        </footer>
     </x-slot:content>
 </x-main>
 

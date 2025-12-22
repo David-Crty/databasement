@@ -67,5 +67,7 @@ jobs:
           context: .
           push: true
           tags: davidcrty/databasement:latest
+          build-args: |
+            APP_COMMIT_HASH=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

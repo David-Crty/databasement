@@ -123,4 +123,29 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | GitHub Repository
+    |--------------------------------------------------------------------------
+    |
+    | The GitHub repository URL for this application. Used for linking to
+    | issues, commits, and the repository itself in the footer.
+    |
+    */
+
+    'github_repo' => 'https://github.com/David-Crty/databasement',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Git Commit Hash
+    |--------------------------------------------------------------------------
+    |
+    | The git commit hash of the current build. Set via APP_COMMIT_HASH
+    | environment variable during deployment, or automatically detected
+    | from the local git repository in development.
+    |
+    */
+
+    'commit_hash' => env('APP_COMMIT_HASH'),
+
 ];
