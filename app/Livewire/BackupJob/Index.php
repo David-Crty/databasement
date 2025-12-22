@@ -4,6 +4,7 @@ namespace App\Livewire\BackupJob;
 
 use App\Models\BackupJob;
 use App\Queries\BackupJobQuery;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -12,10 +13,13 @@ class Index extends Component
 {
     use Toast, WithPagination;
 
+    #[Url]
     public string $search = '';
 
+    #[Url]
     public string $statusFilter = 'all';
 
+    #[Url]
     public string $typeFilter = 'all';
 
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];

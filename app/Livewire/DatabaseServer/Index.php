@@ -7,6 +7,7 @@ use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -15,6 +16,7 @@ class Index extends Component
 {
     use AuthorizesRequests, Toast, WithPagination;
 
+    #[Url]
     public string $search = '';
 
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];

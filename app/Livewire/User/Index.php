@@ -5,6 +5,7 @@ namespace App\Livewire\User;
 use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -13,10 +14,13 @@ class Index extends Component
 {
     use AuthorizesRequests, Toast, WithPagination;
 
+    #[Url]
     public string $search = '';
 
+    #[Url]
     public string $roleFilter = 'all';
 
+    #[Url]
     public string $statusFilter = 'all';
 
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];

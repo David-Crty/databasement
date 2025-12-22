@@ -78,8 +78,7 @@ class SnapshotQuery
                 $sq->where('name', 'like', "%{$search}%");
             })
                 ->orWhere('database_name', 'like', "%{$search}%")
-                ->orWhere('database_host', 'like', "%{$search}%")
-                ->orWhere('storage_uri', 'like', "%{$search}%");
+                ->orWhere('database_host', 'like', "%{$search}%");
         });
     }
 }

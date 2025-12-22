@@ -7,6 +7,7 @@ use App\Queries\SnapshotQuery;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -16,8 +17,10 @@ class Index extends Component
 {
     use AuthorizesRequests, Toast, WithPagination;
 
+    #[Url]
     public string $search = '';
 
+    #[Url]
     public string $statusFilter = 'all';
 
     public array $sortBy = ['column' => 'started_at', 'direction' => 'desc'];
