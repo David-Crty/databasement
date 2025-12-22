@@ -2,6 +2,26 @@ apiVersion: v1
 entries:
   databasement:
   - apiVersion: v2
+    created: "2025-12-22T14:56:42.249471897Z"
+    description: A Helm chart for Databasement - Database backup management application
+    digest: 4469a7720b57df250870fd7a0246c9abf820b8db877d9c6dfb1ec0aee32543be
+    home: https://github.com/David-Crty/databasement
+    keywords:
+    - database
+    - backup
+    - mysql
+    - postgresql
+    - mariadb
+    maintainers:
+    - name: David-Crty
+    name: databasement
+    sources:
+    - https://github.com/David-Crty/databasement
+    type: application
+    urls:
+    - https://github.com/David-Crty/databasement/releases/download/databasement-0.1.4/databasement-0.1.4.tgz
+    version: 0.1.4
+  - apiVersion: v2
     created: "2025-12-18T12:09:58.313050127Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 84a46de09ee1a8e1222e1de1428d996adc0bda35a09f14863e636ccc9dd60175
@@ -61,4 +81,4 @@ entries:
     urls:
     - https://github.com/David-Crty/databasement/releases/download/databasement-0.1.1/databasement-0.1.1.tgz
     version: 0.1.1
-generated: "2025-12-18T12:09:58.313062691Z"
+generated: "2025-12-22T14:56:42.249517292Z"
