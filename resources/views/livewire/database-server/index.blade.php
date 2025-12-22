@@ -29,14 +29,15 @@
             </x-slot:empty>
 
             @scope('cell_name', $server)
-                <div class="table-cell-primary">{{ $server->name }}</div>
-                @if($server->description)
-                    <div class="text-sm text-base-content/70">{{ Str::limit($server->description, 50) }}</div>
-                @endif
-            @endscope
-
-            @scope('cell_database_type', $server)
-                <x-badge :value="$server->database_type" />
+                <div class="flex items-center gap-2">
+                    <x-database-type-icon :type="$server->database_type" />
+                    <div>
+                        <div class="table-cell-primary">{{ $server->name }}</div>
+                        @if($server->description)
+                            <div class="text-sm text-base-content/70">{{ Str::limit($server->description, 50) }}</div>
+                        @endif
+                    </div>
+                </div>
             @endscope
 
             @scope('cell_host', $server)
@@ -58,11 +59,6 @@
                 @else
                     <span class="text-base-content/50">-</span>
                 @endif
-            @endscope
-
-            @scope('cell_created_at', $server)
-                <div class="table-cell-primary">{{ \App\Support\Formatters::humanDate($server->created_at) }}</div>
-                <div class="text-sm text-base-content/70">{{ $server->created_at->diffForHumans() }}</div>
             @endscope
 
             @scope('actions', $server)

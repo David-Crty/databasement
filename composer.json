@@ -12,6 +12,7 @@
         "php": "^8.3",
         "ext-pdo": "*",
         "blade-ui-kit/blade-icons": "^1.8",
+        "codeat3/blade-devicons": "^1.8",
         "dedoc/scramble": "^0.13.8",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^12.0",

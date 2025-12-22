@@ -39,22 +39,26 @@
 
             @scope('cell_server', $job)
                 @if($job->snapshot && $job->snapshot->databaseServer)
-                    <div class="table-cell-primary">{{ $job->snapshot->databaseServer->name }}</div>
-                    <div class="text-sm text-base-content/70">
-                        <x-badge :value="$job->snapshot->database_type" class="badge-xs" />
-                        {{ $job->snapshot->database_name }}
+                    <div class="flex items-center gap-2">
+                        <x-database-type-icon :type="$job->snapshot->database_type" />
+                        <div>
+                            <div class="table-cell-primary">{{ $job->snapshot->databaseServer->name }}</div>
+                            <div class="text-sm text-base-content/70">{{ $job->snapshot->database_name }}</div>
+                        </div>
                     </div>
                 @elseif($job->restore && $job->restore->targetServer)
-                    <div class="table-cell-primary">{{ $job->restore->targetServer->name }} (Target)</div>
-                    <div class="text-sm text-base-content/70">
+                    <div class="flex items-center gap-2">
                         @if($job->restore->snapshot)
-                            <x-badge :value="$job->restore->snapshot->database_type" class="badge-xs" />
+                            <x-database-type-icon :type="$job->restore->snapshot->database_type" />
                         @endif
-                        {{ $job->restore->schema_name }}
+                        <div>
+                            <div class="table-cell-primary">{{ $job->restore->targetServer->name }} (Target)</div>
+                            <div class="text-sm text-base-content/70">{{ $job->restore->schema_name }}</div>
+                            @if($job->restore->snapshot && $job->restore->snapshot->databaseServer)
+                                <div class="text-xs text-base-content/50">From: {{ $job->restore->snapshot->databaseServer->name }}</div>
+                            @endif
+                        </div>
                     </div>
-                    @if($job->restore->snapshot && $job->restore->snapshot->databaseServer)
-                        <div class="text-xs text-base-content/50">From: {{ $job->restore->snapshot->databaseServer->name }}</div>
-                    @endif
                 @else
                     <span class="text-base-content/50">{{ __('Loading...') }}</span>
                 @endif
@@ -83,20 +87,6 @@
             @scope('cell_duration', $job)
                 @if($job->getHumanDuration())
                     {{ $job->getHumanDuration() }}
-                @else
-                    <span class="text-base-content/50">-</span>
-                @endif
-            @endscope
-
-            @scope('cell_triggered_by', $job)
-                @php
-                    $triggeredBy = $job->snapshot ? $job->snapshot->triggeredBy : $job->restore?->triggeredBy;
-                @endphp
-                @if($triggeredBy)
-                    <div class="flex items-center gap-2">
-                        <x-icon name="o-user" class="w-4 h-4 text-base-content/50" />
-                        {{ $triggeredBy->name }}
-                    </div>
                 @else
                     <span class="text-base-content/50">-</span>
                 @endif

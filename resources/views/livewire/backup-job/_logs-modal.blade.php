@@ -2,18 +2,28 @@
     @if($this->selectedJob)
         <div class="space-y-4">
             <!-- Job Info Header -->
+            @php
+                $triggeredBy = $this->selectedJob->snapshot?->triggeredBy ?? $this->selectedJob->restore?->triggeredBy;
+            @endphp
             <div class="p-4 bg-base-200 rounded-lg space-y-2">
                 <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-sm text-base-content/70">
-                            {{ $this->selectedJob->snapshot ? 'Backup' : 'Restore' }} Job
-                        </div>
-                        <div class="font-semibold">
-                            @if($this->selectedJob->snapshot)
-                                {{ $this->selectedJob->snapshot->databaseServer->name }} / {{ $this->selectedJob->snapshot->database_name }}
-                            @elseif($this->selectedJob->restore)
-                                {{ $this->selectedJob->restore->targetServer->name }} / {{ $this->selectedJob->restore->schema_name }}
-                            @endif
+                    <div class="flex items-center gap-3">
+                        @if($this->selectedJob->snapshot)
+                            <x-database-type-icon :type="$this->selectedJob->snapshot->database_type" class="w-6 h-6" />
+                        @elseif($this->selectedJob->restore?->snapshot)
+                            <x-database-type-icon :type="$this->selectedJob->restore->snapshot->database_type" class="w-6 h-6" />
+                        @endif
+                        <div>
+                            <div class="text-sm text-base-content/70">
+                                {{ $this->selectedJob->snapshot ? __('Backup') : __('Restore') }}
+                            </div>
+                            <div class="font-semibold">
+                                @if($this->selectedJob->snapshot)
+                                    {{ $this->selectedJob->snapshot->databaseServer->name }} / {{ $this->selectedJob->snapshot->database_name }}
+                                @elseif($this->selectedJob->restore)
+                                    {{ $this->selectedJob->restore->targetServer->name }} / {{ $this->selectedJob->restore->schema_name }}
+                                @endif
+                            </div>
                         </div>
                     </div>
                     <div class="text-right">
@@ -29,15 +39,18 @@
                         @endif
                     </div>
                 </div>
-                @if($this->selectedJob->started_at)
-                    <div class="text-sm text-base-content/70">
-                        Started: {{ \App\Support\Formatters::humanDate($this->selectedJob->started_at) }}
+                <div class="text-sm text-base-content/70">
+                    @if($this->selectedJob->started_at)
+                        {{ __('Started') }}: {{ \App\Support\Formatters::humanDate($this->selectedJob->started_at) }}
                         @if($this->selectedJob->completed_at)
-                            | Completed: {{ \App\Support\Formatters::humanDate($this->selectedJob->completed_at) }}
-                            | Duration: {{ $this->selectedJob->getHumanDuration() }}
+                            | {{ __('Duration') }}: {{ $this->selectedJob->getHumanDuration() }}
                         @endif
-                    </div>
-                @endif
+                        |
+                    @endif
+                    @if($triggeredBy)
+                        {{ __('By') }}: {{ $triggeredBy->name }}
+                    @endif
+                </div>
             </div>
 
             <!-- Logs Table -->

@@ -67,7 +67,6 @@ class Index extends Component
             ['key' => 'server', 'label' => __('Server / Database'), 'sortable' => false],
             ['key' => 'status', 'label' => __('Status'), 'sortable' => false, 'class' => 'w-32'],
             ['key' => 'duration', 'label' => __('Duration'), 'sortable' => false, 'class' => 'w-32'],
-            ['key' => 'triggered_by', 'label' => __('User'), 'sortable' => false, 'class' => 'w-40'],
         ];
     }
 
