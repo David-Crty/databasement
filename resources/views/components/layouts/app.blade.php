@@ -83,6 +83,12 @@
 
     {{-- The `$slot` goes here --}}
     <x-slot:content>
+        @if (session('status'))
+            <x-alert class="alert-success mb-4" icon="o-check-circle" dismissible>
+                {{ session('status') }}
+            </x-alert>
+        @endif
+
         {{ $slot }}
 
         {{-- FOOTER --}}
