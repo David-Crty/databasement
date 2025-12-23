@@ -19,17 +19,15 @@ class Create extends Component
         $this->authorize('create', DatabaseServer::class);
     }
 
-    public function save(): null
+    public function save(): void
     {
         $this->authorize('create', DatabaseServer::class);
 
         if ($this->form->store()) {
             session()->flash('status', 'Database server created successfully!');
 
-            return $this->redirect(route('database-servers.index'), navigate: true);
+            $this->redirect(route('database-servers.index'), navigate: true);
         }
-
-        return null;
     }
 
     public function testConnection(): void

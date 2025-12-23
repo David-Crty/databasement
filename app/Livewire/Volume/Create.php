@@ -19,7 +19,7 @@ class Create extends Component
         $this->authorize('create', Volume::class);
     }
 
-    public function save(): mixed
+    public function save(): void
     {
         $this->authorize('create', Volume::class);
 
@@ -27,7 +27,7 @@ class Create extends Component
 
         session()->flash('status', 'Volume created successfully!');
 
-        return $this->redirect(route('volumes.index'), navigate: true);
+        $this->redirect(route('volumes.index'), navigate: true);
     }
 
     public function testConnection(): void

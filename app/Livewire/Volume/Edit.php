@@ -21,7 +21,7 @@ class Edit extends Component
         $this->form->setVolume($volume);
     }
 
-    public function save(): mixed
+    public function save(): void
     {
         $this->authorize('update', $this->form->volume);
 
@@ -29,7 +29,7 @@ class Edit extends Component
 
         session()->flash('status', 'Volume updated successfully!');
 
-        return $this->redirect(route('volumes.index'), navigate: true);
+        $this->redirect(route('volumes.index'), navigate: true);
     }
 
     public function testConnection(): void

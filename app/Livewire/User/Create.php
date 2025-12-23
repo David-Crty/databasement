@@ -34,9 +34,9 @@ class Create extends Component
         $this->showCopyModal = true;
     }
 
-    public function closeAndRedirect(): mixed
+    public function closeAndRedirect(): void
     {
-        return $this->redirect(route('users.index'), navigate: true);
+        $this->redirect(route('users.index'), navigate: true);
     }
 
     public function render(): View

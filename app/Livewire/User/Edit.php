@@ -22,19 +22,19 @@ class Edit extends Component
         $this->form->setUser($user);
     }
 
-    public function save(): mixed
+    public function save(): void
     {
         $this->authorize('update', $this->form->user);
 
         if (! $this->form->update()) {
             $this->error('Cannot change role. At least one administrator is required.', position: 'toast-bottom');
 
-            return null;
+            return;
         }
 
         session()->flash('status', 'User updated successfully!');
 
-        return $this->redirect(route('users.index'), navigate: true);
+        $this->redirect(route('users.index'), navigate: true);
     }
 
     public function render(): View

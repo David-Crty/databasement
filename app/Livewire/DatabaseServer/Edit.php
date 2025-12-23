@@ -21,17 +21,15 @@ class Edit extends Component
         $this->form->setServer($server);
     }
 
-    public function save(): mixed
+    public function save(): void
     {
         $this->authorize('update', $this->form->server);
 
         if ($this->form->update()) {
             session()->flash('status', 'Database server updated successfully!');
 
-            return $this->redirect(route('database-servers.index'), navigate: true);
+            $this->redirect(route('database-servers.index'), navigate: true);
         }
-
-        return false;
     }
 
     public function testConnection(): void
