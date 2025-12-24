@@ -73,8 +73,8 @@ class Awss3Filesystem implements FilesystemInterface
         }
 
         // Use IAM role assumption if role_arn is configured
-        if (! empty($awsConfig['role_arn'])) {
-            $clientConfig['credentials'] = $this->createAssumeRoleCredentials($awsConfig);
+        if (! empty($awsConfig['custom_role_arn'])) {
+            $clientConfig['credentials'] = $this->createCustomAssumeRoleCredentials($awsConfig);
         }
 
         if (! empty($awsConfig['s3_endpoint'])) {
@@ -93,7 +93,7 @@ class Awss3Filesystem implements FilesystemInterface
      *
      * @param  array<string, mixed>  $awsConfig
      */
-    private function createAssumeRoleCredentials(array $awsConfig): callable
+    private function createCustomAssumeRoleCredentials(array $awsConfig): callable
     {
         $stsConfig = [
             'version' => 'latest',
@@ -113,7 +113,7 @@ class Awss3Filesystem implements FilesystemInterface
         $assumeRoleProvider = new AssumeRoleCredentialProvider([
             'client' => $stsClient,
             'assume_role_params' => [
-                'RoleArn' => $awsConfig['role_arn'],
+                'RoleArn' => $awsConfig['custom_role_arn'],
                 'RoleSessionName' => $awsConfig['role_session_name'],
             ],
         ]);

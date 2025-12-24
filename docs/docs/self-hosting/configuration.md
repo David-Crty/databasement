@@ -167,18 +167,28 @@ AWS_STS_PROFILE=my-sts-profile
 
 #### All S3 Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `AWS_ACCESS_KEY_ID` | AWS access key (picked up automatically by SDK) | - |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key (picked up automatically by SDK) | - |
-| `AWS_REGION` | AWS region | `us-east-1` |
-| `AWS_ENDPOINT_URL_S3` | Custom S3 endpoint URL | - |
-| `AWS_USE_PATH_STYLE_ENDPOINT` | Use path-style URLs (required for MinIO) | `false` |
-| `AWS_S3_PROFILE` | AWS credential profile for S3 | - |
-| `AWS_ROLE_ARN` | IAM role ARN to assume | - |
-| `AWS_ROLE_SESSION_NAME` | Session name for role assumption | `databasement` |
-| `AWS_ENDPOINT_URL_STS` | Custom STS endpoint URL | - |
-| `AWS_STS_PROFILE` | AWS credential profile for STS | - |
+| Variable                      | Description                                     | Default        |
+|-------------------------------|-------------------------------------------------|----------------|
+| `AWS_ACCESS_KEY_ID`           | AWS access key (picked up automatically by SDK) | -              |
+| `AWS_SECRET_ACCESS_KEY`       | AWS secret key (picked up automatically by SDK) | -              |
+| `AWS_REGION`                  | AWS region                                      | `us-east-1`    |
+| `AWS_ENDPOINT_URL_S3`         | Custom S3 endpoint URL                          | -              |
+| `AWS_USE_PATH_STYLE_ENDPOINT` | Use path-style URLs (required for MinIO)        | `false`        |
+| `AWS_S3_PROFILE`              | AWS credential profile for S3                   | -              |
+| `AWS_CUSTOM_ROLE_ARN`         | IAM custom role ARN to assume                   | -              |
+| `AWS_ROLE_SESSION_NAME`       | Session name for role assumption                | `databasement` |
+| `AWS_ENDPOINT_URL_STS`        | Custom STS endpoint URL                         | -              |
+| `AWS_STS_PROFILE`             | AWS credential profile for STS                  | -              |
+
+
+### Troubleshooting
+
+Debug the aws configuration by running:
+```bash
+php artisan config:show aws
+```
+
+This is where we create the S3 client: [app/Services/Backup/Filesystems/Awss3Filesystem.php](https://github.com/David-Crty/databasement/blob/main/app/Services/Backup/Filesystems/Awss3Filesystem.php)
 
 ## Logging
 
