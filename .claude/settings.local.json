@@ -23,7 +23,8 @@
       "Bash(mkdir:*)",
       "Bash(php -d xdebug.mode=coverage ./vendor/bin/pest:*)",
       "Bash(helm unittest:*)",
-      "Bash(helm lint:*)"
+      "Bash(helm lint:*)",
+      "WebFetch(domain:daisyui.com)"
     ],
     "deny": [],
     "ask": []
