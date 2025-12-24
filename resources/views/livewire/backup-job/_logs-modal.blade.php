@@ -70,9 +70,10 @@
                     <div class="max-h-[60vh] overflow-y-auto divide-y divide-base-300">
                         @foreach($logs as $index => $log)
                             @php
+                                $isRunning = $log['type'] === 'command' && ($log['status'] ?? null) === 'running';
                                 $isError = ($log['type'] === 'command' && isset($log['exit_code']) && $log['exit_code'] !== 0) ||
                                            ($log['type'] !== 'command' && ($log['level'] ?? '') === 'error');
-                                $isWarning = $log['type'] !== 'command' && ($log['level'] ?? '') === 'warning';
+                                $isWarning = ($log['type'] !== 'command' && ($log['level'] ?? '') === 'warning') || $isRunning;
                                 $isSuccess = ($log['type'] === 'command' && isset($log['exit_code']) && $log['exit_code'] === 0) ||
                                              ($log['type'] !== 'command' && ($log['level'] ?? '') === 'success');
                                 $timestamp = \Carbon\Carbon::parse($log['timestamp']);
@@ -91,10 +92,12 @@
                                                 <div class="flex-1 px-4 flex items-center gap-3">
                                                     <span class="text-sm truncate {{ $isError ? 'text-error' : '' }}">
                                                         @if($log['type'] === 'command')
-                                                            <div class="flex items-center">
-                                                                <x-heroicon-c-window
-                                                                    class="w-4 h-4 mr-1 "/>
+                                                            <div class="flex items-center gap-2">
+                                                                <x-devicon-bash class="w-8 h-8"/>
                                                                 <code class="text-primary">{{ Str::limit($log['command'], 80) }}</code>
+                                                                @if($isRunning)
+                                                                    <x-loading class="loading-spinner loading-xs text-warning" />
+                                                                @endif
                                                             </div>
                                                         @else
                                                             {{ Str::limit($log['message'], 80) }}
@@ -116,7 +119,7 @@
                                         </x-slot:heading>
 
                                         <x-slot:content>
-                                            <div class="ml-44 pl-4 pr-4 pb-4 space-y-3">
+                                            <div class="pl-4 pr-4 pb-4 space-y-3">
                                                 @if($log['type'] === 'command')
                                                     <!-- Full Command -->
                                                     <div>
@@ -137,9 +140,16 @@
                                                         <div class="text-xs text-base-content/50 mb-1">{{ __('No output') }}</div>
                                                     @endif
 
-                                                    @if(isset($log['exit_code']) || isset($log['duration_ms']))
+                                                    @if($isRunning || isset($log['exit_code']) || isset($log['duration_ms']))
                                                         <div class="flex items-center gap-2">
-                                                            @if(isset($log['exit_code']))
+                                                            @if($isRunning)
+                                                                <span class="text-xs text-base-content/50">{{ __('Status') }}:</span>
+                                                                <x-badge value="{{ __('Running') }}" class="badge-warning badge-sm">
+                                                                    <x-slot:prepend>
+                                                                        <x-loading class="loading-spinner loading-xs" />
+                                                                    </x-slot:prepend>
+                                                                </x-badge>
+                                                            @elseif(isset($log['exit_code']))
                                                                 <span class="text-xs text-base-content/50">{{ __('Exit code') }}:</span>
                                                                 <x-badge
                                                                     :value="$log['exit_code']"
