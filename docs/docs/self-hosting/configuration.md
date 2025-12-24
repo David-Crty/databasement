@@ -88,11 +88,36 @@ Configure where backup files are stored temporarily during operations.
 |----------|-------------|---------|
 | `BACKUP_TMP_FOLDER` | Local temp directory for backups | `/tmp/backups` |
 
-### S3-Compatible Storage
+### S3 Storage
 
 Databasement supports AWS S3 and S3-compatible storage (MinIO, DigitalOcean Spaces, etc.) for backup volumes.
 
-#### Basic Configuration (Static Credentials)
+## S3 IAM Permissions
+
+The AWS credentials need these permissions:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:DeleteObject",
+                "s3:ListBucket"
+            ],
+            "Resource": [
+                "arn:aws:s3:::your-bucket-name",
+                "arn:aws:s3:::your-bucket-name/*"
+            ]
+        }
+    ]
+}
+```
+
+#### Basic Configuration (Static Credentials) (Optional)
 
 For standard AWS access using access keys:
 
@@ -155,31 +180,6 @@ AWS_STS_PROFILE=my-sts-profile
 | `AWS_ENDPOINT_URL_STS` | Custom STS endpoint URL | - |
 | `AWS_STS_PROFILE` | AWS credential profile for STS | - |
 
-## CLI Tools Configuration
-
-Databasement uses command-line tools to perform database dumps and restores.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `MYSQL_CLI_TYPE` | MySQL CLI type (`mysql` or `mariadb`) | `mariadb` |
-
-The container includes both `mysqldump`/`mysql` (via MariaDB client) and `pg_dump`/`psql` for PostgreSQL operations.
-
-## Queue Configuration
-
-The application uses a queue for async backup and restore operations. By default, it uses the database queue driver.
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `QUEUE_CONNECTION` | Queue driver | `database` |
-
-## Session & Cache
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SESSION_DRIVER` | Session storage driver | `database` |
-| `CACHE_STORE` | Cache storage driver | `database` |
-
 ## Logging
 
 | Variable | Description | Default |
@@ -195,7 +195,6 @@ Here's a complete `.env` file for a production deployment with MySQL:
 
 ```bash
 # Application
-APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://backup.yourdomain.com
 APP_KEY=base64:your-generated-key-here
@@ -208,17 +207,9 @@ DB_DATABASE=databasement
 DB_USERNAME=databasement
 DB_PASSWORD=secure-password-here
 
-# Storage & Queue
-QUEUE_CONNECTION=database
-SESSION_DRIVER=database
-CACHE_STORE=database
-
 # Logging
 LOG_CHANNEL=stderr
 LOG_LEVEL=warning
-
-# CLI Tools
-MYSQL_CLI_TYPE=mariadb
 ```
 
 ## Troubleshooting

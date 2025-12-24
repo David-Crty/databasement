@@ -49,6 +49,19 @@ $storageTypes = [
             </p>
         @elseif($form->type === 's3')
             <!-- S3 Config -->
+            <x-alert class="alert-info" icon="o-information-circle">
+                {{ __('S3 credentials are configured via environment variables.') }}
+                <x-slot:actions>
+                    <x-button
+                        label="{{ __('View S3 Configuration Docs') }}"
+                        link="https://david-crty.github.io/databasement/self-hosting/configuration#s3-storage"
+                        external
+                        class="btn-ghost btn-sm"
+                        icon="o-arrow-top-right-on-square"
+                    />
+                </x-slot:actions>
+            </x-alert>
+
             <x-input
                 wire:model="form.bucket"
                 label="{{ __('S3 Bucket Name') }}"
