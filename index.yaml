@@ -1,6 +1,31 @@
 apiVersion: v1
 entries:
   databasement:
+  - annotations:
+      artifacthub.io/license: MIT
+      artifacthub.io/readme: README.md
+    apiVersion: v2
+    appVersion: 0.1.7
+    created: "2025-12-26T19:51:09.447749964Z"
+    description: A Helm chart for Databasement - Database backup management application
+    digest: a5bec7851c050ade4fb2a2505920827e12661468e8019503da7ed58ed79df5e4
+    home: https://github.com/David-Crty/databasement
+    keywords:
+    - database
+    - backup
+    - mysql
+    - postgresql
+    - mariadb
+    maintainers:
+    - email: david_courtey@yahoo.com
+      name: David-Crty
+    name: databasement
+    sources:
+    - https://github.com/David-Crty/databasement
+    type: application
+    urls:
+    - https://github.com/David-Crty/databasement/releases/download/databasement-0.1.7/databasement-0.1.7.tgz
+    version: 0.1.7
   - apiVersion: v2
     created: "2025-12-24T09:52:56.894153108Z"
     description: A Helm chart for Databasement - Database backup management application
@@ -121,4 +146,4 @@ entries:
     urls:
     - https://github.com/David-Crty/databasement/releases/download/databasement-0.1.1/databasement-0.1.1.tgz
     version: 0.1.1
-generated: "2025-12-24T09:52:56.894176211Z"
+generated: "2025-12-26T19:51:09.447776584Z"
