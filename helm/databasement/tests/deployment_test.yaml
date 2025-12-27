@@ -7,20 +7,20 @@ templates:
 values:
   - ../values.yaml
 set:
-  app.key: "base64:test-key-for-unit-tests"
+  app.appKey.value: "base64:test-key-for-unit-tests"
 tests:
-  - it: should fail when app.key is not set
+  - it: should fail when app.appKey.value is not set
     set:
-      app.key: ""
-      app.existingSecret: ""
+      app.appKey.value: ""
     asserts:
       - failedTemplate:
-          errorMessage: "app.key is required. Generate one with: docker run --rm davidcrty/databasement:latest php artisan key:generate --show"
+          errorMessage: "app.appKey.value is required. Generate one with: docker run --rm davidcrty/databasement:latest php artisan key:generate --show"
 
-  - it: should render when app.existingSecret is used instead of app.key
+  - it: should render when app.appKey.fromSecret is used instead of value
     set:
-      app.key: ""
-      app.existingSecret: "my-existing-secret"
+      app.appKey.value: ""
+      app.appKey.fromSecret.secretName: "my-existing-secret"
+      app.appKey.fromSecret.secretKey: "APP_KEY"
     asserts:
       - isKind:
           of: Deployment

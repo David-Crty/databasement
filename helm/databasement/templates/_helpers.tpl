@@ -2,8 +2,8 @@
 Validate required values
 */}}
 {{- define "databasement.validateValues" -}}
-{{- if and (not .Values.app.key) (not .Values.app.existingSecret) -}}
-{{- fail "app.key is required. Generate one with: docker run --rm davidcrty/databasement:latest php artisan key:generate --show" -}}
+{{- if and (not .Values.app.appKey.value) (not .Values.app.appKey.fromSecret) -}}
+{{- fail "app.appKey.value is required. Generate one with: docker run --rm davidcrty/databasement:latest php artisan key:generate --show" -}}
 {{- end -}}
 {{- end -}}
 
@@ -82,13 +82,13 @@ Common environment variables for app and worker containers
   value: {{ .Values.app.debug | quote }}
 - name: APP_URL
   value: {{ .Values.app.url | quote }}
-{{- if .Values.app.existingSecret }}
+{{- if .Values.app.appKey.fromSecret }}
 - name: APP_KEY
   valueFrom:
     secretKeyRef:
-      name: {{ .Values.app.existingSecret }}
-      key: {{ .Values.app.secretKeys.appKey }}
-{{- else if .Values.app.key }}
+      name: {{ .Values.app.appKey.fromSecret.secretName }}
+      key: {{ .Values.app.appKey.fromSecret.secretKey }}
+{{- else if .Values.app.appKey.value }}
 - name: APP_KEY
   valueFrom:
     secretKeyRef:

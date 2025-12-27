@@ -22,11 +22,12 @@ app:
   url: http://localhost:8000
   # Application encryption key (required)
   # Generate with: docker run --rm davidcrty/databasement:latest php artisan key:generate --show
-  key: ""
-  # Use existing secret for app key
-  existingSecret: ""
-  secretKeys:
-    appKey: APP_KEY
+  appKey:
+    value: ""
+    # Generate key from secret
+#    fromSecret:
+#      secretName: ""
+#      secretKey: ""
 
 # Worker configuration
 worker:
