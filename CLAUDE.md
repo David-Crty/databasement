@@ -40,7 +40,6 @@ docker compose logs -f queue  # View queue worker logs only
 make test                           # Run all Pest tests
 make test-filter FILTER=DatabaseServer  # Run specific test class/method
 make test-coverage                  # Run tests with coverage report
-make backup-test                    # Run end-to-end backup and restore tests (requires Docker containers)
 ```
 ### Test Strategy
 - Focus on testing business logic and behaviors
@@ -70,8 +69,6 @@ make backup-test                    # Run end-to-end backup and restore tests (r
 **DON'T Mock:**
 - Model/ORM methods
 - Simple utility functions
-
-**IMPORTANT**: When modifying backup or restore logic (services in `app/Services/Backup/`), you MUST run `make backup-test` to verify the complete backup and restore workflow works correctly with real MySQL and PostgreSQL databases.
 
 ### Code Quality
 ```bash

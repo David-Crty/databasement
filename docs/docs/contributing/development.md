@@ -55,12 +55,7 @@ All PHP commands run through Docker. Use the Makefile targets or `docker compose
 make test                           # Run all tests
 make test-filter FILTER=ServerTest  # Run specific tests
 make test-coverage                  # Run with coverage report
-make backup-test                    # End-to-end backup/restore tests
 ```
-
-:::warning Important
-When modifying backup or restore logic in `app/Services/Backup/`, always run `make backup-test` to verify the complete workflow with real database servers.
-:::
 
 ### Code Quality
 

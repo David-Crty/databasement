@@ -12,7 +12,6 @@
       "Bash(make phpstan:*)",
       "Bash(make test:*)",
       "Bash(make help:*)",
-      "Bash(make backup-test:*)",
       "WebFetch(domain:mary-ui.com)",
       "Bash(tree:*)",
       "Bash(docker compose exec:*)",
