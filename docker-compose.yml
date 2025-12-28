@@ -43,7 +43,7 @@ services:
     container_name: databasement-mysql
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: testdb
+      MYSQL_DATABASE: databasement_test
     ports:
       - "3307:3306"
     volumes:
@@ -61,7 +61,7 @@ services:
     environment:
       POSTGRES_USER: root
       POSTGRES_PASSWORD: root
-      POSTGRES_DB: testdb
+      POSTGRES_DB: databasement_test
     ports:
       - "5432:5432"
     volumes:
