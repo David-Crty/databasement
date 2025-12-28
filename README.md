@@ -47,7 +47,7 @@ Databasement is designed to be self-hosted. We provide several deployment option
 
 | Method | Description | Guide |
 |--------|-------------|-------|
-| **Docker** | Single container deployment (recommended) | [View Guide](https://david-crty.github.io/databasement/self-hosting/docker) |
+| **Docker** | Single container deployment | [View Guide](https://david-crty.github.io/databasement/self-hosting/docker) |
 | **Docker Compose** | Multi-container setup with external database | [View Guide](https://david-crty.github.io/databasement/self-hosting/docker-compose) |
 | **Kubernetes + Helm** | For Kubernetes clusters | [View Guide](https://david-crty.github.io/databasement/self-hosting/kubernetes-helm) |
 
