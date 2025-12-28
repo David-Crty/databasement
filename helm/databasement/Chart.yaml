@@ -2,8 +2,8 @@ apiVersion: v2
 name: databasement
 description: A Helm chart for Databasement - Database backup management application
 type: application
-version: 0.1.10
-appVersion: "0.1.10"
+version: 0.1.11
+appVersion: "0.1.11"
 keywords:
   - database
   - backup

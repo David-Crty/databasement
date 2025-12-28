@@ -1,6 +1,6 @@
 services:
   app:
-    image: davidcrty/databasement-php
+    # image: davidcrty/databasement-php
     build:
       context: docker/php
     user: 1000:1000
@@ -19,14 +19,14 @@ services:
       - localstack
 
   worker:
-    image: davidcrty/databasement-php
+    # image: davidcrty/databasement-php
     build:
       context: docker/php
     user: 1000:1000
     volumes:
       - .:/app
       - app-data:/data
-    command: sh -c "php artisan db:wait && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
+    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     restart: unless-stopped
     environment:
       AWS_ACCESS_KEY_ID: localstack

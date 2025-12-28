@@ -25,10 +25,8 @@ make setup
 
 This will:
 - Install Composer dependencies
-- Install npm dependencies
-- Copy `.env.example` to `.env`
-- Generate application key
 - Run database migrations
+- Install npm dependencies
 - Build frontend assets
 
 ### 2. Start Development Environment
@@ -160,7 +158,9 @@ Ensure tests pass before committing.
 
 ### Environment Variables
 
-Key development configuration in `.env`:
+The `.env` file is committed to the repository and contains default development configuration. To override these values, create a `.env.local` file (which is gitignored).
+
+Key development configuration:
 
 ```env
 # Application

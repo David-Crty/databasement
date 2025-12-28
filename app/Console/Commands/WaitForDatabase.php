@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class WaitForDatabase extends Command
 {
@@ -12,7 +14,9 @@ class WaitForDatabase extends Command
      *
      * @var string
      */
-    protected $signature = 'db:wait {--allow-missing-db : Return success if connection works but database is missing}';
+    protected $signature = 'db:wait
+        {--allow-missing-db : Return success if connection works but database is missing}
+        {--check-migrations : Also verify that all migrations have been run}';
 
     /**
      * The console command description.
@@ -24,7 +28,7 @@ class WaitForDatabase extends Command
     /**
      * Execute the console command.
      */
-    public function handle(): int
+    public function handle(Migrator $migrator): int
     {
         $this->info('Waiting for database connection...');
 
@@ -35,6 +39,10 @@ class WaitForDatabase extends Command
             try {
                 DB::connection()->getPdo();
                 $this->info('Database connection established!');
+
+                if ($this->option('check-migrations')) {
+                    $this->checkMigrations($migrator);
+                }
 
                 return 0;
             } catch (\Exception $e) {
@@ -52,8 +60,8 @@ class WaitForDatabase extends Command
                     }
                 }
 
-                $this->warn("Database not ready yet. Retrying in {$retryDelay} seconds... ({$i}/{$maxRetries})");
-                $this->error($e->getMessage()); // Print the actual error message
+                $this->warn("Not ready yet. Retrying in {$retryDelay} seconds... ({$i}/{$maxRetries})");
+                $this->warn($e->getMessage());
 
                 // Force a fresh connection attempt on the next iteration
                 try {
@@ -66,8 +74,33 @@ class WaitForDatabase extends Command
             }
         }
 
-        $this->error('Could not connect to the database after multiple attempts.');
+        $this->error('Database not ready after multiple attempts.');
 
         return 1;
+    }
+
+    /**
+     * @throws RuntimeException
+     */
+    private function checkMigrations(Migrator $migrator): void
+    {
+        $this->info('Checking migrations...');
+
+        $migrator->setConnection(DB::getDefaultConnection());
+        $migrationPath = database_path('migrations');
+
+        if (! $migrator->repositoryExists()) {
+            throw new RuntimeException('Migrations table does not exist.');
+        }
+
+        $ranMigrations = $migrator->getRepository()->getRan();
+        $allMigrations = array_keys($migrator->getMigrationFiles($migrationPath));
+        $pendingMigrations = array_diff($allMigrations, $ranMigrations);
+
+        if (count($pendingMigrations) > 0) {
+            throw new RuntimeException('Pending migrations: '.implode(', ', $pendingMigrations));
+        }
+
+        $this->info('All migrations have been run!');
     }
 }

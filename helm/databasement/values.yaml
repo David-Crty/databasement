@@ -65,7 +65,7 @@ extraVolumes: {}
 # Worker configuration
 worker:
   enabled: true
-  command: "php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
+  command: "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
   resources:
     limits:
       cpu: 500m
