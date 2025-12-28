@@ -68,12 +68,16 @@ class ShellProcessor
         return $output;
     }
 
-    private function sanitizeCommand(string $command): string
+    public function sanitizeCommand(string $command): string
     {
         // Mask passwords in MySQL/PostgreSQL commands
         $patterns = [
-            '/--password=[^\s]+/' => '--password=***',
-            '/-p[^\s]+/' => '-p***',
+            // Match --password=VALUE or --password='VALUE' or --password="VALUE"
+            '/--password=[\'"]?[^\s\'"]+[\'"]?/' => '--password=***',
+            // Match -pPASSWORD (MySQL shorthand) - only when -p is a standalone argument
+            // followed directly by password (not --port, not inside words like mysql-production)
+            '/(^|\s)-p([^\s\-][^\s]*)/' => '$1-p***',
+            // Match PGPASSWORD=VALUE
             '/PGPASSWORD=[^\s]+/' => 'PGPASSWORD=***',
         ];
 

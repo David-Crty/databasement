@@ -56,24 +56,6 @@ class TestShellProcessor extends ShellProcessor
     }
 
     /**
-     * Sanitize commands (copied from parent for logging)
-     */
-    private function sanitizeCommand(string $command): string
-    {
-        $patterns = [
-            '/--password=[^\s]+/' => '--password=***',
-            '/-p[^\s]+/' => '-p***',
-            '/PGPASSWORD=[^\s]+/' => 'PGPASSWORD=***',
-        ];
-
-        foreach ($patterns as $pattern => $replacement) {
-            $command = preg_replace($pattern, $replacement, $command);
-        }
-
-        return $command;
-    }
-
-    /**
      * Get all executed commands
      */
     public function getCommands(): array
