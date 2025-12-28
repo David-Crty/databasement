@@ -58,14 +58,14 @@ class DatabaseServerForm extends Form
     {
         $this->server = $server;
         $this->name = $server->name;
-        $this->host = $server->host;
-        $this->port = $server->port;
+        $this->host = $server->host ?? '';
+        $this->port = $server->port ?? 3306;
         $this->database_type = $server->database_type;
         $this->sqlite_path = $server->sqlite_path ?? '';
-        $this->username = $server->username;
+        $this->username = $server->username ?? '';
         $this->database_names = $server->database_names ?? [];
         $this->database_names_input = implode(', ', $this->database_names);
-        $this->backup_all_databases = $server->backup_all_databases;
+        $this->backup_all_databases = $server->backup_all_databases ?? false;
         $this->description = $server->description;
         // Don't populate password for security
         $this->password = '';
@@ -181,10 +181,10 @@ class DatabaseServerForm extends Form
         unset($validated['volume_id'], $validated['recurrence'], $validated['retention_days']);
 
         // Only update password if a new one is provided
-        if (empty($validated['password'])) {
+        if (isset($validated['password']) && empty($validated['password'])) {
             unset($validated['password']);
         }
-        if ($validated['backup_all_databases'] === true) {
+        if (! empty($validated['backup_all_databases'])) {
             $validated['database_names'] = null;
         }
 
