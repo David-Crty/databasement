@@ -29,6 +29,10 @@ This will:
 - Install npm dependencies
 - Build frontend assets
 
+You should be ready to go!
+
+Open http://localhost:2226 in your browser to view the app.
+
 ### 2. Start Development Environment
 
 ```bash
