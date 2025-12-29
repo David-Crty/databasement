@@ -131,12 +131,32 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
             </x-button>
         </div>
 
-        <!-- Connection Test Result (only show errors) -->
-        @if($form->connectionTestMessage && !$form->connectionTestSuccess)
+        <!-- Connection Test Result -->
+        @if($form->connectionTestMessage)
             <div class="mt-2">
-                <x-alert class="alert-error" icon="o-x-circle">
-                    {{ $form->connectionTestMessage }}
-                </x-alert>
+                @if($form->connectionTestSuccess)
+                    <x-alert class="alert-success" icon="o-check-circle">
+                        <div class="flex flex-col gap-2">
+                            <span class="font-semibold">
+                                {{ __('Connection successful') }}
+                                @if(!empty($form->connectionTestDetails) && isset($form->connectionTestDetails['ping_ms']))
+                                    ({{ __('Ping: ') }}{{ $form->connectionTestDetails['ping_ms'] }}ms)
+                                @endif
+                            </span>
+                        </div>
+                    </x-alert>
+                    @if(!empty($form->connectionTestDetails) && isset($form->connectionTestDetails['output']))
+                        <div class="mockup-code text-sm max-h-64 overflow-auto mt-2 max-w-full w-full">
+                            @foreach(explode("\n", trim($form->connectionTestDetails['output'])) as $line)
+                                <pre class="!whitespace-pre-wrap !break-all"><code>{{ $line }}</code></pre>
+                            @endforeach
+                        </div>
+                    @endif
+                @else
+                    <x-alert class="alert-error" icon="o-x-circle">
+                        {{ $form->connectionTestMessage }}
+                    </x-alert>
+                @endif
             </div>
         @endif
     </div>

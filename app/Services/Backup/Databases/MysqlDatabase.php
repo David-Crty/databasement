@@ -122,4 +122,26 @@ class MysqlDatabase implements DatabaseInterface
 
         return implode(' ', $commands);
     }
+
+    /**
+     * Get a command to run STATUS query for connection testing.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function getStatusCommand(array $config): string
+    {
+        $cli = $this->mysqlCli[$this->getMysqlCliType()]['restore'];
+        $skipSsl = $this->getMysqlCliType() === 'mariadb' ? '--skip_ssl' : '';
+
+        return sprintf(
+            '%s --host=%s --port=%s --user=%s --password=%s %s -e %s',
+            $cli,
+            escapeshellarg($config['host']),
+            escapeshellarg((string) $config['port']),
+            escapeshellarg($config['user']),
+            escapeshellarg($config['pass']),
+            $skipSsl,
+            escapeshellarg('STATUS;')
+        );
+    }
 }

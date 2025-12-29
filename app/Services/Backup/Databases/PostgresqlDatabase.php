@@ -45,4 +45,22 @@ class PostgresqlDatabase implements DatabaseInterface
             escapeshellarg($inputPath)
         );
     }
+
+    /**
+     * Get a command to run a query for connection testing.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function getQueryCommand(array $config, string $query): string
+    {
+        return sprintf(
+            'PGPASSWORD=%s psql --host=%s --port=%s --user=%s %s -t -c %s',
+            escapeshellarg($config['pass']),
+            escapeshellarg($config['host']),
+            escapeshellarg((string) $config['port']),
+            escapeshellarg($config['user']),
+            escapeshellarg($config['database']),
+            escapeshellarg($query)
+        );
+    }
 }

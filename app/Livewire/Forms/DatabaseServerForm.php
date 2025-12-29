@@ -50,6 +50,9 @@ class DatabaseServerForm extends Form
 
     public bool $testingConnection = false;
 
+    /** @var array<string, mixed> Connection test details (dbms, ping, ssl, etc.) */
+    public array $connectionTestDetails = [];
+
     /** @var array<array{id: string, name: string}> */
     public array $availableDatabases = [];
 
@@ -212,6 +215,7 @@ class DatabaseServerForm extends Form
     {
         $this->testingConnection = true;
         $this->connectionTestMessage = null;
+        $this->connectionTestDetails = [];
         $this->availableDatabases = [];
 
         // Validate only the connection-related fields
@@ -259,6 +263,7 @@ class DatabaseServerForm extends Form
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
+        $this->connectionTestDetails = $result['details'] ?? [];
         $this->testingConnection = false;
 
         // If connection successful and not SQLite, load available databases
