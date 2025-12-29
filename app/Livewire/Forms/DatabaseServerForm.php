@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Forms;
 
+use App\Exceptions\Backup\EncryptionException;
 use App\Facades\DatabaseConnectionTester;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
@@ -169,6 +170,14 @@ class DatabaseServerForm extends Form
 
     public function update(): bool
     {
+        // If the stored password can't be decrypted (APP_KEY changed), clear it first
+        try {
+            $this->server->getDecryptedPassword();
+        } catch (EncryptionException) {
+            DatabaseServer::where('id', $this->server->id)->update(['password' => null]);
+            $this->server->refresh();
+        }
+
         $validated = $this->formValidate();
 
         // Extract backup data
@@ -190,12 +199,10 @@ class DatabaseServerForm extends Form
 
         $this->server->update($validated);
 
-        // Update or create backup
-        if ($this->server->backup) {
+        if ($this->server->backup()->exists()) {
             $this->server->backup()->update($backupData);
         } else {
-            /** @var Backup $backup */
-            $backup = $this->server->backup()->create($backupData);
+            $this->server->backup()->create($backupData);
         }
 
         return true;
@@ -231,12 +238,22 @@ class DatabaseServerForm extends Form
         }
 
         // Test connection
+        try {
+            $password = ($this->password) ?: $this->server?->getDecryptedPassword();
+        } catch (EncryptionException $e) {
+            $this->testingConnection = false;
+            $this->connectionTestSuccess = false;
+            $this->connectionTestMessage = $e->getMessage();
+
+            return;
+        }
+
         $result = DatabaseConnectionTester::test([
             'database_type' => $this->database_type,
             'host' => $this->isSqlite() ? $this->sqlite_path : $this->host,
             'port' => $this->port,
             'username' => $this->username,
-            'password' => ($this->password) ?: $this->server?->password,
+            'password' => $password,
             'database_name' => null,
         ]);
 
@@ -259,13 +276,15 @@ class DatabaseServerForm extends Form
         $this->availableDatabases = [];
 
         try {
+            $password = ($this->password) ?: $this->server?->getDecryptedPassword();
+
             // Create a temporary DatabaseServer object for the service
             $tempServer = new DatabaseServer([
                 'host' => $this->host,
                 'port' => $this->port,
                 'database_type' => $this->database_type,
                 'username' => $this->username,
-                'password' => ($this->password) ?: $this->server?->password,
+                'password' => $password,
             ]);
 
             $databaseListService = app(DatabaseListService::class);
@@ -275,8 +294,9 @@ class DatabaseServerForm extends Form
             $this->availableDatabases = collect($databases)
                 ->map(fn (string $db) => ['id' => $db, 'name' => $db])
                 ->toArray();
-        } catch (\Exception $e) {
-            // If we can't list databases, the user can still type manually
+        } catch (\Exception) {
+            // If we can't list databases (encryption error, connection error, etc.),
+            // the user can still type manually
             $this->availableDatabases = [];
         }
 

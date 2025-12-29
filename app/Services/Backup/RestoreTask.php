@@ -220,7 +220,7 @@ class RestoreTask
             'host' => $targetServer->host,
             'port' => $targetServer->port,
             'user' => $targetServer->username,
-            'pass' => $targetServer->password,
+            'pass' => $targetServer->getDecryptedPassword(),
             'database' => $schemaName,
         ];
 

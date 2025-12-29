@@ -18,7 +18,7 @@ class ConnectionFactory
         $databaseType = DatabaseType::from($server->database_type);
         $dsn = $databaseType->buildAdminDsn($server->host, $server->port);
 
-        return $this->createConnection($dsn, $server->username, $server->password, $timeout);
+        return $this->createConnection($dsn, $server->username, $server->getDecryptedPassword(), $timeout);
     }
 
     /**
@@ -33,7 +33,7 @@ class ConnectionFactory
             $database ?? ($server->database_names[0] ?? null)
         );
 
-        return $this->createConnection($dsn, $server->username, $server->password, $timeout);
+        return $this->createConnection($dsn, $server->username, $server->getDecryptedPassword(), $timeout);
     }
 
     /**

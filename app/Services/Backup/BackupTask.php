@@ -187,7 +187,7 @@ class BackupTask
             'host' => $databaseServer->host,
             'port' => $databaseServer->port,
             'user' => $databaseServer->username,
-            'pass' => $databaseServer->password,
+            'pass' => $databaseServer->getDecryptedPassword(),
             'database' => $databaseName,
         ];
 

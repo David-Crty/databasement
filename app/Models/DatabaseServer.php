@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Exceptions\Backup\EncryptionException;
 use Database\Factories\DatabaseServerFactory;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -108,5 +110,22 @@ class DatabaseServer extends Model
     public function snapshots(): HasMany
     {
         return $this->hasMany(Snapshot::class);
+    }
+
+    /**
+     * Get the decrypted password with proper exception handling.
+     *
+     * @throws EncryptionException
+     */
+    public function getDecryptedPassword(): string
+    {
+        try {
+            return $this->password ?? '';
+        } catch (DecryptException $e) { // @phpstan-ignore catch.neverThrown (DecryptException is thrown by Laravel's encrypted cast)
+            throw new EncryptionException(
+                'Unable to decrypt database password. The application key (APP_KEY) may have changed. Please update the password in the database server settings.',
+                previous: $e
+            );
+        }
     }
 }
