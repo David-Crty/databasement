@@ -42,12 +42,26 @@
 
             @scope('cell_host', $server)
                 @if($server->database_type === 'sqlite')
-                    <div class="flex items-center gap-1">
-                        <x-icon name="o-document" class="w-4 h-4 text-base-content/50" />
-                        <span class="font-mono text-sm" title="{{ $server->sqlite_path }}">{{ Str::limit(basename($server->sqlite_path), 30) }}</span>
-                    </div>
+                    <x-popover>
+                        <x-slot:trigger>
+                            <div class="flex items-center gap-1 cursor-pointer">
+                                <x-icon name="o-document" class="w-4 h-4 text-base-content/50" />
+                                <span class="font-mono text-sm truncate max-w-48">{{ basename($server->sqlite_path) }}</span>
+                            </div>
+                        </x-slot:trigger>
+                        <x-slot:content class="text-sm font-mono">
+                            {{ $server->sqlite_path }}
+                        </x-slot:content>
+                    </x-popover>
                 @else
-                    {{ $server->host }}:{{ $server->port }}
+                    <x-popover>
+                        <x-slot:trigger>
+                            <span class="font-mono text-sm truncate max-w-48 block cursor-pointer">{{ $server->host }}:{{ $server->port }}</span>
+                        </x-slot:trigger>
+                        <x-slot:content class="text-sm font-mono">
+                            {{ $server->host }}:{{ $server->port }}
+                        </x-slot:content>
+                    </x-popover>
                 @endif
             @endscope
 
