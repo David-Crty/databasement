@@ -39,36 +39,16 @@ class MysqlDatabase implements DatabaseInterface
 
     public function getDumpCommandLine(string $outputPath): string
     {
-        $extras = [];
-        if (array_key_exists('singleTransaction', $this->config) && $this->config['singleTransaction'] === true) {
-            $extras[] = '--single-transaction';
-        }
-        if (array_key_exists('ignoreTables', $this->config)) {
-            $extras[] = $this->getIgnoreTableParameter();
-        }
-        if (array_key_exists('ssl', $this->config) && $this->config['ssl'] === true) {
-            $extras[] = '--ssl';
-        } elseif ($this->getMysqlCliType() === 'mariadb') {
-            $extras[] = '--skip_ssl';
-        }
-        if (array_key_exists('extraParams', $this->config) && $this->config['extraParams']) {
-            $extras[] = $this->config['extraParams'];
-        }
-
-        // Prepare a "params" string from our config
-        $params = '';
-        $keys = ['host' => 'host', 'port' => 'port', 'user' => 'user', 'pass' => 'password'];
-        foreach ($keys as $key => $mysqlParam) {
-            if (! empty($this->config[$key])) {
-                $params .= sprintf(' --%s=%s', $mysqlParam, escapeshellarg($this->config[$key]));
-            }
-        }
-
-        $command = $this->mysqlCli[$this->getMysqlCliType()]['dump'].' --routines '.implode(' ', $extras).'%s %s > %s';
+        $sslFlag = $this->getMysqlCliType() === 'mariadb' ? '--skip_ssl ' : '';
 
         return sprintf(
-            $command,
-            $params,
+            '%s --routines --add-drop-table --complete-insert --hex-blob --quote-names %s--host=%s --port=%s --user=%s --password=%s %s > %s',
+            $this->mysqlCli[$this->getMysqlCliType()]['dump'],
+            $sslFlag,
+            escapeshellarg($this->config['host']),
+            escapeshellarg((string) $this->config['port']),
+            escapeshellarg($this->config['user']),
+            escapeshellarg($this->config['pass']),
             escapeshellarg($this->config['database']),
             escapeshellarg($outputPath)
         );
@@ -76,51 +56,19 @@ class MysqlDatabase implements DatabaseInterface
 
     public function getRestoreCommandLine(string $inputPath): string
     {
-        $extras = [];
-        if (array_key_exists('ssl', $this->config) && $this->config['ssl'] === true) {
-            $extras[] = '--ssl';
-        } elseif ($this->getMysqlCliType() === 'mariadb') {
-            $extras[] = '--skip_ssl';
-        }
-
-        // Prepare a "params" string from our config
-        $params = '';
-        $keys = ['host' => 'host', 'port' => 'port', 'user' => 'user', 'pass' => 'password'];
-        foreach ($keys as $key => $mysqlParam) {
-            if (! empty($this->config[$key])) {
-                $params .= sprintf(' --%s=%s', $mysqlParam, escapeshellarg($this->config[$key]));
-            }
-        }
+        $sslFlag = $this->getMysqlCliType() === 'mariadb' ? '--skip_ssl ' : '';
 
         return sprintf(
-            '%s%s '.implode(' ', $extras).' %s -e "source %s"',
+            '%s --host=%s --port=%s --user=%s --password=%s %s%s -e "source %s"',
             $this->mysqlCli[$this->getMysqlCliType()]['restore'],
-            $params,
+            escapeshellarg($this->config['host']),
+            escapeshellarg((string) $this->config['port']),
+            escapeshellarg($this->config['user']),
+            escapeshellarg($this->config['pass']),
+            $sslFlag,
             escapeshellarg($this->config['database']),
             $inputPath
         );
-    }
-
-    public function getIgnoreTableParameter(): string
-    {
-        if (! is_array($this->config['ignoreTables']) || count($this->config['ignoreTables']) === 0) {
-            return '';
-        }
-
-        $db = $this->config['database'];
-        $ignoreTables = array_map(function ($table) use ($db) {
-            return $db.'.'.$table;
-        }, $this->config['ignoreTables']);
-
-        $commands = [];
-        foreach ($ignoreTables as $ignoreTable) {
-            $commands[] = sprintf(
-                '--ignore-table=%s',
-                escapeshellarg($ignoreTable)
-            );
-        }
-
-        return implode(' ', $commands);
     }
 
     /**

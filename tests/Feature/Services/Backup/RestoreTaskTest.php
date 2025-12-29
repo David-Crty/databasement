@@ -160,7 +160,7 @@ test('run executes mysql restore workflow successfully', function (string $cliTy
     ],
     'mysql' => [
         'mysql',
-        "mysql --host='target.localhost' --port='3306' --user='root' --password='secret' ",
+        "mysql --host='target.localhost' --port='3306' --user='root' --password='secret'",
     ],
 ]);
 
