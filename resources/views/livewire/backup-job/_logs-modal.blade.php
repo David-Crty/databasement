@@ -199,7 +199,7 @@
                                                         <div>
                                                             <div class="text-xs text-base-content/50 mb-1">{{ __('Context') }}</div>
                                                             <div class="bg-base-300 p-3 rounded font-mono text-xs overflow-x-auto">
-                                                                <pre class="text-base-content/80">{{ json_encode($log['context'], JSON_PRETTY_PRINT) }}</pre>
+                                                                <pre class="text-base-content/80">{{ json_encode($log['context'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                                             </div>
                                                         </div>
                                                     @endif
