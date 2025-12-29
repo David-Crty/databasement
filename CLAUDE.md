@@ -211,10 +211,24 @@ make test-filter FILTER=DatabaseServerTest
 
 ### Adding a New Database Type
 
-1. Update validation in Livewire components (`Create.php`, `Edit.php`): Add type to `in:` rule
-2. Add DSN builder case in `DatabaseConnectionTester::buildDsn()`
-3. Update migration enum if using database enums
-4. Add tests for new connection type
+#### Files to Update
+
+**Services:**
+- `app/Services/DatabaseConnectionTester.php` - Add DSN builder case in `buildDsn()`
+- `app/Services/Backup/BackupTask.php` - Add backup command logic
+- `app/Services/Backup/RestoreTask.php` - Add restore command logic
+
+**Forms & UI:**
+- `app/Livewire/Forms/DatabaseServerForm.php` - Add properties, validation rules, null handling in `setServer()`
+- `resources/views/livewire/database-server/` - Conditional form fields and display
+
+#### Required Tests
+
+```bash
+tests/Feature/DatabaseServer/CreateTest.php       # 'can create {type} database server'
+tests/Feature/DatabaseServer/EditTest.php         # 'can edit {type} database server'
+tests/Feature/Integration/BackupRestoreTest.php   # '{type} backup and restore workflow' (CRITICAL)
+```
 
 ### Working with Livewire Components
 
