@@ -18,6 +18,15 @@ class Edit extends Component
     {
         $this->authorize('update', $volume);
 
+        // Prevent editing volumes that have snapshots
+        if ($volume->hasSnapshots()) {
+            session()->flash('error', __('Cannot edit volume: it has existing snapshots.'));
+
+            $this->redirect(route('volumes.index'), navigate: true);
+
+            return;
+        }
+
         $this->form->setVolume($volume);
     }
 

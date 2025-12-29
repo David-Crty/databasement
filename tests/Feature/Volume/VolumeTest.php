@@ -3,8 +3,10 @@
 use App\Livewire\Volume\Create;
 use App\Livewire\Volume\Edit;
 use App\Livewire\Volume\Index;
+use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Models\Volume;
+use App\Services\Backup\BackupJobFactory;
 use Livewire\Livewire;
 
 // Authorization Tests
@@ -168,4 +170,44 @@ test('can delete volume', function () {
     $this->assertDatabaseMissing('volumes', [
         'id' => $volume->id,
     ]);
+});
+
+// Immutability Tests
+test('cannot edit volume with snapshots', function () {
+    $user = User::factory()->create();
+
+    // Create a volume with a snapshot
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $volume = $server->backup->volume;
+
+    $factory = app(BackupJobFactory::class);
+    $factory->createSnapshots($server, 'manual');
+
+    // Verify volume now has snapshots
+    expect($volume->hasSnapshots())->toBeTrue();
+
+    // Accessing edit page should redirect with error
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['volume' => $volume])
+        ->assertRedirect(route('volumes.index'))
+        ->assertSessionHas('error', 'Cannot edit volume: it has existing snapshots.');
+});
+
+test('can edit volume without snapshots', function () {
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'Empty Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+    ]);
+
+    // Verify volume has no snapshots
+    expect($volume->hasSnapshots())->toBeFalse();
+
+    // Should be able to access edit page and form is populated
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['volume' => $volume])
+        ->assertSuccessful()
+        ->assertSet('form.name', 'Empty Volume')
+        ->assertSet('form.type', 'local');
 });

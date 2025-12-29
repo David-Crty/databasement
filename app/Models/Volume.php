@@ -71,4 +71,12 @@ class Volume extends Model
     {
         return $this->hasMany(Snapshot::class);
     }
+
+    /**
+     * Check if volume has any snapshots (making it immutable).
+     */
+    public function hasSnapshots(): bool
+    {
+        return $this->snapshots()->exists();
+    }
 }

@@ -14,6 +14,7 @@ use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\ConnectionFactory;
+use App\Support\Formatters;
 use PDO;
 use PDOException;
 
@@ -63,16 +64,18 @@ class RestoreTask
                 ],
             ]);
 
-            // Download snapshot from volume
-            $job->log("Downloading snapshot from volume: {$snapshot->volume->name}", 'info', [
-                'filename' => $snapshot->filename,
-                'volume_type' => $snapshot->volume->type,
-            ]);
+            $humanFileSize = Formatters::humanFileSize($snapshot->file_size);
             $compressedFile = $workingDirectory.'/snapshot.gz';
-            $this->filesystemProvider->download($snapshot, $compressedFile);
-            $job->log('Snapshot downloaded successfully', 'success', [
-                'file_size' => filesize($compressedFile),
+            // Download snapshot from volume
+            $job->log("Downloading snapshot ({$humanFileSize}) from volume: {$snapshot->volume->name}", 'info', [
+                'volume_type' => $snapshot->volume->type,
+                'source' => $snapshot->filename,
+                'destination' => $compressedFile,
             ]);
+            $transferStart = microtime(true);
+            $this->filesystemProvider->download($snapshot, $compressedFile);
+            $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
+            $job->log('Downloaded completed successfully in '.$transferDuration, 'success');
             $workingFile = $this->compressor->decompress($compressedFile);
 
             if ($targetServer->database_type === 'sqlite') {

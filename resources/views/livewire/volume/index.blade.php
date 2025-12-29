@@ -55,13 +55,28 @@
             @scope('actions', $volume)
                 <div class="flex gap-2 justify-end">
                     @can('update', $volume)
-                        <x-button
-                            icon="o-pencil"
-                            link="{{ route('volumes.edit', $volume) }}"
-                            wire:navigate
-                            tooltip="{{ __('Edit') }}"
-                            class="btn-ghost btn-sm"
-                        />
+                        @if($volume->hasSnapshots())
+                            <x-popover position="top">
+                                <x-slot:trigger>
+                                    <x-button
+                                        icon="o-pencil"
+                                        disabled
+                                        class="btn-ghost btn-sm"
+                                    />
+                                </x-slot:trigger>
+                                <x-slot:content>
+                                    {{ __('Cannot edit: volume has snapshots') }}
+                                </x-slot:content>
+                            </x-popover>
+                        @else
+                            <x-button
+                                icon="o-pencil"
+                                link="{{ route('volumes.edit', $volume) }}"
+                                wire:navigate
+                                tooltip="{{ __('Edit') }}"
+                                class="btn-ghost btn-sm"
+                            />
+                        @endif
                     @endcan
                     @can('delete', $volume)
                         <x-button
