@@ -20,7 +20,7 @@ class Filesystem
         $baseDirectory = rtrim(config('backup.working_directory'), '/');
         $workingDirectory = $baseDirectory.'/'.$prefix.'-'.$id;
 
-        if (! mkdir($workingDirectory, 0755, true) && ! is_dir($workingDirectory)) {
+        if (! is_dir($workingDirectory) && ! mkdir($workingDirectory, 0755, true)) {
             throw new RuntimeException("Failed to create working directory: {$workingDirectory}");
         }
 

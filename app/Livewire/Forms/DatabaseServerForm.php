@@ -299,9 +299,14 @@ class DatabaseServerForm extends Form
             $this->availableDatabases = collect($databases)
                 ->map(fn (string $db) => ['id' => $db, 'name' => $db])
                 ->toArray();
-        } catch (\Exception) {
+        } catch (\Exception $e) {
             // If we can't list databases (encryption error, connection error, etc.),
             // the user can still type manually
+            // log the error but don't fail the form submission
+            logger()->error('Failed to list databases for server', [
+                'server_id' => $this->server->id ?? null,
+                'error' => $e->getMessage(),
+            ]);
             $this->availableDatabases = [];
         }
 

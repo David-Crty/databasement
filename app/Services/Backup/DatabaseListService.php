@@ -97,7 +97,7 @@ class DatabaseListService
                 $databaseServer->port
             ),
             'postgresql' => sprintf(
-                'pgsql:host=%s;port=%d',
+                'pgsql:host=%s;port=%d;dbname=postgres',
                 $databaseServer->host,
                 $databaseServer->port
             ),
