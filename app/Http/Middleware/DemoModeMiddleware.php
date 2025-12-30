@@ -73,6 +73,11 @@ class DemoModeMiddleware
             return $next($request);
         }
 
+        // Skip auto-login if no users exist (allow first admin to register)
+        if (User::count() === 0) {
+            return $next($request);
+        }
+
         // Auto-login guests as demo user
         $demoUser = $this->getOrCreateDemoUser();
         Auth::login($demoUser);

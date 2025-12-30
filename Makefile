@@ -49,11 +49,11 @@ test-mysql: ## Run all tests with MySQL
 	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.mysql.testing $(PHP_SERVICE) php artisan test
 
 test-filter: ## Run tests with filter (usage: make test-filter FILTER=DatabaseServer)
-	$(PHP_ARTISAN) test --filter=$(FILTER)
+	$(PHP_ARTISAN) test --filter="$(FILTER)"
 
 test-filter-mysql: ## Run tests with filter using MySQL (usage: make test-filter-mysql FILTER=DatabaseServer)
 	$(DOCKER_COMPOSE) exec -T mysql mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS databasement_app_test;" 2>/dev/null || true
-	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.mysql.testing $(PHP_SERVICE) php artisan test --filter=$(FILTER)
+	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.mysql.testing $(PHP_SERVICE) php artisan test --filter="$(FILTER)"
 
 test-postgres: ## Run all tests with PostgreSQL
 	$(DOCKER_COMPOSE) exec -T postgres psql -U root -d postgres -c "DROP DATABASE IF EXISTS databasement_app_test;"
@@ -63,7 +63,7 @@ test-postgres: ## Run all tests with PostgreSQL
 test-filter-postgres: ## Run tests with filter using PostgreSQL (usage: make test-filter-postgres FILTER=DatabaseServer)
 	$(DOCKER_COMPOSE) exec -T postgres psql -U root -d postgres -c "DROP DATABASE IF EXISTS databasement_app_test;"
 	$(DOCKER_COMPOSE) exec -T postgres psql -U root -d postgres -c "CREATE DATABASE databasement_app_test;"
-	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.postgres.testing $(PHP_SERVICE) php artisan test --filter=$(FILTER)
+	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.postgres.testing $(PHP_SERVICE) php artisan test --filter="$(FILTER)"
 
 test-coverage: ## Run tests with coverage
 	$(PHP_ARTISAN) test --coverage
