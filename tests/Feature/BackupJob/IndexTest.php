@@ -1,7 +1,9 @@
 <?php
 
 use App\Livewire\BackupJob\Index;
+use App\Models\BackupJob;
 use App\Models\DatabaseServer;
+use App\Models\Restore;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
@@ -197,18 +199,63 @@ test('can download snapshot from s3 storage redirects to presigned url', functio
         ->assertRedirect('https://test-bucket.s3.amazonaws.com/test-backup.sql.gz?presigned=token');
 });
 
-test('can delete snapshot', function () {
+test('can delete snapshot with file and cascades restores and jobs', function () {
     $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
 
+    // Create a temporary directory and file to simulate a real backup
+    $tempDir = sys_get_temp_dir().'/snapshot-delete-test-'.uniqid();
+    mkdir($tempDir, 0755, true);
+
+    // Create volume pointing to temp directory
+    $volume = Volume::factory()->create([
+        'type' => 'local',
+        'config' => ['path' => $tempDir],
+    ]);
+
+    $backupFilename = 'test-backup.sql.gz';
+    $backupFilePath = $tempDir.'/'.$backupFilename;
+    file_put_contents($backupFilePath, 'test backup content');
+
+    // Create server with backup using our volume
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+    $server->backup->update(['volume_id' => $volume->id]);
 
+    // Create snapshot with real file
+    $factory = app(BackupJobFactory::class);
     $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
     $snapshot = $snapshots[0];
+    $snapshot->update([
+        'filename' => $backupFilename,
+        'file_size' => filesize($backupFilePath),
+    ]);
     $snapshot->job->markCompleted();
+    $snapshotJobId = $snapshot->job->id;
 
-    expect($snapshot->fresh())->not->toBeNull();
+    // Create a restore record associated with this snapshot
+    $restoreJob = BackupJob::create([
+        'type' => 'restore',
+        'status' => 'completed',
+        'started_at' => now(),
+        'completed_at' => now(),
+    ]);
+    $restore = \App\Models\Restore::create([
+        'backup_job_id' => $restoreJob->id,
+        'snapshot_id' => $snapshot->id,
+        'target_server_id' => $server->id,
+        'schema_name' => 'restored_db',
+        'triggered_by_user_id' => $user->id,
+    ]);
+    $restoreJobId = $restoreJob->id;
+    $restoreId = $restore->id;
 
+    // Verify everything exists before deletion
+    expect(file_exists($backupFilePath))->toBeTrue()
+        ->and($snapshot->fresh())->not->toBeNull()
+        ->and(Restore::find($restoreId))->not->toBeNull()
+        ->and(BackupJob::find($snapshotJobId))->not->toBeNull()
+        ->and(BackupJob::find($restoreJobId))->not->toBeNull();
+
+    // Delete the snapshot via Livewire
     Livewire::actingAs($user)
         ->test(Index::class)
         ->call('confirmDeleteSnapshot', $snapshot->id)
@@ -217,5 +264,17 @@ test('can delete snapshot', function () {
         ->call('deleteSnapshot')
         ->assertSet('showDeleteModal', false);
 
-    expect($snapshot->fresh())->toBeNull();
+    // Verify cascade deletion
+    expect($snapshot->fresh())->toBeNull('Snapshot should be deleted')
+        ->and(Restore::find($restoreId))->toBeNull('Restore should be cascade deleted')
+        ->and(BackupJob::find($snapshotJobId))->toBeNull('Snapshot job should be cascade deleted')
+        ->and(BackupJob::find($restoreJobId))->toBeNull('Restore job should be cascade deleted')
+        ->and(file_exists($backupFilePath))->toBeFalse('Backup file should be deleted from storage');
+
+    // Verify file was deleted
+
+    // Cleanup temp directory
+    if (is_dir($tempDir)) {
+        rmdir($tempDir);
+    }
 });
