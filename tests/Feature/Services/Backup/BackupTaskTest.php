@@ -140,7 +140,7 @@ test('run executes postgresql backup workflow successfully', function () {
         'name' => 'Staging PostgreSQL',
         'host' => 'db.example.com',
         'port' => 5432,
-        'database_type' => 'postgresql',
+        'database_type' => 'postgres',
         'username' => 'postgres',
         'password' => 'pg_secret',
         'database_names' => ['staging_db'],

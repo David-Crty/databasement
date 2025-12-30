@@ -12,24 +12,8 @@ use Tests\Support\IntegrationTestHelpers;
 
 uses()->group('integration');
 
-// beforeEach(function () {
-//    // Create SQLite test database if needed
-//    $sqliteConfig = IntegrationTestHelpers::getDatabaseConfig('sqlite');
-//    if (! file_exists($sqliteConfig['host'])) {
-//        IntegrationTestHelpers::createTestSqliteDatabase($sqliteConfig['host']);
-//    }
-// });
-//
-// afterEach(function () {
-//    // Cleanup SQLite test database
-//    $sqliteConfig = IntegrationTestHelpers::getDatabaseConfig('sqlite');
-//    if (file_exists($sqliteConfig['host'])) {
-//        unlink($sqliteConfig['host']);
-//    }
-// });
-
-test('connection succeeds', function (string $type, string $databaseType) {
-    $config = IntegrationTestHelpers::getDatabaseConfig($type);
+test('connection succeeds', function (string $databaseType) {
+    $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);
     if ($databaseType === 'sqlite') {
         IntegrationTestHelpers::createTestSqliteDatabase($config['host']);
     }
@@ -49,15 +33,10 @@ test('connection succeeds', function (string $type, string $databaseType) {
     if ($databaseType === 'sqlite') {
         unlink($config['host']);
     }
-})->with([
-    'mysql' => ['mysql', 'mysql'],
-    'postgresql' => ['postgres', 'postgresql'],
-    'mariadb' => ['mysql', 'mariadb'],
-    'sqlite' => ['sqlite', 'sqlite'],
-]);
+})->with(['mysql', 'postgres', 'sqlite']);
 
-test('connection fails with invalid credentials', function (string $type, string $databaseType) {
-    $config = IntegrationTestHelpers::getDatabaseConfig($type);
+test('connection fails with invalid credentials', function (string $databaseType) {
+    $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);
 
     $result = DatabaseConnectionTester::test([
         'database_type' => $databaseType,
@@ -70,10 +49,7 @@ test('connection fails with invalid credentials', function (string $type, string
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->not->toBeEmpty();
-})->with([
-    'mysql' => ['mysql', 'mysql'],
-    'postgresql' => ['postgres', 'postgresql'],
-]);
+})->with(['mysql', 'postgres']);
 
 test('connection fails with unreachable host', function (string $databaseType, int $port) {
     $result = DatabaseConnectionTester::test([
@@ -89,7 +65,7 @@ test('connection fails with unreachable host', function (string $databaseType, i
         ->and($result['message'])->not->toBeEmpty();
 })->with([
     'mysql' => ['mysql', 33061],      // Wrong MySQL port
-    'postgresql' => ['postgresql', 54321], // Wrong PostgreSQL port
+    'postgres' => ['postgres', 54321], // Wrong PostgreSQL port
 ]);
 
 test('sqlite connection fails', function (string $path, string $expectedMessage) {

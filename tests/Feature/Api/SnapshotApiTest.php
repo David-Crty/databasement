@@ -65,7 +65,7 @@ test('authenticated users can filter snapshots by database type', function () {
     $factory->createSnapshots($mysqlServer, 'manual');
 
     $pgServer = DatabaseServer::factory()->create([
-        'database_type' => 'postgresql',
+        'database_type' => 'postgres',
         'database_names' => ['pg_db'],
     ]);
     $factory->createSnapshots($pgServer, 'manual');

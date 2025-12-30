@@ -17,7 +17,7 @@ class PostgresqlDatabase implements DatabaseInterface
 
     public function handles(mixed $type): bool
     {
-        return in_array(strtolower($type ?? ''), ['postgresql', 'postgres', 'pgsql']);
+        return strtolower($type ?? '') === 'postgres';
     }
 
     /**

@@ -28,19 +28,10 @@ class DatabaseConnectionTester
             ];
         }
 
-        // SQLite: check if file exists and is readable
-        if ($databaseType === DatabaseType::SQLITE) {
-            return self::testSqliteConnection($config['host']);
-        }
-
-        return match (true) {
-            $databaseType->isMysqlFamily() => self::testMysqlConnection($config),
-            $databaseType === DatabaseType::POSTGRESQL => self::testPostgresqlConnection($config),
-            default => [
-                'success' => false,
-                'message' => "Unsupported database type: {$config['database_type']}",
-                'details' => [],
-            ],
+        return match ($databaseType) {
+            DatabaseType::MYSQL => self::testMysqlConnection($config),
+            DatabaseType::POSTGRESQL => self::testPostgresqlConnection($config),
+            DatabaseType::SQLITE => self::testSqliteConnection($config['host']),
         };
     }
 

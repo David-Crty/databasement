@@ -135,13 +135,11 @@ class RestoreTask
             $pdo = $this->connectionFactory->createAdminConnection($targetServer);
             $databaseType = DatabaseType::from($targetServer->database_type);
 
-            if ($databaseType->isMysqlFamily()) {
-                $this->prepareMysqlDatabase($pdo, $schemaName, $job);
-            } elseif ($databaseType === DatabaseType::POSTGRESQL) {
-                $this->preparePostgresqlDatabase($pdo, $schemaName, $job);
-            } else {
-                throw new UnsupportedDatabaseTypeException($targetServer->database_type);
-            }
+            match ($databaseType) {
+                DatabaseType::MYSQL => $this->prepareMysqlDatabase($pdo, $schemaName, $job),
+                DatabaseType::POSTGRESQL => $this->preparePostgresqlDatabase($pdo, $schemaName, $job),
+                default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
+            };
         } catch (PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }
@@ -191,9 +189,9 @@ class RestoreTask
     {
         $databaseType = DatabaseType::from($targetServer->database_type);
 
-        $command = match (true) {
-            $databaseType->isMysqlFamily() => $this->mysqlDatabase->getRestoreCommandLine($inputPath),
-            $databaseType === DatabaseType::POSTGRESQL => $this->postgresqlDatabase->getRestoreCommandLine($inputPath),
+        $command = match ($databaseType) {
+            DatabaseType::MYSQL => $this->mysqlDatabase->getRestoreCommandLine($inputPath),
+            DatabaseType::POSTGRESQL => $this->postgresqlDatabase->getRestoreCommandLine($inputPath),
             default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
         };
 
@@ -221,12 +219,10 @@ class RestoreTask
 
         $databaseType = DatabaseType::from($targetServer->database_type);
 
-        if ($databaseType->isMysqlFamily()) {
-            $this->mysqlDatabase->setConfig($config);
-        } elseif ($databaseType === DatabaseType::POSTGRESQL) {
-            $this->postgresqlDatabase->setConfig($config);
-        } else {
-            throw new UnsupportedDatabaseTypeException($targetServer->database_type);
-        }
+        match ($databaseType) {
+            DatabaseType::MYSQL => $this->mysqlDatabase->setConfig($config),
+            DatabaseType::POSTGRESQL => $this->postgresqlDatabase->setConfig($config),
+            default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
+        };
     }
 }

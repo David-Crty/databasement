@@ -2,7 +2,6 @@
 
 use App\Jobs\ProcessBackupJob;
 use App\Models\DatabaseServer;
-use App\Models\Snapshot;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use Illuminate\Support\Facades\Log;

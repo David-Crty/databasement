@@ -53,7 +53,7 @@ test('authenticated users can filter database servers by name', function () {
 test('authenticated users can filter database servers by database type', function () {
     $user = User::factory()->create();
     DatabaseServer::factory()->create(['database_type' => 'mysql']);
-    DatabaseServer::factory()->create(['database_type' => 'postgresql']);
+    DatabaseServer::factory()->create(['database_type' => 'postgres']);
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson('/api/v1/database-servers?filter[database_type]=mysql');

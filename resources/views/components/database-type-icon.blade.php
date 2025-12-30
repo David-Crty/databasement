@@ -4,9 +4,9 @@
     $type = strtolower($type);
 @endphp
 
-@if($type === 'mysql' || $type === 'mariadb')
+@if($type === 'mysql')
     <x-devicon-mysql {{ $attributes->merge(['class' => $class]) }} />
-@elseif($type === 'postgresql' || $type === 'postgres')
+@elseif($type === 'postgres')
     <x-devicon-postgresql {{ $attributes->merge(['class' => $class]) }} />
 @elseif($type === 'sqlite')
     <x-devicon-sqlite {{ $attributes->merge(['class' => $class]) }} />

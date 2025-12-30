@@ -2,9 +2,8 @@
 
 @php
 $databaseTypes = [
-    ['id' => 'mysql', 'name' => 'MySQL'],
-    ['id' => 'mariadb', 'name' => 'MariaDB'],
-    ['id' => 'postgresql', 'name' => 'PostgreSQL'],
+    ['id' => 'mysql', 'name' => 'MySQL / MariaDB'],
+    ['id' => 'postgres', 'name' => 'PostgreSQL'],
     ['id' => 'sqlite', 'name' => 'SQLite'],
 ];
 

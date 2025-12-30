@@ -5,20 +5,13 @@ namespace App\Enums;
 enum DatabaseType: string
 {
     case MYSQL = 'mysql';
-    case MARIADB = 'mariadb';
-    case POSTGRESQL = 'postgresql';
+    case POSTGRESQL = 'postgres';
     case SQLITE = 'sqlite';
-
-    public function isMysqlFamily(): bool
-    {
-        return in_array($this, [self::MYSQL, self::MARIADB]);
-    }
 
     public function label(): string
     {
         return match ($this) {
-            self::MYSQL => 'MySQL',
-            self::MARIADB => 'MariaDB',
+            self::MYSQL => 'MySQL / MariaDB',
             self::POSTGRESQL => 'PostgreSQL',
             self::SQLITE => 'SQLite',
         };
@@ -27,7 +20,7 @@ enum DatabaseType: string
     public function defaultPort(): int
     {
         return match ($this) {
-            self::MYSQL, self::MARIADB => 3306,
+            self::MYSQL => 3306,
             self::POSTGRESQL => 5432,
             self::SQLITE => 0,
         };
@@ -36,7 +29,7 @@ enum DatabaseType: string
     public function buildDsn(string $host, int $port, ?string $database = null): string
     {
         return match ($this) {
-            self::MYSQL, self::MARIADB => sprintf(
+            self::MYSQL => sprintf(
                 'mysql:host=%s;port=%d%s;charset=utf8mb4',
                 $host,
                 $port,
@@ -58,7 +51,7 @@ enum DatabaseType: string
     public function buildAdminDsn(string $host, int $port): string
     {
         return match ($this) {
-            self::MYSQL, self::MARIADB => sprintf(
+            self::MYSQL => sprintf(
                 'mysql:host=%s;port=%d',
                 $host,
                 $port

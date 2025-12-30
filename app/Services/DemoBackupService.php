@@ -22,9 +22,8 @@ class DemoBackupService
         $dbConfig = config("database.connections.{$connection}");
 
         $databaseType = match ($connection) {
-            'mysql' => 'mysql',
-            'mariadb' => 'mariadb',
-            'pgsql' => 'postgresql',
+            'mysql', 'mariadb' => 'mysql',
+            'pgsql' => 'postgres',
             'sqlite' => 'sqlite',
             default => throw new RuntimeException("Unsupported database connection: {$connection}"),
         };
@@ -51,7 +50,7 @@ class DemoBackupService
             $databaseServer = DatabaseServer::create([
                 'name' => 'Databasement Database',
                 'host' => $dbConfig['host'] ?? '127.0.0.1',
-                'port' => (int) ($dbConfig['port'] ?? ($databaseType === 'postgresql' ? 5432 : 3306)),
+                'port' => (int) ($dbConfig['port'] ?? ($databaseType === 'postgres' ? 5432 : 3306)),
                 'database_type' => $databaseType,
                 'username' => $dbConfig['username'] ?? '',
                 'password' => $dbConfig['password'] ?? '',

@@ -28,8 +28,8 @@ class DatabaseListService
             $pdo = $this->createConnection($databaseServer);
 
             return match ($databaseServer->database_type) {
-                'mysql', 'mariadb' => $this->listMysqlDatabases($pdo),
-                'postgresql' => $this->listPostgresqlDatabases($pdo),
+                'mysql' => $this->listMysqlDatabases($pdo),
+                'postgres' => $this->listPostgresqlDatabases($pdo),
                 default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
             };
         } catch (PDOException $e) {
@@ -91,12 +91,12 @@ class DatabaseListService
     protected function buildDsn(DatabaseServer $databaseServer): string
     {
         return match ($databaseServer->database_type) {
-            'mysql', 'mariadb' => sprintf(
+            'mysql' => sprintf(
                 'mysql:host=%s;port=%d',
                 $databaseServer->host,
                 $databaseServer->port
             ),
-            'postgresql' => sprintf(
+            'postgres' => sprintf(
                 'pgsql:host=%s;port=%d;dbname=postgres',
                 $databaseServer->host,
                 $databaseServer->port

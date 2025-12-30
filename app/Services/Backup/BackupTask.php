@@ -120,8 +120,8 @@ class BackupTask
             $this->configureDatabaseInterface($databaseServer, $databaseName);
 
             $command = match ($databaseServer->database_type) {
-                'mysql', 'mariadb' => $this->mysqlDatabase->getDumpCommandLine($outputPath),
-                'postgresql' => $this->postgresqlDatabase->getDumpCommandLine($outputPath),
+                'mysql' => $this->mysqlDatabase->getDumpCommandLine($outputPath),
+                'postgres' => $this->postgresqlDatabase->getDumpCommandLine($outputPath),
                 default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
             };
         }
@@ -162,8 +162,8 @@ class BackupTask
         ];
 
         match ($databaseServer->database_type) {
-            'mysql', 'mariadb' => $this->mysqlDatabase->setConfig($config),
-            'postgresql' => $this->postgresqlDatabase->setConfig($config),
+            'mysql' => $this->mysqlDatabase->setConfig($config),
+            'postgres' => $this->postgresqlDatabase->setConfig($config),
             default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
         };
     }

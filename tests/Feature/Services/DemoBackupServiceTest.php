@@ -64,7 +64,7 @@ test('creates demo backup for postgresql database', function () {
     $databaseServer = $service->createDemoBackup('pgsql');
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
-        ->and($databaseServer->database_type)->toBe('postgresql')
+        ->and($databaseServer->database_type)->toBe('postgres')
         ->and($databaseServer->host)->toBe('postgres.example.com')
         ->and($databaseServer->port)->toBe(5432)
         ->and($databaseServer->username)->toBe('pguser')

@@ -1,7 +1,6 @@
 <?php
 
 use App\Jobs\ProcessBackupJob;
-use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use Illuminate\Support\Facades\Queue;

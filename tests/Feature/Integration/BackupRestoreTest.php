@@ -8,8 +8,6 @@
  */
 
 use App\Models\Backup;
-use App\Models\DatabaseServer;
-use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -36,7 +34,7 @@ afterEach(function () {
     if ($this->restoredDatabaseName && $this->databaseServer) {
         try {
             IntegrationTestHelpers::dropDatabase(
-                $this->databaseServer->database_type === 'postgresql' ? 'postgres' : 'mysql',
+                $this->databaseServer->database_type === 'postgres' ? 'postgres' : 'mysql',
                 $this->databaseServer,
                 $this->restoredDatabaseName
             );

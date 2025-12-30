@@ -87,7 +87,6 @@ test('can create database server', function (array $config) {
     ]);
 })->with([
     'mysql' => [['type' => 'mysql', 'name' => 'MySQL Server', 'host' => 'mysql.example.com', 'port' => 3306]],
-    'postgresql' => [['type' => 'postgresql', 'name' => 'PostgreSQL Server', 'host' => 'postgres.example.com', 'port' => 5432]],
-    'mariadb' => [['type' => 'mariadb', 'name' => 'MariaDB Server', 'host' => 'mariadb.example.com', 'port' => 3306]],
+    'postgres' => [['type' => 'postgres', 'name' => 'PostgreSQL Server', 'host' => 'postgres.example.com', 'port' => 5432]],
     'sqlite' => [['type' => 'sqlite', 'name' => 'SQLite Database', 'sqlite_path' => '/data/app.sqlite']],
 ]);

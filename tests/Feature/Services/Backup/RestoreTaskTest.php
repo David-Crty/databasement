@@ -166,7 +166,7 @@ test('run executes postgresql restore workflow successfully', function () {
         'name' => 'Source PostgreSQL',
         'host' => 'source.localhost',
         'port' => 5432,
-        'database_type' => 'postgresql',
+        'database_type' => 'postgres',
         'username' => 'postgres',
         'password' => 'secret',
         'database_names' => ['sourcedb'],
@@ -176,7 +176,7 @@ test('run executes postgresql restore workflow successfully', function () {
         'name' => 'Target PostgreSQL',
         'host' => 'target.localhost',
         'port' => 5432,
-        'database_type' => 'postgresql',
+        'database_type' => 'postgres',
         'username' => 'postgres',
         'password' => 'secret',
         'database_names' => ['targetdb'],
@@ -227,7 +227,7 @@ test('run throws exception when database types are incompatible', function () {
         'name' => 'Target PostgreSQL',
         'host' => 'localhost',
         'port' => 5432,
-        'database_type' => 'postgresql',
+        'database_type' => 'postgres',
         'username' => 'postgres',
         'password' => 'secret',
         'database_names' => ['targetdb'],
@@ -244,7 +244,7 @@ test('run throws exception when database types are incompatible', function () {
 
     // Act & Assert
     expect(fn () => $this->restoreTask->run($restore))
-        ->toThrow(\App\Exceptions\Backup\RestoreException::class, 'Cannot restore mysql snapshot to postgresql server');
+        ->toThrow(\App\Exceptions\Backup\RestoreException::class, 'Cannot restore mysql snapshot to postgres server');
 });
 
 test('run throws exception when restore command failed', function () {

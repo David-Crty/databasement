@@ -21,38 +21,6 @@ class ConnectionFactory
         return $this->createConnection($dsn, $server->username, $server->getDecryptedPassword(), $timeout);
     }
 
-    /**
-     * Create a PDO connection to a specific database
-     */
-    public function createDatabaseConnection(DatabaseServer $server, ?string $database = null, int $timeout = 30): PDO
-    {
-        $databaseType = DatabaseType::from($server->database_type);
-        $dsn = $databaseType->buildDsn(
-            $server->host,
-            $server->port,
-            $database ?? ($server->database_names[0] ?? null)
-        );
-
-        return $this->createConnection($dsn, $server->username, $server->getDecryptedPassword(), $timeout);
-    }
-
-    /**
-     * Create a PDO connection from raw configuration
-     *
-     * @param  array{database_type: string, host: string, port: int, username: string, password: string, database_name?: string|null}  $config
-     */
-    public function createFromConfig(array $config, int $timeout = 30): PDO
-    {
-        $databaseType = DatabaseType::from($config['database_type']);
-        $dsn = $databaseType->buildDsn(
-            $config['host'],
-            $config['port'],
-            $config['database_name'] ?? null
-        );
-
-        return $this->createConnection($dsn, $config['username'], $config['password'], $timeout);
-    }
-
     private function createConnection(string $dsn, string $username, string $password, int $timeout): PDO
     {
         try {

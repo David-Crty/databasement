@@ -32,7 +32,7 @@ class IntegrationTestHelpers
                 'username' => config('testing.databases.postgres.username'),
                 'password' => config('testing.databases.postgres.password'),
                 'database' => config('testing.databases.postgres.database'),
-                'database_type' => 'postgresql',
+                'database_type' => 'postgres',
             ],
             'sqlite' => [
                 'host' => config('backup.working_directory').'/test_connection.sqlite',
