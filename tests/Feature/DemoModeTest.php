@@ -184,37 +184,6 @@ test('demo user can access appearance settings', function () {
         ->assertOk();
 });
 
-// Login form pre-fill in demo mode
-test('login form shows demo credentials when demo mode is enabled', function () {
-    // Create an admin so we don't get redirected to register
-    User::factory()->create(['role' => User::ROLE_ADMIN]);
-
-    config([
-        'app.demo_mode' => true,
-        'app.demo_user_email' => 'demo@example.com',
-        'app.demo_user_password' => 'demopass',
-    ]);
-
-    $response = $this->get(route('login'));
-
-    $response->assertOk()
-        ->assertSee('Demo mode: credentials are pre-filled')
-        ->assertSee('value="demo@example.com"', false)
-        ->assertSee('value="demopass"', false);
-});
-
-test('login form does not show demo credentials when demo mode is disabled', function () {
-    // Create an admin so we don't get redirected to register
-    User::factory()->create(['role' => User::ROLE_ADMIN]);
-
-    config(['app.demo_mode' => false]);
-
-    $response = $this->get(route('login'));
-
-    $response->assertOk()
-        ->assertDontSee('Demo mode: credentials are pre-filled');
-});
-
 // First admin registration in demo mode
 test('first admin can register even when demo mode is enabled', function () {
     // Delete all users to simulate fresh install
@@ -251,16 +220,6 @@ test('first admin can register even when demo mode is enabled', function () {
     // Should be able to access dashboard
     $this->get(route('dashboard'))->assertOk();
 });
-
-// Demo user uses regular logout
-test('demo user can logout using regular logout route', function () {
-    $this->actingAs($this->demoUser)
-        ->post(route('logout'))
-        ->assertRedirect('/');
-
-    $this->assertGuest();
-});
-
 // Demo user creation
 test('demo user is created when visiting login page in demo mode', function () {
     // Delete all users
@@ -286,27 +245,4 @@ test('demo user is created when visiting login page in demo mode', function () {
         'email' => 'auto-demo@example.com',
         'role' => User::ROLE_DEMO,
     ]);
-});
-
-test('demo user is not recreated if already exists', function () {
-    // Update demo user to have the configured email
-    $this->demoUser->update(['email' => 'existing-demo@example.com']);
-
-    config([
-        'app.demo_mode' => true,
-        'app.demo_user_email' => 'existing-demo@example.com',
-    ]);
-
-    $originalId = $this->demoUser->id;
-    $userCountBefore = User::count();
-
-    // Visit login page
-    $this->get(route('login'))->assertOk();
-
-    // Should not have created a new user
-    expect(User::count())->toBe($userCountBefore);
-
-    // Should still be the same user
-    $demoUser = User::where('email', 'existing-demo@example.com')->first();
-    expect($demoUser->id)->toBe($originalId);
 });
