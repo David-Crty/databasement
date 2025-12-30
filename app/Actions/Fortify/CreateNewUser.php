@@ -20,10 +20,18 @@ class CreateNewUser implements CreatesNewUsers
     /**
      * Validate and create a newly registered user.
      *
+     * Only the first user can register via this route.
+     * All other users must be invited by an admin.
+     *
      * @param  array<string, string>  $input
      */
     public function create(array $input): User
     {
+        // Only allow registration if no users exist (first admin)
+        if (User::count() > 0) {
+            abort(403, 'Registration is closed. Please contact an administrator for an invitation.');
+        }
+
         Validator::make($input, [
             'name' => ['required', 'string', 'max:255'],
             'email' => [
@@ -36,14 +44,13 @@ class CreateNewUser implements CreatesNewUsers
             'password' => $this->passwordRules(),
         ])->validate();
 
-        $isFirstUser = User::count() === 0;
-        $createDemoBackup = $isFirstUser && ! empty($input['create_demo_backup']);
+        $createDemoBackup = ! empty($input['create_demo_backup']);
 
         $user = User::create([
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => $input['password'],
-            'role' => $isFirstUser ? User::ROLE_ADMIN : User::ROLE_MEMBER,
+            'role' => User::ROLE_ADMIN, // First user is always admin
             'invitation_accepted_at' => now(),
         ]);
 
