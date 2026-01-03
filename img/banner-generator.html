@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Databasement Banner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .banner {
+            width: 1280px;
+            height: 640px;
+            background: #0d1117;
+            position: relative;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        /* Gradient mesh background */
+        .bg-gradient {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 40%, rgba(124, 58, 237, 0.25) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 60%, rgba(6, 182, 212, 0.2) 0%, transparent 50%),
+                radial-gradient(ellipse 50% 30% at 60% 20%, rgba(16, 185, 129, 0.15) 0%, transparent 50%);
+        }
+
+        /* Subtle dot pattern */
+        .dot-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+
+        /* Content container */
+        .content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            height: 100%;
+            padding: 50px 60px;
+        }
+
+        /* Left side - branding */
+        .branding {
+            flex: 0 0 420px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding-right: 20px;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+
+        .logo {
+            width: 56px;
+            height: 56px;
+            flex-shrink: 0;
+        }
+
+        .logo svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .title {
+            font-size: 38px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #22d3ee 0%, #a78bfa 50%, #c084fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
+        }
+
+        .tagline {
+            font-size: 28px;
+            color: #f1f5f9;
+            font-weight: 700;
+            margin-bottom: 16px;
+            line-height: 1.2;
+        }
+
+        .description {
+            font-size: 17px;
+            color: #94a3b8;
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+
+        .badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .badge {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #e2e8f0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(4px);
+        }
+
+        .badge:nth-child(1) { border-color: rgba(59, 130, 246, 0.4); color: #60a5fa; }
+        .badge:nth-child(2) { border-color: rgba(34, 197, 94, 0.4); color: #4ade80; }
+        .badge:nth-child(3) { border-color: rgba(249, 115, 22, 0.4); color: #fb923c; }
+        .badge:nth-child(4) { border-color: rgba(168, 85, 247, 0.4); color: #c084fc; }
+
+        /* Right side - screenshot */
+        .screenshot-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            perspective: 1200px;
+        }
+
+        .screenshot-wrapper {
+            position: relative;
+            transform: rotateY(-8deg) rotateX(3deg);
+            transform-style: preserve-3d;
+        }
+
+        .screenshot {
+            width: 680px;
+            height: auto;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow:
+                0 0 0 1px rgba(0,0,0,0.3),
+                0 4px 6px rgba(0,0,0,0.2),
+                0 12px 24px rgba(0,0,0,0.3),
+                0 24px 48px rgba(0,0,0,0.4),
+                -20px 20px 60px rgba(124, 58, 237, 0.15),
+                20px 20px 60px rgba(6, 182, 212, 0.1);
+        }
+
+        /* Glass reflection effect */
+        .screenshot-reflection {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40%;
+            border-radius: 12px 12px 0 0;
+            background: linear-gradient(
+                180deg,
+                rgba(255, 255, 255, 0.08) 0%,
+                transparent 100%
+            );
+            pointer-events: none;
+        }
+
+        /* Decorative elements */
+        .deco-line {
+            position: absolute;
+            background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.5), transparent);
+            height: 1px;
+            width: 300px;
+        }
+
+        .deco-line-1 {
+            top: 80px;
+            left: -50px;
+            transform: rotate(-20deg);
+        }
+
+        .deco-line-2 {
+            bottom: 120px;
+            left: 100px;
+            transform: rotate(15deg);
+            background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.4), transparent);
+        }
+    </style>
+</head>
+<body>
+    <div class="banner">
+        <!-- Background -->
+        <div class="bg-gradient"></div>
+        <div class="dot-pattern"></div>
+
+        <!-- Decorative lines -->
+        <div class="deco-line deco-line-1"></div>
+        <div class="deco-line deco-line-2"></div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Left: Branding -->
+            <div class="branding">
+                <div class="logo-container">
+                    <div class="logo">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+                            <defs>
+                                <!-- Top layer gradients (brightest) -->
+                                <linearGradient id="logo-top-face" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#00d4ff"></stop>
+                                    <stop offset="50%" stop-color="#a855f7"></stop>
+                                    <stop offset="100%" stop-color="#1a1a2e"></stop>
+                                </linearGradient>
+                                <linearGradient id="logo-top-left" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#00a8cc"></stop>
+                                    <stop offset="50%" stop-color="#7c3aed"></stop>
+                                    <stop offset="100%" stop-color="#15152a"></stop>
+                                </linearGradient>
+                                <linearGradient id="logo-top-right" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#0090b0"></stop>
+                                    <stop offset="50%" stop-color="#6d28d9"></stop>
+                                    <stop offset="100%" stop-color="#0f0f1a"></stop>
+                                </linearGradient>
+
+                                <!-- Middle layer gradients (noticeably darker) -->
+                                <linearGradient id="logo-mid-face" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#007a99"></stop>
+                                    <stop offset="50%" stop-color="#6b21a8"></stop>
+                                    <stop offset="100%" stop-color="#0f0f1a"></stop>
+                                </linearGradient>
+                                <linearGradient id="logo-mid-left" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#005c73"></stop>
+                                    <stop offset="50%" stop-color="#4c1d95"></stop>
+                                    <stop offset="100%" stop-color="#0a0a14"></stop>
+                                </linearGradient>
+                                <linearGradient id="logo-mid-right" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#004d60"></stop>
+                                    <stop offset="50%" stop-color="#3b1580"></stop>
+                                    <stop offset="100%" stop-color="#08080f"></stop>
+                                </linearGradient>
+
+                                <!-- Bottom layer gradients (much darker) -->
+                                <linearGradient id="logo-bot-face" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#004455"></stop>
+                                    <stop offset="50%" stop-color="#4c1d95"></stop>
+                                    <stop offset="100%" stop-color="#080812"></stop>
+                                </linearGradient>
+                                <linearGradient id="logo-bot-left" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#003040"></stop>
+                                    <stop offset="50%" stop-color="#2e1065"></stop>
+                                    <stop offset="100%" stop-color="#05050a"></stop>
+                                </linearGradient>
+                                <linearGradient id="logo-bot-right" x1="0%" y1="0%" x2="0%" y2="100%">
+                                    <stop offset="0%" stop-color="#002530"></stop>
+                                    <stop offset="50%" stop-color="#1e0a50"></stop>
+                                    <stop offset="100%" stop-color="#030308"></stop>
+                                </linearGradient>
+                            </defs>
+
+                            <!-- Bottom layer (much darker) -->
+                            <g transform="translate(0, 12)">
+                                <path d="M50 35 L15 55 L50 75 L85 55 Z" fill="url(#logo-bot-face)" stroke="none"></path>
+                                <path d="M15 55 L15 62 L50 82 L50 75 Z" fill="url(#logo-bot-left)" stroke="none"></path>
+                                <path d="M85 55 L85 62 L50 82 L50 75 Z" fill="url(#logo-bot-right)" stroke="none"></path>
+                                <path d="M50 35 L15 55 L15 62 L50 82 L85 62 L85 55 Z" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+                                <path d="M15 55 L50 75 L85 55" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+                            </g>
+
+                            <!-- Middle layer (noticeably darker) -->
+                            <g transform="translate(0, 0)">
+                                <path d="M50 35 L15 55 L50 75 L85 55 Z" fill="url(#logo-mid-face)" stroke="none"></path>
+                                <path d="M15 55 L15 62 L50 82 L50 75 Z" fill="url(#logo-mid-left)" stroke="none"></path>
+                                <path d="M85 55 L85 62 L50 82 L50 75 Z" fill="url(#logo-mid-right)" stroke="none"></path>
+                                <path d="M50 35 L15 55 L15 62 L50 82 L85 62 L85 55 Z" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+                                <path d="M15 55 L50 75 L85 55" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+                            </g>
+
+                            <!-- Top layer (brightest) -->
+                            <g transform="translate(0, -12)">
+                                <path d="M50 35 L15 55 L50 75 L85 55 Z" fill="url(#logo-top-face)" stroke="none"></path>
+                                <path d="M15 55 L15 62 L50 82 L50 75 Z" fill="url(#logo-top-left)" stroke="none"></path>
+                                <path d="M85 55 L85 62 L50 82 L50 75 Z" fill="url(#logo-top-right)" stroke="none"></path>
+                                <path d="M50 35 L15 55 L15 62 L50 82 L85 62 L85 55 Z" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+                                <path d="M15 55 L50 75 L85 55" fill="none" stroke="#06b6d4" stroke-width="1.5" stroke-linejoin="round"></path>
+                            </g>
+                        </svg>
+                    </div>
+                    <span class="title">DATABASEMENT</span>
+                </div>
+                <div class="tagline">Your backups deserve<br>a safe place to live</div>
+                <div class="description">Simple, open-source web UI for database backup & restore</div>
+                <div class="badges">
+                    <span class="badge">MySQL</span>
+                    <span class="badge">PostgreSQL</span>
+                    <span class="badge">MariaDB</span>
+                    <span class="badge">SQLite</span>
+                </div>
+            </div>
+
+            <!-- Right: Screenshot -->
+            <div class="screenshot-container">
+                <div class="screenshot-wrapper">
+                    <img src="screenshot.png" alt="Databasement Dashboard" class="screenshot">
+                    <div class="screenshot-reflection"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
