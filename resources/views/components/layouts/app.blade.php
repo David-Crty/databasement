@@ -113,36 +113,34 @@
             $newIssueUrl = \App\Support\GitInfo::getNewIssueUrl();
         @endphp
         <footer class="mt-12 py-6 border-t border-base-300">
-            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-base-content/60">
-                <div class="flex items-center gap-4">
+            <div class="flex flex-col items-center gap-4 text-sm text-base-content/60">
+                {{-- Top row: Made by + GitHub --}}
+                <div class="flex flex-col sm:flex-row items-center gap-2 sm:gap-4">
                     <span>
                         Made with <span class="text-error">&#10084;</span> by
                         <a href="https://crty.dev" target="_blank" rel="noopener" class="link link-hover">David-Crty</a>
                     </span>
-                    <span class="hidden sm:inline">·</span>
                     <a href="{{ $githubRepo }}" target="_blank" rel="noopener" class="link link-hover flex items-center gap-1">
                         <x-fab-github class="w-4 h-4" />
                         {{ $githubRepoShort }}
                     </a>
                 </div>
-                <div class="flex items-center gap-4">
+                {{-- Bottom row: Links --}}
+                <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+                    <a href="https://david-crty.github.io/databasement/" target="_blank" rel="noopener" class="link link-hover">
+                        Documentation
+                    </a>
+                    <a href="{{ $newIssueUrl }}" target="_blank" rel="noopener" class="link link-hover">
+                        Report an issue
+                    </a>
+                    <a href="{{ $githubRepo }}/blob/main/LICENSE" target="_blank" rel="noopener" class="link link-hover">
+                        MIT License
+                    </a>
                     @if($commitHash)
                         <a href="{{ $commitUrl }}" target="_blank" rel="noopener" class="link link-hover font-mono text-xs">
                             {{ $commitHash }}
                         </a>
-                        <span>·</span>
                     @endif
-                    <a href="https://david-crty.github.io/databasement/" target="_blank" rel="noopener" class="link link-hover">
-                        Documentation
-                    </a>
-                    <span>·</span>
-                    <a href="{{ $newIssueUrl }}" target="_blank" rel="noopener" class="link link-hover">
-                        Report an issue
-                    </a>
-                    <span>·</span>
-                    <a href="{{ $githubRepo }}/blob/main/LICENSE" target="_blank" rel="noopener" class="link link-hover">
-                        MIT License
-                    </a>
                 </div>
             </div>
         </footer>
