@@ -21,3 +21,4 @@ yarn-error.log
 /data
 /transmission
 docker
+Dockerfile
