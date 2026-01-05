@@ -32,8 +32,6 @@
 
 ---
 
-> **Try it out!** Explore the [live demo](https://databasement-demo.crty.dev/) to see Databasement in action before installing.
-
 ## Features
 
 - **Multi-database support** — Manage MySQL, PostgreSQL, and MariaDB servers from a single interface
@@ -43,6 +41,8 @@
 - **Real-time monitoring** — Track backup and restore progress with detailed job logs
 - **Team ready** — Multi-user support with role-based access and optional two-factor authentication
 - **Simple deployment** — Single Docker container with built-in web server, queue worker, and scheduler
+
+> **Try it out!** Explore the [live demo](https://databasement-demo.crty.dev/) to see Databasement in action before installing.
 
 ## Self-Hosting
 
@@ -74,12 +74,6 @@ For production deployments, see our [configuration guide](https://david-crty.git
 ## Documentation
 
 Full documentation is available at [david-crty.github.io/databasement](https://david-crty.github.io/databasement/).
-
-- [Getting Started](https://david-crty.github.io/databasement/user-guide/intro) — First steps after installation
-- [Database Servers](https://david-crty.github.io/databasement/user-guide/database-servers) — Managing database connections
-- [Backups & Snapshots](https://david-crty.github.io/databasement/user-guide/backups) — Creating and restoring backups
-- [Storage Volumes](https://david-crty.github.io/databasement/user-guide/volumes) — Configuring backup storage
-- [Development Guide](https://david-crty.github.io/databasement/contributing/development) — Contributing to Databasement
 
 ## Issues & Feature Requests
 
