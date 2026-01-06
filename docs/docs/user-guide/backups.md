@@ -33,36 +33,24 @@ When you create a backup, Databasement:
 
 Databasement uses native database tools for reliable backups:
 
-**MySQL / MariaDB:**
+**MySQL/MariaDB:**
 ```bash
-mysqldump --single-transaction --routines --triggers --events database_name
+mariadb-dump --routines --add-drop-table --complete-insert --hex-blob --quote-names --skip_ssl \
+  --host='...' --port='...' --user='...' --password='...' 'database_name' > dump.sql
 ```
 
 **PostgreSQL:**
 ```bash
-pg_dump --format=plain database_name
+PGPASSWORD='...' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers \
+  --host='...' --port='...' --username='...' 'database_name' -f dump.sql
 ```
 
-## Backup Status
+**SQLite:**
+```bash
+cp '/path/to/database.sqlite' dump.db
+```
 
-Each backup (snapshot) has a status:
-
-| Status | Description |
-|--------|-------------|
-| **Pending** | Backup is queued, waiting to be processed |
-| **In Progress** | Backup is currently running |
-| **Completed** | Backup finished successfully |
-| **Failed** | Backup encountered an error |
-
-## Monitoring Backups
-
-View all backup jobs on the **Snapshots** page. You can see:
-
-- Source server and database
-- Backup timestamp
-- File size
-- Storage volume
-- Status
+All dumps are then compressed with gzip before being transferred to the storage volume.
 
 ## Failed Backups
 

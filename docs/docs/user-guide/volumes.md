@@ -19,9 +19,3 @@ Ensure the Databasement container has write access to the specified path. You ma
 :::info
 Checks the [S3 Storage doc in Configuration](../self-hosting/configuration.md#s3-storage) to learn how to configure S3 connectivity.
 :::
-
-## Deleting Volumes
-
-:::warning
-Deleting a volume does not delete the backup files stored in it. Files remain in the storage location but become inaccessible through Databasement.
-:::
