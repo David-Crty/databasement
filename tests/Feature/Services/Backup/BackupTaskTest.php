@@ -124,7 +124,7 @@ test('run executes mysql and mariadb backup workflow successfully', function (st
     $sqlFile = $workingDir.'/dump.sql';
 
     $expectedCommands = [
-        "{$expectedBinary} --routines --add-drop-table --complete-insert --hex-blob --quote-names {$extraFlags}--host='localhost' --port='3306' --user='root' --password='secret' 'myapp' > '$sqlFile'",
+        "{$expectedBinary} --single-transaction --routines --add-drop-table --complete-insert --hex-blob --quote-names {$extraFlags}--host='localhost' --port='3306' --user='root' --password='secret' 'myapp' > '$sqlFile'",
         "gzip '$sqlFile'",
     ];
     $commands = $this->shellProcessor->getCommands();

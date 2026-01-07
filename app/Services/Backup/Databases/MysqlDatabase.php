@@ -8,6 +8,7 @@ class MysqlDatabase implements DatabaseInterface
     private array $config;
 
     private const DUMP_OPTIONS = [
+        '--single-transaction', // Consistent snapshot for InnoDB without locking
         '--routines',           // Include stored procedures and functions
         '--add-drop-table',     // Add DROP TABLE before each CREATE TABLE
         '--complete-insert',    // Use complete INSERT statements with column names
