@@ -12,6 +12,7 @@ services:
     extra_hosts:
       - "dex-local:host-gateway"
     environment:
+      TZ: UTC
       XDG_CONFIG_HOME: /tmp
       AWS_ACCESS_KEY_ID: rustfsadmin
       AWS_SECRET_ACCESS_KEY: rustfsadmin
@@ -32,6 +33,7 @@ services:
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     restart: unless-stopped
     environment:
+      TZ: UTC
       AWS_ACCESS_KEY_ID: rustfsadmin
       AWS_SECRET_ACCESS_KEY: rustfsadmin
       AWS_DEFAULT_REGION: us-east-1

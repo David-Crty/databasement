@@ -23,12 +23,13 @@ RUN install-php-extensions \
 
 COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 
-# Add DB CLI tools and compression utilities
+# Add tools
 RUN apk add --no-cache git \
         mariadb-client mariadb-connector-c \
         postgresql-client \
         supervisor \
-        gzip zstd
+        gzip zstd \
+        tzdata
 
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini
@@ -55,6 +56,7 @@ ENV SERVER_NAME=":2226"
 ENV MYSQL_CLI_TYPE="mariadb"
 ENV ENABLE_QUEUE_WORKER="false"
 ENV ENABLE_DATABASE_MIGRATION="true"
+ENV TZ="UTC"
 
 HEALTHCHECK NONE
 

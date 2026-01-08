@@ -13,6 +13,18 @@ This page contains all the environment variables you can use to configure Databa
 | `APP_DEBUG` | Enable debug mode (set to `false` in production) | `false` |
 | `APP_URL` | Full URL where the app is accessible | `http://localhost:2226` |
 | `APP_KEY` | Application encryption key (required) | - |
+| `TZ` | Application timezone | `UTC` |
+
+### Timezone Configuration
+
+Set the `TZ` environment variable to configure the application timezone.
+```bash
+TZ=America/New_York
+TZ=Europe/London
+TZ=Asia/Tokyo
+```
+
+See the [list of supported timezones](https://www.php.net/manual/en/timezones.php).
 
 ### Generating the Application Key
 
