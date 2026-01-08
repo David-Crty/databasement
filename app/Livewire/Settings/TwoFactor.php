@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use Exception;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Auth;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
 use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
 use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
@@ -37,6 +38,11 @@ class TwoFactor extends Component
     public function mount(DisableTwoFactorAuthentication $disableTwoFactorAuthentication): void
     {
         abort_unless(Features::enabled(Features::twoFactorAuthentication()), Response::HTTP_FORBIDDEN);
+
+        // OAuth-only users don't have a password to use 2FA
+        if (Auth::user()->isOAuthOnly()) {
+            abort(403, __('Two-factor settings are not available for OAuth users.'));
+        }
 
         if (Fortify::confirmsTwoFactorAuthentication() && is_null(auth()->user()->two_factor_confirmed_at)) {
             $disableTwoFactorAuthentication(auth()->user());

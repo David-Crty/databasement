@@ -29,4 +29,14 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OAuth Providers (Laravel Socialite)
+    |--------------------------------------------------------------------------
+    |
+    | OAuth provider configs are dynamically registered from config/oauth.php
+    | in AppServiceProvider::registerOAuthServicesConfig()
+    |
+    */
+
 ];

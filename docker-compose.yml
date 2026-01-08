@@ -9,6 +9,8 @@ services:
       - app-data:/data
     ports:
       - "2226:2226"
+    extra_hosts:
+      - "dex-local:host-gateway"
     environment:
       XDG_CONFIG_HOME: /tmp
       AWS_ACCESS_KEY_ID: rustfsadmin
@@ -91,6 +93,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Dex OIDC provider for local OAuth testing
+  # To enable: 1) Add "127.0.0.1 dex-local" to /etc/hosts
+  #            2) Uncomment this service
+  #            3) Set OAUTH_OIDC_ENABLED=true in .env.local
+  # Test user: user@databasement.com (password: databasement)
+#  dex:
+#    image: ghcr.io/dexidp/dex:v2.38.0
+#    container_name: databasement-dex
+#    volumes:
+#      - ./docker/dex/config.yaml:/etc/dex/config.yaml:ro
+#    ports:
+#      - "5556:5556"
+#    command: ["dex", "serve", "/etc/dex/config.yaml"]
+#    healthcheck:
+#      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5556/dex/.well-known/openid-configuration"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 5
 
 volumes:
   app-data:

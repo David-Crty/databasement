@@ -94,6 +94,62 @@ docker compose restart queue  # Restart queue worker
 docker compose down           # Stop all services
 ```
 
+## OAuth / SSO Testing
+
+Databasement includes a [Dex](https://dexidp.io/) OIDC server for local OAuth testing. The Dex service is commented out by default in `docker-compose.yml`.
+
+### 1. Add Hosts Entry
+
+The Dex server uses a custom hostname that must resolve both from your browser and from within Docker containers:
+
+```bash
+echo "127.0.0.1 dex-local" | sudo tee -a /etc/hosts
+```
+
+### 2. Enable Dex Service
+
+Uncomment the `dex` service in `docker-compose.yml`:
+
+### 3. Start Dex
+
+```bash
+docker compose up dex -d
+```
+
+### 4. Configure Environment
+
+Add to your `.env.local`:
+
+```env
+OAUTH_OIDC_ENABLED=true
+OAUTH_OIDC_CLIENT_ID=databasement
+OAUTH_OIDC_CLIENT_SECRET=databasement-secret
+OAUTH_OIDC_BASE_URL=http://dex-local:5556/dex
+OAUTH_OIDC_LABEL=SSO
+```
+
+### Test User
+
+| Email | Password |
+|-------|----------|
+| `user@databasement.com` | `databasement` |
+
+### Testing Flow
+
+1. Ensure hosts entry is added (step 1)
+2. Start Dex: `docker compose up dex -d`
+3. Visit the login page at `http://localhost:2226/login`
+4. Click "Continue with SSO"
+5. Enter test credentials: `user@databasement.com` / `databasement`
+6. You'll be redirected back and logged in
+
+### OAuth Behavior Notes
+
+- **New users**: Created automatically with the role defined by `OAUTH_DEFAULT_ROLE`
+- **Existing users**: When an existing user logs in via OAuth (matching email), their account is linked and their password is cleared
+- **OAuth-only users**: Cannot use password login — they must use the OAuth button
+- **Settings access**: OAuth-only users don't see Password or Two-Factor settings (managed by the OAuth provider)
+
 ## Git Hooks
 
 Pre-commit hooks (via Husky) automatically run:

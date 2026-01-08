@@ -36,6 +36,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read int|null $notifications_count
  * @property-read Collection<int, Snapshot> $triggeredSnapshots
  * @property-read int|null $triggered_snapshots_count
+ * @property-read Collection<int, OAuthIdentity> $oauthIdentities
+ * @property-read int|null $oauth_identities_count
  *
  * @method static Builder<static>|User active()
  * @method static UserFactory factory($count = null, $state = [])
@@ -143,6 +145,14 @@ class User extends Authenticatable
         return $this->hasMany(Snapshot::class, 'triggered_by_user_id');
     }
 
+    /**
+     * @return HasMany<OAuthIdentity, User>
+     */
+    public function oauthIdentities(): HasMany
+    {
+        return $this->hasMany(OAuthIdentity::class);
+    }
+
     public function isDemo(): bool
     {
         return $this->role === self::ROLE_DEMO;
@@ -181,6 +191,14 @@ class User extends Authenticatable
     public function isActive(): bool
     {
         return $this->invitation_accepted_at !== null;
+    }
+
+    /**
+     * Check if user authenticated only via OAuth (no password set).
+     */
+    public function isOAuthOnly(): bool
+    {
+        return $this->password === null;
     }
 
     public function generateInvitationToken(): string

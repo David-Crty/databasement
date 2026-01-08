@@ -7,9 +7,11 @@ use App\Actions\Fortify\ResetUserPassword;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
@@ -27,9 +29,38 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->configureAuthentication();
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+    }
+
+    /**
+     * Configure custom authentication logic.
+     */
+    private function configureAuthentication(): void
+    {
+        Fortify::authenticateUsing(function (Request $request) {
+            $user = User::where('email', $request->email)->first();
+
+            if (! $user) {
+                return null;
+            }
+
+            // Check if user is OAuth-only (no password set)
+            if ($user->isOAuthOnly()) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => [__('This account uses OAuth login. Please use the OAuth button below to sign in.')],
+                ]);
+            }
+
+            // Standard password authentication
+            if ($user->password && Hash::check($request->password, $user->password)) {
+                return $user;
+            }
+
+            return null;
+        });
     }
 
     /**
@@ -48,7 +79,14 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::loginView(fn () => view('livewire.auth.login'));
         Fortify::twoFactorChallengeView(fn () => view('livewire.auth.two-factor-challenge'));
-        Fortify::confirmPasswordView(fn () => view('livewire.auth.confirm-password'));
+        Fortify::confirmPasswordView(function () {
+            // OAuth-only users have no password to confirm
+            if (auth()->user()?->isOAuthOnly()) {
+                abort(403, __('Password confirmation is not available for OAuth users.'));
+            }
+
+            return view('livewire.auth.confirm-password');
+        });
         Fortify::resetPasswordView(fn () => view('livewire.auth.reset-password'));
         Fortify::requestPasswordResetLinkView(fn () => view('livewire.auth.forgot-password'));
 

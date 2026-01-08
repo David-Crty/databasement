@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\OAuthIdentity;
 use App\Models\User;
 use Laravel\Fortify\Features;
 
@@ -33,6 +34,31 @@ test('users can not authenticate with invalid password', function () {
     ]);
 
     $response->assertSessionHasErrorsIn('email');
+
+    $this->assertGuest();
+});
+
+test('oauth only users see helpful error when trying to login with password', function () {
+    $user = User::factory()->create([
+        'password' => null, // OAuth-only user
+    ]);
+
+    // Create an OAuth identity for this user
+    OAuthIdentity::create([
+        'user_id' => $user->id,
+        'provider' => 'github',
+        'provider_user_id' => 'github-123',
+        'email' => $user->email,
+    ]);
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'any-password',
+    ]);
+
+    $response->assertSessionHasErrors([
+        'email' => 'This account uses OAuth login. Please use the OAuth button below to sign in.',
+    ]);
 
     $this->assertGuest();
 });

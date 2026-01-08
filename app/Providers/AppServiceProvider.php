@@ -13,7 +13,9 @@ use App\Services\DatabaseConnectionTester;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -22,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->registerOAuthServicesConfig();
+
         // Register database connection tester
         $this->app->singleton(DatabaseConnectionTester::class);
 
@@ -44,11 +48,43 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Register OAuth provider configurations for Laravel Socialite.
+     *
+     * This maps config/oauth.php providers to config/services.php format
+     * that Socialite expects, eliminating duplication.
+     */
+    private function registerOAuthServicesConfig(): void
+    {
+        $providers = config('oauth.providers', []);
+
+        foreach ($providers as $name => $provider) {
+            $serviceConfig = [
+                'client_id' => $provider['client_id'] ?? null,
+                'client_secret' => $provider['client_secret'] ?? null,
+                'redirect' => "/oauth/{$name}/callback",
+            ];
+
+            // Add provider-specific config
+            if ($name === 'gitlab' && isset($provider['host'])) {
+                $serviceConfig['host'] = $provider['host'];
+            }
+
+            if ($name === 'oidc' && isset($provider['base_url'])) {
+                $serviceConfig['base_url'] = $provider['base_url'];
+            }
+
+            config(["services.{$name}" => $serviceConfig]);
+        }
+    }
+
+    /**
      * Bootstrap any application services.
      */
     public function boot(): void
     {
         $this->ensureBackupTmpFolderExists();
+        $this->registerOidcSocialiteProvider();
+        $this->validateOAuthConfiguration();
 
         Scramble::configure()
             ->withDocumentTransformers(function (OpenApi $openApi) {
@@ -58,12 +94,72 @@ class AppServiceProvider extends ServiceProvider
             });
     }
 
+    /**
+     * Register the generic OIDC Socialite provider.
+     */
+    private function registerOidcSocialiteProvider(): void
+    {
+        Event::listen(function (SocialiteWasCalled $event) {
+            $event->extendSocialite('oidc', \SocialiteProviders\OIDC\Provider::class);
+        });
+    }
+
     private function ensureBackupTmpFolderExists(): void
     {
         $backupTmpFolder = config('backup.working_directory');
 
         if ($backupTmpFolder && ! is_dir($backupTmpFolder)) {
             mkdir($backupTmpFolder, 0755, true);
+        }
+    }
+
+    /**
+     * Validate OAuth configuration at boot time for faster feedback.
+     * Skips validation in console to avoid breaking artisan commands.
+     */
+    private function validateOAuthConfiguration(): void
+    {
+        if ($this->app->runningInConsole()) {
+            return;
+        }
+
+        $this->performOAuthValidation();
+    }
+
+    /**
+     * Perform OAuth configuration validation.
+     *
+     * @internal Exposed as public for testing purposes
+     */
+    public function performOAuthValidation(): void
+    {
+        $validRoles = ['viewer', 'member', 'admin'];
+        $defaultRole = config('oauth.default_role');
+
+        if ($defaultRole && ! in_array($defaultRole, $validRoles)) {
+            throw new \InvalidArgumentException(
+                "Invalid OAUTH_DEFAULT_ROLE '{$defaultRole}'. Must be one of: ".implode(', ', $validRoles)
+            );
+        }
+
+        $providers = config('oauth.providers', []);
+
+        foreach ($providers as $name => $providerConfig) {
+            if (! ($providerConfig['enabled'] ?? false)) {
+                continue;
+            }
+
+            if (empty($providerConfig['client_id']) || empty($providerConfig['client_secret'])) {
+                throw new \InvalidArgumentException(
+                    "OAuth provider '{$name}' is enabled but missing client_id or client_secret"
+                );
+            }
+
+            if ($name === 'oidc' && empty($providerConfig['base_url'])) {
+                throw new \InvalidArgumentException(
+                    "OAuth provider 'oidc' is enabled but missing required base URL"
+                );
+            }
         }
     }
 }

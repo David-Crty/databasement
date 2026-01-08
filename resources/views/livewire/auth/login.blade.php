@@ -15,6 +15,10 @@
             <x-alert class="alert-success" icon="o-check-circle">{{ session('status') }}</x-alert>
         @endif
 
+        @if (session('error'))
+            <x-alert class="alert-error" icon="o-exclamation-circle">{{ session('error') }}</x-alert>
+        @endif
+
         <x-form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-6">
             @csrf
 
@@ -55,5 +59,23 @@
                 <x-button type="submit" class="btn-primary w-full" label="{{ __('Log in') }}" data-test="login-button" />
             </div>
         </x-form>
+
+        {{-- OAuth Providers Section --}}
+        @php
+            $oauthProviders = app(\App\Services\OAuthService::class)->getEnabledProviders();
+        @endphp
+
+        @if (count($oauthProviders) > 0)
+            <div class="divider">{{ __('or continue with') }}</div>
+
+            <div class="flex flex-col gap-3">
+                @foreach ($oauthProviders as $key => $provider)
+                    <a href="{{ $provider['url'] }}" class="btn btn-outline w-full gap-2" data-test="oauth-{{ $key }}">
+                        <x-icon name="{{ $provider['icon'] }}" class="w-5 h-5" />
+                        {{ __('Continue with :provider', ['provider' => $provider['label']]) }}
+                    </a>
+                @endforeach
+            </div>
+        @endif
     </div>
 </x-layouts.auth>

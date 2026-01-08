@@ -4,6 +4,16 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Livewire\Volt\Volt;
 
+test('oauth only users cannot access password settings', function () {
+    $user = User::factory()->create([
+        'password' => null, // OAuth users have no password
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('user-password.edit'))
+        ->assertForbidden();
+});
+
 test('password can be updated', function () {
     $user = User::factory()->create([
         'password' => Hash::make('password'),

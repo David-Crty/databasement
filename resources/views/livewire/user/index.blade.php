@@ -26,10 +26,13 @@
             </x-slot:empty>
 
             @scope('cell_name', $user)
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
                     <div class="table-cell-primary">{{ $user->name }}</div>
                     @if($user->id === auth()->id())
-                        <div class="text-xs text-base-content/50">{{ __('(You)') }}</div>
+                        <span class="text-xs text-base-content/50">{{ __('(You)') }}</span>
+                    @endif
+                    @if($user->isOAuthOnly())
+                        <x-badge value="OAuth" class="badge-ghost badge-sm" />
                     @endif
                 </div>
             @endscope

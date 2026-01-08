@@ -26,6 +26,22 @@ test('two factor settings page can be rendered', function () {
         ->assertSee('Disabled');
 });
 
+test('oauth only users are redirected to password confirmation which blocks them', function () {
+    $user = User::factory()->create([
+        'password' => null, // OAuth users have no password
+    ]);
+
+    // First, they get redirected to password confirmation
+    $this->actingAs($user)
+        ->get(route('two-factor.show'))
+        ->assertRedirect(route('password.confirm'));
+
+    // Then, password confirmation blocks them with 403
+    $this->actingAs($user)
+        ->get(route('password.confirm'))
+        ->assertForbidden();
+});
+
 test('two factor settings page requires password confirmation when enabled', function () {
     $user = User::factory()->create();
 

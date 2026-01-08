@@ -65,10 +65,12 @@
                         <x-menu-item title="{{ __('Appearance') }}" icon="o-paint-brush" link="{{ route('appearance.edit') }}" wire:navigate />
                         @unless($user->isDemo())
                             <x-menu-item title="{{ __('Profile') }}" icon="o-user" link="{{ route('profile.edit') }}" wire:navigate />
-                            <x-menu-item title="{{ __('Password') }}" icon="o-key" link="{{ route('user-password.edit') }}" wire:navigate />
-                            @if (Laravel\Fortify\Features::canManageTwoFactorAuthentication())
-                                <x-menu-item title="{{ __('Two-Factor Auth') }}" icon="o-shield-check" link="{{ route('two-factor.show') }}" wire:navigate />
-                            @endif
+                            @unless($user->isOAuthOnly())
+                                <x-menu-item title="{{ __('Password') }}" icon="o-key" link="{{ route('user-password.edit') }}" wire:navigate />
+                                @if (Laravel\Fortify\Features::canManageTwoFactorAuthentication())
+                                    <x-menu-item title="{{ __('Two-Factor Auth') }}" icon="o-shield-check" link="{{ route('two-factor.show') }}" wire:navigate />
+                                @endif
+                            @endunless
                             <x-menu-item title="{{ __('API Tokens') }}" icon="o-key" link="{{ route('api-tokens.index') }}" wire:navigate />
                         @endunless
                         <form method="POST" action="{{ route('logout') }}" class="w-full">

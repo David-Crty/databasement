@@ -25,6 +25,14 @@ Route::get('/', function () {
 Route::get('/invitation/{token}', \App\Livewire\Auth\AcceptInvitation::class)
     ->name('invitation.accept');
 
+// OAuth routes (public - handle their own auth state)
+Route::prefix('oauth')->name('oauth.')->group(function () {
+    Route::get('{provider}/redirect', [\App\Http\Controllers\Web\OAuthController::class, 'redirect'])
+        ->name('redirect');
+    Route::get('{provider}/callback', [\App\Http\Controllers\Web\OAuthController::class, 'callback'])
+        ->name('callback');
+});
+
 // Main resources - all authenticated users can view index pages
 Route::middleware(['auth'])->group(function () {
     // Dashboard

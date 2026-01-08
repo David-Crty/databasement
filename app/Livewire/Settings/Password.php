@@ -17,6 +17,14 @@ class Password extends Component
 
     public string $password_confirmation = '';
 
+    public function mount(): void
+    {
+        // OAuth-only users don't have a password to change
+        if (Auth::user()->isOAuthOnly()) {
+            abort(403, __('Password settings are not available for OAuth users.'));
+        }
+    }
+
     public function updatePassword(): void
     {
         try {

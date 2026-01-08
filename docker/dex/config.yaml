@@ -1,0 +1,45 @@
+# Dex OIDC Provider Configuration for Local Development
+#
+# This provides a local OIDC server for testing OAuth login.
+# Test user: user@databasement.com (password: databasement)
+#
+# Setup:
+#   1. Add hosts entry: echo "127.0.0.1 dex-local" | sudo tee -a /etc/hosts
+#   2. Uncomment dex service in docker-compose.yml
+#   3. Start: docker compose up dex -d
+
+issuer: http://dex-local:5556/dex
+
+storage:
+  type: memory
+
+web:
+  http: 0.0.0.0:5556
+
+# OAuth2 configuration
+oauth2:
+  skipApprovalScreen: true
+
+# Static clients (the Databasement application)
+staticClients:
+  - id: databasement
+    name: Databasement
+    secret: databasement-secret
+    redirectURIs:
+      - http://localhost:2226/oauth/oidc/callback
+      - http://0.0.0.0:2226/oauth/oidc/callback
+      - http://127.0.0.1:2226/oauth/oidc/callback
+      - http://dex-local:2226/oauth/oidc/callback
+
+# Enable the password database connector
+enablePasswordDB: true
+
+# Static passwords for local testing
+# Password for all users: databasement
+# Hash generated with: htpasswd -bnBC 10 "" databasement | tr -d ':\n'
+staticPasswords:
+  - email: user@databasement.com
+    # password: databasement
+    hash: "$2y$10$oQn5n2/SAPS1lW3vBY36zOaIYbCV6jz4RR72N.LfCNcoB52Zeb1wq"
+    username: user
+    userID: user-id
