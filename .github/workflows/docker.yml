@@ -66,6 +66,11 @@ jobs:
             # - Truncate to 128 characters
             BRANCH="${GITHUB_REF#refs/heads/}"
             SLUG=$(echo "$BRANCH" | sed 's/\//-/g' | sed 's/[^a-zA-Z0-9._-]//g' | sed 's/^[-.]*//' | cut -c1-128)
+            # Validate that slug is not empty
+            if [[ -z "$SLUG" ]]; then
+              echo "Error: Branch name '$BRANCH' resulted in empty Docker tag after slugification"
+              exit 1
+            fi
             echo "tag=$SLUG" >> $GITHUB_OUTPUT
           fi
 
