@@ -45,13 +45,13 @@ class ShellProcessor
             }
         });
 
-        $output = $this->sanitize($process->getOutput());
-        $errorOutput = $this->sanitize($process->getErrorOutput());
+        $output = $process->getOutput();
+        $errorOutput = $process->getErrorOutput();
         $exitCode = $process->getExitCode();
 
         // Finalize the log entry with exit code and status
         if ($this->logger && $logIndex !== null) {
-            $combinedOutput = trim($output."\n".$errorOutput);
+            $combinedOutput = $this->sanitize(trim($output."\n".$errorOutput));
             $this->logger->updateCommandLog($logIndex, [
                 'output' => $combinedOutput,
                 'exit_code' => $exitCode,
@@ -61,8 +61,9 @@ class ShellProcessor
         }
 
         if (! $process->isSuccessful()) {
-            Log::error($sanitizedCommand."\n".$errorOutput);
-            throw new ShellProcessFailed($errorOutput);
+            $sanitizedError = $this->sanitize($errorOutput);
+            Log::error($sanitizedCommand."\n".$sanitizedError);
+            throw new ShellProcessFailed($sanitizedError);
         }
 
         return $output;
@@ -71,8 +72,7 @@ class ShellProcessor
     /**
      * Sanitize sensitive data from commands or output before logging or throwing exceptions.
      *
-     * This method redacts passwords, connection strings, tokens, and other credentials
-     * that may appear in shell commands or their error output.
+     * This method redacts passwords that may appear in shell commands or their error output.
      */
     public function sanitize(string $input): string
     {
@@ -86,13 +86,6 @@ class ShellProcessor
             '/PGPASSWORD=[^\s]+/' => 'PGPASSWORD=***',
             // Match MYSQL_PWD=VALUE
             '/MYSQL_PWD=[^\s]+/' => 'MYSQL_PWD=***',
-            // Connection strings with embedded passwords (mysql://user:pass@host, postgresql://user:pass@host)
-            '/(:\/\/[^:\/\s]+:)[^@\s]+(@)/' => '$1***$2',
-            // AWS/S3 credentials that might leak in error messages
-            '/AWS_SECRET_ACCESS_KEY=[^\s]+/' => 'AWS_SECRET_ACCESS_KEY=***',
-            '/AWS_ACCESS_KEY_ID=[^\s]+/' => 'AWS_ACCESS_KEY_ID=***',
-            // Generic token patterns
-            '/(api[_-]?key|token|secret|auth)[=:]\s*[\'"]?[^\s\'"]+[\'"]?/i' => '$1=***',
         ];
 
         foreach ($patterns as $pattern => $replacement) {

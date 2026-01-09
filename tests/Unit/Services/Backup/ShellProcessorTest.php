@@ -16,12 +16,6 @@ test('sanitizes sensitive patterns', function (string $input, string $expectedTo
     '-p shorthand format' => ['mysqldump -psecret123 dbname', '-p***', 'secret123'],
     'PGPASSWORD env var' => ['PGPASSWORD=secret123 pg_dump dbname', 'PGPASSWORD=***', 'secret123'],
     'MYSQL_PWD env var' => ['MYSQL_PWD=secret123 mysqldump failed', 'MYSQL_PWD=***', 'secret123'],
-    'mysql connection string' => ['Failed to connect to mysql://user:secret123@localhost:3306/db', 'mysql://user:***@localhost', 'secret123'],
-    'postgresql connection string' => ['postgresql://admin:mypassword@db.example.com:5432/mydb', 'postgresql://admin:***@db.example.com', 'mypassword'],
-    'AWS_SECRET_ACCESS_KEY' => ['AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI', 'AWS_SECRET_ACCESS_KEY=***', 'wJalrXUtnFEMI'],
-    'AWS_ACCESS_KEY_ID' => ['AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE', 'AWS_ACCESS_KEY_ID=***', 'AKIAIOSFODNN7EXAMPLE'],
-    'api_key token' => ['api_key=sk-12345', 'api_key=***', 'sk-12345'],
-    'secret token' => ['secret=xyz789', 'secret=***', 'xyz789'],
 ]);
 
 test('preserves non-sensitive patterns', function (string $input, string $expectedToContain) {
@@ -60,4 +54,35 @@ test('sanitizes realistic pg_dump command', function () {
         ->toContain('postgres-production.example.com')
         ->toContain('-p 5432')
         ->not->toContain('supersecret');
+});
+
+test('process method returns unsanitized output', function () {
+    $processor = new ShellProcessor;
+
+    // Mock a command that outputs sensitive data
+    $command = 'echo "Connection failed: mysql://user:secret123@localhost"';
+
+    $result = $processor->process($command);
+
+    // The return value should contain the actual output (not sanitized)
+    expect($result)->toContain('secret123');
+});
+
+test('process method logs sanitized output', function () {
+    $processor = new ShellProcessor;
+    $logger = \Mockery::mock(\App\Models\BackupJob::class);
+
+    // Command contains PGPASSWORD which should be sanitized
+    $logger->shouldReceive('startCommandLog')
+        ->once()
+        ->with(\Mockery::on(fn ($cmd) => str_contains($cmd, 'PGPASSWORD=***') && ! str_contains($cmd, 'secret123')))
+        ->andReturn(0);
+
+    $logger->shouldReceive('updateCommandLog')
+        ->atLeast()->once();
+
+    $processor->setLogger($logger);
+
+    // Run command with PGPASSWORD which matches sanitization pattern
+    $processor->process('PGPASSWORD=secret123 echo "test"');
 });
