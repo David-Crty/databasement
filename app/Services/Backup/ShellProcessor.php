@@ -22,7 +22,7 @@ class ShellProcessor
         $process->setTimeout(null);
 
         // Mask sensitive data in command line for logging
-        $sanitizedCommand = $this->sanitizeCommand($command);
+        $sanitizedCommand = $this->sanitize($command);
         $startTime = microtime(true);
 
         // Start the command log entry before execution
@@ -36,10 +36,10 @@ class ShellProcessor
         $process->run(function ($type, $data) use (&$incrementalOutput, $logIndex, $startTime) {
             $incrementalOutput .= $data;
 
-            // Update the log entry with incremental output
+            // Update the log entry with incremental output (sanitized)
             if ($this->logger && $logIndex !== null) {
                 $this->logger->updateCommandLog($logIndex, [
-                    'output' => trim($incrementalOutput),
+                    'output' => $this->sanitize(trim($incrementalOutput)),
                     'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
                 ]);
             }
@@ -51,7 +51,7 @@ class ShellProcessor
 
         // Finalize the log entry with exit code and status
         if ($this->logger && $logIndex !== null) {
-            $combinedOutput = trim($output."\n".$errorOutput);
+            $combinedOutput = $this->sanitize(trim($output."\n".$errorOutput));
             $this->logger->updateCommandLog($logIndex, [
                 'output' => $combinedOutput,
                 'exit_code' => $exitCode,
@@ -61,16 +61,21 @@ class ShellProcessor
         }
 
         if (! $process->isSuccessful()) {
-            Log::error($command."\n".$errorOutput);
-            throw new ShellProcessFailed($errorOutput);
+            $sanitizedError = $this->sanitize($errorOutput);
+            Log::error($sanitizedCommand."\n".$sanitizedError);
+            throw new ShellProcessFailed($sanitizedError);
         }
 
         return $output;
     }
 
-    public function sanitizeCommand(string $command): string
+    /**
+     * Sanitize sensitive data from commands or output before logging or throwing exceptions.
+     *
+     * This method redacts passwords that may appear in shell commands or their error output.
+     */
+    public function sanitize(string $input): string
     {
-        // Mask passwords in MySQL/PostgreSQL commands
         $patterns = [
             // Match --password=VALUE or --password='VALUE' or --password="VALUE"
             '/--password=[\'"]?[^\s\'"]+[\'"]?/' => '--password=***',
@@ -79,12 +84,14 @@ class ShellProcessor
             '/(^|\s)-p([^\s\-][^\s]*)/' => '$1-p***',
             // Match PGPASSWORD=VALUE
             '/PGPASSWORD=[^\s]+/' => 'PGPASSWORD=***',
+            // Match MYSQL_PWD=VALUE
+            '/MYSQL_PWD=[^\s]+/' => 'MYSQL_PWD=***',
         ];
 
         foreach ($patterns as $pattern => $replacement) {
-            $command = preg_replace($pattern, $replacement, $command);
+            $input = preg_replace($pattern, $replacement, $input);
         }
 
-        return $command;
+        return $input;
     }
 }
