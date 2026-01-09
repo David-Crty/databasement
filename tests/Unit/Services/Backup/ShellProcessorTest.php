@@ -78,8 +78,10 @@ test('process method logs sanitized output', function () {
         ->with(\Mockery::on(fn ($cmd) => str_contains($cmd, 'PGPASSWORD=***') && ! str_contains($cmd, 'secret123')))
         ->andReturn(0);
 
+    // Verify updateCommandLog also receives sanitized output
     $logger->shouldReceive('updateCommandLog')
-        ->atLeast()->once();
+        ->atLeast()->once()
+        ->with(0, \Mockery::on(fn ($data) => ! str_contains($data['output'] ?? '', 'secret123')));
 
     $processor->setLogger($logger);
 
