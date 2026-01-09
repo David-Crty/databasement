@@ -145,7 +145,7 @@ BACKUP_COMPRESSION=zstd
 # Use gzip compression (default, universal compatibility)
 BACKUP_COMPRESSION=gzip
 
-# Optionally adjust compression level (default: 6)
+# Optionally adjust compression level: 1-9 for gzip, 1-19 for zstd (default: 6)
 BACKUP_COMPRESSION_LEVEL=9
 ```
 
