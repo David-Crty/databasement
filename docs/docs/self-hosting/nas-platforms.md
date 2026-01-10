@@ -8,7 +8,8 @@ This guide provides platform-specific instructions for deploying Databasement on
 
 ## Overview
 
-NAS platforms typically use bind mounts instead of Docker volumes, which requires matching the container's user ID with the host system's permissions. The Databasement Docker image is **rootless** and supports running as any user via the `--user` flag.
+NAS platforms typically use bind mounts instead of Docker volumes, which requires matching the container's user ID with the host system's permissions. Databasement makes this easy with `UID` and `GID` environment variables that automatically configure the correct permissions.
+
 
 ## Common Configuration
 
@@ -36,17 +37,13 @@ For MySQL/PostgreSQL configuration, see the [configuration guide](./configuratio
 
 ### Default UID/GID by Platform
 
-| Platform        | Default UID:GID |
-|-----------------|-----------------|
-| Unraid          | `99:100`        |
-| Synology        | `1000:1000`     |
-| TrueNAS SCALE   | `568:568`       |
-| QNAP            | `500:100`       |
-| OpenMediaVault  | `1000:100`      |
-
-:::info
-The Docker image is [**rootless**](https://docs.docker.com/engine/security/rootless/) and runs as UID `1000` by default.
-:::
+| Platform        | UID   | GID   | Environment Variables    |
+|-----------------|-------|-------|--------------------------|
+| Unraid          | 99    | 100   | `UID=99` `GID=100`       |
+| Synology        | 1000  | 1000  | `UID=1000` `GID=1000`    |
+| TrueNAS SCALE   | 568   | 568   | `UID=568` `GID=568`      |
+| QNAP            | 500   | 100   | `UID=500` `GID=100`      |
+| OpenMediaVault  | 1000  | 100   | `UID=1000` `GID=100`     |
 
 ## Unraid
 
@@ -55,10 +52,12 @@ Unraid runs containers as `nobody:users` (UID 99, GID 100) by default.
 ### Setup
 
 1. Add a new container with repository: `davidcrty/databasement:latest`
-2. Add `--user 99:100` to **Extra Parameters**
-3. Configure port: `2226` → `2226`
-4. Add path mapping: `/mnt/user/appdata/databasement` → `/data`
-5. Add [environment variables](#required-environment-variables)
+2. Configure port: `2226` → `2226`
+3. Add path mapping: `/mnt/user/appdata/databasement` → `/data`
+4. Add environment variables:
+   - `UID` = `99`
+   - `GID` = `100`
+   - Plus all [required environment variables](#required-environment-variables)
 
 ## Synology DSM
 
@@ -76,7 +75,7 @@ Synology DSM typically uses UID/GID `1000` for the first user, which matches the
 
 ### Custom User ID
 
-If you need a different user, find your UID via SSH (`id your-username`), then add to **Advanced Settings** → **Execution Command**.
+If you need a different user, find your UID via SSH (`id your-username`), then add `UID` and `GID` environment variables.
 
 ## TrueNAS SCALE
 
@@ -85,15 +84,9 @@ TrueNAS SCALE uses `apps` user (UID 568) by default for applications.
 ### Setup
 
 1. Go to **Apps** → **Discover Apps** → **Custom App**
-2. Follow the [Docker Compose guide](./docker-compose.md), adding `user: "568:568"` to both `app` and `worker` services (see [Custom User ID](./docker-compose.md#custom-user-id) for example)
+2. Follow the [Docker Compose guide](./docker-compose.md), adding `UID: 568` and `GID: 568` to environment variables for both `app` and `worker` services
 3. Volume: `/mnt/pool/apps/databasement` → `/data`
 4. Add [environment variables](#required-environment-variables)
-
-### Host Path Permissions
-
-```bash
-sudo chown -R 568:568 /mnt/pool/apps/databasement
-```
 
 ## QNAP
 
@@ -106,18 +99,17 @@ QNAP Container Station supports Docker containers with custom configurations.
 3. Configure:
    - **Port**: `2226` → `2226`
    - **Volume**: `/Container/databasement` → `/data`
-   - **Environment**: Add [required variables](#required-environment-variables)
-   - **Advanced**: Add `--user 500:100`
+   - **Environment**: Add `UID=500`, `GID=100`, plus [required variables](#required-environment-variables)
 
 ## OpenMediaVault
 
-OpenMediaVault uses Docker via omv-extras plugin. Follow the [Docker Compose guide](./docker-compose.md) with `user: "1000:100"` (adjust with `id your-username`).
+OpenMediaVault uses Docker via omv-extras plugin. Follow the [Docker Compose guide](./docker-compose.md) with `UID: 1000` and `GID: 100` environment variables (adjust with `id your-username`).
 
 ## Proxmox (LXC)
 
 For Proxmox, run Databasement in an LXC container or VM with Docker.
 
-Proxmox delegates UID/GID to the LXC container or VM, so match the UID:GID of the user running Docker inside your container.
+Proxmox delegates UID/GID to the LXC container or VM, so set the `UID` and `GID` environment variables to match the user running Docker inside your container.
 
 ### Setup
 
@@ -130,18 +122,24 @@ Proxmox delegates UID/GID to the LXC container or VM, so match the UID:GID of th
 
 ### Permission Denied Errors
 
-1. Check directory ownership:
+If you encounter permission issues:
+
+1. Check the container logs for permission-related errors:
    ```bash
-   ls -la /path/to/databasement
+   docker logs databasement
    ```
 
-2. Fix ownership to match your platform's [default UID/GID](#default-uidgid-by-platform):
+2. Verify the `UID` and `GID` environment variables match your platform's requirements (see [table above](#default-uidgid-by-platform))
+
+3. If using `--user` flag instead of `UID`/`GID` env vars, you must manually set permissions:
    ```bash
    sudo chown -R UID:GID /path/to/databasement
    ```
 
 ### Verify Container User
 
+Check which user the container processes are running as:
+
 ```bash
-docker inspect databasement --format '{{.Config.User}}'
+docker exec databasement ps aux
 ```
