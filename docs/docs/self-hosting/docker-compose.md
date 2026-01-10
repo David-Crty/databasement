@@ -189,13 +189,6 @@ the [official Traefik documentation](https://doc.traefik.io/traefik/expose/docke
 
 
 ## Use local directory as data volume
-You will need to create the directory `/path/to/databasement/data` (you can replace with your actual path) and make sure it is owned by the user `1000:1000`
-
-```bash
-# Create directory with app ownership (replace /path/to/databasement with your actual path)
-mkdir -p /path/to/databasement/data
-sudo chown 1000:1000 /path/to/databasement/data
-```
 
 ```yaml title="docker-compose.yml"
 services:
@@ -226,13 +219,34 @@ services:
       - app
 ```
 
-## Custom User ID
+## Custom User ID (UID/GID)
 
-:::info
-The Docker image is [**rootless**](https://docs.docker.com/engine/security/rootless/) and runs as UID `1000` by default.
+By default, the application runs as UID/GID `1000`. You can customize this using the `UID` and `GID` environment variables:
+
+```yaml title="docker-compose.yml"
+services:
+  app:
+    image: davidcrty/databasement:latest
+    environment:
+      UID: 1001
+      GID: 1001
+    # ... rest of config
+
+  worker:
+    image: davidcrty/databasement:latest
+    environment:
+      UID: 1001
+      GID: 1001
+    # ... rest of config
+```
+
+:::tip
+Find your user's UID/GID with `id username`. The container will automatically set the correct permissions on `/data` for the specified UID/GID.
 :::
 
-To run as a different user, add the `user` directive:
+### Alternative: Using `user` directive
+
+You can also use Docker Compose's `user` directive. When using this method, the container skips the automatic permission fix (useful if you've already set permissions manually):
 
 ```yaml
 services:
@@ -246,6 +260,10 @@ services:
     user: "1010:1010"
     # ... rest of config
 ```
+
+:::note
+When using `user`, you must ensure the directory has correct ownership before starting: `sudo chown 1010:1010 /path/to/databasement/data`
+:::
 
 :::tip
 For NAS platforms like **Unraid**, **Synology**, or **TrueNAS**, see the [NAS Platforms](./nas-platforms.md) guide for platform-specific instructions.

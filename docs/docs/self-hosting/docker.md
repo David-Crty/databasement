@@ -36,20 +36,9 @@ The `ENABLE_QUEUE_WORKER=true` environment variable enables the background queue
 
 Access the application at http://localhost:2226
 
-
-:::info
-The Docker image is [**rootless**](https://docs.docker.com/engine/security/rootless/) and runs as UID `1000` by default.
-:::
-
 ## Use local directory as data volume
 
 ```bash
-# Create directory with app ownership
-mkdir -p /path/to/databasement/data
-sudo chown 1000:1000 /path/to/databasement/data
-
-# Run container
-
 docker run -d \
   --name databasement \
   -p 2226:2226 \
@@ -61,16 +50,34 @@ docker run -d \
   davidcrty/databasement:latest
 ```
 
-### Custom User ID (PUID/GUID)
+## Custom User ID (UID/GID)
 
-To run as a different user, use Docker's `--user` flag. Replace `499:499` with your desired UID:GID (you can find your user's UID/GID with `id username`):
+By default, the application runs as UID/GID `1000`. You can customize this using the `UID` and `GID` environment variables:
 
 ```bash
-# Create directory with custom ownership
-mkdir -p /path/to/databasement/data
-sudo chown 499:499 /path/to/databasement/data
+# Run with custom UID/GID
+docker run -d \
+  --name databasement \
+  -p 2226:2226 \
+  -e APP_KEY=YOUR_APP_KEY \
+  -e DB_CONNECTION=sqlite \
+  -e DB_DATABASE=/data/database.sqlite \
+  -e ENABLE_QUEUE_WORKER=true \
+  -e UID=1001 \
+  -e GID=1001 \
+  -v /path/to/databasement/data:/data \
+  davidcrty/databasement:latest
+```
 
-# Run with custom user
+:::tip
+Find your user's UID/GID with `id username`. The container will automatically set the correct permissions on `/data` for the specified UID/GID.
+:::
+
+### Alternative: Using `--user` flag
+
+You can also use Docker's `--user` flag. When using this method, the container skips the automatic permission fix (useful if you've already set permissions manually):
+
+```bash
 docker run -d \
   --user 499:499 \
   --name databasement \
@@ -82,6 +89,10 @@ docker run -d \
   -v /path/to/databasement/data:/data \
   davidcrty/databasement:latest
 ```
+
+:::note
+When using `--user`, you must ensure the directory has correct ownership before starting the container: `sudo chown 499:499 /path/to/databasement/data`
+:::
 
 :::tip
 For NAS platforms like **Unraid**, **Synology**, or **TrueNAS**, see the [NAS Platforms](./nas-platforms.md) guide for platform-specific instructions.

@@ -34,22 +34,32 @@ RUN apk add --no-cache git \
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini
 COPY php-custom.ini /usr/local/etc/php/conf.d/zz-php-custom.ini
-ENV USER_ID=1000
-ENV USER=application
 
-RUN adduser -u ${USER_ID} -D -h /home/${USER} ${USER} && \
+# Install su-exec for dropping privileges
+RUN apk add --no-cache su-exec
+
+# Default UID/GID for the application user (can be overridden at runtime)
+ENV UID=1000
+ENV GID=1000
+
+# Create application user with default UID/GID
+# This user will be recreated at runtime if UID/GID differs
+RUN addgroup -g 1000 application && \
+    adduser -u 1000 -G application -D -h /home/application application && \
     setcap -r /usr/local/bin/frankenphp && \
-    chown -R ${USER}:${USER} /data/caddy && chmod -R 777 /config/caddy
+    chmod -R 777 /config/caddy
 
-RUN mkdir -p /app && chown -R ${USER}:${USER} /app && chmod -R 775 /app
-RUN mkdir -p /data && chown -R ${USER}:${USER} /data && chmod -R 777 /data
-RUN mkdir -p /tmp/backups && chown -R ${USER}:${USER} /tmp/backups && chmod -R 777 /tmp/backups
+# Create directories with root ownership (entrypoint will fix permissions)
+RUN mkdir -p /app && chmod -R 775 /app
+RUN mkdir -p /data && chmod -R 777 /data
+RUN mkdir -p /tmp/backups && chmod -R 777 /tmp/backups
 
 COPY start-frankenphp.sh /usr/local/bin/
 COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/start-frankenphp.sh
 
 WORKDIR /app
-USER 1000
+# Container starts as root, entrypoint handles privilege drop
 
 ENV WEB_DOCUMENT_ROOT=/app/public
 ENV SERVER_NAME=":2226"
