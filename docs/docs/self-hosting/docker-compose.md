@@ -85,7 +85,7 @@ services:
       - "2226:2226"
     env_file: .env
     volumes:
-      - app-data:/data
+      - /path/to/databasement/data:/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:2226/health"]
       interval: 10s
@@ -99,12 +99,9 @@ services:
     command: sh -c "php artisan db:wait && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
-      - app-data:/data
+      - /path/to/databasement/data:/data
     depends_on:
       - app
-
-volumes:
-  app-data:
 ```
 
 #### MySQL (Production Setup)
@@ -119,7 +116,7 @@ services:
       - "2226:2226"
     env_file: .env
     volumes:
-      - app-data:/data
+      - /path/to/databasement/data:/data
     depends_on:
       mysql:
         condition: service_healthy
@@ -136,7 +133,7 @@ services:
     command: sh -c "php artisan db:wait && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
-      - app-data:/data
+      - /path/to/databasement/data:/data
     depends_on:
       mysql:
         condition: service_healthy
@@ -151,16 +148,12 @@ services:
       MYSQL_USER: databasement
       MYSQL_PASSWORD: your-secure-password
     volumes:
-      - mysql-data:/var/lib/mysql
+      - /path/to/mysql/data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
-
-volumes:
-  app-data:
-  mysql-data:
 ```
 
 :::tip
@@ -187,52 +180,34 @@ how to configure Traefik with Docker, please refer to
 the [official Traefik documentation](https://doc.traefik.io/traefik/expose/docker/).
 :::
 
+## Custom User ID (PUID/PGID)
 
-## Use local directory as data volume
-You will need to create the directory `/path/to/databasement/data` (you can replace with your actual path) and make sure it is owned by the user `1000:1000`
-
-```bash
-# Create directory with app ownership (replace /path/to/databasement with your actual path)
-mkdir -p /path/to/databasement/data
-sudo chown 1000:1000 /path/to/databasement/data
-```
+By default, the application runs as PUID/PGID `1000`. You can customize this using the `PUID` and `PGID` environment variables:
 
 ```yaml title="docker-compose.yml"
 services:
   app:
     image: davidcrty/databasement:latest
-    container_name: databasement
-    restart: unless-stopped
-    ports:
-      - "2226:2226"
-    env_file: .env
-    volumes:
-      - /path/to/databasement/data:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:2226/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    environment:
+      PUID: 1001
+      PGID: 1001
+    # ... rest of config
 
   worker:
     image: davidcrty/databasement:latest
-    container_name: databasement-worker
-    restart: unless-stopped
-    command: sh -c "php artisan db:wait && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
-    env_file: .env
-    volumes:
-      - /path/to/databasement/data:/data
-    depends_on:
-      - app
+    environment:
+      PUID: 1001
+      PGID: 1001
+    # ... rest of config
 ```
 
-## Custom User ID
-
-:::info
-The Docker image is [**rootless**](https://docs.docker.com/engine/security/rootless/) and runs as UID `1000` by default.
+:::tip
+Find your user's PUID/PGID with `id username`. The container will automatically set the correct permissions on `/data` for the specified PUID/PGID.
 :::
 
-To run as a different user, add the `user` directive:
+### Rootless Containers
+
+For rootless Docker or Podman environments, use the `user` directive. When using this method, the container runs entirely as the specified user and skips the automatic permission fix:
 
 ```yaml
 services:
@@ -247,6 +222,6 @@ services:
     # ... rest of config
 ```
 
-:::tip
-For NAS platforms like **Unraid**, **Synology**, or **TrueNAS**, see the [NAS Platforms](./nas-platforms.md) guide for platform-specific instructions.
+:::note
+When using `user`, you must manually set directory permissions before starting the container since the automatic permission fix requires root: `sudo chown 1010:1010 /path/to/databasement/data`
 :::

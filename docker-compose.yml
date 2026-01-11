@@ -3,7 +3,6 @@ services:
     image: davidcrty/databasement-php
     build:
       context: docker/php
-    user: 1000:1000
     volumes:
       - .:/app
       - app-data:/data
@@ -14,6 +13,10 @@ services:
     environment:
       TZ: UTC
       XDG_CONFIG_HOME: /tmp
+      # UID/GID for the application user (defaults to 1000:1000)
+      # Set these to match your host user for proper file permissions
+      UID: 1000
+      GID: 1000
       AWS_ACCESS_KEY_ID: rustfsadmin
       AWS_SECRET_ACCESS_KEY: rustfsadmin
       AWS_DEFAULT_REGION: us-east-1
@@ -26,7 +29,6 @@ services:
     image: davidcrty/databasement-php
     build:
       context: docker/php
-    user: 1000:1000
     volumes:
       - .:/app
       - app-data:/data
@@ -34,6 +36,8 @@ services:
     restart: unless-stopped
     environment:
       TZ: UTC
+      UID: 1000
+      GID: 1000
       AWS_ACCESS_KEY_ID: rustfsadmin
       AWS_SECRET_ACCESS_KEY: rustfsadmin
       AWS_DEFAULT_REGION: us-east-1

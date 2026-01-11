@@ -53,7 +53,6 @@ Databasement is designed to be self-hosted. We provide several deployment option
 | **Docker Compose** | Multi-container setup with external database | [View Guide](https://david-crty.github.io/databasement/self-hosting/docker-compose) |
 | **Kubernetes + Helm** | For Kubernetes clusters | [View Guide](https://david-crty.github.io/databasement/self-hosting/kubernetes-helm) |
 | **Native Ubuntu** | Traditional installation without Docker | [View Guide](https://david-crty.github.io/databasement/self-hosting/native-ubuntu) |
-| **NAS Platforms** | Synology, Unraid, TrueNAS, QNAP, Proxmox | [View Guide](https://david-crty.github.io/databasement/self-hosting/nas-platforms) |
 
 ### Quick Start
 
@@ -63,11 +62,13 @@ docker run -d \
   -e DB_CONNECTION=sqlite \
   -e DB_DATABASE=/data/database.sqlite \
   -e ENABLE_QUEUE_WORKER=true \
-  -v databasement-data:/data \
+  -v ./databasement-data:/data \
   davidcrty/databasement:latest
 ```
 
 Open http://localhost:2226 and create your first admin account.
+
+> **Note:** The container automatically handles volume permissions. You can use `PUID` and `PGID` environment variables to match your system's user/group IDs.
 
 For production deployments, see our [configuration guide](https://david-crty.github.io/databasement/self-hosting/configuration) for environment variables and best practices.
 

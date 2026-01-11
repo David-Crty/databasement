@@ -29,27 +29,34 @@ RUN apk add --no-cache git \
         postgresql18-client \
         supervisor \
         gzip zstd \
-        tzdata
+        tzdata \
+        shadow \
+        findutils \
+        bash
 
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini
 COPY php-custom.ini /usr/local/etc/php/conf.d/zz-php-custom.ini
-ENV USER_ID=1000
-ENV USER=application
 
-RUN adduser -u ${USER_ID} -D -h /home/${USER} ${USER} && \
+# Default PUID/PGID for the application user (can be overridden at runtime)
+ENV PUID=1000
+ENV PGID=1000
+
+# Create application user with default PUID/PGID
+# This user will be recreated at runtime if PUID/PGID differs
+RUN addgroup -g ${PGID} application && \
+    adduser -u ${PUID} -G application -D -h /home/application application && \
     setcap -r /usr/local/bin/frankenphp && \
-    chown -R ${USER}:${USER} /data/caddy && chmod -R 777 /config/caddy
+    chmod -R 777 /config
 
-RUN mkdir -p /app && chown -R ${USER}:${USER} /app && chmod -R 775 /app
-RUN mkdir -p /data && chown -R ${USER}:${USER} /data && chmod -R 777 /data
-RUN mkdir -p /tmp/backups && chown -R ${USER}:${USER} /tmp/backups && chmod -R 777 /tmp/backups
+# Create directories with correct ownership
+RUN mkdir -p /app && chown application:application /app
+RUN mkdir -p /data && chown application:application /data
 
-COPY start-frankenphp.sh /usr/local/bin/
-COPY docker-entrypoint.sh /usr/local/bin/
+COPY scripts/ /usr/local/bin/
+RUN chmod 755 /usr/local/bin/*.sh
 
 WORKDIR /app
-USER 1000
 
 ENV WEB_DOCUMENT_ROOT=/app/public
 ENV SERVER_NAME=":2226"
@@ -61,4 +68,4 @@ ENV TZ="UTC"
 HEALTHCHECK NONE
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+CMD ["/usr/local/bin/start.sh"]

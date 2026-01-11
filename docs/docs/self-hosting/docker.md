@@ -17,7 +17,8 @@ The simplest way to run Databasement with SQLite as the database:
 ```bash
 # Generate an application key
 APP_KEY=$(docker run --rm davidcrty/databasement:latest php artisan key:generate --show)
-docker volume create databasement-data
+
+
 # Run the container
 docker run -d \
   --name databasement \
@@ -26,7 +27,7 @@ docker run -d \
   -e DB_CONNECTION=sqlite \
   -e DB_DATABASE=/data/database.sqlite \
   -e ENABLE_QUEUE_WORKER=true \
-  -v databasement-data:/data \
+  -v ./databasement-data:/data \
   davidcrty/databasement:latest
 ```
 
@@ -36,53 +37,38 @@ The `ENABLE_QUEUE_WORKER=true` environment variable enables the background queue
 
 Access the application at http://localhost:2226
 
+## Custom User ID (PUID/PGID)
 
-:::info
-The Docker image is [**rootless**](https://docs.docker.com/engine/security/rootless/) and runs as UID `1000` by default.
-:::
-
-## Use local directory as data volume
+By default, the application runs as PUID/PGID `1000`. You can customize this using the `PUID` and `PGID` environment variables:
 
 ```bash
-# Create directory with app ownership
-mkdir -p /path/to/databasement/data
-sudo chown 1000:1000 /path/to/databasement/data
-
-# Run container
-
+# Run with custom PUID/PGID
 docker run -d \
-  --name databasement \
-  -p 2226:2226 \
-  -e APP_KEY=YOUR_APP_KEY \
-  -e DB_CONNECTION=sqlite \
-  -e DB_DATABASE=/data/database.sqlite \
-  -e ENABLE_QUEUE_WORKER=true \
-  -v /path/to/databasement/data:/data \
-  davidcrty/databasement:latest
-```
-
-### Custom User ID (PUID/GUID)
-
-To run as a different user, use Docker's `--user` flag. Replace `499:499` with your desired UID:GID (you can find your user's UID/GID with `id username`):
-
-```bash
-# Create directory with custom ownership
-mkdir -p /path/to/databasement/data
-sudo chown 499:499 /path/to/databasement/data
-
-# Run with custom user
-docker run -d \
-  --user 499:499 \
-  --name databasement \
-  -p 2226:2226 \
-  -e APP_KEY=YOUR_APP_KEY \
-  -e DB_CONNECTION=sqlite \
-  -e DB_DATABASE=/data/database.sqlite \
-  -e ENABLE_QUEUE_WORKER=true \
-  -v /path/to/databasement/data:/data \
-  davidcrty/databasement:latest
+...
+  -e PUID=1001 \
+  -e PGID=1001 \
+...
 ```
 
 :::tip
-For NAS platforms like **Unraid**, **Synology**, or **TrueNAS**, see the [NAS Platforms](./nas-platforms.md) guide for platform-specific instructions.
+Find your user's PUID/PGID with `id username`. The container will automatically set the correct permissions on `/data` for the specified PUID/PGID.
+:::
+
+### Rootless Containers
+
+For rootless Docker or Podman environments, use the `--user` flag. When using this method, the container runs entirely as the specified user and skips the automatic permission fix:
+
+```bash
+# Create the data directory and set permissions first
+mkdir /path/to/databasement/data
+sudo chown 499:499 /path/to/databasement/data
+
+docker run -d \
+...
+  --user 499:499 \
+...
+```
+
+:::note
+When using `--user`, you must manually set directory permissions before starting the container since the automatic permission fix requires root.
 :::
