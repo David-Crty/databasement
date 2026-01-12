@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
 use PDO;
 use PDOException;
@@ -22,6 +23,13 @@ class DatabaseListService
         'azure_sys',         // Azure Database for PostgreSQL internal database
     ];
 
+    private const EXCLUDED_MSSQL_DATABASES = [
+        'master',   // System database
+        'tempdb',   // Temporary database
+        'model',    // Template database
+        'msdb',     // SQL Server Agent database
+    ];
+
     /**
      * Get list of databases/schemas from a database server
      *
@@ -35,6 +43,7 @@ class DatabaseListService
             return match ($databaseServer->database_type) {
                 'mysql' => $this->listMysqlDatabases($pdo),
                 'postgres' => $this->listPostgresqlDatabases($pdo),
+                'sqlserver' => $this->listMssqlDatabases($pdo),
                 default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
             };
         } catch (PDOException $e) {
@@ -78,35 +87,36 @@ class DatabaseListService
         }));
     }
 
-    protected function createConnection(DatabaseServer $databaseServer): PDO
+    /**
+     * @return array<string>
+     */
+    private function listMssqlDatabases(PDO $pdo): array
     {
-        $dsn = $this->buildDsn($databaseServer);
-
-        return new PDO(
-            $dsn,
-            $databaseServer->username,
-            $databaseServer->password,
-            [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_TIMEOUT => 5,
-            ]
+        // Query sys.databases to get user databases (database_id > 4 excludes system DBs)
+        $statement = $pdo->query(
+            'SELECT name FROM sys.databases WHERE database_id > 4 ORDER BY name'
         );
+        if ($statement === false) {
+            throw new \RuntimeException('Failed to execute query: SELECT name FROM sys.databases');
+        }
+
+        $databases = $statement->fetchAll(PDO::FETCH_COLUMN, 0);
+
+        // Additional filtering for any edge cases
+        return array_values(array_filter($databases, function ($db) {
+            return ! in_array($db, self::EXCLUDED_MSSQL_DATABASES);
+        }));
     }
 
-    protected function buildDsn(DatabaseServer $databaseServer): string
+    protected function createConnection(DatabaseServer $databaseServer): PDO
     {
-        return match ($databaseServer->database_type) {
-            'mysql' => sprintf(
-                'mysql:host=%s;port=%d',
-                $databaseServer->host,
-                $databaseServer->port
-            ),
-            'postgres' => sprintf(
-                'pgsql:host=%s;port=%d;dbname=postgres',
-                $databaseServer->host,
-                $databaseServer->port
-            ),
-            default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
-        };
+        return DatabaseType::from($databaseServer->database_type)->createPdo(
+            $databaseServer->host,
+            $databaseServer->port,
+            $databaseServer->username,
+            $databaseServer->password,
+            null,
+            5
+        );
     }
 }

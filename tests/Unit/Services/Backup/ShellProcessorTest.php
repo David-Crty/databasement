@@ -16,6 +16,8 @@ test('sanitizes sensitive patterns', function (string $input, string $expectedTo
     '-p shorthand format' => ['mysqldump -psecret123 dbname', '-p***', 'secret123'],
     'PGPASSWORD env var' => ['PGPASSWORD=secret123 pg_dump dbname', 'PGPASSWORD=***', 'secret123'],
     'MYSQL_PWD env var' => ['MYSQL_PWD=secret123 mysqldump failed', 'MYSQL_PWD=***', 'secret123'],
+    'sqlcmd -P format' => ["sqlcmd -S 'mssql',1433 -U 'sa' -P 'secret123' -d testdb", '-P ***', 'secret123'],
+    'sqlcmd -P unquoted' => ['sqlcmd -S mssql,1433 -U sa -P secret123 -d testdb', '-P ***', 'secret123'],
 ]);
 
 test('preserves non-sensitive patterns', function (string $input, string $expectedToContain) {
@@ -53,6 +55,20 @@ test('sanitizes realistic pg_dump command', function () {
         ->toContain('PGPASSWORD=***')
         ->toContain('postgres-production.example.com')
         ->toContain('-p 5432')
+        ->not->toContain('supersecret');
+});
+
+test('sanitizes realistic sqlcmd command', function () {
+    $processor = new ShellProcessor;
+
+    $command = "sqlcmd -S 'mssql-production.example.com',1433 -U 'sa' -P 'supersecret' -d 'mydb' -C -i '/tmp/export.sql'";
+    $result = $processor->sanitize($command);
+
+    expect($result)
+        ->toContain('mssql-production.example.com')
+        ->toContain('-U \'sa\'')
+        ->toContain('-P ***')
+        ->toContain('-d \'mydb\'')
         ->not->toContain('supersecret');
 });
 

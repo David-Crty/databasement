@@ -5,6 +5,7 @@ namespace App\Services\Backup;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Backup\Databases\MssqlDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -16,6 +17,7 @@ class BackupTask
     public function __construct(
         private readonly MysqlDatabase $mysqlDatabase,
         private readonly PostgresqlDatabase $postgresqlDatabase,
+        private readonly MssqlDatabase $mssqlDatabase,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
         private readonly CompressorInterface $compressor
@@ -122,6 +124,7 @@ class BackupTask
             $command = match ($databaseServer->database_type) {
                 'mysql' => $this->mysqlDatabase->getDumpCommandLine($outputPath),
                 'postgres' => $this->postgresqlDatabase->getDumpCommandLine($outputPath),
+                'sqlserver' => $this->mssqlDatabase->getDumpCommandLine($outputPath),
                 default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
             };
         }
@@ -165,6 +168,7 @@ class BackupTask
         match ($databaseServer->database_type) {
             'mysql' => $this->mysqlDatabase->setConfig($config),
             'postgres' => $this->postgresqlDatabase->setConfig($config),
+            'sqlserver' => $this->mssqlDatabase->setConfig($config),
             default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
         };
     }

@@ -10,6 +10,7 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
+use App\Services\Backup\Databases\MssqlDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -24,6 +25,7 @@ class RestoreTask
     public function __construct(
         private readonly MysqlDatabase $mysqlDatabase,
         private readonly PostgresqlDatabase $postgresqlDatabase,
+        private readonly MssqlDatabase $mssqlDatabase,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
         private readonly CompressorFactory $compressorFactory,
@@ -140,6 +142,7 @@ class RestoreTask
             match ($databaseType) {
                 DatabaseType::MYSQL => $this->prepareMysqlDatabase($pdo, $schemaName, $job),
                 DatabaseType::POSTGRESQL => $this->preparePostgresqlDatabase($pdo, $schemaName, $job),
+                DatabaseType::MSSQL => $this->prepareMssqlDatabase($pdo, $schemaName, $job),
                 default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
             };
         } catch (PDOException $e) {
@@ -187,6 +190,28 @@ class RestoreTask
         $pdo->exec($createCommand);
     }
 
+    private function prepareMssqlDatabase(PDO $pdo, string $schemaName, BackupJob $job): void
+    {
+        // Check if database exists
+        $stmt = $pdo->prepare('SELECT 1 FROM sys.databases WHERE name = ?');
+        $stmt->execute([$schemaName]);
+        $exists = $stmt->fetchColumn();
+
+        if ($exists) {
+            $job->log('Database exists, setting to single user mode and dropping', 'info');
+
+            // Set database to single user mode to terminate connections, then drop
+            $dropCommand = "ALTER DATABASE [{$schemaName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{$schemaName}]";
+            $job->logCommand($dropCommand, null, 0);
+            $pdo->exec($dropCommand);
+        }
+
+        // Create new database
+        $createCommand = "CREATE DATABASE [{$schemaName}]";
+        $job->logCommand($createCommand, null, 0);
+        $pdo->exec($createCommand);
+    }
+
     private function restoreDatabase(DatabaseServer $targetServer, string $inputPath): void
     {
         $databaseType = DatabaseType::from($targetServer->database_type);
@@ -194,6 +219,7 @@ class RestoreTask
         $command = match ($databaseType) {
             DatabaseType::MYSQL => $this->mysqlDatabase->getRestoreCommandLine($inputPath),
             DatabaseType::POSTGRESQL => $this->postgresqlDatabase->getRestoreCommandLine($inputPath),
+            DatabaseType::MSSQL => $this->mssqlDatabase->getRestoreCommandLine($inputPath),
             default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
         };
 
@@ -224,6 +250,7 @@ class RestoreTask
         match ($databaseType) {
             DatabaseType::MYSQL => $this->mysqlDatabase->setConfig($config),
             DatabaseType::POSTGRESQL => $this->postgresqlDatabase->setConfig($config),
+            DatabaseType::MSSQL => $this->mssqlDatabase->setConfig($config),
             default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
         };
     }

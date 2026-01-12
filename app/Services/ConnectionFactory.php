@@ -15,23 +15,14 @@ class ConnectionFactory
      */
     public function createAdminConnection(DatabaseServer $server, int $timeout = 30): PDO
     {
-        $databaseType = DatabaseType::from($server->database_type);
-        $dsn = $databaseType->buildAdminDsn($server->host, $server->port);
-
-        return $this->createConnection($dsn, $server->username, $server->getDecryptedPassword(), $timeout);
-    }
-
-    private function createConnection(string $dsn, string $username, string $password, int $timeout): PDO
-    {
         try {
-            return new PDO(
-                $dsn,
-                $username,
-                $password,
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_TIMEOUT => $timeout,
-                ]
+            return DatabaseType::from($server->database_type)->createPdo(
+                $server->host,
+                $server->port,
+                $server->username,
+                $server->getDecryptedPassword(),
+                null,
+                $timeout
             );
         } catch (PDOException $e) {
             throw new ConnectionException("Failed to establish database connection: {$e->getMessage()}", 0, $e);

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\DatabaseType;
+use App\Services\Backup\Databases\MssqlDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use PDO;
@@ -32,6 +33,7 @@ class DatabaseConnectionTester
             DatabaseType::MYSQL => self::testMysqlConnection($config),
             DatabaseType::POSTGRESQL => self::testPostgresqlConnection($config),
             DatabaseType::SQLITE => self::testSqliteConnection($config['host']),
+            DatabaseType::MSSQL => self::testMssqlConnection($config),
         };
     }
 
@@ -204,5 +206,65 @@ class DatabaseConnectionTester
                 'details' => [],
             ];
         }
+    }
+
+    /**
+     * Test Microsoft SQL Server connection using sqlcmd CLI.
+     *
+     * @param  array{database_type: string, host: string, port: int, username: string, password: string, database_name: ?string}  $config
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    private static function testMssqlConnection(array $config): array
+    {
+        $mssqlDatabase = new MssqlDatabase;
+        $command = $mssqlDatabase->getQueryCommand([
+            'host' => $config['host'],
+            'port' => $config['port'],
+            'user' => $config['username'],
+            'pass' => $config['password'],
+        ], 'SELECT @@VERSION', 10);
+
+        $startTime = microtime(true);
+        exec($command.' 2>&1', $output, $exitCode);
+        $pingMs = round((microtime(true) - $startTime) * 1000);
+
+        if ($exitCode !== 0) {
+            $errorOutput = implode("\n", $output);
+
+            // Clean up common error patterns for better user experience
+            if (str_contains($errorOutput, 'Login failed')) {
+                return [
+                    'success' => false,
+                    'message' => 'Authentication failed. Please check username and password.',
+                    'details' => [],
+                ];
+            }
+
+            if (str_contains($errorOutput, 'TCP Provider') || str_contains($errorOutput, 'connection was forcibly closed')) {
+                return [
+                    'success' => false,
+                    'message' => 'Could not connect to server. Please check host and port.',
+                    'details' => [],
+                ];
+            }
+
+            return [
+                'success' => false,
+                'message' => $errorOutput ?: 'Connection failed',
+                'details' => [],
+            ];
+        }
+
+        // Parse version output
+        $version = trim(implode(' ', array_filter($output)));
+
+        return [
+            'success' => true,
+            'message' => 'Connection successful',
+            'details' => [
+                'ping_ms' => $pingMs,
+                'output' => json_encode(['dbms' => $version], JSON_PRETTY_PRINT),
+            ],
+        ];
     }
 }

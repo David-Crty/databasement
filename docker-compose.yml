@@ -80,6 +80,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # Microsoft SQL Server for MSSQL backup testing
+  # Note: Requires 2GB RAM minimum
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: databasement-mssql
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: Admin123!
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Admin123!' -C -Q 'SELECT 1' || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
   rustfs:
     image: rustfs/rustfs:latest
     container_name: databasement-rustfs
@@ -123,4 +143,5 @@ volumes:
   app-data:
   mysql-data:
   postgres-data:
+  mssql-data:
   rustfs-data:

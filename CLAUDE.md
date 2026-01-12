@@ -215,22 +215,24 @@ make test-filter FILTER=DatabaseServerTest
 
 #### Files to Update
 
-**Services:**
-- `app/Services/DatabaseConnectionTester.php` - Add DSN builder case in `buildDsn()`
-- `app/Services/Backup/BackupTask.php` - Add backup command logic
-- `app/Services/Backup/RestoreTask.php` - Add restore command logic
+**Core:**
+- `app/Enums/DatabaseType.php` - Add enum case, label, default port, DSN format in `buildDsn()`
+- `app/Services/Backup/Databases/` - Create handler class implementing `DatabaseInterface`
+- `app/Services/Backup/BackupTask.php` - Inject and wire up the new handler
+- `app/Services/Backup/RestoreTask.php` - Inject handler + add `prepareDatabase()` case
+- `app/Services/Backup/DatabaseListService.php` - Add `list{Type}Databases()` method
+- `app/Services/DatabaseConnectionTester.php` - Add `test{Type}Connection()` method
+- `app/Livewire/Forms/DatabaseServerForm.php` - Add type to validation rule
 
-**Forms & UI:**
-- `app/Livewire/Forms/DatabaseServerForm.php` - Add properties, validation rules, null handling in `setServer()`
-- `resources/views/livewire/database-server/` - Conditional form fields and display
+**Infrastructure:**
+- `docker/php/Dockerfile` - Add PDO extension and CLI tools
+- `docker-compose.yml` - Add test database service
+- `config/testing.php` - Add test database config with defaults
 
-#### Required Tests
-
-```bash
-tests/Feature/DatabaseServer/CreateTest.php       # 'can create {type} database server'
-tests/Feature/DatabaseServer/EditTest.php         # 'can edit {type} database server'
-tests/Feature/Integration/BackupRestoreTest.php   # '{type} backup and restore workflow' (CRITICAL)
-```
+**Tests & Fixtures:**
+- `tests/Feature/Integration/BackupRestoreTest.php` - Add to test dataset
+- `tests/Support/IntegrationTestHelpers.php` - Add config and helpers
+- `tests/Feature/Integration/fixtures/{type}-init.sql` - Create test fixture
 
 ### Working with Livewire Components
 

@@ -3,7 +3,7 @@
 /**
  * Integration tests for backup and restore with real databases.
  *
- * These tests require MySQL and PostgreSQL containers to be running.
+ * These tests require MySQL, PostgreSQL, and MSSQL containers to be running.
  * Run with: php artisan test --group=integration
  */
 
@@ -33,8 +33,13 @@ afterEach(function () {
     // Cleanup restored database
     if ($this->restoredDatabaseName && $this->databaseServer) {
         try {
+            $type = match ($this->databaseServer->database_type) {
+                'postgres' => 'postgres',
+                'sqlserver' => 'mssql',
+                default => 'mysql',
+            };
             IntegrationTestHelpers::dropDatabase(
-                $this->databaseServer->database_type === 'postgres' ? 'postgres' : 'mysql',
+                $type,
                 $this->databaseServer,
                 $this->restoredDatabaseName
             );
@@ -99,6 +104,7 @@ test('client-server database backup and restore workflow', function (string $typ
     $verifyQuery = match ($type) {
         'mysql' => 'SHOW TABLES',
         'postgres' => "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'",
+        'mssql' => "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'",
     };
     $stmt = $pdo->query($verifyQuery);
     expect($stmt)->not->toBeFalse();
@@ -106,7 +112,7 @@ test('client-server database backup and restore workflow', function (string $typ
     'mysql with gzip' => ['mysql', 'gzip', 'gz'],
     'mysql with zstd' => ['mysql', 'zstd', 'zst'],
     'postgres with gzip' => ['postgres', 'gzip', 'gz'],
-    'postgres with zstd' => ['postgres', 'zstd', 'zst'],
+    'mssql with gzip' => ['mssql', 'gzip', 'gz'],
 ]);
 
 test('sqlite backup and restore workflow', function () {

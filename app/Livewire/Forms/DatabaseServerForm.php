@@ -145,7 +145,7 @@ class DatabaseServerForm extends Form
 
         $rules = [
             'name' => 'required|string|max:255',
-            'database_type' => 'required|string|in:mysql,postgres,sqlite',
+            'database_type' => 'required|string|in:mysql,postgres,sqlite,sqlserver',
             'description' => 'nullable|string|max:1000',
             'volume_id' => 'required|exists:volumes,id',
             'recurrence' => 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES),
@@ -254,7 +254,6 @@ class DatabaseServerForm extends Form
                 $this->validate([
                     'host' => 'required|string|max:255',
                     'port' => 'required|integer|min:1|max:65535',
-                    'database_type' => 'required|string|in:mysql,postgres,sqlite',
                     'username' => 'required|string|max:255',
                     'password' => (empty($this->server) ? 'required|string|max:255' : 'nullable'),
                 ]);

@@ -33,6 +33,20 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: Admin123!
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Admin123!' -C -Q 'SELECT 1' || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,12 +57,18 @@ jobs:
           php-version: 8.4
           tools: composer:v2
           coverage: pcov
-          extensions: pdo, pdo_mysql, pdo_pgsql
+          extensions: pdo, pdo_mysql, pdo_pgsql, pdo_sqlsrv
 
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y mysql-client postgresql-client zstd
+          # Install Microsoft SQL Server tools (sqlcmd)
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg
+          curl -fsSL https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18
+          echo "/opt/mssql-tools18/bin" >> $GITHUB_PATH
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -80,6 +100,7 @@ jobs:
           DB_HOST: 127.0.0.1
           TEST_MYSQL_HOST: 127.0.0.1
           TEST_POSTGRES_HOST: 127.0.0.1
+          TEST_MSSQL_HOST: 127.0.0.1
         run: |
           php artisan migrate --force
           php artisan test --coverage-clover=coverage.xml --coverage-text=coverage.txt

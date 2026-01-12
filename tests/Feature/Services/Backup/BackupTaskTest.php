@@ -8,6 +8,7 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\CompressorInterface;
 use App\Services\Backup\DatabaseListService;
+use App\Services\Backup\Databases\MssqlDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -22,6 +23,7 @@ beforeEach(function () {
     // Use REAL services for command building
     $this->mysqlDatabase = new MysqlDatabase;  // ✓ Real command building
     $this->postgresqlDatabase = new PostgresqlDatabase;  // ✓ Real command building
+    $this->mssqlDatabase = new MssqlDatabase;  // ✓ Real command building
     $this->shellProcessor = new TestShellProcessor;  // ✓ Captures commands without executing
     /** @var CompressorInterface $compressor */
     $this->compressor = new GzipCompressor($this->shellProcessor, 6);  // ✓ Real path manipulation
@@ -33,6 +35,7 @@ beforeEach(function () {
     $this->backupTask = new BackupTask(
         $this->mysqlDatabase,
         $this->postgresqlDatabase,
+        $this->mssqlDatabase,
         $this->shellProcessor,
         $this->filesystemProvider,
         $this->compressor
@@ -212,6 +215,7 @@ test('run throws exception when backup command failed', function () {
     $backupTask = new BackupTask(
         $this->mysqlDatabase,
         $this->postgresqlDatabase,
+        $this->mssqlDatabase,
         $shellProcessor,
         $this->filesystemProvider,
         $this->compressor

@@ -16,6 +16,7 @@ RUN install-php-extensions \
     xml \
     pdo_mysql \
     pdo_pgsql \
+    pdo_sqlsrv \
     intl \
     pcntl \
     opcache \
@@ -32,7 +33,16 @@ RUN apk add --no-cache git \
         tzdata \
         shadow \
         findutils \
-        bash
+        bash \
+        curl
+
+# Install go-sqlcmd (Microsoft SQL Server CLI tool)
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "x86_64" ]; then ARCH="amd64"; elif [ "$ARCH" = "aarch64" ]; then ARCH="arm64"; fi && \
+    curl -L "https://github.com/microsoft/go-sqlcmd/releases/download/v1.8.2/sqlcmd-linux-${ARCH}.tar.bz2" -o /tmp/sqlcmd.tar.bz2 && \
+    tar -xjf /tmp/sqlcmd.tar.bz2 -C /usr/local/bin sqlcmd && \
+    chmod +x /usr/local/bin/sqlcmd && \
+    rm /tmp/sqlcmd.tar.bz2
 
 COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini

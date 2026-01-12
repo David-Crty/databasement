@@ -6,6 +6,7 @@ use App\Models\Restore;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\CompressorFactory;
+use App\Services\Backup\Databases\MssqlDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -20,6 +21,7 @@ beforeEach(function () {
     // Use REAL services for command building
     $this->mysqlDatabase = new MysqlDatabase;  // ✓ Real command building
     $this->postgresqlDatabase = new PostgresqlDatabase;  // ✓ Real command building
+    $this->mssqlDatabase = new MssqlDatabase;  // ✓ Real command building
     $this->shellProcessor = new TestShellProcessor;  // ✓ Captures commands without executing
     $this->compressorFactory = new CompressorFactory($this->shellProcessor);  // ✓ Real path manipulation
 
@@ -33,6 +35,7 @@ beforeEach(function () {
         [
             $this->mysqlDatabase,
             $this->postgresqlDatabase,
+            $this->mssqlDatabase,
             $this->shellProcessor,
             $this->filesystemProvider,
             $this->compressorFactory,
@@ -307,6 +310,7 @@ test('run throws exception when restore command failed', function () {
         [
             $this->mysqlDatabase,
             $this->postgresqlDatabase,
+            $this->mssqlDatabase,
             $shellProcessor,
             $this->filesystemProvider,
             $compressorFactory,

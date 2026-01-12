@@ -86,6 +86,8 @@ class ShellProcessor
             '/PGPASSWORD=[^\s]+/' => 'PGPASSWORD=***',
             // Match MYSQL_PWD=VALUE
             '/MYSQL_PWD=[^\s]+/' => 'MYSQL_PWD=***',
+            // Match sqlcmd -P 'VALUE' or -P "VALUE" or -P VALUE (MSSQL)
+            '/-P\s+[\'"]?[^\s\'"]+[\'"]?/' => '-P ***',
         ];
 
         foreach ($patterns as $pattern => $replacement) {
