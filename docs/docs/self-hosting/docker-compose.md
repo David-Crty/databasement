@@ -238,5 +238,5 @@ services:
 ```
 
 :::note
-When using `user`, you must manually set directory permissions before starting the container since the automatic permission fix requires root: `sudo chown 1010:1010 /path/to/databasement/data`
+When using `user`, you must manually set `/data` directory volume permissions before starting the container since the automatic permission fix requires root: `sudo chown 1010:1010 /path/to/databasement/data`
 :::

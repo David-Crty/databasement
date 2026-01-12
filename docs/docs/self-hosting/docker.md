@@ -70,5 +70,5 @@ docker run -d \
 ```
 
 :::note
-When using `--user`, you must manually set directory permissions before starting the container since the automatic permission fix requires root.
+When using `--user`, you must manually set `/data` directory volume permissions before starting the container since the automatic permission fix requires root: `sudo chown 499:499 /path/to/databasement/data`
 :::
