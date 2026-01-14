@@ -60,11 +60,15 @@ enum DatabaseType: string
      */
     public function createPdo(DatabaseServer $server, ?string $database = null, int $timeout = 30): \PDO
     {
-        $host = $this === self::SQLITE
-            ? ($server->sqlite_path ?? $server->host)
-            : $server->host;
-        $dsn = $this->buildDsn($host, $server->port, $database);
+        $host = $server->host;
+        if ($this === self::SQLITE) {
+            if (empty($server->sqlite_path)) {
+                throw new \InvalidArgumentException('SQLite database server requires sqlite_path to be set');
+            }
+            $host = $server->sqlite_path;
+        }
 
+        $dsn = $this->buildDsn($host, $server->port, $database);
         $options = [
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
             \PDO::ATTR_TIMEOUT => $timeout,
