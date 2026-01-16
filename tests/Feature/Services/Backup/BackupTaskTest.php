@@ -346,6 +346,40 @@ test('createSnapshots throws exception when backup_all_databases is enabled but 
         ->toThrow(\RuntimeException::class, 'No databases found on the server to backup.');
 });
 
+test('run handles backup path configuration correctly', function (?string $configuredPath, string $expectedPrefix) {
+    $databaseServer = createDatabaseServer([
+        'name' => 'MySQL Server',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_names' => ['myapp'],
+    ]);
+
+    if ($configuredPath !== null) {
+        $databaseServer->backup->update(['path' => $configuredPath]);
+    }
+
+    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
+    $snapshot = $snapshots[0];
+
+    setupCommonExpectations($snapshot);
+    $this->backupTask->run($snapshot);
+
+    $snapshot->refresh();
+
+    if ($expectedPrefix === '') {
+        expect($snapshot->filename)->not->toContain('/');
+    } else {
+        expect($snapshot->filename)->toStartWith($expectedPrefix);
+    }
+})->with([
+    'no path configured' => [null, ''],
+    'nested path' => ['mysql/production', 'mysql/production/'],
+    'path with slashes trimmed' => ['/mysql/prod/', 'mysql/prod/'],
+]);
+
 test('run executes sqlite backup workflow successfully', function () {
     // Create a temporary SQLite file for testing
     $sqlitePath = $this->tempDir.'/test.sqlite';
