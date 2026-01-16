@@ -80,16 +80,19 @@
 
             @endscope
 
-            @scope('cell_info', $job)
+            @scope('cell_duration_ms', $job)
                 @if($job->status === 'running' && $job->started_at)
-                    <div class="text-warning">{{ $job->started_at->diffForHumans(null, true) }}</div>
+                    <span class="font-mono text-sm text-warning">{{ $job->started_at->diffForHumans(null, true) }}</span>
                 @elseif($job->getHumanDuration())
-                    <div>{{ $job->getHumanDuration() }}</div>
-                    @if($job->snapshot && $job->status === 'completed')
-                        <div class="text-sm text-base-content/70">{{ $job->snapshot->getHumanFileSize() }}</div>
-                    @endif
-                @elseif($job->snapshot && $job->status === 'completed')
-                    <div class="text-sm text-base-content/70">{{ $job->snapshot->getHumanFileSize() }}</div>
+                    <span class="font-mono text-sm">{{ $job->getHumanDuration() }}</span>
+                @else
+                    <span class="text-base-content/50">-</span>
+                @endif
+            @endscope
+
+            @scope('cell_snapshot_size', $job)
+                @if($job->snapshot && $job->status === 'completed')
+                    <span class="font-mono text-sm">{{ $job->snapshot->getHumanFileSize() }}</span>
                 @else
                     <span class="text-base-content/50">-</span>
                 @endif
