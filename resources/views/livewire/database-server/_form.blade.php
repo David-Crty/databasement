@@ -8,6 +8,11 @@ $recurrenceOptions = collect(App\Models\Backup::RECURRENCE_TYPES)->map(fn($type)
     'name' => __(Str::ucfirst($type)),
 ])->toArray();
 
+$retentionPolicyOptions = [
+    ['id' => 'simple', 'name' => __('Simple (days-based)')],
+    ['id' => 'gfs', 'name' => __('GFS (Grandfather-Father-Son)')],
+];
+
 $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
     'id' => $v->id,
     'name' => "{$v->name} ({$v->type})",
@@ -253,15 +258,68 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                 required
             />
 
-            <x-input
-                wire:model="form.retention_days"
-                label="{{ __('Retention Period (days)') }}"
-                placeholder="{{ __('e.g., 30') }}"
-                hint="{{ __('Snapshots older than this will be automatically deleted. Leave empty to keep all snapshots.') }}"
-                type="number"
-                min="1"
-                max="35"
+            <x-select
+                wire:model.live="form.retention_policy"
+                label="{{ __('Retention Policy') }}"
+                :options="$retentionPolicyOptions"
+                hint="{{ __('Simple: delete snapshots older than X days. GFS: keep daily, weekly, and monthly snapshots.') }}"
             />
+
+            @if($form->retention_policy === 'simple')
+                <x-input
+                    wire:model="form.retention_days"
+                    label="{{ __('Retention Period (days)') }}"
+                    placeholder="{{ __('e.g., 30') }}"
+                    hint="{{ __('Snapshots older than this will be automatically deleted. Leave empty to keep all snapshots.') }}"
+                    type="number"
+                    min="1"
+                    max="365"
+                />
+            @else
+                <div class="p-4 rounded-lg bg-base-200 space-y-4">
+                    <div class="space-y-2">
+                        <p class="text-sm font-medium">{{ __('Grandfather-Father-Son (GFS) Retention') }}</p>
+                        <p class="text-sm text-base-content/70">
+                            {{ __('This tiered approach keeps recent backups for quick recovery while preserving older snapshots for long-term archival.') }}
+                        </p>
+                        <p class="text-sm text-base-content/70">
+                            {{ __('With default values (7 daily, 4 weekly, 12 monthly), you\'ll keep: the last 7 days of backups, plus 1 backup per week for the past month, plus 1 backup per month for the past year.') }}
+                        </p>
+                    </div>
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <x-input
+                            wire:model="form.keep_daily"
+                            label="{{ __('Daily') }}"
+                            placeholder="{{ __('e.g., 7') }}"
+                            hint="{{ __('Keep last N daily snapshots') }}"
+                            type="number"
+                            min="1"
+                            max="90"
+                        />
+                        <x-input
+                            wire:model="form.keep_weekly"
+                            label="{{ __('Weekly') }}"
+                            placeholder="{{ __('e.g., 4') }}"
+                            hint="{{ __('Keep 1 per week for N weeks') }}"
+                            type="number"
+                            min="1"
+                            max="52"
+                        />
+                        <x-input
+                            wire:model="form.keep_monthly"
+                            label="{{ __('Monthly') }}"
+                            placeholder="{{ __('e.g., 12') }}"
+                            hint="{{ __('Keep 1 per month for N months') }}"
+                            type="number"
+                            min="1"
+                            max="24"
+                        />
+                    </div>
+                    <p class="text-xs text-base-content/50">
+                        {{ __('Leave any tier empty to disable it. Snapshots matching multiple tiers are counted only once.') }}
+                    </p>
+                </div>
+            @endif
         </div>
     @endif
 

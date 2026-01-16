@@ -17,6 +17,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $path
  * @property string $recurrence
  * @property int|null $retention_days
+ * @property string $retention_policy
+ * @property int|null $keep_daily
+ * @property int|null $keep_weekly
+ * @property int|null $keep_monthly
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read DatabaseServer $databaseServer
@@ -33,6 +37,10 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Backup wherePath($value)
  * @method static Builder<static>|Backup whereRecurrence($value)
  * @method static Builder<static>|Backup whereRetentionDays($value)
+ * @method static Builder<static>|Backup whereRetentionPolicy($value)
+ * @method static Builder<static>|Backup whereKeepDaily($value)
+ * @method static Builder<static>|Backup whereKeepWeekly($value)
+ * @method static Builder<static>|Backup whereKeepMonthly($value)
  * @method static Builder<static>|Backup whereUpdatedAt($value)
  * @method static Builder<static>|Backup whereVolumeId($value)
  *
@@ -51,12 +59,25 @@ class Backup extends Model
         self::RECURRENCE_WEEKLY,
     ];
 
+    public const string RETENTION_SIMPLE = 'simple';
+
+    public const string RETENTION_GFS = 'gfs';
+
+    public const array RETENTION_POLICIES = [
+        self::RETENTION_SIMPLE,
+        self::RETENTION_GFS,
+    ];
+
     protected $fillable = [
         'database_server_id',
         'volume_id',
         'path',
         'recurrence',
         'retention_days',
+        'retention_policy',
+        'keep_daily',
+        'keep_weekly',
+        'keep_monthly',
     ];
 
     /**

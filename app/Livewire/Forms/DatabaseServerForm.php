@@ -50,6 +50,14 @@ class DatabaseServerForm extends Form
 
     public ?int $retention_days = 14;
 
+    public string $retention_policy = 'simple';
+
+    public ?int $keep_daily = 7;
+
+    public ?int $keep_weekly = 4;
+
+    public ?int $keep_monthly = 12;
+
     public ?string $connectionTestMessage = null;
 
     public bool $connectionTestSuccess = false;
@@ -114,6 +122,10 @@ class DatabaseServerForm extends Form
             $this->path = $backup->path ?? '';
             $this->recurrence = $backup->recurrence;
             $this->retention_days = $backup->retention_days;
+            $this->retention_policy = $backup->retention_policy ?? 'simple';
+            $this->keep_daily = $backup->keep_daily ?? 7;
+            $this->keep_weekly = $backup->keep_weekly ?? 4;
+            $this->keep_monthly = $backup->keep_monthly ?? 12;
         }
     }
 
@@ -162,7 +174,16 @@ class DatabaseServerForm extends Form
             $rules['volume_id'] = 'required|exists:volumes,id';
             $rules['path'] = ['nullable', 'string', 'max:255', new SafePath];
             $rules['recurrence'] = 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES);
-            $rules['retention_days'] = 'nullable|integer|min:1|max:35';
+            $rules['retention_policy'] = 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES);
+
+            // Conditional validation based on retention policy
+            if ($this->retention_policy === Backup::RETENTION_SIMPLE) {
+                $rules['retention_days'] = 'nullable|integer|min:1|max:365';
+            } else {
+                $rules['keep_daily'] = 'nullable|integer|min:1|max:90';
+                $rules['keep_weekly'] = 'nullable|integer|min:1|max:52';
+                $rules['keep_monthly'] = 'nullable|integer|min:1|max:24';
+            }
         }
 
         if ($this->isSqlite()) {
@@ -236,24 +257,48 @@ class DatabaseServerForm extends Form
      * Extract backup-related fields from validated data.
      *
      * @param  array<string, mixed>  $validated
-     * @return array{0: array<string, mixed>, 1: array{volume_id: string, path: string|null, recurrence: string, retention_days: int|null}}
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
      */
     private function extractBackupData(array $validated): array
     {
+        $retentionPolicy = $validated['retention_policy'] ?? 'simple';
+
         $backupData = [
             'volume_id' => $validated['volume_id'] ?? '',
             'path' => ! empty($validated['path']) ? $validated['path'] : null,
             'recurrence' => $validated['recurrence'] ?? 'daily',
-            'retention_days' => $validated['retention_days'] ?? null,
+            'retention_policy' => $retentionPolicy,
         ];
 
-        unset($validated['volume_id'], $validated['path'], $validated['recurrence'], $validated['retention_days']);
+        // Set retention fields based on policy
+        if ($retentionPolicy === Backup::RETENTION_SIMPLE) {
+            $backupData['retention_days'] = $validated['retention_days'] ?? null;
+            $backupData['keep_daily'] = null;
+            $backupData['keep_weekly'] = null;
+            $backupData['keep_monthly'] = null;
+        } else {
+            $backupData['retention_days'] = null;
+            $backupData['keep_daily'] = $validated['keep_daily'] ?? null;
+            $backupData['keep_weekly'] = $validated['keep_weekly'] ?? null;
+            $backupData['keep_monthly'] = $validated['keep_monthly'] ?? null;
+        }
+
+        unset(
+            $validated['volume_id'],
+            $validated['path'],
+            $validated['recurrence'],
+            $validated['retention_days'],
+            $validated['retention_policy'],
+            $validated['keep_daily'],
+            $validated['keep_weekly'],
+            $validated['keep_monthly']
+        );
 
         return [$validated, $backupData];
     }
 
     /**
-     * @param  array{volume_id: string, path: string|null, recurrence: string, retention_days: int|null}  $backupData
+     * @param  array<string, mixed>  $backupData
      */
     private function syncBackupConfiguration(DatabaseServer $server, array $backupData): void
     {
