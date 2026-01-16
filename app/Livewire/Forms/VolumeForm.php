@@ -3,30 +3,25 @@
 namespace App\Livewire\Forms;
 
 use App\Models\Volume;
+use App\Rules\SafePath;
 use App\Services\VolumeConnectionTester;
 use Illuminate\Validation\ValidationException;
-use Livewire\Attributes\Validate;
 use Livewire\Form;
 
 class VolumeForm extends Form
 {
     public ?Volume $volume = null;
 
-    #[Validate('required|string|max:255')]
     public string $name = '';
 
-    #[Validate('required|string|in:s3,local')]
     public string $type = 'local';
 
     // S3 Config
-    #[Validate('required_if:type,s3|string|max:255')]
     public string $bucket = '';
 
-    #[Validate('nullable|string|max:255')]
     public string $prefix = '';
 
     // Local Config
-    #[Validate('required_if:type,local|string|max:500')]
     public string $path = '';
 
     // Connection test state
@@ -54,43 +49,45 @@ class VolumeForm extends Form
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function rules(): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'type' => ['required', 'string', 'in:s3,local'],
+            'bucket' => ['required_if:type,s3', 'string', 'max:255'],
+            'prefix' => ['nullable', 'string', 'max:255', new SafePath],
+            'path' => ['required_if:type,local', 'string', 'max:500', new SafePath(allowAbsolute: true)],
+        ];
+    }
+
     public function store(): void
     {
-        // Validate with unique rule for new volumes
-        $this->validate([
-            'name' => 'required|string|max:255|unique:volumes,name',
-            'type' => 'required|string|in:s3,local',
-            'bucket' => 'required_if:type,s3|string|max:255',
-            'prefix' => 'nullable|string|max:255',
-            'path' => 'required_if:type,local|string|max:500',
-        ]);
+        $rules = $this->rules();
+        $rules['name'][] = 'unique:volumes,name';
 
-        $config = $this->buildConfig();
+        $this->validate($rules);
 
         Volume::create([
             'name' => $this->name,
             'type' => $this->type,
-            'config' => $config,
+            'config' => $this->buildConfig(),
         ]);
     }
 
     public function update(): void
     {
-        // Add unique validation for name, ignoring current volume
-        $this->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:volumes,name,'.$this->volume->id],
-            'type' => 'required|string|in:s3,local',
-            'bucket' => 'required_if:type,s3|string|max:255',
-            'prefix' => 'nullable|string|max:255',
-            'path' => 'required_if:type,local|string|max:500',
-        ]);
+        $rules = $this->rules();
+        $rules['name'][] = 'unique:volumes,name,'.$this->volume->id;
 
-        $config = $this->buildConfig();
+        $this->validate($rules);
 
         $this->volume->update([
             'name' => $this->name,
             'type' => $this->type,
-            'config' => $config,
+            'config' => $this->buildConfig(),
         ]);
     }
 
@@ -127,18 +124,13 @@ class VolumeForm extends Form
         $this->testingConnection = true;
         $this->connectionTestMessage = null;
 
-        // Validate type-specific fields
+        // Validate type-specific fields only
+        $rules = $this->rules();
+        $fieldToValidate = $this->type === 'local' ? 'path' : 'bucket';
+
         try {
-            if ($this->type === 'local') {
-                $this->validate([
-                    'path' => 'required|string|max:500',
-                ]);
-            } elseif ($this->type === 's3') {
-                $this->validate([
-                    'bucket' => 'required|string|max:255',
-                ]);
-            }
-        } catch (ValidationException $e) {
+            $this->validate([$fieldToValidate => $rules[$fieldToValidate]]);
+        } catch (ValidationException) {
             $this->testingConnection = false;
             $this->connectionTestSuccess = false;
             $this->connectionTestMessage = 'Please fill in all required configuration fields.';
@@ -149,7 +141,6 @@ class VolumeForm extends Form
         /** @var VolumeConnectionTester $tester */
         $tester = app(VolumeConnectionTester::class);
 
-        // Create a temporary Volume model for testing (not persisted)
         $testVolume = new Volume([
             'name' => $this->name ?: 'test-volume',
             'type' => $this->type,

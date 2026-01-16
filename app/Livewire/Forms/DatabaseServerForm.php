@@ -7,6 +7,7 @@ use App\Exceptions\Backup\EncryptionException;
 use App\Facades\DatabaseConnectionTester;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Rules\SafePath;
 use App\Services\Backup\DatabaseListService;
 use Illuminate\Validation\ValidationException;
 use Livewire\Form;
@@ -159,7 +160,7 @@ class DatabaseServerForm extends Form
         // Backup configuration rules (only required when backups are enabled)
         if ($this->backups_enabled) {
             $rules['volume_id'] = 'required|exists:volumes,id';
-            $rules['path'] = 'nullable|string|max:255';
+            $rules['path'] = ['nullable', 'string', 'max:255', new SafePath];
             $rules['recurrence'] = 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES);
             $rules['retention_days'] = 'nullable|integer|min:1|max:35';
         }
