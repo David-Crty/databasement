@@ -252,8 +252,6 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Create, update, or delete backup configuration based on backups_enabled.
-     *
      * @param  array{volume_id: string, path: string|null, recurrence: string, retention_days: int|null}  $backupData
      */
     private function syncBackupConfiguration(DatabaseServer $server, array $backupData): void
@@ -263,8 +261,6 @@ class DatabaseServerForm extends Form
                 ['database_server_id' => $server->id],
                 $backupData
             );
-        } else {
-            $server->backup()->delete();
         }
     }
 
