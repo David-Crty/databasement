@@ -3,6 +3,7 @@
 namespace App\Queries;
 
 use App\Models\BackupJob;
+use App\Models\Snapshot;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
@@ -60,8 +61,16 @@ class BackupJobQuery
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
-        return BackupJob::query()
+        $query = BackupJob::query()
             ->with(self::RELATIONSHIPS)
+            ->addSelect('backup_jobs.*')
+            ->addSelect([
+                'snapshot_size' => Snapshot::select('file_size')
+                    ->whereColumn('backup_job_id', 'backup_jobs.id')
+                    ->limit(1),
+            ])
+            // Add computed 'type' column: 1 = backup (has snapshot), 0 = restore
+            ->selectRaw('(EXISTS (SELECT 1 FROM snapshots WHERE snapshots.backup_job_id = backup_jobs.id)) as is_backup')
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })
@@ -74,8 +83,20 @@ class BackupJobQuery
                 } else {
                     $query->whereHas('restore');
                 }
-            })
-            ->orderBy($sortColumn, $sortDirection);
+            });
+
+        // Handle sorting
+        if ($sortColumn === 'snapshot_size') {
+            $query->orderBy('snapshot_size', $sortDirection);
+        } elseif ($sortColumn === 'duration_ms') {
+            $query->orderBy('duration_ms', $sortDirection);
+        } elseif ($sortColumn === 'type') {
+            $query->orderBy('is_backup', $sortDirection);
+        } else {
+            $query->orderBy($sortColumn, $sortDirection);
+        }
+
+        return $query;
     }
 
     /**
