@@ -156,8 +156,21 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
         @endif
     </div>
 
-    <!-- Step 2: Database Selection (only shown after successful connection, not for SQLite) -->
-    @if(($form->connectionTestSuccess or $isEdit) && !$form->isSqlite())
+    <!-- Enable Backups Toggle (shown after successful connection test or when editing) -->
+    @if($form->connectionTestSuccess or $isEdit)
+        <x-hr />
+
+        <div class="p-4 rounded-lg bg-base-200">
+            <x-checkbox
+                wire:model.live="form.backups_enabled"
+                label="{{ __('Enable scheduled backups') }}"
+                hint="{{ __('When disabled, this server will be skipped during scheduled backup runs and backup configuration is not required.') }}"
+            />
+        </div>
+    @endif
+
+    <!-- Step 2: Database Selection (only shown after successful connection, not for SQLite, and when backups enabled) -->
+    @if(($form->connectionTestSuccess or $isEdit) && !$form->isSqlite() && $form->backups_enabled)
         <x-hr />
 
         <div class="space-y-4">
@@ -204,14 +217,14 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
         </div>
     @endif
 
-    <!-- Backup Configuration (Step 2 for SQLite, Step 3 for others) -->
-    @if($form->connectionTestSuccess or $isEdit)
+    <!-- Backup Configuration (Step 2 for SQLite, Step 3 for others) - only shown when backups enabled -->
+    @if(($form->connectionTestSuccess or $isEdit) && $form->backups_enabled)
         <x-hr />
 
         <div class="space-y-4">
             <div class="flex items-center gap-2">
                 <div class="flex items-center justify-center w-6 h-6 text-sm font-bold rounded-full bg-base-300 text-base-content">
-                    3
+                    {{ $form->isSqlite() ? '2' : '3' }}
                 </div>
                 <h3 class="text-lg font-semibold">{{ __('Backup Configuration') }}</h3>
             </div>
@@ -223,6 +236,14 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                 placeholder="{{ __('Select a volume') }}"
                 placeholder-value=""
                 required
+            />
+
+            <x-input
+                wire:model="form.path"
+                label="{{ __('Path (optional)') }}"
+                placeholder="{{ __('e.g., production/mysql/') }}"
+                hint="{{ __('Optional subfolder path within the volume to organize backups.') }}"
+                type="text"
             />
 
             <x-select

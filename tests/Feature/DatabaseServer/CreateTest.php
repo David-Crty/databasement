@@ -90,3 +90,37 @@ test('can create database server', function (array $config) {
     'postgres' => [['type' => 'postgres', 'name' => 'PostgreSQL Server', 'host' => 'postgres.example.com', 'port' => 5432]],
     'sqlite' => [['type' => 'sqlite', 'name' => 'SQLite Database', 'sqlite_path' => '/data/app.sqlite']],
 ]);
+
+test('can create database server with backups disabled', function () {
+    DatabaseConnectionTester::shouldReceive('test')
+        ->once()
+        ->andReturn(['success' => true, 'message' => 'Connected!']);
+
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'MySQL Server No Backup')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.backups_enabled', false)
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $this->assertDatabaseHas('database_servers', [
+        'name' => 'MySQL Server No Backup',
+        'database_type' => 'mysql',
+        'backups_enabled' => false,
+    ]);
+
+    $server = DatabaseServer::where('name', 'MySQL Server No Backup')->first();
+
+    // No backup configuration should be created when backups are disabled
+    $this->assertDatabaseMissing('backups', [
+        'database_server_id' => $server->id,
+    ]);
+});

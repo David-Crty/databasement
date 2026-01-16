@@ -39,7 +39,11 @@ class DatabaseServerForm extends Form
 
     public ?string $description = null;
 
+    public bool $backups_enabled = true;
+
     public string $volume_id = '';
+
+    public string $path = '';
 
     public string $recurrence = 'daily';
 
@@ -97,6 +101,7 @@ class DatabaseServerForm extends Form
         $this->database_names_input = implode(', ', $this->database_names);
         $this->backup_all_databases = $server->backup_all_databases ?? false;
         $this->description = $server->description;
+        $this->backups_enabled = $server->backups_enabled ?? true;
         // Don't populate password for security
         $this->password = '';
 
@@ -105,6 +110,7 @@ class DatabaseServerForm extends Form
             /** @var Backup $backup */
             $backup = $server->backup;
             $this->volume_id = $backup->volume_id;
+            $this->path = $backup->path ?? '';
             $this->recurrence = $backup->recurrence;
             $this->retention_days = $backup->retention_days;
         }
@@ -147,10 +153,16 @@ class DatabaseServerForm extends Form
             'name' => 'required|string|max:255',
             'database_type' => 'required|string|in:mysql,postgres,sqlite',
             'description' => 'nullable|string|max:1000',
-            'volume_id' => 'required|exists:volumes,id',
-            'recurrence' => 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES),
-            'retention_days' => 'nullable|integer|min:1|max:35',
+            'backups_enabled' => 'boolean',
         ];
+
+        // Backup configuration rules (only required when backups are enabled)
+        if ($this->backups_enabled) {
+            $rules['volume_id'] = 'required|exists:volumes,id';
+            $rules['path'] = 'nullable|string|max:255';
+            $rules['recurrence'] = 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES);
+            $rules['retention_days'] = 'nullable|integer|min:1|max:35';
+        }
 
         if ($this->isSqlite()) {
             // SQLite only needs path
@@ -162,8 +174,13 @@ class DatabaseServerForm extends Form
             $rules['username'] = 'required|string|max:255';
             $rules['password'] = 'nullable';
             $rules['backup_all_databases'] = 'boolean';
-            $rules['database_names'] = $this->backup_all_databases ? 'nullable|array' : 'required|array|min:1';
+            $rules['database_names'] = 'nullable|array';
             $rules['database_names.*'] = 'string|max:255';
+
+            // database_names required when backups are enabled and not backing up all databases
+            if ($this->backups_enabled && ! $this->backup_all_databases) {
+                $rules['database_names'] = 'required|array|min:1';
+            }
         }
 
         return $this->validate($rules);
@@ -178,21 +195,10 @@ class DatabaseServerForm extends Form
             return false;
         }
 
-        // Extract backup data
-        /** @var array{volume_id: string, recurrence: string, retention_days: int|null} $backupData */
-        $backupData = [
-            'volume_id' => $validated['volume_id'],
-            'recurrence' => $validated['recurrence'],
-            'retention_days' => $validated['retention_days'] ?? null,
-        ];
-        unset($validated['volume_id'], $validated['recurrence'], $validated['retention_days']);
+        [$serverData, $backupData] = $this->extractBackupData($validated);
 
-        // Create database server
-        $server = DatabaseServer::create($validated);
-
-        // Create backup
-        /** @var Backup $backup */
-        $backup = $server->backup()->create($backupData);
+        $server = DatabaseServer::create($serverData);
+        $this->syncBackupConfiguration($server, $backupData);
 
         return true;
     }
@@ -209,32 +215,57 @@ class DatabaseServerForm extends Form
 
         $validated = $this->formValidate();
 
-        // Extract backup data
-        /** @var array{volume_id: string, recurrence: string, retention_days: int|null} $backupData */
-        $backupData = [
-            'volume_id' => $validated['volume_id'],
-            'recurrence' => $validated['recurrence'],
-            'retention_days' => $validated['retention_days'] ?? null,
-        ];
-        unset($validated['volume_id'], $validated['recurrence'], $validated['retention_days']);
+        [$serverData, $backupData] = $this->extractBackupData($validated);
 
         // Only update password if a new one is provided
-        if (isset($validated['password']) && empty($validated['password'])) {
-            unset($validated['password']);
+        if (isset($serverData['password']) && empty($serverData['password'])) {
+            unset($serverData['password']);
         }
-        if (! empty($validated['backup_all_databases'])) {
-            $validated['database_names'] = null;
+        if (! empty($serverData['backup_all_databases'])) {
+            $serverData['database_names'] = null;
         }
 
-        $this->server->update($validated);
-
-        if ($this->server->backup()->exists()) {
-            $this->server->backup()->update($backupData);
-        } else {
-            $this->server->backup()->create($backupData);
-        }
+        $this->server->update($serverData);
+        $this->syncBackupConfiguration($this->server, $backupData);
 
         return true;
+    }
+
+    /**
+     * Extract backup-related fields from validated data.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array{0: array<string, mixed>, 1: array{volume_id: string, path: string|null, recurrence: string, retention_days: int|null}}
+     */
+    private function extractBackupData(array $validated): array
+    {
+        $backupData = [
+            'volume_id' => $validated['volume_id'] ?? '',
+            'path' => ! empty($validated['path']) ? $validated['path'] : null,
+            'recurrence' => $validated['recurrence'] ?? 'daily',
+            'retention_days' => $validated['retention_days'] ?? null,
+        ];
+
+        unset($validated['volume_id'], $validated['path'], $validated['recurrence'], $validated['retention_days']);
+
+        return [$validated, $backupData];
+    }
+
+    /**
+     * Create, update, or delete backup configuration based on backups_enabled.
+     *
+     * @param  array{volume_id: string, path: string|null, recurrence: string, retention_days: int|null}  $backupData
+     */
+    private function syncBackupConfiguration(DatabaseServer $server, array $backupData): void
+    {
+        if ($server->backups_enabled) {
+            $server->backup()->updateOrCreate(
+                ['database_server_id' => $server->id],
+                $backupData
+            );
+        } else {
+            $server->backup()->delete();
+        }
     }
 
     public function testConnection(): void

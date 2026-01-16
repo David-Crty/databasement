@@ -14,6 +14,7 @@ use Illuminate\Support\Carbon;
  * @property string $id
  * @property string $database_server_id
  * @property string $volume_id
+ * @property string|null $path
  * @property string $recurrence
  * @property int|null $retention_days
  * @property Carbon|null $created_at
@@ -29,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Backup whereCreatedAt($value)
  * @method static Builder<static>|Backup whereDatabaseServerId($value)
  * @method static Builder<static>|Backup whereId($value)
+ * @method static Builder<static>|Backup wherePath($value)
  * @method static Builder<static>|Backup whereRecurrence($value)
  * @method static Builder<static>|Backup whereRetentionDays($value)
  * @method static Builder<static>|Backup whereUpdatedAt($value)
@@ -52,6 +54,7 @@ class Backup extends Model
     protected $fillable = [
         'database_server_id',
         'volume_id',
+        'path',
         'recurrence',
         'retention_days',
     ];

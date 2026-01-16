@@ -95,3 +95,19 @@ test('dispatches multiple jobs for server with multiple databases', function () 
 
     Queue::assertPushed(ProcessBackupJob::class, 3);
 });
+
+test('skips disabled backups', function () {
+    Queue::fake();
+
+    $enabledServer = DatabaseServer::factory()->create(['name' => 'Enabled Server', 'database_names' => ['db1'], 'backups_enabled' => true]);
+    $enabledServer->backup->update(['recurrence' => 'daily']);
+
+    $disabledServer = DatabaseServer::factory()->create(['name' => 'Disabled Server', 'database_names' => ['db2'], 'backups_enabled' => false]);
+    $disabledServer->backup->update(['recurrence' => 'daily']);
+
+    $this->artisan('backups:run', ['recurrence' => 'daily'])
+        ->expectsOutput('Dispatching 1 daily backup(s)...')
+        ->assertExitCode(0);
+
+    Queue::assertPushed(ProcessBackupJob::class, 1);
+});

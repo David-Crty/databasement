@@ -24,6 +24,7 @@ class RunScheduledBackups extends Command
         }
 
         $backups = Backup::with(['databaseServer', 'volume'])
+            ->whereRelation('databaseServer', 'backups_enabled', true)
             ->where('recurrence', $recurrence)
             ->get();
 

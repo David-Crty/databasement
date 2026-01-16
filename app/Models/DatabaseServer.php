@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property array<string>|null $database_names
  * @property bool $backup_all_databases
  * @property string|null $description
+ * @property bool $backups_enabled
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Backup|null $backup
@@ -48,6 +49,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|DatabaseServer whereUpdatedAt($value)
  * @method static Builder<static>|DatabaseServer whereUsername($value)
  * @method static Builder<static>|DatabaseServer whereBackupAllDatabases($value)
+ * @method static Builder<static>|DatabaseServer whereBackupsEnabled($value)
  *
  * @mixin \Eloquent
  */
@@ -80,6 +82,7 @@ class DatabaseServer extends Model
         'database_names',
         'backup_all_databases',
         'description',
+        'backups_enabled',
     ];
 
     protected $hidden = [
@@ -91,6 +94,7 @@ class DatabaseServer extends Model
         return [
             'port' => 'integer',
             'backup_all_databases' => 'boolean',
+            'backups_enabled' => 'boolean',
             'password' => 'encrypted',
             'database_names' => 'array',
         ];

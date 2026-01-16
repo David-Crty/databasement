@@ -139,7 +139,7 @@ class BackupTask
 
     /**
      * Generate the filename to store in the volume.
-     * Always just the filename - S3 prefix is handled by the Flysystem adapter.
+     * Includes optional path prefix for organizing backups.
      */
     private function generateFilename(DatabaseServer $databaseServer, string $databaseName): string
     {
@@ -149,7 +149,16 @@ class BackupTask
         $baseExtension = $databaseServer->database_type === 'sqlite' ? 'db' : 'sql';
         $compressionExtension = $this->compressor->getExtension();
 
-        return sprintf('%s-%s-%s.%s.%s', $serverName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
+        $filename = sprintf('%s-%s-%s.%s.%s', $serverName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
+
+        // Prepend path if configured
+        $path = $databaseServer->backup?->path;
+        if (! empty($path)) {
+            $path = trim($path, '/');
+            $filename = $path.'/'.$filename;
+        }
+
+        return $filename;
     }
 
     private function configureDatabaseInterface(DatabaseServer $databaseServer, string $databaseName): void
