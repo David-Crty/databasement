@@ -96,11 +96,13 @@ class SnapshotFactory extends Factory
             $volume = $snapshot->volume;
             $volumePath = $volume->config['path'] ?? sys_get_temp_dir();
 
-            if (! is_dir($volumePath)) {
-                mkdir($volumePath, 0755, true);
+            $filePath = $volumePath.'/'.$snapshot->filename;
+            $dir = dirname($filePath);
+
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
             }
 
-            $filePath = $volumePath.'/'.$snapshot->filename;
             file_put_contents($filePath, $content ?? 'test backup content');
 
             $snapshot->update(['file_size' => filesize($filePath)]);
