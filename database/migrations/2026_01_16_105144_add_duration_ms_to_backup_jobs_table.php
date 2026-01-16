@@ -1,5 +1,6 @@
 <?php
 
+use Carbon\Carbon;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -22,9 +23,9 @@ return new class extends Migration
             ->whereNotNull('completed_at')
             ->orderBy('id')
             ->each(function ($job) {
-                $startedAt = new \DateTime($job->started_at);
-                $completedAt = new \DateTime($job->completed_at);
-                $durationMs = (int) (($completedAt->getTimestamp() - $startedAt->getTimestamp()) * 1000);
+                $startedAt = Carbon::parse($job->started_at);
+                $completedAt = Carbon::parse($job->completed_at);
+                $durationMs = (int) $startedAt->diffInMilliseconds($completedAt);
 
                 DB::table('backup_jobs')
                     ->where('id', $job->id)

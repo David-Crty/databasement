@@ -87,9 +87,9 @@ class BackupJobQuery
 
         // Handle sorting
         if ($sortColumn === 'snapshot_size') {
-            $query->orderByRaw("snapshot_size IS NULL, snapshot_size $sortDirection");
+            $query->orderBy('snapshot_size', $sortDirection);
         } elseif ($sortColumn === 'duration_ms') {
-            $query->orderByRaw("duration_ms IS NULL, duration_ms $sortDirection");
+            $query->orderBy('duration_ms', $sortDirection);
         } elseif ($sortColumn === 'type') {
             $query->orderBy('is_backup', $sortDirection);
         } else {

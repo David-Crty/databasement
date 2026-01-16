@@ -95,9 +95,7 @@ class BackupJob extends Model
     public function markCompleted(): void
     {
         $completedAt = now();
-        $durationMs = $this->started_at
-            ? (int) $this->started_at->diffInMilliseconds($completedAt)
-            : null;
+        $durationMs = $this->calculateDuration($completedAt);
 
         $this->update([
             'status' => 'completed',
@@ -112,9 +110,7 @@ class BackupJob extends Model
     public function markFailed(\Throwable $exception): void
     {
         $completedAt = now();
-        $durationMs = $this->started_at
-            ? (int) $this->started_at->diffInMilliseconds($completedAt)
-            : null;
+        $durationMs = $this->calculateDuration($completedAt);
 
         $this->update([
             'status' => 'failed',
@@ -123,6 +119,16 @@ class BackupJob extends Model
             'error_message' => $exception->getMessage(),
             'error_trace' => $exception->getTraceAsString(),
         ]);
+    }
+
+    /**
+     * Calculate duration from started_at to now.
+     */
+    private function calculateDuration(Carbon $completedAt): ?int
+    {
+        return $this->started_at
+            ? (int) $this->started_at->diffInMilliseconds($completedAt)
+            : null;
     }
 
     /**
