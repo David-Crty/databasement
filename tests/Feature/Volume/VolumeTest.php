@@ -223,3 +223,20 @@ test('can edit volume without snapshots', function () {
         ->assertSet('form.name', 'Empty Volume')
         ->assertSet('form.type', 'local');
 });
+
+// Connection Test Tests
+test('can test local volume connection', function () {
+    $user = User::factory()->create();
+    $tempDir = sys_get_temp_dir().'/volume-test-'.uniqid();
+    mkdir($tempDir, 0755, true);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.type', 'local')
+        ->set('form.path', $tempDir)
+        ->call('testConnection')
+        ->assertSet('form.connectionTestSuccess', true)
+        ->assertSet('form.connectionTestMessage', 'Connection successful!');
+
+    rmdir($tempDir);
+});
