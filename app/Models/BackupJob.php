@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property string $status
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
+ * @property int|null $duration_ms
  * @property string|null $error_message
  * @property string|null $error_trace
  * @property array<array-key, mixed>|null $logs
@@ -28,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|BackupJob query()
  * @method static Builder<static>|BackupJob whereCompletedAt($value)
  * @method static Builder<static>|BackupJob whereCreatedAt($value)
+ * @method static Builder<static>|BackupJob whereDurationMs($value)
  * @method static Builder<static>|BackupJob whereErrorMessage($value)
  * @method static Builder<static>|BackupJob whereErrorTrace($value)
  * @method static Builder<static>|BackupJob whereId($value)
@@ -48,6 +50,7 @@ class BackupJob extends Model
         'status',
         'started_at',
         'completed_at',
+        'duration_ms',
         'error_message',
         'error_trace',
         'logs',
@@ -58,6 +61,7 @@ class BackupJob extends Model
         return [
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'duration_ms' => 'integer',
             'logs' => 'array',
         ];
     }
@@ -79,23 +83,11 @@ class BackupJob extends Model
     }
 
     /**
-     * Calculate the duration of the job in milliseconds
-     */
-    public function getDurationMs(): ?int
-    {
-        if ($this->completed_at === null || $this->started_at === null) {
-            return null;
-        }
-
-        return (int) $this->started_at->diffInMilliseconds($this->completed_at);
-    }
-
-    /**
      * Get human-readable duration
      */
     public function getHumanDuration(): ?string
     {
-        return Formatters::humanDuration($this->getDurationMs());
+        return Formatters::humanDuration($this->duration_ms);
     }
 
     /**
@@ -106,6 +98,7 @@ class BackupJob extends Model
         $this->update([
             'status' => 'completed',
             'completed_at' => now(),
+            'duration_ms' => $this->calculateDuration(),
         ]);
     }
 
@@ -117,9 +110,20 @@ class BackupJob extends Model
         $this->update([
             'status' => 'failed',
             'completed_at' => now(),
+            'duration_ms' => $this->calculateDuration(),
             'error_message' => $exception->getMessage(),
             'error_trace' => $exception->getTraceAsString(),
         ]);
+    }
+
+    /**
+     * Calculate duration from started_at to now.
+     */
+    private function calculateDuration(): ?int
+    {
+        return $this->started_at
+            ? (int) $this->started_at->diffInMilliseconds(now())
+            : null;
     }
 
     /**
@@ -226,25 +230,5 @@ class BackupJob extends Model
     public function getLogs(): array
     {
         return $this->logs ?? [];
-    }
-
-    /**
-     * Get logs filtered by type
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public function getLogsByType(string $type): array
-    {
-        return array_filter($this->getLogs(), fn ($log) => ($log['type'] ?? null) === $type);
-    }
-
-    /**
-     * Get command logs only
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public function getCommandLogs(): array
-    {
-        return $this->getLogsByType('command');
     }
 }
