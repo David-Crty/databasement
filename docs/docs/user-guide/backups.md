@@ -6,19 +6,6 @@ sidebar_position: 3
 
 Databasement allows you to create on-demand backups of your databases. Backups are processed asynchronously, so you can continue using the application while they run.
 
-## Creating a Backup
-
-### Manual Backup
-
-1. Go to **Database Servers**
-2. Find the server you want to backup
-3. Click **Backup**
-4. Select the target database (or leave empty for all databases)
-5. Choose a storage volume for the backup
-6. Click **Start Backup**
-
-The backup will be queued and processed in the background. You can monitor progress on the **Snapshots** page.
-
 ## How Backups Work
 
 When you create a backup, Databasement:
@@ -62,6 +49,71 @@ If a backup fails, check:
 4. **Timeout**: Large databases may need more time
 
 Failed backup reasons are logged and visible in the snapshot details.
+
+## Retention Policies
+
+Retention policies control how long backups are kept before being automatically deleted. Databasement offers two retention strategies:
+
+### Simple (Days-Based)
+
+The simplest option: keep all backups for a specified number of days.
+
+**Example:** With `retention_days = 30`, any backup older than 30 days is automatically deleted.
+
+| Day | Backups Kept |
+|-----|--------------|
+| 1-30 | All backups |
+| 31+ | Deleted |
+
+**Best for:** Short-term backup needs, development environments, or when storage cost isn't a concern.
+
+### GFS (Grandfather-Father-Son)
+
+A tiered retention strategy that keeps recent backups for quick recovery while preserving older snapshots for long-term archival — without keeping every single backup.
+
+**How it works:**
+
+| Tier | What it keeps | Example |
+|------|---------------|---------|
+| **Daily** (Son) | The N most recent backups | Keep last 7 backups |
+| **Weekly** (Father) | 1 backup per week for N weeks | Keep 1/week for 4 weeks |
+| **Monthly** (Grandfather) | 1 backup per month for N months | Keep 1/month for 12 months |
+
+**Example with default values (7 daily, 4 weekly, 12 monthly):**
+
+After running daily backups for a year, you'll have approximately:
+- **7 recent backups** (last 7 days)
+- **4 weekly backups** (one from each of the past 4 weeks)
+- **12 monthly backups** (one from each of the past 12 months)
+
+**Total: ~23 backups** instead of 365 — saving significant storage while maintaining recovery points across the entire year.
+
+```
+Timeline visualization:
+
+Today ◄─────────────────────────────────────────────── 1 year ago
+  │                                                        │
+  ├── Daily ──┤ (7 backups)                                │
+  │           │                                            │
+  ├── Weekly ─────────┤ (4 backups)                        │
+  │                   │                                    │
+  └── Monthly ─────────────────────────────────────────────┘ (12 backups)
+```
+
+**Best for:** Production environments, compliance requirements, or when you need long-term recovery options without excessive storage costs.
+
+### Choosing a Retention Policy
+
+| Scenario | Recommended Policy |
+|----------|-------------------|
+| Development/testing | Simple: 7-14 days |
+| Small production app | Simple: 30 days |
+| Business-critical data | GFS: 7d/4w/12m |
+| Compliance requirements | GFS: 14d/8w/24m |
+
+:::tip
+You can disable any GFS tier by leaving it empty. For example, setting only "Monthly: 12" keeps just one backup per month for a year.
+:::
 
 ## Best Practices
 
