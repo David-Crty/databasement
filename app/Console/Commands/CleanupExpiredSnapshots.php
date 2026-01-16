@@ -94,6 +94,13 @@ class CleanupExpiredSnapshots extends Command
     {
         $serverName = $backup->databaseServer->name ?? 'Unknown Server';
 
+        // Guard: if all GFS tiers are null/empty, skip cleanup to avoid deleting all snapshots
+        if (empty($backup->keep_daily) && empty($backup->keep_weekly) && empty($backup->keep_monthly)) {
+            $this->warn("Server: {$serverName} - GFS policy has no tiers configured, skipping cleanup.");
+
+            return;
+        }
+
         // Get all completed snapshots for this backup, ordered by creation date (newest first)
         $allSnapshots = Snapshot::where('backup_id', $backup->id)
             ->whereHas('job', fn (Builder $q): Builder => $q->whereRaw('status = ?', ['completed']))

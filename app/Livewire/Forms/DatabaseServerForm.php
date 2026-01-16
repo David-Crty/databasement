@@ -50,7 +50,7 @@ class DatabaseServerForm extends Form
 
     public ?int $retention_days = 14;
 
-    public string $retention_policy = 'simple';
+    public string $retention_policy = Backup::RETENTION_SIMPLE;
 
     public ?int $keep_daily = 7;
 
@@ -122,10 +122,10 @@ class DatabaseServerForm extends Form
             $this->path = $backup->path ?? '';
             $this->recurrence = $backup->recurrence;
             $this->retention_days = $backup->retention_days;
-            $this->retention_policy = $backup->retention_policy ?? 'simple';
-            $this->keep_daily = $backup->keep_daily ?? 7;
-            $this->keep_weekly = $backup->keep_weekly ?? 4;
-            $this->keep_monthly = $backup->keep_monthly ?? 12;
+            $this->retention_policy = $backup->retention_policy ?? Backup::RETENTION_SIMPLE;
+            $this->keep_daily = $backup->keep_daily;
+            $this->keep_weekly = $backup->keep_weekly;
+            $this->keep_monthly = $backup->keep_monthly;
         }
     }
 
@@ -205,7 +205,21 @@ class DatabaseServerForm extends Form
             }
         }
 
-        return $this->validate($rules);
+        $validated = $this->validate($rules);
+
+        // GFS policy requires at least one tier to be configured
+        if ($this->backups_enabled
+            && $this->retention_policy !== Backup::RETENTION_SIMPLE
+            && empty($this->keep_daily)
+            && empty($this->keep_weekly)
+            && empty($this->keep_monthly)
+        ) {
+            throw ValidationException::withMessages([
+                'form.keep_daily' => __('At least one retention tier must be configured.'),
+            ]);
+        }
+
+        return $validated;
     }
 
     public function store(): bool
@@ -261,7 +275,7 @@ class DatabaseServerForm extends Form
      */
     private function extractBackupData(array $validated): array
     {
-        $retentionPolicy = $validated['retention_policy'] ?? 'simple';
+        $retentionPolicy = $validated['retention_policy'] ?? Backup::RETENTION_SIMPLE;
 
         $backupData = [
             'volume_id' => $validated['volume_id'] ?? '',

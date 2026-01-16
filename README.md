@@ -34,7 +34,7 @@
 ## Features
 
 - **Multi-database support** — Manage MySQL, PostgreSQL, and MariaDB servers from a single interface
-- **Automated backups** — Schedule recurring backups (daily, weekly, monthly) with customizable retention policies
+- **Automated backups** — Schedule recurring backups (daily, weekly) with flexible retention policies (simple days-based or GFS grandfather-father-son)
 - **Cross-server restore** — Restore snapshots from production to staging, or between any compatible servers
 - **Flexible storage** — Store backups locally or on S3-compatible storage (AWS S3, MinIO, etc.)
 - **Real-time monitoring** — Track backup and restore progress with detailed job logs

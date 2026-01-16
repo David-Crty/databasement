@@ -147,6 +147,27 @@ test('GFS policy keeps 1 snapshot per month for N months', function () {
         ->and(Snapshot::find($twoMonthsAgoSnapshot->id))->toBeNull();
 });
 
+test('GFS policy with no tiers configured skips cleanup', function () {
+    $server = DatabaseServer::factory()->create();
+    $server->backup->update([
+        'retention_policy' => 'gfs',
+        'retention_days' => null,
+        'keep_daily' => null,
+        'keep_weekly' => null,
+        'keep_monthly' => null,
+    ]);
+
+    // Create some old snapshots that would normally be deleted
+    $oldSnapshot = createSnapshot($server, 'completed', now()->subDays(100));
+
+    artisan('snapshots:cleanup')
+        ->expectsOutputToContain('GFS policy has no tiers configured, skipping cleanup')
+        ->assertSuccessful();
+
+    // Snapshot should NOT be deleted because cleanup was skipped
+    expect(Snapshot::find($oldSnapshot->id))->not->toBeNull();
+});
+
 test('GFS policy combines all tiers correctly', function () {
     $server = DatabaseServer::factory()->create();
     $server->backup->update([
@@ -160,17 +181,28 @@ test('GFS policy combines all tiers correctly', function () {
     // Recent snapshots (should be kept by daily tier)
     $day1 = createSnapshot($server, 'completed', now()->subDays(1));
     $day2 = createSnapshot($server, 'completed', now()->subDays(2));
-    $day3 = createSnapshot($server, 'completed', now()->subDays(3)); // Outside daily, but might be in weekly
+    $day3 = createSnapshot($server, 'completed', now()->subDays(3)); // Outside daily tier
+
+    // Create a snapshot at start of this week (older than day3, will be the weekly representative)
+    $thisWeekOldest = createSnapshot($server, 'completed', now()->startOfWeek());
 
     // Create a snapshot from last week (kept by weekly tier)
     $lastWeekSnapshot = createSnapshot($server, 'completed', now()->subWeek()->startOfWeek()->addDays(1));
 
-    // Create a snapshot from this month (kept by monthly tier - might overlap with others)
+    // Create a snapshot from this month (kept by monthly tier)
     $thisMonthOldSnapshot = createSnapshot($server, 'completed', now()->startOfMonth()->addDay());
 
     artisan('snapshots:cleanup')->assertSuccessful();
 
     // Day 1 and 2 should be kept by daily tier
     expect(Snapshot::find($day1->id))->not->toBeNull()
-        ->and(Snapshot::find($day2->id))->not->toBeNull();
+        ->and(Snapshot::find($day2->id))->not->toBeNull()
+        // Day 3 is outside daily tier and not the oldest in its week (thisWeekOldest is older), so should be deleted
+        ->and(Snapshot::find($day3->id))->toBeNull()
+        // This week's oldest should be kept by weekly tier
+        ->and(Snapshot::find($thisWeekOldest->id))->not->toBeNull()
+        // Last week snapshot should be kept by weekly tier
+        ->and(Snapshot::find($lastWeekSnapshot->id))->not->toBeNull()
+        // This month old snapshot should be kept by monthly tier
+        ->and(Snapshot::find($thisMonthOldSnapshot->id))->not->toBeNull();
 });
