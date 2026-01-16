@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 
@@ -8,36 +7,20 @@ use function Pest\Laravel\artisan;
 
 function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $createdAt): Snapshot
 {
-    $job = BackupJob::create([
-        'status' => $status,
-        'started_at' => now(),
-        'completed_at' => $status === 'completed' ? now() : null,
-    ]);
+    $snapshot = Snapshot::factory()
+        ->forServer($server)
+        ->withFile()
+        ->create();
 
-    // Create actual backup file in the volume's directory
-    $volumePath = $server->backup->volume->config['path'];
-    $filename = 'backup-'.uniqid().'.sql.gz';
-    $filePath = $volumePath.'/'.$filename;
-    file_put_contents($filePath, 'test backup content');
+    // Update job status if not 'completed'
+    if ($status !== 'completed') {
+        $snapshot->job->update([
+            'status' => $status,
+            'completed_at' => null,
+        ]);
+    }
 
-    $volume = $server->backup->volume;
-    $databaseName = $server->database_names[0] ?? 'testdb';
-
-    $snapshot = Snapshot::create([
-        'backup_job_id' => $job->id,
-        'database_server_id' => $server->id,
-        'backup_id' => $server->backup->id,
-        'volume_id' => $volume->id,
-        'filename' => basename($filePath),
-        'file_size' => filesize($filePath),
-        'started_at' => now(),
-        'database_name' => $databaseName,
-        'database_type' => $server->database_type,
-        'compression_type' => 'gzip',
-        'method' => 'scheduled',
-        'metadata' => Snapshot::generateMetadata($server, $databaseName, $volume),
-    ]);
-
+    // Override created_at for retention testing
     $snapshot->forceFill(['created_at' => $createdAt])->saveQuietly();
 
     return $snapshot->fresh();

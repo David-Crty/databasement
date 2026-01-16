@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\Formatters;
+use Database\Factories\SnapshotFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -56,6 +58,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Snapshot whereTriggeredByUserId($value)
  * @method static Builder<static>|Snapshot whereUpdatedAt($value)
  * @method static Builder<static>|Snapshot whereVolumeId($value)
+ * @method static SnapshotFactory factory($count = null, $state = [])
  *
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Restore> $restores
  * @property-read int|null $restores_count
@@ -64,6 +67,9 @@ use Illuminate\Support\Carbon;
  */
 class Snapshot extends Model
 {
+    /** @use HasFactory<SnapshotFactory> */
+    use HasFactory;
+
     use HasUlids;
 
     protected $fillable = [

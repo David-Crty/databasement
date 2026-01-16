@@ -2,7 +2,6 @@
 
 use App\Jobs\ProcessRestoreJob;
 use App\Livewire\DatabaseServer\RestoreModal;
-use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\User;
@@ -16,40 +15,6 @@ beforeEach(function () {
     actingAs($this->user);
 });
 
-function createSnapshotForServer(DatabaseServer $server, array $attributes = []): Snapshot
-{
-    // Create BackupJob first (required for snapshot)
-    $job = BackupJob::create([
-        'status' => 'completed',
-        'started_at' => now(),
-        'completed_at' => now(),
-    ]);
-
-    // Create actual backup file in the volume's directory
-    $volumePath = $server->backup->volume->config['path'];
-    $filename = 'backup-'.uniqid().'.sql.gz';
-    $filePath = $volumePath.'/'.$filename;
-    file_put_contents($filePath, 'test backup content');
-
-    $volume = $server->backup->volume;
-    $databaseName = $server->database_names[0] ?? 'testdb';
-
-    return Snapshot::create(array_merge([
-        'backup_job_id' => $job->id,
-        'database_server_id' => $server->id,
-        'backup_id' => $server->backup->id,
-        'volume_id' => $volume->id,
-        'filename' => basename($filePath),
-        'file_size' => filesize($filePath),
-        'started_at' => now(),
-        'database_name' => $databaseName,
-        'database_type' => $server->database_type,
-        'compression_type' => 'gzip',
-        'method' => 'manual',
-        'metadata' => Snapshot::generateMetadata($server, $databaseName, $volume),
-    ], $attributes));
-}
-
 test('can navigate through restore wizard steps', function (string $databaseType) {
     // Create target server
     $targetServer = DatabaseServer::factory()->create([
@@ -61,7 +26,7 @@ test('can navigate through restore wizard steps', function (string $databaseType
         'database_type' => $databaseType,
     ]);
 
-    $snapshot = createSnapshotForServer($sourceServer);
+    $snapshot = Snapshot::factory()->forServer($sourceServer)->withFile()->create();
 
     $component = Livewire::test(RestoreModal::class)
         ->dispatch('open-restore-modal', targetServerId: $targetServer->id);
@@ -94,7 +59,7 @@ test('can queue restore job with valid data', function (string $databaseType) {
         'database_type' => $databaseType,
     ]);
 
-    $snapshot = createSnapshotForServer($sourceServer, ['database_names' => ['test_db']]);
+    $snapshot = Snapshot::factory()->forServer($sourceServer)->withFile()->create();
 
     Livewire::test(RestoreModal::class)
         ->dispatch('open-restore-modal', targetServerId: $targetServer->id)
@@ -133,14 +98,14 @@ test('only shows compatible servers with same database type', function () {
         'database_type' => 'mysql',
     ]);
 
-    createSnapshotForServer($mysqlServer);
+    Snapshot::factory()->forServer($mysqlServer)->withFile()->create();
 
     // Create PostgreSQL server with snapshot (should NOT be shown)
     $postgresServer = DatabaseServer::factory()->create([
         'database_type' => 'postgres',
     ]);
 
-    createSnapshotForServer($postgresServer);
+    Snapshot::factory()->forServer($postgresServer)->withFile()->create();
 
     Livewire::test(RestoreModal::class)
         ->dispatch('open-restore-modal', targetServerId: $targetServer->id)
@@ -157,7 +122,7 @@ test('can go back to previous steps', function (string $databaseType) {
         'database_type' => $databaseType,
     ]);
 
-    $snapshot = createSnapshotForServer($sourceServer);
+    $snapshot = Snapshot::factory()->forServer($sourceServer)->withFile()->create();
 
     Livewire::test(RestoreModal::class)
         ->dispatch('open-restore-modal', targetServerId: $targetServer->id)

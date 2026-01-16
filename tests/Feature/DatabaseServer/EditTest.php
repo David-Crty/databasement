@@ -3,6 +3,7 @@
 use App\Livewire\DatabaseServer\Edit;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
 use Livewire\Livewire;
@@ -94,3 +95,31 @@ test('can edit database server', function (array $config) {
     'postgres' => [['type' => 'postgres', 'name' => 'PostgreSQL Server', 'host' => 'postgres.example.com', 'port' => 5432]],
     'sqlite' => [['type' => 'sqlite', 'name' => 'SQLite Database', 'sqlite_path' => '/data/app.sqlite']],
 ]);
+
+test('disabling backups preserves backup config when snapshots exist', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create([
+        'name' => 'Server With Snapshots',
+        'backups_enabled' => true,
+    ]);
+    $backup = $server->backup;
+
+    // Create a snapshot that references this backup
+    Snapshot::factory()->forServer($server)->create();
+
+    // Disable backups on the server
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.backups_enabled', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $server->refresh();
+
+    // Server should have backups disabled
+    // But backup config should still exist (snapshots depend on it)
+    expect($server->backups_enabled)->toBeFalse()
+        ->and($server->backup)->not->toBeNull()
+        ->and(Backup::find($backup->id))->not->toBeNull();
+
+});
