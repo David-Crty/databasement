@@ -5,11 +5,16 @@ namespace App\Services;
 use App\Enums\DatabaseType;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
+use App\Support\Formatters;
 use PDO;
 use PDOException;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
+use Symfony\Component\Process\Process;
 
 class DatabaseConnectionTester
 {
+    private const TIMEOUT_SECONDS = 10;
+
     /**
      * Test a database connection with the provided credentials using CLI tools.
      *
@@ -21,11 +26,7 @@ class DatabaseConnectionTester
         $databaseType = DatabaseType::tryFrom($config['database_type']);
 
         if ($databaseType === null) {
-            return [
-                'success' => false,
-                'message' => "Unsupported database type: {$config['database_type']}",
-                'details' => [],
-            ];
+            return self::error("Unsupported database type: {$config['database_type']}");
         }
 
         return match ($databaseType) {
@@ -33,6 +34,76 @@ class DatabaseConnectionTester
             DatabaseType::POSTGRESQL => self::testPostgresqlConnection($config),
             DatabaseType::SQLITE => self::testSqliteConnection($config['host']),
         };
+    }
+
+    /**
+     * Execute a command with timeout and return the result.
+     *
+     * @return array{success: true, output: string, durationMs: int}|array{success: false, message: string}
+     */
+    private static function executeWithTimeout(string $command): array
+    {
+        $process = Process::fromShellCommandLine($command);
+        $process->setTimeout(self::TIMEOUT_SECONDS);
+
+        $startTime = microtime(true);
+
+        try {
+            $process->run();
+        } catch (ProcessTimedOutException) {
+            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+
+            return [
+                'success' => false,
+                'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
+            ];
+        }
+
+        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+
+        if (! $process->isSuccessful()) {
+            $errorOutput = trim($process->getErrorOutput() ?: $process->getOutput());
+
+            return [
+                'success' => false,
+                'message' => $errorOutput ?: 'Connection failed with exit code '.$process->getExitCode(),
+            ];
+        }
+
+        return [
+            'success' => true,
+            'output' => trim($process->getOutput()),
+            'durationMs' => $durationMs,
+        ];
+    }
+
+    /**
+     * Build an error response.
+     *
+     * @return array{success: false, message: string, details: array<string, mixed>}
+     */
+    private static function error(string $message): array
+    {
+        return [
+            'success' => false,
+            'message' => $message,
+            'details' => [],
+        ];
+    }
+
+    /**
+     * Build a success response.
+     *
+     * @param  array<string, mixed>  $details
+     * @return array{success: true, message: string, details: array<string, mixed>}
+     */
+    private static function success(array $details = []): array
+    {
+        return [
+            'success' => true,
+            'message' => 'Connection successful',
+            'details' => $details,
+        ];
     }
 
     /**
@@ -51,32 +122,16 @@ class DatabaseConnectionTester
             'pass' => $config['password'],
         ]);
 
-        $startTime = microtime(true);
-        exec($command.' 2>&1', $output, $exitCode);
-        $pingMs = round((microtime(true) - $startTime) * 1000);
+        $result = self::executeWithTimeout($command);
 
-        if ($exitCode !== 0) {
-            $errorOutput = implode("\n", $output);
-
-            return [
-                'success' => false,
-                'message' => $errorOutput,
-                'details' => [],
-            ];
+        if (! $result['success']) {
+            return self::error($result['message']);
         }
 
-        $details = [
-            'ping_ms' => $pingMs,
-        ];
-
-        $outputText = implode("\n", $output);
-        $details['output'] = $outputText;
-
-        return [
-            'success' => true,
-            'message' => 'Connection successful',
-            'details' => $details,
-        ];
+        return self::success([
+            'ping_ms' => $result['durationMs'],
+            'output' => $result['output'],
+        ]);
     }
 
     /**
@@ -97,41 +152,28 @@ class DatabaseConnectionTester
         ];
 
         // Get version
-        $command = $postgresDatabase->getQueryCommand($dbConfig, 'SELECT version();');
+        $versionCommand = $postgresDatabase->getQueryCommand($dbConfig, 'SELECT version();');
+        $result = self::executeWithTimeout($versionCommand);
 
-        $startTime = microtime(true);
-        exec($command.' 2>&1', $versionOutput, $exitCode);
-        $pingMs = round((microtime(true) - $startTime) * 1000);
-
-        if ($exitCode !== 0) {
-            $errorOutput = implode("\n", $versionOutput);
-
-            return [
-                'success' => false,
-                'message' => $errorOutput,
-                'details' => [],
-            ];
+        if (! $result['success']) {
+            return self::error($result['message']);
         }
 
-        // Get SSL status
+        $version = $result['output'];
+        $durationMs = $result['durationMs'];
+
+        // Get SSL status (non-critical, ignore failures)
         $sslCommand = $postgresDatabase->getQueryCommand(
             $dbConfig,
             "SELECT CASE WHEN ssl THEN 'yes' ELSE 'no' END FROM pg_stat_ssl WHERE pid = pg_backend_pid();"
         );
+        $sslResult = self::executeWithTimeout($sslCommand);
+        $ssl = $sslResult['success'] ? $sslResult['output'] : 'unknown';
 
-        exec($sslCommand.' 2>&1', $sslOutput, $sslExitCode);
-        $ssl = $sslExitCode === 0 ? trim(implode('', $sslOutput)) : 'unknown';
-
-        $version = trim(implode('', $versionOutput));
-
-        return [
-            'success' => true,
-            'message' => 'Connection successful',
-            'details' => [
-                'ping_ms' => $pingMs,
-                'output' => json_encode(['dbms' => $version, 'ssl' => $ssl], JSON_PRETTY_PRINT),
-            ],
-        ];
+        return self::success([
+            'ping_ms' => $durationMs,
+            'output' => json_encode(['dbms' => $version, 'ssl' => $ssl], JSON_PRETTY_PRINT),
+        ]);
     }
 
     /**
@@ -142,45 +184,27 @@ class DatabaseConnectionTester
     private static function testSqliteConnection(string $path): array
     {
         if (empty($path)) {
-            return [
-                'success' => false,
-                'message' => 'Database path is required.',
-                'details' => [],
-            ];
+            return self::error('Database path is required.');
         }
 
         if (! file_exists($path)) {
-            return [
-                'success' => false,
-                'message' => 'Database file does not exist: '.$path,
-                'details' => [],
-            ];
+            return self::error('Database file does not exist: '.$path);
         }
 
         if (! is_readable($path)) {
-            return [
-                'success' => false,
-                'message' => 'Database file is not readable: '.$path,
-                'details' => [],
-            ];
+            return self::error('Database file is not readable: '.$path);
         }
 
         if (! is_file($path)) {
-            return [
-                'success' => false,
-                'message' => 'Path is not a file: '.$path,
-                'details' => [],
-            ];
+            return self::error('Path is not a file: '.$path);
         }
 
-        // Try to open the SQLite database to verify it's valid
         try {
             $pdo = new PDO("sqlite:{$path}", null, null, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             ]);
 
-            // Query sqlite_master to verify the file is a valid SQLite database.
-            // SELECT sqlite_version() only returns the library version without reading the file.
+            // Query sqlite_master to verify the file is a valid SQLite database
             $pdo->query('SELECT 1 FROM sqlite_master LIMIT 1');
 
             // Get SQLite version
@@ -190,19 +214,11 @@ class DatabaseConnectionTester
             // Get file size
             $fileSize = filesize($path);
 
-            return [
-                'success' => true,
-                'message' => 'Connection successful',
-                'details' => [
-                    'output' => json_encode(['dbms' => "SQLite {$version}", 'file_size' => $fileSize, 'path' => $path], JSON_PRETTY_PRINT),
-                ],
-            ];
+            return self::success([
+                'output' => json_encode(['dbms' => "SQLite {$version}", 'file_size' => $fileSize, 'path' => $path], JSON_PRETTY_PRINT),
+            ]);
         } catch (PDOException $e) {
-            return [
-                'success' => false,
-                'message' => 'Invalid SQLite database file: '.$e->getMessage(),
-                'details' => [],
-            ];
+            return self::error('Invalid SQLite database file: '.$e->getMessage());
         }
     }
 }
