@@ -116,8 +116,8 @@ test('can change retention policy', function (array $config) {
         'database_server_id' => $server->id,
         'volume_id' => $volume->id,
         'recurrence' => 'daily',
-        'retention_policy' => 'days',
-        'retention_days' => 14,
+        'retention_policy' => Backup::RETENTION_FOREVER,
+        'retention_days' => null,
     ]);
 
     $component = Livewire::actingAs($user)
