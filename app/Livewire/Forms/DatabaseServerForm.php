@@ -75,6 +75,27 @@ class DatabaseServerForm extends Form
     public bool $loadingDatabases = false;
 
     /**
+     * Called when retention_policy changes - set default values if switching
+     * to a policy and its values are empty.
+     */
+    public function updatedRetentionPolicy(string $value): void
+    {
+        if ($value === Backup::RETENTION_DAYS && empty($this->retention_days)) {
+            $this->retention_days = 14;
+        }
+
+        if ($value === Backup::RETENTION_GFS
+            && empty($this->gfs_keep_daily)
+            && empty($this->gfs_keep_weekly)
+            && empty($this->gfs_keep_monthly)
+        ) {
+            $this->gfs_keep_daily = 7;
+            $this->gfs_keep_weekly = 4;
+            $this->gfs_keep_monthly = 12;
+        }
+    }
+
+    /**
      * Called when database_type changes - update port to the default for that type
      * if the current port is a known default port.
      */
