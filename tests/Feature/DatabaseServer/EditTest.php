@@ -52,6 +52,7 @@ test('can edit database server', function (array $config) {
         'database_server_id' => $server->id,
         'volume_id' => $volume->id,
         'recurrence' => 'daily',
+        'retention_days' => 7,
     ]);
 
     $component = Livewire::actingAs($user)
@@ -90,11 +91,53 @@ test('can edit database server', function (array $config) {
     }
 
     $this->assertDatabaseHas('database_servers', $expectedData);
-})->with([
-    'mysql' => [['type' => 'mysql', 'name' => 'MySQL Server', 'host' => 'mysql.example.com', 'port' => 3306]],
-    'postgres' => [['type' => 'postgres', 'name' => 'PostgreSQL Server', 'host' => 'postgres.example.com', 'port' => 5432]],
-    'sqlite' => [['type' => 'sqlite', 'name' => 'SQLite Database', 'sqlite_path' => '/data/app.sqlite']],
-]);
+})->with('database server configs');
+
+test('can change retention policy', function (array $config) {
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'Test Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+    ]);
+
+    $server = DatabaseServer::create([
+        'name' => 'Test Server',
+        'database_type' => 'mysql',
+        'host' => 'mysql.example.com',
+        'port' => 3306,
+        'username' => 'dbuser',
+        'password' => 'secret',
+        'database_names' => ['myapp'],
+    ]);
+
+    // Start with days-based retention
+    Backup::create([
+        'database_server_id' => $server->id,
+        'volume_id' => $volume->id,
+        'recurrence' => 'daily',
+        'retention_policy' => 'days',
+        'retention_days' => 14,
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.retention_policy', $config['policy']);
+
+    // Set policy-specific fields
+    foreach ($config['form_fields'] as $field => $value) {
+        $component->set($field, $value);
+    }
+
+    $component->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $this->assertDatabaseHas('backups', array_merge(
+        ['database_server_id' => $server->id],
+        $config['expected_backup']
+    ));
+})->with('retention policies');
 
 test('disabling backups preserves backup config when snapshots exist', function () {
     $user = User::factory()->create();

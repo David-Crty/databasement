@@ -50,6 +50,14 @@ class DatabaseServerForm extends Form
 
     public ?int $retention_days = 14;
 
+    public string $retention_policy = Backup::RETENTION_DAYS;
+
+    public ?int $gfs_keep_daily = 7;
+
+    public ?int $gfs_keep_weekly = 4;
+
+    public ?int $gfs_keep_monthly = 12;
+
     public ?string $connectionTestMessage = null;
 
     public bool $connectionTestSuccess = false;
@@ -114,6 +122,10 @@ class DatabaseServerForm extends Form
             $this->path = $backup->path ?? '';
             $this->recurrence = $backup->recurrence;
             $this->retention_days = $backup->retention_days;
+            $this->retention_policy = $backup->retention_policy ?? Backup::RETENTION_DAYS;
+            $this->gfs_keep_daily = $backup->gfs_keep_daily;
+            $this->gfs_keep_weekly = $backup->gfs_keep_weekly;
+            $this->gfs_keep_monthly = $backup->gfs_keep_monthly;
         }
     }
 
@@ -162,7 +174,17 @@ class DatabaseServerForm extends Form
             $rules['volume_id'] = 'required|exists:volumes,id';
             $rules['path'] = ['nullable', 'string', 'max:255', new SafePath];
             $rules['recurrence'] = 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES);
-            $rules['retention_days'] = 'nullable|integer|min:1|max:35';
+            $rules['retention_policy'] = 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES);
+
+            // Conditional validation based on retention policy
+            if ($this->retention_policy === Backup::RETENTION_DAYS) {
+                $rules['retention_days'] = 'required|integer|min:1|max:365';
+            } elseif ($this->retention_policy === Backup::RETENTION_GFS) {
+                $rules['gfs_keep_daily'] = 'nullable|integer|min:1|max:90';
+                $rules['gfs_keep_weekly'] = 'nullable|integer|min:1|max:52';
+                $rules['gfs_keep_monthly'] = 'nullable|integer|min:1|max:24';
+            }
+            // RETENTION_FOREVER requires no additional fields
         }
 
         if ($this->isSqlite()) {
@@ -184,7 +206,21 @@ class DatabaseServerForm extends Form
             }
         }
 
-        return $this->validate($rules);
+        $validated = $this->validate($rules);
+
+        // GFS policy requires at least one tier to be configured
+        if ($this->backups_enabled
+            && $this->retention_policy === Backup::RETENTION_GFS
+            && empty($this->gfs_keep_daily)
+            && empty($this->gfs_keep_weekly)
+            && empty($this->gfs_keep_monthly)
+        ) {
+            throw ValidationException::withMessages([
+                'form.gfs_keep_daily' => __('At least one retention tier must be configured.'),
+            ]);
+        }
+
+        return $validated;
     }
 
     public function store(): bool
@@ -236,24 +272,54 @@ class DatabaseServerForm extends Form
      * Extract backup-related fields from validated data.
      *
      * @param  array<string, mixed>  $validated
-     * @return array{0: array<string, mixed>, 1: array{volume_id: string, path: string|null, recurrence: string, retention_days: int|null}}
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
      */
     private function extractBackupData(array $validated): array
     {
+        $retentionPolicy = $validated['retention_policy'] ?? Backup::RETENTION_DAYS;
+
         $backupData = [
             'volume_id' => $validated['volume_id'] ?? '',
             'path' => ! empty($validated['path']) ? $validated['path'] : null,
             'recurrence' => $validated['recurrence'] ?? 'daily',
-            'retention_days' => $validated['retention_days'] ?? null,
+            'retention_policy' => $retentionPolicy,
         ];
 
-        unset($validated['volume_id'], $validated['path'], $validated['recurrence'], $validated['retention_days']);
+        // Set retention fields based on policy
+        if ($retentionPolicy === Backup::RETENTION_DAYS) {
+            $backupData['retention_days'] = $validated['retention_days'] ?? null;
+            $backupData['gfs_keep_daily'] = null;
+            $backupData['gfs_keep_weekly'] = null;
+            $backupData['gfs_keep_monthly'] = null;
+        } elseif ($retentionPolicy === Backup::RETENTION_GFS) {
+            $backupData['retention_days'] = null;
+            $backupData['gfs_keep_daily'] = $validated['gfs_keep_daily'] ?? null;
+            $backupData['gfs_keep_weekly'] = $validated['gfs_keep_weekly'] ?? null;
+            $backupData['gfs_keep_monthly'] = $validated['gfs_keep_monthly'] ?? null;
+        } else {
+            // RETENTION_FOREVER - no retention fields needed
+            $backupData['retention_days'] = null;
+            $backupData['gfs_keep_daily'] = null;
+            $backupData['gfs_keep_weekly'] = null;
+            $backupData['gfs_keep_monthly'] = null;
+        }
+
+        unset(
+            $validated['volume_id'],
+            $validated['path'],
+            $validated['recurrence'],
+            $validated['retention_days'],
+            $validated['retention_policy'],
+            $validated['gfs_keep_daily'],
+            $validated['gfs_keep_weekly'],
+            $validated['gfs_keep_monthly']
+        );
 
         return [$validated, $backupData];
     }
 
     /**
-     * @param  array{volume_id: string, path: string|null, recurrence: string, retention_days: int|null}  $backupData
+     * @param  array<string, mixed>  $backupData
      */
     private function syncBackupConfiguration(DatabaseServer $server, array $backupData): void
     {

@@ -60,6 +60,7 @@ class DatabaseServerFactory extends Factory
                 'database_server_id' => $databaseServer->id,
                 'volume_id' => $volume->id,
                 'recurrence' => fake()->randomElement(['daily', 'weekly']),
+                'retention_days' => fake()->randomElement([7, 14, 30]),
             ]);
         });
     }

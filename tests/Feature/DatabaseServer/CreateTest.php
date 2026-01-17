@@ -85,11 +85,7 @@ test('can create database server', function (array $config) {
         'recurrence' => 'daily',
         'retention_days' => 14,
     ]);
-})->with([
-    'mysql' => [['type' => 'mysql', 'name' => 'MySQL Server', 'host' => 'mysql.example.com', 'port' => 3306]],
-    'postgres' => [['type' => 'postgres', 'name' => 'PostgreSQL Server', 'host' => 'postgres.example.com', 'port' => 5432]],
-    'sqlite' => [['type' => 'sqlite', 'name' => 'SQLite Database', 'sqlite_path' => '/data/app.sqlite']],
-]);
+})->with('database server configs');
 
 test('can create database server with backups disabled', function () {
     DatabaseConnectionTester::shouldReceive('test')
@@ -122,5 +118,84 @@ test('can create database server with backups disabled', function () {
     // No backup configuration should be created when backups are disabled
     $this->assertDatabaseMissing('backups', [
         'database_server_id' => $server->id,
+    ]);
+});
+
+test('can create database server with retention policy', function (array $config) {
+    DatabaseConnectionTester::shouldReceive('test')
+        ->once()
+        ->andReturn(['success' => true, 'message' => 'Connected!']);
+
+    $this->mock(DatabaseListService::class, function ($mock) {
+        $mock->shouldReceive('listDatabases')->andReturn(['myapp_production']);
+    });
+
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'Test Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Test Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.database_names_input', 'myapp_production')
+        ->set('form.volume_id', $volume->id)
+        ->set('form.recurrence', 'daily')
+        ->set('form.retention_policy', $config['policy']);
+
+    // Set policy-specific fields
+    foreach ($config['form_fields'] as $field => $value) {
+        $component->set($field, $value);
+    }
+
+    $component->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'Test Server')->first();
+
+    $this->assertDatabaseHas('backups', array_merge(
+        ['database_server_id' => $server->id, 'volume_id' => $volume->id],
+        $config['expected_backup']
+    ));
+})->with('retention policies');
+
+test('cannot create database server with GFS retention when all tiers are empty', function () {
+    // No mock for DatabaseConnectionTester needed - validation fails before connection test
+
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'GFS Validation Test Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'GFS Empty Tiers Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.database_names_input', 'myapp_production')
+        ->set('form.volume_id', $volume->id)
+        ->set('form.recurrence', 'daily')
+        ->set('form.retention_policy', 'gfs')
+        ->set('form.gfs_keep_daily', null)
+        ->set('form.gfs_keep_weekly', null)
+        ->set('form.gfs_keep_monthly', null)
+        ->call('save')
+        ->assertHasErrors(['form.gfs_keep_daily']);
+
+    $this->assertDatabaseMissing('database_servers', [
+        'name' => 'GFS Empty Tiers Server',
     ]);
 });

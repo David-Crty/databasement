@@ -8,6 +8,12 @@ $recurrenceOptions = collect(App\Models\Backup::RECURRENCE_TYPES)->map(fn($type)
     'name' => __(Str::ucfirst($type)),
 ])->toArray();
 
+$retentionPolicyOptions = [
+    ['id' => 'days', 'name' => __('Days-based')],
+    ['id' => 'gfs', 'name' => __('GFS (Grandfather-Father-Son)')],
+    ['id' => 'forever', 'name' => __('Forever (keep all snapshots)')],
+];
+
 $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
     'id' => $v->id,
     'name' => "{$v->name} ({$v->type})",
@@ -253,15 +259,87 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                 required
             />
 
-            <x-input
-                wire:model="form.retention_days"
-                label="{{ __('Retention Period (days)') }}"
-                placeholder="{{ __('e.g., 30') }}"
-                hint="{{ __('Snapshots older than this will be automatically deleted. Leave empty to keep all snapshots.') }}"
-                type="number"
-                min="1"
-                max="35"
+            <x-select
+                wire:model.live="form.retention_policy"
+                label="{{ __('Retention Policy') }}"
+                :options="$retentionPolicyOptions"
+                hint="{{ __('Simple: delete after X days. GFS: tiered retention. Forever: keep all snapshots.') }}"
             />
+
+            @if($form->retention_policy === 'days')
+                <x-input
+                    wire:model="form.retention_days"
+                    label="{{ __('Retention Period (days)') }}"
+                    placeholder="{{ __('e.g., 30') }}"
+                    hint="{{ __('Snapshots older than this will be automatically deleted.') }}"
+                    type="number"
+                    min="1"
+                    max="365"
+                    required
+                />
+            @elseif($form->retention_policy === 'gfs')
+                <div class="p-4 rounded-lg bg-base-200 space-y-4">
+                    <div class="space-y-2">
+                        <p class="text-sm font-medium">{{ __('Grandfather-Father-Son (GFS) Retention') }}</p>
+                        <p class="text-sm text-base-content/70">
+                            {{ __('This tiered approach keeps recent backups for quick recovery while preserving older snapshots for long-term archival.') }}
+                        </p>
+                        <p class="text-sm text-base-content/70">
+                            {{ __('With default values (7 daily, 4 weekly, 12 monthly), you\'ll keep: the last 7 days of backups, plus 1 backup per week for the past month, plus 1 backup per month for the past year.') }}
+                        </p>
+                    </div>
+
+                    <x-alert class="alert-info" icon="o-information-circle">
+                        {{ __('Learn how GFS retention works and see examples in the documentation.') }}
+                        <x-slot:actions>
+                            <x-button
+                                label="{{ __('View GFS Documentation') }}"
+                                link="https://david-crty.github.io/databasement/user-guide/backups/#retention-policies"
+                                external
+                                class="btn-ghost btn-sm"
+                                icon="o-arrow-top-right-on-square"
+                            />
+                        </x-slot:actions>
+                    </x-alert>
+
+                    <div class="grid gap-4 md:grid-cols-3">
+                        <x-input
+                            wire:model="form.gfs_keep_daily"
+                            label="{{ __('Daily') }}"
+                            placeholder="{{ __('e.g., 7') }}"
+                            hint="{{ __('Keep last N daily snapshots') }}"
+                            type="number"
+                            min="1"
+                            max="90"
+                        />
+                        <x-input
+                            wire:model="form.gfs_keep_weekly"
+                            label="{{ __('Weekly') }}"
+                            placeholder="{{ __('e.g., 4') }}"
+                            hint="{{ __('Keep 1 per week for N weeks') }}"
+                            type="number"
+                            min="1"
+                            max="52"
+                        />
+                        <x-input
+                            wire:model="form.gfs_keep_monthly"
+                            label="{{ __('Monthly') }}"
+                            placeholder="{{ __('e.g., 12') }}"
+                            hint="{{ __('Keep 1 per month for N months') }}"
+                            type="number"
+                            min="1"
+                            max="24"
+                        />
+                    </div>
+                    <p class="text-xs text-base-content/50">
+                        {{ __('Leave any tier empty to disable it. Snapshots matching multiple tiers are counted only once.') }}
+                    </p>
+                </div>
+            @else
+                <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                    {{ __('All snapshots will be kept indefinitely. Make sure you have enough storage space or manually delete old snapshots.') }}
+                </x-alert>
+            @endif
         </div>
     @endif
 
