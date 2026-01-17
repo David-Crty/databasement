@@ -46,7 +46,7 @@ test('can navigate through restore wizard steps', function (string $databaseType
 
     // Step 3: Enter schema name
     $component->assertSet('currentStep', 3);
-})->with(['mysql', 'postgres', 'sqlite']);
+})->with('database types');
 
 test('can queue restore job with valid data', function (string $databaseType) {
     Queue::fake();
@@ -86,7 +86,7 @@ test('can queue restore job with valid data', function (string $databaseType) {
     // Verify the job was pushed with the restore ID
     $pushedJob = Queue::pushed(ProcessRestoreJob::class)->first();
     expect($pushedJob->restoreId)->toBe($restore->id);
-})->with(['mysql', 'postgres', 'sqlite']);
+})->with('database types');
 
 test('only shows compatible servers with same database type', function () {
     $targetServer = DatabaseServer::factory()->create([
@@ -135,4 +135,4 @@ test('can go back to previous steps', function (string $databaseType) {
         ->assertSet('currentStep', 3)
         ->call('previousStep')
         ->assertSet('currentStep', 2);
-})->with(['mysql', 'postgres', 'sqlite']);
+})->with('database types');

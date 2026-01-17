@@ -91,11 +91,7 @@ test('can edit database server', function (array $config) {
     }
 
     $this->assertDatabaseHas('database_servers', $expectedData);
-})->with([
-    'mysql' => [['type' => 'mysql', 'name' => 'MySQL Server', 'host' => 'mysql.example.com', 'port' => 3306]],
-    'postgres' => [['type' => 'postgres', 'name' => 'PostgreSQL Server', 'host' => 'postgres.example.com', 'port' => 5432]],
-    'sqlite' => [['type' => 'sqlite', 'name' => 'SQLite Database', 'sqlite_path' => '/data/app.sqlite']],
-]);
+})->with('database server configs');
 
 test('can change retention policy', function (array $config) {
     $user = User::factory()->create();

@@ -87,6 +87,28 @@ expect()->extend('toBeOne', function () {
 |
 */
 
+dataset('database types', ['mysql', 'postgres', 'sqlite']);
+
+dataset('database server configs', [
+    'mysql' => [[
+        'type' => 'mysql',
+        'name' => 'MySQL Server',
+        'host' => 'mysql.example.com',
+        'port' => 3306,
+    ]],
+    'postgres' => [[
+        'type' => 'postgres',
+        'name' => 'PostgreSQL Server',
+        'host' => 'postgres.example.com',
+        'port' => 5432,
+    ]],
+    'sqlite' => [[
+        'type' => 'sqlite',
+        'name' => 'SQLite Database',
+        'sqlite_path' => '/data/app.sqlite',
+    ]],
+]);
+
 dataset('retention policies', [
     'days' => [[
         'policy' => 'days',
