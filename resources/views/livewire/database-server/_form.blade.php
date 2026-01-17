@@ -141,9 +141,9 @@
                 @endif
 
                 @if($form->showConnectionDetails && !empty($form->connectionTestDetails['output']))
-                    <div class="mockup-code text-sm max-h-64 overflow-auto mt-2 max-w-full w-full">
+                    <div class="mockup-code text-sm max-h-64 overflow-auto mt-2 max-w-full w-full overflow-x-auto">
                         @foreach(explode("\n", trim($form->connectionTestDetails['output'])) as $line)
-                            <pre><code>{{ $line }}</code></pre>
+                            <pre class="!whitespace-pre-wrap !break-all"><code>{{ $line }}</code></pre>
                         @endforeach
                     </div>
                 @endif
