@@ -78,7 +78,51 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
-{
-    // ..
-}
+/*
+|--------------------------------------------------------------------------
+| Datasets
+|--------------------------------------------------------------------------
+|
+| Shared datasets that can be reused across multiple test files.
+|
+*/
+
+dataset('retention policies', [
+    'days' => [[
+        'policy' => 'days',
+        'form_fields' => ['form.retention_days' => 30],
+        'expected_backup' => [
+            'retention_policy' => 'days',
+            'retention_days' => 30,
+            'gfs_keep_daily' => null,
+            'gfs_keep_weekly' => null,
+            'gfs_keep_monthly' => null,
+        ],
+    ]],
+    'gfs' => [[
+        'policy' => 'gfs',
+        'form_fields' => [
+            'form.gfs_keep_daily' => 7,
+            'form.gfs_keep_weekly' => 4,
+            'form.gfs_keep_monthly' => 12,
+        ],
+        'expected_backup' => [
+            'retention_policy' => 'gfs',
+            'retention_days' => null,
+            'gfs_keep_daily' => 7,
+            'gfs_keep_weekly' => 4,
+            'gfs_keep_monthly' => 12,
+        ],
+    ]],
+    'forever' => [[
+        'policy' => 'forever',
+        'form_fields' => [],
+        'expected_backup' => [
+            'retention_policy' => 'forever',
+            'retention_days' => null,
+            'gfs_keep_daily' => null,
+            'gfs_keep_weekly' => null,
+            'gfs_keep_monthly' => null,
+        ],
+    ]],
+]);

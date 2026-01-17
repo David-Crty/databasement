@@ -125,7 +125,7 @@ test('can create database server with backups disabled', function () {
     ]);
 });
 
-test('can create database server with GFS retention policy', function () {
+test('can create database server with retention policy', function (array $config) {
     DatabaseConnectionTester::shouldReceive('test')
         ->once()
         ->andReturn(['success' => true, 'message' => 'Connected!']);
@@ -136,14 +136,14 @@ test('can create database server with GFS retention policy', function () {
 
     $user = User::factory()->create();
     $volume = Volume::create([
-        'name' => 'GFS Test Volume',
+        'name' => 'Test Volume',
         'type' => 'local',
         'config' => ['path' => '/var/backups'],
     ]);
 
-    Livewire::actingAs($user)
+    $component = Livewire::actingAs($user)
         ->test(Create::class)
-        ->set('form.name', 'GFS MySQL Server')
+        ->set('form.name', 'Test Server')
         ->set('form.database_type', 'mysql')
         ->set('form.host', 'mysql.example.com')
         ->set('form.port', 3306)
@@ -152,32 +152,24 @@ test('can create database server with GFS retention policy', function () {
         ->set('form.database_names_input', 'myapp_production')
         ->set('form.volume_id', $volume->id)
         ->set('form.recurrence', 'daily')
-        ->set('form.retention_policy', 'gfs')
-        ->set('form.gfs_keep_daily', 7)
-        ->set('form.gfs_keep_weekly', 4)
-        ->set('form.gfs_keep_monthly', 12)
-        ->call('save')
+        ->set('form.retention_policy', $config['policy']);
+
+    // Set policy-specific fields
+    foreach ($config['form_fields'] as $field => $value) {
+        $component->set($field, $value);
+    }
+
+    $component->call('save')
         ->assertHasNoErrors()
         ->assertRedirect(route('database-servers.index'));
 
-    $this->assertDatabaseHas('database_servers', [
-        'name' => 'GFS MySQL Server',
-        'database_type' => 'mysql',
-    ]);
+    $server = DatabaseServer::where('name', 'Test Server')->first();
 
-    $server = DatabaseServer::where('name', 'GFS MySQL Server')->first();
-
-    $this->assertDatabaseHas('backups', [
-        'database_server_id' => $server->id,
-        'volume_id' => $volume->id,
-        'recurrence' => 'daily',
-        'retention_policy' => 'gfs',
-        'retention_days' => null,
-        'gfs_keep_daily' => 7,
-        'gfs_keep_weekly' => 4,
-        'gfs_keep_monthly' => 12,
-    ]);
-});
+    $this->assertDatabaseHas('backups', array_merge(
+        ['database_server_id' => $server->id, 'volume_id' => $volume->id],
+        $config['expected_backup']
+    ));
+})->with('retention policies');
 
 test('cannot create database server with GFS retention when all tiers are empty', function () {
     // No mock for DatabaseConnectionTester needed - validation fails before connection test
