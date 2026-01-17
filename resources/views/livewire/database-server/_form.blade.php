@@ -137,6 +137,13 @@
                             <span class="font-bold">{{ __('Connection failed') }}</span>
                             <p class="text-sm">{{ $form->connectionTestMessage }}</p>
                         </div>
+                        <x-button
+                            label="{{ __('Troubleshooting Guide') }}"
+                            link="https://david-crty.github.io/databasement/user-guide/database-servers/#troubleshooting-connection-issues"
+                            external
+                            class="btn-ghost btn-sm mt-2"
+                            icon="o-arrow-top-right-on-square"
+                        />
                     </x-alert>
                 @endif
 

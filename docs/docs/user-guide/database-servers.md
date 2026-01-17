@@ -87,9 +87,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO databasement;
 For single-database access without `CREATEDB`, the target database must already exist. Grant `ALL PRIVILEGES` on that specific database and its schema. The user won't be able to drop/recreate the database during restore - Databasement will drop and recreate tables instead.
 :::
 
-## Testing Connections
-
-Before saving a server, always test the connection by clicking **Test Connection**.
+## Troubleshooting Connection Issues
 
 ### Common Connection Issues
 
@@ -99,3 +97,121 @@ Before saving a server, always test the connection by clicking **Test Connection
 | Access denied      | Check username and password                                |
 | Unknown host       | Verify the hostname is correct and DNS is resolving        |
 | Connection timeout | Check firewall rules and network connectivity              |
+
+
+### Docker Networking
+
+When running Databasement in Docker and connecting to databases in other containers, you need to ensure network connectivity between them.
+
+#### Containers in Different docker-compose Projects
+
+By default, each docker-compose project creates its own isolated network. To connect to a database in another project:
+
+**Option 1: Use an external network (recommended)**
+
+1. Create a shared network:
+   ```bash
+   docker network create shared-db-network
+   ```
+
+2. In your application database's `docker-compose.yml`, add the external network:
+   ```yaml
+   services:
+     mysql:
+       # ... your config
+       networks:
+         - default
+         - shared-db-network
+
+   networks:
+     shared-db-network:
+       external: true
+   ```
+
+3. In Databasement's `docker-compose.yml`, add the same network:
+   ```yaml
+   services:
+     app:
+       # ... your config
+       networks:
+         - default
+         - shared-db-network
+     worker:
+       # ... your config
+       networks:
+         - default
+         - shared-db-network
+
+   networks:
+     shared-db-network:
+       external: true
+   ```
+
+4. Restart both projects and use the container name as the host (e.g., `mysql`).
+
+**Option 2: Connect to an existing network**
+
+Find the network name of your database container:
+```bash
+docker network ls
+docker inspect <container_name> | grep -A 20 "Networks"
+```
+
+Then connect Databasement to that network:
+```yaml
+networks:
+  other-project_default:
+    external: true
+```
+
+#### Standalone Docker Containers (no docker-compose)
+
+For containers started with `docker run`:
+
+1. Create a network if you don't have one:
+   ```bash
+   docker network create my-network
+   ```
+
+2. Start your database container on that network:
+   ```bash
+   docker run -d --name mysql --network my-network mysql:8
+   ```
+
+3. Connect Databasement to the same network:
+   ```bash
+   docker network connect my-network databasement-app
+   ```
+
+4. Use the container name (`mysql`) as the host in Databasement.
+
+#### Using Host Network Mode
+
+If your database is accessible on the host machine (e.g., installed directly or exposed via port mapping), you can use host network mode:
+
+```yaml
+services:
+  app:
+    network_mode: host
+```
+
+Then use `localhost` or `127.0.0.1` as the host. Note that this disables Docker's network isolation.
+
+#### Connecting to Host Machine's Database
+
+If your database runs directly on the host machine (not in Docker):
+
+| Platform      | Host to use                                    |
+|---------------|------------------------------------------------|
+| Linux         | `172.17.0.1` or `host.docker.internal` (Docker 20.10+) |
+| macOS/Windows | `host.docker.internal`                         |
+
+Example: If MySQL is running on your laptop on port 3306, use `host.docker.internal:3306`.
+
+### Firewall Considerations
+
+Ensure your firewall allows connections:
+
+- **Docker networks**: Usually handled automatically
+- **Host firewall (iptables/ufw)**: May need rules for Docker bridge networks
+- **Cloud firewalls (AWS Security Groups, etc.)**: Add inbound rules for the database port
