@@ -111,7 +111,7 @@ test('can change retention policy', function (array $config) {
         'database_names' => ['myapp'],
     ]);
 
-    // Start with days-based retention
+    // Start with forever retention (no specific retention days)
     Backup::create([
         'database_server_id' => $server->id,
         'volume_id' => $volume->id,
