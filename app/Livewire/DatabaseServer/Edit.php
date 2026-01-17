@@ -8,11 +8,13 @@ use App\Models\DatabaseServer;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
+use Mary\Traits\Toast;
 
 class Edit extends Component
 {
     use AuthorizesRequests;
     use HandlesDemoMode;
+    use Toast;
 
     public DatabaseServerForm $form;
 
@@ -41,6 +43,11 @@ class Edit extends Component
     public function testConnection(): void
     {
         $this->form->testConnection();
+    }
+
+    public function refreshVolumes(): void
+    {
+        $this->success(__('Volume list refreshed.'), position: 'toast-bottom');
     }
 
     public function render(): View

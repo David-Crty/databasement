@@ -240,7 +240,7 @@
                     >
                         <x-slot:append>
                             <x-button
-                                wire:click="$refresh"
+                                wire:click="refreshVolumes"
                                 icon="o-arrow-path"
                                 class="btn-ghost join-item"
                                 tooltip-bottom="{{ __('Refresh volume list') }}"
@@ -267,16 +267,16 @@
 
                     <div class="grid gap-4 md:grid-cols-2">
                         <x-select
+                            wire:model.live="form.retention_policy"
+                            label="{{ __('Retention Policy') }}"
+                            :options="$form->getRetentionPolicyOptions()"
+                        />
+
+                        <x-select
                             wire:model="form.recurrence"
                             label="{{ __('Backup Frequency') }}"
                             :options="$form->getRecurrenceOptions()"
                             required
-                        />
-
-                        <x-select
-                            wire:model.live="form.retention_policy"
-                            label="{{ __('Retention Policy') }}"
-                            :options="$form->getRetentionPolicyOptions()"
                         />
                     </div>
 
