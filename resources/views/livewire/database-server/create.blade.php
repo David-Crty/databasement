@@ -8,12 +8,10 @@
             </x-alert>
         @endif
 
-        <x-card class="space-y-6">
-            @include('livewire.database-server._form', [
-                'form' => $form,
-                'submitLabel' => 'Create Database Server',
-                'isEdit' => false,
-            ])
-        </x-card>
+        @include('livewire.database-server._form', [
+            'form' => $form,
+            'submitLabel' => 'Create Database Server',
+            'isEdit' => false,
+        ])
     </div>
 </div>

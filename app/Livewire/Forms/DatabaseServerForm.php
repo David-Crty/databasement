@@ -67,6 +67,8 @@ class DatabaseServerForm extends Form
     /** @var array<string, mixed> Connection test details (dbms, ping, ssl, etc.) */
     public array $connectionTestDetails = [];
 
+    public bool $showConnectionDetails = false;
+
     /** @var array<array{id: string, name: string}> */
     public array $availableDatabases = [];
 
