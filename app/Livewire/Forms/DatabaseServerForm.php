@@ -232,9 +232,9 @@ class DatabaseServerForm extends Form
             if ($this->retention_policy === Backup::RETENTION_DAYS) {
                 $rules['retention_days'] = 'required|integer|min:1|max:365';
             } elseif ($this->retention_policy === Backup::RETENTION_GFS) {
-                $rules['gfs_keep_daily'] = 'nullable|integer|min:1|max:90';
-                $rules['gfs_keep_weekly'] = 'nullable|integer|min:1|max:52';
-                $rules['gfs_keep_monthly'] = 'nullable|integer|min:1|max:24';
+                $rules['gfs_keep_daily'] = 'nullable|integer|min:0|max:90';
+                $rules['gfs_keep_weekly'] = 'nullable|integer|min:0|max:52';
+                $rules['gfs_keep_monthly'] = 'nullable|integer|min:0|max:24';
             }
             // RETENTION_FOREVER requires no additional fields
         }
@@ -345,9 +345,10 @@ class DatabaseServerForm extends Form
             $backupData['gfs_keep_monthly'] = null;
         } elseif ($retentionPolicy === Backup::RETENTION_GFS) {
             $backupData['retention_days'] = null;
-            $backupData['gfs_keep_daily'] = $validated['gfs_keep_daily'] ?? null;
-            $backupData['gfs_keep_weekly'] = $validated['gfs_keep_weekly'] ?? null;
-            $backupData['gfs_keep_monthly'] = $validated['gfs_keep_monthly'] ?? null;
+            // Normalize 0 to null for consistency (0 means "disabled" same as null)
+            $backupData['gfs_keep_daily'] = ! empty($validated['gfs_keep_daily']) ? $validated['gfs_keep_daily'] : null;
+            $backupData['gfs_keep_weekly'] = ! empty($validated['gfs_keep_weekly']) ? $validated['gfs_keep_weekly'] : null;
+            $backupData['gfs_keep_monthly'] = ! empty($validated['gfs_keep_monthly']) ? $validated['gfs_keep_monthly'] : null;
         } else {
             // RETENTION_FOREVER - no retention fields needed
             $backupData['retention_days'] = null;
