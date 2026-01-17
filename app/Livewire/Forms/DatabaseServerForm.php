@@ -50,13 +50,13 @@ class DatabaseServerForm extends Form
 
     public ?int $retention_days = 14;
 
-    public string $retention_policy = Backup::RETENTION_SIMPLE;
+    public string $retention_policy = Backup::RETENTION_DAYS;
 
-    public ?int $keep_daily = 7;
+    public ?int $gfs_keep_daily = 7;
 
-    public ?int $keep_weekly = 4;
+    public ?int $gfs_keep_weekly = 4;
 
-    public ?int $keep_monthly = 12;
+    public ?int $gfs_keep_monthly = 12;
 
     public ?string $connectionTestMessage = null;
 
@@ -122,10 +122,10 @@ class DatabaseServerForm extends Form
             $this->path = $backup->path ?? '';
             $this->recurrence = $backup->recurrence;
             $this->retention_days = $backup->retention_days;
-            $this->retention_policy = $backup->retention_policy ?? Backup::RETENTION_SIMPLE;
-            $this->keep_daily = $backup->keep_daily;
-            $this->keep_weekly = $backup->keep_weekly;
-            $this->keep_monthly = $backup->keep_monthly;
+            $this->retention_policy = $backup->retention_policy ?? Backup::RETENTION_DAYS;
+            $this->gfs_keep_daily = $backup->gfs_keep_daily;
+            $this->gfs_keep_weekly = $backup->gfs_keep_weekly;
+            $this->gfs_keep_monthly = $backup->gfs_keep_monthly;
         }
     }
 
@@ -177,13 +177,14 @@ class DatabaseServerForm extends Form
             $rules['retention_policy'] = 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES);
 
             // Conditional validation based on retention policy
-            if ($this->retention_policy === Backup::RETENTION_SIMPLE) {
-                $rules['retention_days'] = 'nullable|integer|min:1|max:365';
-            } else {
-                $rules['keep_daily'] = 'nullable|integer|min:1|max:90';
-                $rules['keep_weekly'] = 'nullable|integer|min:1|max:52';
-                $rules['keep_monthly'] = 'nullable|integer|min:1|max:24';
+            if ($this->retention_policy === Backup::RETENTION_DAYS) {
+                $rules['retention_days'] = 'required|integer|min:1|max:365';
+            } elseif ($this->retention_policy === Backup::RETENTION_GFS) {
+                $rules['gfs_keep_daily'] = 'nullable|integer|min:1|max:90';
+                $rules['gfs_keep_weekly'] = 'nullable|integer|min:1|max:52';
+                $rules['gfs_keep_monthly'] = 'nullable|integer|min:1|max:24';
             }
+            // RETENTION_FOREVER requires no additional fields
         }
 
         if ($this->isSqlite()) {
@@ -209,13 +210,13 @@ class DatabaseServerForm extends Form
 
         // GFS policy requires at least one tier to be configured
         if ($this->backups_enabled
-            && $this->retention_policy !== Backup::RETENTION_SIMPLE
-            && empty($this->keep_daily)
-            && empty($this->keep_weekly)
-            && empty($this->keep_monthly)
+            && $this->retention_policy === Backup::RETENTION_GFS
+            && empty($this->gfs_keep_daily)
+            && empty($this->gfs_keep_weekly)
+            && empty($this->gfs_keep_monthly)
         ) {
             throw ValidationException::withMessages([
-                'form.keep_daily' => __('At least one retention tier must be configured.'),
+                'form.gfs_keep_daily' => __('At least one retention tier must be configured.'),
             ]);
         }
 
@@ -275,7 +276,7 @@ class DatabaseServerForm extends Form
      */
     private function extractBackupData(array $validated): array
     {
-        $retentionPolicy = $validated['retention_policy'] ?? Backup::RETENTION_SIMPLE;
+        $retentionPolicy = $validated['retention_policy'] ?? Backup::RETENTION_DAYS;
 
         $backupData = [
             'volume_id' => $validated['volume_id'] ?? '',
@@ -285,16 +286,22 @@ class DatabaseServerForm extends Form
         ];
 
         // Set retention fields based on policy
-        if ($retentionPolicy === Backup::RETENTION_SIMPLE) {
+        if ($retentionPolicy === Backup::RETENTION_DAYS) {
             $backupData['retention_days'] = $validated['retention_days'] ?? null;
-            $backupData['keep_daily'] = null;
-            $backupData['keep_weekly'] = null;
-            $backupData['keep_monthly'] = null;
-        } else {
+            $backupData['gfs_keep_daily'] = null;
+            $backupData['gfs_keep_weekly'] = null;
+            $backupData['gfs_keep_monthly'] = null;
+        } elseif ($retentionPolicy === Backup::RETENTION_GFS) {
             $backupData['retention_days'] = null;
-            $backupData['keep_daily'] = $validated['keep_daily'] ?? null;
-            $backupData['keep_weekly'] = $validated['keep_weekly'] ?? null;
-            $backupData['keep_monthly'] = $validated['keep_monthly'] ?? null;
+            $backupData['gfs_keep_daily'] = $validated['gfs_keep_daily'] ?? null;
+            $backupData['gfs_keep_weekly'] = $validated['gfs_keep_weekly'] ?? null;
+            $backupData['gfs_keep_monthly'] = $validated['gfs_keep_monthly'] ?? null;
+        } else {
+            // RETENTION_FOREVER - no retention fields needed
+            $backupData['retention_days'] = null;
+            $backupData['gfs_keep_daily'] = null;
+            $backupData['gfs_keep_weekly'] = null;
+            $backupData['gfs_keep_monthly'] = null;
         }
 
         unset(
@@ -303,9 +310,9 @@ class DatabaseServerForm extends Form
             $validated['recurrence'],
             $validated['retention_days'],
             $validated['retention_policy'],
-            $validated['keep_daily'],
-            $validated['keep_weekly'],
-            $validated['keep_monthly']
+            $validated['gfs_keep_daily'],
+            $validated['gfs_keep_weekly'],
+            $validated['gfs_keep_monthly']
         );
 
         return [$validated, $backupData];

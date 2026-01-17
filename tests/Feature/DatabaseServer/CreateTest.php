@@ -153,9 +153,9 @@ test('can create database server with GFS retention policy', function () {
         ->set('form.volume_id', $volume->id)
         ->set('form.recurrence', 'daily')
         ->set('form.retention_policy', 'gfs')
-        ->set('form.keep_daily', 7)
-        ->set('form.keep_weekly', 4)
-        ->set('form.keep_monthly', 12)
+        ->set('form.gfs_keep_daily', 7)
+        ->set('form.gfs_keep_weekly', 4)
+        ->set('form.gfs_keep_monthly', 12)
         ->call('save')
         ->assertHasNoErrors()
         ->assertRedirect(route('database-servers.index'));
@@ -173,9 +173,9 @@ test('can create database server with GFS retention policy', function () {
         'recurrence' => 'daily',
         'retention_policy' => 'gfs',
         'retention_days' => null,
-        'keep_daily' => 7,
-        'keep_weekly' => 4,
-        'keep_monthly' => 12,
+        'gfs_keep_daily' => 7,
+        'gfs_keep_weekly' => 4,
+        'gfs_keep_monthly' => 12,
     ]);
 });
 
@@ -201,11 +201,11 @@ test('cannot create database server with GFS retention when all tiers are empty'
         ->set('form.volume_id', $volume->id)
         ->set('form.recurrence', 'daily')
         ->set('form.retention_policy', 'gfs')
-        ->set('form.keep_daily', null)
-        ->set('form.keep_weekly', null)
-        ->set('form.keep_monthly', null)
+        ->set('form.gfs_keep_daily', null)
+        ->set('form.gfs_keep_weekly', null)
+        ->set('form.gfs_keep_monthly', null)
         ->call('save')
-        ->assertHasErrors(['form.keep_daily']);
+        ->assertHasErrors(['form.gfs_keep_daily']);
 
     $this->assertDatabaseMissing('database_servers', [
         'name' => 'GFS Empty Tiers Server',

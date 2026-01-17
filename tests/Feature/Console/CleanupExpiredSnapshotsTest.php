@@ -80,9 +80,9 @@ test('GFS policy keeps N most recent daily snapshots', function () {
     $server->backup->update([
         'retention_policy' => 'gfs',
         'retention_days' => null,
-        'keep_daily' => 3,
-        'keep_weekly' => null,
-        'keep_monthly' => null,
+        'gfs_keep_daily' => 3,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => null,
     ]);
 
     // Create 5 daily snapshots (days 1-5)
@@ -106,9 +106,9 @@ test('GFS policy keeps 1 snapshot per week for N weeks', function () {
     $server->backup->update([
         'retention_policy' => 'gfs',
         'retention_days' => null,
-        'keep_daily' => null,
-        'keep_weekly' => 2,
-        'keep_monthly' => null,
+        'gfs_keep_daily' => null,
+        'gfs_keep_weekly' => 2,
+        'gfs_keep_monthly' => null,
     ]);
 
     // Create snapshots in different weeks
@@ -129,9 +129,9 @@ test('GFS policy keeps 1 snapshot per month for N months', function () {
     $server->backup->update([
         'retention_policy' => 'gfs',
         'retention_days' => null,
-        'keep_daily' => null,
-        'keep_weekly' => null,
-        'keep_monthly' => 2,
+        'gfs_keep_daily' => null,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => 2,
     ]);
 
     // Create snapshots in different months
@@ -152,9 +152,9 @@ test('GFS policy with no tiers configured skips cleanup', function () {
     $server->backup->update([
         'retention_policy' => 'gfs',
         'retention_days' => null,
-        'keep_daily' => null,
-        'keep_weekly' => null,
-        'keep_monthly' => null,
+        'gfs_keep_daily' => null,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => null,
     ]);
 
     // Create some old snapshots that would normally be deleted
@@ -173,9 +173,9 @@ test('GFS policy combines all tiers correctly', function () {
     $server->backup->update([
         'retention_policy' => 'gfs',
         'retention_days' => null,
-        'keep_daily' => 2,
-        'keep_weekly' => 2,
-        'keep_monthly' => 1,
+        'gfs_keep_daily' => 2,
+        'gfs_keep_weekly' => 2,
+        'gfs_keep_monthly' => 1,
     ]);
 
     // Recent snapshots (should be kept by daily tier)
@@ -205,4 +205,27 @@ test('GFS policy combines all tiers correctly', function () {
         ->and(Snapshot::find($lastWeekSnapshot->id))->not->toBeNull()
         // This month old snapshot should be kept by monthly tier
         ->and(Snapshot::find($thisMonthOldSnapshot->id))->not->toBeNull();
+});
+
+test('Forever policy keeps all snapshots indefinitely', function () {
+    $server = DatabaseServer::factory()->create();
+    $server->backup->update([
+        'retention_policy' => 'forever',
+        'retention_days' => null,
+        'gfs_keep_daily' => null,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => null,
+    ]);
+
+    // Create snapshots of various ages - none should be deleted
+    $recentSnapshot = createSnapshot($server, 'completed', now()->subDays(1));
+    $oldSnapshot = createSnapshot($server, 'completed', now()->subDays(100));
+    $veryOldSnapshot = createSnapshot($server, 'completed', now()->subDays(365));
+
+    artisan('snapshots:cleanup')->assertSuccessful();
+
+    // All snapshots should be kept - forever means never delete
+    expect(Snapshot::find($recentSnapshot->id))->not->toBeNull()
+        ->and(Snapshot::find($oldSnapshot->id))->not->toBeNull()
+        ->and(Snapshot::find($veryOldSnapshot->id))->not->toBeNull();
 });

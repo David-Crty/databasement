@@ -52,6 +52,7 @@ test('can edit database server', function (array $config) {
         'database_server_id' => $server->id,
         'volume_id' => $volume->id,
         'recurrence' => 'daily',
+        'retention_days' => 7,
     ]);
 
     $component = Livewire::actingAs($user)

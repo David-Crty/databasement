@@ -18,9 +18,9 @@ use Illuminate\Support\Carbon;
  * @property string $recurrence
  * @property int|null $retention_days
  * @property string $retention_policy
- * @property int|null $keep_daily
- * @property int|null $keep_weekly
- * @property int|null $keep_monthly
+ * @property int|null $gfs_keep_daily
+ * @property int|null $gfs_keep_weekly
+ * @property int|null $gfs_keep_monthly
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read DatabaseServer $databaseServer
@@ -38,9 +38,9 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Backup whereRecurrence($value)
  * @method static Builder<static>|Backup whereRetentionDays($value)
  * @method static Builder<static>|Backup whereRetentionPolicy($value)
- * @method static Builder<static>|Backup whereKeepDaily($value)
- * @method static Builder<static>|Backup whereKeepWeekly($value)
- * @method static Builder<static>|Backup whereKeepMonthly($value)
+ * @method static Builder<static>|Backup whereGfsKeepDaily($value)
+ * @method static Builder<static>|Backup whereGfsKeepWeekly($value)
+ * @method static Builder<static>|Backup whereGfsKeepMonthly($value)
  * @method static Builder<static>|Backup whereUpdatedAt($value)
  * @method static Builder<static>|Backup whereVolumeId($value)
  *
@@ -59,13 +59,16 @@ class Backup extends Model
         self::RECURRENCE_WEEKLY,
     ];
 
-    public const string RETENTION_SIMPLE = 'simple';
+    public const string RETENTION_DAYS = 'days';
 
     public const string RETENTION_GFS = 'gfs';
 
+    public const string RETENTION_FOREVER = 'forever';
+
     public const array RETENTION_POLICIES = [
-        self::RETENTION_SIMPLE,
+        self::RETENTION_DAYS,
         self::RETENTION_GFS,
+        self::RETENTION_FOREVER,
     ];
 
     protected $fillable = [
@@ -75,9 +78,9 @@ class Backup extends Model
         'recurrence',
         'retention_days',
         'retention_policy',
-        'keep_daily',
-        'keep_weekly',
-        'keep_monthly',
+        'gfs_keep_daily',
+        'gfs_keep_weekly',
+        'gfs_keep_monthly',
     ];
 
     /**

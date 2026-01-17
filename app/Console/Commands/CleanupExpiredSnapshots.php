@@ -26,11 +26,12 @@ class CleanupExpiredSnapshots extends Command
             $this->info('Running in dry-run mode. No snapshots will be deleted.');
         }
 
-        // Find all backups with any retention configured
+        // Find all backups with retention configured (excludes 'forever' policy)
         $backupsWithRetention = Backup::where(function (Builder $query) {
-            $query->whereNotNull('retention_days')
+            $query->where('retention_policy', Backup::RETENTION_DAYS)
                 ->orWhere('retention_policy', Backup::RETENTION_GFS);
         })
+            ->where('retention_policy', '!=', Backup::RETENTION_FOREVER)
             ->with('databaseServer')
             ->get();
 
@@ -43,9 +44,10 @@ class CleanupExpiredSnapshots extends Command
         foreach ($backupsWithRetention as $backup) {
             if ($backup->retention_policy === Backup::RETENTION_GFS) {
                 $this->cleanupGfs($backup);
-            } else {
-                $this->cleanupSimple($backup);
+            } elseif ($backup->retention_policy === Backup::RETENTION_DAYS) {
+                $this->cleanupDays($backup);
             }
+            // RETENTION_FOREVER is excluded by the query, but skip just in case
         }
 
         if ($this->totalDeleted === 0) {
@@ -59,9 +61,9 @@ class CleanupExpiredSnapshots extends Command
     }
 
     /**
-     * Clean up snapshots using simple days-based retention.
+     * Clean up snapshots using days-based retention.
      */
-    private function cleanupSimple(Backup $backup): void
+    private function cleanupDays(Backup $backup): void
     {
         if ($backup->retention_days === null) {
             return;
@@ -95,7 +97,7 @@ class CleanupExpiredSnapshots extends Command
         $serverName = $backup->databaseServer->name ?? 'Unknown Server';
 
         // Guard: if all GFS tiers are null/empty, skip cleanup to avoid deleting all snapshots
-        if (empty($backup->keep_daily) && empty($backup->keep_weekly) && empty($backup->keep_monthly)) {
+        if (empty($backup->gfs_keep_daily) && empty($backup->gfs_keep_weekly) && empty($backup->gfs_keep_monthly)) {
             $this->warn("Server: {$serverName} - GFS policy has no tiers configured, skipping cleanup.");
 
             return;
@@ -114,20 +116,20 @@ class CleanupExpiredSnapshots extends Command
         $snapshotsToKeep = collect();
 
         // Daily tier: keep the N most recent snapshots
-        if ($backup->keep_daily) {
-            $dailySnapshots = $allSnapshots->take($backup->keep_daily);
+        if ($backup->gfs_keep_daily) {
+            $dailySnapshots = $allSnapshots->take($backup->gfs_keep_daily);
             $snapshotsToKeep = $snapshotsToKeep->merge($dailySnapshots->pluck('id'));
         }
 
         // Weekly tier: keep 1 snapshot per week for the last N weeks
-        if ($backup->keep_weekly) {
-            $weeklySnapshots = $this->selectSnapshotsForPeriod($allSnapshots, $backup->keep_weekly, 'week');
+        if ($backup->gfs_keep_weekly) {
+            $weeklySnapshots = $this->selectSnapshotsForPeriod($allSnapshots, $backup->gfs_keep_weekly, 'week');
             $snapshotsToKeep = $snapshotsToKeep->merge($weeklySnapshots->pluck('id'));
         }
 
         // Monthly tier: keep 1 snapshot per month for the last N months
-        if ($backup->keep_monthly) {
-            $monthlySnapshots = $this->selectSnapshotsForPeriod($allSnapshots, $backup->keep_monthly, 'month');
+        if ($backup->gfs_keep_monthly) {
+            $monthlySnapshots = $this->selectSnapshotsForPeriod($allSnapshots, $backup->gfs_keep_monthly, 'month');
             $snapshotsToKeep = $snapshotsToKeep->merge($monthlySnapshots->pluck('id'));
         }
 
@@ -140,7 +142,7 @@ class CleanupExpiredSnapshots extends Command
             return;
         }
 
-        $this->line("Server: {$serverName} (GFS: {$backup->keep_daily}d/{$backup->keep_weekly}w/{$backup->keep_monthly}m)");
+        $this->line("Server: {$serverName} (GFS: {$backup->gfs_keep_daily}d/{$backup->gfs_keep_weekly}w/{$backup->gfs_keep_monthly}m)");
 
         foreach ($snapshotsToDelete as $snapshot) {
             $this->deleteSnapshot($snapshot);

@@ -90,7 +90,9 @@
                     <div class="text-sm text-base-content/70 capitalize">
                         {{ $server->backup->recurrence }}
                         @if($server->backup->retention_policy === 'gfs')
-                            <span class="text-info">(GFS: {{ $server->backup->keep_daily ?? 0 }}d/{{ $server->backup->keep_weekly ?? 0 }}w/{{ $server->backup->keep_monthly ?? 0 }}m)</span>
+                            <span class="text-info">(GFS: {{ $server->backup->gfs_keep_daily ?? 0 }}d/{{ $server->backup->gfs_keep_weekly ?? 0 }}w/{{ $server->backup->gfs_keep_monthly ?? 0 }}m)</span>
+                        @elseif($server->backup->retention_policy === 'forever')
+                            <span class="text-warning">({{ __('Forever') }})</span>
                         @elseif($server->backup->retention_days)
                             <span>({{ $server->backup->retention_days }}d)</span>
                         @endif

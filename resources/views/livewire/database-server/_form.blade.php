@@ -9,8 +9,9 @@ $recurrenceOptions = collect(App\Models\Backup::RECURRENCE_TYPES)->map(fn($type)
 ])->toArray();
 
 $retentionPolicyOptions = [
-    ['id' => 'simple', 'name' => __('Simple (days-based)')],
+    ['id' => 'days', 'name' => __('Days-based')],
     ['id' => 'gfs', 'name' => __('GFS (Grandfather-Father-Son)')],
+    ['id' => 'forever', 'name' => __('Forever (keep all snapshots)')],
 ];
 
 $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
@@ -262,20 +263,21 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                 wire:model.live="form.retention_policy"
                 label="{{ __('Retention Policy') }}"
                 :options="$retentionPolicyOptions"
-                hint="{{ __('Simple: delete snapshots older than X days. GFS: keep daily, weekly, and monthly snapshots.') }}"
+                hint="{{ __('Simple: delete after X days. GFS: tiered retention. Forever: keep all snapshots.') }}"
             />
 
-            @if($form->retention_policy === 'simple')
+            @if($form->retention_policy === 'days')
                 <x-input
                     wire:model="form.retention_days"
                     label="{{ __('Retention Period (days)') }}"
                     placeholder="{{ __('e.g., 30') }}"
-                    hint="{{ __('Snapshots older than this will be automatically deleted. Leave empty to keep all snapshots.') }}"
+                    hint="{{ __('Snapshots older than this will be automatically deleted.') }}"
                     type="number"
                     min="1"
                     max="365"
+                    required
                 />
-            @else
+            @elseif($form->retention_policy === 'gfs')
                 <div class="p-4 rounded-lg bg-base-200 space-y-4">
                     <div class="space-y-2">
                         <p class="text-sm font-medium">{{ __('Grandfather-Father-Son (GFS) Retention') }}</p>
@@ -302,7 +304,7 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
 
                     <div class="grid gap-4 md:grid-cols-3">
                         <x-input
-                            wire:model="form.keep_daily"
+                            wire:model="form.gfs_keep_daily"
                             label="{{ __('Daily') }}"
                             placeholder="{{ __('e.g., 7') }}"
                             hint="{{ __('Keep last N daily snapshots') }}"
@@ -311,7 +313,7 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                             max="90"
                         />
                         <x-input
-                            wire:model="form.keep_weekly"
+                            wire:model="form.gfs_keep_weekly"
                             label="{{ __('Weekly') }}"
                             placeholder="{{ __('e.g., 4') }}"
                             hint="{{ __('Keep 1 per week for N weeks') }}"
@@ -320,7 +322,7 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                             max="52"
                         />
                         <x-input
-                            wire:model="form.keep_monthly"
+                            wire:model="form.gfs_keep_monthly"
                             label="{{ __('Monthly') }}"
                             placeholder="{{ __('e.g., 12') }}"
                             hint="{{ __('Keep 1 per month for N months') }}"
@@ -333,6 +335,10 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                         {{ __('Leave any tier empty to disable it. Snapshots matching multiple tiers are counted only once.') }}
                     </p>
                 </div>
+            @else
+                <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                    {{ __('All snapshots will be kept indefinitely. Make sure you have enough storage space or manually delete old snapshots.') }}
+                </x-alert>
             @endif
         </div>
     @endif
