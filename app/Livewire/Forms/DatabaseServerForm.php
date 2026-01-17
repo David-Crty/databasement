@@ -158,6 +158,56 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Get database type options for select
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getDatabaseTypeOptions(): array
+    {
+        return DatabaseType::toSelectOptions();
+    }
+
+    /**
+     * Get recurrence options for select
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getRecurrenceOptions(): array
+    {
+        return collect(Backup::RECURRENCE_TYPES)->map(fn ($type) => [
+            'id' => $type,
+            'name' => __(ucfirst($type)),
+        ])->toArray();
+    }
+
+    /**
+     * Get retention policy options for select
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getRetentionPolicyOptions(): array
+    {
+        return [
+            ['id' => Backup::RETENTION_DAYS, 'name' => __('Days-based')],
+            ['id' => Backup::RETENTION_GFS, 'name' => __('GFS (Grandfather-Father-Son)')],
+            ['id' => Backup::RETENTION_FOREVER, 'name' => __('Forever (keep all snapshots)')],
+        ];
+    }
+
+    /**
+     * Get volume options for select
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getVolumeOptions(): array
+    {
+        return \App\Models\Volume::orderBy('name')->get()->map(fn ($v) => [
+            'id' => $v->id,
+            'name' => "{$v->name} ({$v->type})",
+        ])->toArray();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function formValidate(): array

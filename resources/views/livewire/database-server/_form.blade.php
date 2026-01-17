@@ -1,25 +1,5 @@
 @props(['form', 'submitLabel' => 'Save', 'cancelRoute' => 'database-servers.index', 'isEdit' => false])
 
-@php
-$databaseTypes = App\Enums\DatabaseType::toSelectOptions();
-
-$recurrenceOptions = collect(App\Models\Backup::RECURRENCE_TYPES)->map(fn($type) => [
-    'id' => $type,
-    'name' => __(Str::ucfirst($type)),
-])->toArray();
-
-$retentionPolicyOptions = [
-    ['id' => 'days', 'name' => __('Days-based')],
-    ['id' => 'gfs', 'name' => __('GFS (Grandfather-Father-Son)')],
-    ['id' => 'forever', 'name' => __('Forever (keep all snapshots)')],
-];
-
-$volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
-    'id' => $v->id,
-    'name' => "{$v->name} ({$v->type})",
-])->toArray();
-@endphp
-
 <x-form wire:submit="save" class="space-y-6">
     <!-- Section 1: Basic Information -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -62,7 +42,7 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                 <x-select
                     wire:model.live="form.database_type"
                     label="{{ __('Database Type') }}"
-                    :options="$databaseTypes"
+                    :options="$form->getDatabaseTypeOptions()"
                     hint="{{ __('Select your database engine') }}"
                 />
 
@@ -246,11 +226,28 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                     <x-select
                         wire:model="form.volume_id"
                         label="{{ __('Storage Volume') }}"
-                        :options="$volumes"
+                        :options="$form->getVolumeOptions()"
                         placeholder="{{ __('Select a storage volume') }}"
                         placeholder-value=""
                         required
-                    />
+                    >
+                        <x-slot:append>
+                            <x-button
+                                wire:click="$refresh"
+                                icon="o-arrow-path"
+                                class="btn-ghost join-item"
+                                tooltip-bottom="{{ __('Refresh volume list') }}"
+                                spinner
+                            />
+                            <x-button
+                                link="{{ route('volumes.create') }}"
+                                icon="o-plus"
+                                class="btn-ghost join-item"
+                                tooltip-bottom="{{ __('Create new volume') }}"
+                                external
+                            />
+                        </x-slot:append>
+                    </x-select>
 
                     <x-input
                         wire:model="form.path"
@@ -265,14 +262,14 @@ $volumes = \App\Models\Volume::orderBy('name')->get()->map(fn($v) => [
                         <x-select
                             wire:model="form.recurrence"
                             label="{{ __('Backup Frequency') }}"
-                            :options="$recurrenceOptions"
+                            :options="$form->getRecurrenceOptions()"
                             required
                         />
 
                         <x-select
                             wire:model.live="form.retention_policy"
                             label="{{ __('Retention Policy') }}"
-                            :options="$retentionPolicyOptions"
+                            :options="$form->getRetentionPolicyOptions()"
                         />
                     </div>
 
