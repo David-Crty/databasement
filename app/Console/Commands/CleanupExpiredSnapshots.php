@@ -113,24 +113,28 @@ class CleanupExpiredSnapshots extends Command
             return;
         }
 
+        // Group snapshots by database_name and apply GFS retention per database
+        $snapshotsByDatabase = $allSnapshots->groupBy('database_name');
         $snapshotsToKeep = collect();
 
-        // Daily tier: keep the N most recent snapshots
-        if ($backup->gfs_keep_daily) {
-            $dailySnapshots = $allSnapshots->take($backup->gfs_keep_daily);
-            $snapshotsToKeep = $snapshotsToKeep->merge($dailySnapshots->pluck('id'));
-        }
+        foreach ($snapshotsByDatabase as $databaseName => $databaseSnapshots) {
+            // Daily tier: keep the N most recent snapshots per database
+            if ($backup->gfs_keep_daily) {
+                $dailySnapshots = $databaseSnapshots->take($backup->gfs_keep_daily);
+                $snapshotsToKeep = $snapshotsToKeep->merge($dailySnapshots->pluck('id'));
+            }
 
-        // Weekly tier: keep 1 snapshot per week for the last N weeks
-        if ($backup->gfs_keep_weekly) {
-            $weeklySnapshots = $this->selectSnapshotsForPeriod($allSnapshots, $backup->gfs_keep_weekly, 'week');
-            $snapshotsToKeep = $snapshotsToKeep->merge($weeklySnapshots->pluck('id'));
-        }
+            // Weekly tier: keep 1 snapshot per week for the last N weeks per database
+            if ($backup->gfs_keep_weekly) {
+                $weeklySnapshots = $this->selectSnapshotsForPeriod($databaseSnapshots, $backup->gfs_keep_weekly, 'week');
+                $snapshotsToKeep = $snapshotsToKeep->merge($weeklySnapshots->pluck('id'));
+            }
 
-        // Monthly tier: keep 1 snapshot per month for the last N months
-        if ($backup->gfs_keep_monthly) {
-            $monthlySnapshots = $this->selectSnapshotsForPeriod($allSnapshots, $backup->gfs_keep_monthly, 'month');
-            $snapshotsToKeep = $snapshotsToKeep->merge($monthlySnapshots->pluck('id'));
+            // Monthly tier: keep 1 snapshot per month for the last N months per database
+            if ($backup->gfs_keep_monthly) {
+                $monthlySnapshots = $this->selectSnapshotsForPeriod($databaseSnapshots, $backup->gfs_keep_monthly, 'month');
+                $snapshotsToKeep = $snapshotsToKeep->merge($monthlySnapshots->pluck('id'));
+            }
         }
 
         // Find snapshots to delete (not in any tier)

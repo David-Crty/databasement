@@ -298,7 +298,7 @@
                                 <div>
                                     <p class="text-sm font-medium">{{ __('Grandfather-Father-Son (GFS) Retention') }}</p>
                                     <p class="text-sm text-base-content/70 mt-1">
-                                        {{ __('Keeps recent backups for quick recovery while preserving older snapshots for archival. Default: 7 daily + 4 weekly + 12 monthly backups.') }}
+                                        {{ __('Keeps recent backups for quick recovery while preserving older snapshots for archival. Retention is applied per database. Default: 7 daily + 4 weekly + 12 monthly backups.') }}
                                     </p>
                                 </div>
                             </div>
