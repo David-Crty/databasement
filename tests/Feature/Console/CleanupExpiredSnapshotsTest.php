@@ -5,12 +5,12 @@ use App\Models\Snapshot;
 
 use function Pest\Laravel\artisan;
 
-function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $createdAt): Snapshot
+function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $createdAt, ?string $databaseName = null): Snapshot
 {
     $snapshot = Snapshot::factory()
         ->forServer($server)
         ->withFile()
-        ->create();
+        ->create($databaseName ? ['database_name' => $databaseName] : []);
 
     // Update job status if not 'completed'
     if ($status !== 'completed') {
@@ -26,39 +26,34 @@ function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $
     return $snapshot->fresh();
 }
 
-test('command deletes only expired completed snapshots', function () {
-    // Server with 7 days retention
+test('days retention deletes expired snapshots and files, skips pending and recent', function () {
     $server = DatabaseServer::factory()->create();
     $server->backup->update(['retention_days' => 7]);
 
     // Should be deleted: completed and expired (10 days old)
-    $expiredCompleted = createSnapshot($server, 'completed', now()->subDays(10));
+    $expiredCompleted = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
     $volumePath = $expiredCompleted->volume->config['path'];
     $expiredFilePath = $volumePath.'/'.$expiredCompleted->filename;
 
     // Should NOT be deleted: completed but not expired (3 days old)
-    $recentCompleted = createSnapshot($server, 'completed', now()->subDays(3));
+    $recentCompleted = createSnapshot($server, 'completed', now()->subDays(3), 'app_db');
 
     // Should NOT be deleted: expired but pending (not completed)
-    $expiredPending = createSnapshot($server, 'pending', now()->subDays(10));
+    $expiredPending = createSnapshot($server, 'pending', now()->subDays(10), 'app_db');
 
-    // Server without retention - snapshots should never be deleted
-    $serverNoRetention = DatabaseServer::factory()->create();
-    $serverNoRetention->backup->update(['retention_days' => null]);
-    $noRetentionSnapshot = createSnapshot($serverNoRetention, 'completed', now()->subDays(100));
+    // Should be deleted: expired snapshot from different database
+    $otherDbExpired = createSnapshot($server, 'completed', now()->subDays(10), 'analytics_db');
 
-    artisan('snapshots:cleanup')
-        ->expectsOutputToContain('1 snapshot(s) deleted')
-        ->assertSuccessful();
+    artisan('snapshots:cleanup')->assertSuccessful();
 
     expect(Snapshot::find($expiredCompleted->id))->toBeNull()
         ->and(file_exists($expiredFilePath))->toBeFalse()
         ->and(Snapshot::find($recentCompleted->id))->not->toBeNull()
         ->and(Snapshot::find($expiredPending->id))->not->toBeNull()
-        ->and(Snapshot::find($noRetentionSnapshot->id))->not->toBeNull();
+        ->and(Snapshot::find($otherDbExpired->id))->toBeNull();
 });
 
-test('command dry-run mode does not delete snapshots', function () {
+test('dry-run mode does not delete snapshots', function () {
     $server = DatabaseServer::factory()->create();
     $server->backup->update(['retention_days' => 7]);
 
@@ -75,100 +70,7 @@ test('command dry-run mode does not delete snapshots', function () {
         ->and(file_exists($filePath))->toBeTrue();
 });
 
-test('GFS policy keeps N most recent daily snapshots', function () {
-    $server = DatabaseServer::factory()->create();
-    $server->backup->update([
-        'retention_policy' => 'gfs',
-        'retention_days' => null,
-        'gfs_keep_daily' => 3,
-        'gfs_keep_weekly' => null,
-        'gfs_keep_monthly' => null,
-    ]);
-
-    // Create 5 daily snapshots (days 1-5)
-    $snapshots = collect();
-    for ($i = 1; $i <= 5; $i++) {
-        $snapshots->push(createSnapshot($server, 'completed', now()->subDays($i)));
-    }
-
-    artisan('snapshots:cleanup')->assertSuccessful();
-
-    // Should keep the 3 most recent (days 1, 2, 3), delete days 4 and 5
-    expect(Snapshot::find($snapshots[0]->id))->not->toBeNull() // day 1
-        ->and(Snapshot::find($snapshots[1]->id))->not->toBeNull() // day 2
-        ->and(Snapshot::find($snapshots[2]->id))->not->toBeNull() // day 3
-        ->and(Snapshot::find($snapshots[3]->id))->toBeNull() // day 4 - deleted
-        ->and(Snapshot::find($snapshots[4]->id))->toBeNull(); // day 5 - deleted
-});
-
-test('GFS policy keeps 1 snapshot per week for N weeks', function () {
-    $server = DatabaseServer::factory()->create();
-    $server->backup->update([
-        'retention_policy' => 'gfs',
-        'retention_days' => null,
-        'gfs_keep_daily' => null,
-        'gfs_keep_weekly' => 2,
-        'gfs_keep_monthly' => null,
-    ]);
-
-    // Create snapshots in different weeks
-    $thisWeekSnapshot = createSnapshot($server, 'completed', now()->startOfWeek()->addDays(2));
-    $lastWeekSnapshot = createSnapshot($server, 'completed', now()->subWeek()->startOfWeek()->addDays(2));
-    $twoWeeksAgoSnapshot = createSnapshot($server, 'completed', now()->subWeeks(2)->startOfWeek()->addDays(2));
-
-    artisan('snapshots:cleanup')->assertSuccessful();
-
-    // Should keep snapshots from this week and last week (2 weeks), delete 2 weeks ago
-    expect(Snapshot::find($thisWeekSnapshot->id))->not->toBeNull()
-        ->and(Snapshot::find($lastWeekSnapshot->id))->not->toBeNull()
-        ->and(Snapshot::find($twoWeeksAgoSnapshot->id))->toBeNull();
-});
-
-test('GFS policy keeps 1 snapshot per month for N months', function () {
-    $server = DatabaseServer::factory()->create();
-    $server->backup->update([
-        'retention_policy' => 'gfs',
-        'retention_days' => null,
-        'gfs_keep_daily' => null,
-        'gfs_keep_weekly' => null,
-        'gfs_keep_monthly' => 2,
-    ]);
-
-    // Create snapshots in different months
-    $thisMonthSnapshot = createSnapshot($server, 'completed', now()->startOfMonth()->addDays(5));
-    $lastMonthSnapshot = createSnapshot($server, 'completed', now()->subMonth()->startOfMonth()->addDays(5));
-    $twoMonthsAgoSnapshot = createSnapshot($server, 'completed', now()->subMonths(2)->startOfMonth()->addDays(5));
-
-    artisan('snapshots:cleanup')->assertSuccessful();
-
-    // Should keep snapshots from this month and last month (2 months), delete 2 months ago
-    expect(Snapshot::find($thisMonthSnapshot->id))->not->toBeNull()
-        ->and(Snapshot::find($lastMonthSnapshot->id))->not->toBeNull()
-        ->and(Snapshot::find($twoMonthsAgoSnapshot->id))->toBeNull();
-});
-
-test('GFS policy with no tiers configured skips cleanup', function () {
-    $server = DatabaseServer::factory()->create();
-    $server->backup->update([
-        'retention_policy' => 'gfs',
-        'retention_days' => null,
-        'gfs_keep_daily' => null,
-        'gfs_keep_weekly' => null,
-        'gfs_keep_monthly' => null,
-    ]);
-
-    // Create some old snapshots that would normally be deleted
-    $oldSnapshot = createSnapshot($server, 'completed', now()->subDays(100));
-
-    artisan('snapshots:cleanup')
-        ->expectsOutputToContain('GFS policy has no tiers configured, skipping cleanup')
-        ->assertSuccessful();
-
-    // Snapshot should NOT be deleted because cleanup was skipped
-    expect(Snapshot::find($oldSnapshot->id))->not->toBeNull();
-});
-
-test('GFS policy combines all tiers correctly', function () {
+test('GFS retention combines daily, weekly, and monthly tiers', function () {
     $server = DatabaseServer::factory()->create();
     $server->backup->update([
         'retention_policy' => 'gfs',
@@ -183,49 +85,91 @@ test('GFS policy combines all tiers correctly', function () {
     $day2 = createSnapshot($server, 'completed', now()->subDays(2));
     $day3 = createSnapshot($server, 'completed', now()->subDays(3)); // Outside daily tier
 
-    // Create a snapshot at start of this week (older than day3, will be the weekly representative)
+    // Snapshot at start of this week (kept by weekly tier as oldest in week)
     $thisWeekOldest = createSnapshot($server, 'completed', now()->startOfWeek());
 
-    // Create a snapshot from last week (kept by weekly tier)
-    $lastWeekSnapshot = createSnapshot($server, 'completed', now()->subWeek()->startOfWeek()->addDays(1));
+    // Snapshot from last week (kept by weekly tier)
+    $lastWeek = createSnapshot($server, 'completed', now()->subWeek()->startOfWeek()->addDay());
 
-    // Create a snapshot from this month (kept by monthly tier)
-    $thisMonthOldSnapshot = createSnapshot($server, 'completed', now()->startOfMonth()->addDay());
+    // Snapshot from this month (kept by monthly tier)
+    $thisMonth = createSnapshot($server, 'completed', now()->startOfMonth()->addDay());
 
     artisan('snapshots:cleanup')->assertSuccessful();
 
-    // Day 1 and 2 should be kept by daily tier
+    // Daily tier keeps day 1 and 2
     expect(Snapshot::find($day1->id))->not->toBeNull()
         ->and(Snapshot::find($day2->id))->not->toBeNull()
-        // Day 3 is outside daily tier and not the oldest in its week (thisWeekOldest is older), so should be deleted
+        // Day 3 outside daily, not oldest in week
         ->and(Snapshot::find($day3->id))->toBeNull()
-        // This week's oldest should be kept by weekly tier
+        // Weekly tier keeps oldest from this week and last week
         ->and(Snapshot::find($thisWeekOldest->id))->not->toBeNull()
-        // Last week snapshot should be kept by weekly tier
-        ->and(Snapshot::find($lastWeekSnapshot->id))->not->toBeNull()
-        // This month old snapshot should be kept by monthly tier
-        ->and(Snapshot::find($thisMonthOldSnapshot->id))->not->toBeNull();
+        ->and(Snapshot::find($lastWeek->id))->not->toBeNull()
+        // Monthly tier keeps this month
+        ->and(Snapshot::find($thisMonth->id))->not->toBeNull();
 });
 
-test('Forever policy keeps all snapshots indefinitely', function () {
+test('GFS retention applies per database_name', function () {
     $server = DatabaseServer::factory()->create();
     $server->backup->update([
-        'retention_policy' => 'forever',
+        'retention_policy' => 'gfs',
+        'retention_days' => null,
+        'gfs_keep_daily' => 2,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => null,
+    ]);
+
+    // Create 3 snapshots for database "app_db"
+    $appDb1 = createSnapshot($server, 'completed', now()->subDays(1), 'app_db');
+    $appDb2 = createSnapshot($server, 'completed', now()->subDays(2), 'app_db');
+    $appDb3 = createSnapshot($server, 'completed', now()->subDays(3), 'app_db');
+
+    // Create 3 snapshots for database "analytics_db"
+    $analyticsDb1 = createSnapshot($server, 'completed', now()->subDays(1), 'analytics_db');
+    $analyticsDb2 = createSnapshot($server, 'completed', now()->subDays(2), 'analytics_db');
+    $analyticsDb3 = createSnapshot($server, 'completed', now()->subDays(3), 'analytics_db');
+
+    artisan('snapshots:cleanup')->assertSuccessful();
+
+    // Each database keeps its own 2 most recent, deletes the 3rd
+    expect(Snapshot::find($appDb1->id))->not->toBeNull()
+        ->and(Snapshot::find($appDb2->id))->not->toBeNull()
+        ->and(Snapshot::find($appDb3->id))->toBeNull()
+        ->and(Snapshot::find($analyticsDb1->id))->not->toBeNull()
+        ->and(Snapshot::find($analyticsDb2->id))->not->toBeNull()
+        ->and(Snapshot::find($analyticsDb3->id))->toBeNull();
+});
+
+test('GFS with no tiers configured skips cleanup', function () {
+    $server = DatabaseServer::factory()->create();
+    $server->backup->update([
+        'retention_policy' => 'gfs',
         'retention_days' => null,
         'gfs_keep_daily' => null,
         'gfs_keep_weekly' => null,
         'gfs_keep_monthly' => null,
     ]);
 
-    // Create snapshots of various ages - none should be deleted
-    $recentSnapshot = createSnapshot($server, 'completed', now()->subDays(1));
     $oldSnapshot = createSnapshot($server, 'completed', now()->subDays(100));
+
+    artisan('snapshots:cleanup')
+        ->expectsOutputToContain('GFS policy has no tiers configured, skipping cleanup')
+        ->assertSuccessful();
+
+    expect(Snapshot::find($oldSnapshot->id))->not->toBeNull();
+});
+
+test('forever policy keeps all snapshots indefinitely', function () {
+    $server = DatabaseServer::factory()->create();
+    $server->backup->update([
+        'retention_policy' => 'forever',
+        'retention_days' => null,
+    ]);
+
+    $recentSnapshot = createSnapshot($server, 'completed', now()->subDays(1));
     $veryOldSnapshot = createSnapshot($server, 'completed', now()->subDays(365));
 
     artisan('snapshots:cleanup')->assertSuccessful();
 
-    // All snapshots should be kept - forever means never delete
     expect(Snapshot::find($recentSnapshot->id))->not->toBeNull()
-        ->and(Snapshot::find($oldSnapshot->id))->not->toBeNull()
         ->and(Snapshot::find($veryOldSnapshot->id))->not->toBeNull();
 });

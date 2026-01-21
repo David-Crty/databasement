@@ -102,6 +102,10 @@ Today ◄───────────────────────�
 
 **Best for:** Production environments, compliance requirements, or when you need long-term recovery options without excessive storage costs.
 
+:::info Per-Database Retention
+Retention policies are applied **per database**, not per server. If you backup 3 databases with GFS (7 daily), each database keeps its own 7 most recent backups — totaling 21 backups across all databases.
+:::
+
 ### Choosing a Retention Policy
 
 | Scenario | Recommended Policy |
