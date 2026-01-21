@@ -19,10 +19,10 @@ class Index extends Component
     public string $search = '';
 
     #[Url]
-    public string $roleFilter = 'all';
+    public string $roleFilter = '';
 
     #[Url]
-    public string $statusFilter = 'all';
+    public string $statusFilter = '';
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
@@ -80,7 +80,6 @@ class Index extends Component
     public function roleFilterOptions(): array
     {
         return [
-            ['id' => 'all', 'name' => __('All Roles')],
             ['id' => User::ROLE_ADMIN, 'name' => __('Admin')],
             ['id' => User::ROLE_MEMBER, 'name' => __('Member')],
             ['id' => User::ROLE_VIEWER, 'name' => __('Viewer')],
@@ -93,7 +92,6 @@ class Index extends Component
     public function statusFilterOptions(): array
     {
         return [
-            ['id' => 'all', 'name' => __('All Status')],
             ['id' => 'active', 'name' => __('Active')],
             ['id' => 'pending', 'name' => __('Pending')],
         ];
@@ -145,10 +143,10 @@ class Index extends Component
                         ->orWhere('email', 'like', '%'.$this->search.'%');
                 });
             })
-            ->when($this->roleFilter !== 'all', function ($query) {
+            ->when($this->roleFilter !== '', function ($query) {
                 $query->where('role', $this->roleFilter);
             })
-            ->when($this->statusFilter !== 'all', function ($query) {
+            ->when($this->statusFilter !== '', function ($query) {
                 if ($this->statusFilter === 'active') {
                     $query->whereNotNull('invitation_accepted_at');
                 } else {

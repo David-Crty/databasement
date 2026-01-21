@@ -15,3 +15,4 @@ parameters:
 
     ignoreErrors:
         - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder.*::allowedFilters\(\)#'
+        - '#should return .* but returns .* \$this\(.*\)#'

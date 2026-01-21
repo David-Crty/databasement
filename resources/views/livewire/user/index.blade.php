@@ -17,7 +17,7 @@
         <x-table :headers="$headers" :rows="$users" :sort-by="$sortBy" with-pagination>
             <x-slot:empty>
                 <div class="text-center text-base-content/50 py-8">
-                    @if($search || $roleFilter !== 'all' || $statusFilter !== 'all')
+                    @if($search || $roleFilter !== '' || $statusFilter !== '')
                         {{ __('No users found matching your filters.') }}
                     @else
                         {{ __('No users yet.') }}
@@ -103,13 +103,17 @@
         <div class="grid gap-5">
             <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" icon="o-magnifying-glass" @keydown.enter="$wire.drawer = false" />
             <x-select
-                placeholder="{{ __('Filter by role...') }}"
+                label="{{ __('Role') }}"
+                placeholder="{{ __('All Roles') }}"
+                placeholder-value=""
                 wire:model.live="roleFilter"
                 :options="$roleFilterOptions"
                 icon="o-user-group"
             />
             <x-select
-                placeholder="{{ __('Filter by status...') }}"
+                label="{{ __('Status') }}"
+                placeholder="{{ __('All Status') }}"
+                placeholder-value=""
                 wire:model.live="statusFilter"
                 :options="$statusFilterOptions"
                 icon="o-funnel"
