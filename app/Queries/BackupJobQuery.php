@@ -58,6 +58,7 @@ class BackupJobQuery
         ?string $search = null,
         array $statusFilter = [],
         string $typeFilter = 'all',
+        string $serverFilter = '',
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
@@ -77,12 +78,15 @@ class BackupJobQuery
             ->when(! empty($statusFilter), function (Builder $query) use ($statusFilter) {
                 $query->whereIn('status', $statusFilter);
             })
-            ->when($typeFilter !== 'all', function (Builder $query) use ($typeFilter) {
+            ->when($typeFilter !== '', function (Builder $query) use ($typeFilter) {
                 if ($typeFilter === 'backup') {
                     $query->whereHas('snapshot');
                 } else {
                     $query->whereHas('restore');
                 }
+            })
+            ->when($serverFilter !== '', function (Builder $query) use ($serverFilter) {
+                self::applyServerFilter($query, $serverFilter);
             });
 
         // Handle sorting
@@ -117,6 +121,23 @@ class BackupJobQuery
                 })
                 ->orWhereHas('restore', function (Builder $sq) use ($search) {
                     $sq->whereRaw('schema_name LIKE ?', ["%{$search}%"]);
+                });
+        });
+    }
+
+    /**
+     * Filter by database server ID (for both backups and restores).
+     *
+     * @param  Builder<BackupJob>  $query
+     */
+    private static function applyServerFilter(Builder $query, string $serverId): void
+    {
+        $query->where(function (Builder $q) use ($serverId) {
+            $q->whereHas('snapshot', function ($sq) use ($serverId) {
+                $sq->whereRaw('database_server_id = ?', [$serverId]);
+            })
+                ->orWhereHas('restore', function ($sq) use ($serverId) {
+                    $sq->whereRaw('target_server_id = ?', [$serverId]);
                 });
         });
     }

@@ -36,11 +36,13 @@ test('can search backup jobs by server name', function () {
     $snapshots2 = $factory->createSnapshots($server2, 'manual', $user->id);
     $snapshots2[0]->job->update(['status' => 'completed']);
 
+    // Search by server name - check database names to verify filtering
+    // (server names appear in the filter dropdown, so we check db names which are row-specific)
     Livewire::actingAs($user)
         ->test(Index::class)
         ->set('search', 'Production')
-        ->assertSee('Production MySQL')
-        ->assertDontSee('Development PostgreSQL');
+        ->assertSee('production_db')
+        ->assertDontSee('development_db');
 });
 
 test('can filter backup jobs by status', function () {
@@ -110,6 +112,41 @@ test('can filter backup jobs by type', function () {
         ->assertSee('test_db')
         ->set('typeFilter', 'restore')
         ->assertDontSee('test_db');
+});
+
+test('can filter backup jobs by server', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server1 = DatabaseServer::factory()->create(['name' => 'Production Server', 'database_names' => ['production_db']]);
+    $server2 = DatabaseServer::factory()->create(['name' => 'Development Server', 'database_names' => ['development_db']]);
+
+    $snapshots1 = $factory->createSnapshots($server1, 'manual', $user->id);
+    $snapshots1[0]->job->update(['status' => 'completed']);
+
+    $snapshots2 = $factory->createSnapshots($server2, 'manual', $user->id);
+    $snapshots2[0]->job->update(['status' => 'completed']);
+
+    // Filter by server1 - should see only production_db
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('serverFilter', $server1->id)
+        ->assertSee('production_db')
+        ->assertDontSee('development_db');
+
+    // Filter by server2 - should see only development_db
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('serverFilter', $server2->id)
+        ->assertSee('development_db')
+        ->assertDontSee('production_db');
+
+    // No filter - should see both
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('serverFilter', '')
+        ->assertSee('production_db')
+        ->assertSee('development_db');
 });
 
 test('can download snapshot from local storage', function () {

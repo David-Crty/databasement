@@ -67,6 +67,7 @@ class Index extends Component
             ['key' => 'host', 'label' => __('Connection'), 'class' => 'w-48'],
             ['key' => 'database_names', 'label' => __('Databases'), 'sortable' => false],
             ['key' => 'backup', 'label' => __('Backup'), 'sortable' => false],
+            ['key' => 'jobs', 'label' => __('Jobs'), 'sortable' => false, 'class' => 'w-32'],
         ];
     }
 

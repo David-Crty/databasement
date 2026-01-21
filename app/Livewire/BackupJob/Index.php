@@ -3,6 +3,7 @@
 namespace App\Livewire\BackupJob;
 
 use App\Models\BackupJob;
+use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\BackupJobQuery;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
@@ -27,7 +28,10 @@ class Index extends Component
     public array $statusFilter = [];
 
     #[Url]
-    public string $typeFilter = 'all';
+    public string $typeFilter = '';
+
+    #[Url]
+    public string $serverFilter = '';
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
@@ -58,6 +62,11 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function updatingServerFilter(): void
+    {
+        $this->resetPage();
+    }
+
     /**
      * @param  string|array<string, mixed>  $property
      */
@@ -70,7 +79,7 @@ class Index extends Component
 
     public function clear(): void
     {
-        $this->reset('search', 'statusFilter', 'typeFilter');
+        $this->reset('search', 'statusFilter', 'typeFilter', 'serverFilter');
         $this->resetPage();
         $this->success('Filters cleared.', position: 'toast-bottom');
     }
@@ -125,10 +134,24 @@ class Index extends Component
     public function typeOptions(): array
     {
         return [
-            ['id' => 'all', 'name' => __('All Types')],
             ['id' => 'backup', 'name' => __('Backup')],
             ['id' => 'restore', 'name' => __('Restore')],
         ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function serverOptions(): array
+    {
+        return DatabaseServer::query()
+            ->orderBy('name')
+            ->get()
+            ->map(fn (DatabaseServer $server) => [
+                'id' => $server->id,
+                'name' => $server->name,
+            ])
+            ->toArray();
     }
 
     public function download(string $snapshotId): ?BinaryFileResponse
@@ -223,6 +246,7 @@ class Index extends Component
             search: $this->search,
             statusFilter: $this->statusFilter,
             typeFilter: $this->typeFilter,
+            serverFilter: $this->serverFilter,
             sortColumn: $this->sortBy['column'],
             sortDirection: $this->sortBy['direction']
         )->paginate(15);
@@ -232,6 +256,7 @@ class Index extends Component
             'headers' => $this->headers(),
             'statusOptions' => $this->statusOptions(),
             'typeOptions' => $this->typeOptions(),
+            'serverOptions' => $this->serverOptions(),
         ])->layout('components.layouts.app', ['title' => __('Jobs')]);
     }
 }

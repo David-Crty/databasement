@@ -14,7 +14,7 @@
         <x-table :headers="$headers" :rows="$jobs" :sort-by="$sortBy" with-pagination>
             <x-slot:empty>
                 <div class="text-center text-base-content/50 py-8">
-                    @if($search || !empty($statusFilter) || $typeFilter !== 'all')
+                    @if($search || !empty($statusFilter) || $typeFilter !== 'all' || $serverFilter !== '')
                         {{ __('No jobs found matching your filters.') }}
                     @else
                         {{ __('No jobs yet. Backups and restores will appear here.') }}
@@ -143,6 +143,14 @@
                 wire:model.live="typeFilter"
                 :options="$typeOptions"
                 icon="o-folder"
+            />
+            <x-select
+                label="{{ __('Server') }}"
+                placeholder="{{ __('All Servers') }}"
+                placeholder-value=""
+                wire:model.live="serverFilter"
+                :options="$serverOptions"
+                icon="o-server"
             />
             <x-choices
                 label="{{ __('Filter by status') }}"

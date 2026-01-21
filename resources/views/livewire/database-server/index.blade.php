@@ -102,6 +102,40 @@
                 @endif
             @endscope
 
+            @scope('cell_jobs', $server)
+                <div class="flex items-center gap-3 text-sm">
+                    @if($server->snapshots_count > 0)
+                        <a href="{{ route('jobs.index', ['serverFilter' => $server->id, 'typeFilter' => 'backup']) }}"
+                           class="flex items-center gap-1 hover:text-info transition-colors tooltip"
+                           data-tip="{{ __('View backup jobs') }}"
+                           wire:navigate>
+                            <x-icon name="o-arrow-down-tray" class="w-4 h-4" />
+                            <span>{{ $server->snapshots_count }}</span>
+                        </a>
+                    @else
+                        <span class="flex items-center gap-1 text-base-content/30">
+                            <x-icon name="o-arrow-down-tray" class="w-4 h-4" />
+                            <span>0</span>
+                        </span>
+                    @endif
+
+                    @if($server->restores_count > 0)
+                        <a href="{{ route('jobs.index', ['serverFilter' => $server->id, 'typeFilter' => 'restore']) }}"
+                           class="flex items-center gap-1 hover:text-success transition-colors tooltip"
+                           data-tip="{{ __('View restore jobs') }}"
+                           wire:navigate>
+                            <x-icon name="o-arrow-up-tray" class="w-4 h-4" />
+                            <span>{{ $server->restores_count }}</span>
+                        </a>
+                    @else
+                        <span class="flex items-center gap-1 text-base-content/30">
+                            <x-icon name="o-arrow-up-tray" class="w-4 h-4" />
+                            <span>0</span>
+                        </span>
+                    @endif
+                </div>
+            @endscope
+
             @scope('actions', $server)
                 <div class="flex gap-2 justify-end">
                     @can('backup', $server)
