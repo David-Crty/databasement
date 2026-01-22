@@ -45,7 +45,7 @@ test('can search backup jobs by server name', function () {
         ->assertDontSee('development_db');
 });
 
-test('can filter backup jobs by multiple statuses', function () {
+test('can filter backup jobs by status', function () {
     $user = User::factory()->create();
     $factory = app(BackupJobFactory::class);
 
@@ -66,11 +66,20 @@ test('can filter backup jobs by multiple statuses', function () {
     $runningSnapshot->job->update(['status' => 'running']);
     $runningSnapshot->update(['database_name' => 'running_db']);
 
+    // Filter by completed - should only see completed_db
     Livewire::actingAs($user)
         ->test(Index::class)
-        ->set('statusFilter', ['completed', 'failed'])
+        ->set('statusFilter', 'completed')
         ->assertSee('completed_db')
+        ->assertDontSee('failed_db')
+        ->assertDontSee('running_db');
+
+    // Filter by failed - should only see failed_db
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('statusFilter', 'failed')
         ->assertSee('failed_db')
+        ->assertDontSee('completed_db')
         ->assertDontSee('running_db');
 });
 

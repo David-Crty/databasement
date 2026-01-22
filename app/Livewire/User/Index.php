@@ -27,8 +27,6 @@ class Index extends Component
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
 
-    public bool $drawer = false;
-
     #[Locked]
     public ?int $deleteId = null;
 

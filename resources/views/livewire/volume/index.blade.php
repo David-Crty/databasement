@@ -1,16 +1,40 @@
 <div>
-    <!-- HEADER -->
+    <!-- HEADER with search (Desktop) -->
     <x-header title="{{ __('Volumes') }}" separator progress-indicator>
-        <x-slot:middle class="!justify-end">
-            <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" clearable icon="o-magnifying-glass" />
-        </x-slot:middle>
         <x-slot:actions>
-            <x-button label="{{ __('Filters') }}" @click="$wire.drawer = true" responsive icon="o-funnel" class="btn-ghost" />
+            <div class="hidden sm:flex items-center gap-2">
+                <x-input
+                    placeholder="{{ __('Search...') }}"
+                    wire:model.live.debounce="search"
+                    clearable
+                    icon="o-magnifying-glass"
+                    class="!input-sm w-48"
+                />
+                @if($search)
+                    <x-button
+                        icon="o-x-mark"
+                        wire:click="clear"
+                        spinner
+                        class="btn-ghost btn-sm"
+                        tooltip="{{ __('Clear search') }}"
+                    />
+                @endif
+            </div>
             @can('create', App\Models\Volume::class)
-                <x-button label="{{ __('Add Volume') }}" link="{{ route('volumes.create') }}" icon="o-plus" class="btn-primary" wire:navigate />
+                <x-button label="{{ __('Add Volume') }}" link="{{ route('volumes.create') }}" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
             @endcan
         </x-slot:actions>
     </x-header>
+
+    <!-- SEARCH (Mobile) -->
+    <div class="sm:hidden mb-4">
+        <x-input
+            placeholder="{{ __('Search...') }}"
+            wire:model.live.debounce="search"
+            clearable
+            icon="o-magnifying-glass"
+        />
+    </div>
 
     <!-- TABLE -->
     <x-card shadow>
@@ -75,16 +99,6 @@
             @endscope
         </x-table>
     </x-card>
-
-    <!-- FILTER DRAWER -->
-    <x-drawer wire:model="drawer" title="{{ __('Filters') }}" right separator with-close-button class="lg:w-1/3">
-        <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" icon="o-magnifying-glass" @keydown.enter="$wire.drawer = false" />
-
-        <x-slot:actions>
-            <x-button label="{{ __('Reset') }}" icon="o-x-mark" wire:click="clear" spinner />
-            <x-button label="{{ __('Done') }}" icon="o-check" class="btn-primary" @click="$wire.drawer = false" />
-        </x-slot:actions>
-    </x-drawer>
 
     <!-- DELETE CONFIRMATION MODAL -->
     <x-modal wire:model="showDeleteModal" :title="__('Delete Volume')" class="backdrop-blur">

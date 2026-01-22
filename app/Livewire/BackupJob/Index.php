@@ -23,9 +23,8 @@ class Index extends Component
     #[Url]
     public string $search = '';
 
-    /** @var array<string> */
     #[Url]
-    public array $statusFilter = [];
+    public string $statusFilter = '';
 
     #[Url]
     public string $typeFilter = '';
@@ -35,8 +34,6 @@ class Index extends Component
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
-
-    public bool $drawer = false;
 
     public bool $showLogsModal = false;
 
@@ -244,7 +241,7 @@ class Index extends Component
     {
         $jobs = BackupJobQuery::buildFromParams(
             search: $this->search,
-            statusFilter: $this->statusFilter,
+            statusFilter: $this->statusFilter !== '' ? [$this->statusFilter] : [],
             typeFilter: $this->typeFilter,
             serverFilter: $this->serverFilter,
             sortColumn: $this->sortBy['column'],

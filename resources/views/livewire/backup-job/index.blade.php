@@ -1,20 +1,147 @@
 <div wire:poll.5s>
-    <!-- HEADER -->
+    <!-- HEADER with filters (Desktop) -->
     <x-header title="{{ __('Jobs') }}" separator progress-indicator>
-        <x-slot:middle class="!justify-end">
-            <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" clearable icon="o-magnifying-glass" />
-        </x-slot:middle>
         <x-slot:actions>
-            <x-button label="{{ __('Filters') }}" @click="$wire.drawer = true" responsive icon="o-funnel" class="btn-ghost" />
+            <div class="hidden lg:flex items-center gap-2">
+                <x-input
+                    placeholder="{{ __('Search...') }}"
+                    wire:model.live.debounce="search"
+                    clearable
+                    icon="o-magnifying-glass"
+                    class="!input-sm w-48"
+                />
+                <x-select
+                    placeholder="{{ __('All Types') }}"
+                    placeholder-value=""
+                    wire:model.live="typeFilter"
+                    :options="$typeOptions"
+                    class="!select-sm w-32"
+                />
+                <x-select
+                    placeholder="{{ __('All Servers') }}"
+                    placeholder-value=""
+                    wire:model.live="serverFilter"
+                    :options="$serverOptions"
+                    class="!select-sm w-36"
+                />
+                <x-select
+                    placeholder="{{ __('All Status') }}"
+                    placeholder-value=""
+                    wire:model.live="statusFilter"
+                    :options="$statusOptions"
+                    class="!select-sm w-32"
+                />
+                @if($search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '')
+                    <x-button
+                        icon="o-x-mark"
+                        wire:click="clear"
+                        spinner
+                        class="btn-ghost btn-sm"
+                        tooltip="{{ __('Clear filters') }}"
+                    />
+                @endif
+            </div>
         </x-slot:actions>
     </x-header>
+
+    <!-- FILTERS (Tablet & Mobile) -->
+    <div class="lg:hidden mb-4 space-y-3">
+        <!-- Tablet: search + inline dropdowns -->
+        <div class="hidden sm:flex flex-wrap items-center gap-2">
+            <x-input
+                placeholder="{{ __('Search...') }}"
+                wire:model.live.debounce="search"
+                clearable
+                icon="o-magnifying-glass"
+                class="w-48"
+            />
+            <x-select
+                placeholder="{{ __('All Types') }}"
+                placeholder-value=""
+                wire:model.live="typeFilter"
+                :options="$typeOptions"
+                class="!select-sm w-32"
+            />
+            <x-select
+                placeholder="{{ __('All Servers') }}"
+                placeholder-value=""
+                wire:model.live="serverFilter"
+                :options="$serverOptions"
+                class="!select-sm w-36"
+            />
+            <x-select
+                placeholder="{{ __('All Status') }}"
+                placeholder-value=""
+                wire:model.live="statusFilter"
+                :options="$statusOptions"
+                class="!select-sm w-32"
+            />
+            @if($search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '')
+                <x-button
+                    icon="o-x-mark"
+                    wire:click="clear"
+                    spinner
+                    class="btn-ghost btn-sm"
+                    tooltip="{{ __('Clear filters') }}"
+                />
+            @endif
+        </div>
+        <!-- Mobile: search + collapsible filters -->
+        <div x-data="{ showFilters: false }" class="sm:hidden space-y-3">
+            <x-input
+                placeholder="{{ __('Search...') }}"
+                wire:model.live.debounce="search"
+                clearable
+                icon="o-magnifying-glass"
+            />
+            <x-button
+                label="{{ __('Filters') }}"
+                icon="o-funnel"
+                @click="showFilters = !showFilters"
+                class="btn-ghost btn-sm w-full justify-start"
+                ::class="showFilters && 'btn-active'"
+            />
+            <div x-show="showFilters" x-collapse class="mt-3 space-y-3">
+                <x-select
+                    label="{{ __('Type') }}"
+                    placeholder="{{ __('All Types') }}"
+                    placeholder-value=""
+                    wire:model.live="typeFilter"
+                    :options="$typeOptions"
+                />
+                <x-select
+                    label="{{ __('Server') }}"
+                    placeholder="{{ __('All Servers') }}"
+                    placeholder-value=""
+                    wire:model.live="serverFilter"
+                    :options="$serverOptions"
+                />
+                <x-select
+                    label="{{ __('Status') }}"
+                    placeholder="{{ __('All Status') }}"
+                    placeholder-value=""
+                    wire:model.live="statusFilter"
+                    :options="$statusOptions"
+                />
+                @if($search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '')
+                    <x-button
+                        label="{{ __('Clear filters') }}"
+                        icon="o-x-mark"
+                        wire:click="clear"
+                        spinner
+                        class="btn-ghost btn-sm"
+                    />
+                @endif
+            </div>
+        </div>
+    </div>
 
     <!-- TABLE -->
     <x-card shadow>
         <x-table :headers="$headers" :rows="$jobs" :sort-by="$sortBy" with-pagination>
             <x-slot:empty>
                 <div class="text-center text-base-content/50 py-8">
-                    @if($search || !empty($statusFilter) || $typeFilter !== '' || $serverFilter !== '')
+                    @if($search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '')
                         {{ __('No jobs found matching your filters.') }}
                     @else
                         {{ __('No jobs yet. Backups and restores will appear here.') }}
@@ -133,42 +260,6 @@
             @endscope
         </x-table>
     </x-card>
-
-    <!-- FILTER DRAWER -->
-    <x-drawer wire:model="drawer" title="{{ __('Filters') }}" right separator with-close-button class="lg:w-1/3">
-        <div class="grid gap-5">
-            <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" icon="o-magnifying-glass" @keydown.enter="$wire.drawer = false" />
-            <x-select
-                label="{{ __('Type') }}"
-                placeholder="{{ __('All Types') }}"
-                placeholder-value=""
-                wire:model.live="typeFilter"
-                :options="$typeOptions"
-                icon="o-folder"
-            />
-            <x-select
-                label="{{ __('Server') }}"
-                placeholder="{{ __('All Servers') }}"
-                placeholder-value=""
-                wire:model.live="serverFilter"
-                :options="$serverOptions"
-                icon="o-server"
-            />
-            <x-choices
-                label="{{ __('Filter by status') }}"
-                wire:model.live="statusFilter"
-                :options="$statusOptions"
-                icon="o-funnel"
-                multiple
-                searchable
-            />
-        </div>
-
-        <x-slot:actions>
-            <x-button label="{{ __('Reset') }}" icon="o-x-mark" wire:click="clear" spinner />
-            <x-button label="{{ __('Done') }}" icon="o-check" class="btn-primary" @click="$wire.drawer = false" />
-        </x-slot:actions>
-    </x-drawer>
 
     <!-- LOGS MODAL -->
     @include('livewire.backup-job._logs-modal')
