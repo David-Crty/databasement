@@ -1,4 +1,4 @@
-.PHONY: help install start test test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage backup-test lint-check lint-fix lint migrate migrate-fresh db-seed setup clean import-db docs docs-build
+.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage backup-test lint-check lint-fix lint migrate migrate-fresh db-seed setup clean import-db docs docs-build
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -46,14 +46,11 @@ create-bucket: ## Create S3 bucket in rustfs (usage: make create-bucket BUCKET=m
 		s3 mb s3://$(or $(BUCKET),test-bucket) 2>/dev/null || echo "Bucket may already exist"
 ##@ Testing
 
-test: ## Run all tests (SQLite)
+test: ## Run all tests in parallel (default)
+	$(PHP_ARTISAN) test --parallel
+
+test-sequential: ## Run all tests sequentially (for debugging)
 	$(PHP_ARTISAN) test
-
-test-parallel: ## Run tests in parallel (faster, excludes Integration tests)
-	$(PHP_ARTISAN) test --parallel --exclude-group=integration
-
-test-integration: ## Run integration tests only (requires MySQL/PostgreSQL containers)
-	$(PHP_ARTISAN) test --group=integration
 
 test-mysql: ## Run all tests with MySQL
 	$(DOCKER_COMPOSE) exec -T mysql mysql -uroot -proot -e "DROP DATABASE IF EXISTS databasement_app_test; CREATE DATABASE databasement_app_test;" 2>/dev/null || true
@@ -92,7 +89,7 @@ lint: lint-fix ## Alias for lint-fix
 phpstan: ## Run PHPStan static analysis
 	$(PHP_EXEC) vendor/bin/phpstan analyse --memory-limit=1G
 
-pre-commit: lint-fix phpstan test
+pre-commit: lint-fix phpstan test ## Run all pre-commit checks (lint, phpstan, tests)
 
 ##@ Assets
 

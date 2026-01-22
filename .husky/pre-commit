@@ -10,11 +10,7 @@ make phpstan
 echo ""
 
 echo "🧪 Running tests (parallel)..."
-make test-parallel
-echo ""
-
-echo "🔗 Running integration tests..."
-make test-integration
+make test
 echo ""
 
 echo "✅ Pre-commit checks passed!"

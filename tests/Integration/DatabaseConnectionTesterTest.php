@@ -11,7 +11,8 @@ use App\Services\DatabaseConnectionTester;
 use Tests\Support\IntegrationTestHelpers;
 
 test('connection succeeds', function (string $databaseType) {
-    $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);
+    // Connection tests are read-only, so we don't need parallel suffixes
+    $config = IntegrationTestHelpers::getDatabaseConfig($databaseType, useParallelSuffix: false);
     if ($databaseType === 'sqlite') {
         IntegrationTestHelpers::createTestSqliteDatabase($config['host']);
     }
@@ -34,7 +35,8 @@ test('connection succeeds', function (string $databaseType) {
 })->with(['mysql', 'postgres', 'sqlite']);
 
 test('connection fails with invalid credentials', function (string $databaseType) {
-    $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);
+    // Connection tests are read-only, so we don't need parallel suffixes
+    $config = IntegrationTestHelpers::getDatabaseConfig($databaseType, useParallelSuffix: false);
 
     $result = DatabaseConnectionTester::test([
         'database_type' => $databaseType,

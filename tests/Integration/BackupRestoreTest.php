@@ -85,8 +85,9 @@ test('client-server database backup and restore workflow', function (string $typ
         ->and($this->snapshot->filename)->toEndWith(".sql.{$expectedExt}")
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
 
-    // Run restore
-    $this->restoredDatabaseName = 'testdb_restored_'.time();
+    // Run restore (use unique name with parallel token and microseconds to avoid collisions)
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $this->restoredDatabaseName = 'testdb_restored_'.hrtime(true).$suffix;
     $restore = $this->backupJobFactory->createRestore(
         snapshot: $this->snapshot,
         targetServer: $this->databaseServer,
@@ -111,10 +112,11 @@ test('client-server database backup and restore workflow', function (string $typ
 ]);
 
 test('sqlite backup and restore workflow', function () {
-    // Create a test SQLite database with some data
+    // Create a test SQLite database with some data (use unique names for parallel testing)
     $backupDir = config('backup.working_directory');
-    $sourceSqlitePath = "{$backupDir}/test_source.sqlite";
-    $restoredSqlitePath = "{$backupDir}/test_restored_".time().'.sqlite';
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $sourceSqlitePath = "{$backupDir}/test_source{$suffix}.sqlite";
+    $restoredSqlitePath = "{$backupDir}/test_restored_".hrtime(true)."{$suffix}.sqlite";
     IntegrationTestHelpers::createTestSqliteDatabase($sourceSqlitePath);
 
     // Create models

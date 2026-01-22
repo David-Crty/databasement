@@ -37,10 +37,14 @@ docker compose logs -f queue  # View queue worker logs only
 
 ### Testing
 ```bash
-make test                           # Run all Pest tests
+make test                           # Run all tests in parallel (fast iteration)
+make test-sequential                # Run tests sequentially (for debugging)
 make test-filter FILTER=DatabaseServer  # Run specific test class/method
 make test-coverage                  # Run tests with coverage report
 ```
+
+Tests run in parallel by default using Pest's parallel testing feature. This significantly speeds up the test suite (~12-18s for 350+ tests). Use `make test-sequential` if you need to debug test order issues.
+
 ### Test Strategy
 - Focus on testing business logic and behaviors
 - Do not test framework internals or trust that Laravel/Livewire works correctly
@@ -199,7 +203,8 @@ Routes are defined in `routes/web.php`:
 
 Pre-commit hook automatically runs:
 1. `make lint-fix` - Auto-format code with Laravel Pint
-2. `make test` - Run all Pest tests
+2. `make phpstan` - Run static analysis
+3. `make test` - Run all tests in parallel
 
 Ensure tests pass and code is formatted before committing.
 
