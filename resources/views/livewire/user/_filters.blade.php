@@ -1,6 +1,6 @@
 @php
     $isDesktop = $variant === 'desktop';
-    $hasFilters = $search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '';
+    $hasFilters = $search || $roleFilter !== '' || $statusFilter !== '';
 @endphp
 
 @if($isDesktop)
@@ -13,24 +13,17 @@
         class="!input-sm w-48"
     />
     <x-select
-        placeholder="{{ __('All Types') }}"
+        placeholder="{{ __('All Roles') }}"
         placeholder-value=""
-        wire:model.live="typeFilter"
-        :options="$typeOptions"
+        wire:model.live="roleFilter"
+        :options="$roleFilterOptions"
         class="!select-sm w-32"
-    />
-    <x-select
-        placeholder="{{ __('All Servers') }}"
-        placeholder-value=""
-        wire:model.live="serverFilter"
-        :options="$serverOptions"
-        class="!select-sm w-36"
     />
     <x-select
         placeholder="{{ __('All Status') }}"
         placeholder-value=""
         wire:model.live="statusFilter"
-        :options="$statusOptions"
+        :options="$statusFilterOptions"
         class="!select-sm w-32"
     />
     @if($hasFilters)
@@ -63,24 +56,17 @@
         {{-- Tablet: inline filters (always visible) --}}
         <div class="hidden sm:flex flex-wrap items-center gap-2">
             <x-select
-                placeholder="{{ __('All Types') }}"
+                placeholder="{{ __('All Roles') }}"
                 placeholder-value=""
-                wire:model.live="typeFilter"
-                :options="$typeOptions"
+                wire:model.live="roleFilter"
+                :options="$roleFilterOptions"
                 class="!select-sm w-32"
-            />
-            <x-select
-                placeholder="{{ __('All Servers') }}"
-                placeholder-value=""
-                wire:model.live="serverFilter"
-                :options="$serverOptions"
-                class="!select-sm w-36"
             />
             <x-select
                 placeholder="{{ __('All Status') }}"
                 placeholder-value=""
                 wire:model.live="statusFilter"
-                :options="$statusOptions"
+                :options="$statusFilterOptions"
                 class="!select-sm w-32"
             />
             @if($hasFilters)
@@ -97,25 +83,18 @@
     {{-- Mobile: collapsible filters --}}
     <div x-show="showFilters" x-collapse class="mt-3 space-y-3 sm:hidden">
         <x-select
-            label="{{ __('Type') }}"
-            placeholder="{{ __('All Types') }}"
+            label="{{ __('Role') }}"
+            placeholder="{{ __('All Roles') }}"
             placeholder-value=""
-            wire:model.live="typeFilter"
-            :options="$typeOptions"
-        />
-        <x-select
-            label="{{ __('Server') }}"
-            placeholder="{{ __('All Servers') }}"
-            placeholder-value=""
-            wire:model.live="serverFilter"
-            :options="$serverOptions"
+            wire:model.live="roleFilter"
+            :options="$roleFilterOptions"
         />
         <x-select
             label="{{ __('Status') }}"
             placeholder="{{ __('All Status') }}"
             placeholder-value=""
             wire:model.live="statusFilter"
-            :options="$statusOptions"
+            :options="$statusFilterOptions"
         />
         @if($hasFilters)
             <x-button

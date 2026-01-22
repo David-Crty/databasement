@@ -3,36 +3,7 @@
     <x-header title="{{ __('Users') }}" separator progress-indicator>
         <x-slot:actions>
             <div class="hidden lg:flex items-center gap-2">
-                <x-input
-                    placeholder="{{ __('Search...') }}"
-                    wire:model.live.debounce="search"
-                    clearable
-                    icon="o-magnifying-glass"
-                    class="!input-sm w-48"
-                />
-                <x-select
-                    placeholder="{{ __('All Roles') }}"
-                    placeholder-value=""
-                    wire:model.live="roleFilter"
-                    :options="$roleFilterOptions"
-                    class="!select-sm w-32"
-                />
-                <x-select
-                    placeholder="{{ __('All Status') }}"
-                    placeholder-value=""
-                    wire:model.live="statusFilter"
-                    :options="$statusFilterOptions"
-                    class="!select-sm w-32"
-                />
-                @if($search || $roleFilter !== '' || $statusFilter !== '')
-                    <x-button
-                        icon="o-x-mark"
-                        wire:click="clear"
-                        spinner
-                        class="btn-ghost btn-sm"
-                        tooltip="{{ __('Clear filters') }}"
-                    />
-                @endif
+                @include('livewire.user._filters', ['variant' => 'desktop'])
             </div>
             @can('create', App\Models\User::class)
                 <x-button label="{{ __('Add User') }}" link="{{ route('users.create') }}" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
@@ -41,77 +12,8 @@
     </x-header>
 
     <!-- FILTERS (Tablet & Mobile) -->
-    <div class="lg:hidden mb-4 space-y-3">
-        <div class="flex items-center gap-2">
-            <x-input
-                placeholder="{{ __('Search...') }}"
-                wire:model.live.debounce="search"
-                clearable
-                icon="o-magnifying-glass"
-                class="flex-1"
-            />
-        </div>
-        <!-- Tablet: inline dropdowns -->
-        <div class="hidden sm:flex flex-wrap items-center gap-2">
-            <x-select
-                placeholder="{{ __('All Roles') }}"
-                placeholder-value=""
-                wire:model.live="roleFilter"
-                :options="$roleFilterOptions"
-                class="!select-sm w-32"
-            />
-            <x-select
-                placeholder="{{ __('All Status') }}"
-                placeholder-value=""
-                wire:model.live="statusFilter"
-                :options="$statusFilterOptions"
-                class="!select-sm w-32"
-            />
-            @if($search || $roleFilter !== '' || $statusFilter !== '')
-                <x-button
-                    icon="o-x-mark"
-                    wire:click="clear"
-                    spinner
-                    class="btn-ghost btn-sm"
-                    tooltip="{{ __('Clear filters') }}"
-                />
-            @endif
-        </div>
-        <!-- Mobile: collapsible filters -->
-        <div x-data="{ showFilters: false }" class="sm:hidden">
-            <x-button
-                label="{{ __('Filters') }}"
-                icon="o-funnel"
-                @click="showFilters = !showFilters"
-                class="btn-ghost btn-sm w-full justify-start"
-                ::class="showFilters && 'btn-active'"
-            />
-            <div x-show="showFilters" x-collapse class="mt-3 space-y-3">
-                <x-select
-                    label="{{ __('Role') }}"
-                    placeholder="{{ __('All Roles') }}"
-                    placeholder-value=""
-                    wire:model.live="roleFilter"
-                    :options="$roleFilterOptions"
-                />
-                <x-select
-                    label="{{ __('Status') }}"
-                    placeholder="{{ __('All Status') }}"
-                    placeholder-value=""
-                    wire:model.live="statusFilter"
-                    :options="$statusFilterOptions"
-                />
-                @if($search || $roleFilter !== '' || $statusFilter !== '')
-                    <x-button
-                        label="{{ __('Clear filters') }}"
-                        icon="o-x-mark"
-                        wire:click="clear"
-                        spinner
-                        class="btn-ghost btn-sm"
-                    />
-                @endif
-            </div>
-        </div>
+    <div class="lg:hidden mb-4" x-data="{ showFilters: false }">
+        @include('livewire.user._filters', ['variant' => 'mobile'])
     </div>
 
     <!-- TABLE -->
