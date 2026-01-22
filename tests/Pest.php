@@ -17,6 +17,11 @@ pest()->extend(Tests\TestCase::class)
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
     ->in('Feature');
 
+pest()->extend(Tests\TestCase::class)
+    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->group('integration')
+    ->in('Integration');
+
 /*
 |--------------------------------------------------------------------------
 | Global Cleanup

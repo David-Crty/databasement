@@ -10,8 +10,6 @@
 use App\Services\DatabaseConnectionTester;
 use Tests\Support\IntegrationTestHelpers;
 
-uses()->group('integration');
-
 test('connection succeeds', function (string $databaseType) {
     $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);
     if ($databaseType === 'sqlite') {

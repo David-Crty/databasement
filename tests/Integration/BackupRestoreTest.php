@@ -14,8 +14,6 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\RestoreTask;
 use Tests\Support\IntegrationTestHelpers;
 
-uses()->group('integration');
-
 beforeEach(function () {
     $this->backupTask = app(BackupTask::class);
     $this->restoreTask = app(RestoreTask::class);

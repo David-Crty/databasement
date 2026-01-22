@@ -49,6 +49,12 @@ create-bucket: ## Create S3 bucket in rustfs (usage: make create-bucket BUCKET=m
 test: ## Run all tests (SQLite)
 	$(PHP_ARTISAN) test
 
+test-parallel: ## Run tests in parallel (faster, excludes Integration tests)
+	$(PHP_ARTISAN) test --parallel --exclude-group=integration
+
+test-integration: ## Run integration tests only (requires MySQL/PostgreSQL containers)
+	$(PHP_ARTISAN) test --group=integration
+
 test-mysql: ## Run all tests with MySQL
 	$(DOCKER_COMPOSE) exec -T mysql mysql -uroot -proot -e "DROP DATABASE IF EXISTS databasement_app_test; CREATE DATABASE databasement_app_test;" 2>/dev/null || true
 	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.mysql.testing $(PHP_SERVICE) php artisan test

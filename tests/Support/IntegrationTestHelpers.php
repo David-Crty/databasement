@@ -167,8 +167,8 @@ class IntegrationTestHelpers
         }
 
         $fixtureFile = match ($type) {
-            'mysql' => __DIR__.'/../Feature/Integration/fixtures/mysql-init.sql',
-            'postgres' => __DIR__.'/../Feature/Integration/fixtures/postgres-init.sql',
+            'mysql' => __DIR__.'/../Integration/fixtures/mysql-init.sql',
+            'postgres' => __DIR__.'/../Integration/fixtures/postgres-init.sql',
         };
 
         $pdo = self::connectToDatabase($type, $server, $databaseName);
