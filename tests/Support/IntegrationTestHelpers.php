@@ -187,6 +187,7 @@ class IntegrationTestHelpers
         $fixtureFile = match ($type) {
             'mysql' => __DIR__.'/../Integration/fixtures/mysql-init.sql',
             'postgres' => __DIR__.'/../Integration/fixtures/postgres-init.sql',
+            default => throw new InvalidArgumentException("loadTestData does not support database type: {$type}."),
         };
 
         $pdo = self::connectToDatabase($type, $server, $databaseName);
