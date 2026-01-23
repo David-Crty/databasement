@@ -13,6 +13,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -30,6 +31,10 @@ class RestoreModal extends Component
     #[Locked]
     public ?string $selectedSnapshotId = null;
 
+    #[Validate('required|string|max:64|regex:/^[a-zA-Z0-9_]+$/', message: [
+        'required' => 'Please enter a database name.',
+        'regex' => 'Database name can only contain letters, numbers, and underscores.',
+    ])]
     public string $schemaName = '';
 
     public int $currentStep = 1;
@@ -138,14 +143,12 @@ class RestoreModal extends Component
     {
         $this->authorize('restore', $this->targetServer);
 
-        $this->validate([
-            'selectedSourceServerId' => 'required',
-            'selectedSnapshotId' => 'required',
-            'schemaName' => 'required|string|max:64|regex:/^[a-zA-Z0-9_]+$/',
-        ], [
-            'schemaName.required' => 'Please enter a database name.',
-            'schemaName.regex' => 'Database name can only contain letters, numbers, and underscores.',
-        ]);
+        $this->validate();
+
+        // Validate locked properties separately
+        if (! $this->selectedSourceServerId || ! $this->selectedSnapshotId) {
+            return;
+        }
 
         try {
             $snapshot = Snapshot::findOrFail($this->selectedSnapshotId);
