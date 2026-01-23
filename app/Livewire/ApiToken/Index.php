@@ -6,6 +6,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\PersonalAccessToken;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
@@ -13,6 +14,7 @@ class Index extends Component
 {
     use Toast;
 
+    #[Validate('required|string|max:255')]
     public string $tokenName = '';
 
     public bool $showCreateModal = false;
@@ -40,9 +42,7 @@ class Index extends Component
 
     public function createToken(): void
     {
-        $this->validate([
-            'tokenName' => ['required', 'string', 'max:255'],
-        ]);
+        $this->validate();
 
         $token = Auth::user()->createToken($this->tokenName);
 
@@ -72,14 +72,9 @@ class Index extends Component
 
     public function deleteToken(): void
     {
-        $user = Auth::user();
+        $token = PersonalAccessToken::findOrFail($this->deleteTokenId);
 
-        $token = PersonalAccessToken::where('id', $this->deleteTokenId)
-            ->where('tokenable_type', $user->getMorphClass())
-            ->firstOrFail();
-
-        // Only admin or token owner can delete
-        if (! $user->isAdmin() && $token->tokenable_id !== $user->id) {
+        if (! $this->canDelete($token)) {
             $this->error(__('You are not authorized to revoke this token.'), position: 'toast-bottom');
             $this->deleteTokenId = null;
             $this->showDeleteModal = false;
