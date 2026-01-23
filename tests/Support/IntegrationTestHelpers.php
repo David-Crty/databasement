@@ -25,15 +25,13 @@ class IntegrationTestHelpers
 
     /**
      * Get database connection config for a given type.
-     * When running in parallel and $useParallelSuffix is true, database names
-     * are suffixed with the process token to avoid conflicts.
+     * When running in parallel, database names are suffixed with the process token to avoid conflicts.
      *
-     * @param  bool  $useParallelSuffix  Whether to add parallel suffix (default: true for write tests, false for read-only tests)
      * @return array{host: string, port: int, username: string, password: string, database: string, database_type: string}
      */
-    public static function getDatabaseConfig(string $type, bool $useParallelSuffix = true): array
+    public static function getDatabaseConfig(string $type): array
     {
-        $suffix = $useParallelSuffix ? self::getParallelSuffix() : '';
+        $suffix = self::getParallelSuffix();
 
         return match ($type) {
             'mysql' => [
@@ -187,7 +185,7 @@ class IntegrationTestHelpers
         $fixtureFile = match ($type) {
             'mysql' => __DIR__.'/../Integration/fixtures/mysql-init.sql',
             'postgres' => __DIR__.'/../Integration/fixtures/postgres-init.sql',
-            default => throw new InvalidArgumentException("loadTestData does not support database type: {$type}."),
+            default => throw new InvalidArgumentException("loadTestData does not support database type: {$type}. Use createTestSqliteDatabase for SQLite."),
         };
 
         $pdo = self::connectToDatabase($type, $server, $databaseName);
