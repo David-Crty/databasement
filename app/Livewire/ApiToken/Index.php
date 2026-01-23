@@ -72,18 +72,7 @@ class Index extends Component
 
     public function deleteToken(): void
     {
-        if (! $this->deleteTokenId) {
-            return;
-        }
-
-        $token = PersonalAccessToken::find($this->deleteTokenId);
-
-        if (! $token) {
-            $this->deleteTokenId = null;
-            $this->showDeleteModal = false;
-
-            return;
-        }
+        $token = PersonalAccessToken::findOrFail($this->deleteTokenId);
 
         // Only admin or token owner can delete
         $user = Auth::user();
