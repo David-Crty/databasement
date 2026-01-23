@@ -72,10 +72,13 @@ class Index extends Component
 
     public function deleteToken(): void
     {
-        $token = PersonalAccessToken::findOrFail($this->deleteTokenId);
+        $user = Auth::user();
+
+        $token = PersonalAccessToken::where('id', $this->deleteTokenId)
+            ->where('tokenable_type', $user->getMorphClass())
+            ->firstOrFail();
 
         // Only admin or token owner can delete
-        $user = Auth::user();
         if (! $user->isAdmin() && $token->tokenable_id !== $user->id) {
             $this->error(__('You are not authorized to revoke this token.'), position: 'toast-bottom');
             $this->deleteTokenId = null;
@@ -95,18 +98,27 @@ class Index extends Component
     {
         $user = Auth::user();
 
+        if ($token->tokenable_type !== $user->getMorphClass()) {
+            return false;
+        }
+
         return $user->isAdmin() || $token->tokenable_id === $user->id;
     }
 
     public function render(): View
     {
-        $tokens = PersonalAccessToken::with('tokenable')
-            ->where('tokenable_type', \App\Models\User::class)
-            ->latest()
-            ->get();
+        $user = Auth::user();
+
+        $query = PersonalAccessToken::with('tokenable')
+            ->where('tokenable_type', $user->getMorphClass())
+            ->latest();
+
+        if (! $user->isAdmin()) {
+            $query->where('tokenable_id', $user->id);
+        }
 
         return view('livewire.api-token.index', [
-            'tokens' => $tokens,
+            'tokens' => $query->get(),
         ])->layout('components.layouts.app', ['title' => __('API Tokens')]);
     }
 }
