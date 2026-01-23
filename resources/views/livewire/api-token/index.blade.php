@@ -15,9 +15,14 @@
                 <div class="space-y-4">
                     @foreach($tokens as $token)
                         <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
-                            <div>
+                            <div class="flex-1">
                                 <div class="font-medium">{{ $token->name }}</div>
                                 <div class="text-sm text-base-content/70">
+                                    @if($token->tokenable)
+                                        <span class="font-medium">{{ $token->tokenable->name }}</span>
+                                        <span class="badge badge-sm badge-ghost ml-1">{{ ucfirst($token->tokenable->role) }}</span>
+                                        &mdash;
+                                    @endif
                                     {{ __('Created') }} {{ \App\Support\Formatters::humanDate($token->created_at) }}
                                     @if($token->last_used_at)
                                         &mdash; {{ __('Last used') }} {{ \App\Support\Formatters::humanDate($token->last_used_at) }}
@@ -26,12 +31,14 @@
                                     @endif
                                 </div>
                             </div>
-                            <x-button
-                                icon="o-trash"
-                                wire:click="confirmDelete('{{ $token->id }}')"
-                                tooltip="{{ __('Revoke') }}"
-                                class="btn-ghost btn-sm text-error"
-                            />
+                            @if($this->canDelete($token))
+                                <x-button
+                                    icon="o-trash"
+                                    wire:click="confirmDelete('{{ $token->id }}')"
+                                    tooltip="{{ __('Revoke') }}"
+                                    class="btn-ghost btn-sm text-error"
+                                />
+                            @endif
                         </div>
                     @endforeach
                 </div>

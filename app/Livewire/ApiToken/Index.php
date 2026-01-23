@@ -1,17 +1,20 @@
 <?php
 
-namespace App\Livewire\Settings;
+namespace App\Livewire\ApiToken;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Sanctum\PersonalAccessToken;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
-class ApiTokens extends Component
+class Index extends Component
 {
     use Toast;
 
+    #[Validate('required|string|max:255')]
     public string $tokenName = '';
 
     public bool $showCreateModal = false;
@@ -39,9 +42,7 @@ class ApiTokens extends Component
 
     public function createToken(): void
     {
-        $this->validate([
-            'tokenName' => ['required', 'string', 'max:255'],
-        ]);
+        $this->validate();
 
         $token = Auth::user()->createToken($this->tokenName);
 
@@ -71,23 +72,48 @@ class ApiTokens extends Component
 
     public function deleteToken(): void
     {
-        if (! $this->deleteTokenId) {
+        $token = PersonalAccessToken::findOrFail($this->deleteTokenId);
+
+        if (! $this->canDelete($token)) {
+            $this->error(__('You are not authorized to revoke this token.'), position: 'toast-bottom');
+            $this->deleteTokenId = null;
+            $this->showDeleteModal = false;
+
             return;
         }
 
-        Auth::user()->tokens()->where('id', $this->deleteTokenId)->delete();
+        $token->delete();
 
         $this->deleteTokenId = null;
         $this->showDeleteModal = false;
         $this->success(__('API token revoked successfully.'), position: 'toast-bottom');
     }
 
+    public function canDelete(PersonalAccessToken $token): bool
+    {
+        $user = Auth::user();
+
+        if ($token->tokenable_type !== $user->getMorphClass()) {
+            return false;
+        }
+
+        return $user->isAdmin() || $token->tokenable_id === $user->id;
+    }
+
     public function render(): View
     {
-        $tokens = Auth::user()->tokens()->latest()->get();
+        $user = Auth::user();
 
-        return view('livewire.settings.api-tokens', [
-            'tokens' => $tokens,
+        $query = PersonalAccessToken::with('tokenable')
+            ->where('tokenable_type', $user->getMorphClass())
+            ->latest();
+
+        if (! $user->isAdmin()) {
+            $query->where('tokenable_id', $user->id);
+        }
+
+        return view('livewire.api-token.index', [
+            'tokens' => $query->get(),
         ])->layout('components.layouts.app', ['title' => __('API Tokens')]);
     }
 }
