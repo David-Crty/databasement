@@ -12,6 +12,7 @@ use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -33,6 +34,7 @@ class TwoFactor extends Component
 
     public bool $showVerificationStep = false;
 
+    #[Validate('required|string|size:6')]
     public string $code = '';
 
     public function mount(DisableTwoFactorAuthentication $disableTwoFactorAuthentication): void
@@ -94,9 +96,7 @@ class TwoFactor extends Component
 
     public function confirmTwoFactor(ConfirmTwoFactorAuthentication $confirmTwoFactorAuthentication): void
     {
-        $this->validate([
-            'code' => ['required', 'string', 'size:6'],
-        ]);
+        $this->validate();
 
         $confirmTwoFactorAuthentication(auth()->user(), $this->code);
 
