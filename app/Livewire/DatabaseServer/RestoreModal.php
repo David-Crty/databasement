@@ -143,12 +143,14 @@ class RestoreModal extends Component
     {
         $this->authorize('restore', $this->targetServer);
 
-        $this->validate();
-
-        // Validate locked properties separately
+        // Validate locked properties first
         if (! $this->selectedSourceServerId || ! $this->selectedSnapshotId) {
+            $this->error(__('Please select a source server and snapshot before restoring.'));
+
             return;
         }
+
+        $this->validate();
 
         try {
             $snapshot = Snapshot::findOrFail($this->selectedSnapshotId);
