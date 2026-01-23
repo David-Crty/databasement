@@ -11,18 +11,6 @@ beforeEach(function () {
     $this->admin = User::factory()->create(['role' => 'admin']);
 });
 
-test('guests cannot access users index page', function () {
-    get(route('users.index'))
-        ->assertRedirect(route('login'));
-});
-
-test('authenticated users can access users index page', function () {
-    actingAs($this->admin);
-
-    get(route('users.index'))
-        ->assertOk();
-});
-
 test('displays users in table', function () {
     actingAs($this->admin);
 

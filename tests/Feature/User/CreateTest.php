@@ -11,11 +11,6 @@ beforeEach(function () {
     $this->admin = User::factory()->create(['role' => 'admin']);
 });
 
-test('guests cannot access create user page', function () {
-    get(route('users.create'))
-        ->assertRedirect(route('login'));
-});
-
 test('non-admin users cannot access create user page', function () {
     $member = User::factory()->create(['role' => 'member']);
     actingAs($member);

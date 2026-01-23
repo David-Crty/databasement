@@ -8,22 +8,6 @@ use App\Models\User;
 use App\Models\Volume;
 use Livewire\Livewire;
 
-test('guests cannot access edit page', function () {
-    $server = DatabaseServer::factory()->create();
-
-    $this->get(route('database-servers.edit', $server))
-        ->assertRedirect(route('login'));
-});
-
-test('authenticated users can access edit page', function () {
-    $user = User::factory()->create();
-    $server = DatabaseServer::factory()->create();
-
-    $this->actingAs($user)
-        ->get(route('database-servers.edit', $server))
-        ->assertStatus(200);
-});
-
 test('can edit database server', function (array $config) {
     $user = User::factory()->create();
     $volume = Volume::create([

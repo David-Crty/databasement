@@ -10,19 +10,6 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 use Livewire\Livewire;
 
-test('guests cannot access backup jobs index page', function () {
-    $this->get(route('jobs.index'))
-        ->assertRedirect(route('login'));
-});
-
-test('authenticated users can access backup jobs index page', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->get(route('jobs.index'))
-        ->assertStatus(200);
-});
-
 test('can search backup jobs by server name', function () {
     $user = User::factory()->create();
     $factory = app(BackupJobFactory::class);

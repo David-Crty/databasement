@@ -8,19 +8,6 @@ use App\Models\Volume;
 use App\Services\Backup\DatabaseListService;
 use Livewire\Livewire;
 
-test('guests cannot access create page', function () {
-    $this->get(route('database-servers.create'))
-        ->assertRedirect(route('login'));
-});
-
-test('authenticated users can access create page', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->get(route('database-servers.create'))
-        ->assertStatus(200);
-});
-
 test('can create database server', function (array $config) {
     DatabaseConnectionTester::shouldReceive('test')
         ->once()

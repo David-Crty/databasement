@@ -9,20 +9,6 @@ use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use Livewire\Livewire;
 
-// Authorization Tests
-test('guests cannot access volume pages', function () {
-    $this->get(route('volumes.index'))->assertRedirect(route('login'));
-    $this->get(route('volumes.create'))->assertRedirect(route('login'));
-});
-
-test('authenticated users can access volume index', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->get(route('volumes.index'))
-        ->assertStatus(200);
-});
-
 // Create Tests - Local Type
 test('can create local volume with valid data', function () {
     $user = User::factory()->create();

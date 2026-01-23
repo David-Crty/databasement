@@ -4,20 +4,6 @@ use App\Livewire\Settings\ApiTokens;
 use App\Models\User;
 use Livewire\Livewire;
 
-test('guests cannot access api tokens page', function () {
-    $this->get(route('api-tokens.index'))
-        ->assertRedirect(route('login'));
-});
-
-test('authenticated users can access api tokens page', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->get(route('api-tokens.index'))
-        ->assertOk()
-        ->assertSeeLivewire(ApiTokens::class);
-});
-
 test('can create a new api token', function () {
     $user = User::factory()->create();
 

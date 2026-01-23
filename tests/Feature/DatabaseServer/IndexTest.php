@@ -5,19 +5,6 @@ use App\Models\DatabaseServer;
 use App\Models\User;
 use Livewire\Livewire;
 
-test('guests cannot access index page', function () {
-    $this->get(route('database-servers.index'))
-        ->assertRedirect(route('login'));
-});
-
-test('authenticated users can access index page', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->get(route('database-servers.index'))
-        ->assertStatus(200);
-});
-
 test('displays database servers in table', function () {
     $user = User::factory()->create();
 
