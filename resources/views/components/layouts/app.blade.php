@@ -56,6 +56,7 @@
                 <x-menu-separator />
                 <x-menu-item title="{{ __('Configuration') }}" icon="o-cog-6-tooth" link="{{ route('configuration.index') }}" wire:navigate />
                 <x-menu-item title="{{ __('API Docs') }}" no-wire-navigate="true" icon="o-document-text" link="{{ route('scramble.docs.ui') }}" />
+                <x-menu-item title="{{ __('API Tokens') }}" icon="o-key" link="{{ route('api-tokens.index') }}" wire:navigate />
             </x-menu>
 
             {{-- USER SECTION AT BOTTOM --}}
@@ -71,7 +72,6 @@
                                     <x-menu-item title="{{ __('Two-Factor Auth') }}" icon="o-shield-check" link="{{ route('two-factor.show') }}" wire:navigate />
                                 @endif
                             @endunless
-                            <x-menu-item title="{{ __('API Tokens') }}" icon="o-key" link="{{ route('api-tokens.index') }}" wire:navigate />
                         @endunless
                         <form method="POST" action="{{ route('logout') }}" class="w-full">
                             @csrf

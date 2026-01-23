@@ -1,14 +1,15 @@
 <?php
 
-namespace App\Livewire\Settings;
+namespace App\Livewire\ApiToken;
 
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Laravel\Sanctum\PersonalAccessToken;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
-class ApiTokens extends Component
+class Index extends Component
 {
     use Toast;
 
@@ -75,18 +76,47 @@ class ApiTokens extends Component
             return;
         }
 
-        Auth::user()->tokens()->where('id', $this->deleteTokenId)->delete();
+        $token = PersonalAccessToken::find($this->deleteTokenId);
+
+        if (! $token) {
+            $this->deleteTokenId = null;
+            $this->showDeleteModal = false;
+
+            return;
+        }
+
+        // Only admin or token owner can delete
+        $user = Auth::user();
+        if (! $user->isAdmin() && $token->tokenable_id !== $user->id) {
+            $this->error(__('You are not authorized to revoke this token.'), position: 'toast-bottom');
+            $this->deleteTokenId = null;
+            $this->showDeleteModal = false;
+
+            return;
+        }
+
+        $token->delete();
 
         $this->deleteTokenId = null;
         $this->showDeleteModal = false;
         $this->success(__('API token revoked successfully.'), position: 'toast-bottom');
     }
 
+    public function canDelete(PersonalAccessToken $token): bool
+    {
+        $user = Auth::user();
+
+        return $user->isAdmin() || $token->tokenable_id === $user->id;
+    }
+
     public function render(): View
     {
-        $tokens = Auth::user()->tokens()->latest()->get();
+        $tokens = PersonalAccessToken::with('tokenable')
+            ->where('tokenable_type', \App\Models\User::class)
+            ->latest()
+            ->get();
 
-        return view('livewire.settings.api-tokens', [
+        return view('livewire.api-token.index', [
             'tokens' => $tokens,
         ])->layout('components.layouts.app', ['title' => __('API Tokens')]);
     }
