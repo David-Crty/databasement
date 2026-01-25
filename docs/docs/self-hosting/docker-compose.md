@@ -30,7 +30,7 @@ Save this key for the next step.
 
 Create a `.env` file with your configuration. This file is shared between the `app` and `worker` services to ensure consistent settings.
 
-#### SQLite (Simple Setup)
+#### SQLite
 
 ```bash title=".env"
 APP_URL=http://localhost:2226
@@ -39,20 +39,13 @@ APP_KEY=base64:your-generated-key-here
 # Database (SQLite)
 DB_CONNECTION=sqlite
 DB_DATABASE=/data/database.sqlite
-
-# S3 Storage (optional - for cloud backups)
-# AWS_ACCESS_KEY_ID=your-access-key
-# AWS_SECRET_ACCESS_KEY=your-secret-key
-# AWS_DEFAULT_REGION=us-east-1
-# AWS_ENDPOINT_URL_S3=https://s3.amazonaws.com
-# AWS_USE_PATH_STYLE_ENDPOINT=false
 ```
 
-#### MySQL (Production Setup)
+#### MySQL
 
 ```bash title=".env"
 APP_URL=http://localhost:2226
-APP_KEY=your-generated-key-here
+APP_KEY=base64:your-generated-key-here
 
 # Database (MySQL)
 DB_CONNECTION=mysql
@@ -61,19 +54,30 @@ DB_PORT=3306
 DB_DATABASE=databasement
 DB_USERNAME=databasement
 DB_PASSWORD=your-secure-password
-
-# S3 Storage (optional - for cloud backups)
-# AWS_ACCESS_KEY_ID=your-access-key
-# AWS_SECRET_ACCESS_KEY=your-secret-key
-# AWS_DEFAULT_REGION=us-east-1
-# AWS_ENDPOINT_URL_S3=https://s3.amazonaws.com
-# AWS_USE_PATH_STYLE_ENDPOINT=false
 ```
 
+#### PostgreSQL
+
+```bash title=".env"
+APP_URL=http://localhost:2226
+APP_KEY=base64:your-generated-key-here
+
+# Database (PostgreSQL)
+DB_CONNECTION=pgsql
+DB_HOST=postgres
+DB_PORT=5432
+DB_DATABASE=databasement
+DB_USERNAME=databasement
+DB_PASSWORD=your-secure-password
+```
+
+:::tip S3 Storage
+To store backups in AWS S3 or S3-compatible storage (MinIO, DigitalOcean Spaces, etc.), see the [S3 Storage Configuration](../self-hosting/configuration#s3-storage) section.
+:::
 
 ### 4. Create docker-compose.yml
 
-#### SQLite (Simple Setup)
+#### SQLite
 
 ```yaml title="docker-compose.yml"
 services:
@@ -105,7 +109,7 @@ services:
         condition: service_healthy
 ```
 
-#### MySQL (Production Setup)
+#### MySQL
 
 ```yaml title="docker-compose.yml"
 services:
@@ -154,6 +158,59 @@ services:
       - ./mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+```
+
+#### PostgreSQL
+
+```yaml title="docker-compose.yml"
+services:
+  app:
+    image: davidcrty/databasement:latest
+    container_name: databasement
+    restart: unless-stopped
+    ports:
+      - "2226:2226"
+    env_file: .env
+    volumes:
+      - ./data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2226/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    image: davidcrty/databasement:latest
+    container_name: databasement-worker
+    restart: unless-stopped
+    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
+    env_file: .env
+    volumes:
+      - ./data:/data
+    depends_on:
+      app:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    container_name: databasement-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: databasement
+      POSTGRES_USER: databasement
+      POSTGRES_PASSWORD: your-secure-password
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U databasement -d databasement"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -240,3 +297,54 @@ services:
 :::note
 When using `user`, you must manually set `/data` directory volume permissions before starting the container since the automatic permission fix requires root: `sudo chown 1010:1010 /path/to/databasement/data`
 :::
+
+## Troubleshooting
+
+### Database connection errors
+```
+SQLSTATE[HY000] [2002] No such file or directory
+# or 
+SQLSTATE[HY000] [2002] Connection refused
+```
+
+**Cause:** The database container isn't ready yet, or the port/host configuration is incorrect.
+
+**Solution:**
+1. Check if the database container is healthy: `docker compose ps`
+2. Verify `DB_PORT` matches your database (MySQL: `3306`, PostgreSQL: `5432`)
+3. Ensure `DB_HOST` matches your Docker Compose service name exactly (e.g. `mysql` or `postgres`)
+
+### Container keeps restarting
+
+**Cause:** Application error during startup.
+
+**Solution:** Check the logs to identify the issue:
+```bash
+docker compose logs -f app
+docker compose logs -f worker
+```
+
+### Permission denied on /data
+
+**Cause:** The container user doesn't have write access to the mounted volume.
+
+**Solution:** Either:
+1. Set `PUID`/`PGID` to match your host user (see [Custom User ID](#custom-user-id-puidpgid))
+2. Or fix permissions manually: `sudo chown -R 1000:1000 ./data` (replace `1000` with your PUID/PGID)
+
+### Database tables are empty after startup
+
+**Cause:** This is expected on first run. Migrations run automatically when the app starts.
+
+**Solution:** Check if migrations ran successfully:
+```bash
+docker compose logs app | grep -i migration
+```
+
+You should see: `All migrations have been run!`
+
+### More troubleshooting
+
+For additional troubleshooting options including debug mode, trusted proxy configuration, and artisan commands, see the [Configuration Troubleshooting](../self-hosting/configuration#troubleshooting) section.
+
+See also [Docker Networking](../user-guide/database-servers#docker-networking) if you're having issues connecting to your database server.
