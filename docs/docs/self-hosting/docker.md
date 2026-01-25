@@ -37,6 +37,10 @@ The `ENABLE_QUEUE_WORKER=true` environment variable enables the background queue
 
 Access the application at http://localhost:2226
 
+:::tip S3 Storage
+To store backups in AWS S3 or S3-compatible storage (MinIO, DigitalOcean Spaces, etc.), see the [S3 Storage Configuration](./configuration#s3-storage) section.
+:::
+
 ## Custom User ID (PUID/PGID)
 
 By default, the application runs as PUID/PGID `1000`. You can customize this using the `PUID` and `PGID` environment variables:
@@ -72,3 +76,11 @@ docker run -d \
 :::note
 When using `--user`, you must manually set `/data` directory volume permissions before starting the container since the automatic permission fix requires root: `sudo chown 499:499 /path/to/databasement/data`
 :::
+
+## Troubleshooting
+
+If you encounter issues, see the [Docker Compose Troubleshooting](./docker-compose#troubleshooting) section for common problems and solutions.
+
+For additional troubleshooting options including debug mode and configuration issues, see the [Configuration Troubleshooting](./configuration#troubleshooting) section.
+
+See also [Docker Networking](../user-guide/database-servers#docker-networking) if you're having issues connecting to your database server.
