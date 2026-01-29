@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DatabaseType;
 use App\Exceptions\Backup\EncryptionException;
 use Database\Factories\DatabaseServerFactory;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -19,7 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $host
  * @property int $port
- * @property string $database_type
+ * @property DatabaseType $database_type
  * @property string|null $sqlite_path
  * @property string $username
  * @property string $password
@@ -93,6 +94,7 @@ class DatabaseServer extends Model
     {
         return [
             'port' => 'integer',
+            'database_type' => DatabaseType::class,
             'backup_all_databases' => 'boolean',
             'backups_enabled' => 'boolean',
             'password' => 'encrypted',

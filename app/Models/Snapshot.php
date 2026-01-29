@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\DatabaseType;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\Formatters;
 use Database\Factories\SnapshotFactory;
@@ -23,7 +24,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $checksum
  * @property Carbon $started_at
  * @property string $database_name
- * @property string $database_type
+ * @property DatabaseType $database_type
  * @property string $compression_type
  * @property string $method
  * @property array<string, mixed>|null $metadata
@@ -94,6 +95,7 @@ class Snapshot extends Model
         return [
             'started_at' => 'datetime',
             'file_size' => 'integer',
+            'database_type' => DatabaseType::class,
             'metadata' => 'array',
         ];
     }

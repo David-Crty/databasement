@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DatabaseType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
@@ -14,7 +15,7 @@ test('creates demo backup for sqlite database', function () {
     $databaseServer = $service->createDemoBackup('sqlite');
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
-        ->and($databaseServer->database_type)->toBe('sqlite')
+        ->and($databaseServer->database_type)->toBe(DatabaseType::SQLITE)
         ->and($databaseServer->sqlite_path)->toBe('/data/database.sqlite')
         ->and($databaseServer->host)->toBeNull()
         ->and($databaseServer->username)->toBeNull()
@@ -39,7 +40,7 @@ test('creates demo backup for mysql database', function () {
     $databaseServer = $service->createDemoBackup('mysql');
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
-        ->and($databaseServer->database_type)->toBe('mysql')
+        ->and($databaseServer->database_type)->toBe(DatabaseType::MYSQL)
         ->and($databaseServer->host)->toBe('mysql.example.com')
         ->and($databaseServer->port)->toBe(3306)
         ->and($databaseServer->username)->toBe('dbuser')
@@ -64,7 +65,7 @@ test('creates demo backup for postgresql database', function () {
     $databaseServer = $service->createDemoBackup('pgsql');
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
-        ->and($databaseServer->database_type)->toBe('postgres')
+        ->and($databaseServer->database_type)->toBe(DatabaseType::POSTGRESQL)
         ->and($databaseServer->host)->toBe('postgres.example.com')
         ->and($databaseServer->port)->toBe(5432)
         ->and($databaseServer->username)->toBe('pguser')

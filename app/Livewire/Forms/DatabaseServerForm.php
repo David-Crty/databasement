@@ -126,7 +126,7 @@ class DatabaseServerForm extends Form
         $this->name = $server->name;
         $this->host = $server->host ?? '';
         $this->port = $server->port ?? 3306;
-        $this->database_type = $server->database_type;
+        $this->database_type = $server->database_type->value;
         $this->sqlite_path = $server->sqlite_path ?? '';
         $this->username = $server->username ?? '';
         $this->database_names = $server->database_names ?? [];

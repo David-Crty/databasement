@@ -82,7 +82,7 @@ class RestoreTask
             $job->log('Downloaded completed successfully in '.$transferDuration, 'success');
             $workingFile = $compressor->decompress($compressedFile);
 
-            if ($targetServer->database_type === 'sqlite') {
+            if ($targetServer->database_type === DatabaseType::SQLITE) {
                 // SQLite: simply copy the file to the target path
                 $job->log('Restoring SQLite database', 'info', [
                     'source_database' => $snapshot->database_name,
@@ -124,7 +124,7 @@ class RestoreTask
     {
         if ($targetServer->database_type !== $snapshot->database_type) {
             throw new RestoreException(
-                "Cannot restore {$snapshot->database_type} snapshot to {$targetServer->database_type} server"
+                "Cannot restore {$snapshot->database_type->value} snapshot to {$targetServer->database_type->value} server"
             );
         }
     }
@@ -132,13 +132,12 @@ class RestoreTask
     protected function prepareDatabase(DatabaseServer $targetServer, string $schemaName, BackupJob $job): void
     {
         try {
-            $databaseType = DatabaseType::from($targetServer->database_type);
-            $pdo = $databaseType->createPdo($targetServer);
+            $pdo = $targetServer->database_type->createPdo($targetServer);
 
-            match ($databaseType) {
+            match ($targetServer->database_type) {
                 DatabaseType::MYSQL => $this->prepareMysqlDatabase($pdo, $schemaName, $job),
                 DatabaseType::POSTGRESQL => $this->preparePostgresqlDatabase($pdo, $schemaName, $job),
-                default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
+                default => throw new UnsupportedDatabaseTypeException($targetServer->database_type->value),
             };
         } catch (PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
@@ -187,12 +186,10 @@ class RestoreTask
 
     private function restoreDatabase(DatabaseServer $targetServer, string $inputPath): void
     {
-        $databaseType = DatabaseType::from($targetServer->database_type);
-
-        $command = match ($databaseType) {
+        $command = match ($targetServer->database_type) {
             DatabaseType::MYSQL => $this->mysqlDatabase->getRestoreCommandLine($inputPath),
             DatabaseType::POSTGRESQL => $this->postgresqlDatabase->getRestoreCommandLine($inputPath),
-            default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
+            default => throw new UnsupportedDatabaseTypeException($targetServer->database_type->value),
         };
 
         $this->shellProcessor->process($command);
@@ -217,12 +214,10 @@ class RestoreTask
             'database' => $schemaName,
         ];
 
-        $databaseType = DatabaseType::from($targetServer->database_type);
-
-        match ($databaseType) {
+        match ($targetServer->database_type) {
             DatabaseType::MYSQL => $this->mysqlDatabase->setConfig($config),
             DatabaseType::POSTGRESQL => $this->postgresqlDatabase->setConfig($config),
-            default => throw new UnsupportedDatabaseTypeException($targetServer->database_type),
+            default => throw new UnsupportedDatabaseTypeException($targetServer->database_type->value),
         };
     }
 
