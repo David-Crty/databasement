@@ -60,7 +60,7 @@ class GzipCompressor implements CompressorInterface
 
     public function getDecompressedPath(string $inputPath): string
     {
-        return preg_replace('/\.gz$/', '', $inputPath);
+        return preg_replace('/\.'.preg_quote($this->getExtension(), '/').'$/', '', $inputPath);
     }
 
     private function getLevel(): int
