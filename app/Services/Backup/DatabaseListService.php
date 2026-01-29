@@ -34,9 +34,9 @@ class DatabaseListService
             $pdo = $this->createConnection($databaseServer);
 
             return match ($databaseServer->database_type) {
-                'mysql' => $this->listMysqlDatabases($pdo),
-                'postgres' => $this->listPostgresqlDatabases($pdo),
-                default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
+                DatabaseType::MYSQL => $this->listMysqlDatabases($pdo),
+                DatabaseType::POSTGRESQL => $this->listPostgresqlDatabases($pdo),
+                default => throw new \Exception("Database type {$databaseServer->database_type->value} not supported"),
             };
         } catch (PDOException $e) {
             throw new \Exception("Failed to list databases: {$e->getMessage()}", 0, $e);
@@ -81,6 +81,6 @@ class DatabaseListService
 
     protected function createConnection(DatabaseServer $databaseServer): PDO
     {
-        return DatabaseType::from($databaseServer->database_type)->createPdo($databaseServer, null, 5);
+        return $databaseServer->database_type->createPdo($databaseServer, null, 5);
     }
 }

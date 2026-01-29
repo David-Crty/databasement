@@ -1,7 +1,7 @@
 @props(['type', 'class' => 'w-5 h-5'])
 
 @php
-    $type = strtolower($type);
+    $type = $type instanceof \App\Enums\DatabaseType ? $type->value : strtolower($type);
 @endphp
 
 @if($type === 'mysql')

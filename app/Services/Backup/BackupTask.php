@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\DatabaseType;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -30,7 +31,7 @@ class BackupTask
     {
         $databaseServer = $snapshot->databaseServer;
         $job = $snapshot->job;
-        $isSqlite = $databaseServer->database_type === 'sqlite';
+        $isSqlite = $databaseServer->database_type === DatabaseType::SQLITE;
 
         // Configure shell processor to log to job
         $this->setLogger($job);
@@ -112,7 +113,7 @@ class BackupTask
 
     private function dumpDatabase(DatabaseServer $databaseServer, string $databaseName, string $outputPath): void
     {
-        if ($databaseServer->database_type === 'sqlite') {
+        if ($databaseServer->database_type === DatabaseType::SQLITE) {
             // SQLite: copy the file directly
             $command = $this->copySqliteDatabase($databaseServer->sqlite_path, $outputPath);
         } else {
@@ -120,9 +121,9 @@ class BackupTask
             $this->configureDatabaseInterface($databaseServer, $databaseName);
 
             $command = match ($databaseServer->database_type) {
-                'mysql' => $this->mysqlDatabase->getDumpCommandLine($outputPath),
-                'postgres' => $this->postgresqlDatabase->getDumpCommandLine($outputPath),
-                default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
+                DatabaseType::MYSQL => $this->mysqlDatabase->getDumpCommandLine($outputPath),
+                DatabaseType::POSTGRESQL => $this->postgresqlDatabase->getDumpCommandLine($outputPath),
+                default => throw new \Exception("Database type {$databaseServer->database_type->value} not supported"),
             };
         }
 
@@ -146,7 +147,7 @@ class BackupTask
         $timestamp = now()->format('Y-m-d-His');
         $serverName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->name);
         $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName);
-        $baseExtension = $databaseServer->database_type === 'sqlite' ? 'db' : 'sql';
+        $baseExtension = $databaseServer->database_type === DatabaseType::SQLITE ? 'db' : 'sql';
         $compressionExtension = $this->compressor->getExtension();
 
         $filename = sprintf('%s-%s-%s.%s.%s', $serverName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
@@ -172,9 +173,9 @@ class BackupTask
         ];
 
         match ($databaseServer->database_type) {
-            'mysql' => $this->mysqlDatabase->setConfig($config),
-            'postgres' => $this->postgresqlDatabase->setConfig($config),
-            default => throw new \Exception("Database type {$databaseServer->database_type} not supported"),
+            DatabaseType::MYSQL => $this->mysqlDatabase->setConfig($config),
+            DatabaseType::POSTGRESQL => $this->postgresqlDatabase->setConfig($config),
+            default => throw new \Exception("Database type {$databaseServer->database_type->value} not supported"),
         };
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DatabaseType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -166,26 +167,6 @@ test('run executes postgresql backup workflow successfully', function () {
     expect($commands)->toEqual($expectedCommands);
 });
 
-test('run throws exception for unsupported database type', function () {
-    // Arrange
-    $databaseServer = createDatabaseServer([
-        'name' => 'Oracle DB',
-        'host' => 'localhost',
-        'port' => 1521,
-        'database_type' => 'oracle',
-        'username' => 'system',
-        'password' => 'oracle',
-        'database_names' => ['orcl'],
-    ]);
-
-    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
-    $snapshot = $snapshots[0];
-
-    // Act & Assert
-    expect(fn () => $this->backupTask->run($snapshot))
-        ->toThrow(\Exception::class, 'Database type oracle not supported');
-});
-
 test('run throws exception when backup command failed', function () {
     // Arrange
     $databaseServer = createDatabaseServer([
@@ -271,7 +252,7 @@ test('createSnapshots creates multiple snapshots when backup_all_databases is en
     // All snapshots should share the same server but have independent jobs
     foreach ($snapshots as $snapshot) {
         expect($snapshot->database_server_id)->toBe($databaseServer->id)
-            ->and($snapshot->database_type)->toBe('mysql')
+            ->and($snapshot->database_type)->toBe(DatabaseType::MYSQL)
             ->and($snapshot->compression_type)->toBe(\App\Enums\CompressionType::from(config('backup.compression')))
             ->and($snapshot->job)->not->toBeNull()
             ->and($snapshot->job->status)->toBe('pending');

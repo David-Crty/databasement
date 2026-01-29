@@ -9,6 +9,7 @@ use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Rules\SafePath;
 use App\Services\Backup\DatabaseListService;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Form;
 
@@ -126,7 +127,7 @@ class DatabaseServerForm extends Form
         $this->name = $server->name;
         $this->host = $server->host ?? '';
         $this->port = $server->port ?? 3306;
-        $this->database_type = $server->database_type;
+        $this->database_type = $server->database_type->value;
         $this->sqlite_path = $server->sqlite_path ?? '';
         $this->username = $server->username ?? '';
         $this->database_names = $server->database_names ?? [];
@@ -237,7 +238,10 @@ class DatabaseServerForm extends Form
 
         $rules = [
             'name' => 'required|string|max:255',
-            'database_type' => 'required|string|in:mysql,postgres,sqlite',
+            'database_type' => ['required', 'string', Rule::in(array_map(
+                fn (DatabaseType $type) => $type->value,
+                DatabaseType::cases()
+            ))],
             'description' => 'nullable|string|max:1000',
             'backups_enabled' => 'boolean',
         ];

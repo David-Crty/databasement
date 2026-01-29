@@ -1,10 +1,11 @@
 <?php
 
+use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
 use App\Services\Backup\DatabaseListService;
 
 test('listDatabases returns databases excluding system databases', function (
-    string $databaseType,
+    DatabaseType $databaseType,
     int $port,
     string $query,
     array $allDatabases,
@@ -14,7 +15,7 @@ test('listDatabases returns databases excluding system databases', function (
     // Arrange - Create a test double for the server
     $server = new class($databaseType, $port) extends DatabaseServer
     {
-        public function __construct(string $databaseType, int $port)
+        public function __construct(DatabaseType $databaseType, int $port)
         {
             // Skip parent constructor to avoid database interaction
             $this->database_type = $databaseType;
@@ -65,7 +66,7 @@ test('listDatabases returns databases excluding system databases', function (
     }
 })->with([
     'mysql' => [
-        'databaseType' => 'mysql',
+        'databaseType' => DatabaseType::MYSQL,
         'port' => 3306,
         'query' => 'SHOW DATABASES',
         'allDatabases' => [
@@ -81,7 +82,7 @@ test('listDatabases returns databases excluding system databases', function (
         'expectedDatabases' => ['app_database', 'test_database', 'production_db'],
     ],
     'postgres' => [
-        'databaseType' => 'postgres',
+        'databaseType' => DatabaseType::POSTGRESQL,
         'port' => 5432,
         'query' => 'SELECT datname FROM pg_database WHERE datistemplate = false',
         'allDatabases' => [

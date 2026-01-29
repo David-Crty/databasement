@@ -3,6 +3,7 @@
 namespace App\Services\Backup;
 
 use App\Enums\CompressionType;
+use App\Enums\DatabaseType;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
@@ -32,7 +33,7 @@ class BackupJobFactory
         $snapshots = [];
 
         // SQLite: single snapshot, database name is the filename
-        if ($server->database_type === 'sqlite') {
+        if ($server->database_type === DatabaseType::SQLITE) {
             $databaseName = basename($server->sqlite_path);
             $snapshots[] = $this->createSnapshot($server, $databaseName, $method, $triggeredByUserId);
 
