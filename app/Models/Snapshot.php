@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\CompressionType;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\Formatters;
 use Database\Factories\SnapshotFactory;
@@ -24,7 +25,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $started_at
  * @property string $database_name
  * @property string $database_type
- * @property string $compression_type
+ * @property CompressionType $compression_type
  * @property string $method
  * @property array<string, mixed>|null $metadata
  * @property string|null $triggered_by_user_id
@@ -95,6 +96,7 @@ class Snapshot extends Model
             'started_at' => 'datetime',
             'file_size' => 'integer',
             'metadata' => 'array',
+            'compression_type' => CompressionType::class,
         ];
     }
 

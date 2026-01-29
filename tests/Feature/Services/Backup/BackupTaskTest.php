@@ -272,7 +272,7 @@ test('createSnapshots creates multiple snapshots when backup_all_databases is en
     foreach ($snapshots as $snapshot) {
         expect($snapshot->database_server_id)->toBe($databaseServer->id)
             ->and($snapshot->database_type)->toBe('mysql')
-            ->and($snapshot->compression_type)->toBe(config('backup.compression'))
+            ->and($snapshot->compression_type)->toBe(\App\Enums\CompressionType::from(config('backup.compression')))
             ->and($snapshot->job)->not->toBeNull()
             ->and($snapshot->job->status)->toBe('pending');
     }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\CompressionType;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
@@ -85,7 +86,7 @@ class BackupJobFactory
             'started_at' => now(),
             'database_name' => $databaseName,
             'database_type' => $server->database_type,
-            'compression_type' => config('backup.compression'),
+            'compression_type' => CompressionType::from(config('backup.compression')),
             'method' => $method,
             'metadata' => Snapshot::generateMetadata($server, $databaseName, $volume),
             'triggered_by_user_id' => $triggeredByUserId,

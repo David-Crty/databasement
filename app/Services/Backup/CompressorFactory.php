@@ -2,6 +2,8 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\CompressionType;
+
 class CompressorFactory
 {
     public function __construct(
@@ -10,20 +12,15 @@ class CompressorFactory
 
     /**
      * Create a compressor instance based on configuration.
-     *
-     * @throws \InvalidArgumentException If the compression method is not supported
      */
-    public function make(?string $method = null, ?int $level = null): CompressorInterface
+    public function make(?CompressionType $type = null, ?int $level = null): CompressorInterface
     {
-        $method = $method ?? config('backup.compression', 'gzip');
+        $type = $type ?? CompressionType::from(config('backup.compression'));
         $level = $level ?? (int) config('backup.compression_level');
 
-        return match ($method) {
-            'gzip' => new GzipCompressor($this->shellProcessor, $level),
-            'zstd' => new ZstdCompressor($this->shellProcessor, $level),
-            default => throw new \InvalidArgumentException(
-                "Unsupported compression method: {$method}. Supported methods: gzip, zstd"
-            ),
+        return match ($type) {
+            CompressionType::GZIP => new GzipCompressor($this->shellProcessor, $level),
+            CompressionType::ZSTD => new ZstdCompressor($this->shellProcessor, $level),
         };
     }
 }
