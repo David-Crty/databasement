@@ -2,6 +2,8 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\CompressionType;
+
 class GzipCompressor implements CompressorInterface
 {
     private const MIN_LEVEL = 1;
@@ -36,7 +38,7 @@ class GzipCompressor implements CompressorInterface
 
     public function getExtension(): string
     {
-        return 'gz';
+        return CompressionType::GZIP->extension();
     }
 
     public function getCompressCommandLine(string $inputPath): string

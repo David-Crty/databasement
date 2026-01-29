@@ -67,8 +67,8 @@ class RestoreTask
             ]);
 
             $humanFileSize = Formatters::humanFileSize($snapshot->file_size);
+            $compressedFile = $workingDirectory.'/snapshot.'.$snapshot->compression_type->extension();
             $compressor = $this->compressorFactory->make($snapshot->compression_type);
-            $compressedFile = $workingDirectory.'/snapshot.'.$compressor->getExtension();
             // Download snapshot from volume
             $job->log("Downloading snapshot ({$humanFileSize}) from volume: {$snapshot->volume->name}", 'info', [
                 'volume_type' => $snapshot->volume->type,

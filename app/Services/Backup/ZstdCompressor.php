@@ -2,6 +2,8 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\CompressionType;
+
 class ZstdCompressor implements CompressorInterface
 {
     private const MIN_LEVEL = 1;
@@ -35,7 +37,7 @@ class ZstdCompressor implements CompressorInterface
 
     public function getExtension(): string
     {
-        return 'zst';
+        return CompressionType::ZSTD->extension();
     }
 
     public function getCompressCommandLine(string $inputPath): string
