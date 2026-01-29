@@ -7,9 +7,11 @@
  * Run with: php artisan test --group=integration
  */
 
+use App\Enums\CompressionType;
 use App\Models\Backup;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
+use App\Services\Backup\CompressorInterface;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\RestoreTask;
 use Tests\Support\IntegrationTestHelpers;
@@ -31,12 +33,8 @@ afterEach(function () {
     // Cleanup restored database
     if ($this->restoredDatabaseName && $this->databaseServer) {
         try {
-            $type = match ($this->databaseServer->database_type) {
-                'postgres' => 'postgres',
-                default => 'mysql',
-            };
             IntegrationTestHelpers::dropDatabase(
-                $type,
+                $this->databaseServer->database_type->value,
                 $this->databaseServer,
                 $this->restoredDatabaseName
             );
@@ -51,13 +49,18 @@ afterEach(function () {
 });
 
 test('client-server database backup and restore workflow', function (string $type, string $compression, string $expectedExt) {
-    // Set compression method
+    // Set compression method (and encryption key for encrypted backups)
     config(['backup.compression' => $compression]);
+    if ($compression === 'encrypted') {
+        config(['backup.encryption_key' => 'base64:'.base64_encode('0123456789abcdef0123456789abcdef')]);
+    }
 
-    // Clear singleton bindings and recreate BackupTask with new compression config
-    app()->forgetInstance(\App\Services\Backup\CompressorInterface::class);
-    app()->forgetInstance(\App\Services\Backup\BackupTask::class);
+    // Clear singleton bindings and recreate tasks with new compression config
+    app()->forgetInstance(CompressorInterface::class);
+    app()->forgetInstance(BackupTask::class);
+    app()->forgetInstance(RestoreTask::class);
     $this->backupTask = app(BackupTask::class);
+    $this->restoreTask = app(RestoreTask::class);
 
     // Create models
     $this->volume = IntegrationTestHelpers::createVolume($type);
@@ -82,7 +85,7 @@ test('client-server database backup and restore workflow', function (string $typ
 
     expect($this->snapshot->job->status)->toBe('completed')
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
-        ->and($this->snapshot->compression_type)->toBe(\App\Enums\CompressionType::from($compression))
+        ->and($this->snapshot->compression_type)->toBe(CompressionType::from($compression))
         ->and($this->snapshot->filename)->toEndWith(".sql.{$expectedExt}")
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
 
@@ -107,9 +110,9 @@ test('client-server database backup and restore workflow', function (string $typ
     $stmt = $pdo->query($verifyQuery);
     expect($stmt)->not->toBeFalse();
 })->with([
-    'mysql with gzip' => ['mysql', 'gzip', 'gz'],
-    'mysql with zstd' => ['mysql', 'zstd', 'zst'],
     'postgres with gzip' => ['postgres', 'gzip', 'gz'],
+    'mysql with zstd' => ['mysql', 'zstd', 'zst'],
+    'mysql with encrypted' => ['mysql', 'encrypted', '7z'],
 ]);
 
 test('sqlite backup and restore workflow', function () {

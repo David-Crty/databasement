@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\CompressionType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
@@ -122,7 +123,7 @@ test('run executes mysql restore workflow successfully', function (string $cliTy
     // Create snapshot and update path for restore test
     $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
     $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.sql.gz']);
+    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
     $snapshot->job->markCompleted();
 
     // Create restore job
@@ -182,7 +183,7 @@ test('run executes postgresql restore workflow successfully', function () {
     // Create snapshot and update path for restore test
     $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
     $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'pg_backup.sql.gz']);
+    $snapshot->update(['filename' => 'pg_backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
     $snapshot->job->markCompleted();
 
     // Create restore job
@@ -198,7 +199,7 @@ test('run executes postgresql restore workflow successfully', function () {
     $compressedFile = $workingDir.'/snapshot.gz';
     $decompressedFile = $workingDir.'/snapshot';
 
-    // Expected commands (PostgreSQL uses escapeshellarg on paths, adding quotes)
+    // Expected commands
     $expectedCommands = [
         "gzip -d '$compressedFile'",
         "PGPASSWORD='secret' psql --host='target.localhost' --port='5432' --username='postgres' 'restored_db' -f '$decompressedFile'",
@@ -233,7 +234,7 @@ test('run throws exception when database types are incompatible', function () {
     // Create snapshot and mark as completed
     $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
     $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.sql.gz']);
+    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
     $snapshot->job->markCompleted();
 
     // Create restore job
@@ -269,7 +270,7 @@ test('run throws exception when restore command failed', function () {
     // Create snapshot and mark as completed
     $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
     $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.sql.gz']);
+    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
     $snapshot->job->markCompleted();
 
     // Create restore job
@@ -376,7 +377,7 @@ test('run executes sqlite restore workflow successfully', function () {
     // Create snapshot and update path for restore test
     $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
     $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.db.gz']);
+    $snapshot->update(['filename' => 'backup.db.gz', 'compression_type' => CompressionType::GZIP]);
     $snapshot->job->markCompleted();
 
     // Create restore job
@@ -399,7 +400,7 @@ test('run executes sqlite restore workflow successfully', function () {
     $compressedFile = $workingDir.'/snapshot.gz';
     $decompressedFile = $workingDir.'/snapshot';
 
-    // Expected commands - SQLite restore is just a file copy
+    // Expected commands - gzip extracts archive, then file copy for SQLite restore
     $expectedCommands = [
         "gzip -d '$compressedFile'",
         "cp '$decompressedFile' '$sqlitePath'",

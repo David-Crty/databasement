@@ -35,6 +35,7 @@
 
 - **Multi-database support** — Manage MySQL, PostgreSQL, and MariaDB servers from a single interface
 - **Automated backups** — Schedule recurring backups on daily or weekly intervals. Flexible retention policies: simple time-based (days) or GFS (grandfather-father-son)
+- **Multiple compression options** — gzip, zstd (20-40% better compression), or encrypted (AES-256 for sensitive data)
 - **Cross-server restore** — Restore snapshots from production to staging, or between any compatible servers
 - **Flexible storage** — Store backups locally or on S3-compatible storage (AWS S3, MinIO, etc.)
 - **Real-time monitoring** — Track backup and restore progress with detailed job logs

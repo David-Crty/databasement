@@ -28,7 +28,7 @@ RUN apk add --no-cache git \
         mariadb-client mariadb-connector-c \
         postgresql18-client \
         supervisor \
-        gzip zstd \
+        gzip zstd 7zip \
         tzdata \
         shadow \
         findutils \

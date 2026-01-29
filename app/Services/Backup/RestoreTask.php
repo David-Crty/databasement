@@ -69,16 +69,20 @@ class RestoreTask
             $humanFileSize = Formatters::humanFileSize($snapshot->file_size);
             $compressedFile = $workingDirectory.'/snapshot.'.$snapshot->compression_type->extension();
             $compressor = $this->compressorFactory->make($snapshot->compression_type);
+
             // Download snapshot from volume
             $job->log("Downloading snapshot ({$humanFileSize}) from volume: {$snapshot->volume->name}", 'info', [
                 'volume_type' => $snapshot->volume->type,
                 'source' => $snapshot->filename,
                 'destination' => $compressedFile,
+                'compression_type' => $snapshot->compression_type->value,
             ]);
             $transferStart = microtime(true);
             $this->filesystemProvider->download($snapshot, $compressedFile);
             $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
-            $job->log('Downloaded completed successfully in '.$transferDuration, 'success');
+            $job->log('Download completed successfully in '.$transferDuration, 'success');
+
+            // Decompress the archive
             $workingFile = $compressor->decompress($compressedFile);
 
             if ($targetServer->database_type === DatabaseType::SQLITE) {
@@ -114,7 +118,7 @@ class RestoreTask
             // Clean up working directory and all files within (safety net, Job also cleans up on failure)
             $job->log('Cleaning up temporary files', 'info');
             if (is_dir($workingDirectory)) {
-                \App\Support\FilesystemSupport::cleanupDirectory($workingDirectory);
+                FilesystemSupport::cleanupDirectory($workingDirectory);
             }
         }
     }

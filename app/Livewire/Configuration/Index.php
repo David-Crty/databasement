@@ -40,12 +40,12 @@ class Index extends Component
             'compression' => [
                 'value' => config('backup.compression'),
                 'env' => 'BACKUP_COMPRESSION',
-                'description' => __('Compression algorithm: "gzip" or "zstd".'),
+                'description' => __('Compression algorithm: "gzip", "zstd", or "encrypted".'),
             ],
             'compression_level' => [
                 'value' => config('backup.compression_level'),
                 'env' => 'BACKUP_COMPRESSION_LEVEL',
-                'description' => __('Compression level: 1-9 for gzip, 1-19 for zstd (default: 6).'),
+                'description' => __('Compression level: 1-9 for gzip/encrypted, 1-19 for zstd (default: 6).'),
             ],
             'mysql_cli_type' => [
                 'value' => config('backup.mysql_cli_type'),

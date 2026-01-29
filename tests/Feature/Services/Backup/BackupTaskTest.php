@@ -7,12 +7,11 @@ use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
-use App\Services\Backup\CompressorInterface;
+use App\Services\Backup\CompressorFactory;
 use App\Services\Backup\DatabaseListService;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
-use App\Services\Backup\GzipCompressor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use League\Flysystem\Filesystem;
 use Tests\Support\TestShellProcessor;
@@ -24,8 +23,7 @@ beforeEach(function () {
     $this->mysqlDatabase = new MysqlDatabase;  // ✓ Real command building
     $this->postgresqlDatabase = new PostgresqlDatabase;  // ✓ Real command building
     $this->shellProcessor = new TestShellProcessor;  // ✓ Captures commands without executing
-    /** @var CompressorInterface $compressor */
-    $this->compressor = new GzipCompressor($this->shellProcessor, 6);  // ✓ Real path manipulation
+    $this->compressorFactory = new CompressorFactory($this->shellProcessor);  // ✓ Real path manipulation
 
     // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
@@ -36,7 +34,7 @@ beforeEach(function () {
         $this->postgresqlDatabase,
         $this->shellProcessor,
         $this->filesystemProvider,
-        $this->compressor
+        $this->compressorFactory
     );
 
     // Use real BackupJobFactory from container
@@ -45,7 +43,10 @@ beforeEach(function () {
     // Create temp directory for test files and set config
     $this->tempDir = sys_get_temp_dir().'/backup-task-test-'.uniqid();
     mkdir($this->tempDir, 0777, true);
-    config(['backup.working_directory' => $this->tempDir]);
+    config([
+        'backup.working_directory' => $this->tempDir,
+        'backup.compression' => 'gzip',  // Explicitly set to test gzip commands
+    ]);
 });
 
 afterEach(function () {
@@ -195,7 +196,7 @@ test('run throws exception when backup command failed', function () {
         $this->postgresqlDatabase,
         $shellProcessor,
         $this->filesystemProvider,
-        $this->compressor
+        $this->compressorFactory
     );
 
     // Act & Assert

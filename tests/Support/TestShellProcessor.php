@@ -71,6 +71,31 @@ class TestShellProcessor extends ShellProcessor
             $decompressedPath = preg_replace('/\.zst$/', '', $zstPath);
             file_put_contents($decompressedPath, "-- Fake decompressed data\nCREATE TABLE test (id INT);\n");
         }
+
+        // For 7z encrypted compression: extract output path and create .7z file
+        // Matches: 7z a -t7z -mx=6 -mhe=on ... 'output.7z' 'input'
+        if (preg_match('/^7z\s+a\s+-t7z\s+-mx=\d+\s+-mhe=on\s+.*?[\'"]?([^\s\'"]+\.7z)[\'"]?\s+/', $command, $matches)) {
+            $outputPath = $matches[1];
+            if (! file_exists($outputPath)) {
+                file_put_contents($outputPath, 'fake 7z compressed data');
+            }
+        }
+
+        // For 7z extraction: extract archive path and create decompressed file
+        // Matches: 7z x -y -o'/path' [-p'password'] '/path/file.ext'
+        // 7z extracts to the internal filename (dump.sql or dump.db), not based on archive name
+        if (preg_match('/^7z\s+x\s+-y\s+-o[\'"]?([^\s\'"]+)[\'"]?\s+(?:-p[\'"]?[^\s\'"]*[\'"]?\s+)?[\'"]?([^\s\'"]+)[\'"]?$/', $command, $matches)) {
+            $outputDir = $matches[1];
+            $archivePath = $matches[2];
+            // For .db.gz or .db.7z archives, create dump.db
+            // For .sql.gz or .7z archives, create dump.sql
+            if (str_contains($archivePath, '.db.')) {
+                $decompressedPath = rtrim($outputDir, '/').'/dump.db';
+            } else {
+                $decompressedPath = rtrim($outputDir, '/').'/dump.sql';
+            }
+            file_put_contents($decompressedPath, "-- Fake decompressed data\nCREATE TABLE test (id INT);\n");
+        }
     }
 
     /**

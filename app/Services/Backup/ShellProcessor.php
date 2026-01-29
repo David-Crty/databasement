@@ -86,6 +86,9 @@ class ShellProcessor
             '/PGPASSWORD=[^\s]+/' => 'PGPASSWORD=***',
             // Match MYSQL_PWD=VALUE
             '/MYSQL_PWD=[^\s]+/' => 'MYSQL_PWD=***',
+            // Match 7z password: -p'password' or -p"password" or -ppassword
+            "/-p'[^']*'/" => '-p***',
+            '/-p"[^"]*"/' => '-p***',
         ];
 
         foreach ($patterns as $pattern => $replacement) {

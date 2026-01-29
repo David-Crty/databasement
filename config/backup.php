@@ -19,15 +19,34 @@ return [
     | Compression Settings
     |--------------------------------------------------------------------------
     |
-    | Configure the compression algorithm and level for backups.
-    | Supported methods: 'gzip' (default), 'zstd'
+    | Configure the compression algorithm for backups.
     |
-    | Compression levels: 1-9 for gzip, 1-19 for zstd (default: 6)
+    | Supported methods:
+    |   - 'gzip' (default): Standard gzip compression (.gz files)
+    |   - 'zstd': Zstandard compression (.zst files)
+    |   - 'encrypted': AES-256 encrypted compression using 7-Zip (.7z files)
+    |
+    | Compression levels: 1-9 for gzip/encrypted, 1-19 for zstd (default: 6)
     |
     */
 
     'compression' => env('BACKUP_COMPRESSION', 'gzip'),
     'compression_level' => (int) env('BACKUP_COMPRESSION_LEVEL', 6),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Encryption Key
+    |--------------------------------------------------------------------------
+    |
+    | The encryption key used when BACKUP_COMPRESSION=encrypted.
+    | Defaults to APP_KEY. Used with 7-Zip AES-256 encryption.
+    |
+    | WARNING: If you change this key, you will not be able to restore
+    | backups that were encrypted with the previous key.
+    |
+    */
+
+    'encryption_key' => env('BACKUP_ENCRYPTION_KEY', env('APP_KEY')),
 
     /*
     |--------------------------------------------------------------------------

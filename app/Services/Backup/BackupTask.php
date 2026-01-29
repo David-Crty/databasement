@@ -19,7 +19,7 @@ class BackupTask
         private readonly PostgresqlDatabase $postgresqlDatabase,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
-        private readonly CompressorInterface $compressor
+        private readonly CompressorFactory $compressorFactory
     ) {}
 
     public function setLogger(BackupJob $job): void
@@ -32,6 +32,9 @@ class BackupTask
         $databaseServer = $snapshot->databaseServer;
         $job = $snapshot->job;
         $isSqlite = $databaseServer->database_type === DatabaseType::SQLITE;
+
+        // Create compressor based on config (gzip, zstd, or encrypted)
+        $compressor = $this->compressorFactory->make();
 
         // Configure shell processor to log to job
         $this->setLogger($job);
@@ -50,13 +53,13 @@ class BackupTask
             $job->log("Starting backup for database: {$databaseName}", 'info');
 
             $this->dumpDatabase($databaseServer, $databaseName, $workingFile);
-            $archive = $this->compressor->compress($workingFile);
+            $archive = $compressor->compress($workingFile);
             $fileSize = filesize($archive);
             if ($fileSize === false) {
                 throw new \RuntimeException("Failed to get file size for: {$archive}");
             }
             $humanFileSize = Formatters::humanFileSize($fileSize);
-            $filename = $this->generateFilename($databaseServer, $databaseName);
+            $filename = $this->generateFilename($databaseServer, $databaseName, $compressor);
             $job->log("Transferring backup ({$humanFileSize}) to volume: {$snapshot->volume->name}", 'info', [
                 'volume_type' => $snapshot->volume->type,
                 'source' => $archive,
@@ -142,13 +145,13 @@ class BackupTask
      * Generate the filename to store in the volume.
      * Includes optional path prefix for organizing backups.
      */
-    private function generateFilename(DatabaseServer $databaseServer, string $databaseName): string
+    private function generateFilename(DatabaseServer $databaseServer, string $databaseName, CompressorInterface $compressor): string
     {
         $timestamp = now()->format('Y-m-d-His');
         $serverName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->name);
         $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName);
         $baseExtension = $databaseServer->database_type === DatabaseType::SQLITE ? 'db' : 'sql';
-        $compressionExtension = $this->compressor->getExtension();
+        $compressionExtension = $compressor->getExtension();
 
         $filename = sprintf('%s-%s-%s.%s.%s', $serverName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
 
