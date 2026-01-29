@@ -36,9 +36,12 @@ docker compose logs -f queue  # View queue worker logs only
 ```
 
 ### Testing
+
+**IMPORTANT**: ALWAYS use `make test` commands for running tests. NEVER use `docker compose exec ... php artisan test` directly - it runs tests sequentially and is much slower.
+
 ```bash
-make test                           # Run all tests in parallel (fast iteration)
-make test-sequential                # Run tests sequentially (for debugging)
+make test                           # Run all tests in parallel (fast iteration) - ALWAYS USE THIS
+make test-sequential                # Run tests sequentially (for debugging only)
 make test-filter FILTER=DatabaseServer  # Run specific test class/method
 make test-coverage                  # Run tests with coverage report
 ```

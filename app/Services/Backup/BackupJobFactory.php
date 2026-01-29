@@ -85,7 +85,7 @@ class BackupJobFactory
             'started_at' => now(),
             'database_name' => $databaseName,
             'database_type' => $server->database_type,
-            'compression_type' => 'gzip',
+            'compression_type' => config('backup.compression'),
             'method' => $method,
             'metadata' => Snapshot::generateMetadata($server, $databaseName, $volume),
             'triggered_by_user_id' => $triggeredByUserId,

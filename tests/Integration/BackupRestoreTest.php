@@ -82,6 +82,7 @@ test('client-server database backup and restore workflow', function (string $typ
 
     expect($this->snapshot->job->status)->toBe('completed')
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->compression_type)->toBe($compression)
         ->and($this->snapshot->filename)->toEndWith(".sql.{$expectedExt}")
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
 
