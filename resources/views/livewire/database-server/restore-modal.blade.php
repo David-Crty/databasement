@@ -12,7 +12,7 @@
             <div class="space-y-4">
                 <div class="flex items-center justify-between gap-4">
                     <p class="text-sm opacity-70">
-                        {{ __('Select a snapshot to restore. Only snapshots from :type servers are shown.', ['type' => $targetServer?->database_type]) }}
+                        {{ __('Select a snapshot to restore. Only snapshots from :type servers are shown.', ['type' => $targetServer?->database_type?->label()]) }}
                     </p>
                 </div>
 
@@ -51,7 +51,7 @@
                                 wire:click="selectSnapshot('{{ $snapshot->id }}')"
                                 class="px-3 py-2 border rounded-lg cursor-pointer hover:bg-base-200 border-base-300 {{ $selectedSnapshotId === $snapshot->id ? 'border-primary bg-primary/10' : '' }}"
                             >
-                                <div class="flex items-start justify-between gap-4">
+                                <div class="flex items-center justify-between gap-4">
                                     <div class="flex-1 min-w-0 space-y-0.5">
                                         <div class="text-sm">
                                             <span class="opacity-50">{{ __('Database:') }}</span>
@@ -65,15 +65,10 @@
                                     <div class="text-right space-y-0.5">
                                         <div class="text-xs opacity-60 whitespace-nowrap flex items-center justify-end gap-2">
                                             <x-loading wire:loading wire:target="selectSnapshot('{{ $snapshot->id }}')" class="loading-xs" />
-                                            <span title="{{ $snapshot->created_at->diffForHumans() }}">
-                                                {{ \App\Support\Formatters::humanDate($snapshot->created_at) }}
-                                            </span>
+                                            {{ \App\Support\Formatters::humanDate($snapshot->created_at) }}
+                                            <span class="opacity-50">({{ $snapshot->created_at->diffForHumans() }})</span>
                                             &bull;
                                             {{ $snapshot->getHumanFileSize() }}
-                                        </div>
-                                        <div class="text-xs">
-                                            <span class="opacity-40">{{ __('ID:') }}</span>
-                                            <span class="opacity-40">{{ $snapshot->id }}</span>
                                         </div>
                                     </div>
                                 </div>

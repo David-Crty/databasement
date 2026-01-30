@@ -165,3 +165,24 @@ test('prevents restoring over the application database', function () {
     // Verify no job was dispatched
     Queue::assertNotPushed(ProcessRestoreJob::class);
 });
+
+test('can search and filter snapshots', function () {
+    $targetServer = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+    ]);
+
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+    ]);
+
+    Snapshot::factory()->forServer($server)->withFile()->create(['database_name' => 'users_db']);
+    Snapshot::factory()->forServer($server)->withFile()->create(['database_name' => 'orders_db']);
+
+    Livewire::test(RestoreModal::class)
+        ->dispatch('open-restore-modal', targetServerId: $targetServer->id)
+        ->assertSee('users_db')
+        ->assertSee('orders_db')
+        ->set('snapshotSearch', 'users')
+        ->assertSee('users_db')
+        ->assertDontSee('orders_db');
+});
