@@ -2,13 +2,16 @@
 
 namespace App\Livewire\DatabaseServer;
 
+use App\Enums\DatabaseType;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Queries\SnapshotQuery;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\DatabaseListService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
@@ -26,15 +29,8 @@ class RestoreModal extends Component
     public ?DatabaseServer $targetServer = null;
 
     #[Locked]
-    public ?string $selectedSourceServerId = null;
-
-    #[Locked]
     public ?string $selectedSnapshotId = null;
 
-    #[Validate('required|string|max:64|regex:/^[a-zA-Z0-9_]+$/', message: [
-        'required' => 'Please enter a database name.',
-        'regex' => 'Database name can only contain letters, numbers, and underscores.',
-    ])]
     public string $schemaName = '';
 
     public int $currentStep = 1;
@@ -46,7 +42,14 @@ class RestoreModal extends Component
 
     public string $snapshotSearch = '';
 
+    public ?string $serverFilter = null;
+
     public function updatedSnapshotSearch(): void
+    {
+        $this->resetPage('snapshots');
+    }
+
+    public function updatedServerFilter(): void
     {
         $this->resetPage('snapshots');
     }
@@ -81,7 +84,7 @@ class RestoreModal extends Component
     #[On('open-restore-modal')]
     public function openModal(string $targetServerId): void
     {
-        $this->reset(['selectedSourceServerId', 'selectedSnapshotId', 'schemaName', 'currentStep', 'existingDatabases', 'snapshotSearch']);
+        $this->reset(['selectedSnapshotId', 'schemaName', 'currentStep', 'existingDatabases', 'snapshotSearch', 'serverFilter']);
         $this->resetPage('snapshots');
         $this->targetServer = DatabaseServer::find($targetServerId);
 
@@ -90,15 +93,6 @@ class RestoreModal extends Component
         $this->currentStep = 1;
 
         $this->showModal = true;
-    }
-
-    public function selectSourceServer(string $serverId): void
-    {
-        $this->selectedSourceServerId = $serverId;
-        $this->selectedSnapshotId = null;
-        $this->snapshotSearch = '';
-        $this->resetPage('snapshots');
-        $this->currentStep = 2;
     }
 
     public function selectSnapshot(string $snapshotId): void
@@ -114,7 +108,7 @@ class RestoreModal extends Component
         // Load existing databases for autocomplete
         $this->loadExistingDatabases();
 
-        $this->currentStep = 3;
+        $this->currentStep = 2;
     }
 
     public function previousStep(): void
@@ -122,6 +116,73 @@ class RestoreModal extends Component
         if ($this->currentStep > 1) {
             $this->currentStep--;
         }
+    }
+
+    /**
+     * Check if the target server and schema match the application's own database.
+     */
+    protected function isAppDatabase(): bool
+    {
+        if (! $this->targetServer) {
+            return false;
+        }
+
+        // Only check for MySQL/MariaDB and PostgreSQL (not SQLite)
+        $targetType = $this->targetServer->database_type;
+        $clientServerTypes = [DatabaseType::MYSQL, DatabaseType::POSTGRESQL];
+
+        if (! in_array($targetType, $clientServerTypes)) {
+            return false;
+        }
+
+        $defaultConnection = config('database.default');
+        $appDbDriver = config("database.connections.{$defaultConnection}.driver");
+
+        // Map Laravel driver names to DatabaseType enum
+        $driverToType = [
+            'mysql' => DatabaseType::MYSQL,
+            'mariadb' => DatabaseType::MYSQL,
+            'pgsql' => DatabaseType::POSTGRESQL,
+        ];
+
+        $appDbType = $driverToType[$appDbDriver] ?? null;
+
+        // If database types don't match, it's not the app database
+        if ($appDbType !== $targetType) {
+            return false;
+        }
+
+        // Compare host, port, and database name
+        $appDbHost = config("database.connections.{$defaultConnection}.host");
+        $appDbPort = (int) config("database.connections.{$defaultConnection}.port");
+        $appDbDatabase = config("database.connections.{$defaultConnection}.database");
+
+        return $this->targetServer->host === $appDbHost
+            && $this->targetServer->port === $appDbPort
+            && $this->schemaName === $appDbDatabase;
+    }
+
+    /**
+     * Validate schema name based on database type.
+     */
+    protected function validateSchemaName(): void
+    {
+        $isSqlite = $this->targetServer?->database_type->value === 'sqlite';
+
+        if ($isSqlite) {
+            // SQLite uses file paths - allow more characters
+            $rules = ['schemaName' => 'required|string|max:255'];
+            $messages = ['schemaName.required' => __('Please enter a database path.')];
+        } else {
+            // MySQL, MariaDB, PostgreSQL - only letters, numbers, and underscores
+            $rules = ['schemaName' => 'required|string|max:64|regex:/^[a-zA-Z0-9_]+$/'];
+            $messages = [
+                'schemaName.required' => __('Please enter a database name.'),
+                'schemaName.regex' => __('Database name can only contain letters, numbers, and underscores.'),
+            ];
+        }
+
+        $this->validate($rules, $messages);
     }
 
     public function loadExistingDatabases(): void
@@ -144,13 +205,20 @@ class RestoreModal extends Component
         $this->authorize('restore', $this->targetServer);
 
         // Validate locked properties first
-        if (! $this->selectedSourceServerId || ! $this->selectedSnapshotId) {
-            $this->error(__('Please select a source server and snapshot before restoring.'));
+        if (! $this->selectedSnapshotId) {
+            $this->error(__('Please select a snapshot before restoring.'));
 
             return;
         }
 
-        $this->validate();
+        $this->validateSchemaName();
+
+        // Prevent restoring over the app's own database
+        if ($this->isAppDatabase()) {
+            $this->error(__('Cannot restore over the application database. This would crash the application.'));
+
+            return;
+        }
 
         try {
             $snapshot = Snapshot::findOrFail($this->selectedSnapshotId);
@@ -176,6 +244,8 @@ class RestoreModal extends Component
     }
 
     /**
+     * Get compatible servers for the filter dropdown.
+     *
      * @return \Illuminate\Database\Eloquent\Collection<int, DatabaseServer>|Collection<int, never>
      */
     public function getCompatibleServersProperty(): Collection|\Illuminate\Database\Eloquent\Collection
@@ -189,25 +259,8 @@ class RestoreModal extends Component
             ->whereHas('snapshots', function ($query) {
                 $query->whereHas('job', fn ($q) => $q->whereRaw("status = 'completed'"));
             })
-            ->with(['snapshots' => function ($query) {
-                $query->whereHas('job', fn ($q) => $q->whereRaw("status = 'completed'"))
-                    ->with('job')
-                    ->orderBy('created_at', 'desc');
-            }])
-            ->get();
-    }
-
-    public function getSelectedSourceServerProperty(): ?DatabaseServer
-    {
-        if (! $this->selectedSourceServerId) {
-            return null;
-        }
-
-        return DatabaseServer::with(['snapshots' => function ($query) {
-            $query->whereHas('job', fn ($q) => $q->whereRaw("status = 'completed'"))
-                ->with('job')
-                ->orderBy('created_at', 'desc');
-        }])->find($this->selectedSourceServerId);
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 
     public function getSelectedSnapshotProperty(): ?Snapshot
@@ -216,27 +269,29 @@ class RestoreModal extends Component
             return null;
         }
 
-        return Snapshot::find($this->selectedSnapshotId);
+        return Snapshot::with('databaseServer')->find($this->selectedSnapshotId);
     }
 
     /**
+     * Get paginated snapshots for the snapshot list.
+     *
      * @return LengthAwarePaginator<int, Snapshot>|null
      */
     public function getPaginatedSnapshotsProperty(): ?LengthAwarePaginator
     {
-        if (! $this->selectedSourceServerId) {
+        if (! $this->targetServer) {
             return null;
         }
 
-        return Snapshot::query()
-            ->where('database_server_id', $this->selectedSourceServerId)
-            ->whereHas('job', fn ($q) => $q->whereRaw("status = 'completed'"))
-            ->when($this->snapshotSearch, function ($query) {
-                $query->where('database_name', 'like', '%'.$this->snapshotSearch.'%');
-            })
-            ->with('job')
-            ->orderBy('created_at', 'desc')
-            ->paginate(10, pageName: 'snapshots');
+        return SnapshotQuery::buildFromParams(
+            search: $this->snapshotSearch ?: null,
+            statusFilter: 'completed',
+            sortColumn: 'created_at',
+            sortDirection: 'desc'
+        )
+            ->whereHas('databaseServer', fn (Builder $q) => $q->whereRaw('database_type = ?', [$this->targetServer->database_type]))
+            ->when($this->serverFilter, fn ($q) => $q->where('database_server_id', $this->serverFilter))
+            ->paginate(20, pageName: 'snapshots');
     }
 
     public function render(): View

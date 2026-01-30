@@ -400,10 +400,10 @@ test('run executes sqlite restore workflow successfully', function () {
     $compressedFile = $workingDir.'/snapshot.gz';
     $decompressedFile = $workingDir.'/snapshot';
 
-    // Expected commands - gzip extracts archive, then file copy for SQLite restore
+    // Expected commands - gzip extracts archive, then file copy + chmod for SQLite restore
     $expectedCommands = [
         "gzip -d '$compressedFile'",
-        "cp '$decompressedFile' '$sqlitePath'",
+        "cp '$decompressedFile' '$sqlitePath' && chmod 0666 '$sqlitePath'",
     ];
 
     $commands = $this->shellProcessor->getCommands();

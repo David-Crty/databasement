@@ -203,7 +203,7 @@ class RestoreTask
      */
     private function restoreSqliteDatabase(string $sourcePath, string $targetPath): void
     {
-        $command = sprintf("cp '%s' '%s'", $sourcePath, $targetPath);
+        $command = sprintf("cp '%s' '%s' && chmod 0666 '%s'", $sourcePath, $targetPath, $targetPath);
         $this->shellProcessor->process($command);
     }
 

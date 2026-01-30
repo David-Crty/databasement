@@ -31,21 +31,16 @@ test('can navigate through restore wizard steps', function (string $databaseType
     $component = Livewire::test(RestoreModal::class)
         ->dispatch('open-restore-modal', targetServerId: $targetServer->id);
 
-    // Step 1: Select source server
+    // Step 1: Select snapshot (shows all compatible snapshots)
     $component->assertSet('currentStep', 1)
         ->assertSee($sourceServer->name)
-        ->call('selectSourceServer', $sourceServer->id)
-        ->assertSet('selectedSourceServerId', $sourceServer->id)
-        ->assertSet('currentStep', 2);
-
-    // Step 2: Select snapshot
-    $component->assertSee($snapshot->database_name)
+        ->assertSee($snapshot->database_name)
         ->call('selectSnapshot', $snapshot->id)
         ->assertSet('selectedSnapshotId', $snapshot->id)
-        ->assertSet('currentStep', 3);
+        ->assertSet('currentStep', 2);
 
-    // Step 3: Enter schema name
-    $component->assertSet('currentStep', 3);
+    // Step 2: Enter schema name
+    $component->assertSet('currentStep', 2);
 })->with('database types');
 
 test('can queue restore job with valid data', function (string $databaseType) {
@@ -63,7 +58,6 @@ test('can queue restore job with valid data', function (string $databaseType) {
 
     Livewire::test(RestoreModal::class)
         ->dispatch('open-restore-modal', targetServerId: $targetServer->id)
-        ->call('selectSourceServer', $sourceServer->id)
         ->call('selectSnapshot', $snapshot->id)
         ->set('schemaName', 'restored_db')
         ->call('restore')
@@ -126,13 +120,48 @@ test('can go back to previous steps', function (string $databaseType) {
 
     Livewire::test(RestoreModal::class)
         ->dispatch('open-restore-modal', targetServerId: $targetServer->id)
-        ->call('selectSourceServer', $sourceServer->id)
+        ->assertSet('currentStep', 1)
+        ->call('selectSnapshot', $snapshot->id)
         ->assertSet('currentStep', 2)
         ->call('previousStep')
-        ->assertSet('currentStep', 1)
-        ->call('selectSourceServer', $sourceServer->id)
-        ->call('selectSnapshot', $snapshot->id)
-        ->assertSet('currentStep', 3)
-        ->call('previousStep')
-        ->assertSet('currentStep', 2);
+        ->assertSet('currentStep', 1);
 })->with('database types');
+
+test('prevents restoring over the application database', function () {
+    Queue::fake();
+
+    // Get the current default connection to set up matching config
+    $defaultConnection = config('database.default');
+
+    // Create target server first (before changing config)
+    $targetServer = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+        'host' => '127.0.0.1',
+        'port' => 3306,
+    ]);
+
+    $sourceServer = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+    ]);
+
+    $snapshot = Snapshot::factory()->forServer($sourceServer)->withFile()->create();
+
+    // Configure the app's database connection to match the target server
+    // Set driver to mysql so type comparison works
+    config([
+        "database.connections.{$defaultConnection}.driver" => 'mysql',
+        "database.connections.{$defaultConnection}.host" => '127.0.0.1',
+        "database.connections.{$defaultConnection}.port" => 3306,
+        "database.connections.{$defaultConnection}.database" => 'databasement_app',
+    ]);
+
+    Livewire::test(RestoreModal::class)
+        ->dispatch('open-restore-modal', targetServerId: $targetServer->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('schemaName', 'databasement_app') // Same as app's database
+        ->call('restore')
+        ->assertNotDispatched('restore-completed');
+
+    // Verify no job was dispatched
+    Queue::assertNotPushed(ProcessRestoreJob::class);
+});
