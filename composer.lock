@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3d08b18fe26ceddc19f505b38e15e760",
+    "content-hash": "83283e89cf1b55c844087c06623f0e22",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2445,6 +2445,71 @@
                 "source": "https://github.com/laravel/serializable-closure"
             },
             "time": "2026-01-08T16:22:46+00:00"
+        },
+        {
+            "name": "laravel/slack-notification-channel",
+            "version": "v3.7.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/laravel/slack-notification-channel.git",
+                "reference": "414aec57b487bfbac7f90fc30f50a2f0a2df4caa"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/laravel/slack-notification-channel/zipball/414aec57b487bfbac7f90fc30f50a2f0a2df4caa",
+                "reference": "414aec57b487bfbac7f90fc30f50a2f0a2df4caa",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^7.0",
+                "illuminate/http": "^9.0|^10.0|^11.0|^12.0",
+                "illuminate/notifications": "^9.0|^10.0|^11.0|^12.0",
+                "illuminate/support": "^9.0|^10.0|^11.0|^12.0",
+                "php": "^8.0"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.0",
+                "orchestra/testbench": "^7.0|^8.0|^9.0|^10.0",
+                "phpstan/phpstan": "^1.10",
+                "phpunit/phpunit": "^9.0|^10.4|^11.5"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Illuminate\\Notifications\\SlackChannelServiceProvider"
+                    ]
+                },
+                "branch-alias": {
+                    "dev-master": "3.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Illuminate\\Notifications\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Taylor Otwell",
+                    "email": "taylor@laravel.com"
+                }
+            ],
+            "description": "Slack Notification Channel for laravel.",
+            "keywords": [
+                "laravel",
+                "notifications",
+                "slack"
+            ],
+            "support": {
+                "issues": "https://github.com/laravel/slack-notification-channel/issues",
+                "source": "https://github.com/laravel/slack-notification-channel/tree/v3.7.0"
+            },
+            "time": "2025-11-20T17:26:07+00:00"
         },
         {
             "name": "laravel/socialite",
@@ -12148,6 +12213,7 @@
     "prefer-lowest": false,
     "platform": {
         "php": "^8.4",
+        "ext-ftp": "*",
         "ext-pdo": "*"
     },
     "platform-dev": {

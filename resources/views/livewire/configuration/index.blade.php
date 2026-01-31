@@ -66,5 +66,29 @@
                 </table>
             </div>
         </x-card>
+
+        <!-- Notification Configuration -->
+        <x-card title="{{ __('Notifications') }}" subtitle="{{ __('Failure notification settings for backup and restore jobs.') }}" shadow>
+            <div class="overflow-x-auto">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="w-56">{{ __('Environment Variable') }}</th>
+                            <th class="w-64">{{ __('Value') }}</th>
+                            <th>{{ __('Description') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($notificationConfig as $key => $config)
+                            <tr>
+                                <td class="font-mono text-sm">{{ $config['env'] }}</td>
+                                <td class="font-mono text-sm text-base-content/80">{{ $config['value'] ?: '-' }}</td>
+                                <td class="text-sm text-base-content/70">{{ $config['description'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </x-card>
     </div>
 </div>

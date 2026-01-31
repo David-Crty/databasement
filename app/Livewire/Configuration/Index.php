@@ -85,11 +85,43 @@ class Index extends Component
         ];
     }
 
+    /**
+     * @return array<string, array{value: mixed, env: string, description: string}>
+     */
+    public function getNotificationConfig(): array
+    {
+        $channels = config('notifications.channels', 'mail');
+
+        return [
+            'enabled' => [
+                'value' => config('notifications.enabled') ? 'true' : 'false',
+                'env' => 'NOTIFICATION_ENABLED',
+                'description' => __('Enable failure notifications for backup and restore jobs.'),
+            ],
+            'channels' => [
+                'value' => $channels ?: '(none)',
+                'env' => 'NOTIFICATION_CHANNELS',
+                'description' => __('Comma-separated list of notification channels: mail, slack.'),
+            ],
+            'mail_to' => [
+                'value' => config('notifications.mail.to') ?: '(not set)',
+                'env' => 'NOTIFICATION_MAIL_TO',
+                'description' => __('Email address for failure notifications.'),
+            ],
+            'slack_webhook_url' => [
+                'value' => config('notifications.slack.webhook_url') ? '(configured)' : '(not set)',
+                'env' => 'NOTIFICATION_SLACK_WEBHOOK_URL',
+                'description' => __('Slack webhook URL for failure notifications.'),
+            ],
+        ];
+    }
+
     public function render(): View
     {
         return view('livewire.configuration.index', [
             'appConfig' => $this->getAppConfig(),
             'backupConfig' => $this->getBackupConfig(),
+            'notificationConfig' => $this->getNotificationConfig(),
         ])->layout('components.layouts.app', ['title' => __('Configuration')]);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Restore;
 use App\Services\Backup\RestoreTask;
+use App\Services\FailureNotificationService;
 use App\Support\FilesystemSupport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -81,9 +82,12 @@ class ProcessRestoreJob implements ShouldQueue
         }
 
         // Mark the job as failed
-        $restore = Restore::with('job')->findOrFail($this->restoreId);
+        $restore = Restore::with(['job', 'targetServer', 'snapshot'])->findOrFail($this->restoreId);
         if ($restore->job->status !== 'failed') {
             $restore->job->markFailed($exception);
         }
+
+        // Send failure notification
+        app(FailureNotificationService::class)->notifyRestoreFailed($restore, $exception);
     }
 }
