@@ -59,7 +59,7 @@ readonly class VolumeConnectionTester
     private function formatErrorMessage(string $message): string
     {
         // Remove empty "reason:" suffix from Flysystem errors
-        $message = preg_replace('/\s*reason:\s*$/i', '', $message);
+        $message = preg_replace('/\s*reason:\s*$/i', '', $message) ?? $message;
 
         // Trim whitespace and newlines
         return trim($message);

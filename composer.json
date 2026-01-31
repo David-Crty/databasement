@@ -10,6 +10,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
+        "ext-ftp": "*",
         "ext-pdo": "*",
         "blade-ui-kit/blade-icons": "^1.8",
         "codeat3/blade-devicons": "^1.8",

@@ -74,7 +74,7 @@ class VolumeFactory extends Factory
      */
     public function s3(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'type' => 's3',
             'config' => [
                 'bucket' => 'backup-'.fake()->slug(),
@@ -88,7 +88,7 @@ class VolumeFactory extends Factory
      */
     public function sftp(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'type' => 'sftp',
             'config' => [
                 'host' => 'sftp.example.com',
@@ -106,7 +106,7 @@ class VolumeFactory extends Factory
      */
     public function ftp(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'type' => 'ftp',
             'config' => [
                 'host' => 'ftp.example.com',

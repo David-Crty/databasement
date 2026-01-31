@@ -346,7 +346,6 @@ describe('connection testing', function () {
             ->assertSet('form.sftpConfig.password', '') // Password is masked
             ->call('testConnection');
 
-        // Debug: check what message was set
         expect($component->get('form.connectionTestMessage'))->toBe('Connection successful!')
             ->and($component->get('form.connectionTestSuccess'))->toBeTrue();
     });
