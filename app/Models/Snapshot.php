@@ -104,6 +104,7 @@ class Snapshot extends Model
 
     /**
      * Generate metadata array for a snapshot.
+     * Sensitive fields (passwords) are excluded from the volume config.
      *
      * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string}, volume: array{type: string, config: array<string, mixed>}}
      */
@@ -118,7 +119,7 @@ class Snapshot extends Model
             ],
             'volume' => [
                 'type' => $volume->type,
-                'config' => $volume->config,
+                'config' => $volume->getSafeConfig(),
             ],
         ];
     }

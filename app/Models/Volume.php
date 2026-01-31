@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\VolumeType;
 use Database\Factories\VolumeFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -10,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Crypt;
 
 /**
  * @property string $id
@@ -78,5 +80,63 @@ class Volume extends Model
     public function hasSnapshots(): bool
     {
         return $this->snapshots()->exists();
+    }
+
+    /**
+     * Get the volume type enum.
+     */
+    public function getVolumeType(): VolumeType
+    {
+        return VolumeType::from($this->type);
+    }
+
+    /**
+     * Get config with sensitive fields decrypted.
+     *
+     * @return array<string, mixed>
+     */
+    public function getDecryptedConfig(): array
+    {
+        $config = $this->config;
+        $volumeType = $this->getVolumeType();
+
+        foreach ($volumeType->sensitiveFields() as $field) {
+            if (! empty($config[$field])) {
+                try {
+                    $config[$field] = Crypt::decryptString($config[$field]);
+                } catch (\Illuminate\Contracts\Encryption\DecryptException) {
+                    // Value is not encrypted (legacy data), return as-is
+                }
+            }
+        }
+
+        return $config;
+    }
+
+    /**
+     * Get a summary of the configuration for display (excludes sensitive fields).
+     *
+     * @return array<string, string>
+     */
+    public function getConfigSummary(): array
+    {
+        return $this->getVolumeType()->configSummary($this->config);
+    }
+
+    /**
+     * Get config with sensitive fields removed (for storing in metadata/logs).
+     *
+     * @return array<string, mixed>
+     */
+    public function getSafeConfig(): array
+    {
+        $config = $this->config;
+        $volumeType = $this->getVolumeType();
+
+        foreach ($volumeType->sensitiveFields() as $field) {
+            unset($config[$field]);
+        }
+
+        return $config;
     }
 }

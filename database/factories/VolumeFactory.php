@@ -82,4 +82,42 @@ class VolumeFactory extends Factory
             ],
         ]);
     }
+
+    /**
+     * Indicate that the volume is an SFTP type.
+     */
+    public function sftp(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => 'sftp',
+            'config' => [
+                'host' => 'sftp.example.com',
+                'port' => 22,
+                'username' => 'backup-user',
+                'password' => 'test-password',
+                'root' => '/backups',
+                'timeout' => 10,
+            ],
+        ]);
+    }
+
+    /**
+     * Indicate that the volume is an FTP type.
+     */
+    public function ftp(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => 'ftp',
+            'config' => [
+                'host' => 'ftp.example.com',
+                'port' => 21,
+                'username' => 'backup-user',
+                'password' => 'test-password',
+                'root' => '/backups',
+                'ssl' => false,
+                'passive' => true,
+                'timeout' => 90,
+            ],
+        ]);
+    }
 }

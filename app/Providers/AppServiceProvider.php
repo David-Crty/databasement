@@ -8,7 +8,9 @@ use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use App\Services\Backup\Filesystems\FtpFilesystem;
 use App\Services\Backup\Filesystems\LocalFilesystem;
+use App\Services\Backup\Filesystems\SftpFilesystem;
 use App\Services\Backup\ShellProcessor;
 use App\Services\DatabaseConnectionTester;
 use Dedoc\Scramble\Scramble;
@@ -46,6 +48,8 @@ class AppServiceProvider extends ServiceProvider
             // Register filesystem implementations
             $provider->add(new LocalFilesystem);
             $provider->add(new Awss3Filesystem);
+            $provider->add(new SftpFilesystem);
+            $provider->add(new FtpFilesystem);
 
             return $provider;
         });

@@ -2,10 +2,15 @@
 
 namespace App\Livewire\Forms;
 
+use App\Enums\VolumeType;
+use App\Livewire\Volume\Connectors\FtpConfig;
+use App\Livewire\Volume\Connectors\LocalConfig;
+use App\Livewire\Volume\Connectors\S3Config;
+use App\Livewire\Volume\Connectors\SftpConfig;
 use App\Models\Volume;
-use App\Rules\SafePath;
 use App\Services\VolumeConnectionTester;
 use Illuminate\Validation\ValidationException;
+use Livewire\Component;
 use Livewire\Form;
 
 class VolumeForm extends Form
@@ -16,13 +21,18 @@ class VolumeForm extends Form
 
     public string $type = 'local';
 
-    // S3 Config
-    public string $bucket = '';
+    // Config arrays for each volume type (initialized from connector defaults in constructor)
+    /** @var array<string, mixed> */
+    public array $localConfig = [];
 
-    public string $prefix = '';
+    /** @var array<string, mixed> */
+    public array $s3Config = [];
 
-    // Local Config
-    public string $path = '';
+    /** @var array<string, mixed> */
+    public array $sftpConfig = [];
+
+    /** @var array<string, mixed> */
+    public array $ftpConfig = [];
 
     // Connection test state
     public ?string $connectionTestMessage = null;
@@ -31,22 +41,29 @@ class VolumeForm extends Form
 
     public bool $testingConnection = false;
 
+    public function __construct(
+        Component $component,
+        mixed $propertyName,
+    ) {
+        parent::__construct($component, $propertyName);
+
+        $this->localConfig = LocalConfig::defaultConfig();
+        $this->s3Config = S3Config::defaultConfig();
+        $this->sftpConfig = SftpConfig::defaultConfig();
+        $this->ftpConfig = FtpConfig::defaultConfig();
+    }
+
     public function setVolume(Volume $volume): void
     {
         $this->volume = $volume;
         $this->name = $volume->name;
         $this->type = $volume->type;
 
-        /** @var array<string, mixed> $config */
-        $config = $volume->config;
-
-        // Load config based on type
-        if ($volume->type === 's3') {
-            $this->bucket = $config['bucket'] ?? '';
-            $this->prefix = $config['prefix'] ?? '';
-        } elseif ($volume->type === 'local') {
-            $this->path = $config['path'] ?? '';
-        }
+        // Load decrypted config, masking sensitive fields to prevent browser serialization
+        $volumeType = VolumeType::from($volume->type);
+        $decryptedConfig = $volumeType->maskSensitiveFields($volume->getDecryptedConfig());
+        $propertyName = $volumeType->configPropertyName();
+        $this->{$propertyName} = array_merge($this->{$propertyName}, $decryptedConfig);
     }
 
     /**
@@ -54,13 +71,21 @@ class VolumeForm extends Form
      */
     private function rules(): array
     {
-        return [
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'string', 'in:s3,local'],
-            'bucket' => ['required_if:type,s3', 'string', 'max:255'],
-            'prefix' => ['nullable', 'string', 'max:255', new SafePath],
-            'path' => ['required_if:type,local', 'string', 'max:500', new SafePath(allowAbsolute: true)],
+            'type' => ['required', 'string', 'in:local,s3,sftp,ftp'],
+            ...LocalConfig::rules('localConfig'),
+            ...S3Config::rules('s3Config'),
+            ...SftpConfig::rules('sftpConfig'),
+            ...FtpConfig::rules('ftpConfig'),
         ];
+
+        // When editing, make sensitive fields optional (blank to keep existing)
+        if ($this->volume !== null) {
+            $rules = VolumeType::from($this->type)->makeRulesOptionalForSensitiveFields($rules);
+        }
+
+        return $rules;
     }
 
     public function store(): void
@@ -103,20 +128,27 @@ class VolumeForm extends Form
     }
 
     /**
-     * @return array<string, string>
+     * Get the active config array based on current type.
+     *
+     * @return array<string, mixed>
+     */
+    public function getActiveConfig(): array
+    {
+        return $this->{VolumeType::from($this->type)->configPropertyName()};
+    }
+
+    /**
+     * Build the config array with sensitive fields encrypted.
+     * Preserves existing encrypted values when the submitted field is empty.
+     *
+     * @return array<string, mixed>
      */
     protected function buildConfig(): array
     {
-        return match ($this->type) {
-            's3' => [
-                'bucket' => $this->bucket,
-                'prefix' => $this->prefix ?? '',
-            ],
-            'local' => [
-                'path' => $this->path,
-            ],
-            default => throw new \InvalidArgumentException("Invalid volume type: {$this->type}"),
-        };
+        $volumeType = VolumeType::from($this->type);
+        $persistedConfig = $this->volume !== null ? $this->volume->config : [];
+
+        return $volumeType->encryptSensitiveFields($this->getActiveConfig(), $persistedConfig);
     }
 
     public function testConnection(): void
@@ -124,12 +156,18 @@ class VolumeForm extends Form
         $this->testingConnection = true;
         $this->connectionTestMessage = null;
 
-        // Validate type-specific fields only
-        $rules = $this->rules();
-        $fieldToValidate = $this->type === 'local' ? 'path' : 'bucket';
+        $volumeType = VolumeType::from($this->type);
+
+        // Get validation rules for current type only
+        $filteredRules = $volumeType->configRules();
+
+        // When editing, make sensitive fields optional (blank to keep existing)
+        if ($this->volume !== null) {
+            $filteredRules = $volumeType->makeRulesOptionalForSensitiveFields($filteredRules);
+        }
 
         try {
-            $this->validate([$fieldToValidate => $rules[$fieldToValidate]]);
+            $this->validate($filteredRules);
         } catch (ValidationException) {
             $this->testingConnection = false;
             $this->connectionTestSuccess = false;
@@ -138,13 +176,18 @@ class VolumeForm extends Form
             return;
         }
 
+        // Build config for testing, merging persisted sensitive values when form is empty
+        $testConfig = $this->volume !== null
+            ? $volumeType->mergeSensitiveFromPersisted($this->getActiveConfig(), $this->volume->getDecryptedConfig())
+            : $this->getActiveConfig();
+
         /** @var VolumeConnectionTester $tester */
         $tester = app(VolumeConnectionTester::class);
 
         $testVolume = new Volume([
             'name' => $this->name ?: 'test-volume',
             'type' => $this->type,
-            'config' => $this->buildConfig(),
+            'config' => $testConfig,
         ]);
 
         $result = $tester->test($testVolume);

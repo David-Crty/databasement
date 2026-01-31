@@ -57,18 +57,19 @@
             @endscope
 
             @scope('cell_type', $volume)
-                <x-badge :value="$volume->type" />
+                <div class="flex items-center gap-2">
+                    <x-volume-type-icon :type="$volume->type" class="w-4 h-4" />
+                    <span>{{ $volume->getVolumeType()?->label() ?? $volume->type }}</span>
+                </div>
             @endscope
 
             @scope('cell_config', $volume)
-                @if($volume->type === 's3')
-                    <div class="text-sm">Bucket: {{ $volume->config['bucket'] }}</div>
-                    @if(!empty($volume->config['prefix']))
-                        <div class="text-sm text-base-content/70">Prefix: {{ $volume->config['prefix'] }}</div>
-                    @endif
-                @elseif($volume->type === 'local')
-                    <div class="text-sm">{{ $volume->config['path'] }}</div>
-                @endif
+                @php $summary = $volume->getConfigSummary(); @endphp
+                @foreach($summary as $label => $value)
+                    <div class="text-sm {{ $loop->first ? '' : 'text-base-content/70' }}">
+                        @if(count($summary) > 1){{ $label }}: @endif{{ $value }}
+                    </div>
+                @endforeach
             @endscope
 
             @scope('cell_created_at', $volume)

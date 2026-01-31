@@ -48,8 +48,20 @@ readonly class VolumeConnectionTester
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => $e->getMessage(),
+                'message' => $this->formatErrorMessage($e->getMessage()),
             ];
         }
+    }
+
+    /**
+     * Clean up error messages for better user experience.
+     */
+    private function formatErrorMessage(string $message): string
+    {
+        // Remove empty "reason:" suffix from Flysystem errors
+        $message = preg_replace('/\s*reason:\s*$/i', '', $message);
+
+        // Trim whitespace and newlines
+        return trim($message);
     }
 }

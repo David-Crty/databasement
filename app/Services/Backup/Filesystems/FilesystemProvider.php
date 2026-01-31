@@ -35,7 +35,8 @@ class FilesystemProvider
     {
         foreach ($this->filesystems as $filesystem) {
             if ($filesystem->handles($volume->type)) {
-                return $filesystem->get($volume->config);
+                // Use decrypted config for sensitive fields (passwords, etc.)
+                return $filesystem->get($volume->getDecryptedConfig());
             }
         }
 

@@ -59,6 +59,27 @@
                         @endif
                     </div>
                 </div>
+
+                {{-- Compression and Volume badges --}}
+                @if($snapshot)
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                        {{-- Compression Type --}}
+                        @if($snapshot->compression_type)
+                            <div class="badge badge-outline gap-1.5">
+                                <x-icon :name="$snapshot->compression_type->icon()" class="w-3.5 h-3.5" />
+                                {{ $snapshot->compression_type->label() }}
+                            </div>
+                        @endif
+
+                        {{-- Volume Type --}}
+                        @if($snapshot->volume)
+                            <div class="badge badge-outline gap-1.5">
+                                <x-volume-type-icon :type="$snapshot->volume->type" class="w-3.5 h-3.5" />
+                                {{ $snapshot->volume->getVolumeType()?->label() ?? $snapshot->volume->type }}
+                            </div>
+                        @endif
+                    </div>
+                @endif
                 <div class="text-xs sm:text-sm text-base-content/70">
                     @if($this->selectedJob->started_at)
                         {{ __('Started') }}: {{ \App\Support\Formatters::humanDate($this->selectedJob->started_at) }}

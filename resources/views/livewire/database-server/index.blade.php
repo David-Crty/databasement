@@ -110,7 +110,10 @@
 
             @scope('cell_backup', $server)
                 @if($server->backup)
-                    <div class="table-cell-primary">{{ $server->backup->volume->name }}</div>
+                    <div class="table-cell-primary flex items-center gap-1.5">
+                        <x-volume-type-icon :type="$server->backup->volume->type" class="w-4 h-4 text-base-content/70" />
+                        {{ $server->backup->volume->name }}
+                    </div>
                     <div class="text-sm text-base-content/70 capitalize">
                         {{ $server->backup->recurrence }}
                         @if($server->backup->retention_policy === 'gfs')

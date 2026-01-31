@@ -21,6 +21,8 @@
         "laravel/socialite": "^5.24",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "^3.0",
+        "league/flysystem-ftp": "^3.31",
+        "league/flysystem-sftp-v3": "^3.31",
         "livewire/volt": "^1.7.0",
         "owenvoke/blade-fontawesome": "^2.7",
         "robsontenorio/mary": "^2.4",

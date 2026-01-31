@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\VolumeType;
 use App\Models\Volume;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\VolumeConnectionTester;
@@ -58,15 +59,55 @@ describe('local volume connection testing', function () {
     });
 });
 
-describe('S3 volume connection testing', function () {
-    test('returns success when S3 filesystem write/read/delete succeeds', function () {
-        $volume = new Volume([
-            'name' => 'test-s3-volume',
-            'type' => 's3',
+// Dataset for remote volume types that require mocked filesystem
+dataset('remote volume types', function () {
+    return [
+        's3' => [
+            'type' => VolumeType::S3,
             'config' => [
                 'bucket' => 'test-bucket',
                 'prefix' => '',
             ],
+            'identifierField' => 'bucket',
+            'identifierValue' => 'test-bucket',
+        ],
+        'sftp' => [
+            'type' => VolumeType::SFTP,
+            'config' => [
+                'host' => 'sftp.example.com',
+                'port' => 22,
+                'username' => 'backup-user',
+                'password' => 'test-password',
+                'root' => '/backups',
+                'timeout' => 10,
+            ],
+            'identifierField' => 'host',
+            'identifierValue' => 'sftp.example.com',
+        ],
+        'ftp' => [
+            'type' => VolumeType::FTP,
+            'config' => [
+                'host' => 'ftp.example.com',
+                'port' => 21,
+                'username' => 'ftp-user',
+                'password' => 'test-password',
+                'root' => '/backups',
+                'ssl' => false,
+                'passive' => true,
+                'timeout' => 90,
+            ],
+            'identifierField' => 'host',
+            'identifierValue' => 'ftp.example.com',
+        ],
+    ];
+});
+
+describe('remote volume connection testing', function () {
+    test('returns success when filesystem write/read/delete succeeds', function (VolumeType $type, array $config, string $identifierField, string $identifierValue) {
+        $volume = new Volume([
+            'name' => "test-{$type->value}-volume",
+            'type' => $type->value,
+            'config' => $config,
         ]);
 
         // Capture the content written so we can return it on read
@@ -90,7 +131,7 @@ describe('S3 volume connection testing', function () {
         $mockProvider = Mockery::mock(FilesystemProvider::class);
         $mockProvider->shouldReceive('getForVolume')
             ->once()
-            ->with(Mockery::on(fn ($v) => $v->type === 's3' && $v->config['bucket'] === 'test-bucket'))
+            ->with(Mockery::on(fn ($v) => $v->type === $type->value && $v->config[$identifierField] === $identifierValue))
             ->andReturn($mockFilesystem);
 
         $tester = new VolumeConnectionTester($mockProvider);
@@ -98,23 +139,20 @@ describe('S3 volume connection testing', function () {
 
         expect($result['success'])->toBeTrue()
             ->and($result['message'])->toContain('Connection successful');
-    });
+    })->with('remote volume types');
 
-    test('returns error when S3 filesystem write fails', function () {
+    test('returns error when filesystem write fails', function (VolumeType $type, array $config, string $identifierField, string $identifierValue) {
         $volume = new Volume([
-            'name' => 'test-s3-volume',
-            'type' => 's3',
-            'config' => [
-                'bucket' => 'non-existent-bucket',
-                'prefix' => '',
-            ],
+            'name' => "test-{$type->value}-volume",
+            'type' => $type->value,
+            'config' => $config,
         ]);
 
         // Mock the filesystem to throw an exception
         $mockFilesystem = Mockery::mock(Filesystem::class);
         $mockFilesystem->shouldReceive('write')
             ->once()
-            ->andThrow(UnableToWriteFile::atLocation('.databasement-test-123', 'Bucket does not exist'));
+            ->andThrow(UnableToWriteFile::atLocation('.databasement-test-123', 'Connection failed'));
 
         // Mock FilesystemProvider
         $mockProvider = Mockery::mock(FilesystemProvider::class);
@@ -126,17 +164,14 @@ describe('S3 volume connection testing', function () {
         $result = $tester->test($volume);
 
         expect($result['success'])->toBeFalse()
-            ->and($result['message'])->toContain('Bucket does not exist');
-    });
+            ->and($result['message'])->toContain('Connection failed');
+    })->with('remote volume types');
 
-    test('returns error when S3 filesystem read returns different content', function () {
+    test('returns error when filesystem read returns different content', function (VolumeType $type, array $config, string $identifierField, string $identifierValue) {
         $volume = new Volume([
-            'name' => 'test-s3-volume',
-            'type' => 's3',
-            'config' => [
-                'bucket' => 'test-bucket',
-                'prefix' => '',
-            ],
+            'name' => "test-{$type->value}-volume",
+            'type' => $type->value,
+            'config' => $config,
         ]);
 
         // Mock the filesystem to return different content
@@ -158,5 +193,5 @@ describe('S3 volume connection testing', function () {
 
         expect($result['success'])->toBeFalse()
             ->and($result['message'])->toContain('Failed to verify test file content');
-    });
+    })->with('remote volume types');
 });

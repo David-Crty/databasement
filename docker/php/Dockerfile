@@ -19,7 +19,9 @@ RUN install-php-extensions \
     intl \
     pcntl \
     opcache \
-    pcov
+    pcov \
+    ftp \
+    ssh2
 
 COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 
