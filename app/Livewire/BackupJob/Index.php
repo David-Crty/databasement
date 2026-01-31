@@ -37,12 +37,21 @@ class Index extends Component
 
     public bool $showLogsModal = false;
 
+    #[Url(as: 'job')]
     public ?string $selectedJobId = null;
 
     #[Locked]
     public ?string $deleteSnapshotId = null;
 
     public bool $showDeleteModal = false;
+
+    public function mount(): void
+    {
+        // If a job ID is in the URL, open the modal automatically
+        if ($this->selectedJobId) {
+            $this->showLogsModal = true;
+        }
+    }
 
     public function updatingSearch(): void
     {
@@ -100,6 +109,12 @@ class Index extends Component
     {
         $this->selectedJobId = $id;
         $this->showLogsModal = true;
+    }
+
+    public function closeLogs(): void
+    {
+        $this->showLogsModal = false;
+        $this->selectedJobId = null;
     }
 
     public function getSelectedJobProperty(): ?BackupJob

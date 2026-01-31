@@ -19,6 +19,7 @@ Databasement is a web application for managing database server backups. It allow
 - **Automated backups**: Schedule recurring backups with customizable retention
 - **Storage volumes**: Store backups locally, on S3-compatible storage, or via SFTP/FTP
 - **Cross-server restore**: Restore snapshots from one server to another
+- **Failure notifications**: Get alerted via email or Slack when jobs fail
 - **User management**: Multi-user support with two-factor authentication
 - **Simple deployment**: Single container with built-in web server, queue worker, and scheduler
 
@@ -52,6 +53,7 @@ Learn how to deploy Databasement on your own infrastructure:
 - [Docker Compose Guide](self-hosting/docker-compose) - Deploy with Docker Compose
 - [Kubernetes + Helm](self-hosting/kubernetes-helm) - Deploy on Kubernetes
 - [Native Ubuntu](self-hosting/native-ubuntu) - Traditional installation without Docker
+- [Notifications](self-hosting/notifications) - Configure failure alerts via email or Slack
 
 ### User Guide
 

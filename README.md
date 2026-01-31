@@ -39,6 +39,7 @@
 - **Cross-server restore** — Restore snapshots from production to staging, or between any compatible servers
 - **Flexible storage** — Store backups locally, on S3-compatible storage (AWS S3, MinIO, etc.), or remote servers via SFTP/FTP
 - **Real-time monitoring** — Track backup and restore progress with detailed job logs
+- **Failure notifications** — Get alerted via email or Slack when backup or restore jobs fail
 - **Team ready** — Multi-user support with role-based access and optional two-factor authentication
 - **Simple deployment** — Single Docker container with built-in web server, queue worker, and scheduler
 
