@@ -8,6 +8,8 @@ on:
 jobs:
   build-base-image:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
@@ -73,27 +75,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Generate Docker tag from branch
-        id: tag
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "tag=latest" >> $GITHUB_OUTPUT
-          else
-            # Extract branch name and slugify it:
-            # - Replace / with -
-            # - Remove invalid characters (keep alphanumeric, underscore, period, dash)
-            # - Remove leading periods or dashes
-            # - Truncate to 128 characters
-            BRANCH="${GITHUB_REF#refs/heads/}"
-            SLUG=$(echo "$BRANCH" | sed 's/\//-/g' | sed 's/[^a-zA-Z0-9._-]//g' | sed 's/^[-.]*//' | cut -c1-128)
-            # Validate that slug is not empty
-            if [[ -z "$SLUG" ]]; then
-              echo "Error: Branch name '$BRANCH' resulted in empty Docker tag after slugification"
-              exit 1
-            fi
-            echo "tag=$SLUG" >> $GITHUB_OUTPUT
-          fi
-
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -112,8 +93,9 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: davidcrty/databasement:${{ steps.tag.outputs.tag }}
+          tags: davidcrty/databasement:${{ needs.build-base-image.outputs.tag }}
           build-args: |
             APP_COMMIT_HASH=${{ github.sha }}
+            BASE_IMAGE=davidcrty/databasement-php:${{ needs.build-base-image.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

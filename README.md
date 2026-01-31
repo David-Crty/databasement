@@ -37,7 +37,7 @@
 - **Automated backups** — Schedule recurring backups on daily or weekly intervals. Flexible retention policies: simple time-based (days) or GFS (grandfather-father-son)
 - **Multiple compression options** — gzip, zstd (20-40% better compression), or encrypted (AES-256 for sensitive data)
 - **Cross-server restore** — Restore snapshots from production to staging, or between any compatible servers
-- **Flexible storage** — Store backups locally or on S3-compatible storage (AWS S3, MinIO, etc.)
+- **Flexible storage** — Store backups locally, on S3-compatible storage (AWS S3, MinIO, etc.), or remote servers via SFTP/FTP
 - **Real-time monitoring** — Track backup and restore progress with detailed job logs
 - **Team ready** — Multi-user support with role-based access and optional two-factor authentication
 - **Simple deployment** — Single Docker container with built-in web server, queue worker, and scheduler

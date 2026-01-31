@@ -17,7 +17,7 @@ Databasement is a web application for managing database server backups. It allow
 
 - **Multi-database support**: Manage MySQL, PostgreSQL, and MariaDB servers
 - **Automated backups**: Schedule recurring backups with customizable retention
-- **Storage volumes**: Store backups locally or on S3-compatible storage
+- **Storage volumes**: Store backups locally, on S3-compatible storage, or via SFTP/FTP
 - **Cross-server restore**: Restore snapshots from one server to another
 - **User management**: Multi-user support with two-factor authentication
 - **Simple deployment**: Single container with built-in web server, queue worker, and scheduler

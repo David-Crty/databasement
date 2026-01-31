@@ -102,11 +102,39 @@ services:
       timeout: 5s
       retries: 5
 
-  # Dex OIDC provider for local OAuth testing
-  # To enable: 1) Add "127.0.0.1 dex-local" to /etc/hosts
-  #            2) Uncomment this service
-  #            3) Set OAUTH_OIDC_ENABLED=true in .env.local
-  # Test user: user@databasement.com (password: databasement)
+# SFTP server for local testing
+#  sftp:
+#    image: atmoz/sftp
+#    container_name: databasement-sftp
+#    ports:
+#      - "2222:22"
+#    volumes:
+#      - sftp-data:/home/sftpuser/backups
+#    command: sftpuser:sftp123:1001:1001:backups
+
+# FTP server for local testing
+#  ftp:
+#    image: fauria/vsftpd
+#    container_name: databasement-ftp
+#    ports:
+#      - "20:20"
+#      - "21:21"
+#      - "21100-21110:21100-21110"
+#    environment:
+#      FTP_USER: ftpuser
+#      FTP_PASS: ftp123
+#      PASV_ADDRESS: ftp
+#      PASV_MIN_PORT: 21100
+#      PASV_MAX_PORT: 21110
+#      PASV_ADDR_RESOLVE: "YES"
+#    volumes:
+#      - ftp-data:/home/vsftpd/ftpuser
+
+# Dex OIDC provider for local OAuth testing
+# To enable: 1) Add "127.0.0.1 dex-local" to /etc/hosts
+#            2) Uncomment this service
+#            3) Set OAUTH_OIDC_ENABLED=true in .env.local
+# Test user: user@databasement.com (password: databasement)
 #  dex:
 #    image: ghcr.io/dexidp/dex:v2.38.0
 #    container_name: databasement-dex
@@ -126,3 +154,5 @@ volumes:
   mysql-data:
   postgres-data:
   rustfs-data:
+  sftp-data:
+  ftp-data:
