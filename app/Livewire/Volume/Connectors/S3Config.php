@@ -3,22 +3,9 @@
 namespace App\Livewire\Volume\Connectors;
 
 use App\Rules\SafePath;
-use Livewire\Attributes\Modelable;
-use Livewire\Component;
 
-class S3Config extends Component
+class S3Config extends BaseConfig
 {
-    /** @var array<string, mixed> */
-    #[Modelable]
-    public array $config = [];
-
-    public bool $readonly = false;
-
-    public function mount(): void
-    {
-        $this->config = array_merge(static::defaultConfig(), $this->config);
-    }
-
     /**
      * @return array{bucket: string, prefix: string}
      */
@@ -41,8 +28,8 @@ class S3Config extends Component
         ];
     }
 
-    public function render(): \Illuminate\Contracts\View\View
+    protected function viewName(): string
     {
-        return view('livewire.volume.connectors.s3-config');
+        return 'livewire.volume.connectors.s3-config';
     }
 }

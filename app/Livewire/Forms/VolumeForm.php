@@ -3,10 +3,6 @@
 namespace App\Livewire\Forms;
 
 use App\Enums\VolumeType;
-use App\Livewire\Volume\Connectors\FtpConfig;
-use App\Livewire\Volume\Connectors\LocalConfig;
-use App\Livewire\Volume\Connectors\S3Config;
-use App\Livewire\Volume\Connectors\SftpConfig;
 use App\Models\Volume;
 use App\Services\VolumeConnectionTester;
 use Illuminate\Validation\ValidationException;
@@ -47,10 +43,12 @@ class VolumeForm extends Form
     ) {
         parent::__construct($component, $propertyName);
 
-        $this->localConfig = LocalConfig::defaultConfig();
-        $this->s3Config = S3Config::defaultConfig();
-        $this->sftpConfig = SftpConfig::defaultConfig();
-        $this->ftpConfig = FtpConfig::defaultConfig();
+        // Initialize config arrays with defaults from each connector class
+        foreach (VolumeType::cases() as $volumeType) {
+            $configClass = $volumeType->configClass();
+            $propertyName = $volumeType->configPropertyName();
+            $this->{$propertyName} = $configClass::defaultConfig();
+        }
     }
 
     public function setVolume(Volume $volume): void
@@ -73,12 +71,14 @@ class VolumeForm extends Form
     {
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'string', 'in:local,s3,sftp,ftp'],
-            ...LocalConfig::rules('localConfig'),
-            ...S3Config::rules('s3Config'),
-            ...SftpConfig::rules('sftpConfig'),
-            ...FtpConfig::rules('ftpConfig'),
+            'type' => ['required', 'string', 'in:'.implode(',', array_column(VolumeType::cases(), 'value'))],
         ];
+
+        // Merge rules from all connector classes
+        foreach (VolumeType::cases() as $volumeType) {
+            $configClass = $volumeType->configClass();
+            $rules = [...$rules, ...$configClass::rules($volumeType->configPropertyName())];
+        }
 
         // When editing, make sensitive fields optional (blank to keep existing)
         if ($this->volume !== null) {

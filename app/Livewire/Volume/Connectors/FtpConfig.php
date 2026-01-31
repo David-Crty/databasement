@@ -2,24 +2,8 @@
 
 namespace App\Livewire\Volume\Connectors;
 
-use Livewire\Attributes\Modelable;
-use Livewire\Component;
-
-class FtpConfig extends Component
+class FtpConfig extends BaseConfig
 {
-    /** @var array<string, mixed> */
-    #[Modelable]
-    public array $config = [];
-
-    public bool $readonly = false;
-
-    public bool $isEditing = false;
-
-    public function mount(): void
-    {
-        $this->config = array_merge(static::defaultConfig(), $this->config);
-    }
-
     /**
      * @return array{host: string, port: int, username: string, password: string, root: string, ssl: bool, passive: bool, timeout: int}
      */
@@ -54,8 +38,8 @@ class FtpConfig extends Component
         ];
     }
 
-    public function render(): \Illuminate\Contracts\View\View
+    protected function viewName(): string
     {
-        return view('livewire.volume.connectors.ftp-config');
+        return 'livewire.volume.connectors.ftp-config';
     }
 }

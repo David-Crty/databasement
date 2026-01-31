@@ -51,33 +51,18 @@ use App\Enums\VolumeType;
     <div class="space-y-4">
         <h3 class="text-lg font-semibold">{{ __('Configuration') }}</h3>
 
-        @if($form->type === 'local')
-            <livewire:volume.connectors.local-config
-                wire:model="form.localConfig"
-                :readonly="$readonly"
-                wire:key="local-config"
-            />
-        @elseif($form->type === 's3')
-            <livewire:volume.connectors.s3-config
-                wire:model="form.s3Config"
-                :readonly="$readonly"
-                wire:key="s3-config"
-            />
-        @elseif($form->type === 'sftp')
-            <livewire:volume.connectors.sftp-config
-                wire:model="form.sftpConfig"
-                :readonly="$readonly"
-                :is-editing="$form->volume !== null"
-                wire:key="sftp-config"
-            />
-        @elseif($form->type === 'ftp')
-            <livewire:volume.connectors.ftp-config
-                wire:model="form.ftpConfig"
-                :readonly="$readonly"
-                :is-editing="$form->volume !== null"
-                wire:key="ftp-config"
-            />
-        @endif
+        @php
+            $configType = VolumeType::from($form->type);
+            $configProperty = $configType->configPropertyName();
+        @endphp
+
+        <livewire:dynamic-component
+            :component="'volume.connectors.' . $form->type . '-config'"
+            :wire:model="'form.' . $configProperty"
+            :readonly="$readonly"
+            :is-editing="$form->volume !== null"
+            :wire:key="$form->type . '-config'"
+        />
 
         <!-- Test Connection Button -->
         <div class="pt-2">

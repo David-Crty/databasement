@@ -3,22 +3,9 @@
 namespace App\Livewire\Volume\Connectors;
 
 use App\Rules\SafePath;
-use Livewire\Attributes\Modelable;
-use Livewire\Component;
 
-class LocalConfig extends Component
+class LocalConfig extends BaseConfig
 {
-    /** @var array<string, mixed> */
-    #[Modelable]
-    public array $config = [];
-
-    public bool $readonly = false;
-
-    public function mount(): void
-    {
-        $this->config = array_merge(static::defaultConfig(), $this->config);
-    }
-
     /**
      * @return array{path: string}
      */
@@ -39,8 +26,8 @@ class LocalConfig extends Component
         ];
     }
 
-    public function render(): \Illuminate\Contracts\View\View
+    protected function viewName(): string
     {
-        return view('livewire.volume.connectors.local-config');
+        return 'livewire.volume.connectors.local-config';
     }
 }

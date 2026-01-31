@@ -12,18 +12,24 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use Illuminate\Support\Facades\Crypt;
 use Livewire\Livewire;
 
-// Dataset for volume types with their form configuration
+// Consolidated dataset for all volume type operations
 dataset('volume types', function () {
     return [
         'local' => [
             'type' => VolumeType::LOCAL,
             'formData' => ['path' => '/var/backups'],
             'expectedConfig' => ['path' => '/var/backups'],
+            'updateData' => ['path' => '/new/path'],
+            'expectedField' => 'path',
+            'expectedValue' => '/new/path',
         ],
         's3' => [
             'type' => VolumeType::S3,
             'formData' => ['bucket' => 'my-backup-bucket', 'prefix' => 'backups/production/'],
             'expectedConfig' => ['bucket' => 'my-backup-bucket', 'prefix' => 'backups/production/'],
+            'updateData' => ['bucket' => 'new-bucket', 'prefix' => 'new/'],
+            'expectedField' => 'bucket',
+            'expectedValue' => 'new-bucket',
         ],
         'sftp' => [
             'type' => VolumeType::SFTP,
@@ -42,6 +48,9 @@ dataset('volume types', function () {
                 'root' => '/backups',
                 'timeout' => 10,
             ],
+            'updateData' => ['host' => 'new-sftp.example.com', 'password' => 'new-password'],
+            'expectedField' => 'host',
+            'expectedValue' => 'new-sftp.example.com',
         ],
         'ftp' => [
             'type' => VolumeType::FTP,
@@ -64,37 +73,6 @@ dataset('volume types', function () {
                 'passive' => true,
                 'timeout' => 90,
             ],
-        ],
-    ];
-});
-
-// Dataset for volume types that support editing via factory
-dataset('editable volume types', function () {
-    return [
-        'local' => [
-            'type' => VolumeType::LOCAL,
-            'factoryState' => 'local',
-            'updateData' => ['path' => '/new/path'],
-            'expectedField' => 'path',
-            'expectedValue' => '/new/path',
-        ],
-        's3' => [
-            'type' => VolumeType::S3,
-            'factoryState' => 's3',
-            'updateData' => ['bucket' => 'new-bucket', 'prefix' => 'new/'],
-            'expectedField' => 'bucket',
-            'expectedValue' => 'new-bucket',
-        ],
-        'sftp' => [
-            'type' => VolumeType::SFTP,
-            'factoryState' => 'sftp',
-            'updateData' => ['host' => 'new-sftp.example.com', 'password' => 'new-password'],
-            'expectedField' => 'host',
-            'expectedValue' => 'new-sftp.example.com',
-        ],
-        'ftp' => [
-            'type' => VolumeType::FTP,
-            'factoryState' => 'ftp',
             'updateData' => ['host' => 'new-ftp.example.com', 'ssl' => true],
             'expectedField' => 'host',
             'expectedValue' => 'new-ftp.example.com',
@@ -103,7 +81,7 @@ dataset('editable volume types', function () {
 });
 
 describe('volume creation', function () {
-    test('can create volume with valid data', function (VolumeType $type, array $formData, array $expectedConfig) {
+    test('can create volume with valid data', function (VolumeType $type, array $formData, array $expectedConfig, array $updateData, string $expectedField, mixed $expectedValue) {
         $user = User::factory()->create();
         $volumeName = "{$type->label()} Backup Storage";
         $configKey = $type->configPropertyName();
@@ -142,8 +120,9 @@ describe('volume creation', function () {
 });
 
 describe('volume editing', function () {
-    test('can edit volume', function (VolumeType $type, string $factoryState, array $updateData, string $expectedField, mixed $expectedValue) {
+    test('can edit volume', function (VolumeType $type, array $formData, array $expectedConfig, array $updateData, string $expectedField, mixed $expectedValue) {
         $user = User::factory()->create();
+        $factoryState = $type->value;
         $volume = Volume::factory()->{$factoryState}()->create(['name' => "{$type->label()} Volume"]);
         $configKey = $type->configPropertyName();
 
@@ -160,7 +139,7 @@ describe('volume editing', function () {
 
         $volume->refresh();
         expect($volume->getDecryptedConfig()[$expectedField])->toBe($expectedValue);
-    })->with('editable volume types');
+    })->with('volume types');
 
     test('blank password on edit preserves existing password', function () {
         $user = User::factory()->create();

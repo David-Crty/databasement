@@ -242,6 +242,34 @@ make test-filter FILTER=DatabaseServerTest
 - `tests/Support/IntegrationTestHelpers.php` - Add config and helpers
 - `tests/Feature/Integration/fixtures/{type}-init.sql` - Create test fixture
 
+### Adding a New Volume Type
+
+The volume system uses dynamic class resolution based on the type value. Use existing implementations (e.g., `SftpConfig`, `SftpFilesystem`) as templates.
+
+#### Files to Update
+
+**Core:**
+- `app/Enums/VolumeType.php` - Add enum case, update `label()`, `icon()`, `sensitiveFields()`, `configSummary()`
+- `app/Livewire/Volume/Connectors/{Type}Config.php` - Create class extending `BaseConfig` with `defaultConfig()`, `rules()`, `viewName()`
+- `resources/views/livewire/volume/connectors/{type}-config.blade.php` - Create form view (use `$readonly`, `$isEditing`)
+- `app/Services/Backup/Filesystems/{Type}Filesystem.php` - Create class implementing `FilesystemInterface`
+- `app/Providers/AppServiceProvider.php` - Register filesystem in `FilesystemProvider`
+
+**Tests:**
+- `database/factories/VolumeFactory.php` - Add factory state for the new type
+- `tests/Feature/Volume/VolumeTest.php` - Add to `volume types` dataset
+
+**Optional:**
+- `composer.json` - Add Flysystem adapter package if needed
+- `docker/php/Dockerfile` - Add PHP extensions if needed
+
+#### Architecture Notes
+
+- **Dynamic Resolution**: `VolumeType::configPropertyName()` returns `{type}Config` and `configClass()` resolves the class dynamically - no explicit mappings needed in `VolumeForm`
+- **Sensitive Fields**: Fields in `sensitiveFields()` are automatically encrypted in the database and masked in the browser
+- **Connection Testing**: Works automatically via `FilesystemProvider` if your filesystem implements `FilesystemInterface`
+- **BaseConfig**: All config components extend `BaseConfig` which handles mounting, validation, and rendering
+
 ### Working with Livewire Components
 
 - Public properties are automatically bound to views

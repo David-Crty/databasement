@@ -37,27 +37,17 @@ enum VolumeType: string
      */
     public function configPropertyName(): string
     {
-        return match ($this) {
-            self::LOCAL => 'localConfig',
-            self::S3 => 's3Config',
-            self::SFTP => 'sftpConfig',
-            self::FTP => 'ftpConfig',
-        };
+        return $this->value.'Config';
     }
 
     /**
      * Get the config connector class for this volume type.
      *
-     * @return class-string<\App\Livewire\Volume\Connectors\LocalConfig|\App\Livewire\Volume\Connectors\S3Config|\App\Livewire\Volume\Connectors\SftpConfig|\App\Livewire\Volume\Connectors\FtpConfig>
+     * @return class-string<\App\Livewire\Volume\Connectors\BaseConfig>
      */
     public function configClass(): string
     {
-        return match ($this) {
-            self::LOCAL => \App\Livewire\Volume\Connectors\LocalConfig::class,
-            self::S3 => \App\Livewire\Volume\Connectors\S3Config::class,
-            self::SFTP => \App\Livewire\Volume\Connectors\SftpConfig::class,
-            self::FTP => \App\Livewire\Volume\Connectors\FtpConfig::class,
-        };
+        return '\\App\\Livewire\\Volume\\Connectors\\'.ucfirst($this->value).'Config';
     }
 
     /**
