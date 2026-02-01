@@ -37,12 +37,32 @@ class Index extends Component
 
     public bool $showLogsModal = false;
 
+    #[Url(as: 'job')]
     public ?string $selectedJobId = null;
 
     #[Locked]
     public ?string $deleteSnapshotId = null;
 
     public bool $showDeleteModal = false;
+
+    public function mount(): void
+    {
+        // If a job ID is in the URL, validate and authorize before opening modal
+        if ($this->selectedJobId) {
+            $job = BackupJob::find($this->selectedJobId);
+
+            if (! $job) {
+                session()->flash('error', __('Job not found: ').$this->selectedJobId);
+                $this->selectedJobId = null;
+
+                return;
+            }
+
+            $this->authorize('view', $job);
+
+            $this->showLogsModal = true;
+        }
+    }
 
     public function updatingSearch(): void
     {
@@ -100,6 +120,12 @@ class Index extends Component
     {
         $this->selectedJobId = $id;
         $this->showLogsModal = true;
+    }
+
+    public function closeLogs(): void
+    {
+        $this->showLogsModal = false;
+        $this->selectedJobId = null;
     }
 
     public function getSelectedJobProperty(): ?BackupJob

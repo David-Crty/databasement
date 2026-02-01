@@ -1,4 +1,4 @@
-.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage backup-test lint-check lint-fix lint migrate migrate-fresh db-seed setup clean import-db docs docs-build
+.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter backup-test lint-check lint-fix lint migrate migrate-fresh db-seed setup clean import-db docs docs-build
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -75,6 +75,9 @@ test-filter-postgres: ## Run tests with filter using PostgreSQL (usage: make tes
 
 test-coverage: ## Run tests with coverage
 	$(PHP_ARTISAN) test --coverage
+
+test-coverage-filter: ## Run tests with coverage and filter (usage: make test-coverage-filter FILTER=FailureNotification)
+	$(PHP_EXEC) php -d xdebug.mode=coverage ./vendor/bin/pest --filter="$(FILTER)" --coverage
 
 ##@ Code Quality
 

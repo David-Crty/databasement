@@ -8,6 +8,12 @@
         </x-slot:actions>
     </x-header>
 
+    @if (session('error'))
+        <x-alert class="alert-error mb-4" icon="o-exclamation-circle" dismissible>
+            {{ session('error') }}
+        </x-alert>
+    @endif
+
     <!-- FILTERS (Tablet & Mobile) -->
     <div class="lg:hidden mb-4" x-data="{ showFilters: false }">
         @include('livewire.backup-job._filters', ['variant' => 'mobile'])

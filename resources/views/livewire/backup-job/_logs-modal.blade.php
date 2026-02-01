@@ -1,4 +1,4 @@
-<x-modal wire:model="showLogsModal" title="{{ __('Job Logs') }}" class="backdrop-blur" box-class="w-full sm:w-11/12 max-w-6xl max-h-[90vh]">
+<x-modal wire:model="showLogsModal" @close="$wire.closeLogs()" title="{{ __('Job Logs') }}" class="backdrop-blur" box-class="w-full sm:w-11/12 max-w-6xl max-h-[90vh]">
     @if($this->selectedJob)
         <div class="space-y-4" x-data="{ showMetadata: false }">
             <!-- Job Info Header -->

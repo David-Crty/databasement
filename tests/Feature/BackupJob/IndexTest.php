@@ -10,6 +10,32 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 use Livewire\Livewire;
 
+test('mount opens logs modal when valid job ID provided in URL', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $job = $snapshots[0]->job;
+
+    Livewire::actingAs($user)
+        ->withQueryParams(['job' => $job->id])
+        ->test(Index::class)
+        ->assertSet('showLogsModal', true)
+        ->assertSet('selectedJobId', $job->id);
+});
+
+test('mount resets selectedJobId and shows error when job does not exist', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->withQueryParams(['job' => 'nonexistent-job-id'])
+        ->test(Index::class)
+        ->assertSet('showLogsModal', false)
+        ->assertSet('selectedJobId', null)
+        ->assertSee('Job not found: nonexistent-job-id');
+});
+
 test('can search backup jobs by server name', function () {
     $user = User::factory()->create();
     $factory = app(BackupJobFactory::class);

@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Snapshot;
 use App\Services\Backup\BackupTask;
+use App\Services\FailureNotificationService;
 use App\Support\FilesystemSupport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -78,10 +79,11 @@ class ProcessBackupJob implements ShouldQueue
             FilesystemSupport::cleanupDirectory($this->workingDirectory);
         }
 
-        // Mark the job as failed
-        $snapshot = Snapshot::with('job')->findOrFail($this->snapshotId);
+        // Mark the job as failed and send notification (only if not already failed)
+        $snapshot = Snapshot::with(['job', 'databaseServer'])->findOrFail($this->snapshotId);
         if ($snapshot->job->status !== 'failed') {
             $snapshot->job->markFailed($exception);
+            app(FailureNotificationService::class)->notifyBackupFailed($snapshot, $exception);
         }
     }
 }

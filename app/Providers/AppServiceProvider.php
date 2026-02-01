@@ -28,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->registerOAuthServicesConfig();
+        $this->registerDiscordNotificationConfig();
 
         // Register database connection tester
         $this->app->singleton(DatabaseConnectionTester::class);
@@ -53,6 +54,21 @@ class AppServiceProvider extends ServiceProvider
 
             return $provider;
         });
+    }
+
+    /**
+     * Register Discord notification config for the laravel-notification-channels/discord package.
+     *
+     * Maps config/notifications.php discord settings to config/services.php format
+     * that the Discord notification package expects.
+     */
+    private function registerDiscordNotificationConfig(): void
+    {
+        $token = config('notifications.discord.token');
+
+        if ($token) {
+            config(['services.discord.token' => $token]);
+        }
     }
 
     /**
