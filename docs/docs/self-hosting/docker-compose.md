@@ -72,7 +72,7 @@ DB_PASSWORD=your-secure-password
 ```
 
 :::tip S3 Storage
-To store backups in AWS S3 or S3-compatible storage (MinIO, DigitalOcean Spaces, etc.), see the [S3 Storage Configuration](../self-hosting/configuration#s3-storage) section.
+To store backups in AWS S3 or S3-compatible storage (MinIO, DigitalOcean Spaces, etc.), see the [S3 Storage Configuration](./configuration/backup#s3-storage) section.
 :::
 
 ### 4. Create docker-compose.yml
@@ -345,6 +345,6 @@ You should see: `All migrations have been run!`
 
 ### More troubleshooting
 
-For additional troubleshooting options including debug mode, trusted proxy configuration, and artisan commands, see the [Configuration Troubleshooting](../self-hosting/configuration#troubleshooting) section.
+For additional troubleshooting options including debug mode, trusted proxy configuration, and artisan commands, see the [Configuration Troubleshooting](./configuration/application#troubleshooting) section.
 
 See also [Docker Networking](../user-guide/database-servers#docker-networking) if you're having issues connecting to your database server.

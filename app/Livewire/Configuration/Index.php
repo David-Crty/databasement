@@ -60,11 +60,6 @@ class Index extends Component
                 'description' => __('Compression level: 1-9 for gzip/encrypted, 1-19 for zstd (default: 6).'),
             ],
             [
-                'env' => 'MYSQL_CLI_TYPE',
-                'value' => config('backup.mysql_cli_type') ?: '-',
-                'description' => __('MySQL CLI type: "mariadb" or "mysql".'),
-            ],
-            [
                 'env' => 'BACKUP_JOB_TIMEOUT',
                 'value' => config('backup.job_timeout') ?: '-',
                 'description' => __('Maximum seconds a job can run.'),
@@ -136,6 +131,50 @@ class Index extends Component
         ];
     }
 
+    /**
+     * @return array<int, array{value: mixed, env: string, description: string}>
+     */
+    public function getSsoConfig(): array
+    {
+        return [
+            [
+                'env' => 'OAUTH_GOOGLE_ENABLED',
+                'value' => config('oauth.providers.google.enabled') ? 'true' : 'false',
+                'description' => __('Enable Google OAuth authentication.'),
+            ],
+            [
+                'env' => 'OAUTH_GITHUB_ENABLED',
+                'value' => config('oauth.providers.github.enabled') ? 'true' : 'false',
+                'description' => __('Enable GitHub OAuth authentication.'),
+            ],
+            [
+                'env' => 'OAUTH_GITLAB_ENABLED',
+                'value' => config('oauth.providers.gitlab.enabled') ? 'true' : 'false',
+                'description' => __('Enable GitLab OAuth authentication.'),
+            ],
+            [
+                'env' => 'OAUTH_OIDC_ENABLED',
+                'value' => config('oauth.providers.oidc.enabled') ? 'true' : 'false',
+                'description' => __('Enable generic OIDC authentication (Keycloak, Authentik, etc.).'),
+            ],
+            [
+                'env' => 'OAUTH_AUTO_CREATE_USERS',
+                'value' => config('oauth.auto_create_users') ? 'true' : 'false',
+                'description' => __('Automatically create users on first OAuth login.'),
+            ],
+            [
+                'env' => 'OAUTH_DEFAULT_ROLE',
+                'value' => config('oauth.default_role') ?: '-',
+                'description' => __('Default role for new OAuth users: viewer, member, or admin.'),
+            ],
+            [
+                'env' => 'OAUTH_AUTO_LINK_BY_EMAIL',
+                'value' => config('oauth.auto_link_by_email') ? 'true' : 'false',
+                'description' => __('Link OAuth logins to existing users with matching email.'),
+            ],
+        ];
+    }
+
     private function maskSensitiveValue(mixed $value): string
     {
         return $value ? '********' : '-';
@@ -148,6 +187,7 @@ class Index extends Component
             'appConfig' => $this->getAppConfig(),
             'backupConfig' => $this->getBackupConfig(),
             'notificationConfig' => $this->getNotificationConfig(),
+            'ssoConfig' => $this->getSsoConfig(),
         ])->layout('components.layouts.app', ['title' => __('Configuration')]);
     }
 }

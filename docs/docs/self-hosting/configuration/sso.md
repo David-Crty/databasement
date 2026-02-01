@@ -1,8 +1,8 @@
 ---
-sidebar_position: 7
+sidebar_position: 5
 ---
 
-# OAuth / SSO Authentication
+# SSO
 
 Databasement supports OAuth authentication, allowing users to log in using external identity providers. This can be used alongside or instead of traditional password authentication.
 
@@ -85,7 +85,7 @@ OAUTH_OIDC_LABEL=SSO  # Button label on login page
 3. In the **Settings** tab, configure the URLs (replace `databasement.example.com` with your domain):
 
    | Field                           | Value                                                  |
-   |---------------------------------|--------------------------------------------------------|
+   | ------------------------------- | ------------------------------------------------------ |
    | Root URL                        | `https://databasement.example.com`                     |
    | Home URL                        | `https://databasement.example.com`                     |
    | Valid redirect URIs             | `https://databasement.example.com/oauth/oidc/callback` |

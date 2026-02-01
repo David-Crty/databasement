@@ -53,7 +53,6 @@ Learn how to deploy Databasement on your own infrastructure:
 - [Docker Compose Guide](self-hosting/docker-compose) - Deploy with Docker Compose
 - [Kubernetes + Helm](self-hosting/kubernetes-helm) - Deploy on Kubernetes
 - [Native Ubuntu](self-hosting/native-ubuntu) - Traditional installation without Docker
-- [Notifications](self-hosting/notifications) - Configure failure alerts via email, Slack, or Discord
 
 ### User Guide
 

@@ -9,5 +9,5 @@ test('configuration page displays expected settings', function () {
         ->assertOk()
         ->assertSee('Configuration')
         ->assertSee('BACKUP_WORKING_DIRECTORY')
-        ->assertSee('MYSQL_CLI_TYPE');
+        ->assertSee('BACKUP_COMPRESSION');
 });

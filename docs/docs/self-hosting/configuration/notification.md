@@ -1,21 +1,21 @@
 ---
-sidebar_position: 6
+sidebar_position: 4
 ---
 
-# Notifications
+# Notification
 
 Databasement can send notifications when backup or restore jobs fail. Notifications help you stay informed about issues that require attention.
 
 ## Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NOTIFICATION_ENABLED` | Enable failure notifications | `false` |
-| `NOTIFICATION_CHANNELS` | Comma-separated list of channels: `mail`, `slack`, `discord` | `mail` |
-| `NOTIFICATION_MAIL_TO` | Email address for failure notifications | - |
-| `NOTIFICATION_SLACK_WEBHOOK_URL` | Slack webhook URL for failure notifications | - |
-| `NOTIFICATION_DISCORD_BOT_TOKEN` | Discord bot token for authentication | - |
-| `NOTIFICATION_DISCORD_CHANNEL_ID` | Discord channel ID for failure notifications | - |
+| Variable                          | Description                                                   | Default |
+| --------------------------------- | ------------------------------------------------------------- | ------- |
+| `NOTIFICATION_ENABLED`            | Enable failure notifications                                  | `false` |
+| `NOTIFICATION_CHANNELS`           | Comma-separated list of channels: `mail`, `slack`, `discord`  | `mail`  |
+| `NOTIFICATION_MAIL_TO`            | Email address for failure notifications                       | -       |
+| `NOTIFICATION_SLACK_WEBHOOK_URL`  | Slack webhook URL for failure notifications                   | -       |
+| `NOTIFICATION_DISCORD_BOT_TOKEN`  | Discord bot token for authentication                          | -       |
+| `NOTIFICATION_DISCORD_CHANNEL_ID` | Discord channel ID for failure notifications                  | -       |
 
 ## Email Notifications
 

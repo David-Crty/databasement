@@ -33,7 +33,7 @@ S3 volumes store backups in AWS S3 or any S3-compatible object storage (MinIO, D
 | **Prefix** | Optional path prefix within the bucket (e.g., `backups/production/`) |
 
 :::info
-S3 credentials are configured via environment variables, not per-volume. See the [S3 Storage configuration](../self-hosting/configuration.md#s3-storage) for setup instructions.
+S3 credentials are configured via environment variables, not per-volume. See the [S3 Storage configuration](../self-hosting/configuration/backup#s3-storage) for setup instructions.
 :::
 
 ### SFTP Storage
