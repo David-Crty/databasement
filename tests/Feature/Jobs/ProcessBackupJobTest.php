@@ -34,7 +34,8 @@ test('job calls BackupTask run method', function () {
         ->once()
         ->with(
             Mockery::on(fn ($s) => $s->id === $snapshot->id),
-            Mockery::type('string')
+            Mockery::type('int'),  // attempt
+            Mockery::type('int')   // maxAttempts
         );
 
     app()->instance(BackupTask::class, $mockBackupTask);

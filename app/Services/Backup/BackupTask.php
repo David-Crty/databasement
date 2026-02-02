@@ -27,21 +27,15 @@ class BackupTask
         $this->shellProcessor->setLogger($job);
     }
 
-    public function run(Snapshot $snapshot, ?string $workingDirectory = null): Snapshot
+    public function run(Snapshot $snapshot, ?int $attempt = null, ?int $maxAttempts = null): Snapshot
     {
         $databaseServer = $snapshot->databaseServer;
         $job = $snapshot->job;
         $isSqlite = $databaseServer->database_type === DatabaseType::SQLITE;
-
-        // Create compressor based on config (gzip, zstd, or encrypted)
-        $compressor = $this->compressorFactory->make();
-
-        // Configure shell processor to log to job
-        $this->setLogger($job);
         try {
-            if (! $workingDirectory) {
-                $workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $snapshot->id);
-            }
+            $this->setLogger($job);
+            $compressor = $this->compressorFactory->make();
+            $workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $snapshot->id);
             $extension = $isSqlite ? 'db' : 'sql';
             $workingFile = $workingDirectory.'/dump.'.$extension;
 
@@ -50,7 +44,8 @@ class BackupTask
             // Use the database name from the snapshot (important for multi-database backups)
             $databaseName = $snapshot->database_name;
 
-            $job->log("Starting backup for database: {$databaseName}", 'info');
+            $attemptInfo = $attempt && $maxAttempts ? " (attempt {$attempt}/{$maxAttempts})" : '';
+            $job->log("Starting backup for database: {$databaseName}{$attemptInfo}", 'info');
 
             $this->dumpDatabase($databaseServer, $databaseName, $workingFile);
             $archive = $compressor->compress($workingFile);
@@ -107,8 +102,8 @@ class BackupTask
             throw $e;
         } finally {
             // Clean up working directory and all files within (safety net, Job also cleans up on failure)
-            $job->log('Cleaning up temporary files', 'info');
-            if (is_dir($workingDirectory)) {
+            if (isset($workingDirectory) and is_dir($workingDirectory)) {
+                $job->log('Cleaning up temporary files', 'info');
                 FilesystemSupport::cleanupDirectory($workingDirectory);
             }
         }

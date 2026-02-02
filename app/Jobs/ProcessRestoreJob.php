@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\Restore;
 use App\Services\Backup\RestoreTask;
 use App\Services\FailureNotificationService;
-use App\Support\FilesystemSupport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,11 +21,6 @@ class ProcessRestoreJob implements ShouldQueue
     public int $timeout;
 
     public int $backoff;
-
-    /**
-     * Working directory for temporary files.
-     */
-    private string $workingDirectory;
 
     /**
      * Create a new job instance.
@@ -51,11 +45,8 @@ class ProcessRestoreJob implements ShouldQueue
         // Update job with queue job ID for tracking
         $restore->job->update(['job_id' => $this->job->getJobId()]);
 
-        // Create unique working directory for this job
-        $this->workingDirectory = FilesystemSupport::createWorkingDirectory('restore', $this->restoreId);
-
         // Run the restore task
-        $restoreTask->run($restore, $this->workingDirectory);
+        $restoreTask->run($restore, $this->attempts(), $this->tries);
 
         Log::info('Restore completed successfully', [
             'restore_id' => $this->restoreId,

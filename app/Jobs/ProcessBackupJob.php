@@ -5,7 +5,6 @@ namespace App\Jobs;
 use App\Models\Snapshot;
 use App\Services\Backup\BackupTask;
 use App\Services\FailureNotificationService;
-use App\Support\FilesystemSupport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -22,11 +21,6 @@ class ProcessBackupJob implements ShouldQueue
     public int $timeout;
 
     public int $backoff;
-
-    /**
-     * Working directory for temporary files.
-     */
-    private string $workingDirectory;
 
     /**
      * Create a new job instance.
@@ -50,11 +44,8 @@ class ProcessBackupJob implements ShouldQueue
         // Update job with queue job ID for tracking
         $snapshot->job->update(['job_id' => $this->job->getJobId()]);
 
-        // Create unique working directory for this job
-        $this->workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $this->snapshotId);
-
         // Run the backup task
-        $backupTask->run($snapshot, $this->workingDirectory);
+        $backupTask->run($snapshot, $this->attempts(), $this->tries);
 
         Log::info('Backup completed successfully', [
             'snapshot_id' => $this->snapshotId,

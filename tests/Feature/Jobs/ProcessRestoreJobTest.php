@@ -40,7 +40,8 @@ test('job calls RestoreTask run method', function () {
         ->once()
         ->with(
             Mockery::on(fn ($r) => $r->id === $restore->id),
-            Mockery::type('string')
+            Mockery::type('int'),  // attempt
+            Mockery::type('int')   // maxAttempts
         );
 
     app()->instance(RestoreTask::class, $mockRestoreTask);

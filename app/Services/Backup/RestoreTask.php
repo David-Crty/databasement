@@ -33,22 +33,19 @@ class RestoreTask
      *
      * @throws \Exception
      */
-    public function run(Restore $restore, ?string $workingDirectory = null): Restore
+    public function run(Restore $restore, ?int $attempt = null, ?int $maxAttempts = null): Restore
     {
         $targetServer = $restore->targetServer;
         $snapshot = $restore->snapshot;
         $job = $restore->job;
-
-        $this->validateCompatibility($targetServer, $snapshot);
-
-        $this->shellProcessor->setLogger($job);
-
         try {
-            if (! $workingDirectory) {
-                $workingDirectory = FilesystemSupport::createWorkingDirectory('restore', $restore->id);
-            }
+            $this->validateCompatibility($targetServer, $snapshot);
+            $this->shellProcessor->setLogger($job);
+            $workingDirectory = FilesystemSupport::createWorkingDirectory('restore', $restore->id);
+
             $job->markRunning();
-            $job->log('Starting restore operation', 'info', [
+            $attemptInfo = $attempt && $maxAttempts ? " (attempt {$attempt}/{$maxAttempts})" : '';
+            $job->log("Starting restore operation{$attemptInfo}", 'info', [
                 'target_database_server' => [
                     'id' => $targetServer->id,
                     'name' => $targetServer->name,
@@ -116,8 +113,8 @@ class RestoreTask
             throw $e;
         } finally {
             // Clean up working directory and all files within (safety net, Job also cleans up on failure)
-            $job->log('Cleaning up temporary files', 'info');
-            if (is_dir($workingDirectory)) {
+            if (isset($workingDirectory) and is_dir($workingDirectory)) {
+                $job->log('Cleaning up temporary files', 'info');
                 FilesystemSupport::cleanupDirectory($workingDirectory);
             }
         }
