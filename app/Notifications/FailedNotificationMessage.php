@@ -17,6 +17,7 @@ class FailedNotificationMessage
         public string $title,
         public string $body,
         public string $errorMessage,
+        public string $errorLabel,
         public string $actionText,
         public string $actionUrl,
         public string $footerText,
@@ -42,11 +43,11 @@ class FailedNotificationMessage
     public function toSlack(): SlackMessage
     {
         return (new SlackMessage)
+            ->username('Databasement')
+            ->emoji(':rotating_light:')
             ->text($this->title)
             ->headerBlock($this->title)
-            ->contextBlock(function (ContextBlock $block) {
-                $block->text($this->footerText);
-            })
+            ->contextBlock(fn (ContextBlock $block) => $block->text($this->footerText))
             ->dividerBlock()
             ->sectionBlock(function (SectionBlock $block) {
                 $block->text($this->body);
@@ -54,13 +55,9 @@ class FailedNotificationMessage
                     $block->field("*{$label}:*\n{$value}")->markdown();
                 }
             })
-            ->sectionBlock(function (SectionBlock $block) {
-                $block->text("*Error Details:*\n```{$this->errorMessage}```")->markdown();
-            })
+            ->sectionBlock(fn (SectionBlock $block) => $block->text("*{$this->errorLabel}:*\n```{$this->errorMessage}```")->markdown())
             ->dividerBlock()
-            ->sectionBlock(function (SectionBlock $block) {
-                $block->text("<{$this->actionUrl}|{$this->actionText}>")->markdown();
-            });
+            ->sectionBlock(fn (SectionBlock $block) => $block->text("<{$this->actionUrl}|{$this->actionText}>")->markdown());
     }
 
     public function toDiscord(): DiscordMessage

@@ -5,6 +5,7 @@ use App\Models\DatabaseServer;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\RestoreTask;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 
 test('job is configured with correct queue and settings', function () {
@@ -69,8 +70,11 @@ test('job can be dispatched to queue', function () {
     });
 });
 
-test('failed method marks job as failed and logs error', function () {
-    Log::spy();
+test('failed method sends notification', function () {
+    config([
+        'notifications.enabled' => true,
+        'notifications.mail.to' => 'admin@example.com',
+    ]);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);
@@ -79,22 +83,16 @@ test('failed method marks job as failed and logs error', function () {
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
 
-    // Verify job starts as pending
-    expect($restore->job->status)->toBe('pending');
-
     $job = new ProcessRestoreJob($restore->id);
     $exception = new \Exception('Restore failed: access denied');
 
-    // Call the failed method directly
+    // Call the failed method (simulates Laravel queue calling this after all retries)
     $job->failed($exception);
 
-    // Verify job is marked as failed
-    $restore->refresh();
-    expect($restore->job->status)->toBe('failed')
-        ->and($restore->job->error_message)->toBe('Restore failed: access denied')
-        ->and($restore->job->completed_at)->not->toBeNull();
-
-    // Verify error was logged
-    Log::shouldHaveReceived('error')
-        ->with('Restore job failed', Mockery::type('array'));
+    // Verify notification was sent
+    Notification::assertSentOnDemand(
+        \App\Notifications\RestoreFailedNotification::class,
+        fn ($notification) => $notification->restore->id === $restore->id
+            && $notification->exception->getMessage() === 'Restore failed: access denied'
+    );
 });

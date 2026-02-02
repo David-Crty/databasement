@@ -8,14 +8,15 @@ Databasement can send notifications when backup or restore jobs fail. Notificati
 
 ## Configuration
 
-| Variable                          | Description                                                   | Default |
-| --------------------------------- | ------------------------------------------------------------- | ------- |
-| `NOTIFICATION_ENABLED`            | Enable failure notifications                                  | `false` |
-| `NOTIFICATION_CHANNELS`           | Comma-separated list of channels: `mail`, `slack`, `discord`  | `mail`  |
-| `NOTIFICATION_MAIL_TO`            | Email address for failure notifications                       | -       |
-| `NOTIFICATION_SLACK_WEBHOOK_URL`  | Slack webhook URL for failure notifications                   | -       |
-| `NOTIFICATION_DISCORD_BOT_TOKEN`  | Discord bot token for authentication                          | -       |
-| `NOTIFICATION_DISCORD_CHANNEL_ID` | Discord channel ID for failure notifications                  | -       |
+| Variable                          | Description                                  | Default |
+| --------------------------------- | -------------------------------------------- | ------- |
+| `NOTIFICATION_ENABLED`            | Enable failure notifications                 | `false` |
+| `NOTIFICATION_MAIL_TO`            | Email address for failure notifications      | -       |
+| `NOTIFICATION_SLACK_WEBHOOK_URL`  | Slack webhook URL for failure notifications  | -       |
+| `NOTIFICATION_DISCORD_BOT_TOKEN`  | Discord bot token for authentication         | -       |
+| `NOTIFICATION_DISCORD_CHANNEL_ID` | Discord channel ID for failure notifications | -       |
+
+Channels are automatically enabled when their configuration is set. For example, if you set `NOTIFICATION_SLACK_WEBHOOK_URL`, Slack notifications will be enabled.
 
 ## Email Notifications
 
@@ -26,7 +27,6 @@ To receive failure notifications via email:
 
 ```bash
 NOTIFICATION_ENABLED=true
-NOTIFICATION_CHANNELS=mail
 NOTIFICATION_MAIL_TO=admin@example.com
 ```
 
@@ -55,8 +55,7 @@ To receive failure notifications in Slack:
 
 ```bash
 NOTIFICATION_ENABLED=true
-NOTIFICATION_CHANNELS=slack
-NOTIFICATION_SLACK_WEBHOOK_URL=https://hooks.slack.com/XXXXXXXXXXXXXXXXXXXXXXXX
+NOTIFICATION_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
 ### Creating a Slack Webhook
@@ -81,7 +80,6 @@ To receive failure notifications in Discord:
 
 ```bash
 NOTIFICATION_ENABLED=true
-NOTIFICATION_CHANNELS=discord
 NOTIFICATION_DISCORD_BOT_TOKEN=your-bot-token
 NOTIFICATION_DISCORD_CHANNEL_ID=123456789012345678
 ```
@@ -106,11 +104,10 @@ NOTIFICATION_DISCORD_CHANNEL_ID=123456789012345678
 
 ## Multiple Channels
 
-To send notifications to multiple channels (email, Slack, and/or Discord):
+To send notifications to multiple channels, simply configure each one. All configured channels will receive notifications:
 
 ```bash
 NOTIFICATION_ENABLED=true
-NOTIFICATION_CHANNELS=mail,slack,discord
 NOTIFICATION_MAIL_TO=admin@example.com
 NOTIFICATION_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 NOTIFICATION_DISCORD_BOT_TOKEN=your-bot-token
@@ -134,6 +131,8 @@ Each notification includes:
 - Database name
 - Error message
 - Timestamp
-- Direct link to the failed job details (email only)
+- Direct link to the failed job details
 
-When you click the "View Job Details" button in the email, it opens the Jobs page with the logs modal automatically displayed for that specific job.
+## Testing Notifications
+
+You can test your notification setup from the Configuration page. Click the **Send Test** button in the Notifications section to send a test notification to all configured channels.

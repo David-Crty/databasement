@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Notifications\BackupFailedNotification;
+use App\Notifications\BaseFailedNotification;
 use App\Notifications\RestoreFailedNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -20,7 +21,7 @@ class FailureNotificationService
         $this->send(new RestoreFailedNotification($restore, $exception));
     }
 
-    private function send(\Illuminate\Notifications\Notification $notification): void
+    private function send(BaseFailedNotification $notification): void
     {
         if (! config('notifications.enabled')) {
             return;
@@ -40,22 +41,10 @@ class FailureNotificationService
      */
     private function getNotificationRoutes(): array
     {
-        $enabledChannels = explode(',', (string) config('notifications.channels', 'mail'));
-        $enabledChannels = array_map('trim', $enabledChannels);
-
-        $channelConfigs = [
+        return array_filter([
             'mail' => config('notifications.mail.to'),
             'slack' => config('notifications.slack.webhook_url'),
             'discord' => config('notifications.discord.channel_id'),
-        ];
-
-        $routes = [];
-        foreach ($channelConfigs as $channel => $value) {
-            if (in_array($channel, $enabledChannels) && $value) {
-                $routes[$channel] = $value;
-            }
-        }
-
-        return $routes;
+        ]);
     }
 }

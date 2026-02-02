@@ -10,10 +10,6 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\FailureNotificationService;
 use Illuminate\Support\Facades\Notification;
 
-beforeEach(function () {
-    Notification::fake();
-});
-
 function createTestSnapshot(DatabaseServer $server): Snapshot
 {
     $factory = app(BackupJobFactory::class);
@@ -40,7 +36,6 @@ function createTestRestore(Snapshot $snapshot, DatabaseServer $server): Restore
 test('notification is sent with correct details', function (string $type) {
     config([
         'notifications.enabled' => true,
-        'notifications.channels' => 'mail',
         'notifications.mail.to' => 'admin@example.com',
     ]);
 
@@ -74,7 +69,6 @@ test('notification is sent with correct details', function (string $type) {
 test('notification is not sent when disabled', function () {
     config([
         'notifications.enabled' => false,
-        'notifications.channels' => 'mail',
         'notifications.mail.to' => 'admin@example.com',
     ]);
 
@@ -89,8 +83,9 @@ test('notification is not sent when disabled', function () {
 test('notification is not sent when no routes configured', function (string $type) {
     config([
         'notifications.enabled' => true,
-        'notifications.channels' => 'mail',
         'notifications.mail.to' => null,
+        'notifications.slack.webhook_url' => null,
+        'notifications.discord.channel_id' => null,
     ]);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
@@ -106,10 +101,9 @@ test('notification is not sent when no routes configured', function (string $typ
     Notification::assertNothingSent();
 })->with(['backup', 'restore']);
 
-test('notification is sent to slack only when configured', function () {
+test('notification is sent to slack when configured', function () {
     config([
         'notifications.enabled' => true,
-        'notifications.channels' => 'slack',
         'notifications.mail.to' => null,
         'notifications.slack.webhook_url' => 'https://hooks.slack.com/services/test',
     ]);
@@ -119,13 +113,16 @@ test('notification is sent to slack only when configured', function () {
 
     app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
 
-    Notification::assertSentOnDemand(BackupFailedNotification::class);
+    Notification::assertSentOnDemand(
+        BackupFailedNotification::class,
+        fn ($notification, $channels, $notifiable) => in_array('slack', $channels)
+            && $notifiable->routes['slack'] === 'https://hooks.slack.com/services/test'
+    );
 });
 
 test('notification is sent to discord only when configured', function () {
     config([
         'notifications.enabled' => true,
-        'notifications.channels' => 'discord',
         'notifications.mail.to' => null,
         'notifications.discord.channel_id' => '123456789012345678',
     ]);
@@ -187,6 +184,59 @@ test('notification renders mail, slack and discord correctly', function (string 
         ->and($slack)->toBeInstanceOf(\Illuminate\Notifications\Slack\SlackMessage::class)
         ->and($discord)->toBeInstanceOf(\NotificationChannels\Discord\DiscordMessage::class);
 })->with([
-    'backup' => ['backup', 'Backup Failed', 'Server'],
-    'restore' => ['restore', 'Restore Failed', 'Target Server'],
+    'backup' => ['backup', '🚨 Backup Failed', 'Server'],
+    'restore' => ['restore', '🚨 Restore Failed', 'Target Server'],
 ]);
+
+test('ProcessBackupJob sends notification when backup fails', function () {
+    config([
+        'notifications.enabled' => true,
+        'notifications.mail.to' => 'admin@example.com',
+    ]);
+
+    $server = DatabaseServer::factory()->create([
+        'name' => 'Production MySQL',
+        'database_names' => ['myapp'],
+    ]);
+    $snapshot = createTestSnapshot($server);
+
+    $job = new \App\Jobs\ProcessBackupJob($snapshot->id);
+    $exception = new \Exception('Access denied for user');
+
+    // Call the failed method directly (simulating job failure)
+    $job->failed($exception);
+
+    // Verify notification was sent
+    Notification::assertSentOnDemand(
+        BackupFailedNotification::class,
+        fn (BackupFailedNotification $n) => $n->snapshot->id === $snapshot->id
+            && $n->exception->getMessage() === 'Access denied for user'
+    );
+});
+
+test('ProcessRestoreJob sends notification when restore fails', function () {
+    config([
+        'notifications.enabled' => true,
+        'notifications.mail.to' => 'admin@example.com',
+    ]);
+
+    $server = DatabaseServer::factory()->create([
+        'name' => 'Production MySQL',
+        'database_names' => ['myapp'],
+    ]);
+    $snapshot = createTestSnapshot($server);
+    $restore = createTestRestore($snapshot, $server);
+
+    $job = new \App\Jobs\ProcessRestoreJob($restore->id);
+    $exception = new \Exception('Connection refused');
+
+    // Call the failed method directly (simulating job failure)
+    $job->failed($exception);
+
+    // Verify notification was sent
+    Notification::assertSentOnDemand(
+        RestoreFailedNotification::class,
+        fn (RestoreFailedNotification $n) => $n->restore->id === $restore->id
+            && $n->exception->getMessage() === 'Connection refused'
+    );
+});

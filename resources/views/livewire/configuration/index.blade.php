@@ -50,6 +50,16 @@
         <!-- Notification Configuration -->
         <x-card title="{{ __('Notifications') }}" subtitle="{{ __('Failure notification settings for backup and restore jobs.') }}" shadow>
             <x-slot:menu>
+                @if ($this->isNotificationEnabled())
+                    <x-button
+                        label="{{ __('Send Test') }}"
+                        icon="o-paper-airplane"
+                        wire:click="sendTestNotification"
+                        wire:loading.attr="disabled"
+                        spinner="sendTestNotification"
+                        class="btn-primary btn-sm"
+                    />
+                @endif
                 <x-button
                     label="{{ __('Documentation') }}"
                     icon="o-book-open"
@@ -58,6 +68,19 @@
                     class="btn-ghost btn-sm"
                 />
             </x-slot:menu>
+
+            @if (session('notification-success'))
+                <x-alert class="alert-success mb-4" icon="o-check-circle" dismissible>
+                    {{ session('notification-success') }}
+                </x-alert>
+            @endif
+
+            @if (session('notification-error'))
+                <x-alert class="alert-error mb-4" icon="o-exclamation-circle" dismissible>
+                    {{ session('notification-error') }}
+                </x-alert>
+            @endif
+
             @include('livewire.configuration._config-table', ['rows' => $notificationConfig])
         </x-card>
 

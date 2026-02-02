@@ -2,7 +2,11 @@
 
 namespace App\Livewire\Configuration;
 
+use App\Models\DatabaseServer;
+use App\Models\Snapshot;
+use App\Services\FailureNotificationService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Session;
 use Livewire\Component;
 
 class Index extends Component
@@ -104,11 +108,6 @@ class Index extends Component
                 'description' => __('Enable failure notifications for backup and restore jobs.'),
             ],
             [
-                'env' => 'NOTIFICATION_CHANNELS',
-                'value' => config('notifications.channels', 'mail') ?: '-',
-                'description' => __('Comma-separated list of notification channels: mail, slack, discord.'),
-            ],
-            [
                 'env' => 'NOTIFICATION_MAIL_TO',
                 'value' => config('notifications.mail.to') ?: '-',
                 'description' => __('Email address for failure notifications.'),
@@ -178,6 +177,30 @@ class Index extends Component
     private function maskSensitiveValue(mixed $value): string
     {
         return $value ? '********' : '-';
+    }
+
+    public function isNotificationEnabled(): bool
+    {
+        return (bool) config('notifications.enabled');
+    }
+
+    public function sendTestNotification(): void
+    {
+        try {
+            $server = new DatabaseServer(['name' => '[TEST] Production Database']);
+            $snapshot = new Snapshot([
+                'database_name' => 'app_production',
+                'backup_job_id' => 'test-notification',
+            ]);
+            $snapshot->setRelation('databaseServer', $server);
+
+            $exception = new \Exception('SQLSTATE[HY000] [2002] Connection refused (This is a test notification)');
+
+            app(FailureNotificationService::class)->notifyBackupFailed($snapshot, $exception);
+            Session::flash('notification-success', __('Test notification sent successfully.'));
+        } catch (\Throwable $e) {
+            Session::flash('notification-error', __('Failed to send test notification: :message', ['message' => $e->getMessage()]));
+        }
     }
 
     public function render(): View

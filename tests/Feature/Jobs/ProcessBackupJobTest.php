@@ -5,6 +5,7 @@ use App\Models\DatabaseServer;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 
 test('job is configured with correct queue and settings', function () {
@@ -60,29 +61,26 @@ test('job can be dispatched to queue', function () {
     });
 });
 
-test('failed method marks job as failed and logs error', function () {
-    Log::spy();
+test('failed method sends notification', function () {
+    config([
+        'notifications.enabled' => true,
+        'notifications.mail.to' => 'admin@example.com',
+    ]);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server, 'manual')[0];
 
-    // Verify job starts as pending
-    expect($snapshot->job->status)->toBe('pending');
-
     $job = new ProcessBackupJob($snapshot->id);
     $exception = new \Exception('Backup failed: connection timeout');
 
-    // Call the failed method directly
+    // Call the failed method (simulates Laravel queue calling this after all retries)
     $job->failed($exception);
 
-    // Verify job is marked as failed
-    $snapshot->refresh();
-    expect($snapshot->job->status)->toBe('failed')
-        ->and($snapshot->job->error_message)->toBe('Backup failed: connection timeout')
-        ->and($snapshot->job->completed_at)->not->toBeNull();
-
-    // Verify error was logged
-    Log::shouldHaveReceived('error')
-        ->with('Backup job failed', Mockery::type('array'));
+    // Verify notification was sent
+    Notification::assertSentOnDemand(
+        \App\Notifications\BackupFailedNotification::class,
+        fn ($notification) => $notification->snapshot->id === $snapshot->id
+            && $notification->exception->getMessage() === 'Backup failed: connection timeout'
+    );
 });

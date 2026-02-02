@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Testing\Concerns\TestViews;
 
 abstract class TestCase extends BaseTestCase
@@ -13,5 +14,6 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
         $this->bootTestViews();
+        Notification::fake();
     }
 }

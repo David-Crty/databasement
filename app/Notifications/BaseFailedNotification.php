@@ -2,22 +2,16 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\SlackMessage;
 use NotificationChannels\Discord\DiscordMessage;
 
-abstract class BaseFailedNotification extends Notification implements ShouldQueue
+abstract class BaseFailedNotification extends Notification
 {
-    use Queueable;
-
     public function __construct(
         public \Throwable $exception
-    ) {
-        $this->onQueue('backups');
-    }
+    ) {}
 
     /**
      * @return array<int, string>
@@ -45,12 +39,14 @@ abstract class BaseFailedNotification extends Notification implements ShouldQueu
         string $actionText,
         string $actionUrl,
         string $footerText,
+        string $errorLabel,
         array $fields = [],
     ): FailedNotificationMessage {
         return new FailedNotificationMessage(
             title: $title,
             body: $body,
             errorMessage: $this->exception->getMessage(),
+            errorLabel: $errorLabel,
             actionText: $actionText,
             actionUrl: $actionUrl,
             footerText: $footerText,

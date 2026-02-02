@@ -9,22 +9,11 @@ return [
     |
     | Configure notifications for backup and restore job failures.
     | Notifications can be sent via email, Slack webhook, and/or Discord.
+    | Channels are automatically enabled when their configuration is set.
     |
     */
 
     'enabled' => env('NOTIFICATION_ENABLED', false),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Notification Channels
-    |--------------------------------------------------------------------------
-    |
-    | Comma-separated list of channels to use for failure notifications.
-    | Supported: "mail", "slack", "discord"
-    |
-    */
-
-    'channels' => env('NOTIFICATION_CHANNELS', 'mail'),
 
     /*
     |--------------------------------------------------------------------------
