@@ -59,6 +59,20 @@
                         spinner="sendTestNotification"
                         class="btn-primary btn-sm"
                     />
+                @else
+                    <x-popover>
+                        <x-slot:trigger>
+                            <x-button
+                                label="{{ __('Send Test') }}"
+                                icon="o-paper-airplane"
+                                class="btn-primary btn-sm"
+                                disabled
+                            />
+                        </x-slot:trigger>
+                        <x-slot:content>
+                            {{ __('Set NOTIFICATION_ENABLED=true to enable notifications.') }}
+                        </x-slot:content>
+                    </x-popover>
                 @endif
                 <x-button
                     label="{{ __('Documentation') }}"

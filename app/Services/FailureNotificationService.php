@@ -39,7 +39,7 @@ class FailureNotificationService
     /**
      * @return array<string, string>
      */
-    private function getNotificationRoutes(): array
+    public function getNotificationRoutes(): array
     {
         return array_filter([
             'mail' => config('notifications.mail.to'),

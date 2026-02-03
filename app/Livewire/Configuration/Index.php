@@ -186,6 +186,15 @@ class Index extends Component
 
     public function sendTestNotification(): void
     {
+        $service = app(FailureNotificationService::class);
+        $routes = $service->getNotificationRoutes();
+
+        if (empty($routes)) {
+            Session::flash('notification-error', __('No notification channels configured. Please set at least one of: NOTIFICATION_MAIL_TO, NOTIFICATION_SLACK_WEBHOOK_URL, or NOTIFICATION_DISCORD_BOT_TOKEN and NOTIFICATION_DISCORD_CHANNEL_ID.'));
+
+            return;
+        }
+
         try {
             $server = new DatabaseServer(['name' => '[TEST] Production Database']);
             $snapshot = new Snapshot([
@@ -196,8 +205,10 @@ class Index extends Component
 
             $exception = new \Exception('SQLSTATE[HY000] [2002] Connection refused (This is a test notification)');
 
-            app(FailureNotificationService::class)->notifyBackupFailed($snapshot, $exception);
-            Session::flash('notification-success', __('Test notification sent successfully.'));
+            $service->notifyBackupFailed($snapshot, $exception);
+
+            $channelNames = implode(', ', array_keys($routes));
+            Session::flash('notification-success', __('Test notification sent to: :channels', ['channels' => $channelNames]));
         } catch (\Throwable $e) {
             Session::flash('notification-error', __('Failed to send test notification: :message', ['message' => $e->getMessage()]));
         }
