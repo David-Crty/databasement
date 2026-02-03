@@ -26,6 +26,7 @@ ARG APP_COMMIT_HASH=""
 ENV APP_ENV="production"
 ENV APP_DEBUG="false"
 ENV APP_COMMIT_HASH="${APP_COMMIT_HASH}"
+ENV OCTANE_ENABLED="true"
 
 COPY --from=backend-build /app /app
 COPY --from=frontend-build /app/public/build /app/public/build
