@@ -17,7 +17,7 @@ class DatabaseServerQuery
     public static function make(): QueryBuilder
     {
         return QueryBuilder::for(DatabaseServer::class)
-            ->with(['backup.volume'])
+            ->with(['backup.volume', 'sshConfig'])
             ->allowedFilters([
                 AllowedFilter::partial('name'),
                 AllowedFilter::partial('host'),
@@ -44,7 +44,7 @@ class DatabaseServerQuery
         string $sortDirection = 'desc'
     ): Builder {
         return DatabaseServer::query()
-            ->with(['backup.volume'])
+            ->with(['backup.volume', 'sshConfig'])
             ->withCount('snapshots')
             ->addSelect([
                 'restores_count' => Restore::selectRaw('count(*)')

@@ -98,6 +98,10 @@
                     </div>
                 @endif
 
+                @if(!$form->isSqlite())
+                    @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
+                @endif
+
                 <!-- Test Connection Button -->
                 <div class="flex flex-wrap items-center gap-2 pt-2">
                     <x-button
@@ -144,6 +148,12 @@
                             class="btn-ghost btn-sm mt-2"
                             icon="o-arrow-top-right-on-square"
                         />
+                    </x-alert>
+                @endif
+
+                @if($form->connectionTestSuccess && !empty($form->connectionTestDetails['ssh_tunnel']))
+                    <x-alert class="alert-info mt-2" icon="o-server-stack">
+                        {{ __('Connected via SSH tunnel through') }} {{ $form->connectionTestDetails['ssh_host'] }}
                     </x-alert>
                 @endif
 

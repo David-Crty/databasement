@@ -21,7 +21,7 @@ RUN install-php-extensions \
     opcache \
     pcov \
     ftp \
-    ssh2
+    sockets
 
 COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 
@@ -34,7 +34,9 @@ RUN apk add --no-cache git \
         tzdata \
         shadow \
         findutils \
-        bash
+        bash \
+        openssh-client \
+        sshpass
 
 COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini

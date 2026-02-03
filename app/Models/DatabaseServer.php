@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -28,9 +29,11 @@ use Illuminate\Support\Carbon;
  * @property bool $backup_all_databases
  * @property string|null $description
  * @property bool $backups_enabled
+ * @property string|null $ssh_config_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Backup|null $backup
+ * @property-read DatabaseServerSshConfig|null $sshConfig
  * @property-read Collection<int, Snapshot> $snapshots
  * @property-read int|null $snapshots_count
  *
@@ -84,6 +87,7 @@ class DatabaseServer extends Model
         'backup_all_databases',
         'description',
         'backups_enabled',
+        'ssh_config_id',
     ];
 
     protected $hidden = [
@@ -119,6 +123,14 @@ class DatabaseServer extends Model
     }
 
     /**
+     * @return BelongsTo<DatabaseServerSshConfig, DatabaseServer>
+     */
+    public function sshConfig(): BelongsTo
+    {
+        return $this->belongsTo(DatabaseServerSshConfig::class, 'ssh_config_id');
+    }
+
+    /**
      * Get the decrypted password with proper exception handling.
      *
      * @throws EncryptionException
@@ -133,5 +145,74 @@ class DatabaseServer extends Model
                 previous: $e
             );
         }
+    }
+
+    /**
+     * Check if this server requires an SSH tunnel for connections.
+     * SQLite servers never need SSH tunnels since they use local file paths.
+     */
+    public function requiresSshTunnel(): bool
+    {
+        return $this->database_type !== DatabaseType::SQLITE
+            && $this->ssh_config_id !== null;
+    }
+
+    /**
+     * Create a temporary DatabaseServer instance for connection testing.
+     * This is not persisted to the database.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function forConnectionTest(array $config, ?DatabaseServerSshConfig $sshConfig = null): self
+    {
+        $server = new self;
+        $server->host = $config['host'] ?? '';
+        $server->port = (int) ($config['port'] ?? 3306);
+        $server->database_type = $config['database_type'] ?? 'mysql';
+        $server->username = $config['username'] ?? '';
+        $server->password = $config['password'] ?? '';
+
+        if ($sshConfig !== null) {
+            $server->ssh_config_id = 'temp';
+            $server->setRelation('sshConfig', $sshConfig);
+        }
+
+        return $server;
+    }
+
+    /**
+     * Get a short connection label for display (filename for SQLite, host:port for client-server).
+     */
+    public function getConnectionLabel(): string
+    {
+        if ($this->database_type === DatabaseType::SQLITE) {
+            return basename($this->sqlite_path ?? '');
+        }
+
+        return "{$this->host}:{$this->port}";
+    }
+
+    /**
+     * Get full connection details for popover/tooltip (full path for SQLite, host:port for client-server).
+     */
+    public function getConnectionDetails(): string
+    {
+        if ($this->database_type === DatabaseType::SQLITE) {
+            return $this->sqlite_path ?? '';
+        }
+
+        return "{$this->host}:{$this->port}";
+    }
+
+    /**
+     * Get SSH tunnel display name if configured, null otherwise.
+     */
+    public function getSshDisplayName(): ?string
+    {
+        if (! $this->requiresSshTunnel() || $this->sshConfig === null) {
+            return null;
+        }
+
+        return $this->sshConfig->getDisplayName();
     }
 }

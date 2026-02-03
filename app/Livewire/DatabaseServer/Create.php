@@ -43,6 +43,11 @@ class Create extends Component
         $this->form->testConnection();
     }
 
+    public function testSshConnection(): void
+    {
+        $this->form->testSshConnection();
+    }
+
     public function refreshVolumes(): void
     {
         $this->success(__('Volume list refreshed.'), position: 'toast-bottom');

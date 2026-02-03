@@ -10,9 +10,11 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
+use App\Services\Backup\Concerns\UsesSshTunnel;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
 use App\Support\Formatters;
 use PDO;
@@ -20,13 +22,21 @@ use PDOException;
 
 class RestoreTask
 {
+    use UsesSshTunnel;
+
     public function __construct(
         private readonly MysqlDatabase $mysqlDatabase,
         private readonly PostgresqlDatabase $postgresqlDatabase,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
         private readonly CompressorFactory $compressorFactory,
+        private readonly SshTunnelService $sshTunnelService,
     ) {}
+
+    protected function getSshTunnelService(): SshTunnelService
+    {
+        return $this->sshTunnelService;
+    }
 
     /**
      * Restore a snapshot to a target database server
@@ -44,6 +54,7 @@ class RestoreTask
             $workingDirectory = FilesystemSupport::createWorkingDirectory('restore', $restore->id);
 
             $job->markRunning();
+
             $attemptInfo = $attempt && $maxAttempts ? " (attempt {$attempt}/{$maxAttempts})" : '';
             $job->log("Starting restore operation{$attemptInfo}", 'info', [
                 'target_database_server' => [
@@ -62,6 +73,10 @@ class RestoreTask
                     ],
                 ],
             ]);
+
+            if ($targetServer->requiresSshTunnel()) {
+                $this->establishSshTunnel($targetServer, $job);
+            }
 
             $humanFileSize = Formatters::humanFileSize($snapshot->file_size);
             $compressedFile = $workingDirectory.'/snapshot.'.$snapshot->compression_type->extension();
@@ -112,8 +127,11 @@ class RestoreTask
             $job->markFailed($e);
             throw $e;
         } finally {
+            // Close SSH tunnel if active
+            $this->closeSshTunnel($job);
+
             // Clean up working directory and all files within (safety net, Job also cleans up on failure)
-            if (isset($workingDirectory) and is_dir($workingDirectory)) {
+            if (isset($workingDirectory) && is_dir($workingDirectory)) {
                 $job->log('Cleaning up temporary files', 'info');
                 FilesystemSupport::cleanupDirectory($workingDirectory);
             }
@@ -132,7 +150,7 @@ class RestoreTask
     protected function prepareDatabase(DatabaseServer $targetServer, string $schemaName, BackupJob $job): void
     {
         try {
-            $pdo = $targetServer->database_type->createPdo($targetServer);
+            $pdo = $this->createPdoConnection($targetServer);
 
             match ($targetServer->database_type) {
                 DatabaseType::MYSQL => $this->prepareMysqlDatabase($pdo, $schemaName, $job),
@@ -142,6 +160,38 @@ class RestoreTask
         } catch (PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }
+    }
+
+    /**
+     * Create a PDO connection, using tunnel endpoint if active.
+     */
+    private function createPdoConnection(DatabaseServer $server, ?string $database = null): PDO
+    {
+        // When tunnel is not active, use the standard connection method
+        if ($this->tunnelEndpoint === null) {
+            return $server->database_type->createPdo($server, $database);
+        }
+
+        // Build DSN using tunnel endpoint
+        $host = $this->getConnectionHost($server);
+        $port = $this->getConnectionPort($server);
+        $dsn = match ($server->database_type) {
+            DatabaseType::MYSQL => $database
+                ? sprintf('mysql:host=%s;port=%d;dbname=%s', $host, $port, $database)
+                : sprintf('mysql:host=%s;port=%d', $host, $port),
+            DatabaseType::POSTGRESQL => sprintf(
+                'pgsql:host=%s;port=%d;dbname=%s',
+                $host,
+                $port,
+                $database ?? 'postgres'
+            ),
+            default => throw new UnsupportedDatabaseTypeException($server->database_type->value),
+        };
+
+        return new PDO($dsn, $server->username, $server->getDecryptedPassword(), [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_TIMEOUT => 30,
+        ]);
     }
 
     private function prepareMysqlDatabase(PDO $pdo, string $schemaName, BackupJob $job): void
@@ -207,8 +257,8 @@ class RestoreTask
     private function configureDatabaseInterface(DatabaseServer $targetServer, string $schemaName): void
     {
         $config = [
-            'host' => $targetServer->host,
-            'port' => $targetServer->port,
+            'host' => $this->getConnectionHost($targetServer),
+            'port' => $this->getConnectionPort($targetServer),
             'user' => $targetServer->username,
             'pass' => $targetServer->getDecryptedPassword(),
             'database' => $schemaName,

@@ -150,3 +150,42 @@ test('disabling backups preserves backup config when snapshots exist', function 
         ->and(Backup::find($backup->id))->not->toBeNull();
 
 });
+
+test('loadDatabases calls form method for non-SQLite servers', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+    ]);
+
+    // The loadDatabases method should not throw for non-SQLite servers
+    // It will fail to actually load databases (no real server), but that's expected
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->call('loadDatabases')
+        ->assertSet('form.loadingDatabases', false);
+});
+
+test('loadDatabases skips for SQLite servers', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 'sqlite',
+        'sqlite_path' => '/data/app.sqlite',
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->call('loadDatabases')
+        // Should remain empty since SQLite doesn't support listing databases
+        ->assertSet('form.availableDatabases', []);
+});
+
+test('refreshVolumes can be called without error', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create();
+
+    // Just verify the method doesn't throw - testing toast dispatch is framework behavior
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->call('refreshVolumes')
+        ->assertOk();
+});

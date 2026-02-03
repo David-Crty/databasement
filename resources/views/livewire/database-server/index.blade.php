@@ -57,36 +57,36 @@
                     <x-database-type-icon :type="$server->database_type" />
                     <div>
                         <div class="table-cell-primary">{{ $server->name }}</div>
+                        <div class="flex items-center gap-2 text-sm text-base-content/70">
+                            <x-popover>
+                                <x-slot:trigger>
+                                    <div class="flex items-center gap-1 cursor-pointer">
+                                        @if($server->database_type->value === 'sqlite')
+                                            <x-icon name="o-document" class="w-3 h-3" />
+                                        @endif
+                                        <span class="font-mono truncate max-w-48">{{ $server->getConnectionLabel() }}</span>
+                                    </div>
+                                </x-slot:trigger>
+                                <x-slot:content class="text-sm font-mono">
+                                    {{ $server->getConnectionDetails() }}
+                                </x-slot:content>
+                            </x-popover>
+                            @if($server->getSshDisplayName())
+                                <x-popover>
+                                    <x-slot:trigger>
+                                        <x-badge value="SSH" class="badge-warning badge-soft badge-xs cursor-pointer" />
+                                    </x-slot:trigger>
+                                    <x-slot:content class="text-sm">
+                                        {{ __('Via') }} {{ $server->getSshDisplayName() }}
+                                    </x-slot:content>
+                                </x-popover>
+                            @endif
+                        </div>
                         @if($server->description)
-                            <div class="text-sm text-base-content/70">{{ Str::limit($server->description, 50) }}</div>
+                            <div class="text-sm text-base-content/50">{{ Str::limit($server->description, 50) }}</div>
                         @endif
                     </div>
                 </div>
-            @endscope
-
-            @scope('cell_host', $server)
-                @if($server->database_type === 'sqlite')
-                    <x-popover>
-                        <x-slot:trigger>
-                            <div class="flex items-center gap-1 cursor-pointer">
-                                <x-icon name="o-document" class="w-4 h-4 text-base-content/50" />
-                                <span class="font-mono text-sm truncate max-w-48">{{ basename($server->sqlite_path) }}</span>
-                            </div>
-                        </x-slot:trigger>
-                        <x-slot:content class="text-sm font-mono">
-                            {{ $server->sqlite_path }}
-                        </x-slot:content>
-                    </x-popover>
-                @else
-                    <x-popover>
-                        <x-slot:trigger>
-                            <span class="font-mono text-sm truncate max-w-48 block cursor-pointer">{{ $server->host }}:{{ $server->port }}</span>
-                        </x-slot:trigger>
-                        <x-slot:content class="text-sm font-mono">
-                            {{ $server->host }}:{{ $server->port }}
-                        </x-slot:content>
-                    </x-popover>
-                @endif
             @endscope
 
             @scope('cell_database_names', $server)

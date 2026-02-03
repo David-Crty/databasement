@@ -1,0 +1,130 @@
+<?php
+
+use App\Models\DatabaseServer;
+use App\Models\DatabaseServerSshConfig;
+use App\Services\DatabaseConnectionTester;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
+
+test('test with SSH config returns error for SQLite', function () {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'bastion.example.com';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'test';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'test';
+
+    $result = DatabaseConnectionTester::test([
+        'database_type' => 'sqlite',
+        'host' => '/path/to/database.sqlite',
+        'port' => 0,
+        'username' => '',
+        'password' => '',
+        'database_name' => null,
+    ], $sshConfig);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toContain('SSH tunneling is not supported for SQLite');
+});
+
+test('test with SSH config fails when SSH connection fails', function () {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'nonexistent.invalid.host.example';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'test';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'test';
+
+    $result = DatabaseConnectionTester::test([
+        'database_type' => 'mysql',
+        'host' => 'db.internal',
+        'port' => 3306,
+        'username' => 'root',
+        'password' => 'secret',
+        'database_name' => 'mydb',
+    ], $sshConfig);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toContain('SSH connection failed');
+});
+
+test('forConnectionTest creates temporary server with SSH config', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'bastion.example.com',
+        'username' => 'tunnel_user',
+    ]);
+
+    $server = DatabaseServer::forConnectionTest([
+        'host' => 'private-db.internal',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'dbuser',
+        'password' => 'secret',
+    ], $sshConfig);
+
+    expect($server->host)->toBe('private-db.internal')
+        ->and($server->port)->toBe(3306)
+        ->and($server->username)->toBe('dbuser')
+        ->and($server->requiresSshTunnel())->toBeTrue()
+        ->and($server->sshConfig)->toBe($sshConfig)
+        ->and($server->exists)->toBeFalse(); // Not persisted
+});
+
+test('forConnectionTest creates temporary server without SSH config', function () {
+    $server = DatabaseServer::forConnectionTest([
+        'host' => 'db.example.com',
+        'port' => 5432,
+        'database_type' => 'postgres',
+        'username' => 'pguser',
+        'password' => 'secret',
+    ]);
+
+    expect($server->host)->toBe('db.example.com')
+        ->and($server->port)->toBe(5432)
+        ->and($server->requiresSshTunnel())->toBeFalse()
+        ->and($server->sshConfig)->toBeNull()
+        ->and($server->exists)->toBeFalse();
+});
+
+test('forConnectionTest uses default port when not specified', function () {
+    $server = DatabaseServer::forConnectionTest([
+        'host' => 'db.example.com',
+    ]);
+
+    expect($server->port)->toBe(3306); // Default MySQL port
+});
+
+test('getConnectionLabel returns basename for SQLite', function () {
+    $server = DatabaseServer::factory()->make([
+        'database_type' => 'sqlite',
+        'sqlite_path' => '/var/data/myapp.sqlite',
+    ]);
+
+    expect($server->getConnectionLabel())->toBe('myapp.sqlite')
+        ->and($server->getConnectionDetails())->toBe('/var/data/myapp.sqlite');
+});
+
+test('getConnectionLabel returns host:port for client-server databases', function () {
+    $server = DatabaseServer::factory()->make([
+        'database_type' => 'mysql',
+        'host' => 'db.example.com',
+        'port' => 3306,
+    ]);
+
+    expect($server->getConnectionLabel())->toBe('db.example.com:3306')
+        ->and($server->getConnectionDetails())->toBe('db.example.com:3306');
+});
+
+test('getSshDisplayName returns null when SSH not configured', function () {
+    $server = DatabaseServer::factory()->make();
+
+    expect($server->getSshDisplayName())->toBeNull();
+});
+
+test('getSshDisplayName returns display name when SSH configured', function () {
+    $server = DatabaseServer::factory()->withSshTunnel()->create();
+
+    expect($server->getSshDisplayName())->not->toBeNull()
+        ->and($server->getSshDisplayName())->toContain('@'); // Format: user@host:port
+});

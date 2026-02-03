@@ -3,6 +3,7 @@
 use App\Enums\CompressionType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\DatabaseServerSshConfig;
 use App\Models\Restore;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
@@ -11,6 +12,7 @@ use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\RestoreTask;
+use App\Services\SshTunnelService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\TestShellProcessor;
 
@@ -25,6 +27,9 @@ beforeEach(function () {
 
     // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
+    $this->sshTunnelService = Mockery::mock(SshTunnelService::class);
+    // SSH tunnel is not active for these tests (no SSH configured)
+    $this->sshTunnelService->shouldReceive('isActive')->andReturn(false);
 
     // Create a partial mock of RestoreTask to mock prepareDatabase
     $this->restoreTask = Mockery::mock(
@@ -35,6 +40,7 @@ beforeEach(function () {
             $this->shellProcessor,
             $this->filesystemProvider,
             $this->compressorFactory,
+            $this->sshTunnelService,
         ]
     )->makePartial()
         ->shouldAllowMockingProtectedMethods();
@@ -308,6 +314,7 @@ test('run throws exception when restore command failed', function () {
             $shellProcessor,
             $this->filesystemProvider,
             $compressorFactory,
+            $this->sshTunnelService,
         ]
     )->makePartial()
         ->shouldAllowMockingProtectedMethods();
@@ -410,6 +417,102 @@ test('run executes sqlite restore workflow successfully', function () {
     expect($commands)->toEqual($expectedCommands);
 
     // Verify job completed
+    $restore->refresh();
+    expect($restore->job->status)->toBe('completed');
+});
+
+test('run establishes SSH tunnel when target server requires it', function () {
+    // Arrange - Source server without SSH
+    $sourceServer = createRestoreDatabaseServer([
+        'name' => 'Source MySQL',
+        'host' => 'source.localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_names' => ['sourcedb'],
+    ]);
+
+    // Create SSH config for target server
+    $sshConfig = DatabaseServerSshConfig::create([
+        'host' => 'bastion.example.com',
+        'port' => 22,
+        'username' => 'tunnel_user',
+        'auth_type' => 'password',
+        'password' => 'ssh_secret',
+    ]);
+
+    // Target server with SSH tunnel
+    $targetServer = createRestoreDatabaseServer([
+        'name' => 'Target MySQL via SSH',
+        'host' => 'private-db.internal',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_names' => ['targetdb'],
+        'ssh_config_id' => $sshConfig->id,
+    ]);
+
+    // Create snapshot and mark as completed
+    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
+    $snapshot = $snapshots[0];
+    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
+    $snapshot->job->markCompleted();
+
+    // Create restore job
+    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
+
+    // Configure SSH tunnel mock
+    $sshTunnelService = Mockery::mock(SshTunnelService::class);
+    $sshTunnelService->shouldReceive('establish')
+        ->once()
+        ->with(Mockery::on(fn ($server) => $server->id === $targetServer->id))
+        ->andReturn(['host' => '127.0.0.1', 'port' => 54321]);
+    $sshTunnelService->shouldReceive('isActive')
+        ->andReturn(true);
+    $sshTunnelService->shouldReceive('close')
+        ->once();
+
+    // Create RestoreTask with configured SSH mock
+    $restoreTask = Mockery::mock(
+        RestoreTask::class,
+        [
+            $this->mysqlDatabase,
+            $this->postgresqlDatabase,
+            $this->shellProcessor,
+            $this->filesystemProvider,
+            $this->compressorFactory,
+            $sshTunnelService,
+        ]
+    )->makePartial()
+        ->shouldAllowMockingProtectedMethods();
+
+    // Mock prepareDatabase to avoid real database operations
+    $restoreTask
+        ->shouldReceive('prepareDatabase')
+        ->once()
+        ->andReturnNull();
+
+    // Mock download
+    $this->filesystemProvider
+        ->shouldReceive('download')
+        ->once()
+        ->andReturnUsing(function ($snap, $destination) {
+            file_put_contents($destination, 'compressed backup data');
+        });
+
+    // Act
+    $restoreTask->run($restore);
+
+    // Verify that the restore command uses the tunnel endpoint (127.0.0.1:54321)
+    $commands = $this->shellProcessor->getCommands();
+    $restoreCommand = $commands[1]; // Second command is the restore (after decompress)
+    expect($restoreCommand)->toContain("--host='127.0.0.1'")
+        ->and($restoreCommand)->toContain("--port='54321'")
+        ->and($restoreCommand)->not->toContain('private-db.internal');
+
+    // Verify restore completed
     $restore->refresh();
     expect($restore->job->status)->toBe('completed');
 });

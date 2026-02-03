@@ -4,6 +4,7 @@ namespace App\Services\Backup;
 
 use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
+use App\Services\SshTunnelService;
 use PDO;
 use PDOException;
 
@@ -23,6 +24,8 @@ class DatabaseListService
         'azure_sys',         // Azure Database for PostgreSQL internal database
     ];
 
+    private ?SshTunnelService $sshTunnelService = null;
+
     /**
      * Get list of databases/schemas from a database server
      *
@@ -30,8 +33,16 @@ class DatabaseListService
      */
     public function listDatabases(DatabaseServer $databaseServer): array
     {
+        $tunnelEndpoint = null;
+
         try {
-            $pdo = $this->createConnection($databaseServer);
+            // Establish SSH tunnel if required
+            if ($databaseServer->requiresSshTunnel()) {
+                $this->sshTunnelService ??= new SshTunnelService;
+                $tunnelEndpoint = $this->sshTunnelService->establish($databaseServer);
+            }
+
+            $pdo = $this->createConnection($databaseServer, $tunnelEndpoint);
 
             return match ($databaseServer->database_type) {
                 DatabaseType::MYSQL => $this->listMysqlDatabases($pdo),
@@ -40,6 +51,11 @@ class DatabaseListService
             };
         } catch (PDOException $e) {
             throw new \Exception("Failed to list databases: {$e->getMessage()}", 0, $e);
+        } finally {
+            // Always close SSH tunnel service - close() cleans up temp files even if tunnel isn't active
+            if ($this->sshTunnelService !== null) {
+                $this->sshTunnelService->close();
+            }
         }
     }
 
@@ -79,8 +95,29 @@ class DatabaseListService
         }));
     }
 
-    protected function createConnection(DatabaseServer $databaseServer): PDO
+    /**
+     * Create a PDO connection, using tunnel endpoint if provided.
+     *
+     * @param  array{host: string, port: int}|null  $tunnelEndpoint
+     */
+    protected function createConnection(DatabaseServer $databaseServer, ?array $tunnelEndpoint = null): PDO
     {
+        if ($tunnelEndpoint !== null) {
+            $host = $tunnelEndpoint['host'];
+            $port = $tunnelEndpoint['port'];
+
+            $dsn = match ($databaseServer->database_type) {
+                DatabaseType::MYSQL => sprintf('mysql:host=%s;port=%d', $host, $port),
+                DatabaseType::POSTGRESQL => sprintf('pgsql:host=%s;port=%d;dbname=postgres', $host, $port),
+                default => throw new \Exception("Database type {$databaseServer->database_type->value} not supported"),
+            };
+
+            return new PDO($dsn, $databaseServer->username, $databaseServer->getDecryptedPassword(), [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 5,
+            ]);
+        }
+
         return $databaseServer->database_type->createPdo($databaseServer, null, 5);
     }
 }

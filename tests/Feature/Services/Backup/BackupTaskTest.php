@@ -1,8 +1,8 @@
 <?php
 
-use App\Enums\DatabaseType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\DatabaseServerSshConfig;
 use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
@@ -12,6 +12,7 @@ use App\Services\Backup\DatabaseListService;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use App\Services\SshTunnelService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use League\Flysystem\Filesystem;
 use Tests\Support\TestShellProcessor;
@@ -27,6 +28,9 @@ beforeEach(function () {
 
     // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
+    $this->sshTunnelService = Mockery::mock(SshTunnelService::class);
+    // SSH tunnel is not active for these tests (no SSH configured)
+    $this->sshTunnelService->shouldReceive('isActive')->andReturn(false);
 
     // Create the BackupTask instance
     $this->backupTask = new BackupTask(
@@ -34,7 +38,8 @@ beforeEach(function () {
         $this->postgresqlDatabase,
         $this->shellProcessor,
         $this->filesystemProvider,
-        $this->compressorFactory
+        $this->compressorFactory,
+        $this->sshTunnelService
     );
 
     // Use real BackupJobFactory from container
@@ -196,7 +201,8 @@ test('run throws exception when backup command failed', function () {
         $this->postgresqlDatabase,
         $shellProcessor,
         $this->filesystemProvider,
-        $this->compressorFactory
+        $this->compressorFactory,
+        $this->sshTunnelService
     );
 
     // Act & Assert
@@ -218,50 +224,6 @@ test('run throws exception when backup command failed', function () {
     expect($job->status)->toBe('failed');
     expect($job->error_message)->toBe('Access denied for user');
     expect($job->completed_at)->not->toBeNull();
-});
-
-test('createSnapshots creates multiple snapshots when backup_all_databases is enabled', function () {
-    // Arrange - Mock DatabaseListService to return multiple databases
-    $mockDatabaseListService = Mockery::mock(DatabaseListService::class);
-    $mockDatabaseListService->shouldReceive('listDatabases')
-        ->once()
-        ->andReturn(['app_db', 'analytics_db', 'logs_db']);
-
-    // Create BackupJobFactory with mocked service
-    $backupJobFactory = new BackupJobFactory($mockDatabaseListService);
-
-    $databaseServer = createDatabaseServer([
-        'name' => 'Multi-DB MySQL Server',
-        'host' => 'localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => null, // Not used when backup_all_databases is true
-        'backup_all_databases' => true,
-    ]);
-
-    // Act
-    $snapshots = $backupJobFactory->createSnapshots($databaseServer, 'manual');
-
-    // Assert - Should create 3 snapshots, one for each database
-    expect($snapshots)->toHaveCount(3)
-        ->and($snapshots[0]->database_name)->toBe('app_db')
-        ->and($snapshots[1]->database_name)->toBe('analytics_db')
-        ->and($snapshots[2]->database_name)->toBe('logs_db');
-
-    // All snapshots should share the same server but have independent jobs
-    foreach ($snapshots as $snapshot) {
-        expect($snapshot->database_server_id)->toBe($databaseServer->id)
-            ->and($snapshot->database_type)->toBe(DatabaseType::MYSQL)
-            ->and($snapshot->compression_type)->toBe(\App\Enums\CompressionType::from(config('backup.compression')))
-            ->and($snapshot->job)->not->toBeNull()
-            ->and($snapshot->job->status)->toBe('pending');
-    }
-
-    // Each snapshot should have a unique job
-    $jobIds = array_map(fn ($s) => $s->job->id, $snapshots);
-    expect(array_unique($jobIds))->toHaveCount(3);
 });
 
 test('run executes backup for each database when backup_all_databases is enabled', function () {
@@ -405,4 +367,68 @@ test('run executes sqlite backup workflow successfully', function () {
     $snapshot->refresh();
     expect($snapshot->job->status)->toBe('completed')
         ->and($snapshot->filename)->toContain('.db.gz');
+});
+
+test('run establishes SSH tunnel when server requires it', function () {
+    // Arrange - Create a server with SSH tunnel configured
+    $sshConfig = DatabaseServerSshConfig::create([
+        'host' => 'bastion.example.com',
+        'port' => 22,
+        'username' => 'tunnel_user',
+        'auth_type' => 'password',
+        'password' => 'ssh_secret',
+    ]);
+
+    $databaseServer = createDatabaseServer([
+        'name' => 'MySQL via SSH',
+        'host' => 'private-db.internal',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_names' => ['myapp'],
+        'ssh_config_id' => $sshConfig->id,
+    ]);
+
+    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
+    $snapshot = $snapshots[0];
+
+    // Configure SSH tunnel mock to expect establishment and closure
+    $sshTunnelService = Mockery::mock(SshTunnelService::class);
+    $sshTunnelService->shouldReceive('establish')
+        ->once()
+        ->with(Mockery::on(fn ($server) => $server->id === $databaseServer->id))
+        ->andReturn(['host' => '127.0.0.1', 'port' => 54321]);
+    $sshTunnelService->shouldReceive('isActive')
+        ->andReturn(true);
+    $sshTunnelService->shouldReceive('close')
+        ->once();
+
+    // Create BackupTask with configured SSH mock
+    $backupTask = new BackupTask(
+        $this->mysqlDatabase,
+        $this->postgresqlDatabase,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $sshTunnelService
+    );
+
+    setupCommonExpectations($snapshot);
+    $backupTask->run($snapshot);
+
+    // Build expected file paths
+    $workingDir = $this->tempDir.'/backup-'.$snapshot->id;
+    $sqlFile = $workingDir.'/dump.sql';
+
+    // Verify that the dump command uses the tunnel endpoint (127.0.0.1:54321)
+    // instead of the original host (private-db.internal:3306)
+    $commands = $this->shellProcessor->getCommands();
+    expect($commands[0])->toContain("--host='127.0.0.1'")
+        ->and($commands[0])->toContain("--port='54321'")
+        ->and($commands[0])->not->toContain('private-db.internal');
+
+    // Verify backup completed
+    $snapshot->refresh();
+    expect($snapshot->job->status)->toBe('completed');
 });

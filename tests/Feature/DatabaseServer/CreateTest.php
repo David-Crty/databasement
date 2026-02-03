@@ -1,23 +1,12 @@
 <?php
 
-use App\Facades\DatabaseConnectionTester;
 use App\Livewire\DatabaseServer\Create;
 use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Models\Volume;
-use App\Services\Backup\DatabaseListService;
 use Livewire\Livewire;
 
 test('can create database server', function (array $config) {
-    DatabaseConnectionTester::shouldReceive('test')
-        ->once()
-        ->andReturn(['success' => true, 'message' => 'Connected!']);
-
-    // Mock DatabaseListService to avoid connection errors for fake servers
-    $this->mock(DatabaseListService::class, function ($mock) {
-        $mock->shouldReceive('listDatabases')->andReturn(['myapp_production']);
-    });
-
     $user = User::factory()->create();
     $volume = Volume::create([
         'name' => 'Test Volume',
@@ -75,10 +64,6 @@ test('can create database server', function (array $config) {
 })->with('database server configs');
 
 test('can create database server with backups disabled', function () {
-    DatabaseConnectionTester::shouldReceive('test')
-        ->once()
-        ->andReturn(['success' => true, 'message' => 'Connected!']);
-
     $user = User::factory()->create();
 
     Livewire::actingAs($user)
@@ -109,14 +94,6 @@ test('can create database server with backups disabled', function () {
 });
 
 test('can create database server with retention policy', function (array $config) {
-    DatabaseConnectionTester::shouldReceive('test')
-        ->once()
-        ->andReturn(['success' => true, 'message' => 'Connected!']);
-
-    $this->mock(DatabaseListService::class, function ($mock) {
-        $mock->shouldReceive('listDatabases')->andReturn(['myapp_production']);
-    });
-
     $user = User::factory()->create();
     $volume = Volume::create([
         'name' => 'Test Volume',
@@ -155,8 +132,6 @@ test('can create database server with retention policy', function (array $config
 })->with('retention policies');
 
 test('cannot create database server with GFS retention when all tiers are empty', function () {
-    // No mock for DatabaseConnectionTester needed - validation fails before connection test
-
     $user = User::factory()->create();
     $volume = Volume::create([
         'name' => 'GFS Validation Test Volume',

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Enums\DatabaseType;
+use App\Models\DatabaseServer;
+use App\Models\DatabaseServerSshConfig;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Support\Formatters;
@@ -15,13 +17,16 @@ class DatabaseConnectionTester
 {
     private const TIMEOUT_SECONDS = 10;
 
+    private static ?SshTunnelService $sshTunnelService = null;
+
     /**
      * Test a database connection with the provided credentials using CLI tools.
      *
      * @param  array{database_type: string, host: string, port: int, username: string, password: string, database_name: ?string}  $config
+     * @param  DatabaseServerSshConfig|null  $sshConfig  Optional SSH config for tunnel
      * @return array{success: bool, message: string, details: array<string, mixed>}
      */
-    public static function test(array $config): array
+    public static function test(array $config, ?DatabaseServerSshConfig $sshConfig = null): array
     {
         $databaseType = DatabaseType::tryFrom($config['database_type']);
 
@@ -29,11 +34,71 @@ class DatabaseConnectionTester
             return self::error("Unsupported database type: {$config['database_type']}");
         }
 
-        return match ($databaseType) {
-            DatabaseType::MYSQL => self::testMysqlConnection($config),
-            DatabaseType::POSTGRESQL => self::testPostgresqlConnection($config),
-            DatabaseType::SQLITE => self::testSqliteConnection($config['host']),
-        };
+        // SSH tunneling is not supported for SQLite (uses local file paths)
+        if ($databaseType === DatabaseType::SQLITE && $sshConfig !== null) {
+            return self::error('SSH tunneling is not supported for SQLite databases.');
+        }
+
+        // Handle SSH tunnel if configured (only for client-server databases)
+        $tunnelEndpoint = null;
+
+        if ($sshConfig !== null) {
+            // Test SSH connection first
+            $sshResult = SshTunnelService::testConnection($sshConfig);
+            if (! $sshResult['success']) {
+                return self::error('SSH connection failed: '.$sshResult['message']);
+            }
+
+            // Establish SSH tunnel for the database test
+            try {
+                self::$sshTunnelService = new SshTunnelService;
+                $tunnelEndpoint = self::$sshTunnelService->establish(
+                    DatabaseServer::forConnectionTest([
+                        'host' => $config['host'],
+                        'port' => $config['port'],
+                    ], $sshConfig)
+                );
+            } catch (\Throwable $e) {
+                self::closeTunnel();
+
+                return self::error('Failed to establish SSH tunnel: '.$e->getMessage());
+            }
+        }
+
+        try {
+            // Use tunnel endpoint if active
+            if ($tunnelEndpoint !== null) {
+                $config['host'] = $tunnelEndpoint['host'];
+                $config['port'] = $tunnelEndpoint['port'];
+            }
+
+            $result = match ($databaseType) {
+                DatabaseType::MYSQL => self::testMysqlConnection($config),
+                DatabaseType::POSTGRESQL => self::testPostgresqlConnection($config),
+                DatabaseType::SQLITE => self::testSqliteConnection($config['host']),
+            };
+
+            // Add SSH tunnel info to success details
+            if ($result['success'] && $sshConfig !== null) {
+                $result['details']['ssh_tunnel'] = true;
+                $result['details']['ssh_host'] = $sshConfig->host;
+            }
+
+            return $result;
+        } finally {
+            self::closeTunnel();
+        }
+    }
+
+    /**
+     * Close the SSH tunnel if active.
+     */
+    private static function closeTunnel(): void
+    {
+        if (self::$sshTunnelService !== null) {
+            self::$sshTunnelService->close();
+            self::$sshTunnelService = null;
+        }
     }
 
     /**

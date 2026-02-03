@@ -45,9 +45,21 @@ class Edit extends Component
         $this->form->testConnection();
     }
 
+    public function testSshConnection(): void
+    {
+        $this->form->testSshConnection();
+    }
+
     public function refreshVolumes(): void
     {
         $this->success(__('Volume list refreshed.'), position: 'toast-bottom');
+    }
+
+    public function loadDatabases(): void
+    {
+        if (! $this->form->isSqlite()) {
+            $this->form->loadAvailableDatabases();
+        }
     }
 
     public function render(): View

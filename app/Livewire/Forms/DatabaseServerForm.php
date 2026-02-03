@@ -7,8 +7,10 @@ use App\Exceptions\Backup\EncryptionException;
 use App\Facades\DatabaseConnectionTester;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\DatabaseServerSshConfig;
 use App\Rules\SafePath;
 use App\Services\Backup\DatabaseListService;
+use App\Services\SshTunnelService;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Form;
@@ -30,6 +32,35 @@ class DatabaseServerForm extends Form
     public string $username = '';
 
     public string $password = '';
+
+    // SSH Tunnel Configuration
+    public bool $ssh_enabled = false;
+
+    /** @var string 'existing' or 'create' - only relevant when ssh_enabled is true */
+    public string $ssh_config_mode = 'create';
+
+    /** @var string|null ID of existing SSH config to use */
+    public ?string $ssh_config_id = null;
+
+    public string $ssh_host = '';
+
+    public int $ssh_port = 22;
+
+    public string $ssh_username = '';
+
+    public string $ssh_auth_type = 'password';
+
+    public string $ssh_password = '';
+
+    public string $ssh_private_key = '';
+
+    public string $ssh_key_passphrase = '';
+
+    public ?string $sshTestMessage = null;
+
+    public bool $sshTestSuccess = false;
+
+    public bool $testingSshConnection = false;
 
     /** @var array<string> */
     public array $database_names = [];
@@ -116,9 +147,117 @@ class DatabaseServerForm extends Form
         }
 
         // Reset connection test when type changes
+        $this->resetConnectionTestState();
+        $this->availableDatabases = [];
+    }
+
+    /**
+     * Called when ssh_enabled changes - reset SSH test state.
+     */
+    public function updatedSshEnabled(): void
+    {
+        $this->resetSshTestState();
+        $this->resetConnectionTestState();
+    }
+
+    /**
+     * Called when ssh_config_mode changes - load existing config data if selecting existing.
+     */
+    public function updatedSshConfigMode(): void
+    {
+        $this->resetSshTestState();
+        $this->resetConnectionTestState();
+
+        if ($this->ssh_config_mode === 'existing') {
+            // Auto-select first config if none selected
+            if (! $this->ssh_config_id) {
+                $firstConfig = DatabaseServerSshConfig::first();
+                if ($firstConfig) {
+                    $this->ssh_config_id = $firstConfig->id;
+                }
+            }
+            if ($this->ssh_config_id) {
+                $this->loadSshConfigFromId($this->ssh_config_id);
+            }
+        } elseif ($this->ssh_config_mode === 'create') {
+            $this->resetSshFormFields();
+        }
+    }
+
+    /**
+     * Called when ssh_config_id changes - load the selected config.
+     */
+    public function updatedSshConfigId(): void
+    {
+        $this->resetSshTestState();
+        $this->resetConnectionTestState();
+
+        if ($this->ssh_config_id) {
+            $this->loadSshConfigFromId($this->ssh_config_id);
+        }
+    }
+
+    /**
+     * Called when ssh_auth_type changes - reset SSH test state.
+     */
+    public function updatedSshAuthType(): void
+    {
+        $this->resetSshTestState();
+    }
+
+    /**
+     * Load SSH config form fields from an existing config ID.
+     */
+    private function loadSshConfigFromId(string $id): void
+    {
+        $config = DatabaseServerSshConfig::find($id);
+        if ($config === null) {
+            return;
+        }
+
+        $this->ssh_host = $config->host;
+        $this->ssh_port = $config->port;
+        $this->ssh_username = $config->username;
+        $this->ssh_auth_type = $config->auth_type;
+        // Don't populate sensitive fields for security
+        $this->ssh_password = '';
+        $this->ssh_private_key = '';
+        $this->ssh_key_passphrase = '';
+    }
+
+    /**
+     * Reset SSH form fields to defaults.
+     */
+    private function resetSshFormFields(): void
+    {
+        $this->ssh_config_id = null;
+        $this->ssh_host = '';
+        $this->ssh_port = 22;
+        $this->ssh_username = '';
+        $this->ssh_auth_type = 'password';
+        $this->ssh_password = '';
+        $this->ssh_private_key = '';
+        $this->ssh_key_passphrase = '';
+    }
+
+    /**
+     * Reset SSH connection test state.
+     */
+    private function resetSshTestState(): void
+    {
+        $this->sshTestSuccess = false;
+        $this->sshTestMessage = null;
+    }
+
+    /**
+     * Reset database connection test state.
+     */
+    private function resetConnectionTestState(): void
+    {
         $this->connectionTestSuccess = false;
         $this->connectionTestMessage = null;
-        $this->availableDatabases = [];
+        $this->connectionTestDetails = [];
+        $this->showConnectionDetails = false;
     }
 
     public function setServer(DatabaseServer $server): void
@@ -138,6 +277,18 @@ class DatabaseServerForm extends Form
         // Don't populate password for security
         $this->password = '';
 
+        // Load SSH config if exists
+        if ($server->sshConfig !== null) {
+            $this->ssh_enabled = true;
+            $this->ssh_config_mode = 'existing';
+            $this->ssh_config_id = $server->ssh_config_id;
+            $this->loadSshConfigFromId($server->ssh_config_id);
+        } else {
+            $this->ssh_enabled = false;
+            $this->ssh_config_mode = 'create';
+            $this->ssh_config_id = null;
+        }
+
         // Load backup data if exists
         if ($server->backup) {
             /** @var Backup $backup */
@@ -151,6 +302,22 @@ class DatabaseServerForm extends Form
             $this->gfs_keep_weekly = $backup->gfs_keep_weekly;
             $this->gfs_keep_monthly = $backup->gfs_keep_monthly;
         }
+    }
+
+    /**
+     * Get existing SSH configurations for dropdown.
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getSshConfigOptions(): array
+    {
+        return DatabaseServerSshConfig::orderBy('host')
+            ->get()
+            ->map(fn (DatabaseServerSshConfig $config) => [
+                'id' => $config->id,
+                'name' => $config->getDisplayName(),
+            ])
+            ->toArray();
     }
 
     /**
@@ -236,7 +403,33 @@ class DatabaseServerForm extends Form
     {
         $this->normalizeDatabaseNames();
 
-        $rules = [
+        $rules = $this->getBaseValidationRules();
+
+        if ($this->backups_enabled) {
+            $rules = array_merge($rules, $this->getBackupValidationRules());
+        }
+
+        if ($this->isSqlite()) {
+            $rules = array_merge($rules, $this->getSqliteValidationRules());
+        } else {
+            $rules = array_merge($rules, $this->getClientServerValidationRules());
+        }
+
+        $validated = $this->validate($rules);
+
+        $this->validateGfsPolicy();
+
+        return $validated;
+    }
+
+    /**
+     * Get base validation rules for all database servers.
+     *
+     * @return array<string, mixed>
+     */
+    private function getBaseValidationRules(): array
+    {
+        return [
             'name' => 'required|string|max:255',
             'database_type' => ['required', 'string', Rule::in(array_map(
                 fn (DatabaseType $type) => $type->value,
@@ -245,47 +438,82 @@ class DatabaseServerForm extends Form
             'description' => 'nullable|string|max:1000',
             'backups_enabled' => 'boolean',
         ];
+    }
 
-        // Backup configuration rules (only required when backups are enabled)
-        if ($this->backups_enabled) {
-            $rules['volume_id'] = 'required|exists:volumes,id';
-            $rules['path'] = ['nullable', 'string', 'max:255', new SafePath];
-            $rules['recurrence'] = 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES);
-            $rules['retention_policy'] = 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES);
+    /**
+     * Get backup configuration validation rules.
+     *
+     * @return array<string, mixed>
+     */
+    private function getBackupValidationRules(): array
+    {
+        $rules = [
+            'volume_id' => 'required|exists:volumes,id',
+            'path' => ['nullable', 'string', 'max:255', new SafePath],
+            'recurrence' => 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES),
+            'retention_policy' => 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES),
+        ];
 
-            // Conditional validation based on retention policy
-            if ($this->retention_policy === Backup::RETENTION_DAYS) {
-                $rules['retention_days'] = 'required|integer|min:1|max:365';
-            } elseif ($this->retention_policy === Backup::RETENTION_GFS) {
-                $rules['gfs_keep_daily'] = 'nullable|integer|min:0|max:90';
-                $rules['gfs_keep_weekly'] = 'nullable|integer|min:0|max:52';
-                $rules['gfs_keep_monthly'] = 'nullable|integer|min:0|max:24';
-            }
-            // RETENTION_FOREVER requires no additional fields
+        if ($this->retention_policy === Backup::RETENTION_DAYS) {
+            $rules['retention_days'] = 'required|integer|min:1|max:365';
+        } elseif ($this->retention_policy === Backup::RETENTION_GFS) {
+            $rules['gfs_keep_daily'] = 'nullable|integer|min:0|max:90';
+            $rules['gfs_keep_weekly'] = 'nullable|integer|min:0|max:52';
+            $rules['gfs_keep_monthly'] = 'nullable|integer|min:0|max:24';
         }
 
-        if ($this->isSqlite()) {
-            // SQLite only needs path
-            $rules['sqlite_path'] = 'required|string|max:1000';
-        } else {
-            // Client-server databases need connection details
-            $rules['host'] = 'required|string|max:255';
-            $rules['port'] = 'required|integer|min:1|max:65535';
-            $rules['username'] = 'required|string|max:255';
-            $rules['password'] = 'nullable';
-            $rules['backup_all_databases'] = 'boolean';
-            $rules['database_names'] = 'nullable|array';
-            $rules['database_names.*'] = 'string|max:255';
+        return $rules;
+    }
 
-            // database_names required when backups are enabled and not backing up all databases
-            if ($this->backups_enabled && ! $this->backup_all_databases) {
-                $rules['database_names'] = 'required|array|min:1';
-            }
+    /**
+     * Get SQLite-specific validation rules.
+     *
+     * @return array<string, mixed>
+     */
+    private function getSqliteValidationRules(): array
+    {
+        return [
+            'sqlite_path' => 'required|string|max:1000',
+        ];
+    }
+
+    /**
+     * Get client-server database validation rules.
+     *
+     * @return array<string, mixed>
+     */
+    private function getClientServerValidationRules(): array
+    {
+        $rules = [
+            'host' => 'required|string|max:255',
+            'port' => 'required|integer|min:1|max:65535',
+            'username' => 'required|string|max:255',
+            'password' => 'nullable',
+            'backup_all_databases' => 'boolean',
+            'database_names' => 'nullable|array',
+            'database_names.*' => 'string|max:255',
+            'ssh_enabled' => 'boolean',
+        ];
+
+        if ($this->backups_enabled && ! $this->backup_all_databases) {
+            $rules['database_names'] = 'required|array|min:1';
         }
 
-        $validated = $this->validate($rules);
+        if ($this->ssh_enabled) {
+            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
+            $rules = array_merge($rules, $this->getSshValidationRules());
+        }
 
-        // GFS policy requires at least one tier to be configured
+        return $rules;
+    }
+
+    /**
+     * Validate GFS retention policy has at least one tier configured.
+     *
+     * @throws ValidationException
+     */
+    private function validateGfsPolicy(): void
+    {
         if ($this->backups_enabled
             && $this->retention_policy === Backup::RETENTION_GFS
             && empty($this->gfs_keep_daily)
@@ -296,20 +524,16 @@ class DatabaseServerForm extends Form
                 'form.gfs_keep_daily' => __('At least one retention tier must be configured.'),
             ]);
         }
-
-        return $validated;
     }
 
     public function store(): bool
     {
         $validated = $this->formValidate();
 
-        $this->testConnection();
-        if (! $this->connectionTestSuccess) {
-            return false;
-        }
-
         [$serverData, $backupData] = $this->extractBackupData($validated);
+
+        // Handle SSH config
+        $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
 
         $server = DatabaseServer::create($serverData);
         $this->syncBackupConfiguration($server, $backupData);
@@ -339,10 +563,75 @@ class DatabaseServerForm extends Form
             $serverData['database_names'] = null;
         }
 
+        // Handle SSH config
+        $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
+
         $this->server->update($serverData);
         $this->syncBackupConfiguration($this->server, $backupData);
 
         return true;
+    }
+
+    /**
+     * Create or update SSH config based on form state.
+     * Returns the SSH config ID to link to the server.
+     */
+    private function createOrUpdateSshConfig(): ?string
+    {
+        if (! $this->ssh_enabled) {
+            return null;
+        }
+
+        $sshData = [
+            'host' => $this->ssh_host,
+            'port' => $this->ssh_port,
+            'username' => $this->ssh_username,
+            'auth_type' => $this->ssh_auth_type,
+        ];
+
+        // Add sensitive fields if provided
+        if ($this->ssh_auth_type === 'password') {
+            if (! empty($this->ssh_password)) {
+                $sshData['password'] = $this->ssh_password;
+            }
+            $sshData['private_key'] = null;
+            $sshData['key_passphrase'] = null;
+        } else {
+            if (! empty($this->ssh_private_key)) {
+                $sshData['private_key'] = $this->ssh_private_key;
+            }
+            if (! empty($this->ssh_key_passphrase)) {
+                $sshData['key_passphrase'] = $this->ssh_key_passphrase;
+            }
+            $sshData['password'] = null;
+        }
+
+        // Determine which config to update (if any)
+        $existingConfigId = $this->ssh_config_mode === 'existing'
+            ? $this->ssh_config_id
+            : $this->server?->ssh_config_id;
+
+        if ($existingConfigId !== null) {
+            $config = DatabaseServerSshConfig::find($existingConfigId);
+            if ($config !== null) {
+                // Non-sensitive fields are always updated; sensitive fields only when provided
+                $nonSensitiveFields = ['host', 'port', 'username', 'auth_type'];
+                $updateData = array_intersect_key($sshData, array_flip($nonSensitiveFields));
+
+                foreach (DatabaseServerSshConfig::SENSITIVE_FIELDS as $field) {
+                    if (! empty($sshData[$field])) {
+                        $updateData[$field] = $sshData[$field];
+                    }
+                }
+
+                $config->update($updateData);
+
+                return $config->id;
+            }
+        }
+
+        // Create new config
+        return DatabaseServerSshConfig::create($sshData)->id;
     }
 
     /**
@@ -449,6 +738,11 @@ class DatabaseServerForm extends Form
             return;
         }
 
+        // Build SSH config for connection test
+        $sshConfig = $this->ssh_enabled && ! $this->isSqlite()
+            ? $this->buildSshConfigForTest()
+            : null;
+
         $result = DatabaseConnectionTester::test([
             'database_type' => $this->database_type,
             'host' => $this->isSqlite() ? $this->sqlite_path : $this->host,
@@ -456,7 +750,7 @@ class DatabaseServerForm extends Form
             'username' => $this->username,
             'password' => $password,
             'database_name' => null,
-        ]);
+        ], $sshConfig);
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
@@ -470,6 +764,79 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Test SSH connection independently.
+     */
+    public function testSshConnection(): void
+    {
+        $this->testingSshConnection = true;
+        $this->sshTestMessage = null;
+        $this->sshTestSuccess = false;
+
+        // Validate SSH fields
+        try {
+            $this->validate($this->getSshValidationRules());
+        } catch (ValidationException $e) {
+            $this->testingSshConnection = false;
+            $this->sshTestMessage = 'Please fill in all required SSH connection fields.';
+
+            return;
+        }
+
+        $sshConfig = $this->buildSshConfigForTest();
+        $result = SshTunnelService::testConnection($sshConfig);
+
+        $this->sshTestSuccess = $result['success'];
+        $this->sshTestMessage = $result['message'];
+        $this->testingSshConnection = false;
+    }
+
+    /**
+     * Get a decrypted SSH config field from the existing config (either linked or selected).
+     */
+    private function getSshFieldFromConfig(string $field): ?string
+    {
+        $configId = $this->ssh_config_id;
+
+        // If editing server with linked config, use server's config
+        if ($this->server !== null && $this->server->sshConfig !== null) {
+            $configId = $this->server->ssh_config_id;
+        }
+
+        if ($configId === null) {
+            return null;
+        }
+
+        $config = DatabaseServerSshConfig::find($configId);
+        if ($config === null) {
+            return null;
+        }
+
+        $decrypted = $config->getDecrypted();
+
+        return $decrypted[$field] ?? null;
+    }
+
+    /**
+     * Build SSH config model for connection testing.
+     * Creates an unsaved model instance with form values.
+     */
+    private function buildSshConfigForTest(): DatabaseServerSshConfig
+    {
+        $config = new DatabaseServerSshConfig;
+        $config->host = $this->ssh_host;
+        $config->port = $this->ssh_port;
+        $config->username = $this->ssh_username;
+        $config->auth_type = $this->ssh_auth_type;
+
+        // Use form values or fall back to existing config values
+        $config->password = $this->ssh_password ?: $this->getSshFieldFromConfig('password');
+        $config->private_key = $this->ssh_private_key ?: $this->getSshFieldFromConfig('private_key');
+        $config->key_passphrase = $this->ssh_key_passphrase ?: $this->getSshFieldFromConfig('key_passphrase');
+
+        return $config;
+    }
+
+    /**
      * Load available databases from the server for selection
      */
     public function loadAvailableDatabases(): void
@@ -480,14 +847,17 @@ class DatabaseServerForm extends Form
         try {
             $password = ($this->password) ?: $this->server?->getDecryptedPassword();
 
+            // Build SSH config if enabled
+            $sshConfig = $this->ssh_enabled ? $this->buildSshConfigForTest() : null;
+
             // Create a temporary DatabaseServer object for the service
-            $tempServer = new DatabaseServer([
+            $tempServer = DatabaseServer::forConnectionTest([
                 'host' => $this->host,
                 'port' => $this->port,
                 'database_type' => $this->database_type,
                 'username' => $this->username,
                 'password' => $password,
-            ]);
+            ], $sshConfig);
 
             $databaseListService = app(DatabaseListService::class);
             $databases = $databaseListService->listDatabases($tempServer);
@@ -508,5 +878,59 @@ class DatabaseServerForm extends Form
         }
 
         $this->loadingDatabases = false;
+    }
+
+    /**
+     * Get SSH auth type options for select.
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getSshAuthTypeOptions(): array
+    {
+        return [
+            ['id' => 'password', 'name' => __('Password')],
+            ['id' => 'key', 'name' => __('Private Key')],
+        ];
+    }
+
+    /**
+     * Get SSH config mode options for select.
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getSshConfigModeOptions(): array
+    {
+        return [
+            ['id' => 'existing', 'name' => __('Use existing')],
+            ['id' => 'create', 'name' => __('Create new')],
+        ];
+    }
+
+    /**
+     * Get SSH validation rules.
+     *
+     * @return array<string, string>
+     */
+    private function getSshValidationRules(): array
+    {
+        $rules = [
+            'ssh_host' => 'required|string|max:255',
+            'ssh_port' => 'required|integer|min:1|max:65535',
+            'ssh_username' => 'required|string|max:255',
+            'ssh_auth_type' => 'required|string|in:password,key',
+        ];
+
+        // Sensitive fields are optional when editing existing server or using existing SSH config
+        $credentialsOptional = ($this->ssh_config_mode === 'existing' && $this->ssh_config_id) || $this->server !== null;
+        $credentialRule = $credentialsOptional ? 'nullable|string' : 'required|string';
+
+        if ($this->ssh_auth_type === 'password') {
+            $rules['ssh_password'] = $credentialRule;
+        } else {
+            $rules['ssh_private_key'] = $credentialRule;
+            $rules['ssh_key_passphrase'] = 'nullable|string';
+        }
+
+        return $rules;
     }
 }

@@ -106,16 +106,29 @@ class Snapshot extends Model
      * Generate metadata array for a snapshot.
      * Sensitive fields (passwords) are excluded from the volume config.
      *
-     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string}, volume: array{type: string, config: array<string, mixed>}}
+     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volume: array{type: string, config: array<string, mixed>}}
      */
     public static function generateMetadata(DatabaseServer $server, string $databaseName, Volume $volume): array
     {
+        $sshTunnel = ['enabled' => false];
+        if ($server->requiresSshTunnel() && $server->sshConfig !== null) {
+            $safeSshConfig = $server->sshConfig->getSafe();
+            $sshTunnel = [
+                'enabled' => true,
+                'host' => $safeSshConfig['host'] ?? null,
+                'port' => $safeSshConfig['port'] ?? 22,
+                'username' => $safeSshConfig['username'] ?? null,
+                'auth_type' => $safeSshConfig['auth_type'] ?? 'password',
+            ];
+        }
+
         return [
             'database_server' => [
                 'host' => $server->host,
                 'port' => $server->port,
                 'username' => $server->username,
                 'database_name' => $databaseName,
+                'ssh_tunnel' => $sshTunnel,
             ],
             'volume' => [
                 'type' => $volume->type,

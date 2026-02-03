@@ -49,35 +49,17 @@ create-bucket: ## Create S3 bucket in rustfs (usage: make create-bucket BUCKET=m
 test: ## Run all tests in parallel (default)
 	$(PHP_ARTISAN) test --parallel
 
-test-sequential: ## Run all tests sequentially (for debugging)
-	$(PHP_ARTISAN) test
-
-test-mysql: ## Run all tests with MySQL
-	$(DOCKER_COMPOSE) exec -T mysql mysql -uroot -proot -e "DROP DATABASE IF EXISTS databasement_app_test; CREATE DATABASE databasement_app_test;" 2>/dev/null || true
-	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.mysql.testing $(PHP_SERVICE) php artisan test
-
 test-filter: ## Run tests with filter (usage: make test-filter FILTER=DatabaseServer)
-	$(PHP_ARTISAN) test --filter="$(FILTER)"
-
-test-filter-mysql: ## Run tests with filter using MySQL (usage: make test-filter-mysql FILTER=DatabaseServer)
-	$(DOCKER_COMPOSE) exec -T mysql mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS databasement_app_test;" 2>/dev/null || true
-	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.mysql.testing $(PHP_SERVICE) php artisan test --filter="$(FILTER)"
-
-test-postgres: ## Run all tests with PostgreSQL
-	$(DOCKER_COMPOSE) exec -T postgres psql -U root -d postgres -c "DROP DATABASE IF EXISTS databasement_app_test;"
-	$(DOCKER_COMPOSE) exec -T postgres psql -U root -d postgres -c "CREATE DATABASE databasement_app_test;"
-	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.postgres.testing $(PHP_SERVICE) php artisan test
-
-test-filter-postgres: ## Run tests with filter using PostgreSQL (usage: make test-filter-postgres FILTER=DatabaseServer)
-	$(DOCKER_COMPOSE) exec -T postgres psql -U root -d postgres -c "DROP DATABASE IF EXISTS databasement_app_test;"
-	$(DOCKER_COMPOSE) exec -T postgres psql -U root -d postgres -c "CREATE DATABASE databasement_app_test;"
-	$(DOCKER_COMPOSE) exec -T -e EXTRA_ENV_FILE=.env.postgres.testing $(PHP_SERVICE) php artisan test --filter="$(FILTER)"
+	$(PHP_ARTISAN) test --parallel  --filter="$(FILTER)"
 
 test-coverage: ## Run tests with coverage
-	$(PHP_ARTISAN) test --coverage
+	$(PHP_ARTISAN) test --parallel --coverage
 
 test-coverage-filter: ## Run tests with coverage and filter (usage: make test-coverage-filter FILTER=FailureNotification)
-	$(PHP_EXEC) php -d xdebug.mode=coverage ./vendor/bin/pest --filter="$(FILTER)" --coverage
+	$(PHP_ARTISAN) test --parallel --coverage --filter="$(FILTER)"
+
+test-sequential: ## Run all tests sequentially (for debugging)
+	$(PHP_ARTISAN) test
 
 ##@ Code Quality
 

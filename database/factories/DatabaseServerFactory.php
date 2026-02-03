@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Backup;
+use App\Models\DatabaseServerSshConfig;
 use App\Models\Volume;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -45,6 +46,50 @@ class DatabaseServerFactory extends Factory
             'password' => '',
             'database_names' => null,
         ]);
+    }
+
+    /**
+     * Configure the factory with SSH tunnel using password authentication.
+     *
+     * Note: Uses afterCreating() hook, so only works with create(), not make().
+     * For make(), manually create the SSH config and use setRelation().
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    public function withSshTunnel(array $overrides = []): static
+    {
+        return $this->afterCreating(function ($databaseServer) use ($overrides) {
+            $sshConfig = DatabaseServerSshConfig::factory()->create(array_merge([
+                'host' => 'bastion.example.com',
+                'port' => 22,
+                'username' => 'tunnel_user',
+                'auth_type' => 'password',
+                'password' => 'ssh_password',
+            ], $overrides));
+
+            $databaseServer->update(['ssh_config_id' => $sshConfig->id]);
+        });
+    }
+
+    /**
+     * Configure the factory with SSH tunnel using key authentication.
+     *
+     * Note: Uses afterCreating() hook, so only works with create(), not make().
+     * For make(), manually create the SSH config and use setRelation().
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    public function withSshTunnelKey(array $overrides = []): static
+    {
+        return $this->afterCreating(function ($databaseServer) use ($overrides) {
+            $sshConfig = DatabaseServerSshConfig::factory()->withKeyAuth()->create(array_merge([
+                'host' => 'bastion.example.com',
+                'port' => 22,
+                'username' => 'tunnel_user',
+            ], $overrides));
+
+            $databaseServer->update(['ssh_config_id' => $sshConfig->id]);
+        });
     }
 
     /**

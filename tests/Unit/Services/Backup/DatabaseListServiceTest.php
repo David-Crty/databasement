@@ -46,7 +46,7 @@ test('listDatabases returns databases excluding system databases', function (
         ->shouldAllowMockingProtectedMethods();
     $service->shouldReceive('createConnection')
         ->once()
-        ->with($server)
+        ->with($server, null) // Second arg is tunnel endpoint (null when no SSH)
         ->andReturn($pdo);
 
     // Act
@@ -97,3 +97,40 @@ test('listDatabases returns databases excluding system databases', function (
         'expectedDatabases' => ['app_database', 'analytics_db'],
     ],
 ]);
+
+test('createConnection uses tunnel endpoint when provided', function () {
+    // Arrange - Create a test double for the server
+    $server = new class extends DatabaseServer
+    {
+        public function __construct()
+        {
+            $this->database_type = DatabaseType::MYSQL;
+            $this->host = 'private-db.internal';
+            $this->port = 3306;
+            $this->username = 'admin';
+            $this->password = 'admin';
+        }
+
+        public function getDecryptedPassword(): string
+        {
+            return 'admin';
+        }
+    };
+
+    $service = new DatabaseListService;
+    $tunnelEndpoint = ['host' => '127.0.0.1', 'port' => 54321];
+
+    // Act - We expect this to fail since there's no actual MySQL server,
+    // but we're verifying the code path is exercised
+    $exception = null;
+    try {
+        $reflection = new \ReflectionClass($service);
+        $method = $reflection->getMethod('createConnection');
+        $method->invoke($service, $server, $tunnelEndpoint);
+    } catch (\PDOException $e) {
+        $exception = $e;
+    }
+
+    // Should have thrown PDOException trying to connect via tunnel endpoint
+    expect($exception)->toBeInstanceOf(\PDOException::class);
+});

@@ -1,4 +1,4 @@
-<div wire:init="testConnection">
+<div wire:init="loadDatabases">
     <div class="mx-auto max-w-4xl">
         <x-header title="{{ __('Edit Database Server') }}" subtitle="{{ __('Update your database server configuration') }}" size="text-2xl" separator class="mb-6" />
 

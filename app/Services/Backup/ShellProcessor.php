@@ -89,6 +89,10 @@ class ShellProcessor
             // Match 7z password: -p'password' or -p"password" or -ppassword
             "/-p'[^']*'/" => '-p***',
             '/-p"[^"]*"/' => '-p***',
+            // SSH password via sshpass: sshpass -p 'password' or sshpass -p "password" or sshpass -p password
+            '/sshpass\s+-p\s+[\'"]?[^\s\'"]+[\'"]?/' => 'sshpass -p ***',
+            // SSH_ASKPASS scripts may contain passphrases
+            '/SSH_ASKPASS=[^\s]+/' => 'SSH_ASKPASS=***',
         ];
 
         foreach ($patterns as $pattern => $replacement) {

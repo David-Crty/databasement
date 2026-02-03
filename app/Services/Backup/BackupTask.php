@@ -6,21 +6,31 @@ use App\Enums\DatabaseType;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Backup\Concerns\UsesSshTunnel;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
 use App\Support\Formatters;
 
 class BackupTask
 {
+    use UsesSshTunnel;
+
     public function __construct(
         private readonly MysqlDatabase $mysqlDatabase,
         private readonly PostgresqlDatabase $postgresqlDatabase,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
-        private readonly CompressorFactory $compressorFactory
+        private readonly CompressorFactory $compressorFactory,
+        private readonly SshTunnelService $sshTunnelService
     ) {}
+
+    protected function getSshTunnelService(): SshTunnelService
+    {
+        return $this->sshTunnelService;
+    }
 
     public function setLogger(BackupJob $job): void
     {
@@ -46,6 +56,10 @@ class BackupTask
 
             $attemptInfo = $attempt && $maxAttempts ? " (attempt {$attempt}/{$maxAttempts})" : '';
             $job->log("Starting backup for database: {$databaseName}{$attemptInfo}", 'info');
+
+            if ($databaseServer->requiresSshTunnel()) {
+                $this->establishSshTunnel($databaseServer, $job);
+            }
 
             $this->dumpDatabase($databaseServer, $databaseName, $workingFile);
             $archive = $compressor->compress($workingFile);
@@ -101,8 +115,11 @@ class BackupTask
 
             throw $e;
         } finally {
+            // Close SSH tunnel if active
+            $this->closeSshTunnel($job);
+
             // Clean up working directory and all files within (safety net, Job also cleans up on failure)
-            if (isset($workingDirectory) and is_dir($workingDirectory)) {
+            if (isset($workingDirectory) && is_dir($workingDirectory)) {
                 $job->log('Cleaning up temporary files', 'info');
                 FilesystemSupport::cleanupDirectory($workingDirectory);
             }
@@ -163,8 +180,8 @@ class BackupTask
     private function configureDatabaseInterface(DatabaseServer $databaseServer, string $databaseName): void
     {
         $config = [
-            'host' => $databaseServer->host,
-            'port' => $databaseServer->port,
+            'host' => $this->getConnectionHost($databaseServer),
+            'port' => $this->getConnectionPort($databaseServer),
             'user' => $databaseServer->username,
             'pass' => $databaseServer->getDecryptedPassword(),
             'database' => $databaseName,
