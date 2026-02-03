@@ -9,10 +9,10 @@ if [ "$ENABLE_DATABASE_MIGRATION" = "true" ]; then
     php artisan migrate --force
 fi
 
-if [ "$APP_ENV" = "production" ]; then
-    # Production: Use Octane worker mode for ~4x better performance
-    php artisan octane:frankenphp --host=0.0.0.0 --port=2226 --workers="${OCTANE_WORKERS:-auto}" --max-requests="${OCTANE_MAX_REQUESTS:-500}"
+if [ "$OCTANE_ENABLED" = "true" ]; then
+    # Octane worker mode: ~6x better performance, app bootstraps once
+    exec php artisan octane:frankenphp --host=0.0.0.0 --port=2226 --workers="${OCTANE_WORKERS:-auto}" --max-requests="${OCTANE_MAX_REQUESTS:-500}"
 else
-    # Development: Use classic mode (easier debugging, no state persistence issues)
-    frankenphp run --config /etc/frankenphp/Caddyfile --adapter caddyfile
+    # Classic mode: easier debugging, no state persistence issues
+    exec frankenphp run --config /etc/frankenphp/Caddyfile --adapter caddyfile
 fi

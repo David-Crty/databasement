@@ -78,10 +78,10 @@ should render deployment with default values:
               resources:
                 limits:
                   cpu: 500m
-                  memory: 512Mi
+                  memory: 1024Mi
                 requests:
                   cpu: 100m
-                  memory: 256Mi
+                  memory: 512Mi
               securityContext: {}
               startupProbe:
                 failureThreshold: 30
@@ -175,10 +175,10 @@ should render deployment with default values:
               resources:
                 limits:
                   cpu: 500m
-                  memory: 512Mi
+                  memory: 1024Mi
                 requests:
                   cpu: 100m
-                  memory: 256Mi
+                  memory: 512Mi
               securityContext: {}
               volumeMounts:
                 - mountPath: /data
@@ -280,10 +280,10 @@ should render deployment with mysql database:
               resources:
                 limits:
                   cpu: 500m
-                  memory: 512Mi
+                  memory: 1024Mi
                 requests:
                   cpu: 100m
-                  memory: 256Mi
+                  memory: 512Mi
               securityContext: {}
               startupProbe:
                 failureThreshold: 30
@@ -399,10 +399,10 @@ should render deployment with mysql database:
               resources:
                 limits:
                   cpu: 500m
-                  memory: 512Mi
+                  memory: 1024Mi
                 requests:
                   cpu: 100m
-                  memory: 256Mi
+                  memory: 512Mi
               securityContext: {}
               volumeMounts:
                 - mountPath: /data

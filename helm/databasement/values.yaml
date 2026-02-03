@@ -51,10 +51,10 @@ database:
 resources:
   limits:
     cpu: 500m
-    memory: 512Mi
+    memory: 1024Mi
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 512Mi
 # Extra environment variables to add to app and worker containers
 # See available variables on https://david-crty.github.io/databasement/self-hosting/configuration
 extraEnv: {}
