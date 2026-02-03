@@ -77,7 +77,13 @@ class FortifyServiceProvider extends ServiceProvider
      */
     private function configureViews(): void
     {
-        Fortify::loginView(fn () => view('livewire.auth.login'));
+        Fortify::loginView(function () {
+            if (User::count() === 0) {
+                return redirect()->route('register');
+            }
+
+            return view('livewire.auth.login');
+        });
         Fortify::twoFactorChallengeView(fn () => view('livewire.auth.two-factor-challenge'));
         Fortify::confirmPasswordView(function () {
             // OAuth-only users have no password to confirm

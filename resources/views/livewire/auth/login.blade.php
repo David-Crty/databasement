@@ -19,6 +19,10 @@
             <x-alert class="alert-error" icon="o-exclamation-circle">{{ session('error') }}</x-alert>
         @endif
 
+        @error('email')
+            <x-alert class="alert-error" icon="o-exclamation-circle">{{ $message }}</x-alert>
+        @enderror
+
         <x-form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-6">
             @csrf
 
