@@ -52,3 +52,28 @@ test('latest jobs can filter by status', function () {
         ->assertDontSee('Completed Server')
         ->assertSee('Failed Server');
 });
+
+test('latest jobs can open and close logs modal', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server = DatabaseServer::factory()->create([
+        'name' => 'Test Server',
+        'database_names' => ['test_db'],
+    ]);
+
+    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $job = $snapshots[0]->job;
+
+    Livewire::actingAs($user)
+        ->test(LatestJobs::class)
+        ->call('load')
+        ->assertSet('showLogsModal', false)
+        ->assertSet('selectedJobId', null)
+        ->call('viewLogs', $job->id)
+        ->assertSet('showLogsModal', true)
+        ->assertSet('selectedJobId', $job->id)
+        ->call('closeLogs')
+        ->assertSet('showLogsModal', false)
+        ->assertSet('selectedJobId', null);
+});

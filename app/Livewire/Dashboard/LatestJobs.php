@@ -42,6 +42,12 @@ class LatestJobs extends Component
         $this->showLogsModal = true;
     }
 
+    public function closeLogs(): void
+    {
+        $this->showLogsModal = false;
+        $this->selectedJobId = null;
+    }
+
     public function getSelectedJobProperty(): ?BackupJob
     {
         if (! $this->selectedJobId) {
