@@ -31,6 +31,9 @@ ENV OCTANE_ENABLED="true"
 COPY --from=backend-build /app /app
 COPY --from=frontend-build /app/public/build /app/public/build
 
+# Copy FrankenPHP worker stub for Octane (file is gitignored, so we copy from vendor)
+RUN cp vendor/laravel/octane/src/Commands/stubs/frankenphp-worker.php public/
+
 RUN cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini
 RUN cp /usr/local/etc/php/php-custom-production.ini /usr/local/etc/php/conf.d/zz-php-custom-production.ini
 
