@@ -78,7 +78,7 @@
                 <div class="grid grid-cols-1 sm:grid-cols-6 gap-3">
                     <div class="sm:col-span-3">
                         <x-input
-                            wire:model.blur="form.ssh_host"
+                            wire:model="form.ssh_host"
                             label="{{ __('SSH Host') }}"
                             placeholder="{{ __('bastion.example.com') }}"
                             type="text"
@@ -87,7 +87,7 @@
                     </div>
                     <div class="sm:col-span-1">
                         <x-input
-                            wire:model.blur="form.ssh_port"
+                            wire:model="form.ssh_port"
                             label="{{ __('Port') }}"
                             placeholder="22"
                             type="number"
@@ -98,7 +98,7 @@
                     </div>
                     <div class="sm:col-span-2">
                         <x-input
-                            wire:model.blur="form.ssh_username"
+                            wire:model="form.ssh_username"
                             label="{{ __('Username') }}"
                             placeholder="{{ __('ssh_user') }}"
                             type="text"
@@ -135,7 +135,7 @@
 
                 @if($form->ssh_auth_type === 'password')
                     <x-password
-                        wire:model.blur="form.ssh_password"
+                        wire:model="form.ssh_password"
                         label="{{ __('SSH Password') }}"
                         placeholder="{{ $credentialsOptional ? __('Leave blank to keep current') : __('SSH password') }}"
                         :required="!$credentialsOptional"
@@ -143,7 +143,7 @@
                     />
                 @else
                     <x-textarea
-                        wire:model.blur="form.ssh_private_key"
+                        wire:model="form.ssh_private_key"
                         label="{{ __('Private Key') }}"
                         placeholder="{{ $credentialsOptional ? __('Leave blank to keep current') : __('Paste your private key here...') }}"
                         hint="{{ __('OpenSSH format (begins with -----BEGIN OPENSSH PRIVATE KEY-----)') }}"
@@ -152,7 +152,7 @@
                         :required="!$credentialsOptional"
                     />
                     <x-password
-                        wire:model.blur="form.ssh_key_passphrase"
+                        wire:model="form.ssh_key_passphrase"
                         label="{{ __('Key Passphrase') }}"
                         placeholder="{{ __('Enter passphrase if key is encrypted') }}"
                         hint="{{ __('Only required if your private key is encrypted') }}"

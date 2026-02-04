@@ -7,8 +7,10 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
+#[Title('Profile')]
 class Profile extends Component
 {
     public string $name = '';
@@ -46,7 +48,6 @@ class Profile extends Component
 
     public function render(): View
     {
-        return view('livewire.settings.profile')
-            ->layout('components.layouts.app', ['title' => __('Profile')]);
+        return view('livewire.settings.profile');
     }
 }

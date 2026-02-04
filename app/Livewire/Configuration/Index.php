@@ -7,8 +7,10 @@ use App\Models\Snapshot;
 use App\Services\FailureNotificationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Session;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
+#[Title('Configuration')]
 class Index extends Component
 {
     /**
@@ -222,6 +224,6 @@ class Index extends Component
             'backupConfig' => $this->getBackupConfig(),
             'notificationConfig' => $this->getNotificationConfig(),
             'ssoConfig' => $this->getSsoConfig(),
-        ])->layout('components.layouts.app', ['title' => __('Configuration')]);
+        ]);
     }
 }

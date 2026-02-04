@@ -197,8 +197,7 @@ The Docker setup provides:
 Routes are defined in `routes/web.php`:
 - Public: `/` (welcome page)
 - Authenticated: `/dashboard`, `/database-servers/*`, `/volumes/*`, `/snapshots`, `/settings/*`
-- Auth routes use `Volt::route()` helper for single-file components
-- All other routes use Livewire component classes directly (e.g., `Route::get('database-servers', \App\Livewire\DatabaseServer\Index::class)`)
+- All routes use `Route::livewire()` for full-page Livewire components (e.g., `Route::livewire('database-servers', \App\Livewire\DatabaseServer\Index::class)`)
 
 ## Development Workflow
 

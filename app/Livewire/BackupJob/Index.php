@@ -10,12 +10,14 @@ use App\Services\Backup\Filesystems\Awss3Filesystem;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
+#[Title('Jobs')]
 class Index extends Component
 {
     use AuthorizesRequests, Toast, WithPagination;
@@ -280,6 +282,6 @@ class Index extends Component
             'statusOptions' => $this->statusOptions(),
             'typeOptions' => $this->typeOptions(),
             'serverOptions' => $this->serverOptions(),
-        ])->layout('components.layouts.app', ['title' => __('Jobs')]);
+        ]);
     }
 }

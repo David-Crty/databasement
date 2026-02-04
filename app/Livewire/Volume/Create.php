@@ -7,8 +7,10 @@ use App\Livewire\Forms\VolumeForm;
 use App\Models\Volume;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
+#[Title('Create Volume')]
 class Create extends Component
 {
     use AuthorizesRequests;
@@ -43,7 +45,6 @@ class Create extends Component
 
     public function render(): View
     {
-        return view('livewire.volume.create')
-            ->layout('components.layouts.app', ['title' => __('Create Volume')]);
+        return view('livewire.volume.create');
     }
 }

@@ -7,11 +7,13 @@ use App\Queries\VolumeQuery;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
 
+#[Title('Volumes')]
 class Index extends Component
 {
     use AuthorizesRequests, Toast, WithPagination;
@@ -103,6 +105,6 @@ class Index extends Component
         return view('livewire.volume.index', [
             'volumes' => $volumes,
             'headers' => $this->headers(),
-        ])->layout('components.layouts.app', ['title' => __('Volumes')]);
+        ]);
     }
 }

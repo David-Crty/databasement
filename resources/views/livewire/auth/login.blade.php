@@ -1,4 +1,4 @@
-<x-layouts.auth>
+<x-layouts::auth>
     <div class="flex flex-col gap-6">
         <div class="flex w-full flex-col text-center">
             <h1 class="text-2xl font-bold">{{ __('Log in to your account') }}</h1>
@@ -82,4 +82,4 @@
             </div>
         @endif
     </div>
-</x-layouts.auth>
+</x-layouts::auth>

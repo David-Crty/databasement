@@ -1,4 +1,4 @@
-<x-layouts.auth>
+<x-layouts::auth>
     <div class="flex flex-col gap-6">
         <div
             class="relative w-full h-auto"
@@ -90,4 +90,4 @@
             </form>
         </div>
     </div>
-</x-layouts.auth>
+</x-layouts::auth>

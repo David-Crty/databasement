@@ -7,8 +7,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
+#[Title('Password')]
 class Password extends Component
 {
     public string $current_password = '';
@@ -49,7 +51,6 @@ class Password extends Component
 
     public function render(): View
     {
-        return view('livewire.settings.password')
-            ->layout('components.layouts.app', ['title' => __('Password')]);
+        return view('livewire.settings.password');
     }
 }

@@ -6,9 +6,11 @@ use App\Livewire\Forms\UserForm;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
+#[Title('Create User')]
 class Create extends Component
 {
     use AuthorizesRequests, Toast;
@@ -43,6 +45,6 @@ class Create extends Component
     {
         return view('livewire.user.create', [
             'roleOptions' => $this->form->roleOptions(),
-        ])->layout('components.layouts.app', ['title' => __('Create User')]);
+        ]);
     }
 }

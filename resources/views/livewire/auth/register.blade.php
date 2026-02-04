@@ -1,4 +1,4 @@
-<x-layouts.auth>
+<x-layouts::auth>
     <div class="flex flex-col gap-6">
         <div class="flex w-full flex-col text-center">
             <h1 class="text-2xl font-bold">{{ __('Create an account') }}</h1>
@@ -65,4 +65,4 @@
             </div>
         </form>
     </div>
-</x-layouts.auth>
+</x-layouts::auth>

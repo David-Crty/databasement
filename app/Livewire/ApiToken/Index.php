@@ -6,10 +6,12 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\PersonalAccessToken;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
+#[Title('API Tokens')]
 class Index extends Component
 {
     use Toast;
@@ -114,6 +116,6 @@ class Index extends Component
 
         return view('livewire.api-token.index', [
             'tokens' => $query->get(),
-        ])->layout('components.layouts.app', ['title' => __('API Tokens')]);
+        ]);
     }
 }

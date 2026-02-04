@@ -7,9 +7,11 @@ use App\Livewire\Forms\DatabaseServerForm;
 use App\Models\DatabaseServer;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
+#[Title('Edit Database Server')]
 class Edit extends Component
 {
     use AuthorizesRequests;
@@ -64,7 +66,6 @@ class Edit extends Component
 
     public function render(): View
     {
-        return view('livewire.database-server.edit')
-            ->layout('components.layouts.app', ['title' => __('Edit Database Server')]);
+        return view('livewire.database-server.edit');
     }
 }

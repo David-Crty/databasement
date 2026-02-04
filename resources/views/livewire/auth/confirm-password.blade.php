@@ -1,4 +1,4 @@
-<x-layouts.auth>
+<x-layouts::auth>
     <div class="flex flex-col gap-6">
         <div class="flex w-full flex-col text-center">
             <h1 class="text-2xl font-bold">{{ __('Confirm password') }}</h1>
@@ -23,4 +23,4 @@
             <x-button type="submit" class="btn-primary w-full" label="{{ __('Confirm') }}" data-test="confirm-password-button" />
         </form>
     </div>
-</x-layouts.auth>
+</x-layouts::auth>

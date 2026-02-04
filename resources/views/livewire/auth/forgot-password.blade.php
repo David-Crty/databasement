@@ -1,4 +1,4 @@
-<x-layouts.auth>
+<x-layouts::auth>
     <div class="flex flex-col gap-6">
         <div class="flex w-full flex-col text-center">
             <h1 class="text-2xl font-bold">{{ __('Forgot password') }}</h1>
@@ -30,4 +30,4 @@
             <a href="{{ route('login') }}" class="link link-primary" wire:navigate>{{ __('log in') }}</a>
         </div>
     </div>
-</x-layouts.auth>
+</x-layouts::auth>

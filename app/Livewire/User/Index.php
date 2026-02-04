@@ -6,11 +6,13 @@ use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
 
+#[Title('Users')]
 class Index extends Component
 {
     use AuthorizesRequests, Toast, WithPagination;
@@ -159,6 +161,6 @@ class Index extends Component
             'headers' => $this->headers(),
             'roleFilterOptions' => $this->roleFilterOptions(),
             'statusFilterOptions' => $this->statusFilterOptions(),
-        ])->layout('components.layouts.app', ['title' => __('Users')]);
+        ]);
     }
 }

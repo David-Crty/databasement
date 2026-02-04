@@ -8,11 +8,13 @@ use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
 
+#[Title('Database Servers')]
 class Index extends Component
 {
     use AuthorizesRequests, Toast, WithPagination;
@@ -132,6 +134,6 @@ class Index extends Component
         return view('livewire.database-server.index', [
             'servers' => $servers,
             'headers' => $this->headers(),
-        ])->layout('components.layouts.app', ['title' => __('Database Servers')]);
+        ]);
     }
 }

@@ -49,7 +49,7 @@
                 @if($form->isSqlite())
                     <!-- SQLite Path -->
                     <x-input
-                        wire:model.blur="form.sqlite_path"
+                        wire:model="form.sqlite_path"
                         label="{{ __('Database File Path') }}"
                         placeholder="{{ __('e.g., /var/data/database.sqlite') }}"
                         hint="{{ __('Absolute path to the SQLite database file') }}"
@@ -60,7 +60,7 @@
                     <!-- Client-server database connection fields -->
                     <div class="grid gap-4 md:grid-cols-2">
                         <x-input
-                            wire:model.blur="form.host"
+                            wire:model="form.host"
                             label="{{ __('Host') }}"
                             placeholder="{{ __('e.g., localhost or 192.168.1.100') }}"
                             type="text"
@@ -68,7 +68,7 @@
                         />
 
                         <x-input
-                            wire:model.blur="form.port"
+                            wire:model="form.port"
                             label="{{ __('Port') }}"
                             placeholder="{{ __('e.g., 3306') }}"
                             type="number"
@@ -80,7 +80,7 @@
 
                     <div class="grid gap-4 md:grid-cols-2">
                         <x-input
-                            wire:model.blur="form.username"
+                            wire:model="form.username"
                             label="{{ __('Username') }}"
                             placeholder="{{ __('Database username') }}"
                             type="text"
@@ -89,7 +89,7 @@
                         />
 
                         <x-password
-                            wire:model.blur="form.password"
+                            wire:model="form.password"
                             label="{{ __('Password') }}"
                             placeholder="{{ $isEdit ? __('Leave blank to keep current') : __('Database password') }}"
                             :required="!$isEdit"

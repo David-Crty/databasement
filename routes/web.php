@@ -36,48 +36,48 @@ Route::prefix('oauth')->name('oauth.')->group(function () {
 // Main resources - all authenticated users can view index pages
 Route::middleware(['auth'])->group(function () {
     // Dashboard
-    Route::get('dashboard', \App\Livewire\Dashboard::class)
+    Route::livewire('dashboard', \App\Livewire\Dashboard::class)
         ->name('dashboard');
 
     // Index pages - viewable by all roles
-    Route::get('database-servers', \App\Livewire\DatabaseServer\Index::class)
+    Route::livewire('database-servers', \App\Livewire\DatabaseServer\Index::class)
         ->name('database-servers.index');
-    Route::get('volumes', \App\Livewire\Volume\Index::class)
+    Route::livewire('volumes', \App\Livewire\Volume\Index::class)
         ->name('volumes.index');
-    Route::get('jobs', \App\Livewire\BackupJob\Index::class)
+    Route::livewire('jobs', \App\Livewire\BackupJob\Index::class)
         ->name('jobs.index');
 
     // Users index - viewable by all (actions restricted in component)
-    Route::get('users', \App\Livewire\User\Index::class)
+    Route::livewire('users', \App\Livewire\User\Index::class)
         ->name('users.index');
 
     // Configuration - read-only view of app configuration
-    Route::get('configuration', \App\Livewire\Configuration\Index::class)
+    Route::livewire('configuration', \App\Livewire\Configuration\Index::class)
         ->name('configuration.index');
 
     // API Tokens
-    Route::get('api-tokens', \App\Livewire\ApiToken\Index::class)
+    Route::livewire('api-tokens', \App\Livewire\ApiToken\Index::class)
         ->name('api-tokens.index');
 });
 
 // Action routes - authorization handled by Policies in components
 Route::middleware(['auth'])->group(function () {
     // Database Servers
-    Route::get('database-servers/create', \App\Livewire\DatabaseServer\Create::class)
+    Route::livewire('database-servers/create', \App\Livewire\DatabaseServer\Create::class)
         ->name('database-servers.create');
-    Route::get('database-servers/{server}/edit', \App\Livewire\DatabaseServer\Edit::class)
+    Route::livewire('database-servers/{server}/edit', \App\Livewire\DatabaseServer\Edit::class)
         ->name('database-servers.edit');
 
     // Volumes
-    Route::get('volumes/create', \App\Livewire\Volume\Create::class)
+    Route::livewire('volumes/create', \App\Livewire\Volume\Create::class)
         ->name('volumes.create');
-    Route::get('volumes/{volume}/edit', \App\Livewire\Volume\Edit::class)
+    Route::livewire('volumes/{volume}/edit', \App\Livewire\Volume\Edit::class)
         ->name('volumes.edit');
 
     // User management
-    Route::get('users/create', \App\Livewire\User\Create::class)
+    Route::livewire('users/create', \App\Livewire\User\Create::class)
         ->name('users.create');
-    Route::get('users/{user}/edit', \App\Livewire\User\Edit::class)
+    Route::livewire('users/{user}/edit', \App\Livewire\User\Edit::class)
         ->name('users.edit');
 });
 
@@ -85,14 +85,14 @@ Route::middleware(['auth'])->group(function () {
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
-    Route::get('settings/profile', \App\Livewire\Settings\Profile::class)
+    Route::livewire('settings/profile', \App\Livewire\Settings\Profile::class)
         ->name('profile.edit');
-    Route::get('settings/password', \App\Livewire\Settings\Password::class)
+    Route::livewire('settings/password', \App\Livewire\Settings\Password::class)
         ->name('user-password.edit');
-    Route::get('settings/appearance', \App\Livewire\Settings\Appearance::class)
+    Route::livewire('settings/appearance', \App\Livewire\Settings\Appearance::class)
         ->name('appearance.edit');
 
-    Route::get('settings/two-factor', \App\Livewire\Settings\TwoFactor::class)
+    Route::livewire('settings/two-factor', \App\Livewire\Settings\TwoFactor::class)
         ->middleware(
             when(
                 Features::canManageTwoFactorAuthentication()

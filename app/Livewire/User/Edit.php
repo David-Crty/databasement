@@ -6,9 +6,11 @@ use App\Livewire\Forms\UserForm;
 use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
+#[Title('Edit User')]
 class Edit extends Component
 {
     use AuthorizesRequests, Toast;
@@ -41,6 +43,6 @@ class Edit extends Component
     {
         return view('livewire.user.edit', [
             'roleOptions' => $this->form->roleOptions(),
-        ])->layout('components.layouts.app', ['title' => __('Edit User')]);
+        ]);
     }
 }

@@ -50,7 +50,7 @@ class AcceptInvitation extends Component
         $this->redirect(route('dashboard'), navigate: true);
     }
 
-    #[Layout('components.layouts.auth')]
+    #[Layout('layouts::auth')]
     public function render(): View
     {
         return view('livewire.auth.accept-invitation');
