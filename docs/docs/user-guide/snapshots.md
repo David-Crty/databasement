@@ -6,6 +6,14 @@ sidebar_position: 4
 
 Snapshots are the backup files created when you backup a database. They contain all the data needed to restore your database to a specific point in time.
 
+## File Verification
+
+Databasement verifies daily that backup files still exist on their storage volumes. Missing files are surfaced on the dashboard and in the jobs index with a "File missing" warning.
+
+You can also trigger verification manually from the dashboard.
+
+See [Backup Configuration](/self-hosting/configuration/backup) for `BACKUP_VERIFY_FILES` and `BACKUP_VERIFY_FILES_CRON` settings.
+
 ## Restore Process
 
 When you restore a snapshot, Databasement:

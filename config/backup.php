@@ -108,4 +108,17 @@ return [
     */
 
     'cleanup_cron' => env('BACKUP_CLEANUP_CRON', '0 4 * * *'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Snapshot File Verification
+    |--------------------------------------------------------------------------
+    |
+    | Enable scheduled verification of backup files on their storage volumes.
+    | When enabled, the scheduler checks that snapshot files still exist.
+    |
+    */
+
+    'verify_files' => env('BACKUP_VERIFY_FILES', true),
+    'verify_files_cron' => env('BACKUP_VERIFY_FILES_CRON', '0 5 * * *'),
 ];

@@ -60,6 +60,18 @@
                     </div>
                 </div>
 
+                {{-- File missing warning --}}
+                @if($snapshot && !$snapshot->file_exists)
+                    <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                        {{ __('Backup file is missing from volume') }}
+                        @if($snapshot->file_verified_at)
+                            <span class="text-base-content/70">
+                                — {{ __('checked') }} {{ \App\Support\Formatters::humanDate($snapshot->file_verified_at) }} ({{ $snapshot->file_verified_at->diffForHumans() }})
+                            </span>
+                        @endif
+                    </x-alert>
+                @endif
+
                 {{-- Compression and Volume badges --}}
                 @if($snapshot)
                     <div class="flex flex-wrap items-center gap-2 pt-1">

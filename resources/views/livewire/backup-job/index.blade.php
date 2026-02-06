@@ -21,10 +21,12 @@
 
     <!-- TABLE -->
     <x-card shadow>
-        <x-table :headers="$headers" :rows="$jobs" :sort-by="$sortBy" with-pagination>
+        <x-table :headers="$headers" :rows="$jobs" :sort-by="$sortBy" with-pagination
+            :row-decoration="['bg-warning/5' => fn($job) => $job->snapshot && !$job->snapshot->file_exists]"
+        >
             <x-slot:empty>
                 <div class="text-center text-base-content/50 py-8">
-                    @if($search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '')
+                    @if($search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '' || $fileMissing !== '')
                         {{ __('No jobs found matching your filters.') }}
                     @else
                         {{ __('No jobs yet. Backups and restores will appear here.') }}
@@ -87,7 +89,27 @@
                 @else
                     <x-badge value="{{ __('Pending') }}" class="badge-info" />
                 @endif
-
+                @if($job->snapshot && !$job->snapshot->file_exists)
+                    <x-popover>
+                        <x-slot:trigger>
+                            <div class="flex items-center gap-1 text-warning text-xs mt-1">
+                                <x-icon name="o-exclamation-triangle" class="w-3.5 h-3.5" />
+                                {{ __('File missing') }}
+                            </div>
+                        </x-slot:trigger>
+                        <x-slot:content>
+                            <div class="text-xs space-y-1">
+                                <div class="font-semibold text-warning">{{ __('Backup file not found on volume') }}</div>
+                                @if($job->snapshot->file_verified_at)
+                                    <div class="text-base-content/70">
+                                        {{ __('Checked') }}: {{ \App\Support\Formatters::humanDate($job->snapshot->file_verified_at) }}
+                                        ({{ $job->snapshot->file_verified_at->diffForHumans() }})
+                                    </div>
+                                @endif
+                            </div>
+                        </x-slot:content>
+                    </x-popover>
+                @endif
             @endscope
 
             @scope('cell_duration_ms', $job)

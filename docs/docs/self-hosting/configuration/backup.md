@@ -20,6 +20,8 @@ Configure backup behavior, schedules, compression, and storage settings.
 | `BACKUP_DAILY_CRON`        | Cron schedule for daily backups                           | `0 2 * * *` (2:00 AM)        |
 | `BACKUP_WEEKLY_CRON`       | Cron schedule for weekly backups                          | `0 3 * * 0` (Sunday 3:00 AM) |
 | `BACKUP_CLEANUP_CRON`      | Cron schedule for snapshot cleanup                        | `0 4 * * *` (4:00 AM)        |
+| `BACKUP_VERIFY_FILES`      | Enable scheduled file verification                        | `true`                       |
+| `BACKUP_VERIFY_FILES_CRON` | Cron schedule for file verification                       | `0 5 * * *` (5:00 AM)        |
 
 ## Compression Options
 

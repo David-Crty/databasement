@@ -7,6 +7,8 @@ use App\Models\Snapshot;
 use App\Notifications\BackupFailedNotification;
 use App\Notifications\BaseFailedNotification;
 use App\Notifications\RestoreFailedNotification;
+use App\Notifications\SnapshotsMissingNotification;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification;
 
 class FailureNotificationService
@@ -19,6 +21,14 @@ class FailureNotificationService
     public function notifyRestoreFailed(Restore $restore, \Throwable $exception): void
     {
         $this->send(new RestoreFailedNotification($restore, $exception));
+    }
+
+    /**
+     * @param  Collection<int, array{server: string, database: string, filename: string}>  $missingSnapshots
+     */
+    public function notifySnapshotsMissing(Collection $missingSnapshots): void
+    {
+        $this->send(new SnapshotsMissingNotification($missingSnapshots));
     }
 
     private function send(BaseFailedNotification $notification): void

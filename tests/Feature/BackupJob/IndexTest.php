@@ -151,6 +151,46 @@ test('can filter backup jobs by server', function () {
         ->assertSee('development_db');
 });
 
+test('can filter jobs by file missing status', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['test_db']]);
+
+    // Create a snapshot with missing file
+    $missingSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $missingSnapshots[0]->update(['database_name' => 'missing_db', 'file_exists' => false, 'file_verified_at' => now()]);
+    $missingSnapshots[0]->job->update(['status' => 'completed']);
+
+    // Create a normal snapshot
+    $normalSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $normalSnapshots[0]->update(['database_name' => 'normal_db']);
+    $normalSnapshots[0]->job->update(['status' => 'completed']);
+
+    // Filter by file missing - should only see missing_db
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('fileMissing', '1')
+        ->assertSee('missing_db')
+        ->assertDontSee('normal_db');
+
+    // Without filter - should see both
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->assertSee('missing_db')
+        ->assertSee('normal_db');
+});
+
+test('clear resets file missing filter', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('fileMissing', '1')
+        ->call('clear')
+        ->assertSet('fileMissing', '');
+});
+
 test('can download snapshot from local storage', function () {
     $user = User::factory()->create();
 

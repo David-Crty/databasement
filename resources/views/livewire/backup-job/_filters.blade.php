@@ -1,6 +1,6 @@
 @php
     $isDesktop = $variant === 'desktop';
-    $hasFilters = $search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '';
+    $hasFilters = $search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '' || $fileMissing !== '';
 @endphp
 
 @if($isDesktop)
@@ -33,6 +33,11 @@
         :options="$statusOptions"
         class="!select-sm w-32"
     />
+    <label class="flex items-center gap-1.5 cursor-pointer text-sm text-warning">
+        <input type="checkbox" class="checkbox checkbox-warning checkbox-xs" wire:model.live="fileMissing" value="1" @checked($fileMissing !== '') />
+        <x-icon name="o-exclamation-triangle" class="w-4 h-4" />
+        {{ __('Missing') }}
+    </label>
     @if($hasFilters)
         <x-button
             icon="o-x-mark"
@@ -83,6 +88,11 @@
                 :options="$statusOptions"
                 class="!select-sm w-32"
             />
+            <label class="flex items-center gap-1.5 cursor-pointer text-sm text-warning">
+                <input type="checkbox" class="checkbox checkbox-warning checkbox-xs" wire:model.live="fileMissing" value="1" @checked($fileMissing !== '') />
+                <x-icon name="o-exclamation-triangle" class="w-4 h-4" />
+                {{ __('Missing') }}
+            </label>
             @if($hasFilters)
                 <x-button
                     icon="o-x-mark"
@@ -117,6 +127,11 @@
             wire:model.live="statusFilter"
             :options="$statusOptions"
         />
+        <label class="flex items-center gap-2 cursor-pointer text-sm text-warning">
+            <input type="checkbox" class="checkbox checkbox-warning checkbox-sm" wire:model.live="fileMissing" value="1" @checked($fileMissing !== '') />
+            <x-icon name="o-exclamation-triangle" class="w-4 h-4" />
+            {{ __('File missing') }}
+        </label>
         @if($hasFilters)
             <x-button
                 label="{{ __('Clear filters') }}"

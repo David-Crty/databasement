@@ -2,17 +2,20 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Concerns\WithDeferredLoading;
 use App\Models\BackupJob;
 use App\Models\Snapshot;
 use App\Support\Formatters;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
+use Mary\Traits\Toast;
 
 class StatsCards extends Component
 {
-    use WithDeferredLoading;
+    use Toast, WithDeferredLoading;
 
     public int $totalSnapshots = 0;
 
@@ -21,6 +24,10 @@ class StatsCards extends Component
     public float $successRate = 0;
 
     public int $runningJobs = 0;
+
+    public int $missingSnapshots = 0;
+
+    public int $verifiedSnapshots = 0;
 
     protected function loadContent(): void
     {
@@ -40,6 +47,24 @@ class StatsCards extends Component
         }
 
         $this->runningJobs = BackupJob::where('status', 'running')->count();
+
+        $this->verifiedSnapshots = Snapshot::whereNotNull('file_verified_at')->count();
+        $this->missingSnapshots = Snapshot::where('file_exists', false)->count();
+    }
+
+    public function verifyFiles(): void
+    {
+        $lock = Cache::lock('verify-snapshot-files', 300);
+
+        if (! $lock->get()) {
+            $this->warning(__('File verification is already running.'), position: 'toast-bottom');
+
+            return;
+        }
+
+        VerifySnapshotFileJob::dispatch();
+
+        $this->success(__('File verification job dispatched.'), position: 'toast-bottom');
     }
 
     public function render(): View

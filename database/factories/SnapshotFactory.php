@@ -88,6 +88,28 @@ class SnapshotFactory extends Factory
     }
 
     /**
+     * Set the snapshot file as missing.
+     */
+    public function fileMissing(): static
+    {
+        return $this->state(fn () => [
+            'file_exists' => false,
+            'file_verified_at' => now(),
+        ]);
+    }
+
+    /**
+     * Set the snapshot file as verified (exists).
+     */
+    public function fileVerified(): static
+    {
+        return $this->state(fn () => [
+            'file_exists' => true,
+            'file_verified_at' => now(),
+        ]);
+    }
+
+    /**
      * Create a snapshot with a real file in the volume.
      */
     public function withFile(?string $content = null): static

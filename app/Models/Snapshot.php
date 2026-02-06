@@ -22,6 +22,8 @@ use Illuminate\Support\Carbon;
  * @property string $volume_id
  * @property string $filename
  * @property int $file_size
+ * @property bool $file_exists
+ * @property Carbon|null $file_verified_at
  * @property string|null $checksum
  * @property Carbon $started_at
  * @property string $database_name
@@ -81,6 +83,8 @@ class Snapshot extends Model
         'volume_id',
         'filename',
         'file_size',
+        'file_exists',
+        'file_verified_at',
         'checksum',
         'started_at',
         'database_name',
@@ -96,6 +100,8 @@ class Snapshot extends Model
         return [
             'started_at' => 'datetime',
             'file_size' => 'integer',
+            'file_exists' => 'boolean',
+            'file_verified_at' => 'datetime',
             'database_type' => DatabaseType::class,
             'metadata' => 'array',
             'compression_type' => CompressionType::class,

@@ -16,3 +16,8 @@ Schedule::command('backups:run weekly')->cron(config('backup.weekly_cron'));
 
 // Cleanup expired snapshots (default: every day at 4:00 AM)
 Schedule::command('snapshots:cleanup')->cron(config('backup.cleanup_cron'));
+
+// Verify snapshot files exist on volumes (default: every day at 5:00 AM)
+Schedule::command('snapshots:verify-files')
+    ->cron(config('backup.verify_files_cron'))
+    ->when(fn () => config('backup.verify_files'));

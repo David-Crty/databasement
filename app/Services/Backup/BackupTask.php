@@ -99,6 +99,7 @@ class BackupTask
                 'filename' => $filename,
                 'file_size' => $fileSize,
                 'checksum' => $checksum,
+                'file_verified_at' => now(),
             ]);
 
             // Mark job as completed

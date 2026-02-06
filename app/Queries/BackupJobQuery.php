@@ -59,6 +59,7 @@ class BackupJobQuery
         array $statusFilter = [],
         string $typeFilter = 'all',
         string $serverFilter = '',
+        bool $fileMissing = false,
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
@@ -87,6 +88,9 @@ class BackupJobQuery
             })
             ->when($serverFilter !== '', function (Builder $query) use ($serverFilter) {
                 self::applyServerFilter($query, $serverFilter);
+            })
+            ->when($fileMissing, function (Builder $query) {
+                $query->whereHas('snapshot', fn (Builder $q) => $q->whereRaw('file_exists = ?', [false]));
             });
 
         // Handle sorting

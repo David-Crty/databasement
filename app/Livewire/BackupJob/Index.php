@@ -34,6 +34,9 @@ class Index extends Component
     #[Url]
     public string $serverFilter = '';
 
+    #[Url]
+    public string $fileMissing = '';
+
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
 
@@ -86,6 +89,11 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function updatingFileMissing(): void
+    {
+        $this->resetPage();
+    }
+
     /**
      * @param  string|array<string, mixed>  $property
      */
@@ -98,7 +106,7 @@ class Index extends Component
 
     public function clear(): void
     {
-        $this->reset('search', 'statusFilter', 'typeFilter', 'serverFilter');
+        $this->reset('search', 'statusFilter', 'typeFilter', 'serverFilter', 'fileMissing');
         $this->resetPage();
         $this->success('Filters cleared.', position: 'toast-bottom');
     }
@@ -272,6 +280,7 @@ class Index extends Component
             statusFilter: $this->statusFilter !== '' ? [$this->statusFilter] : [],
             typeFilter: $this->typeFilter,
             serverFilter: $this->serverFilter,
+            fileMissing: $this->fileMissing !== '',
             sortColumn: $this->sortBy['column'],
             sortDirection: $this->sortBy['direction']
         )->paginate(15);
