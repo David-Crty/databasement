@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Enums\DatabaseType;
+use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
@@ -51,7 +52,7 @@ class IntegrationTestHelpers
                 'database_type' => 'postgres',
             ],
             'sqlite' => [
-                'host' => config('backup.working_directory').'/test_connection'.$suffix.'.sqlite',
+                'host' => AppConfig::get('backup.working_directory').'/test_connection'.$suffix.'.sqlite',
                 'port' => 0,
                 'username' => '',
                 'password' => '',
@@ -67,7 +68,7 @@ class IntegrationTestHelpers
      */
     public static function createVolume(string $type): Volume
     {
-        $storageDir = config('backup.working_directory').'/storage';
+        $storageDir = AppConfig::get('backup.working_directory').'/storage';
         if (! is_dir($storageDir)) {
             mkdir($storageDir, 0755, true);
         }

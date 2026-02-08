@@ -1,5 +1,6 @@
 <?php
 
+use App\Facades\AppConfig;
 use App\Jobs\ProcessBackupJob;
 use App\Models\DatabaseServer;
 use App\Services\Backup\BackupJobFactory;
@@ -9,6 +10,10 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 
 test('job is configured with correct queue and settings', function () {
+    AppConfig::set('backup.job_timeout', 5400);
+    AppConfig::set('backup.job_tries', 5);
+    AppConfig::set('backup.job_backoff', 120);
+
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server, 'manual')[0];
@@ -16,9 +21,9 @@ test('job is configured with correct queue and settings', function () {
     $job = new ProcessBackupJob($snapshot->id);
 
     expect($job->queue)->toBe('backups')
-        ->and($job->timeout)->toBe(config('backup.job_timeout'))
-        ->and($job->tries)->toBe(config('backup.job_tries'))
-        ->and($job->backoff)->toBe(config('backup.job_backoff'));
+        ->and($job->timeout)->toBe(5400)
+        ->and($job->tries)->toBe(5)
+        ->and($job->backoff)->toBe(120);
 });
 
 test('job calls BackupTask run method', function () {
@@ -63,10 +68,8 @@ test('job can be dispatched to queue', function () {
 });
 
 test('failed method sends notification', function () {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => 'admin@example.com',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);

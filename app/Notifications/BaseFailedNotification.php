@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Facades\AppConfig;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\SlackMessage;
@@ -66,6 +67,12 @@ abstract class BaseFailedNotification extends Notification
 
     public function toDiscord(object $notifiable): DiscordMessage
     {
+        // Ensure the Discord token is fresh from AppConfig at send time
+        $token = AppConfig::get('notifications.discord.token');
+        if ($token) {
+            config(['services.discord.token' => $token]);
+        }
+
         return $this->getMessage()->toDiscord();
     }
 }

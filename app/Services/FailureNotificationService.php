@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Facades\AppConfig;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Notifications\BackupFailedNotification;
@@ -33,7 +34,7 @@ class FailureNotificationService
 
     private function send(BaseFailedNotification $notification): void
     {
-        if (! config('notifications.enabled')) {
+        if (! AppConfig::get('notifications.enabled')) {
             return;
         }
 
@@ -52,9 +53,9 @@ class FailureNotificationService
     public function getNotificationRoutes(): array
     {
         return array_filter([
-            'mail' => config('notifications.mail.to'),
-            'slack' => config('notifications.slack.webhook_url'),
-            'discord' => config('notifications.discord.channel_id'),
+            'mail' => AppConfig::get('notifications.mail.to'),
+            'slack' => AppConfig::get('notifications.slack.webhook_url'),
+            'discord' => AppConfig::get('notifications.discord.channel_id'),
         ]);
     }
 }

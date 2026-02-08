@@ -4,33 +4,11 @@ sidebar_position: 4
 
 # Notification
 
-Databasement can send notifications when backup or restore jobs fail. Notifications help you stay informed about issues that require attention.
+Notification settings (enable/disable, channels, recipients) can be configured directly from the **Configuration** page in the web UI.
 
-## Configuration
+This page covers additional setup guides for each channel.
 
-| Variable                          | Description                                  | Default |
-| --------------------------------- | -------------------------------------------- | ------- |
-| `NOTIFICATION_ENABLED`            | Enable failure notifications                 | `false` |
-| `NOTIFICATION_MAIL_TO`            | Email address for failure notifications      | -       |
-| `NOTIFICATION_SLACK_WEBHOOK_URL`  | Slack webhook URL for failure notifications  | -       |
-| `NOTIFICATION_DISCORD_BOT_TOKEN`  | Discord bot token for authentication         | -       |
-| `NOTIFICATION_DISCORD_CHANNEL_ID` | Discord channel ID for failure notifications | -       |
-
-Channels are automatically enabled when their configuration is set. For example, if you set `NOTIFICATION_SLACK_WEBHOOK_URL`, Slack notifications will be enabled.
-
-## Email Notifications
-
-To receive failure notifications via email:
-
-1. Configure your [mail settings](https://laravel.com/docs/mail) (SMTP, etc.)
-2. Enable notifications and set the recipient:
-
-```bash
-NOTIFICATION_ENABLED=true
-NOTIFICATION_MAIL_TO=admin@example.com
-```
-
-### Mail Configuration
+## Email {#email}
 
 Databasement uses Laravel's mail system. Configure your mail driver with these environment variables:
 
@@ -45,20 +23,9 @@ MAIL_FROM_ADDRESS=databasement@example.com
 MAIL_FROM_NAME="Databasement"
 ```
 
-## Slack Notifications
+## Slack {#slack}
 
-To receive failure notifications in Slack:
-
-1. Create an [Incoming Webhook](https://api.slack.com/messaging/webhooks) in your Slack workspace
-2. Copy the webhook URL
-3. Configure Databasement:
-
-```bash
-NOTIFICATION_ENABLED=true
-NOTIFICATION_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXXXXXXXXXXXXXXXXXXXXXXX
-```
-
-### Creating a Slack Webhook
+To receive failure notifications in Slack, you need to create an Incoming Webhook:
 
 1. Go to [Slack API Apps](https://api.slack.com/apps)
 2. Click **Create New App** > **From scratch**
@@ -66,23 +33,11 @@ NOTIFICATION_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/XXXXXXXXXXXXXXXX
 4. Go to **Incoming Webhooks** and toggle it on
 5. Click **Add New Webhook to Workspace**
 6. Select the channel where you want notifications
-7. Copy the webhook URL
+7. Copy the webhook URL and paste it in the Configuration page
 
-## Discord Notifications
+## Discord {#discord}
 
-To receive failure notifications in Discord:
-
-1. Create a [Discord Application](https://discord.com/developers/applications) and add a bot
-2. Copy the bot token
-3. Invite the bot to your server with appropriate permissions
-4. Get the channel ID where you want notifications (enable Developer Mode in Discord settings, then right-click the channel)
-5. Configure Databasement:
-
-```bash
-NOTIFICATION_ENABLED=true
-NOTIFICATION_DISCORD_BOT_TOKEN=your-bot-token
-NOTIFICATION_DISCORD_CHANNEL_ID=123456789012345678
-```
+To receive failure notifications in Discord, you need a bot token and a channel ID.
 
 ### Creating a Discord Bot
 
@@ -102,17 +57,7 @@ NOTIFICATION_DISCORD_CHANNEL_ID=123456789012345678
 3. Right-click the channel where you want notifications
 4. Click **Copy Channel ID**
 
-## Multiple Channels
-
-To send notifications to multiple channels, simply configure each one. All configured channels will receive notifications:
-
-```bash
-NOTIFICATION_ENABLED=true
-NOTIFICATION_MAIL_TO=admin@example.com
-NOTIFICATION_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
-NOTIFICATION_DISCORD_BOT_TOKEN=your-bot-token
-NOTIFICATION_DISCORD_CHANNEL_ID=123456789012345678
-```
+Enter both the **Bot Token** and **Channel ID** on the Configuration page.
 
 ## What Gets Notified
 
@@ -132,7 +77,3 @@ Each notification includes:
 - Error message
 - Timestamp
 - Direct link to the failed job details
-
-## Testing Notifications
-
-You can test your notification setup from the Configuration page. Click the **Send Test** button in the Notifications section to send a test notification to all configured channels.

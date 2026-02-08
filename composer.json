@@ -28,6 +28,7 @@
         "league/flysystem-ftp": "^3.31",
         "league/flysystem-sftp-v3": "^3.31",
         "livewire/livewire": "^4.0",
+        "lorisleiva/cron-translator": "^0.5.0",
         "owenvoke/blade-fontawesome": "^2.7",
         "robsontenorio/mary": "^2.4",
         "spatie/laravel-query-builder": "^6.3"

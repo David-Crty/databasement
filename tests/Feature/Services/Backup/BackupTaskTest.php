@@ -1,5 +1,6 @@
 <?php
 
+use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
@@ -48,10 +49,8 @@ beforeEach(function () {
     // Create temp directory for test files and set config
     $this->tempDir = sys_get_temp_dir().'/backup-task-test-'.uniqid();
     mkdir($this->tempDir, 0777, true);
-    config([
-        'backup.working_directory' => $this->tempDir,
-        'backup.compression' => 'gzip',  // Explicitly set to test gzip commands
-    ]);
+    AppConfig::set('backup.working_directory', $this->tempDir);
+    AppConfig::set('backup.compression', 'gzip');
 });
 
 afterEach(function () {

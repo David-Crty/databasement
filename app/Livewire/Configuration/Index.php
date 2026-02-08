@@ -2,17 +2,38 @@
 
 namespace App\Livewire\Configuration;
 
+use App\Livewire\Forms\ConfigurationForm;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\FailureNotificationService;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Log;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Lorisleiva\CronTranslator\CronTranslator;
+use Mary\Traits\Toast;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Process\Process;
 
 #[Title('Configuration')]
 class Index extends Component
 {
+    use Toast;
+
+    public ConfigurationForm $form;
+
+    public function mount(): void
+    {
+        $this->form->loadFromConfig();
+    }
+
+    #[Computed]
+    public function isAdmin(): bool
+    {
+        return auth()->user()->isAdmin();
+    }
+
     /**
      * @return array<int, array{key: string, label: string, class?: string}>
      */
@@ -40,94 +61,6 @@ class Index extends Component
                 'env' => 'TRUSTED_PROXIES',
                 'value' => config('app.trusted_proxies') ?: '-',
                 'description' => __('IP addresses or CIDR ranges of trusted reverse proxies. Use "*" to trust all.'),
-            ],
-        ];
-    }
-
-    /**
-     * @return array<int, array{value: mixed, env: string, description: string}>
-     */
-    public function getBackupConfig(): array
-    {
-        return [
-            [
-                'env' => 'BACKUP_WORKING_DIRECTORY',
-                'value' => config('backup.working_directory') ?: '-',
-                'description' => __('Temporary directory for backup and restore operations.'),
-            ],
-            [
-                'env' => 'BACKUP_COMPRESSION',
-                'value' => config('backup.compression') ?: '-',
-                'description' => __('Compression algorithm: "gzip", "zstd", or "encrypted".'),
-            ],
-            [
-                'env' => 'BACKUP_COMPRESSION_LEVEL',
-                'value' => config('backup.compression_level') ?: '-',
-                'description' => __('Compression level: 1-9 for gzip/encrypted, 1-19 for zstd (default: 6).'),
-            ],
-            [
-                'env' => 'BACKUP_JOB_TIMEOUT',
-                'value' => config('backup.job_timeout') ?: '-',
-                'description' => __('Maximum seconds a job can run.'),
-            ],
-            [
-                'env' => 'BACKUP_JOB_TRIES',
-                'value' => config('backup.job_tries') ?: '-',
-                'description' => __('Number of times to attempt the job.'),
-            ],
-            [
-                'env' => 'BACKUP_JOB_BACKOFF',
-                'value' => config('backup.job_backoff') ?: '-',
-                'description' => __('Seconds to wait before retrying.'),
-            ],
-            [
-                'env' => 'BACKUP_DAILY_CRON',
-                'value' => config('backup.daily_cron') ?: '-',
-                'description' => __('Cron schedule for daily backups.'),
-            ],
-            [
-                'env' => 'BACKUP_WEEKLY_CRON',
-                'value' => config('backup.weekly_cron') ?: '-',
-                'description' => __('Cron schedule for weekly backups.'),
-            ],
-            [
-                'env' => 'BACKUP_CLEANUP_CRON',
-                'value' => config('backup.cleanup_cron') ?: '-',
-                'description' => __('Cron schedule for snapshot cleanup.'),
-            ],
-        ];
-    }
-
-    /**
-     * @return array<int, array{value: mixed, env: string, description: string}>
-     */
-    public function getNotificationConfig(): array
-    {
-        return [
-            [
-                'env' => 'NOTIFICATION_ENABLED',
-                'value' => config('notifications.enabled') ? 'true' : 'false',
-                'description' => __('Enable failure notifications for backup and restore jobs.'),
-            ],
-            [
-                'env' => 'NOTIFICATION_MAIL_TO',
-                'value' => config('notifications.mail.to') ?: '-',
-                'description' => __('Email address for failure notifications.'),
-            ],
-            [
-                'env' => 'NOTIFICATION_SLACK_WEBHOOK_URL',
-                'value' => $this->maskSensitiveValue(config('notifications.slack.webhook_url')),
-                'description' => __('Slack webhook URL for failure notifications.'),
-            ],
-            [
-                'env' => 'NOTIFICATION_DISCORD_BOT_TOKEN',
-                'value' => $this->maskSensitiveValue(config('notifications.discord.token')),
-                'description' => __('Discord bot token for failure notifications.'),
-            ],
-            [
-                'env' => 'NOTIFICATION_DISCORD_CHANNEL_ID',
-                'value' => config('notifications.discord.channel_id') ?: '-',
-                'description' => __('Discord channel ID for failure notifications.'),
             ],
         ];
     }
@@ -176,23 +109,35 @@ class Index extends Component
         ];
     }
 
-    private function maskSensitiveValue(mixed $value): string
+    public function saveBackupConfig(): void
     {
-        return $value ? '********' : '-';
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
+        $this->form->saveBackup();
+        $this->restartScheduler();
+
+        $this->success(__('Backup configuration saved.'), position: 'toast-bottom');
     }
 
-    public function isNotificationEnabled(): bool
+    public function saveNotificationConfig(): void
     {
-        return (bool) config('notifications.enabled');
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
+        $this->form->saveNotifications();
+
+        $this->dispatch('notification-saved');
+        $this->success(__('Notification configuration saved.'), position: 'toast-bottom');
     }
 
     public function sendTestNotification(): void
     {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
         $service = app(FailureNotificationService::class);
         $routes = $service->getNotificationRoutes();
 
         if (empty($routes)) {
-            Session::flash('notification-error', __('No notification channels configured. Please set at least one of: NOTIFICATION_MAIL_TO, NOTIFICATION_SLACK_WEBHOOK_URL, or NOTIFICATION_DISCORD_BOT_TOKEN and NOTIFICATION_DISCORD_CHANNEL_ID.'));
+            $this->error(__('No notification channels configured. Please set at least one of: mail recipient, Slack webhook URL, or Discord bot token and channel ID.'), position: 'toast-bottom');
 
             return;
         }
@@ -210,10 +155,58 @@ class Index extends Component
             $service->notifyBackupFailed($snapshot, $exception);
 
             $channelNames = implode(', ', array_keys($routes));
-            Session::flash('notification-success', __('Test notification sent to: :channels', ['channels' => $channelNames]));
+            $this->success(__('Test notification sent to: :channels', ['channels' => $channelNames]), position: 'toast-bottom');
         } catch (\Throwable $e) {
-            Session::flash('notification-error', __('Failed to send test notification: :message', ['message' => $e->getMessage()]));
+            $this->error(__('Failed to send test notification: :message', ['message' => $e->getMessage()]), position: 'toast-bottom');
         }
+    }
+
+    public function translateCron(string $expression): string
+    {
+        try {
+            return CronTranslator::translate($expression);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string}>
+     */
+    public function getCompressionOptions(): array
+    {
+        return [
+            ['id' => 'gzip', 'name' => 'gzip'],
+            ['id' => 'zstd', 'name' => 'zstd'],
+            ['id' => 'encrypted', 'name' => 'encrypted'],
+        ];
+    }
+
+    private function restartScheduler(): void
+    {
+        $process = new Process(['supervisorctl', 'restart', 'schedule-run']);
+        $process->setTimeout(10);
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            Log::warning('Failed to restart schedule-run', [
+                'exit_code' => $process->getExitCode(),
+                'error' => $process->getErrorOutput(),
+            ]);
+            $this->warning(__('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'), position: 'toast-bottom');
+        }
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string}>
+     */
+    public function getChannelOptions(): array
+    {
+        return [
+            ['id' => 'email', 'name' => __('Email')],
+            ['id' => 'slack', 'name' => __('Slack')],
+            ['id' => 'discord', 'name' => __('Discord')],
+        ];
     }
 
     public function render(): View
@@ -221,9 +214,9 @@ class Index extends Component
         return view('livewire.configuration.index', [
             'headers' => $this->getHeaders(),
             'appConfig' => $this->getAppConfig(),
-            'backupConfig' => $this->getBackupConfig(),
-            'notificationConfig' => $this->getNotificationConfig(),
             'ssoConfig' => $this->getSsoConfig(),
+            'compressionOptions' => $this->getCompressionOptions(),
+            'channelOptions' => $this->getChannelOptions(),
         ]);
     }
 }

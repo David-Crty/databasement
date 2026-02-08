@@ -1,5 +1,6 @@
 <?php
 
+use App\Facades\AppConfig;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Services\Backup\BackupJobFactory;
@@ -19,9 +20,9 @@ test('job is configured with correct queue and settings', function () {
     $job = new ProcessRestoreJob($restore->id);
 
     expect($job->queue)->toBe('backups')
-        ->and($job->timeout)->toBe(config('backup.job_timeout'))
-        ->and($job->tries)->toBe(config('backup.job_tries'))
-        ->and($job->backoff)->toBe(config('backup.job_backoff'));
+        ->and($job->timeout)->toBe(AppConfig::get('backup.job_timeout'))
+        ->and($job->tries)->toBe(AppConfig::get('backup.job_tries'))
+        ->and($job->backoff)->toBe(AppConfig::get('backup.job_backoff'));
 });
 
 test('job calls RestoreTask run method', function () {
@@ -72,10 +73,8 @@ test('job can be dispatched to queue', function () {
 });
 
 test('failed method sends notification', function () {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => 'admin@example.com',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);

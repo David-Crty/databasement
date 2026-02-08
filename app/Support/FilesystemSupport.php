@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Facades\AppConfig;
 use RuntimeException;
 
 class FilesystemSupport
@@ -17,7 +18,7 @@ class FilesystemSupport
      */
     public static function createWorkingDirectory(string $prefix, string $id): string
     {
-        $baseDirectory = rtrim(config('backup.working_directory'), '/');
+        $baseDirectory = rtrim(AppConfig::get('backup.working_directory'), '/');
         $workingDirectory = $baseDirectory.'/'.$prefix.'-'.$id;
 
         if (! is_dir($workingDirectory) && ! mkdir($workingDirectory, 0755, true)) {

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Facades\AppConfig;
+use App\Services\AppConfigService;
 use App\Services\Backup\CompressorFactory;
 use App\Services\Backup\CompressorInterface;
 use App\Services\Backup\Databases\MysqlDatabase;
@@ -28,12 +30,9 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->registerOAuthServicesConfig();
-        $this->registerDiscordNotificationConfig();
 
-        // Register database connection tester
+        $this->app->singleton(AppConfigService::class);
         $this->app->singleton(DatabaseConnectionTester::class);
-
-        // Register backup service components
         $this->app->singleton(ShellProcessor::class);
         $this->app->singleton(CompressorFactory::class);
         $this->app->singleton(CompressorInterface::class, function ($app) {
@@ -54,21 +53,6 @@ class AppServiceProvider extends ServiceProvider
 
             return $provider;
         });
-    }
-
-    /**
-     * Register Discord notification config for the laravel-notification-channels/discord package.
-     *
-     * Maps config/notifications.php discord settings to config/services.php format
-     * that the Discord notification package expects.
-     */
-    private function registerDiscordNotificationConfig(): void
-    {
-        $token = config('notifications.discord.token');
-
-        if ($token) {
-            config(['services.discord.token' => $token]);
-        }
     }
 
     /**
@@ -106,6 +90,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->registerDiscordNotificationConfig();
         $this->ensureBackupTmpFolderExists();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
@@ -128,9 +113,24 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 
+    /**
+     * Register Discord notification config for the laravel-notification-channels/discord package.
+     *
+     * Maps AppConfig discord settings to config/services.php format
+     * that the Discord notification package expects.
+     */
+    private function registerDiscordNotificationConfig(): void
+    {
+        $token = AppConfig::get('notifications.discord.token');
+
+        if ($token) {
+            config(['services.discord.token' => $token]);
+        }
+    }
+
     private function ensureBackupTmpFolderExists(): void
     {
-        $backupTmpFolder = config('backup.working_directory');
+        $backupTmpFolder = AppConfig::get('backup.working_directory');
 
         if ($backupTmpFolder && ! is_dir($backupTmpFolder)) {
             mkdir($backupTmpFolder, 0755, true);

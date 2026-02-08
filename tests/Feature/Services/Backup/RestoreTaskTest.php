@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CompressionType;
+use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
@@ -51,7 +52,7 @@ beforeEach(function () {
     // Create temp directory for test files and set it as the backup tmp folder
     $this->tempDir = sys_get_temp_dir().'/restore-task-test-'.uniqid();
     mkdir($this->tempDir, 0777, true);
-    config(['backup.working_directory' => $this->tempDir]);
+    AppConfig::set('backup.working_directory', $this->tempDir);
 });
 
 afterEach(function () {

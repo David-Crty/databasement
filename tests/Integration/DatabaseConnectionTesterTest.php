@@ -7,6 +7,7 @@
  * Run with: php artisan test --group=integration
  */
 
+use App\Facades\AppConfig;
 use App\Services\DatabaseConnectionTester;
 use Tests\Support\IntegrationTestHelpers;
 
@@ -93,7 +94,7 @@ test('sqlite connection fails', function (string $path, string $expectedMessage)
 ]);
 
 test('sqlite connection fails with invalid sqlite file', function () {
-    $backupDir = config('backup.working_directory');
+    $backupDir = AppConfig::get('backup.working_directory');
     $invalidPath = "{$backupDir}/not_a_sqlite_file.txt";
 
     file_put_contents($invalidPath, 'This is not a SQLite database');

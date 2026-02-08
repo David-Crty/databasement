@@ -1,5 +1,6 @@
 <?php
 
+use App\Facades\AppConfig;
 use App\Support\FilesystemSupport;
 
 /*
@@ -33,8 +34,11 @@ pest()->extend(Tests\TestCase::class)
 */
 
 afterEach(function () {
+    // Flush AppConfig cache between tests
+    AppConfig::flush();
+
     // Clean up backup working directory (preserves the directory itself)
-    $workingDirectory = config('backup.working_directory');
+    $workingDirectory = AppConfig::get('backup.working_directory');
     if ($workingDirectory && is_dir($workingDirectory)) {
         FilesystemSupport::cleanupDirectory($workingDirectory, preserve: true);
     }

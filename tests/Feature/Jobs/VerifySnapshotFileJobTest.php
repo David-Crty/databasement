@@ -1,5 +1,6 @@
 <?php
 
+use App\Facades\AppConfig;
 use App\Jobs\VerifySnapshotFileJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -109,10 +110,8 @@ test('verifies all completed snapshots when no snapshotId provided', function ()
 });
 
 test('sends notification when newly missing files are detected in bulk mode', function () {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => 'admin@example.com',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
 
     $factory = app(BackupJobFactory::class);
 
@@ -138,10 +137,8 @@ test('sends notification when newly missing files are detected in bulk mode', fu
 });
 
 test('does not send notification when no new files are missing', function () {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => 'admin@example.com',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
 
     $factory = app(BackupJobFactory::class);
 

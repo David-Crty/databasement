@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Facades\AppConfig;
 use App\Models\Snapshot;
 use App\Services\Backup\BackupTask;
 use App\Services\FailureNotificationService;
@@ -28,9 +29,9 @@ class ProcessBackupJob implements ShouldQueue
     public function __construct(
         public string $snapshotId
     ) {
-        $this->timeout = config('backup.job_timeout');
-        $this->backoff = config('backup.job_backoff');
-        $this->tries = config('backup.job_tries');
+        $this->timeout = AppConfig::get('backup.job_timeout');
+        $this->backoff = AppConfig::get('backup.job_backoff');
+        $this->tries = AppConfig::get('backup.job_tries');
         $this->onQueue('backups');
     }
 

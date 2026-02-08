@@ -1,5 +1,6 @@
 <?php
 
+use App\Facades\AppConfig;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
@@ -35,10 +36,8 @@ function createTestRestore(Snapshot $snapshot, DatabaseServer $server): Restore
 }
 
 test('notification is sent with correct details', function (string $type) {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => 'admin@example.com',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production DB',
@@ -68,10 +67,8 @@ test('notification is sent with correct details', function (string $type) {
 })->with(['backup', 'restore']);
 
 test('notification is not sent when disabled', function () {
-    config([
-        'notifications.enabled' => false,
-        'notifications.mail.to' => 'admin@example.com',
-    ]);
+    AppConfig::set('notifications.enabled', false);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
@@ -82,12 +79,10 @@ test('notification is not sent when disabled', function () {
 });
 
 test('notification is not sent when no routes configured', function (string $type) {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => null,
-        'notifications.slack.webhook_url' => null,
-        'notifications.discord.channel_id' => null,
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', null);
+    AppConfig::set('notifications.slack.webhook_url', null);
+    AppConfig::set('notifications.discord.channel_id', null);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
@@ -103,11 +98,9 @@ test('notification is not sent when no routes configured', function (string $typ
 })->with(['backup', 'restore']);
 
 test('notification is sent to slack when configured', function () {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => null,
-        'notifications.slack.webhook_url' => 'https://hooks.slack.com/services/test',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', null);
+    AppConfig::set('notifications.slack.webhook_url', 'https://hooks.slack.com/services/test');
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
@@ -122,11 +115,9 @@ test('notification is sent to slack when configured', function () {
 });
 
 test('notification is sent to discord only when configured', function () {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => null,
-        'notifications.discord.channel_id' => '123456789012345678',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', null);
+    AppConfig::set('notifications.discord.channel_id', '123456789012345678');
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
@@ -190,10 +181,8 @@ test('notification renders mail, slack and discord correctly', function (string 
 ]);
 
 test('ProcessBackupJob sends notification when backup fails', function () {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => 'admin@example.com',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production MySQL',
@@ -251,10 +240,8 @@ test('SnapshotsMissingNotification truncates file list beyond 10 items', functio
 });
 
 test('ProcessRestoreJob sends notification when restore fails', function () {
-    config([
-        'notifications.enabled' => true,
-        'notifications.mail.to' => 'admin@example.com',
-    ]);
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production MySQL',

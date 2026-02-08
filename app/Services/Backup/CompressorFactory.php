@@ -3,6 +3,7 @@
 namespace App\Services\Backup;
 
 use App\Enums\CompressionType;
+use App\Facades\AppConfig;
 
 class CompressorFactory
 {
@@ -15,8 +16,8 @@ class CompressorFactory
      */
     public function make(?CompressionType $type = null, ?int $level = null): CompressorInterface
     {
-        $type = $type ?? CompressionType::from(config('backup.compression'));
-        $level = $level ?? (int) config('backup.compression_level');
+        $type = $type ?? CompressionType::from(AppConfig::get('backup.compression'));
+        $level = $level ?? (int) AppConfig::get('backup.compression_level');
 
         return match ($type) {
             CompressionType::GZIP => new GzipCompressor($this->shellProcessor, $level),

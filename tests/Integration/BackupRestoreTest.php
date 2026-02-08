@@ -8,6 +8,7 @@
  */
 
 use App\Enums\CompressionType;
+use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
@@ -50,7 +51,7 @@ afterEach(function () {
 
 test('client-server database backup and restore workflow', function (string $type, string $compression, string $expectedExt) {
     // Set compression method (and encryption key for encrypted backups)
-    config(['backup.compression' => $compression]);
+    AppConfig::set('backup.compression', $compression);
     if ($compression === 'encrypted') {
         config(['backup.encryption_key' => 'base64:'.base64_encode('0123456789abcdef0123456789abcdef')]);
     }
@@ -117,7 +118,7 @@ test('client-server database backup and restore workflow', function (string $typ
 
 test('sqlite backup and restore workflow', function () {
     // Create a test SQLite database with some data (use unique names for parallel testing)
-    $backupDir = config('backup.working_directory');
+    $backupDir = AppConfig::get('backup.working_directory');
     $suffix = IntegrationTestHelpers::getParallelSuffix();
     $sourceSqlitePath = "{$backupDir}/test_source{$suffix}.sqlite";
     $restoredSqlitePath = "{$backupDir}/test_restored_".hrtime(true)."{$suffix}.sqlite";

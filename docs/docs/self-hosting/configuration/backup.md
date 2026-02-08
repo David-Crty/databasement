@@ -4,46 +4,22 @@ sidebar_position: 3
 
 # Backup
 
-Configure backup behavior, schedules, compression, and storage settings.
+Backup settings (compression, schedules, timeouts, etc.) can be configured directly from the **Configuration** page in the web UI.
 
-## Backup Configuration
-
-| Variable                   | Description                                               | Default                      |
-| -------------------------- | --------------------------------------------------------- | ---------------------------- |
-| `BACKUP_WORKING_DIRECTORY` | Temporary directory for backup operations                 | `/tmp/backups`               |
-| `BACKUP_COMPRESSION`       | Compression algorithm: `gzip`, `zstd`, or `encrypted`     | `gzip`                       |
-| `BACKUP_COMPRESSION_LEVEL` | Compression level (1-9 for gzip/encrypted, 1-19 for zstd) | `6`                          |
-| `BACKUP_ENCRYPTION_KEY`    | Encryption key for encrypted backups (AES-256)            | `env('APP_KEY')`             |
-| `BACKUP_JOB_TIMEOUT`       | Maximum seconds a backup/restore job can run              | `7200` (2 hours)             |
-| `BACKUP_JOB_TRIES`         | Number of times to retry failed jobs                      | `3`                          |
-| `BACKUP_JOB_BACKOFF`       | Seconds to wait before retrying                           | `60`                         |
-| `BACKUP_DAILY_CRON`        | Cron schedule for daily backups                           | `0 2 * * *` (2:00 AM)        |
-| `BACKUP_WEEKLY_CRON`       | Cron schedule for weekly backups                          | `0 3 * * 0` (Sunday 3:00 AM) |
-| `BACKUP_CLEANUP_CRON`      | Cron schedule for snapshot cleanup                        | `0 4 * * *` (4:00 AM)        |
-| `BACKUP_VERIFY_FILES`      | Enable scheduled file verification                        | `true`                       |
-| `BACKUP_VERIFY_FILES_CRON` | Cron schedule for file verification                       | `0 5 * * *` (5:00 AM)        |
-
-## Compression Options
-
-By default, backups are compressed with **gzip** for maximum compatibility. You can switch to **zstd** for better compression ratios, or **encrypted** for AES-256 encrypted backups.
-
-| Method           | CLI Tool | File Extension | Encrypted     |
-| ---------------- | -------- | -------------- | ------------- |
-| `gzip` (default) | `gzip`   | `.gz`          | No            |
-| `zstd`           | `zstd`   | `.zst`         | No            |
-| `encrypted`      | `7z`     | `.7z`          | Yes (AES-256) |
-
-:::note
-**zstd** typically provides 20-40% better compression than gzip at similar speeds. The default level of 6 provides a good balance between compression ratio and speed for both algorithms.
-:::
+This page covers additional setup that requires environment variables.
 
 ## Encrypted Backups
 
 When using `encrypted` compression, backups are encrypted with AES-256 using 7-Zip. The encryption key defaults to `APP_KEY`, but you can set a dedicated key:
 
 ```bash
-BACKUP_COMPRESSION=encrypted
-BACKUP_ENCRYPTION_KEY=base64:your-32-byte-key-here  # Optional, defaults to APP_KEY
+BACKUP_ENCRYPTION_KEY=base64:your-32-byte-key-here
+```
+
+You can generate a key with:
+
+```bash
+echo "base64:$(openssl rand -base64 32)"
 ```
 
 :::warning
@@ -54,7 +30,7 @@ If you change the encryption key, you will not be able to restore backups that w
 
 Databasement supports AWS S3 and S3-compatible storage (MinIO, DigitalOcean Spaces, etc.) for backup volumes.
 
-We use ENV variables to configure the S3 client.
+We use environment variables to configure the S3 client.
 
 ### S3 IAM Permissions
 
@@ -137,7 +113,6 @@ AWS_S3_PROFILE=my-s3-profile
 | `AWS_ENDPOINT_URL_STS`        | Custom STS endpoint URL                         | -              |
 | `AWS_STS_PROFILE`             | AWS credential profile for STS                  | -              |
 
-
 ### Show AWS Configuration
 
 Debug the aws configuration by running:
@@ -146,23 +121,3 @@ php artisan config:show aws
 ```
 
 This is where we create the S3 client: [app/Services/Backup/Filesystems/Awss3Filesystem.php](https://github.com/David-Crty/databasement/blob/main/app/Services/Backup/Filesystems/Awss3Filesystem.php)
-
-## Complete Example
-
-Here's a complete backup configuration example:
-
-```bash
-# Backup settings
-BACKUP_COMPRESSION=zstd
-BACKUP_COMPRESSION_LEVEL=6
-BACKUP_JOB_TIMEOUT=3600
-BACKUP_JOB_TRIES=3
-
-# S3 storage (MinIO example)
-AWS_ENDPOINT_URL_S3=http://minio:9000
-AWS_PUBLIC_ENDPOINT_URL_S3=https://minio.yourdomain.com
-AWS_USE_PATH_STYLE_ENDPOINT=true
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_REGION=us-east-1
-```

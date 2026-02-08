@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CompressionType;
+use App\Facades\AppConfig;
 use App\Services\Backup\CompressorFactory;
 use App\Services\Backup\EncryptedCompressor;
 use App\Services\Backup\GzipCompressor;
@@ -29,10 +30,8 @@ test('factory creates correct compressor and generates expected commands', funct
 ]);
 
 test('factory creates correct compressor from config', function (string $configValue, string $expectedClass) {
-    config([
-        'backup.compression' => $configValue,
-        'backup.compression_level' => 6,
-    ]);
+    AppConfig::set('backup.compression', $configValue);
+    AppConfig::set('backup.compression_level', 6);
 
     $factory = new CompressorFactory($this->shellProcessor);
     $compressor = $factory->make();

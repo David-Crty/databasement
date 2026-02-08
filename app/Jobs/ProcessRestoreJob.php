@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Facades\AppConfig;
 use App\Models\Restore;
 use App\Services\Backup\RestoreTask;
 use App\Services\FailureNotificationService;
@@ -28,9 +29,9 @@ class ProcessRestoreJob implements ShouldQueue
     public function __construct(
         public string $restoreId
     ) {
-        $this->timeout = config('backup.job_timeout');
-        $this->backoff = config('backup.job_backoff');
-        $this->tries = config('backup.job_tries');
+        $this->timeout = AppConfig::get('backup.job_timeout');
+        $this->backoff = AppConfig::get('backup.job_backoff');
+        $this->tries = AppConfig::get('backup.job_tries');
         $this->onQueue('backups');
     }
 
