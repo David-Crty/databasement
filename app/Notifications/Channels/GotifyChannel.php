@@ -5,6 +5,7 @@ namespace App\Notifications\Channels;
 use App\Facades\AppConfig;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class GotifyChannel
 {
@@ -20,8 +21,15 @@ class GotifyChannel
             return;
         }
 
-        Http::timeout(10)
+        $response = Http::timeout(10)
             ->withHeader('X-Gotify-Key', $token)
             ->post(rtrim($url, '/').'/message', $payload);
+
+        if ($response->failed()) {
+            Log::error('Gotify notification failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        }
     }
 }

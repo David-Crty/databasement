@@ -15,6 +15,7 @@ use App\Services\FailureNotificationService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Notifications\Slack\SlackMessage;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use NotificationChannels\Discord\DiscordMessage;
 use NotificationChannels\Pushover\PushoverChannel;
@@ -273,6 +274,35 @@ test('custom channel sends HTTP request', function (string $channelClass, array 
             && $request->hasHeader('X-Webhook-Token', 'my-secret')
             && $request->hasHeader('X-Webhook-Event', 'BackupFailedNotification')
             && str_contains($request['title'], 'Backup Failed'),
+    ],
+]);
+
+test('custom channel logs on HTTP failure without throwing', function (string $channelClass, array $config, string $expectedLogMessage) {
+    Http::fake(fn () => Http::response('Server Error', 500));
+
+    foreach ($config as $key => $value) {
+        AppConfig::set($key, $value);
+    }
+
+    $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
+    $snapshot = createTestSnapshot($server);
+    $notification = new BackupFailedNotification($snapshot, new \Exception('Test error'));
+
+    Log::shouldReceive('error')
+        ->once()
+        ->withArgs(fn (string $message, array $context) => $message === $expectedLogMessage && $context['status'] === 500);
+
+    (new $channelClass)->send((object) [], $notification);
+})->with([
+    'gotify' => [
+        GotifyChannel::class,
+        ['notifications.gotify.url' => 'https://gotify.example.com', 'notifications.gotify.token' => 'app-token'],
+        'Gotify notification failed',
+    ],
+    'webhook' => [
+        WebhookChannel::class,
+        ['notifications.webhook.url' => 'https://webhook.example.com/hook'],
+        'Webhook notification failed',
     ],
 ]);
 

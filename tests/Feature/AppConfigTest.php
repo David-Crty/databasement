@@ -108,9 +108,13 @@ test('get returns explicit default when row is missing', function () {
     expect(AppConfig::get('backup.compression', 'gzip'))->toBe('gzip');
 });
 
-test('get falls back to DEFAULTS constant when row is missing', function () {
+test('get falls back to CONFIG defaults when row is missing', function () {
     AppConfigModel::where('id', 'backup.compression')->delete();
     AppConfig::flush();
 
     expect(AppConfig::get('backup.compression'))->toBe('gzip');
 });
+
+test('set throws on unknown config key', function () {
+    AppConfig::set('nonexistent.key', 'value');
+})->throws(InvalidArgumentException::class, 'Unknown config key [nonexistent.key]');

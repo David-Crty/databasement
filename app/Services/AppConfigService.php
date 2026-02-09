@@ -46,7 +46,7 @@ class AppConfigService
     /**
      * Get a config value by key.
      *
-     * Checks in-memory cache first, then DB, then falls back to DEFAULTS.
+     * Checks in-memory cache first, then DB, then falls back to CONFIG defaults.
      */
     public function get(string $key, mixed $default = null): mixed
     {
@@ -81,7 +81,11 @@ class AppConfigService
             $value = trim($value);
         }
 
-        $schema = self::CONFIG[$key] ?? ['type' => 'string', 'is_sensitive' => false];
+        if (! array_key_exists($key, self::CONFIG)) {
+            throw new \InvalidArgumentException("Unknown config key [{$key}]. Add it to AppConfigService::CONFIG.");
+        }
+
+        $schema = self::CONFIG[$key];
 
         $row = AppConfig::updateOrCreate(
             ['id' => $key],
