@@ -7,6 +7,8 @@ use Illuminate\Notifications\Slack\BlockKit\Blocks\ContextBlock;
 use Illuminate\Notifications\Slack\BlockKit\Blocks\SectionBlock;
 use Illuminate\Notifications\Slack\SlackMessage;
 use NotificationChannels\Discord\DiscordMessage;
+use NotificationChannels\Pushover\PushoverMessage;
+use NotificationChannels\Telegram\TelegramMessage;
 
 class FailedNotificationMessage
 {
@@ -79,5 +81,81 @@ class FailedNotificationMessage
                 'fields' => $embedFields,
                 'footer' => ['text' => $this->footerText],
             ]);
+    }
+
+    public function toTelegram(string $chatId): TelegramMessage
+    {
+        $lines = ['<b>'.e($this->title).'</b>', '', e($this->body), ''];
+
+        foreach ($this->fields as $label => $value) {
+            $lines[] = '<b>'.e($label).':</b> '.e($value);
+        }
+
+        $lines[] = '';
+        $lines[] = '<b>'.e($this->errorLabel).':</b>';
+        $lines[] = '<code>'.e($this->errorMessage).'</code>';
+        $lines[] = '';
+        $lines[] = '<i>'.e($this->footerText).'</i>';
+
+        return TelegramMessage::create(implode("\n", $lines))
+            ->to($chatId)
+            ->options(['parse_mode' => 'HTML'])
+            ->button($this->actionText, $this->actionUrl);
+    }
+
+    public function toPushover(): PushoverMessage
+    {
+        $lines = [$this->body, ''];
+
+        foreach ($this->fields as $label => $value) {
+            $lines[] = "{$label}: {$value}";
+        }
+
+        $lines[] = '';
+        $lines[] = "{$this->errorLabel}: {$this->errorMessage}";
+
+        return PushoverMessage::create(implode("\n", $lines))
+            ->title($this->title)
+            ->highPriority()
+            ->url($this->actionUrl, $this->actionText);
+    }
+
+    /**
+     * @return array{title: string, message: string, priority: int}
+     */
+    public function toGotify(): array
+    {
+        $lines = [$this->body, ''];
+
+        foreach ($this->fields as $label => $value) {
+            $lines[] = "{$label}: {$value}";
+        }
+
+        $lines[] = '';
+        $lines[] = "{$this->errorLabel}: {$this->errorMessage}";
+        $lines[] = '';
+        $lines[] = "{$this->actionText}: {$this->actionUrl}";
+
+        return [
+            'title' => $this->title,
+            'message' => implode("\n", $lines),
+            'priority' => 8,
+        ];
+    }
+
+    /**
+     * @return array{event: string, title: string, body: string, fields: array<string, string>, error: string, action_url: string, timestamp: string}
+     */
+    public function toWebhook(): array
+    {
+        return [
+            'event' => 'notification.failed',
+            'title' => $this->title,
+            'body' => $this->body,
+            'fields' => $this->fields,
+            'error' => $this->errorMessage,
+            'action_url' => $this->actionUrl,
+            'timestamp' => now()->toIso8601String(),
+        ];
     }
 }

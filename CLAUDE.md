@@ -248,6 +248,36 @@ The volume system uses dynamic class resolution based on the type value. Use exi
 - **Connection Testing**: Works automatically via `FilesystemProvider` if your filesystem implements `FilesystemInterface`
 - **BaseConfig**: All config components extend `BaseConfig` which handles mounting, validation, and rendering
 
+### Adding a New Notification Channel
+
+The notification system uses a delegation pattern: concrete notifications extend `BaseFailedNotification` and inherit all channel support. Adding a new channel requires no changes to concrete notification classes.
+
+#### Files to Update
+
+**Core:**
+- `app/Notifications/FailedNotificationMessage.php` - Add `to{Channel}()` rendering method
+- `app/Notifications/BaseFailedNotification.php` - Add `to{Channel}()` delegation method, add entry to `CHANNEL_MAP`
+- `app/Services/FailureNotificationService.php` - Add route to `getNotificationRoutes()`
+- `app/Services/AppConfigService.php` - Add keys to `AppConfigService::CONFIG` (each key defines its default, type, and sensitivity)
+
+**Custom Channels** (if not using an existing package):
+- `app/Notifications/Channels/{Channel}Channel.php` - Create class with `send()` method
+
+**Configuration UI:**
+- `app/Livewire/Forms/ConfigurationForm.php` - Add properties, load/save/rules logic
+- `app/Livewire/Configuration/Index.php` - Add to `getChannelOptions()`
+- `resources/views/livewire/configuration/index.blade.php` - Add conditional field section
+
+**Boot-time config** (if package reads from `config/services.php`):
+- `app/Providers/AppServiceProvider.php` - Register config from AppConfig at boot
+
+**Tests:**
+- `tests/Feature/Notifications/FailureNotificationTest.php` - Add rendering and routing tests
+- `tests/Feature/ConfigurationTest.php` - Add save/deselect/pre-select tests
+
+**Optional:**
+- `composer.json` - Add notification channel package if needed
+
 ### Working with Livewire Components
 
 - Public properties are automatically bound to views
@@ -340,7 +370,7 @@ This project has domain-specific skills available. You MUST activate the relevan
 
 ## Frontend Bundling
 
-- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`.
+- If the user doesn't see a frontend change reflected in the UI, it could mean they need to run `npm run build`, `npm run dev`, or `composer run dev`. Ask them.
 
 ## Documentation Files
 
@@ -430,7 +460,7 @@ protected function isAccessible(User $user, ?string $path = null): bool
 # Test Enforcement
 
 - Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `make test-filter FILTER=<name>` to run specific tests.
+- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
 
 === laravel/core rules ===
 
@@ -525,14 +555,15 @@ protected function isAccessible(User $user, ?string $path = null): bool
 
 # Laravel Pint Code Formatter
 
-- Run `make lint-fix` before finalizing changes to ensure your code matches the project's expected style.
+- You must run `vendor/bin/pint --dirty` before finalizing changes to ensure your code matches the project's expected style.
+- Do not run `vendor/bin/pint --test`, simply run `vendor/bin/pint` to fix any formatting issues.
 
 === pest/core rules ===
 
 ## Pest
 
-- This project uses Pest for testing. Create tests via Docker: `docker compose exec --user application -T app php artisan make:test --pest {name}`.
-- Run tests: `make test` or filter: `make test-filter FILTER=<name>`.
+- This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
+- Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
 - Do NOT delete tests without approval.
 - CRITICAL: ALWAYS use `search-docs` tool for version-specific Pest documentation and updated code examples.
 - IMPORTANT: Activate `pest-testing` every time you're working with a Pest or testing-related task.

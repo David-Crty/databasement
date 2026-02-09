@@ -90,7 +90,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->registerDiscordNotificationConfig();
+        $this->registerNotificationServiceConfigs();
         $this->ensureBackupTmpFolderExists();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
@@ -114,17 +114,23 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register Discord notification config for the laravel-notification-channels/discord package.
-     *
-     * Maps AppConfig discord settings to config/services.php format
-     * that the Discord notification package expects.
+     * Register notification channel tokens in config/services.php format
+     * that the third-party notification packages expect at boot time.
      */
-    private function registerDiscordNotificationConfig(): void
+    private function registerNotificationServiceConfigs(): void
     {
-        $token = AppConfig::get('notifications.discord.token');
+        $tokenMap = [
+            'notifications.discord.token' => 'services.discord.token',
+            'notifications.telegram.bot_token' => 'services.telegram-bot-api.token',
+            'notifications.pushover.token' => 'services.pushover.token',
+        ];
 
-        if ($token) {
-            config(['services.discord.token' => $token]);
+        foreach ($tokenMap as $appConfigKey => $servicesConfigKey) {
+            $token = AppConfig::get($appConfigKey);
+
+            if ($token) {
+                config([$servicesConfigKey => $token]);
+            }
         }
     }
 

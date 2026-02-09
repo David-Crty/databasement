@@ -48,6 +48,10 @@ class FailureNotificationService
     }
 
     /**
+     * Routes determine which channels are active (null values are filtered out).
+     * For custom channels (gotify, webhook), the route value acts as an enabled flag —
+     * the channel classes fetch their full config (tokens, secrets) from AppConfig directly.
+     *
      * @return array<string, string>
      */
     public function getNotificationRoutes(): array
@@ -56,6 +60,10 @@ class FailureNotificationService
             'mail' => AppConfig::get('notifications.mail.to'),
             'slack' => AppConfig::get('notifications.slack.webhook_url'),
             'discord' => AppConfig::get('notifications.discord.channel_id'),
+            'telegram' => AppConfig::get('notifications.telegram.chat_id'),
+            'pushover' => AppConfig::get('notifications.pushover.user_key'),
+            'gotify' => AppConfig::get('notifications.gotify.url'),
+            'webhook' => AppConfig::get('notifications.webhook.url'),
         ]);
     }
 }

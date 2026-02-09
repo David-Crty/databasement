@@ -10,29 +10,37 @@ class AppConfigService
     private array $cache = [];
 
     /**
-     * Default values for all known config keys.
+     * Config key definitions: type, sensitivity, and default value.
      *
-     * Used as a fallback when the DB row is missing (e.g. pre-migration).
+     * Used for fallback defaults (pre-migration) and auto-creating rows on `set()`.
      *
-     * @var array<string, mixed>
+     * @var array<string, array{type: string, is_sensitive: bool, default: mixed}>
      */
-    private const array DEFAULTS = [
-        'backup.working_directory' => '/tmp/backups',
-        'backup.compression' => 'gzip',
-        'backup.compression_level' => 6,
-        'backup.job_timeout' => 7200,
-        'backup.job_tries' => 3,
-        'backup.job_backoff' => 60,
-        'backup.daily_cron' => '0 2 * * *',
-        'backup.weekly_cron' => '0 3 * * 0',
-        'backup.cleanup_cron' => '0 4 * * *',
-        'backup.verify_files' => true,
-        'backup.verify_files_cron' => '0 5 * * *',
-        'notifications.enabled' => false,
-        'notifications.mail.to' => null,
-        'notifications.slack.webhook_url' => null,
-        'notifications.discord.token' => null,
-        'notifications.discord.channel_id' => null,
+    private const array CONFIG = [
+        'backup.working_directory' => ['type' => 'string', 'is_sensitive' => false, 'default' => '/tmp/backups'],
+        'backup.compression' => ['type' => 'string', 'is_sensitive' => false, 'default' => 'gzip'],
+        'backup.compression_level' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 6],
+        'backup.job_timeout' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 7200],
+        'backup.job_tries' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 3],
+        'backup.job_backoff' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 60],
+        'backup.daily_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 2 * * *'],
+        'backup.weekly_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 3 * * 0'],
+        'backup.cleanup_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 4 * * *'],
+        'backup.verify_files' => ['type' => 'boolean', 'is_sensitive' => false, 'default' => true],
+        'backup.verify_files_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 5 * * *'],
+        'notifications.enabled' => ['type' => 'boolean', 'is_sensitive' => false, 'default' => false],
+        'notifications.mail.to' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
+        'notifications.slack.webhook_url' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
+        'notifications.discord.token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
+        'notifications.discord.channel_id' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
+        'notifications.telegram.bot_token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
+        'notifications.telegram.chat_id' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
+        'notifications.pushover.token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
+        'notifications.pushover.user_key' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
+        'notifications.gotify.url' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
+        'notifications.gotify.token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
+        'notifications.webhook.url' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
+        'notifications.webhook.secret' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
     ];
 
     /**
@@ -59,11 +67,13 @@ class AppConfigService
             // Table may not exist yet (pre-migration) — fall through to defaults
         }
 
-        return $default ?? self::DEFAULTS[$key] ?? null;
+        return $default ?? self::CONFIG[$key]['default'] ?? null;
     }
 
     /**
      * Set a config value by key.
+     *
+     * Auto-creates the row from CONFIG if it doesn't exist yet.
      */
     public function set(string $key, mixed $value): void
     {
@@ -71,13 +81,18 @@ class AppConfigService
             $value = trim($value);
         }
 
-        $row = AppConfig::findOrFail($key);
+        $schema = self::CONFIG[$key] ?? ['type' => 'string', 'is_sensitive' => false];
 
-        $row->update([
-            'value' => AppConfig::prepareValue($value, $row->is_sensitive),
-        ]);
+        $row = AppConfig::updateOrCreate(
+            ['id' => $key],
+            [
+                'value' => AppConfig::prepareValue($value, $schema['is_sensitive']),
+                'type' => $schema['type'],
+                'is_sensitive' => $schema['is_sensitive'],
+            ]
+        );
 
-        $this->cache[$key] = $row->refresh()->getCastedValue();
+        $this->cache[$key] = $row->getCastedValue();
     }
 
     /**

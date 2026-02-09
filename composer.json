@@ -17,6 +17,8 @@
         "dedoc/scramble": "^0.13.8",
         "kovah/laravel-socialite-oidc": "^0.5.0",
         "laravel-notification-channels/discord": "^1.7",
+        "laravel-notification-channels/pushover": "^4.1",
+        "laravel-notification-channels/telegram": "^6.0",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^12.0",
         "laravel/octane": "^2.13",

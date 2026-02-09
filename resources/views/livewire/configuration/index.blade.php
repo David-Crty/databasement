@@ -198,6 +198,84 @@
                     </x-config-row>
                 @endif
 
+                @if (in_array('telegram', $form->channels))
+                    <x-hr class="my-2" />
+
+                    <x-config-row label="{{ __('Telegram Bot Token') }}">
+                        <x-slot:description>
+                            {{ __('Bot token from @BotFather for Telegram notifications.') }}
+                            @if ($form->has_telegram_bot_token)
+                                {{ __('Leave blank to keep the current value.') }}
+                            @endif
+                        </x-slot:description>
+                        <x-input wire:model.blur="form.telegram_bot_token" type="password" placeholder="{{ $form->has_telegram_bot_token ? '********' : '' }}" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+
+                    <x-config-row label="{{ __('Telegram Chat ID') }}" description="{{ __('The chat or group ID where failure notifications are sent.') }}">
+                        <x-input wire:model.blur="form.telegram_chat_id" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+                @endif
+
+                @if (in_array('pushover', $form->channels))
+                    <x-hr class="my-2" />
+
+                    <x-config-row label="{{ __('Pushover App Token') }}">
+                        <x-slot:description>
+                            {{ __('Application API token from Pushover.') }}
+                            @if ($form->has_pushover_token)
+                                {{ __('Leave blank to keep the current value.') }}
+                            @endif
+                        </x-slot:description>
+                        <x-input wire:model.blur="form.pushover_token" type="password" placeholder="{{ $form->has_pushover_token ? '********' : '' }}" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+
+                    <x-config-row label="{{ __('Pushover User Key') }}">
+                        <x-slot:description>
+                            {{ __('Your Pushover user or group key.') }}
+                            @if ($form->has_pushover_user_key)
+                                {{ __('Leave blank to keep the current value.') }}
+                            @endif
+                        </x-slot:description>
+                        <x-input wire:model.blur="form.pushover_user_key" type="password" placeholder="{{ $form->has_pushover_user_key ? '********' : '' }}" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+                @endif
+
+                @if (in_array('gotify', $form->channels))
+                    <x-hr class="my-2" />
+
+                    <x-config-row label="{{ __('Gotify Server URL') }}" description="{{ __('Base URL of your Gotify server (e.g. https://gotify.example.com).') }}">
+                        <x-input wire:model.blur="form.gotify_url" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+
+                    <x-config-row label="{{ __('Gotify App Token') }}">
+                        <x-slot:description>
+                            {{ __('Application token from your Gotify server.') }}
+                            @if ($form->has_gotify_token)
+                                {{ __('Leave blank to keep the current value.') }}
+                            @endif
+                        </x-slot:description>
+                        <x-input wire:model.blur="form.gotify_token" type="password" placeholder="{{ $form->has_gotify_token ? '********' : '' }}" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+                @endif
+
+                @if (in_array('webhook', $form->channels))
+                    <x-hr class="my-2" />
+
+                    <x-config-row label="{{ __('Webhook URL') }}" description="{{ __('URL that receives a JSON POST with notification details.') }}">
+                        <x-input wire:model.blur="form.webhook_url" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+
+                    <x-config-row label="{{ __('Webhook Secret') }}">
+                        <x-slot:description>
+                            {{ __('Optional secret. Sent as X-Webhook-Token header.') }}
+                            @if ($form->has_webhook_secret)
+                                {{ __('Leave blank to keep the current value.') }}
+                            @endif
+                        </x-slot:description>
+                        <x-input wire:model.blur="form.webhook_secret" type="password" placeholder="{{ $form->has_webhook_secret ? '********' : '' }}" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+                @endif
+
                 @if ($this->isAdmin)
                 <div class="flex items-center justify-end gap-2 border-t border-base-200/60 pt-6">
                     {{-- Send Test: disabled with popover when form is dirty or notifications are off --}}

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ba402e34d568221abd6c08ea13b5c8c7",
+    "content-hash": "6aedb2f419c4d836553d838bb1b6528a",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2133,6 +2133,145 @@
                 "source": "https://github.com/laravel-notification-channels/discord/tree/1.7.0"
             },
             "time": "2025-03-29T08:38:25+00:00"
+        },
+        {
+            "name": "laravel-notification-channels/pushover",
+            "version": "4.1.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/laravel-notification-channels/pushover.git",
+                "reference": "53be939273e79e832a417d5863c1d443f0b3c665"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/laravel-notification-channels/pushover/zipball/53be939273e79e832a417d5863c1d443f0b3c665",
+                "reference": "53be939273e79e832a417d5863c1d443f0b3c665",
+                "shasum": ""
+            },
+            "require": {
+                "guzzlehttp/guzzle": "^7.0.1",
+                "illuminate/notifications": "^8.0 || ^9.0 || ^10.0 || ^11.0 || ^12.0",
+                "illuminate/support": "^8.0 || ^9.0 || ^10.0 || ^11.0 || ^12.0",
+                "php": "^8.1"
+            },
+            "require-dev": {
+                "mockery/mockery": "^1.3.1",
+                "orchestra/testbench": "^6.0 || ^7.0 || ^8.0 || ^9.0 || ^10.0",
+                "phpunit/phpunit": "^9.3 || ^10.5 || ^11.5.3"
+            },
+            "suggest": {
+                "ext-exif": "Required for image attachment support"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "NotificationChannels\\Pushover\\PushoverServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "NotificationChannels\\Pushover\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Casper Boone",
+                    "email": "mail@casperboone.nl",
+                    "homepage": "https://casperboone.nl",
+                    "role": "Developer"
+                },
+                {
+                    "name": "Kevin Woblick",
+                    "email": "mail@woblick.dev",
+                    "homepage": "https://woblick.dev",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Pushover notifications for Laravel.",
+            "homepage": "https://github.com/laravel-notification-channels/pushover",
+            "support": {
+                "issues": "https://github.com/laravel-notification-channels/pushover/issues",
+                "source": "https://github.com/laravel-notification-channels/pushover/tree/4.1.2"
+            },
+            "time": "2025-09-09T09:14:17+00:00"
+        },
+        {
+            "name": "laravel-notification-channels/telegram",
+            "version": "6.0.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/laravel-notification-channels/telegram.git",
+                "reference": "289eb825f6c918b21bbda19bffb900d882c9647a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/laravel-notification-channels/telegram/zipball/289eb825f6c918b21bbda19bffb900d882c9647a",
+                "reference": "289eb825f6c918b21bbda19bffb900d882c9647a",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "guzzlehttp/guzzle": "^7.8",
+                "illuminate/contracts": "^11.0 || ^12.0",
+                "illuminate/notifications": "^11.0 || ^12.0",
+                "illuminate/support": "^11.0 || ^12.0",
+                "php": "^8.2"
+            },
+            "require-dev": {
+                "larastan/larastan": "^3.0",
+                "mockery/mockery": "^1.4.4",
+                "orchestra/testbench": "^10.0",
+                "pestphp/pest": "^3.0",
+                "pestphp/pest-plugin-laravel": "^3.0",
+                "phpstan/extension-installer": "^1.2",
+                "phpstan/phpstan-deprecation-rules": "^2.0",
+                "phpstan/phpstan-phpunit": "^2.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "NotificationChannels\\Telegram\\TelegramServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "NotificationChannels\\Telegram\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Irfaq Syed",
+                    "email": "github@lukonet.net",
+                    "homepage": "https://lukonet.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "Telegram Notifications Channel for Laravel",
+            "homepage": "https://github.com/laravel-notification-channels/telegram",
+            "keywords": [
+                "laravel",
+                "notification",
+                "telegram",
+                "telegram notification",
+                "telegram notifications channel"
+            ],
+            "support": {
+                "issues": "https://github.com/laravel-notification-channels/telegram/issues",
+                "source": "https://github.com/laravel-notification-channels/telegram/tree/6.0.0"
+            },
+            "time": "2025-02-25T22:59:13+00:00"
         },
         {
             "name": "laravel/fortify",

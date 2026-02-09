@@ -170,6 +170,10 @@ test('sendTestNotification shows error when no channels configured', function ()
     AppConfig::set('notifications.mail.to', null);
     AppConfig::set('notifications.slack.webhook_url', null);
     AppConfig::set('notifications.discord.channel_id', null);
+    AppConfig::set('notifications.telegram.chat_id', null);
+    AppConfig::set('notifications.pushover.user_key', null);
+    AppConfig::set('notifications.gotify.url', null);
+    AppConfig::set('notifications.webhook.url', null);
 
     $component = Livewire::actingAs(User::factory()->create(['role' => 'admin']))
         ->test(Index::class)
@@ -209,16 +213,118 @@ test('saving slack webhook persists and clears form field', function () {
     expect(AppConfig::get('notifications.slack.webhook_url'))->toBe('https://hooks.slack.com/services/new');
 });
 
-test('form pre-selects discord channel when discord config exists', function () {
-    AppConfig::set('notifications.discord.token', 'bot-token');
-    AppConfig::set('notifications.discord.channel_id', '123456');
+test('saving telegram config persists values', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->set('form.channels', ['telegram'])
+        ->set('form.telegram_bot_token', 'bot123:abc')
+        ->set('form.telegram_chat_id', '-100123456')
+        ->call('saveNotificationConfig')
+        ->assertHasNoErrors()
+        ->assertSet('form.has_telegram_bot_token', true)
+        ->assertSet('form.telegram_bot_token', '');
+
+    expect(AppConfig::get('notifications.telegram.chat_id'))->toBe('-100123456');
+});
+
+test('saving gotify config persists values', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->set('form.channels', ['gotify'])
+        ->set('form.gotify_url', 'https://gotify.example.com')
+        ->set('form.gotify_token', 'app-token-xyz')
+        ->call('saveNotificationConfig')
+        ->assertHasNoErrors()
+        ->assertSet('form.has_gotify_token', true)
+        ->assertSet('form.gotify_token', '');
+
+    expect(AppConfig::get('notifications.gotify.url'))->toBe('https://gotify.example.com');
+});
+
+test('saving pushover config persists values', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->set('form.channels', ['pushover'])
+        ->set('form.pushover_token', 'app-token-abc')
+        ->set('form.pushover_user_key', 'user-key-xyz')
+        ->call('saveNotificationConfig')
+        ->assertHasNoErrors()
+        ->assertSet('form.has_pushover_token', true)
+        ->assertSet('form.pushover_token', '');
+
+    expect(AppConfig::get('notifications.pushover.user_key'))->toBe('user-key-xyz');
+});
+
+test('saving webhook config persists values', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->set('form.channels', ['webhook'])
+        ->set('form.webhook_url', 'https://webhook.example.com/hook')
+        ->set('form.webhook_secret', 'my-secret')
+        ->call('saveNotificationConfig')
+        ->assertHasNoErrors()
+        ->assertSet('form.has_webhook_secret', true)
+        ->assertSet('form.webhook_secret', '');
+
+    expect(AppConfig::get('notifications.webhook.url'))->toBe('https://webhook.example.com/hook');
+});
+
+test('deselecting new channels nulls their values on save', function () {
+    AppConfig::set('notifications.telegram.bot_token', 'bot-token');
+    AppConfig::set('notifications.telegram.chat_id', '123');
+    AppConfig::set('notifications.pushover.token', 'push-token');
+    AppConfig::set('notifications.pushover.user_key', 'push-user');
+    AppConfig::set('notifications.gotify.url', 'https://gotify.example.com');
+    AppConfig::set('notifications.gotify.token', 'token');
+    AppConfig::set('notifications.webhook.url', 'https://webhook.example.com');
+    AppConfig::set('notifications.webhook.secret', 'secret');
+    AppConfig::flush();
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->set('form.channels', [])
+        ->call('saveNotificationConfig')
+        ->assertHasNoErrors();
+
+    expect(AppConfig::get('notifications.telegram.bot_token'))->toBeNull()
+        ->and(AppConfig::get('notifications.telegram.chat_id'))->toBeNull()
+        ->and(AppConfig::get('notifications.pushover.token'))->toBeNull()
+        ->and(AppConfig::get('notifications.pushover.user_key'))->toBeNull()
+        ->and(AppConfig::get('notifications.gotify.url'))->toBeNull()
+        ->and(AppConfig::get('notifications.gotify.token'))->toBeNull()
+        ->and(AppConfig::get('notifications.webhook.url'))->toBeNull()
+        ->and(AppConfig::get('notifications.webhook.secret'))->toBeNull();
+});
+
+test('form pre-selects channel when config exists', function (array $setup, string $channel) {
+    foreach ($setup as $key => $value) {
+        AppConfig::set($key, $value);
+    }
     AppConfig::flush();
 
     $component = Livewire::actingAs(User::factory()->create(['role' => 'admin']))
-        ->test(Index::class)
-        ->assertSet('form.has_discord_token', true)
-        ->assertSet('form.discord_channel_id', '123456')
-        ->assertSee('Configuration');
+        ->test(Index::class);
 
-    expect($component->get('form.channels'))->toContain('discord');
-});
+    expect($component->get('form.channels'))->toContain($channel);
+})->with([
+    'discord' => [
+        ['notifications.discord.token' => 'bot-token', 'notifications.discord.channel_id' => '123456'],
+        'discord',
+    ],
+    'telegram' => [
+        ['notifications.telegram.bot_token' => 'bot-token', 'notifications.telegram.chat_id' => '-100123'],
+        'telegram',
+    ],
+    'pushover' => [
+        ['notifications.pushover.token' => 'push-token', 'notifications.pushover.user_key' => 'user-key'],
+        'pushover',
+    ],
+    'gotify' => [
+        ['notifications.gotify.url' => 'https://gotify.example.com', 'notifications.gotify.token' => 'app-token'],
+        'gotify',
+    ],
+    'webhook' => [
+        ['notifications.webhook.url' => 'https://webhook.example.com/hook'],
+        'webhook',
+    ],
+]);

@@ -137,7 +137,7 @@ class Index extends Component
         $routes = $service->getNotificationRoutes();
 
         if (empty($routes)) {
-            $this->error(__('No notification channels configured. Please set at least one of: mail recipient, Slack webhook URL, or Discord bot token and channel ID.'), position: 'toast-bottom');
+            $this->error(__('No notification channels configured. Please configure at least one notification channel.'), position: 'toast-bottom');
 
             return;
         }
@@ -206,6 +206,10 @@ class Index extends Component
             ['id' => 'email', 'name' => __('Email')],
             ['id' => 'slack', 'name' => __('Slack')],
             ['id' => 'discord', 'name' => __('Discord')],
+            ['id' => 'telegram', 'name' => __('Telegram')],
+            ['id' => 'pushover', 'name' => __('Pushover')],
+            ['id' => 'gotify', 'name' => __('Gotify')],
+            ['id' => 'webhook', 'name' => __('Webhook')],
         ];
     }
 
