@@ -23,7 +23,7 @@
                     wire:model="form.description"
                     label="{{ __('Description') }}"
                     placeholder="{{ __('Brief description of this database server') }}"
-                    hint="{{ __('Notes for your team about this server\'s purpose') }}"
+                    :hint="__('Notes for your team about this server\'s purpose')"
                     rows="2"
                 />
             </div>
