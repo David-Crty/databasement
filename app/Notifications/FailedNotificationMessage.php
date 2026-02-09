@@ -146,10 +146,10 @@ class FailedNotificationMessage
     /**
      * @return array{event: string, title: string, body: string, fields: array<string, string>, error: string, action_url: string, timestamp: string}
      */
-    public function toWebhook(): array
+    public function toWebhook(string $event): array
     {
         return [
-            'event' => 'notification.failed',
+            'event' => $event,
             'title' => $this->title,
             'body' => $this->body,
             'fields' => $this->fields,

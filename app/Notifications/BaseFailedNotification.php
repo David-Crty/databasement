@@ -137,6 +137,6 @@ abstract class BaseFailedNotification extends Notification
      */
     public function toWebhook(object $notifiable): array
     {
-        return $this->getMessage()->toWebhook();
+        return $this->getMessage()->toWebhook(class_basename($this));
     }
 }

@@ -111,7 +111,7 @@ Notifications are sent as `POST` requests with a JSON body:
 
 ```json
 {
-  "event": "notification.failed",
+  "event": "BackupFailedNotification",
   "title": "Backup Failed: Production DB",
   "body": "A backup job has failed.",
   "fields": {
@@ -129,7 +129,6 @@ Notifications are sent as `POST` requests with a JSON body:
 | Header | Description |
 |--------|-------------|
 | `Content-Type` | `application/json` |
-| `X-Webhook-Event` | Notification class name (e.g., `BackupFailedNotification`) |
 | `X-Webhook-Token` | The configured secret (only if a secret is configured) |
 
 ### Tip: Using with Apprise

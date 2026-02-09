@@ -20,15 +20,8 @@ class WebhookChannel
             return;
         }
 
-        $headers = [
-            'X-Webhook-Event' => class_basename($notification),
-        ];
-
         $secret = AppConfig::get('notifications.webhook.secret');
-
-        if ($secret) {
-            $headers['X-Webhook-Token'] = $secret;
-        }
+        $headers = $secret ? ['X-Webhook-Token' => $secret] : [];
 
         $response = Http::timeout(10)->withHeaders($headers)->post($url, $payload);
 

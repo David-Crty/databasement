@@ -237,7 +237,7 @@ test('notification renders channel correctly', function (Closure $assert) {
     'webhook' => [function (BackupFailedNotification $notification) {
         $webhook = $notification->toWebhook((object) []);
         expect($webhook)->toBeArray()
-            ->and($webhook['event'])->toBe('notification.failed')
+            ->and($webhook['event'])->toBe('BackupFailedNotification')
             ->and($webhook['title'])->toContain('Backup Failed')
             ->and($webhook['error'])->toBe('Test error')
             ->and($webhook['action_url'])->toBeString()
@@ -272,7 +272,7 @@ test('custom channel sends HTTP request', function (string $channelClass, array 
         ['notifications.webhook.url' => 'https://webhook.example.com/hook', 'notifications.webhook.secret' => 'my-secret'],
         fn (Request $request) => $request->url() === 'https://webhook.example.com/hook'
             && $request->hasHeader('X-Webhook-Token', 'my-secret')
-            && $request->hasHeader('X-Webhook-Event', 'BackupFailedNotification')
+            && $request['event'] === 'BackupFailedNotification'
             && str_contains($request['title'], 'Backup Failed'),
     ],
 ]);
