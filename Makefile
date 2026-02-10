@@ -1,4 +1,4 @@
-.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter backup-test lint-check lint-fix lint migrate migrate-fresh db-seed setup clean import-db docs docs-build
+.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -93,6 +93,15 @@ docs-build: ## Build documentation for production (Docusaurus)
 	cd docs && $(NPM_EXEC) install && $(NPM_EXEC) run build
 
 ##@ Database
+
+migrate-fresh: ## Drop all tables and re-migrate
+	$(PHP_ARTISAN) migrate:fresh
+
+migrate-fresh-seed: ## Drop all tables, re-migrate and seed
+	$(PHP_ARTISAN) migrate:fresh --seed
+
+db-seed: ## Run database seeders
+	$(PHP_ARTISAN) db:seed
 
 import-db: ## Import a gzipped SQL dump into local MySQL (usage: make import-db FILE=/path/to/dump.sql.gz)
 	@if [ -z "$(FILE)" ]; then \
