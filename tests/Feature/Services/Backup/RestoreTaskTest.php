@@ -71,7 +71,7 @@ function createRestoreDatabaseServer(array $attributes): DatabaseServer
     $databaseServer = DatabaseServer::create($attributes);
 
     $backup = Backup::create([
-        'recurrence' => 'daily',
+        'backup_schedule_id' => dailySchedule()->id,
         'volume_id' => $volume->id,
         'database_server_id' => $databaseServer->id,
     ]);

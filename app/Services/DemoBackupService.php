@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Backup;
+use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
 use RuntimeException;
@@ -37,14 +38,13 @@ class DemoBackupService
             ],
         ]);
 
-        $description = 'Demo database';
         // Create database server entry based on type
         if ($databaseType === 'sqlite') {
             $databaseServer = DatabaseServer::create([
                 'name' => 'Databasement Database',
                 'database_type' => 'sqlite',
                 'sqlite_path' => $dbConfig['database'],
-                'description' => $description,
+                'description' => 'Demo database',
             ]);
         } else {
             $databaseServer = DatabaseServer::create([
@@ -55,15 +55,20 @@ class DemoBackupService
                 'username' => $dbConfig['username'] ?? '',
                 'password' => $dbConfig['password'] ?? '',
                 'database_names' => [$dbConfig['database'] ?? 'databasement'],
-                'description' => $description,
+                'description' => 'Demo database',
             ]);
         }
 
         // Create backup configuration
+        $dailySchedule = BackupSchedule::firstOrCreate(
+            ['name' => 'Daily'],
+            ['expression' => '0 2 * * *'],
+        );
+
         Backup::create([
             'database_server_id' => $databaseServer->id,
             'volume_id' => $volume->id,
-            'recurrence' => 'daily',
+            'backup_schedule_id' => $dailySchedule->id,
             'retention_days' => 14,
         ]);
 

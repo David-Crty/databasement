@@ -114,8 +114,8 @@
                         <x-volume-type-icon :type="$server->backup->volume->type" class="w-4 h-4 text-base-content/70" />
                         {{ $server->backup->volume->name }}
                     </div>
-                    <div class="text-sm text-base-content/70 capitalize">
-                        {{ $server->backup->recurrence }}
+                    <div class="text-sm text-base-content/70">
+                        {{ $server->backup->backupSchedule->name }}
                         @if($server->backup->retention_policy === 'gfs')
                             <span class="text-info">(GFS: {{ $server->backup->gfs_keep_daily ?? 0 }}d/{{ $server->backup->gfs_keep_weekly ?? 0 }}w/{{ $server->backup->gfs_keep_monthly ?? 0 }}m)</span>
                         @elseif($server->backup->retention_policy === 'forever')

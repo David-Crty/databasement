@@ -2,6 +2,8 @@
 
 use App\Facades\AppConfig;
 use App\Livewire\Configuration\Index;
+use App\Models\BackupSchedule;
+use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Notifications\BackupFailedNotification;
 use App\Services\FailureNotificationService;
@@ -103,9 +105,9 @@ test('validation rejects invalid backup values', function () {
         ->set('form.compression', 'invalid')
         ->set('form.compression_level', 0)
         ->set('form.job_timeout', 10)
-        ->set('form.daily_cron', 'not a cron')
+        ->set('form.cleanup_cron', 'not a cron')
         ->call('saveBackupConfig')
-        ->assertHasErrors(['form.compression', 'form.compression_level', 'form.job_timeout', 'form.daily_cron']);
+        ->assertHasErrors(['form.compression', 'form.compression_level', 'form.job_timeout', 'form.cleanup_cron']);
 });
 
 test('validation rejects invalid notification values', function () {
@@ -325,3 +327,101 @@ test('form pre-selects channel when config exists', function (array $setup, stri
         'webhook',
     ],
 ]);
+
+// Backup Schedule CRUD tests
+
+test('admin can create a backup schedule', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('openScheduleModal')
+        ->assertSet('showScheduleModal', true)
+        ->set('form.schedule_name', 'Every 3 Hours')
+        ->set('form.schedule_expression', '0 */3 * * *')
+        ->call('saveSchedule')
+        ->assertHasNoErrors()
+        ->assertSet('showScheduleModal', false);
+
+    $this->assertDatabaseHas('backup_schedules', [
+        'name' => 'Every 3 Hours',
+        'expression' => '0 */3 * * *',
+    ]);
+});
+
+test('admin can edit a backup schedule', function () {
+    $schedule = BackupSchedule::factory()->create([
+        'name' => 'Old Name',
+        'expression' => '0 1 * * *',
+    ]);
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('openScheduleModal', $schedule->id)
+        ->assertSet('form.schedule_name', 'Old Name')
+        ->assertSet('form.schedule_expression', '0 1 * * *')
+        ->set('form.schedule_name', 'Updated Name')
+        ->set('form.schedule_expression', '0 6 * * *')
+        ->call('saveSchedule')
+        ->assertHasNoErrors();
+
+    expect($schedule->fresh()->name)->toBe('Updated Name')
+        ->and($schedule->fresh()->expression)->toBe('0 6 * * *');
+});
+
+test('admin can delete an unused backup schedule', function () {
+    $schedule = BackupSchedule::factory()->create(['name' => 'To Delete']);
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('confirmDeleteSchedule', $schedule->id)
+        ->assertSet('showDeleteScheduleModal', true)
+        ->call('deleteSchedule')
+        ->assertSet('showDeleteScheduleModal', false);
+
+    $this->assertDatabaseMissing('backup_schedules', ['id' => $schedule->id]);
+});
+
+test('cannot delete a backup schedule that is in use', function () {
+    $server = DatabaseServer::factory()->create();
+    $schedule = $server->backup->backupSchedule;
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('confirmDeleteSchedule', $schedule->id)
+        ->call('deleteSchedule');
+
+    $this->assertDatabaseHas('backup_schedules', ['id' => $schedule->id]);
+});
+
+test('schedule name must be unique', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('openScheduleModal')
+        ->set('form.schedule_name', 'Daily')
+        ->set('form.schedule_expression', '0 2 * * *')
+        ->call('saveSchedule')
+        ->assertHasErrors(['form.schedule_name']);
+});
+
+test('schedule requires valid cron expression', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('openScheduleModal')
+        ->set('form.schedule_name', 'Bad Cron')
+        ->set('form.schedule_expression', 'not valid')
+        ->call('saveSchedule')
+        ->assertHasErrors(['form.schedule_expression']);
+});
+
+test('non-admin cannot create schedule', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'member']))
+        ->test(Index::class)
+        ->call('saveSchedule')
+        ->assertForbidden();
+});
+
+test('non-admin cannot delete schedule', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'member']))
+        ->test(Index::class)
+        ->call('deleteSchedule')
+        ->assertForbidden();
+});

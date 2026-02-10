@@ -104,10 +104,12 @@ class IntegrationTestHelpers
      */
     public static function createBackup(DatabaseServer $server, Volume $volume): Backup
     {
+        $schedule = dailySchedule();
+
         return Backup::create([
             'database_server_id' => $server->id,
             'volume_id' => $volume->id,
-            'recurrence' => 'manual',
+            'backup_schedule_id' => $schedule->id,
         ]);
     }
 

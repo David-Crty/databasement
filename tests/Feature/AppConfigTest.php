@@ -24,8 +24,6 @@ test('get returns default values', function () {
         ->and(AppConfig::get('backup.job_timeout'))->toBe(7200)
         ->and(AppConfig::get('backup.job_tries'))->toBe(3)
         ->and(AppConfig::get('backup.job_backoff'))->toBe(60)
-        ->and(AppConfig::get('backup.daily_cron'))->toBe('0 2 * * *')
-        ->and(AppConfig::get('backup.weekly_cron'))->toBe('0 3 * * 0')
         ->and(AppConfig::get('backup.cleanup_cron'))->toBe('0 4 * * *')
         ->and(AppConfig::get('backup.verify_files'))->toBeTrue()
         ->and(AppConfig::get('backup.verify_files_cron'))->toBe('0 5 * * *')

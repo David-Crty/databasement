@@ -38,7 +38,7 @@ class DatabaseServerController extends Controller
      */
     public function show(DatabaseServer $databaseServer): DatabaseServerResource
     {
-        $databaseServer->load(['backup.volume']);
+        $databaseServer->load(['backup.volume', 'backup.backupSchedule']);
 
         return new DatabaseServerResource($databaseServer);
     }
@@ -52,7 +52,7 @@ class DatabaseServerController extends Controller
      */
     public function backup(DatabaseServer $databaseServer, TriggerBackupAction $action): JsonResponse
     {
-        $databaseServer->load(['backup.volume']);
+        $databaseServer->load(['backup.volume', 'backup.backupSchedule']);
 
         $this->authorize('backup', $databaseServer);
 

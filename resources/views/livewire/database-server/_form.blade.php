@@ -275,20 +275,37 @@
                         icon="o-folder"
                     />
 
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <x-select
-                            wire:model.live="form.retention_policy"
-                            label="{{ __('Retention Policy') }}"
-                            :options="$form->getRetentionPolicyOptions()"
-                        />
+                    <x-select
+                        wire:model="form.backup_schedule_id"
+                        label="{{ __('Backup Schedule') }}"
+                        :options="$form->getScheduleOptions()"
+                        placeholder="{{ __('Select a schedule') }}"
+                        placeholder-value=""
+                        required
+                    >
+                        <x-slot:append>
+                            <x-button
+                                wire:click="refreshSchedules"
+                                icon="o-arrow-path"
+                                class="btn-ghost join-item"
+                                tooltip-bottom="{{ __('Refresh schedule list') }}"
+                                spinner
+                            />
+                            <x-button
+                                link="{{ route('configuration.index') }}"
+                                icon="o-plus"
+                                class="btn-ghost join-item"
+                                tooltip-bottom="{{ __('Manage schedules') }}"
+                                external
+                            />
+                        </x-slot:append>
+                    </x-select>
 
-                        <x-select
-                            wire:model="form.recurrence"
-                            label="{{ __('Backup Frequency') }}"
-                            :options="$form->getRecurrenceOptions()"
-                            required
-                        />
-                    </div>
+                    <x-select
+                        wire:model.live="form.retention_policy"
+                        label="{{ __('Retention Policy') }}"
+                        :options="$form->getRetentionPolicyOptions()"
+                    />
 
                     @if($form->retention_policy === 'days')
                         <x-input

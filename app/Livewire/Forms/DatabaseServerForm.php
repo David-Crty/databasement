@@ -6,11 +6,13 @@ use App\Enums\DatabaseType;
 use App\Exceptions\Backup\EncryptionException;
 use App\Facades\DatabaseConnectionTester;
 use App\Models\Backup;
+use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Rules\SafePath;
 use App\Services\Backup\DatabaseListService;
 use App\Services\SshTunnelService;
+use App\Support\Formatters;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Form;
@@ -78,7 +80,7 @@ class DatabaseServerForm extends Form
 
     public string $path = '';
 
-    public string $recurrence = 'daily';
+    public string $backup_schedule_id = '';
 
     public ?int $retention_days = 14;
 
@@ -295,7 +297,7 @@ class DatabaseServerForm extends Form
             $backup = $server->backup;
             $this->volume_id = $backup->volume_id;
             $this->path = $backup->path ?? '';
-            $this->recurrence = $backup->recurrence;
+            $this->backup_schedule_id = $backup->backup_schedule_id;
             $this->retention_days = $backup->retention_days;
             $this->retention_policy = $backup->retention_policy ?? Backup::RETENTION_DAYS;
             $this->gfs_keep_daily = $backup->gfs_keep_daily;
@@ -357,16 +359,19 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Get recurrence options for select
+     * Get backup schedule options for select
      *
      * @return array<array{id: string, name: string}>
      */
-    public function getRecurrenceOptions(): array
+    public function getScheduleOptions(): array
     {
-        return collect(Backup::RECURRENCE_TYPES)->map(fn ($type) => [
-            'id' => $type,
-            'name' => __(ucfirst($type)),
-        ])->toArray();
+        return BackupSchedule::orderBy('name')
+            ->get()
+            ->map(fn (BackupSchedule $schedule) => [
+                'id' => $schedule->id,
+                'name' => $schedule->name.' — '.$schedule->expression.' ('.Formatters::cronTranslation($schedule->expression).')',
+            ])
+            ->toArray();
     }
 
     /**
@@ -450,7 +455,7 @@ class DatabaseServerForm extends Form
         $rules = [
             'volume_id' => 'required|exists:volumes,id',
             'path' => ['nullable', 'string', 'max:255', new SafePath],
-            'recurrence' => 'required|string|in:'.implode(',', Backup::RECURRENCE_TYPES),
+            'backup_schedule_id' => 'required|exists:backup_schedules,id',
             'retention_policy' => 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES),
         ];
 
@@ -647,7 +652,7 @@ class DatabaseServerForm extends Form
         $backupData = [
             'volume_id' => $validated['volume_id'] ?? '',
             'path' => ! empty($validated['path']) ? $validated['path'] : null,
-            'recurrence' => $validated['recurrence'] ?? 'daily',
+            'backup_schedule_id' => $validated['backup_schedule_id'] ?? '',
             'retention_policy' => $retentionPolicy,
         ];
 
@@ -674,7 +679,7 @@ class DatabaseServerForm extends Form
         unset(
             $validated['volume_id'],
             $validated['path'],
-            $validated['recurrence'],
+            $validated['backup_schedule_id'],
             $validated['retention_days'],
             $validated['retention_policy'],
             $validated['gfs_keep_daily'],

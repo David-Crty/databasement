@@ -4,38 +4,41 @@ namespace App\Console\Commands;
 
 use App\Jobs\ProcessBackupJob;
 use App\Models\Backup;
+use App\Models\BackupSchedule;
 use App\Services\Backup\BackupJobFactory;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 class RunScheduledBackups extends Command
 {
-    protected $signature = 'backups:run {recurrence : The recurrence type to run (daily, weekly)}';
+    protected $signature = 'backups:run {schedule : The backup schedule ID to run}';
 
-    protected $description = 'Run scheduled backups based on recurrence type';
+    protected $description = 'Run scheduled backups for a given backup schedule';
 
     public function handle(BackupJobFactory $backupJobFactory): int
     {
-        $recurrence = $this->argument('recurrence');
+        $scheduleId = $this->argument('schedule');
 
-        if (! in_array($recurrence, [Backup::RECURRENCE_DAILY, Backup::RECURRENCE_WEEKLY])) {
-            $this->error("Invalid recurrence type: {$recurrence}. Must be 'daily' or 'weekly'.");
+        $schedule = BackupSchedule::find($scheduleId);
+
+        if (! $schedule) {
+            $this->error("Backup schedule not found: {$scheduleId}");
 
             return self::FAILURE;
         }
 
         $backups = Backup::with(['databaseServer', 'volume'])
             ->whereRelation('databaseServer', 'backups_enabled', true)
-            ->where('recurrence', $recurrence)
+            ->where('backup_schedule_id', $schedule->id)
             ->get();
 
         if ($backups->isEmpty()) {
-            $this->info("No {$recurrence} backups configured.");
+            $this->info("No backups configured for schedule: {$schedule->name}.");
 
             return self::SUCCESS;
         }
 
-        $this->info("Dispatching {$backups->count()} {$recurrence} backup(s)...");
+        $this->info("Dispatching {$backups->count()} backup(s) for schedule: {$schedule->name}...");
 
         $failedCount = 0;
 
@@ -68,7 +71,6 @@ class RunScheduledBackups extends Command
             method: 'scheduled',
         );
 
-        // Dispatch a job for each snapshot (parallel execution)
         foreach ($snapshots as $snapshot) {
             ProcessBackupJob::dispatch($snapshot->id);
         }

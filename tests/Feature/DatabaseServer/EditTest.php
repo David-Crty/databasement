@@ -15,6 +15,7 @@ test('can edit database server', function (array $config) {
         'type' => 'local',
         'config' => ['path' => '/var/backups'],
     ]);
+    $schedule = dailySchedule();
 
     $serverData = [
         'name' => $config['name'],
@@ -35,7 +36,7 @@ test('can edit database server', function (array $config) {
     Backup::create([
         'database_server_id' => $server->id,
         'volume_id' => $volume->id,
-        'recurrence' => 'daily',
+        'backup_schedule_id' => $schedule->id,
         'retention_days' => 7,
     ]);
 
@@ -84,6 +85,7 @@ test('can change retention policy', function (array $config) {
         'type' => 'local',
         'config' => ['path' => '/var/backups'],
     ]);
+    $schedule = dailySchedule();
 
     $server = DatabaseServer::create([
         'name' => 'Test Server',
@@ -99,7 +101,7 @@ test('can change retention policy', function (array $config) {
     Backup::create([
         'database_server_id' => $server->id,
         'volume_id' => $volume->id,
-        'recurrence' => 'daily',
+        'backup_schedule_id' => $schedule->id,
         'retention_policy' => Backup::RETENTION_FOREVER,
         'retention_days' => null,
     ]);

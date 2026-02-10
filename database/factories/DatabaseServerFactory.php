@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Backup;
+use App\Models\BackupSchedule;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\Volume;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -100,11 +101,15 @@ class DatabaseServerFactory extends Factory
         return $this->afterCreating(function ($databaseServer) {
             // Create a local volume with a real temp directory for testing
             $volume = Volume::factory()->local()->create();
+            $schedule = BackupSchedule::firstOrCreate(
+                ['name' => 'Daily'],
+                ['expression' => '0 2 * * *'],
+            );
 
             Backup::create([
                 'database_server_id' => $databaseServer->id,
                 'volume_id' => $volume->id,
-                'recurrence' => fake()->randomElement(['daily', 'weekly']),
+                'backup_schedule_id' => $schedule->id,
                 'retention_days' => fake()->randomElement([7, 14, 30]),
             ]);
         });

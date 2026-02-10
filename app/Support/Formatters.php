@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Carbon\Carbon;
+use Lorisleiva\CronTranslator\CronTranslator;
 
 class Formatters
 {
@@ -64,5 +65,17 @@ class Formatters
         }
 
         return $date->format('M j, Y, H:i');
+    }
+
+    /**
+     * Translate a cron expression into human-readable text
+     */
+    public static function cronTranslation(string $expression): string
+    {
+        try {
+            return CronTranslator::translate($expression);
+        } catch (\Throwable) {
+            return '';
+        }
     }
 }

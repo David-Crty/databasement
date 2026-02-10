@@ -21,10 +21,6 @@ class ConfigurationForm extends Form
 
     public int $job_backoff = 60;
 
-    public string $daily_cron = '';
-
-    public string $weekly_cron = '';
-
     public string $cleanup_cron = '';
 
     public bool $verify_files = true;
@@ -75,6 +71,11 @@ class ConfigurationForm extends Form
 
     public bool $has_webhook_secret = false;
 
+    // Backup Schedule modal fields
+    public string $schedule_name = '';
+
+    public string $schedule_expression = '';
+
     public function loadFromConfig(): void
     {
         $this->working_directory = (string) AppConfig::get('backup.working_directory');
@@ -83,8 +84,6 @@ class ConfigurationForm extends Form
         $this->job_timeout = (int) AppConfig::get('backup.job_timeout');
         $this->job_tries = (int) AppConfig::get('backup.job_tries');
         $this->job_backoff = (int) AppConfig::get('backup.job_backoff');
-        $this->daily_cron = (string) AppConfig::get('backup.daily_cron');
-        $this->weekly_cron = (string) AppConfig::get('backup.weekly_cron');
         $this->cleanup_cron = (string) AppConfig::get('backup.cleanup_cron');
         $this->verify_files = (bool) AppConfig::get('backup.verify_files');
         $this->verify_files_cron = (string) AppConfig::get('backup.verify_files_cron');
@@ -139,8 +138,6 @@ class ConfigurationForm extends Form
             'job_timeout' => ['required', 'integer', 'min:60', 'max:86400'],
             'job_tries' => ['required', 'integer', 'min:1', 'max:10'],
             'job_backoff' => ['required', 'integer', 'min:0', 'max:3600'],
-            'daily_cron' => ['required', 'string', 'max:100', $this->cronRule()],
-            'weekly_cron' => ['required', 'string', 'max:100', $this->cronRule()],
             'cleanup_cron' => ['required', 'string', 'max:100', $this->cronRule()],
             'verify_files' => ['boolean'],
             'verify_files_cron' => ['required', 'string', 'max:100', $this->cronRule()],
@@ -174,6 +171,17 @@ class ConfigurationForm extends Form
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function scheduleRules(): array
+    {
+        return [
+            'schedule_name' => ['required', 'string', 'max:100'],
+            'schedule_expression' => ['required', 'string', 'max:100', $this->cronRule()],
+        ];
+    }
+
     private function cronRule(): \Closure
     {
         return function (string $attribute, mixed $value, \Closure $fail): void {
@@ -197,8 +205,6 @@ class ConfigurationForm extends Form
             'job_timeout' => 'backup.job_timeout',
             'job_tries' => 'backup.job_tries',
             'job_backoff' => 'backup.job_backoff',
-            'daily_cron' => 'backup.daily_cron',
-            'weekly_cron' => 'backup.weekly_cron',
             'cleanup_cron' => 'backup.cleanup_cron',
             'verify_files' => 'backup.verify_files',
             'verify_files_cron' => 'backup.verify_files_cron',
@@ -308,5 +314,12 @@ class ConfigurationForm extends Form
         AppConfig::set($configKey, null);
         $this->{$hasProperty} = false;
         $this->{$property} = '';
+    }
+
+    public function resetScheduleFields(): void
+    {
+        $this->schedule_name = '';
+        $this->schedule_expression = '';
+        $this->resetValidation(['schedule_name', 'schedule_expression']);
     }
 }

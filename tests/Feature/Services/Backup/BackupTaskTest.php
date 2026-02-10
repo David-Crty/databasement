@@ -71,7 +71,7 @@ function createDatabaseServer(array $attributes, string $volumeType = 'local'): 
 
     // Now create the backup with both volume_id and database_server_id
     $backup = Backup::create([
-        'recurrence' => 'daily',
+        'backup_schedule_id' => dailySchedule()->id,
         'volume_id' => $volume->id,
         'database_server_id' => $databaseServer->id,
     ]);

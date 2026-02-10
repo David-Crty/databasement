@@ -20,8 +20,6 @@ class AppConfigService
         'backup.job_timeout' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 7200],
         'backup.job_tries' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 3],
         'backup.job_backoff' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 60],
-        'backup.daily_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 2 * * *'],
-        'backup.weekly_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 3 * * 0'],
         'backup.cleanup_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 4 * * *'],
         'backup.verify_files' => ['type' => 'boolean', 'is_sensitive' => false, 'default' => true],
         'backup.verify_files_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 5 * * *'],

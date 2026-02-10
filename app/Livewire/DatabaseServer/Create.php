@@ -55,6 +55,11 @@ class Create extends Component
         $this->success(__('Volume list refreshed.'), position: 'toast-bottom');
     }
 
+    public function refreshSchedules(): void
+    {
+        $this->success(__('Schedule list refreshed.'), position: 'toast-bottom');
+    }
+
     public function render(): View
     {
         return view('livewire.database-server.create');

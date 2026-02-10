@@ -15,7 +15,7 @@ use Illuminate\Support\Carbon;
  * @property string $database_server_id
  * @property string $volume_id
  * @property string|null $path
- * @property string $recurrence
+ * @property string $backup_schedule_id
  * @property int|null $retention_days
  * @property string $retention_policy
  * @property int|null $gfs_keep_daily
@@ -24,6 +24,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read DatabaseServer $databaseServer
+ * @property-read BackupSchedule $backupSchedule
  * @property-read Collection<int, Snapshot> $snapshots
  * @property-read int|null $snapshots_count
  * @property-read Volume $volume
@@ -31,33 +32,12 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Backup newModelQuery()
  * @method static Builder<static>|Backup newQuery()
  * @method static Builder<static>|Backup query()
- * @method static Builder<static>|Backup whereCreatedAt($value)
- * @method static Builder<static>|Backup whereDatabaseServerId($value)
- * @method static Builder<static>|Backup whereId($value)
- * @method static Builder<static>|Backup wherePath($value)
- * @method static Builder<static>|Backup whereRecurrence($value)
- * @method static Builder<static>|Backup whereRetentionDays($value)
- * @method static Builder<static>|Backup whereRetentionPolicy($value)
- * @method static Builder<static>|Backup whereGfsKeepDaily($value)
- * @method static Builder<static>|Backup whereGfsKeepWeekly($value)
- * @method static Builder<static>|Backup whereGfsKeepMonthly($value)
- * @method static Builder<static>|Backup whereUpdatedAt($value)
- * @method static Builder<static>|Backup whereVolumeId($value)
  *
  * @mixin \Eloquent
  */
 class Backup extends Model
 {
     use HasUlids;
-
-    public const string RECURRENCE_DAILY = 'daily';
-
-    public const string RECURRENCE_WEEKLY = 'weekly';
-
-    public const array RECURRENCE_TYPES = [
-        self::RECURRENCE_DAILY,
-        self::RECURRENCE_WEEKLY,
-    ];
 
     public const string RETENTION_DAYS = 'days';
 
@@ -75,7 +55,7 @@ class Backup extends Model
         'database_server_id',
         'volume_id',
         'path',
-        'recurrence',
+        'backup_schedule_id',
         'retention_days',
         'retention_policy',
         'gfs_keep_daily',
@@ -97,6 +77,14 @@ class Backup extends Model
     public function volume(): BelongsTo
     {
         return $this->belongsTo(Volume::class);
+    }
+
+    /**
+     * @return BelongsTo<BackupSchedule, Backup>
+     */
+    public function backupSchedule(): BelongsTo
+    {
+        return $this->belongsTo(BackupSchedule::class);
     }
 
     /**

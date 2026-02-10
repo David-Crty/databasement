@@ -150,10 +150,11 @@ test('sqlite backup and restore workflow', function () {
 
     // Create a target server for restore (different sqlite file)
     $targetServer = IntegrationTestHelpers::createSqliteDatabaseServer($restoredSqlitePath);
+    $schedule = dailySchedule();
     Backup::create([
         'database_server_id' => $targetServer->id,
         'volume_id' => $this->volume->id,
-        'recurrence' => 'manual',
+        'backup_schedule_id' => $schedule->id,
     ]);
 
     // Run restore

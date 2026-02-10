@@ -101,6 +101,18 @@ test('authenticated users can get a specific database server', function () {
         ->assertJsonPath('data.name', 'Test Server');
 });
 
+test('show endpoint includes backup schedule details', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create();
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->getJson("/api/v1/database-servers/{$server->id}");
+
+    $response->assertOk()
+        ->assertJsonPath('data.backup.backup_schedule.name', 'Daily')
+        ->assertJsonPath('data.backup.backup_schedule.expression', '0 2 * * *');
+});
+
 test('password is not exposed in database server api response', function () {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->create(['password' => 'secret-password']);

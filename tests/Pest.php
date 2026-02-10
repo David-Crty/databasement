@@ -16,10 +16,12 @@ use App\Support\FilesystemSupport;
 
 pest()->extend(Tests\TestCase::class)
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->beforeEach(fn () => dailySchedule())
     ->in('Feature');
 
 pest()->extend(Tests\TestCase::class)
     ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->beforeEach(fn () => dailySchedule())
     ->group('integration')
     ->in('Integration');
 
@@ -83,6 +85,22 @@ expect()->extend('toBeOne', function () {
 | global functions to help you to reduce the number of lines of code in your test files.
 |
 */
+
+function dailySchedule(): \App\Models\BackupSchedule
+{
+    return \App\Models\BackupSchedule::firstOrCreate(
+        ['name' => 'Daily'],
+        ['expression' => '0 2 * * *'],
+    );
+}
+
+function weeklySchedule(): \App\Models\BackupSchedule
+{
+    return \App\Models\BackupSchedule::firstOrCreate(
+        ['name' => 'Weekly'],
+        ['expression' => '0 3 * * 0'],
+    );
+}
 
 /*
 |--------------------------------------------------------------------------
