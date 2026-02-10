@@ -61,10 +61,8 @@ class VolumeFactory extends Factory
      */
     private function createTempDirectory(): string
     {
-        $path = sys_get_temp_dir().'/volume-test-'.uniqid();
-        if (! is_dir($path)) {
-            mkdir($path, 0755, true);
-        }
+        $path = sys_get_temp_dir().'/volume-test-'.uniqid('', true);
+        @mkdir($path, 0755, true);
 
         return $path;
     }
