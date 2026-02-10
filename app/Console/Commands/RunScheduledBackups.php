@@ -6,6 +6,7 @@ use App\Jobs\ProcessBackupJob;
 use App\Models\Backup;
 use App\Services\Backup\BackupJobFactory;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class RunScheduledBackups extends Command
 {
@@ -36,26 +37,44 @@ class RunScheduledBackups extends Command
 
         $this->info("Dispatching {$backups->count()} {$recurrence} backup(s)...");
 
+        $failedCount = 0;
+
         foreach ($backups as $backup) {
-            $server = $backup->databaseServer;
-
-            $snapshots = $backupJobFactory->createSnapshots(
-                server: $server,
-                method: 'scheduled',
-            );
-
-            // Dispatch a job for each snapshot (parallel execution)
-            foreach ($snapshots as $snapshot) {
-                ProcessBackupJob::dispatch($snapshot->id);
+            try {
+                $this->dispatch($backup, $backupJobFactory);
+            } catch (\Throwable $e) {
+                $failedCount++;
+                Log::error("Failed to dispatch backup job for server [{$backup->databaseServer->name}]", [
+                    'error' => $e->getMessage(),
+                ]);
             }
-
-            $count = count($snapshots);
-            $dbInfo = $count === 1 ? '1 database' : "{$count} databases";
-            $this->line("  → Dispatched backup for: {$server->name} ({$dbInfo})");
         }
 
-        $this->info('All backup jobs dispatched successfully.');
+        if ($failedCount > 0) {
+            $this->warn("Completed with {$failedCount} failed server(s).");
+        } else {
+            $this->info('All backup jobs dispatched successfully.');
+        }
 
         return self::SUCCESS;
+    }
+
+    private function dispatch(Backup $backup, BackupJobFactory $backupJobFactory): void
+    {
+        $server = $backup->databaseServer;
+
+        $snapshots = $backupJobFactory->createSnapshots(
+            server: $server,
+            method: 'scheduled',
+        );
+
+        // Dispatch a job for each snapshot (parallel execution)
+        foreach ($snapshots as $snapshot) {
+            ProcessBackupJob::dispatch($snapshot->id);
+        }
+
+        $count = count($snapshots);
+        $dbInfo = $count === 1 ? '1 database' : "{$count} databases";
+        $this->line("  → Dispatched backup for: {$server->name} ({$dbInfo})");
     }
 }

@@ -135,6 +135,54 @@ test('server with no databases does not prevent other backups from running', fun
     expect($snapshot->database_name)->toBe('production_db');
 });
 
+test('server throwing exception when listing databases does not prevent other backups from running', function () {
+    Queue::fake();
+
+    // Server with backup_all_databases that will throw an exception
+    $failingServer = DatabaseServer::factory()->create([
+        'name' => 'Failing Server',
+        'backup_all_databases' => true,
+        'database_names' => null,
+    ]);
+    $failingServer->backup->update(['recurrence' => 'daily']);
+
+    // Server with explicit database names that should still work
+    $normalServer = DatabaseServer::factory()->create([
+        'name' => 'Normal Server',
+        'backup_all_databases' => true,
+        'database_names' => null,
+    ]);
+    $normalServer->backup->update(['recurrence' => 'daily']);
+
+    $this->mock(DatabaseListService::class, function ($mock) use ($normalServer, $failingServer) {
+        $mock->shouldReceive('listDatabases')
+            ->andReturnUsing(function ($server) use ($normalServer, $failingServer) {
+                if ($server->id === $failingServer->id) {
+                    throw new \RuntimeException('Connection refused');
+                } elseif ($server->id === $normalServer->id) {
+                    return ['production_db', 'other_db'];
+                }
+
+                return [];
+            });
+    });
+
+    Log::shouldReceive('error')
+        ->once()
+        ->with('Failed to dispatch backup job for server [Failing Server]', ['error' => 'Connection refused']);
+
+    $this->artisan('backups:run', ['recurrence' => 'daily'])
+        ->expectsOutput('Dispatching 2 daily backup(s)...')
+        ->expectsOutput('Completed with 1 failed server(s).')
+        ->assertExitCode(0);
+
+    // Only the normal server's backup should be dispatched
+    Queue::assertPushed(ProcessBackupJob::class, 2);
+
+    $snapshot = Snapshot::first();
+    expect($snapshot->database_name)->toBe('production_db');
+});
+
 test('skips disabled backups', function () {
     Queue::fake();
 
