@@ -40,6 +40,12 @@ return [
 
     'server' => env('OCTANE_SERVER', 'frankenphp'),
 
+    // These values are consumed by docker/php/scripts/start-frankenphp.sh at
+    // container startup, not by Laravel itself. They are registered here only
+    // so the Configuration page can display them via config() after caching.
+    'enabled' => (bool) env('OCTANE_ENABLED'),
+    'workers' => env('OCTANE_WORKERS'),
+
     /*
     |--------------------------------------------------------------------------
     | Force HTTPS
@@ -105,8 +111,8 @@ return [
         OperationTerminated::class => [
             FlushOnce::class,
             FlushTemporaryContainerInstances::class,
-            DisconnectFromDatabases::class,
-            CollectGarbage::class,
+            // DisconnectFromDatabases::class,
+            // CollectGarbage::class,
         ],
 
         WorkerErrorOccurred::class => [

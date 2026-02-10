@@ -30,6 +30,9 @@ class WaitForDatabase extends Command
      */
     public function handle(Migrator $migrator): int
     {
+        // Stagger startup to avoid simultaneous connections from supervisord processes
+        usleep(random_int(0, 3_000_000));
+
         $this->info('Waiting for database connection...');
 
         $maxRetries = 60;

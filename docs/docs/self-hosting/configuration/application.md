@@ -10,10 +10,20 @@ Core application settings including database, timezone, proxy configuration, and
 
 | Variable    | Description                                      | Default                 |
 | ----------- | ------------------------------------------------ | ----------------------- |
-| `APP_DEBUG` | Enable debug mode (set to `false` in production) | `false`                 |
-| `APP_URL`   | Full URL where the app is accessible             | `http://localhost:2226` |
 | `APP_KEY`   | Application encryption key (required)            | -                       |
-| `TZ`        | Application timezone                             | `UTC`                   |
+| `APP_URL`   | Full URL where the app is accessible             | `http://localhost:2226` |
+| `APP_DEBUG` | Enable debug mode (set to `false` in production) | `false`                 || `TZ`        | Application timezone                             | `UTC`                   |
+
+
+### Generating the Application Key
+
+The `APP_KEY` is required for encryption. Generate one with:
+
+```bash
+docker run --rm davidcrty/databasement:latest php artisan key:generate --show
+```
+
+Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
 
 ### Timezone Configuration
 
@@ -25,16 +35,6 @@ TZ=Asia/Tokyo
 ```
 
 See the [list of supported timezones](https://www.php.net/manual/en/timezones.php).
-
-### Generating the Application Key
-
-The `APP_KEY` is required for encryption. Generate one with:
-
-```bash
-docker run --rm davidcrty/databasement:latest php artisan key:generate --show
-```
-
-Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
 
 ## Database Configuration
 
@@ -110,6 +110,34 @@ with proxy configuration.
 :::info
 Checks the [Troubleshooting section](#troubleshooting) for help with proxy configuration.
 :::
+
+## Performance (Octane)
+
+Databasement uses [Laravel Octane](https://laravel.com/docs/octane) with FrankenPHP in production Docker images for improved performance. Octane keeps the application in memory between requests, avoiding the overhead of bootstrapping on every request.
+
+| Variable             | Description                                    | Default |
+| -------------------- | ---------------------------------------------- | ------- |
+| `OCTANE_ENABLED`     | Enable Octane worker mode                      | `true`  |
+| `OCTANE_WORKERS`     | Number of Octane worker processes. Use `auto` for 2x CPU cores. | `2`     |
+| `OCTANE_MAX_REQUESTS` | Requests before a worker restarts (prevents memory leaks) | `500`   |
+
+### Database Connection Usage
+
+Each long-lived process maintains its own database connection. The expected number of connections is:
+
+```
+Total connections = OCTANE_WORKERS + 1 (queue worker) + 1 (scheduler)
+```
+
+**Default:** `2 + 1 + 1 = 4 connections`
+
+### Disabling Octane
+
+To disable Octane and use classic FrankenPHP mode (ephemeral processes, lower memory):
+
+```bash
+OCTANE_ENABLED=false
+```
 
 ## Logging
 
