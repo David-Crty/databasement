@@ -297,7 +297,7 @@ class DatabaseServerForm extends Form
             $backup = $server->backup;
             $this->volume_id = $backup->volume_id;
             $this->path = $backup->path ?? '';
-            $this->backup_schedule_id = $backup->backup_schedule_id;
+            $this->backup_schedule_id = $backup->backup_schedule_id ?? '';
             $this->retention_days = $backup->retention_days;
             $this->retention_policy = $backup->retention_policy ?? Backup::RETENTION_DAYS;
             $this->gfs_keep_daily = $backup->gfs_keep_daily;
