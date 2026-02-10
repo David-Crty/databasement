@@ -70,12 +70,12 @@ class Formatters
     /**
      * Translate a cron expression into human-readable text
      */
-    public static function cronTranslation(string $expression): string
+    public static function cronTranslation(string $expression, string $fallback = ''): string
     {
         try {
             return CronTranslator::translate($expression);
         } catch (\Throwable) {
-            return '';
+            return $fallback;
         }
     }
 }

@@ -8,23 +8,21 @@
             @endif
         </x-slot:subtitle>
     </x-header>
+    <div class="alert alert-info alert-vertical sm:alert-horizontal rounded-md mb-2">
+        <x-icon name="o-information-circle" class="shrink-0" />
+        <span>{{ __('View the full list of environment variables') }}</span>
+        <x-button
+            label="{{ __('Documentation') }}"
+            icon="o-book-open"
+            link="https://david-crty.github.io/databasement/self-hosting/configuration"
+            external
+            class="btn-ghost btn-sm"
+        />
+    </div>
 
     <div class="grid gap-6">
-        <x-alert class="alert-info" icon="o-information-circle">
-            {{ __('View the full list of environment variables') }}
-            <x-slot:actions>
-                <x-button
-                    label="{{ __('Documentation') }}"
-                    icon="o-book-open"
-                    link="https://david-crty.github.io/databasement/self-hosting/configuration"
-                    external
-                    class="btn-ghost"
-                />
-            </x-slot:actions>
-        </x-alert>
-
         <!-- Application Configuration (read-only) -->
-        <x-card title="{{ __('Application') }}" subtitle="{{ __('General application settings (read-only).') }}" shadow>
+        <x-card title="{{ __('Application') }}" subtitle="{{ __('General application settings (read-only).') }}" shadow class="min-w-0">
             <x-slot:menu>
                 <x-button
                     label="{{ __('Documentation') }}"
@@ -38,7 +36,7 @@
         </x-card>
 
         <!-- Backup Schedules -->
-        <x-card title="{{ __('Backup Schedules') }}" subtitle="{{ __('Define cron schedules that database servers can use for automated backups.') }}" shadow>
+        <x-card title="{{ __('Backup Schedules') }}" subtitle="{{ __('Define cron schedules that database servers can use for automated backups.') }}" shadow class="min-w-0">
             <div class="divide-y divide-base-200/80">
                 @forelse ($backupSchedules as $schedule)
                     <x-config-row wire:key="schedule-{{ $schedule->id }}">
@@ -53,12 +51,12 @@
                                 @endif
                             </span>
                         </x-slot:label>
-                        <div class="flex items-center gap-3">
-                            <span class="badge badge-neutral">
+                        <div class="flex flex-wrap items-center gap-3">
+                            <span class="badge badge-neutral shrink-0">
                                 <x-icon name="o-calendar-days" class="w-3 h-3" />
                                 {{ $schedule->expression }}
                             </span>
-                            <span class="text-sm text-base-content/60">{{ \App\Support\Formatters::cronTranslation($schedule->expression) }}</span>
+                            <span class="text-sm text-base-content/60 min-w-0">{{ \App\Support\Formatters::cronTranslation($schedule->expression) }}</span>
                             @if ($this->isAdmin)
                                 <div class="flex items-center gap-0.5 shrink-0 ml-auto">
                                     <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openScheduleModal('{{ $schedule->id }}')" tooltip-left="{{ __('Edit') }}" />
@@ -94,7 +92,7 @@
         </x-card>
 
         <!-- Backup Configuration (editable) -->
-        <x-card title="{{ __('Backup') }}" subtitle="{{ __('Backup and restore operation settings.') }}" shadow>
+        <x-card title="{{ __('Backup') }}" subtitle="{{ __('Backup and restore operation settings.') }}" shadow class="min-w-0">
             <x-slot:menu>
                 <x-button
                     label="{{ __('Documentation') }}"
@@ -173,7 +171,7 @@
         </x-card>
 
         <!-- Notification Configuration (editable) -->
-        <x-card title="{{ __('Notifications') }}" subtitle="{{ __('Failure notification settings for backup and restore jobs.') }}" shadow>
+        <x-card title="{{ __('Notifications') }}" subtitle="{{ __('Failure notification settings for backup and restore jobs.') }}" shadow class="min-w-0">
             <x-slot:menu>
                 <x-button
                     label="{{ __('Documentation') }}"
@@ -362,7 +360,7 @@
         </x-card>
 
         <!-- SSO Configuration (read-only) -->
-        <x-card title="{{ __('SSO') }}" subtitle="{{ __('OAuth and Single Sign-On authentication settings (read-only).') }}" shadow>
+        <x-card title="{{ __('SSO') }}" subtitle="{{ __('OAuth and Single Sign-On authentication settings (read-only).') }}" shadow class="min-w-0">
             <x-slot:menu>
                 <x-button
                     label="{{ __('Documentation') }}"
@@ -388,13 +386,13 @@
 
             <div>
                 <x-input
-                    wire:model.blur="form.schedule_expression"
+                    wire:model.live="form.schedule_expression"
                     label="{{ __('Cron Expression') }}"
                     placeholder="{{ __('e.g., 0 */3 * * *') }}"
                     required
                 />
                 @if ($form->schedule_expression)
-                    <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->schedule_expression) }}</div>
+                    <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->schedule_expression, 'Invalid cron expression') }}</div>
                 @endif
             </div>
         </div>
