@@ -86,7 +86,6 @@ test('saving notification config persists values for selected channels', functio
 test('deselecting a channel nulls its values on save', function () {
     AppConfig::set('notifications.mail.to', 'old@example.com');
     AppConfig::set('notifications.slack.webhook_url', 'https://hooks.slack.com/old');
-    AppConfig::flush();
 
     Livewire::actingAs(User::factory()->create(['role' => 'admin']))
         ->test(Index::class)
@@ -278,7 +277,6 @@ test('deselecting new channels nulls their values on save', function () {
     AppConfig::set('notifications.gotify.token', 'token');
     AppConfig::set('notifications.webhook.url', 'https://webhook.example.com');
     AppConfig::set('notifications.webhook.secret', 'secret');
-    AppConfig::flush();
 
     Livewire::actingAs(User::factory()->create(['role' => 'admin']))
         ->test(Index::class)
@@ -300,7 +298,6 @@ test('form pre-selects channel when config exists', function (array $setup, stri
     foreach ($setup as $key => $value) {
         AppConfig::set($key, $value);
     }
-    AppConfig::flush();
 
     $component = Livewire::actingAs(User::factory()->create(['role' => 'admin']))
         ->test(Index::class);

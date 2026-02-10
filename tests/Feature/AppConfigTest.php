@@ -32,7 +32,7 @@ test('get returns default values', function () {
         ->and(AppConfig::get('notifications.enabled'))->toBeFalse();
 });
 
-test('set persists and updates cache', function () {
+test('set persists values', function () {
     AppConfig::set('backup.compression', 'zstd');
 
     expect(AppConfig::get('backup.compression'))->toBe('zstd');
@@ -86,31 +86,24 @@ test('set handles null for nullable fields', function () {
     expect($row->value)->toBeNull();
 });
 
-test('flush clears cache', function () {
-    // Prime cache
+test('get reads fresh values from database', function () {
     AppConfig::get('backup.compression');
 
-    // Update DB directly (bypassing cache)
+    // Update DB directly
     AppConfigModel::where('id', 'backup.compression')->update(['value' => 'zstd']);
 
-    // Cache still returns old value
-    expect(AppConfig::get('backup.compression'))->toBe('gzip');
-
-    // After flush, returns updated value
-    AppConfig::flush();
+    // Returns updated value immediately
     expect(AppConfig::get('backup.compression'))->toBe('zstd');
 });
 
 test('get returns explicit default when row is missing', function () {
     AppConfigModel::where('id', 'backup.compression')->delete();
-    AppConfig::flush();
 
     expect(AppConfig::get('backup.compression', 'gzip'))->toBe('gzip');
 });
 
 test('get falls back to CONFIG defaults when row is missing', function () {
     AppConfigModel::where('id', 'backup.compression')->delete();
-    AppConfig::flush();
 
     expect(AppConfig::get('backup.compression'))->toBe('gzip');
 });

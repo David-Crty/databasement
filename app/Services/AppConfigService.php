@@ -6,9 +6,6 @@ use App\Models\AppConfig;
 
 class AppConfigService
 {
-    /** @var array<string, mixed> */
-    private array $cache = [];
-
     /**
      * Config key definitions: type, sensitivity, and default value.
      *
@@ -46,22 +43,15 @@ class AppConfigService
     /**
      * Get a config value by key.
      *
-     * Checks in-memory cache first, then DB, then falls back to CONFIG defaults.
+     * Checks DB first, then falls back to CONFIG defaults.
      */
     public function get(string $key, mixed $default = null): mixed
     {
-        if (array_key_exists($key, $this->cache)) {
-            return $this->cache[$key];
-        }
-
         try {
             $row = AppConfig::find($key);
 
             if ($row) {
-                $value = $row->getCastedValue();
-                $this->cache[$key] = $value;
-
-                return $value;
+                return $row->getCastedValue();
             }
         } catch (\Throwable) {
             // Table may not exist yet (pre-migration) — fall through to defaults
@@ -95,15 +85,5 @@ class AppConfigService
                 'is_sensitive' => $schema['is_sensitive'],
             ]
         );
-
-        $this->cache[$key] = $row->getCastedValue();
-    }
-
-    /**
-     * Clear the in-memory cache.
-     */
-    public function flush(): void
-    {
-        $this->cache = [];
     }
 }
