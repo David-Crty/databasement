@@ -105,7 +105,9 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: davidcrty/databasement:${{ needs.build-base-image.outputs.tag }}
+          tags: |
+            davidcrty/databasement:${{ needs.build-base-image.outputs.tag }}
+            davidcrty/databasement:sha-${{ github.sha }}
           build-args: |
             APP_COMMIT_HASH=${{ github.sha }}
             BASE_IMAGE=davidcrty/databasement-php:${{ needs.build-base-image.outputs.base_image_tag }}
