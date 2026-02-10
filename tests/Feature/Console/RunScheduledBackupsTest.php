@@ -3,6 +3,8 @@
 use App\Jobs\ProcessBackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Backup\DatabaseListService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
 test('fails with invalid recurrence type', function () {
@@ -94,6 +96,43 @@ test('dispatches multiple jobs for server with multiple databases', function () 
         ->assertExitCode(0);
 
     Queue::assertPushed(ProcessBackupJob::class, 3);
+});
+
+test('server with no databases does not prevent other backups from running', function () {
+    Queue::fake();
+
+    // Server with backup_all_databases but no databases found
+    $emptyServer = DatabaseServer::factory()->create([
+        'name' => 'Empty PostgreSQL',
+        'backup_all_databases' => true,
+        'database_names' => null,
+    ]);
+    $emptyServer->backup->update(['recurrence' => 'daily']);
+
+    $this->mock(DatabaseListService::class, function ($mock) {
+        $mock->shouldReceive('listDatabases')->andReturn([]);
+    });
+
+    // Server with explicit database names
+    $normalServer = DatabaseServer::factory()->create([
+        'name' => 'Normal Server',
+        'database_names' => ['production_db'],
+    ]);
+    $normalServer->backup->update(['recurrence' => 'daily']);
+
+    Log::shouldReceive('warning')
+        ->once()
+        ->with('No databases found on server [Empty PostgreSQL] to backup.');
+
+    $this->artisan('backups:run', ['recurrence' => 'daily'])
+        ->expectsOutput('Dispatching 2 daily backup(s)...')
+        ->expectsOutput('All backup jobs dispatched successfully.')
+        ->assertExitCode(0);
+
+    Queue::assertPushed(ProcessBackupJob::class, 1);
+
+    $snapshot = Snapshot::first();
+    expect($snapshot->database_name)->toBe('production_db');
 });
 
 test('skips disabled backups', function () {

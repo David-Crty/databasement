@@ -15,6 +15,7 @@ use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
 use League\Flysystem\Filesystem;
 use Tests\Support\TestShellProcessor;
 
@@ -265,8 +266,7 @@ test('run executes backup for each database when backup_all_databases is enabled
     }
 });
 
-test('createSnapshots throws exception when backup_all_databases is enabled but no databases found', function () {
-    // Arrange - Mock DatabaseListService to return empty list
+test('createSnapshots returns empty array and logs warning when backup_all_databases finds no databases', function () {
     $mockDatabaseListService = Mockery::mock(DatabaseListService::class);
     $mockDatabaseListService->shouldReceive('listDatabases')
         ->once()
@@ -285,9 +285,13 @@ test('createSnapshots throws exception when backup_all_databases is enabled but 
         'backup_all_databases' => true,
     ]);
 
-    // Act & Assert
-    expect(fn () => $backupJobFactory->createSnapshots($databaseServer, 'manual'))
-        ->toThrow(\RuntimeException::class, 'No databases found on the server to backup.');
+    Log::shouldReceive('warning')
+        ->once()
+        ->with('No databases found on server [Empty Server] to backup.');
+
+    $snapshots = $backupJobFactory->createSnapshots($databaseServer, 'manual');
+
+    expect($snapshots)->toBeEmpty();
 });
 
 test('run handles backup path configuration correctly', function (?string $configuredPath, string $expectedPrefix) {

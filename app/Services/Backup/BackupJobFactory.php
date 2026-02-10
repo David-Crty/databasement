@@ -9,6 +9,7 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
+use Illuminate\Support\Facades\Log;
 
 class BackupJobFactory
 {
@@ -45,7 +46,7 @@ class BackupJobFactory
             $databases = $this->databaseListService->listDatabases($server);
 
             if (empty($databases)) {
-                throw new \RuntimeException('No databases found on the server to backup.');
+                Log::warning("No databases found on server [{$server->name}] to backup.");
             }
 
             foreach ($databases as $databaseName) {
@@ -53,8 +54,9 @@ class BackupJobFactory
             }
         } else {
             if (empty($server->database_names)) {
-                throw new \RuntimeException('No database names specified for the server to backup.');
+                Log::warning("No database names configured for server [{$server->name}] to backup.");
             }
+
             foreach ($server->database_names as $databaseName) {
                 $snapshots[] = $this->createSnapshot($server, $databaseName, $method, $triggeredByUserId);
             }
