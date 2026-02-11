@@ -6,6 +6,7 @@ use App\Enums\DatabaseType;
 use App\Exceptions\Backup\ConnectionException;
 use App\Exceptions\Backup\RestoreException;
 use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
+use App\Facades\AppConfig;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
@@ -49,6 +50,7 @@ class RestoreTask
         $snapshot = $restore->snapshot;
         $job = $restore->job;
         try {
+            AppConfig::ensureBackupTmpFolderExists();
             $this->validateCompatibility($targetServer, $snapshot);
             $this->shellProcessor->setLogger($job);
             $workingDirectory = FilesystemSupport::createWorkingDirectory('restore', $restore->id);

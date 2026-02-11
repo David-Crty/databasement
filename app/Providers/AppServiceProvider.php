@@ -91,7 +91,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerNotificationServiceConfigs();
-        $this->ensureBackupTmpFolderExists();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
 
@@ -131,15 +130,6 @@ class AppServiceProvider extends ServiceProvider
             if ($token) {
                 config([$servicesConfigKey => $token]);
             }
-        }
-    }
-
-    private function ensureBackupTmpFolderExists(): void
-    {
-        $backupTmpFolder = AppConfig::get('backup.working_directory');
-
-        if ($backupTmpFolder && ! is_dir($backupTmpFolder)) {
-            mkdir($backupTmpFolder, 0755, true);
         }
     }
 

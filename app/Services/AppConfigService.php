@@ -75,7 +75,7 @@ class AppConfigService
 
         $schema = self::CONFIG[$key];
 
-        $row = AppConfig::updateOrCreate(
+        AppConfig::updateOrCreate(
             ['id' => $key],
             [
                 'value' => AppConfig::prepareValue($value, $schema['is_sensitive']),
@@ -83,5 +83,14 @@ class AppConfigService
                 'is_sensitive' => $schema['is_sensitive'],
             ]
         );
+    }
+
+    public function ensureBackupTmpFolderExists(): void
+    {
+        $backupTmpFolder = self::get('backup.working_directory');
+
+        if ($backupTmpFolder && ! is_dir($backupTmpFolder)) {
+            mkdir($backupTmpFolder, 0755, true);
+        }
     }
 }

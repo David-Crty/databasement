@@ -3,6 +3,7 @@
 namespace App\Services\Backup;
 
 use App\Enums\DatabaseType;
+use App\Facades\AppConfig;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -43,6 +44,7 @@ class BackupTask
         $job = $snapshot->job;
         $isSqlite = $databaseServer->database_type === DatabaseType::SQLITE;
         try {
+            AppConfig::ensureBackupTmpFolderExists();
             $this->setLogger($job);
             $compressor = $this->compressorFactory->make();
             $workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $snapshot->id);

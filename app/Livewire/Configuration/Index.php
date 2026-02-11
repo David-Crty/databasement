@@ -9,13 +9,13 @@ use App\Models\Snapshot;
 use App\Services\FailureNotificationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Mary\Traits\Toast;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Process\Process;
 
 #[Title('Configuration')]
 class Index extends Component
@@ -138,9 +138,10 @@ class Index extends Component
         abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
 
         $this->form->saveBackup();
-        $this->restartScheduler();
 
-        $this->success(__('Backup configuration saved.'), position: 'toast-bottom');
+        if ($this->restartScheduler()) {
+            $this->success(__('Backup configuration saved.'), position: 'toast-bottom');
+        }
     }
 
     public function saveNotificationConfig(): void
@@ -195,9 +196,10 @@ class Index extends Component
         $this->showScheduleModal = false;
         $this->editingScheduleId = null;
         $this->form->resetScheduleFields();
-        $this->restartScheduler();
 
-        $this->success(__('Backup schedule saved.'), position: 'toast-bottom');
+        if ($this->restartScheduler()) {
+            $this->success(__('Backup schedule saved.'), position: 'toast-bottom');
+        }
     }
 
     public function confirmDeleteSchedule(string $scheduleId): void
@@ -227,9 +229,10 @@ class Index extends Component
         $schedule->delete();
         $this->showDeleteScheduleModal = false;
         $this->deleteScheduleId = null;
-        $this->restartScheduler();
 
-        $this->success(__('Backup schedule deleted.'), position: 'toast-bottom');
+        if ($this->restartScheduler()) {
+            $this->success(__('Backup schedule deleted.'), position: 'toast-bottom');
+        }
     }
 
     public function sendTestNotification(): void
@@ -285,19 +288,23 @@ class Index extends Component
         ];
     }
 
-    private function restartScheduler(): void
+    private function restartScheduler(): bool
     {
-        $process = new Process(['supervisorctl', 'restart', 'schedule-run']);
-        $process->setTimeout(10);
-        $process->run();
+        $result = Process::timeout(10)->run('supervisorctl -c /config/supervisord.conf restart schedule-run');
 
-        if (! $process->isSuccessful()) {
+        if ($result->failed()) {
             Log::warning('Failed to restart schedule-run', [
-                'exit_code' => $process->getExitCode(),
-                'error' => $process->getErrorOutput(),
+                'exit_code' => $result->exitCode(),
+                'error' => $result->errorOutput(),
             ]);
-            $this->warning(__('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'), position: 'toast-bottom');
+            $this->warning(__('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'), position: 'toast-bottom', timeout: 6000);
+
+            return false;
         }
+
+        Log::info('Scheduler restarted successfully.');
+
+        return true;
     }
 
     /**

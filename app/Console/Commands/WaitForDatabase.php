@@ -30,9 +30,6 @@ class WaitForDatabase extends Command
      */
     public function handle(Migrator $migrator): int
     {
-        // Stagger startup to avoid simultaneous connections from supervisord processes
-        usleep(random_int(0, 3_000_000));
-
         $this->info('Waiting for database connection...');
 
         $maxRetries = 60;
@@ -56,7 +53,7 @@ class WaitForDatabase extends Command
 
                         return 0;
                     }
-                    if (str_contains($e->getMessage(), 'Unknown database')) {
+                    if (str_contains($e->getMessage(), 'Unknown database') || preg_match('/database\s+"[^"]+"\s+does not exist/i', $e->getMessage())) {
                         $this->info('Database connection established! (Database not created yet).');
 
                         return 0;
