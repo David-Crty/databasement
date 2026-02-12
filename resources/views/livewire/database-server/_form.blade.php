@@ -82,9 +82,9 @@
                         <x-input
                             wire:model="form.username"
                             label="{{ __('Username') }}"
-                            placeholder="{{ __('Database username') }}"
+                            placeholder="{{ $form->isRedis() ? __('Optional (for ACL-enabled servers)') : __('Database username') }}"
                             type="text"
-                            required
+                            :required="!$form->isRedis()"
                             autocomplete="off"
                         />
 
@@ -92,7 +92,7 @@
                             wire:model="form.password"
                             label="{{ __('Password') }}"
                             placeholder="{{ $isEdit ? __('Leave blank to keep current') : __('Database password') }}"
-                            :required="!$isEdit"
+                            :required="!$isEdit && !$form->isRedis()"
                             autocomplete="off"
                         />
                     </div>
@@ -183,7 +183,7 @@
     @endif
 
     <!-- Section 3: Database Selection (only shown after successful connection, not for SQLite, and when backups enabled) -->
-    @if(($form->connectionTestSuccess or $isEdit) && !$form->isSqlite() && $form->backups_enabled)
+    @if(($form->connectionTestSuccess or $isEdit) && !$form->isSqlite() && !$form->isRedis() && $form->backups_enabled)
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body">
                 <div class="flex items-center gap-3 mb-4">
@@ -235,7 +235,7 @@
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body">
                 <div class="flex items-center gap-3 mb-4">
-                    <span class="badge badge-primary badge-lg font-bold">{{ $form->isSqlite() ? '3' : '4' }}</span>
+                    <span class="badge badge-primary badge-lg font-bold">{{ ($form->isSqlite() || $form->isRedis()) ? '3' : '4' }}</span>
                     <h3 class="card-title text-lg">{{ __('Backup Configuration') }}</h3>
                 </div>
 

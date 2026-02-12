@@ -17,6 +17,8 @@ test('connection succeeds', function (string $databaseType) {
 
     if ($databaseType === 'sqlite') {
         IntegrationTestHelpers::createTestSqliteDatabase($config['host']);
+    } elseif ($databaseType === 'redis') {
+        // Redis doesn't need test data for connection testing
     } else {
         // Create unique database for this parallel process
         $server = IntegrationTestHelpers::createDatabaseServer($databaseType);
@@ -40,11 +42,11 @@ test('connection succeeds', function (string $databaseType) {
     // Cleanup
     if ($databaseType === 'sqlite') {
         unlink($config['host']);
-    } else {
+    } elseif ($databaseType !== 'redis') {
         IntegrationTestHelpers::dropDatabase($databaseType, $server, $config['database']);
         $server->delete();
     }
-})->with(['mysql', 'postgres', 'sqlite']);
+})->with(['mysql', 'postgres', 'sqlite', 'redis']);
 
 test('connection fails with invalid credentials', function (string $databaseType) {
     $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);
@@ -121,4 +123,19 @@ test('sqlite connection fails with invalid sqlite file', function () {
         ->and($result['message'])->toContain('Invalid SQLite database file');
 
     unlink($invalidPath);
+});
+
+test('redis connection fails with wrong port', function () {
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'redis',
+        'host' => '127.0.0.1',
+        'port' => 63791, // Wrong port
+        'username' => '',
+        'password' => '',
+    ]);
+
+    $result = DatabaseConnectionTester::test($server);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->not->toBeEmpty();
 });

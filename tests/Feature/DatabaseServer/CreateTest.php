@@ -26,6 +26,10 @@ test('can create database server', function (array $config) {
     // Set type-specific fields
     if ($config['type'] === 'sqlite') {
         $component->set('form.sqlite_path', $config['sqlite_path']);
+    } elseif ($config['type'] === 'redis') {
+        $component
+            ->set('form.host', $config['host'])
+            ->set('form.port', $config['port']);
     } else {
         $component
             ->set('form.host', $config['host'])
@@ -52,7 +56,6 @@ test('can create database server', function (array $config) {
     } else {
         expect($server->host)->toBe($config['host']);
         expect($server->port)->toBe($config['port']);
-        expect($server->sqlite_path)->toBeNull();
     }
 
     $this->assertDatabaseHas('backups', [

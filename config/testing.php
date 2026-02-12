@@ -30,5 +30,11 @@ return [
             'password' => env('TEST_POSTGRES_PASSWORD', 'root'),
             'database' => env('TEST_POSTGRES_DATABASE', 'databasement_test'),
         ],
+
+        'redis' => [
+            'host' => env('TEST_REDIS_HOST', 'redis'),
+            'port' => env('TEST_REDIS_PORT', 6379),
+            'password' => env('TEST_REDIS_PASSWORD', null),
+        ],
     ],
 ];

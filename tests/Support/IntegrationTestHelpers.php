@@ -59,6 +59,14 @@ class IntegrationTestHelpers
                 'database' => null,
                 'database_type' => 'sqlite',
             ],
+            'redis' => [
+                'host' => config('testing.databases.redis.host'),
+                'port' => (int) config('testing.databases.redis.port'),
+                'username' => '',
+                'password' => config('testing.databases.redis.password') ?? '',
+                'database' => 'all',
+                'database_type' => 'redis',
+            ],
             default => throw new InvalidArgumentException("Unsupported database type: {$type}"),
         };
     }
@@ -111,6 +119,41 @@ class IntegrationTestHelpers
             'volume_id' => $volume->id,
             'backup_schedule_id' => $schedule->id,
         ]);
+    }
+
+    /**
+     * Create a Redis database server for integration tests.
+     */
+    public static function createRedisDatabaseServer(): DatabaseServer
+    {
+        $config = self::getDatabaseConfig('redis');
+
+        return DatabaseServer::create([
+            'name' => 'Integration Test Redis Server',
+            'host' => $config['host'],
+            'port' => $config['port'],
+            'database_type' => 'redis',
+            'username' => $config['username'],
+            'password' => $config['password'],
+            'backup_all_databases' => true,
+            'description' => 'Integration test Redis server',
+        ]);
+    }
+
+    /**
+     * Load test data into a Redis server.
+     */
+    public static function loadRedisTestData(DatabaseServer $server): void
+    {
+        $fixtureFile = __DIR__.'/../Integration/fixtures/redis-init.txt';
+        $host = escapeshellarg($server->host);
+        $port = escapeshellarg((string) $server->port);
+        $password = $server->getDecryptedPassword();
+        $authFlags = ! empty($password) ? '-a '.escapeshellarg($password).' --no-auth-warning ' : '';
+
+        // Flush existing data and load fixture
+        exec("redis-cli -h {$host} -p {$port} {$authFlags}FLUSHALL 2>/dev/null");
+        exec("redis-cli -h {$host} -p {$port} {$authFlags}< {$fixtureFile} 2>/dev/null");
     }
 
     /**
@@ -172,6 +215,13 @@ class IntegrationTestHelpers
      */
     public static function loadTestData(string $type, DatabaseServer $server): void
     {
+        // Redis uses its own data loading mechanism
+        if ($type === 'redis') {
+            self::loadRedisTestData($server);
+
+            return;
+        }
+
         $databaseName = $server->database_names[0];
 
         $pdo = DatabaseType::from($type)->createPdo($server);

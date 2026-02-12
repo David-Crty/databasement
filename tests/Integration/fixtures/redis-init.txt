@@ -1,0 +1,7 @@
+SET user:1 '{"name":"John Doe","email":"john@example.com"}'
+SET user:2 '{"name":"Jane Smith","email":"jane@example.com"}'
+SET product:1 '{"name":"Laptop","price":1299.99,"stock":15}'
+SET product:2 '{"name":"Mouse","price":29.99,"stock":50}'
+HSET config app_name "Databasement"
+HSET config version "1.0"
+LPUSH recent_events "user_login" "product_update" "backup_complete"

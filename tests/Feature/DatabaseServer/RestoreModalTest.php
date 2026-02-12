@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\ProcessRestoreJob;
+use App\Livewire\DatabaseServer\Index;
 use App\Livewire\DatabaseServer\RestoreModal;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -41,7 +42,7 @@ test('can navigate through restore wizard steps', function (string $databaseType
 
     // Step 2: Enter schema name
     $component->assertSet('currentStep', 2);
-})->with('database types');
+})->with(['mysql', 'postgres', 'sqlite']);
 
 test('can queue restore job with valid data', function (string $databaseType) {
     Queue::fake();
@@ -80,7 +81,7 @@ test('can queue restore job with valid data', function (string $databaseType) {
     // Verify the job was pushed with the restore ID
     $pushedJob = Queue::pushed(ProcessRestoreJob::class)->first();
     expect($pushedJob->restoreId)->toBe($restore->id);
-})->with('database types');
+})->with(['mysql', 'postgres', 'sqlite']);
 
 test('only shows compatible servers with same database type', function () {
     $targetServer = DatabaseServer::factory()->create([
@@ -125,7 +126,7 @@ test('can go back to previous steps', function (string $databaseType) {
         ->assertSet('currentStep', 2)
         ->call('previousStep')
         ->assertSet('currentStep', 1);
-})->with('database types');
+})->with(['mysql', 'postgres', 'sqlite']);
 
 test('prevents restoring over the application database', function () {
     Queue::fake();
@@ -185,4 +186,16 @@ test('can search and filter snapshots', function () {
         ->set('snapshotSearch', 'users')
         ->assertSee('users_db')
         ->assertDontSee('orders_db');
+});
+
+test('redis restore shows manual instructions modal', function () {
+    $targetServer = DatabaseServer::factory()->create([
+        'database_type' => 'redis',
+    ]);
+
+    Livewire::test(Index::class)
+        ->call('confirmRestore', $targetServer->id)
+        ->assertSet('showRedisRestoreModal', true)
+        ->assertSee('Manual Restore Required')
+        ->assertSee('How to Restore an RDB Snapshot');
 });

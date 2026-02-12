@@ -82,6 +82,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7
+    container_name: databasement-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   rustfs:
     image: rustfs/rustfs:latest
     container_name: databasement-rustfs
@@ -155,4 +168,5 @@ volumes:
   postgres-data:
   rustfs-data:
   sftp-data:
+  redis-data:
   ftp-data:

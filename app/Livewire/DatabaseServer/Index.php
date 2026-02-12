@@ -2,6 +2,7 @@
 
 namespace App\Livewire\DatabaseServer;
 
+use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\TriggerBackupAction;
@@ -32,6 +33,8 @@ class Index extends Component
     public ?string $restoreId = null;
 
     public bool $showDeleteModal = false;
+
+    public bool $showRedisRestoreModal = false;
 
     public int $deleteSnapshotCount = 0;
 
@@ -105,6 +108,13 @@ class Index extends Component
         $this->authorize('restore', $server);
 
         $this->restoreId = $id;
+
+        if ($server->database_type === DatabaseType::REDIS) {
+            $this->showRedisRestoreModal = true;
+
+            return;
+        }
+
         $this->dispatch('open-restore-modal', targetServerId: $id);
     }
 

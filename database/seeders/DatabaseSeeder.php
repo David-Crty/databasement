@@ -83,8 +83,19 @@ class DatabaseSeeder extends Seeder
             'password' => '',
         ]);
 
+        // Redis server (from docker-compose)
+        $redis = DatabaseServer::create([
+            'name' => 'Local Redis',
+            'host' => 'redis',
+            'port' => 6379,
+            'database_type' => 'redis',
+            'username' => '',
+            'password' => '',
+            'backup_all_databases' => true,
+        ]);
+
         // Backup configurations
-        foreach ([$mysql, $postgres, $sqlite] as $server) {
+        foreach ([$mysql, $postgres, $sqlite, $redis] as $server) {
             Backup::create([
                 'database_server_id' => $server->id,
                 'volume_id' => $volume->id,

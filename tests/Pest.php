@@ -123,7 +123,7 @@ function createDatabaseServer(array $attributes = []): \App\Models\DatabaseServe
 |
 */
 
-dataset('database types', ['mysql', 'postgres', 'sqlite']);
+dataset('database types', ['mysql', 'postgres', 'sqlite', 'redis']);
 
 dataset('database server configs', [
     'mysql' => [[
@@ -142,6 +142,12 @@ dataset('database server configs', [
         'type' => 'sqlite',
         'name' => 'SQLite Database',
         'sqlite_path' => '/data/app.sqlite',
+    ]],
+    'redis' => [[
+        'type' => 'redis',
+        'name' => 'Redis Server',
+        'host' => 'redis.example.com',
+        'port' => 6379,
     ]],
 ]);
 

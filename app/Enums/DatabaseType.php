@@ -9,6 +9,7 @@ enum DatabaseType: string
     case MYSQL = 'mysql';
     case POSTGRESQL = 'postgres';
     case SQLITE = 'sqlite';
+    case REDIS = 'redis';
 
     public function label(): string
     {
@@ -16,6 +17,7 @@ enum DatabaseType: string
             self::MYSQL => 'MySQL / MariaDB',
             self::POSTGRESQL => 'PostgreSQL',
             self::SQLITE => 'SQLite',
+            self::REDIS => 'Redis / Valkey',
         };
     }
 
@@ -25,6 +27,7 @@ enum DatabaseType: string
             self::MYSQL => 3306,
             self::POSTGRESQL => 5432,
             self::SQLITE => 0,
+            self::REDIS => 6379,
         };
     }
 
@@ -48,6 +51,7 @@ enum DatabaseType: string
                 $database ?? 'postgres'
             ),
             self::SQLITE => "sqlite:{$host}",
+            self::REDIS => throw new \RuntimeException('Redis does not support PDO connections'),
         };
     }
 
@@ -60,6 +64,10 @@ enum DatabaseType: string
      */
     public function createPdo(DatabaseServer $server, ?string $database = null, int $timeout = 30): \PDO
     {
+        if ($this === self::REDIS) {
+            throw new \RuntimeException('Redis does not support PDO connections');
+        }
+
         $host = $server->host;
         if ($this === self::SQLITE) {
             if (empty($server->sqlite_path)) {
@@ -84,6 +92,7 @@ enum DatabaseType: string
     {
         return match ($this) {
             self::SQLITE => 'db',
+            self::REDIS => 'rdb',
             default => 'sql',
         };
     }

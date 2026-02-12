@@ -171,4 +171,5 @@ test('test delegates to handler with correct database name', function (string $d
 })->with([
     'mysql uses empty database name' => ['mysql', ''],
     'postgresql uses postgres database' => ['postgres', 'postgres'],
+    'redis uses empty database name' => ['redis', ''],
 ]);

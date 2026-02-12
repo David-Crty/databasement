@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Laravel application for managing database server backups. It uses Livewire for reactive components and Mary UI (robsontenorio/mary, built on daisyUI and Tailwind CSS). The application allows users to register database servers (MySQL, PostgreSQL, MariaDB, SQLite), test connections, and manage backup configurations. See Boost's Foundational Context below for exact package versions.
+This is a Laravel application for managing database server backups. It uses Livewire for reactive components and Mary UI (robsontenorio/mary, built on daisyUI and Tailwind CSS). The application allows users to register database servers (MySQL, PostgreSQL, MariaDB, SQLite, Redis/Valkey), test connections, and manage backup configurations. See Boost's Foundational Context below for exact package versions.
 
 ## Development Commands
 
@@ -20,7 +20,7 @@ docker compose exec --user application -T app composer remove <package>   # Remo
 
 ### Running the Application
 ```bash
-make start              # Start all Docker services: php (FrankenPHP), queue worker, mysql, postgres
+make start              # Start all Docker services: php (FrankenPHP), queue worker, mysql, postgres, redis
 docker compose up -d    # Alternative: direct docker compose command
 docker compose logs -f  # View logs from all services
 docker compose logs -f queue  # View queue worker logs only
@@ -94,7 +94,7 @@ make build              # Alternative: build via Makefile
 
 ### Docker Services
 ```bash
-make start                      # Start all services (php, queue worker, mysql, postgres)
+make start                      # Start all services (php, queue worker, mysql, postgres, redis)
 docker compose up -d            # Alternative: direct docker compose command
 docker compose down             # Stop all services
 docker compose down -v          # Stop and remove volumes
@@ -107,6 +107,7 @@ The Docker setup provides:
 - **queue**: Queue worker processing backup/restore jobs
 - **mysql**: MySQL 8.0 on port 3306 (user: admin, password: admin, db: testdb)
 - **postgres**: PostgreSQL 16 on port 5432 (user: admin, password: admin, db: testdb)
+- **redis**: Redis 7 on port 6379
 
 **Queue Worker**: The queue service automatically starts with `make start` and processes jobs from the `backups` queue. It restarts automatically on failure and respects a max of 1000 jobs before auto-restarting (prevents memory leaks).
 
@@ -137,7 +138,7 @@ The Docker setup provides:
 - `ProcessRestoreJob` - Wraps `RestoreTask` service for async execution (no retries, 1hr timeout)
 
 **Services**:
-- `DatabaseConnectionTester` - Tests database connections via PDO with timeout/error handling
+- `DatabaseConnectionTester` - Tests database connections via PDO (or CLI for Redis) with timeout/error handling
 - `BackupTask` - Executes database backups (dump, compress, transfer to volume)
 - `RestoreTask` - Restores database snapshots (download, decompress, drop/create DB, restore)
 - `DatabaseListService` - Lists databases from a server (for autocomplete in restore modal)
@@ -204,21 +205,36 @@ All database types implement `DatabaseInterface` and are resolved via `DatabaseF
 #### Files to Update
 
 **Core:**
-- `app/Enums/DatabaseType.php` - Add enum case, label, default port, DSN format in `buildDsn()`
+- `app/Enums/DatabaseType.php` - Add enum case, label, default port, `dumpExtension()`, DSN format in `buildDsn()`
 - `app/Services/Backup/Databases/{Type}Database.php` - Create handler implementing `DatabaseInterface` (`setConfig`, `getDumpCommandLine`, `getRestoreCommandLine`, `prepareForRestore`, `testConnection`)
-- `app/Services/Backup/Databases/DatabaseFactory.php` - Add case to `make()` match expression
+- `app/Services/Backup/Databases/DatabaseFactory.php` - Add case to `make()` and config handling in `makeForServer()`
 - `app/Services/Backup/DatabaseListService.php` - Add `list{Type}Databases()` method
-- `app/Livewire/Forms/DatabaseServerForm.php` - Add type to validation rule
+- `app/Services/Backup/BackupJobFactory.php` - Add snapshot creation logic if different from default (e.g., instance-level types like Redis/SQLite)
+- `app/Livewire/Forms/DatabaseServerForm.php` - Validation rules, type helpers, UI behavior
+
+**UI:**
+- `resources/views/livewire/database-server/_form.blade.php` - Conditional fields for the type
+- `resources/views/livewire/database-server/restore-modal.blade.php` - If restore behavior differs
 
 **Infrastructure:**
-- `docker/php/Dockerfile` - Add PDO extension and CLI tools
+- `docker/php/Dockerfile` - Add extensions and CLI tools
 - `docker-compose.yml` - Add test database service
+- `.github/workflows/tests.yml` - Add CI service + system dependencies
 - `config/testing.php` - Add test database config with defaults
 
 **Tests & Fixtures:**
+- `database/factories/DatabaseServerFactory.php` - Add factory state
+- `database/seeders/DatabaseSeeder.php` - Add seeder entry
+- `tests/Feature/Services/Backup/Databases/{Type}DatabaseTest.php` - Handler unit tests
 - `tests/Integration/BackupRestoreTest.php` - Add to test dataset
 - `tests/Support/IntegrationTestHelpers.php` - Add config and helpers
-- `tests/Integration/fixtures/{type}-init.sql` - Create test fixture
+- `tests/Integration/fixtures/{type}-init.*` - Test fixture
+- `tests/Pest.php` - Update global datasets
+
+#### Architecture Notes
+
+- Types without PDO support (e.g., Redis) must throw in `buildDsn()`/`createPdo()` and handle connection testing via CLI in their `testConnection()` method
+- Types that backup the whole instance (e.g., Redis, SQLite) should short-circuit in `BackupJobFactory.createSnapshots()` to create a single snapshot
 
 ### Adding a New Volume Type
 
@@ -313,7 +329,7 @@ Use Mary UI's `<x-table>` component with `@scope` directives for cell rendering.
 - `phpunit.xml` - Test configuration
 - `vite.config.js` - Asset bundling configuration
 - `composer.json` - Contains helpful script shortcuts (`composer test`, `composer setup`)
-- `docker-compose.yml` - Defines services: php (FrankenPHP), queue worker, mysql, postgres
+- `docker-compose.yml` - Defines services: php (FrankenPHP), queue worker, mysql, postgres, redis
 
 ===
 

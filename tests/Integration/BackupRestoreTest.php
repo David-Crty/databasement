@@ -226,3 +226,32 @@ test('sqlite backup and restore workflow', function () {
     @unlink($sourceSqlitePath);
     @unlink($restoredSqlitePath);
 });
+
+test('redis backup workflow', function () {
+    // Create models
+    $this->volume = IntegrationTestHelpers::createVolume('redis');
+    $this->databaseServer = IntegrationTestHelpers::createRedisDatabaseServer();
+    $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
+    $this->databaseServer->load('backup.volume');
+
+    // Load test data
+    IntegrationTestHelpers::loadRedisTestData($this->databaseServer);
+
+    // Run backup
+    $snapshots = $this->backupJobFactory->createSnapshots(
+        server: $this->databaseServer,
+        method: 'manual',
+    );
+    $this->snapshot = $snapshots[0];
+    $this->backupTask->run($this->snapshot);
+    $this->snapshot->refresh();
+    $this->snapshot->load('job');
+
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+
+    expect($this->snapshot->job->status)->toBe('completed')
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->database_name)->toBe('all')
+        ->and($this->snapshot->filename)->toEndWith('.rdb.gz')
+        ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
+});

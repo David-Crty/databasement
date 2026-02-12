@@ -64,7 +64,7 @@ class Edit extends Component
 
     public function loadDatabases(): void
     {
-        if (! $this->form->isSqlite()) {
+        if (! $this->form->isSqlite() && ! $this->form->isRedis()) {
             $this->form->loadAvailableDatabases();
         }
     }

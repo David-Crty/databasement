@@ -16,7 +16,6 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
@@ -127,11 +126,10 @@ class RestoreModal extends Component
             return false;
         }
 
-        // Only check for MySQL/MariaDB and PostgreSQL (not SQLite)
         $targetType = $this->targetServer->database_type;
-        $clientServerTypes = [DatabaseType::MYSQL, DatabaseType::POSTGRESQL];
+        $appDatabaseTypes = [DatabaseType::MYSQL, DatabaseType::POSTGRESQL];
 
-        if (! in_array($targetType, $clientServerTypes)) {
+        if (! in_array($targetType, $appDatabaseTypes)) {
             return false;
         }
 
@@ -167,7 +165,7 @@ class RestoreModal extends Component
      */
     protected function validateSchemaName(): void
     {
-        $isSqlite = $this->targetServer?->database_type->value === 'sqlite';
+        $isSqlite = $this->targetServer?->database_type === DatabaseType::SQLITE;
 
         if ($isSqlite) {
             // SQLite uses file paths - allow more characters

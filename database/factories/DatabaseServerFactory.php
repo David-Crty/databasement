@@ -50,6 +50,23 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
+     * Configure the factory for Redis database type.
+     */
+    public function redis(): static
+    {
+        return $this->state(fn () => [
+            'name' => fake()->company().' Redis Server',
+            'database_type' => 'redis',
+            'host' => fake()->randomElement(['localhost', '127.0.0.1']),
+            'port' => 6379,
+            'username' => '',
+            'password' => '',
+            'database_names' => null,
+            'backup_all_databases' => true,
+        ]);
+    }
+
+    /**
      * Configure the factory with SSH tunnel using password authentication.
      *
      * Note: Uses afterCreating() hook, so only works with create(), not make().

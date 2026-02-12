@@ -35,6 +35,11 @@ class DatabaseListService
     {
         $tunnelEndpoint = null;
 
+        // Redis dumps the entire instance - no individual databases to list
+        if ($databaseServer->database_type === DatabaseType::REDIS) {
+            return ['all'];
+        }
+
         try {
             // Establish SSH tunnel if required
             if ($databaseServer->requiresSshTunnel()) {

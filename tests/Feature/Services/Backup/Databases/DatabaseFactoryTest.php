@@ -5,6 +5,7 @@ use App\Models\DatabaseServer;
 use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
+use App\Services\Backup\Databases\RedisDatabase;
 use App\Services\Backup\Databases\SqliteDatabase;
 
 test('make returns correct handler for database type', function (DatabaseType $type, string $expectedClass) {
@@ -15,6 +16,7 @@ test('make returns correct handler for database type', function (DatabaseType $t
     'mysql' => [DatabaseType::MYSQL, MysqlDatabase::class],
     'postgresql' => [DatabaseType::POSTGRESQL, PostgresqlDatabase::class],
     'sqlite' => [DatabaseType::SQLITE, SqliteDatabase::class],
+    'redis' => [DatabaseType::REDIS, RedisDatabase::class],
 ]);
 
 test('makeForServer uses explicit host and port parameters', function () {

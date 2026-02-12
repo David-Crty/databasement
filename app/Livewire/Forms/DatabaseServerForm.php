@@ -349,6 +349,14 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Check if current database type is Redis
+     */
+    public function isRedis(): bool
+    {
+        return $this->database_type === 'redis';
+    }
+
+    /**
      * Get database type options for select
      *
      * @return array<array{id: string, name: string}>
@@ -416,6 +424,8 @@ class DatabaseServerForm extends Form
 
         if ($this->isSqlite()) {
             $rules = array_merge($rules, $this->getSqliteValidationRules());
+        } elseif ($this->isRedis()) {
+            $rules = array_merge($rules, $this->getRedisValidationRules());
         } else {
             $rules = array_merge($rules, $this->getClientServerValidationRules());
         }
@@ -513,6 +523,29 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Get Redis-specific validation rules.
+     *
+     * @return array<string, mixed>
+     */
+    private function getRedisValidationRules(): array
+    {
+        $rules = [
+            'host' => 'required|string|max:255',
+            'port' => 'required|integer|min:1|max:65535',
+            'username' => 'nullable|string|max:255',
+            'password' => 'nullable',
+            'ssh_enabled' => 'boolean',
+        ];
+
+        if ($this->ssh_enabled) {
+            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
+            $rules = array_merge($rules, $this->getSshValidationRules());
+        }
+
+        return $rules;
+    }
+
+    /**
      * Validate GFS retention policy has at least one tier configured.
      *
      * @throws ValidationException
@@ -539,6 +572,12 @@ class DatabaseServerForm extends Form
 
         // Handle SSH config
         $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
+
+        // Redis always backs up the entire instance
+        if ($this->isRedis()) {
+            $serverData['backup_all_databases'] = true;
+            $serverData['database_names'] = null;
+        }
 
         $server = DatabaseServer::create($serverData);
         $this->syncBackupConfiguration($server, $backupData);
@@ -570,6 +609,12 @@ class DatabaseServerForm extends Form
 
         // Handle SSH config
         $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
+
+        // Redis always backs up the entire instance
+        if ($this->isRedis()) {
+            $serverData['backup_all_databases'] = true;
+            $serverData['database_names'] = null;
+        }
 
         $this->server->update($serverData);
         $this->syncBackupConfiguration($this->server, $backupData);
@@ -716,6 +761,11 @@ class DatabaseServerForm extends Form
                 $this->validate([
                     'sqlite_path' => 'required|string|max:1000',
                 ]);
+            } elseif ($this->isRedis()) {
+                $this->validate([
+                    'host' => 'required|string|max:255',
+                    'port' => 'required|integer|min:1|max:65535',
+                ]);
             } else {
                 $this->validate([
                     'host' => 'required|string|max:255',
@@ -764,8 +814,8 @@ class DatabaseServerForm extends Form
         $this->connectionTestDetails = $result['details'] ?? [];
         $this->testingConnection = false;
 
-        // If connection successful and not SQLite, load available databases
-        if ($this->connectionTestSuccess && ! $this->isSqlite()) {
+        // If connection successful and not SQLite/Redis, load available databases
+        if ($this->connectionTestSuccess && ! $this->isSqlite() && ! $this->isRedis()) {
             $this->loadAvailableDatabases();
         }
     }

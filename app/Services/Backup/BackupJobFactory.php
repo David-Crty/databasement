@@ -42,6 +42,13 @@ class BackupJobFactory
             return $snapshots;
         }
 
+        // Redis: single snapshot, dumps entire instance
+        if ($server->database_type === DatabaseType::REDIS) {
+            $snapshots[] = $this->createSnapshot($server, 'all', $method, $triggeredByUserId);
+
+            return $snapshots;
+        }
+
         if ($server->backup_all_databases) {
             $databases = $this->databaseListService->listDatabases($server);
 

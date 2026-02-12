@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\DatabaseType;
 use App\Exceptions\Backup\RestoreException;
 use App\Facades\AppConfig;
 use App\Models\BackupJob;
@@ -46,6 +47,11 @@ class RestoreTask
         try {
             AppConfig::ensureBackupTmpFolderExists();
             $this->validateCompatibility($targetServer, $snapshot);
+
+            if ($targetServer->database_type === DatabaseType::REDIS) {
+                throw new RestoreException('Automated restore is not supported for Redis/Valkey. Please restore manually.');
+            }
+
             $this->shellProcessor->setLogger($job);
             $workingDirectory = FilesystemSupport::createWorkingDirectory('restore', $restore->id);
 

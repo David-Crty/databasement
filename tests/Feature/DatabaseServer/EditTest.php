@@ -24,6 +24,10 @@ test('can edit database server', function (array $config) {
 
     if ($config['type'] === 'sqlite') {
         $serverData['sqlite_path'] = $config['sqlite_path'];
+    } elseif ($config['type'] === 'redis') {
+        $serverData['host'] = $config['host'];
+        $serverData['port'] = $config['port'];
+        $serverData['backup_all_databases'] = true;
     } else {
         $serverData['host'] = $config['host'];
         $serverData['port'] = $config['port'];
@@ -52,6 +56,12 @@ test('can edit database server', function (array $config) {
             ->assertSet('form.username', '')
             ->set('form.name', "Updated {$config['name']}")
             ->set('form.sqlite_path', '/data/new-app.sqlite');
+    } elseif ($config['type'] === 'redis') {
+        $component
+            ->assertSet('form.host', $config['host'])
+            ->assertSet('form.port', $config['port'])
+            ->set('form.name', "Updated {$config['name']}")
+            ->set('form.host', "{$config['type']}2.example.com");
     } else {
         $component
             ->assertSet('form.host', $config['host'])

@@ -36,7 +36,8 @@ RUN apk add --no-cache git \
         findutils \
         bash \
         openssh-client \
-        sshpass
+        sshpass \
+        redis
 
 COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini

@@ -16,6 +16,7 @@ class DatabaseFactory
             DatabaseType::MYSQL => new MysqlDatabase,
             DatabaseType::POSTGRESQL => new PostgresqlDatabase,
             DatabaseType::SQLITE => new SqliteDatabase,
+            DatabaseType::REDIS => new RedisDatabase,
         };
     }
 
@@ -47,8 +48,11 @@ class DatabaseFactory
                 'port' => $port,
                 'user' => $server->username,
                 'pass' => $server->getDecryptedPassword(),
-                'database' => $databaseName,
             ];
+
+            if ($server->database_type !== DatabaseType::REDIS) {
+                $config['database'] = $databaseName;
+            }
         }
 
         return $this->makeConfigured($server->database_type, $config);
