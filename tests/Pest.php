@@ -102,6 +102,18 @@ function weeklySchedule(): \App\Models\BackupSchedule
     );
 }
 
+/**
+ * Create a DatabaseServer with its associated Backup and Volume via factory.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function createDatabaseServer(array $attributes = []): \App\Models\DatabaseServer
+{
+    return \App\Models\DatabaseServer::factory()
+        ->create($attributes)
+        ->load('backup.volume');
+}
+
 /*
 |--------------------------------------------------------------------------
 | Datasets

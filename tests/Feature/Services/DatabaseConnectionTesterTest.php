@@ -3,9 +3,9 @@
 use App\Facades\DatabaseConnectionTester;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-
-uses(RefreshDatabase::class);
+use App\Services\Backup\Databases\DatabaseFactory;
+use App\Services\Backup\Databases\DatabaseInterface;
+use App\Services\SshTunnelService;
 
 test('test with SSH config returns error for SQLite', function () {
     $sshConfig = new DatabaseServerSshConfig;
@@ -134,3 +134,41 @@ test('getSshDisplayName returns display name when SSH configured', function () {
     expect($server->getSshDisplayName())->not->toBeNull()
         ->and($server->getSshDisplayName())->toContain('@'); // Format: user@host:port
 });
+
+test('test delegates to handler with correct database name', function (string $dbType, string $expectedDbName) {
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('testConnection')
+        ->once()
+        ->andReturn(['success' => true, 'message' => 'Connection successful', 'details' => []]);
+
+    $mockFactory = Mockery::mock(DatabaseFactory::class);
+    $mockFactory->shouldReceive('makeForServer')
+        ->once()
+        ->with(
+            Mockery::type(DatabaseServer::class),
+            $expectedDbName,
+            Mockery::type('string'),
+            Mockery::type('int')
+        )
+        ->andReturn($mockHandler);
+
+    $mockSshService = Mockery::mock(SshTunnelService::class);
+    $mockSshService->shouldReceive('close')->once();
+
+    $tester = new \App\Services\DatabaseConnectionTester($mockFactory, $mockSshService);
+
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => $dbType,
+        'host' => 'db.example.com',
+        'port' => $dbType === 'postgres' ? 5432 : 3306,
+        'username' => 'user',
+        'password' => 'pass',
+    ]);
+
+    $result = $tester->test($server);
+
+    expect($result['success'])->toBeTrue();
+})->with([
+    'mysql uses empty database name' => ['mysql', ''],
+    'postgresql uses postgres database' => ['postgres', 'postgres'],
+]);
