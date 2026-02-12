@@ -7,7 +7,6 @@ use Tests\Support\TestShellProcessor;
 
 beforeEach(function () {
     $this->shellProcessor = new TestShellProcessor;
-    config(['backup.encryption_key' => 'base64:dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleXRlc3Q=']);
 });
 
 test('zstd command generation', function () {
