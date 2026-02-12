@@ -11,37 +11,27 @@ beforeEach(function () {
 });
 
 test('encrypted command generation', function () {
-    $factory = new CompressorFactory($this->shellProcessor);
-    $compressor = $factory->make(CompressionType::ENCRYPTED, 6);
+    $compressor = new EncryptedCompressor($this->shellProcessor, 6, 'secret123');
 
-    expect($compressor)->toBeInstanceOf(EncryptedCompressor::class)
-        ->and($compressor->getExtension())->toBe('7z')
-        ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toContain('7z a -t7z -mx=6 -mhe=on')
-        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.7z'))->toContain('7z x -y');
+    expect($compressor->getExtension())->toBe('7z')
+        ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx=6 -mhe=on -p'secret123' '/path/to/dump.sql.7z' '/path/to/dump.sql'")
+        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.7z'))->toBe("7z x -y -o'/path/to' -p'secret123' '/path/to/dump.sql.7z'");
 });
 
 test('encrypted compression level is clamped to valid range', function (int $inputLevel, int $expectedLevel) {
-    $factory = new CompressorFactory($this->shellProcessor);
-    $compressor = $factory->make(CompressionType::ENCRYPTED, $inputLevel);
-    $command = $compressor->getCompressCommandLine('/path/to/dump.sql');
+    $compressor = new EncryptedCompressor($this->shellProcessor, $inputLevel);
 
-    expect($command)->toContain("-mx={$expectedLevel}");
+    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx={$expectedLevel} -mhe=on '/path/to/dump.sql.7z' '/path/to/dump.sql'");
 })->with([
     'min' => [0, 1],
     'max' => [10, 9],
 ]);
 
-test('encrypted compressor includes password in commands when provided', function () {
-    $compressor = new EncryptedCompressor($this->shellProcessor, 6, 'secret123');
-
-    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toContain("-p'secret123'")
-        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.7z'))->toContain("-p'secret123'");
-});
-
 test('encrypted compressor omits password when not provided', function () {
     $compressor = new EncryptedCompressor($this->shellProcessor, 6, null);
 
-    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->not->toContain('-p');
+    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx=6 -mhe=on '/path/to/dump.sql.7z' '/path/to/dump.sql'")
+        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.7z'))->toBe("7z x -y -o'/path/to' '/path/to/dump.sql.7z'");
 });
 
 test('encrypted compressor executes compress and returns correct path', function () {

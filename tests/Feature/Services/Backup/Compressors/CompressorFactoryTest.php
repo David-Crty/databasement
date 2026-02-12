@@ -13,20 +13,6 @@ beforeEach(function () {
     config(['backup.encryption_key' => 'base64:dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleXRlc3Q=']);
 });
 
-test('factory creates correct compressor and generates expected commands', function (CompressionType $type, string $expectedClass, string $expectedExt, string $compressPattern, string $decompressPattern) {
-    $factory = new CompressorFactory($this->shellProcessor);
-    $compressor = $factory->make($type, 6);
-
-    expect($compressor)->toBeInstanceOf($expectedClass)
-        ->and($compressor->getExtension())->toBe($expectedExt)
-        ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toContain($compressPattern)
-        ->and($compressor->getDecompressCommandLine("/path/to/dump.sql.{$expectedExt}"))->toContain($decompressPattern);
-})->with([
-    'gzip' => [CompressionType::GZIP, GzipCompressor::class, 'gz', 'gzip -6', 'gzip -d'],
-    'zstd' => [CompressionType::ZSTD, ZstdCompressor::class, 'zst', 'zstd -6 --rm', 'zstd -d --rm'],
-    'encrypted' => [CompressionType::ENCRYPTED, EncryptedCompressor::class, '7z', '7z a -t7z -mx=6 -mhe=on', '7z x -y'],
-]);
-
 test('factory creates correct compressor from config', function (string $configValue, string $expectedClass) {
     AppConfig::set('backup.compression', $configValue);
     AppConfig::set('backup.compression_level', 6);

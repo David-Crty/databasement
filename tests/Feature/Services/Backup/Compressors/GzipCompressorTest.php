@@ -10,21 +10,17 @@ beforeEach(function () {
 });
 
 test('gzip command generation', function () {
-    $factory = new CompressorFactory($this->shellProcessor);
-    $compressor = $factory->make(CompressionType::GZIP, 6);
+    $compressor = new GzipCompressor($this->shellProcessor, 6);
 
-    expect($compressor)->toBeInstanceOf(GzipCompressor::class)
-        ->and($compressor->getExtension())->toBe('gz')
-        ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toContain('gzip -6')
-        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.gz'))->toContain('gzip -d');
+    expect($compressor->getExtension())->toBe('gz')
+        ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("gzip -6 '/path/to/dump.sql'")
+        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.gz'))->toBe("gzip -d '/path/to/dump.sql.gz'");
 });
 
 test('gzip compression level is clamped to valid range', function (int $inputLevel, int $expectedLevel) {
-    $factory = new CompressorFactory($this->shellProcessor);
-    $compressor = $factory->make(CompressionType::GZIP, $inputLevel);
-    $command = $compressor->getCompressCommandLine('/path/to/dump.sql');
+    $compressor = new GzipCompressor($this->shellProcessor, $inputLevel);
 
-    expect($command)->toContain("-{$expectedLevel}");
+    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("gzip -{$expectedLevel} '/path/to/dump.sql'");
 })->with([
     'min' => [0, 1],
     'max' => [10, 9],

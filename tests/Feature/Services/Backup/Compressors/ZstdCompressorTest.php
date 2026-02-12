@@ -10,21 +10,17 @@ beforeEach(function () {
 });
 
 test('zstd command generation', function () {
-    $factory = new CompressorFactory($this->shellProcessor);
-    $compressor = $factory->make(CompressionType::ZSTD, 6);
+    $compressor = new ZstdCompressor($this->shellProcessor, 6);
 
-    expect($compressor)->toBeInstanceOf(ZstdCompressor::class)
-        ->and($compressor->getExtension())->toBe('zst')
-        ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toContain('zstd -6 --rm')
-        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.zst'))->toContain('zstd -d --rm');
+    expect($compressor->getExtension())->toBe('zst')
+        ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("zstd -6 --rm '/path/to/dump.sql'")
+        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.zst'))->toBe("zstd -d --rm '/path/to/dump.sql.zst'");
 });
 
 test('zstd compression level is clamped to valid range', function (int $inputLevel, int $expectedLevel) {
-    $factory = new CompressorFactory($this->shellProcessor);
-    $compressor = $factory->make(CompressionType::ZSTD, $inputLevel);
-    $command = $compressor->getCompressCommandLine('/path/to/dump.sql');
+    $compressor = new ZstdCompressor($this->shellProcessor, $inputLevel);
 
-    expect($command)->toContain("-{$expectedLevel}");
+    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("zstd -{$expectedLevel} --rm '/path/to/dump.sql'");
 })->with([
     'min' => [0, 1],
     'max' => [20, 19],
