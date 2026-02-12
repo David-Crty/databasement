@@ -56,7 +56,7 @@ trait UsesSshTunnel
      */
     protected function getConnectionHost(DatabaseServer $server): string
     {
-        return $this->tunnelEndpoint['host'] ?? $server->host;
+        return $this->tunnelEndpoint['host'] ?? $server->host ?? '';
     }
 
     /**

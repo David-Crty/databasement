@@ -116,6 +116,53 @@ test('client-server database backup and restore workflow', function (string $typ
     'mysql with encrypted' => ['mysql', 'encrypted', '7z'],
 ]);
 
+test('postgresql prepareForRestore drops and recreates existing database', function () {
+    // Create models
+    $this->volume = IntegrationTestHelpers::createVolume('postgres');
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('postgres');
+
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $this->restoredDatabaseName = 'testdb_prepare_'.hrtime(true).$suffix;
+
+    // Pre-create the database so the "if ($exists)" branch is exercised
+    $adminPdo = \App\Enums\DatabaseType::POSTGRESQL->createPdo($this->databaseServer);
+    $safe = str_replace('"', '""', $this->restoredDatabaseName);
+    $adminPdo->exec("CREATE DATABASE \"{$safe}\"");
+
+    // Insert a table into the pre-existing database to verify it gets dropped
+    $dbPdo = IntegrationTestHelpers::connectToDatabase('postgres', $this->databaseServer, $this->restoredDatabaseName);
+    $dbPdo->exec('CREATE TABLE sentinel (id int)');
+    unset($dbPdo); // Close connection so terminate_backend can work
+
+    // Build a configured PostgresqlDatabase and a BackupJob for logging
+    $database = app(\App\Services\Backup\Databases\DatabaseFactory::class)->makeForServer(
+        $this->databaseServer,
+        $this->restoredDatabaseName,
+        $this->databaseServer->host,
+        $this->databaseServer->port,
+    );
+
+    $job = \App\Models\BackupJob::create(['status' => 'running']);
+
+    // Act — this should hit the $exists branch: terminate connections, drop, then create
+    $database->prepareForRestore($this->restoredDatabaseName, $job);
+
+    // Assert — the database exists but the sentinel table should be gone (fresh database)
+    $freshPdo = IntegrationTestHelpers::connectToDatabase('postgres', $this->databaseServer, $this->restoredDatabaseName);
+    $stmt = $freshPdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sentinel'");
+    expect((int) $stmt->fetchColumn())->toBe(0);
+
+    // Verify the job logged the drop and create commands
+    $job->refresh();
+    $loggedCommands = collect($job->logs)
+        ->where('type', 'command')
+        ->pluck('command')
+        ->toArray();
+
+    expect($loggedCommands)->toContain("DROP DATABASE IF EXISTS \"{$safe}\"")
+        ->and($loggedCommands)->toContain("CREATE DATABASE \"{$safe}\"");
+});
+
 test('sqlite backup and restore workflow', function () {
     // Create a test SQLite database with some data (use unique names for parallel testing)
     $backupDir = AppConfig::get('backup.working_directory');

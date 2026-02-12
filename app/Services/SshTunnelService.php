@@ -97,13 +97,11 @@ class SshTunnelService
      *
      * @return array{success: bool, message: string, details: array<string, mixed>}
      */
-    public static function testConnection(DatabaseServerSshConfig $sshConfig): array
+    public function testConnection(DatabaseServerSshConfig $sshConfig): array
     {
-        $instance = new self;
-
         try {
             $decrypted = $sshConfig->getDecrypted();
-            $command = $instance->buildTestCommand($decrypted);
+            $command = $this->buildTestCommand($decrypted);
 
             $process = Process::fromShellCommandLine($command);
             $process->setTimeout(self::CONNECTION_TIMEOUT_SECONDS);
@@ -117,7 +115,7 @@ class SshTunnelService
 
                 return [
                     'success' => false,
-                    'message' => $instance->sanitizeError($errorOutput) ?: 'SSH connection failed',
+                    'message' => $this->sanitizeError($errorOutput) ?: 'SSH connection failed',
                     'details' => [],
                 ];
             }
@@ -130,7 +128,7 @@ class SshTunnelService
                 ],
             ];
         } finally {
-            $instance->cleanupTempFiles();
+            $this->cleanupTempFiles();
         }
     }
 

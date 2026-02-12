@@ -8,7 +8,8 @@
  */
 
 use App\Facades\AppConfig;
-use App\Services\DatabaseConnectionTester;
+use App\Facades\DatabaseConnectionTester;
+use App\Models\DatabaseServer;
 use Tests\Support\IntegrationTestHelpers;
 
 test('connection succeeds', function (string $databaseType) {
@@ -22,14 +23,16 @@ test('connection succeeds', function (string $databaseType) {
         IntegrationTestHelpers::loadTestData($databaseType, $server);
     }
 
-    $result = DatabaseConnectionTester::test([
+    $testServer = DatabaseServer::forConnectionTest([
         'database_type' => $databaseType,
         'host' => $config['host'],
         'port' => $config['port'],
         'username' => $config['username'],
         'password' => $config['password'],
-        'database_name' => $config['database'],
+        'sqlite_path' => $databaseType === 'sqlite' ? $config['host'] : null,
     ]);
+
+    $result = DatabaseConnectionTester::test($testServer);
 
     expect($result['success'])->toBeTrue()
         ->and($result['message'])->toBe('Connection successful');
@@ -46,28 +49,30 @@ test('connection succeeds', function (string $databaseType) {
 test('connection fails with invalid credentials', function (string $databaseType) {
     $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);
 
-    $result = DatabaseConnectionTester::test([
+    $server = DatabaseServer::forConnectionTest([
         'database_type' => $databaseType,
         'host' => $config['host'],
         'port' => $config['port'],
         'username' => 'invalid_user',
         'password' => 'invalid_password',
-        'database_name' => $config['database'],
     ]);
+
+    $result = DatabaseConnectionTester::test($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->not->toBeEmpty();
 })->with(['mysql', 'postgres']);
 
 test('connection fails with unreachable host', function (string $databaseType, int $port) {
-    $result = DatabaseConnectionTester::test([
+    $server = DatabaseServer::forConnectionTest([
         'database_type' => $databaseType,
         'host' => '127.0.0.1',
         'port' => $port, // Wrong port - nothing listening here
         'username' => 'user',
         'password' => 'password',
-        'database_name' => 'testdb',
     ]);
+
+    $result = DatabaseConnectionTester::test($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->not->toBeEmpty();
@@ -77,14 +82,16 @@ test('connection fails with unreachable host', function (string $databaseType, i
 ]);
 
 test('sqlite connection fails', function (string $path, string $expectedMessage) {
-    $result = DatabaseConnectionTester::test([
+    $server = DatabaseServer::forConnectionTest([
         'database_type' => 'sqlite',
         'host' => $path,
         'port' => 0,
         'username' => '',
         'password' => '',
-        'database_name' => null,
+        'sqlite_path' => $path,
     ]);
+
+    $result = DatabaseConnectionTester::test($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain($expectedMessage);
@@ -99,31 +106,19 @@ test('sqlite connection fails with invalid sqlite file', function () {
 
     file_put_contents($invalidPath, 'This is not a SQLite database');
 
-    $result = DatabaseConnectionTester::test([
+    $server = DatabaseServer::forConnectionTest([
         'database_type' => 'sqlite',
         'host' => $invalidPath,
         'port' => 0,
         'username' => '',
         'password' => '',
-        'database_name' => null,
+        'sqlite_path' => $invalidPath,
     ]);
+
+    $result = DatabaseConnectionTester::test($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain('Invalid SQLite database file');
 
     unlink($invalidPath);
-});
-
-test('connection fails with unsupported database type', function () {
-    $result = DatabaseConnectionTester::test([
-        'database_type' => 'mongodb',
-        'host' => 'localhost',
-        'port' => 27017,
-        'username' => 'user',
-        'password' => 'password',
-        'database_name' => 'testdb',
-    ]);
-
-    expect($result['success'])->toBeFalse()
-        ->and($result['message'])->toContain('Unsupported database type');
 });

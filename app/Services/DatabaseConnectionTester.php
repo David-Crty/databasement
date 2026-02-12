@@ -4,286 +4,86 @@ namespace App\Services;
 
 use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
-use App\Models\DatabaseServerSshConfig;
-use App\Services\Backup\Databases\MysqlDatabase;
-use App\Services\Backup\Databases\PostgresqlDatabase;
-use App\Support\Formatters;
-use PDO;
-use PDOException;
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\Process;
+use App\Services\Backup\Databases\DatabaseFactory;
 
 class DatabaseConnectionTester
 {
-    private const TIMEOUT_SECONDS = 10;
-
-    private static ?SshTunnelService $sshTunnelService = null;
+    public function __construct(
+        private readonly DatabaseFactory $databaseFactory,
+        private readonly SshTunnelService $sshTunnelService,
+    ) {}
 
     /**
-     * Test a database connection with the provided credentials using CLI tools.
+     * Test a database connection, establishing an SSH tunnel first if configured.
      *
-     * @param  array{database_type: string, host: string, port: int, username: string, password: string, database_name: ?string}  $config
-     * @param  DatabaseServerSshConfig|null  $sshConfig  Optional SSH config for tunnel
      * @return array{success: bool, message: string, details: array<string, mixed>}
      */
-    public static function test(array $config, ?DatabaseServerSshConfig $sshConfig = null): array
+    public function test(DatabaseServer $server): array
     {
-        $databaseType = DatabaseType::tryFrom($config['database_type']);
-
-        if ($databaseType === null) {
-            return self::error("Unsupported database type: {$config['database_type']}");
-        }
-
-        // SSH tunneling is not supported for SQLite (uses local file paths)
-        if ($databaseType === DatabaseType::SQLITE && $sshConfig !== null) {
-            return self::error('SSH tunneling is not supported for SQLite databases.');
-        }
-
-        // Handle SSH tunnel if configured (only for client-server databases)
-        $tunnelEndpoint = null;
-
-        if ($sshConfig !== null) {
-            // Test SSH connection first
-            $sshResult = SshTunnelService::testConnection($sshConfig);
+        if ($server->requiresSshTunnel()) {
+            $sshResult = $this->testSsh($server);
             if (! $sshResult['success']) {
-                return self::error('SSH connection failed: '.$sshResult['message']);
+                return $sshResult;
             }
 
-            // Establish SSH tunnel for the database test
-            try {
-                self::$sshTunnelService = new SshTunnelService;
-                $tunnelEndpoint = self::$sshTunnelService->establish(
-                    DatabaseServer::forConnectionTest([
-                        'host' => $config['host'],
-                        'port' => $config['port'],
-                    ], $sshConfig)
-                );
-            } catch (\Throwable $e) {
-                self::closeTunnel();
-
-                return self::error('Failed to establish SSH tunnel: '.$e->getMessage());
-            }
+            /** @var array{success: true, host: string, port: int, message: string, details: array<string, mixed>} $sshResult */
+            $server->host = $sshResult['host'];
+            $server->port = $sshResult['port'];
         }
 
         try {
-            // Use tunnel endpoint if active
-            if ($tunnelEndpoint !== null) {
-                $config['host'] = $tunnelEndpoint['host'];
-                $config['port'] = $tunnelEndpoint['port'];
-            }
+            $result = $this->testDatabase($server);
 
-            $result = match ($databaseType) {
-                DatabaseType::MYSQL => self::testMysqlConnection($config),
-                DatabaseType::POSTGRESQL => self::testPostgresqlConnection($config),
-                DatabaseType::SQLITE => self::testSqliteConnection($config['host']),
-            };
-
-            // Add SSH tunnel info to success details
-            if ($result['success'] && $sshConfig !== null) {
+            if ($result['success'] && $server->requiresSshTunnel()) {
                 $result['details']['ssh_tunnel'] = true;
-                $result['details']['ssh_host'] = $sshConfig->host;
+                $result['details']['ssh_host'] = $server->sshConfig->host;
             }
 
             return $result;
         } finally {
-            self::closeTunnel();
+            $this->sshTunnelService->close();
         }
     }
 
     /**
-     * Close the SSH tunnel if active.
-     */
-    private static function closeTunnel(): void
-    {
-        if (self::$sshTunnelService !== null) {
-            self::$sshTunnelService->close();
-            self::$sshTunnelService = null;
-        }
-    }
-
-    /**
-     * Execute a command with timeout and return the result.
+     * Validate and establish an SSH tunnel for the database test.
      *
-     * @return array{success: true, output: string, durationMs: int}|array{success: false, message: string}
+     * @return array{success: bool, message: string, details: array<string, mixed>, host?: string, port?: int}
      */
-    private static function executeWithTimeout(string $command): array
+    private function testSsh(DatabaseServer $server): array
     {
-        $process = Process::fromShellCommandLine($command);
-        $process->setTimeout(self::TIMEOUT_SECONDS);
-
-        $startTime = microtime(true);
-
-        try {
-            $process->run();
-        } catch (ProcessTimedOutException) {
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-            return [
-                'success' => false,
-                'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
-            ];
-        }
-
-        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-        if (! $process->isSuccessful()) {
-            $errorOutput = trim($process->getErrorOutput() ?: $process->getOutput());
-
-            return [
-                'success' => false,
-                'message' => $errorOutput ?: 'Connection failed with exit code '.$process->getExitCode(),
-            ];
-        }
-
-        return [
-            'success' => true,
-            'output' => trim($process->getOutput()),
-            'durationMs' => $durationMs,
-        ];
-    }
-
-    /**
-     * Build an error response.
-     *
-     * @return array{success: false, message: string, details: array<string, mixed>}
-     */
-    private static function error(string $message): array
-    {
-        return [
-            'success' => false,
-            'message' => $message,
-            'details' => [],
-        ];
-    }
-
-    /**
-     * Build a success response.
-     *
-     * @param  array<string, mixed>  $details
-     * @return array{success: true, message: string, details: array<string, mixed>}
-     */
-    private static function success(array $details = []): array
-    {
-        return [
-            'success' => true,
-            'message' => 'Connection successful',
-            'details' => $details,
-        ];
-    }
-
-    /**
-     * Test MySQL/MariaDB connection using CLI.
-     *
-     * @param  array{database_type: string, host: string, port: int, username: string, password: string, database_name: ?string}  $config
-     * @return array{success: bool, message: string, details: array<string, mixed>}
-     */
-    private static function testMysqlConnection(array $config): array
-    {
-        $mysqlDatabase = new MysqlDatabase;
-        $command = $mysqlDatabase->getStatusCommand([
-            'host' => $config['host'],
-            'port' => $config['port'],
-            'user' => $config['username'],
-            'pass' => $config['password'],
-        ]);
-
-        $result = self::executeWithTimeout($command);
-
-        if (! $result['success']) {
-            return self::error($result['message']);
-        }
-
-        return self::success([
-            'ping_ms' => $result['durationMs'],
-            'output' => $result['output'],
-        ]);
-    }
-
-    /**
-     * Test PostgreSQL connection using CLI.
-     *
-     * @param  array{database_type: string, host: string, port: int, username: string, password: string, database_name: ?string}  $config
-     * @return array{success: bool, message: string, details: array<string, mixed>}
-     */
-    private static function testPostgresqlConnection(array $config): array
-    {
-        $postgresDatabase = new PostgresqlDatabase;
-        $dbConfig = [
-            'host' => $config['host'],
-            'port' => $config['port'],
-            'user' => $config['username'],
-            'pass' => $config['password'],
-            'database' => $config['database_name'] ?? 'postgres',
-        ];
-
-        // Get version
-        $versionCommand = $postgresDatabase->getQueryCommand($dbConfig, 'SELECT version();');
-        $result = self::executeWithTimeout($versionCommand);
-
-        if (! $result['success']) {
-            return self::error($result['message']);
-        }
-
-        $version = $result['output'];
-        $durationMs = $result['durationMs'];
-
-        // Get SSL status (non-critical, ignore failures)
-        $sslCommand = $postgresDatabase->getQueryCommand(
-            $dbConfig,
-            "SELECT CASE WHEN ssl THEN 'yes' ELSE 'no' END FROM pg_stat_ssl WHERE pid = pg_backend_pid();"
-        );
-        $sslResult = self::executeWithTimeout($sslCommand);
-        $ssl = $sslResult['success'] ? $sslResult['output'] : 'unknown';
-
-        return self::success([
-            'ping_ms' => $durationMs,
-            'output' => json_encode(['dbms' => $version, 'ssl' => $ssl], JSON_PRETTY_PRINT),
-        ]);
-    }
-
-    /**
-     * Test SQLite connection by checking if file exists and is readable.
-     *
-     * @return array{success: bool, message: string, details: array<string, mixed>}
-     */
-    private static function testSqliteConnection(string $path): array
-    {
-        if (empty($path)) {
-            return self::error('Database path is required.');
-        }
-
-        if (! file_exists($path)) {
-            return self::error('Database file does not exist: '.$path);
-        }
-
-        if (! is_readable($path)) {
-            return self::error('Database file is not readable: '.$path);
-        }
-
-        if (! is_file($path)) {
-            return self::error('Path is not a file: '.$path);
+        $sshResult = $this->sshTunnelService->testConnection($server->sshConfig);
+        if (! $sshResult['success']) {
+            return ['success' => false, 'message' => 'SSH connection failed: '.$sshResult['message'], 'details' => []];
         }
 
         try {
-            $pdo = new PDO("sqlite:{$path}", null, null, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            ]);
+            $tunnelEndpoint = $this->sshTunnelService->establish($server);
 
-            // Query sqlite_master to verify the file is a valid SQLite database
-            $pdo->query('SELECT 1 FROM sqlite_master LIMIT 1');
+            return [
+                'success' => true,
+                'message' => 'SSH tunnel established',
+                'details' => [],
+                'host' => $tunnelEndpoint['host'],
+                'port' => $tunnelEndpoint['port'],
+            ];
+        } catch (\Throwable $e) {
+            $this->sshTunnelService->close();
 
-            // Get SQLite version
-            $stmt = $pdo->query('SELECT sqlite_version()');
-            $version = $stmt ? $stmt->fetchColumn() : 'unknown';
-
-            // Get file size
-            $fileSize = filesize($path);
-
-            return self::success([
-                'output' => json_encode(['dbms' => "SQLite {$version}", 'file_size' => $fileSize, 'path' => $path], JSON_PRETTY_PRINT),
-            ]);
-        } catch (PDOException $e) {
-            return self::error('Invalid SQLite database file: '.$e->getMessage());
+            return ['success' => false, 'message' => 'Failed to establish SSH tunnel: '.$e->getMessage(), 'details' => []];
         }
+    }
+
+    /**
+     * Test the database connection using the appropriate database handler.
+     *
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    private function testDatabase(DatabaseServer $server): array
+    {
+        $databaseName = $server->database_type === DatabaseType::POSTGRESQL ? 'postgres' : '';
+        $database = $this->databaseFactory->makeForServer($server, $databaseName, $server->host, $server->port);
+
+        return $database->testConnection();
     }
 }

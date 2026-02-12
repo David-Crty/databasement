@@ -153,7 +153,7 @@ The Docker setup provides:
    - Selects use `:options` prop with `[['id' => '', 'name' => '']]` format
    - Dark mode follows system preference (`prefers-color-scheme`)
 
-3. **Database Connection Testing**: The `DatabaseConnectionTester` service builds DSN strings dynamically based on database type (mysql, postgresql, mariadb, sqlite) and provides user-friendly error messages.
+3. **Database Connection Testing**: The `DatabaseConnectionTester` delegates to `DatabaseFactory` which creates the appropriate `DatabaseInterface` handler for the database type. Each handler implements its own `testConnection()` method.
 
 4. **Authentication**: Laravel Fortify handles auth with optional two-factor authentication. All main routes require `auth` and `verified` middleware.
 
@@ -199,15 +199,15 @@ make test-filter FILTER=DatabaseServerTest
 
 ### Adding a New Database Type
 
+All database types implement `DatabaseInterface` and are resolved via `DatabaseFactory`. The factory centralizes type dispatch, so `BackupTask`, `RestoreTask`, and `DatabaseConnectionTester` require no changes.
+
 #### Files to Update
 
 **Core:**
 - `app/Enums/DatabaseType.php` - Add enum case, label, default port, DSN format in `buildDsn()`
-- `app/Services/Backup/Databases/` - Create handler class implementing `DatabaseInterface`
-- `app/Services/Backup/BackupTask.php` - Inject and wire up the new handler
-- `app/Services/Backup/RestoreTask.php` - Inject handler + add `prepareDatabase()` case
+- `app/Services/Backup/Databases/{Type}Database.php` - Create handler implementing `DatabaseInterface` (`setConfig`, `getDumpCommandLine`, `getRestoreCommandLine`, `prepareForRestore`, `testConnection`)
+- `app/Services/Backup/Databases/DatabaseFactory.php` - Add case to `make()` match expression
 - `app/Services/Backup/DatabaseListService.php` - Add `list{Type}Databases()` method
-- `app/Services/DatabaseConnectionTester.php` - Add `test{Type}Connection()` method
 - `app/Livewire/Forms/DatabaseServerForm.php` - Add type to validation rule
 
 **Infrastructure:**
@@ -216,9 +216,9 @@ make test-filter FILTER=DatabaseServerTest
 - `config/testing.php` - Add test database config with defaults
 
 **Tests & Fixtures:**
-- `tests/Feature/Integration/BackupRestoreTest.php` - Add to test dataset
+- `tests/Integration/BackupRestoreTest.php` - Add to test dataset
 - `tests/Support/IntegrationTestHelpers.php` - Add config and helpers
-- `tests/Feature/Integration/fixtures/{type}-init.sql` - Create test fixture
+- `tests/Integration/fixtures/{type}-init.sql` - Create test fixture
 
 ### Adding a New Volume Type
 

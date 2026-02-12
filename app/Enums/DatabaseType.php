@@ -78,6 +78,17 @@ enum DatabaseType: string
     }
 
     /**
+     * Get the file extension used for database dumps.
+     */
+    public function dumpExtension(): string
+    {
+        return match ($this) {
+            self::SQLITE => 'db',
+            default => 'sql',
+        };
+    }
+
+    /**
      * @return array<array{id: string, name: string}>
      */
     public static function toSelectOptions(): array

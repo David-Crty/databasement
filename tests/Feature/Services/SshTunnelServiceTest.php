@@ -31,7 +31,7 @@ test('testConnection returns error for invalid config', function (array $config)
         $sshConfig->$key = $value;
     }
 
-    $result = SshTunnelService::testConnection($sshConfig);
+    $result = app(SshTunnelService::class)->testConnection($sshConfig);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->not->toBeEmpty();
@@ -61,7 +61,7 @@ test('testConnection cleans up key file after test', function () {
     $sshConfig->private_key = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest_key\n-----END OPENSSH PRIVATE KEY-----";
     $sshConfig->key_passphrase = null;
 
-    $result = SshTunnelService::testConnection($sshConfig);
+    $result = app(SshTunnelService::class)->testConnection($sshConfig);
 
     // Test should fail but that's expected - we're testing cleanup
     expect($result['success'])->toBeFalse();
@@ -80,7 +80,7 @@ test('testConnection handles key with passphrase', function () {
     $sshConfig->private_key = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest_key\n-----END OPENSSH PRIVATE KEY-----";
     $sshConfig->key_passphrase = 'secret_passphrase';
 
-    $result = SshTunnelService::testConnection($sshConfig);
+    $result = app(SshTunnelService::class)->testConnection($sshConfig);
 
     // Test should fail but that's expected - we're verifying the code path doesn't throw
     expect($result['success'])->toBeFalse();

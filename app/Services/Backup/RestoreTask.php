@@ -2,32 +2,26 @@
 
 namespace App\Services\Backup;
 
-use App\Enums\DatabaseType;
-use App\Exceptions\Backup\ConnectionException;
 use App\Exceptions\Backup\RestoreException;
-use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
 use App\Facades\AppConfig;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Services\Backup\Concerns\UsesSshTunnel;
-use App\Services\Backup\Databases\MysqlDatabase;
-use App\Services\Backup\Databases\PostgresqlDatabase;
+use App\Services\Backup\Databases\DatabaseFactory;
+use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
 use App\Support\Formatters;
-use PDO;
-use PDOException;
 
 class RestoreTask
 {
     use UsesSshTunnel;
 
     public function __construct(
-        private readonly MysqlDatabase $mysqlDatabase,
-        private readonly PostgresqlDatabase $postgresqlDatabase,
+        private readonly DatabaseFactory $databaseFactory,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
         private readonly CompressorFactory $compressorFactory,
@@ -99,22 +93,20 @@ class RestoreTask
             // Decompress the archive
             $workingFile = $compressor->decompress($compressedFile);
 
-            if ($targetServer->database_type === DatabaseType::SQLITE) {
-                // SQLite: simply copy the file to the target path
-                $job->log('Restoring SQLite database', 'info', [
-                    'source_database' => $snapshot->database_name,
-                    'target_path' => $targetServer->sqlite_path,
-                ]);
-                $this->restoreSqliteDatabase($workingFile, $targetServer->sqlite_path);
-            } else {
-                $this->prepareDatabase($targetServer, $restore->schema_name, $job);
-                $this->configureDatabaseInterface($targetServer, $restore->schema_name);
-                $job->log('Restoring database from snapshot', 'info', [
-                    'source_database' => $snapshot->database_name,
-                    'target_database' => $restore->schema_name,
-                ]);
-                $this->restoreDatabase($targetServer, $workingFile);
-            }
+            $database = $this->databaseFactory->makeForServer(
+                $targetServer,
+                $restore->schema_name,
+                $this->getConnectionHost($targetServer),
+                $this->getConnectionPort($targetServer),
+            );
+
+            $this->prepareDatabase($database, $restore->schema_name, $job);
+
+            $job->log('Restoring database from snapshot', 'info', [
+                'source_database' => $snapshot->database_name,
+                'target_database' => $restore->schema_name,
+            ]);
+            $this->shellProcessor->process($database->getRestoreCommandLine($workingFile));
 
             // Mark job as completed
             $job->markCompleted();
@@ -149,127 +141,8 @@ class RestoreTask
         }
     }
 
-    protected function prepareDatabase(DatabaseServer $targetServer, string $schemaName, BackupJob $job): void
+    protected function prepareDatabase(DatabaseInterface $database, string $schemaName, BackupJob $job): void
     {
-        try {
-            $pdo = $this->createPdoConnection($targetServer);
-
-            match ($targetServer->database_type) {
-                DatabaseType::MYSQL => $this->prepareMysqlDatabase($pdo, $schemaName, $job),
-                DatabaseType::POSTGRESQL => $this->preparePostgresqlDatabase($pdo, $schemaName, $job),
-                default => throw new UnsupportedDatabaseTypeException($targetServer->database_type->value),
-            };
-        } catch (PDOException $e) {
-            throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
-        }
-    }
-
-    /**
-     * Create a PDO connection, using tunnel endpoint if active.
-     */
-    private function createPdoConnection(DatabaseServer $server, ?string $database = null): PDO
-    {
-        // When tunnel is not active, use the standard connection method
-        if ($this->tunnelEndpoint === null) {
-            return $server->database_type->createPdo($server, $database);
-        }
-
-        // Build DSN using tunnel endpoint
-        $host = $this->getConnectionHost($server);
-        $port = $this->getConnectionPort($server);
-        $dsn = match ($server->database_type) {
-            DatabaseType::MYSQL => $database
-                ? sprintf('mysql:host=%s;port=%d;dbname=%s', $host, $port, $database)
-                : sprintf('mysql:host=%s;port=%d', $host, $port),
-            DatabaseType::POSTGRESQL => sprintf(
-                'pgsql:host=%s;port=%d;dbname=%s',
-                $host,
-                $port,
-                $database ?? 'postgres'
-            ),
-            default => throw new UnsupportedDatabaseTypeException($server->database_type->value),
-        };
-
-        return new PDO($dsn, $server->username, $server->getDecryptedPassword(), [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_TIMEOUT => 30,
-        ]);
-    }
-
-    private function prepareMysqlDatabase(PDO $pdo, string $schemaName, BackupJob $job): void
-    {
-        // Drop database if exists
-        $dropCommand = "DROP DATABASE IF EXISTS `{$schemaName}`";
-        $job->logCommand($dropCommand, null, 0);
-        $pdo->exec($dropCommand);
-
-        // Create new database
-        $createCommand = "CREATE DATABASE `{$schemaName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-        $job->logCommand($createCommand, null, 0);
-        $pdo->exec($createCommand);
-    }
-
-    private function preparePostgresqlDatabase(PDO $pdo, string $schemaName, BackupJob $job): void
-    {
-        // Check if database exists
-        $stmt = $pdo->prepare('SELECT 1 FROM pg_database WHERE datname = ?');
-        $stmt->execute([$schemaName]);
-        $exists = $stmt->fetchColumn();
-
-        if ($exists) {
-            $job->log('Database exists, terminating existing connections', 'info');
-
-            // Terminate existing connections to the database
-            $terminateCommand = "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{$schemaName}' AND pid <> pg_backend_pid()";
-            $job->logCommand($terminateCommand, null, 0);
-            $pdo->exec($terminateCommand);
-
-            // Drop the database
-            $dropCommand = "DROP DATABASE IF EXISTS \"{$schemaName}\"";
-            $job->logCommand($dropCommand, null, 0);
-            $pdo->exec($dropCommand);
-        }
-
-        // Create new database
-        $createCommand = "CREATE DATABASE \"{$schemaName}\"";
-        $job->logCommand($createCommand, null, 0);
-        $pdo->exec($createCommand);
-    }
-
-    private function restoreDatabase(DatabaseServer $targetServer, string $inputPath): void
-    {
-        $command = match ($targetServer->database_type) {
-            DatabaseType::MYSQL => $this->mysqlDatabase->getRestoreCommandLine($inputPath),
-            DatabaseType::POSTGRESQL => $this->postgresqlDatabase->getRestoreCommandLine($inputPath),
-            default => throw new UnsupportedDatabaseTypeException($targetServer->database_type->value),
-        };
-
-        $this->shellProcessor->process($command);
-    }
-
-    /**
-     * Restore SQLite database by copying file to target path.
-     */
-    private function restoreSqliteDatabase(string $sourcePath, string $targetPath): void
-    {
-        $command = sprintf("cp '%s' '%s' && chmod 0666 '%s'", $sourcePath, $targetPath, $targetPath);
-        $this->shellProcessor->process($command);
-    }
-
-    private function configureDatabaseInterface(DatabaseServer $targetServer, string $schemaName): void
-    {
-        $config = [
-            'host' => $this->getConnectionHost($targetServer),
-            'port' => $this->getConnectionPort($targetServer),
-            'user' => $targetServer->username,
-            'pass' => $targetServer->getDecryptedPassword(),
-            'database' => $schemaName,
-        ];
-
-        match ($targetServer->database_type) {
-            DatabaseType::MYSQL => $this->mysqlDatabase->setConfig($config),
-            DatabaseType::POSTGRESQL => $this->postgresqlDatabase->setConfig($config),
-            default => throw new UnsupportedDatabaseTypeException($targetServer->database_type->value),
-        };
+        $database->prepareForRestore($schemaName, $job);
     }
 }

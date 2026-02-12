@@ -6,15 +6,12 @@ use App\Facades\AppConfig;
 use App\Services\AppConfigService;
 use App\Services\Backup\CompressorFactory;
 use App\Services\Backup\CompressorInterface;
-use App\Services\Backup\Databases\MysqlDatabase;
-use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\Filesystems\FtpFilesystem;
 use App\Services\Backup\Filesystems\LocalFilesystem;
 use App\Services\Backup\Filesystems\SftpFilesystem;
 use App\Services\Backup\ShellProcessor;
-use App\Services\DatabaseConnectionTester;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
@@ -32,15 +29,11 @@ class AppServiceProvider extends ServiceProvider
         $this->registerOAuthServicesConfig();
 
         $this->app->singleton(AppConfigService::class);
-        $this->app->singleton(DatabaseConnectionTester::class);
         $this->app->singleton(ShellProcessor::class);
         $this->app->singleton(CompressorFactory::class);
         $this->app->singleton(CompressorInterface::class, function ($app) {
             return $app->make(CompressorFactory::class)->make();
         });
-        $this->app->singleton(MysqlDatabase::class);
-        $this->app->singleton(PostgresqlDatabase::class);
-
         // Register FilesystemProvider with configuration
         $this->app->singleton(FilesystemProvider::class, function ($app) {
             $provider = new FilesystemProvider([]);

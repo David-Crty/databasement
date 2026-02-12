@@ -2,14 +2,12 @@
 
 namespace App\Services\Backup;
 
-use App\Enums\DatabaseType;
 use App\Facades\AppConfig;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\Backup\Concerns\UsesSshTunnel;
-use App\Services\Backup\Databases\MysqlDatabase;
-use App\Services\Backup\Databases\PostgresqlDatabase;
+use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
@@ -20,8 +18,7 @@ class BackupTask
     use UsesSshTunnel;
 
     public function __construct(
-        private readonly MysqlDatabase $mysqlDatabase,
-        private readonly PostgresqlDatabase $postgresqlDatabase,
+        private readonly DatabaseFactory $databaseFactory,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
         private readonly CompressorFactory $compressorFactory,
@@ -42,14 +39,12 @@ class BackupTask
     {
         $databaseServer = $snapshot->databaseServer;
         $job = $snapshot->job;
-        $isSqlite = $databaseServer->database_type === DatabaseType::SQLITE;
         try {
             AppConfig::ensureBackupTmpFolderExists();
             $this->setLogger($job);
             $compressor = $this->compressorFactory->make();
             $workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $snapshot->id);
-            $extension = $isSqlite ? 'db' : 'sql';
-            $workingFile = $workingDirectory.'/dump.'.$extension;
+            $workingFile = $workingDirectory.'/dump.'.$databaseServer->database_type->dumpExtension();
 
             $job->markRunning();
 
@@ -131,29 +126,14 @@ class BackupTask
 
     private function dumpDatabase(DatabaseServer $databaseServer, string $databaseName, string $outputPath): void
     {
-        if ($databaseServer->database_type === DatabaseType::SQLITE) {
-            // SQLite: copy the file directly
-            $command = $this->copySqliteDatabase($databaseServer->sqlite_path, $outputPath);
-        } else {
-            // Configure database interface with the specific database name
-            $this->configureDatabaseInterface($databaseServer, $databaseName);
+        $database = $this->databaseFactory->makeForServer(
+            $databaseServer,
+            $databaseName,
+            $this->getConnectionHost($databaseServer),
+            $this->getConnectionPort($databaseServer),
+        );
 
-            $command = match ($databaseServer->database_type) {
-                DatabaseType::MYSQL => $this->mysqlDatabase->getDumpCommandLine($outputPath),
-                DatabaseType::POSTGRESQL => $this->postgresqlDatabase->getDumpCommandLine($outputPath),
-                default => throw new \Exception("Database type {$databaseServer->database_type->value} not supported"),
-            };
-        }
-
-        $this->shellProcessor->process($command);
-    }
-
-    /**
-     * Copy SQLite database file to the output path.
-     */
-    private function copySqliteDatabase(string $sourcePath, string $outputPath): string
-    {
-        return sprintf("cp '%s' '%s'", $sourcePath, $outputPath);
+        $this->shellProcessor->process($database->getDumpCommandLine($outputPath));
     }
 
     /**
@@ -165,7 +145,7 @@ class BackupTask
         $timestamp = now()->format('Y-m-d-His');
         $serverName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->name);
         $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName);
-        $baseExtension = $databaseServer->database_type === DatabaseType::SQLITE ? 'db' : 'sql';
+        $baseExtension = $databaseServer->database_type->dumpExtension();
         $compressionExtension = $compressor->getExtension();
 
         $filename = sprintf('%s-%s-%s.%s.%s', $serverName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
@@ -178,22 +158,5 @@ class BackupTask
         }
 
         return $filename;
-    }
-
-    private function configureDatabaseInterface(DatabaseServer $databaseServer, string $databaseName): void
-    {
-        $config = [
-            'host' => $this->getConnectionHost($databaseServer),
-            'port' => $this->getConnectionPort($databaseServer),
-            'user' => $databaseServer->username,
-            'pass' => $databaseServer->getDecryptedPassword(),
-            'database' => $databaseName,
-        ];
-
-        match ($databaseServer->database_type) {
-            DatabaseType::MYSQL => $this->mysqlDatabase->setConfig($config),
-            DatabaseType::POSTGRESQL => $this->postgresqlDatabase->setConfig($config),
-            default => throw new \Exception("Database type {$databaseServer->database_type->value} not supported"),
-        };
     }
 }

@@ -9,8 +9,7 @@ use App\Models\Restore;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\CompressorFactory;
-use App\Services\Backup\Databases\MysqlDatabase;
-use App\Services\Backup\Databases\PostgresqlDatabase;
+use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\RestoreTask;
 use App\Services\SshTunnelService;
@@ -20,9 +19,7 @@ use Tests\Support\TestShellProcessor;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    // Use REAL services for command building
-    $this->mysqlDatabase = new MysqlDatabase;  // ✓ Real command building
-    $this->postgresqlDatabase = new PostgresqlDatabase;  // ✓ Real command building
+    $this->databaseFactory = new DatabaseFactory;  // ✓ Real factory for command building
     $this->shellProcessor = new TestShellProcessor;  // ✓ Captures commands without executing
     $this->compressorFactory = new CompressorFactory($this->shellProcessor);  // ✓ Real path manipulation
 
@@ -36,8 +33,7 @@ beforeEach(function () {
     $this->restoreTask = Mockery::mock(
         RestoreTask::class,
         [
-            $this->mysqlDatabase,
-            $this->postgresqlDatabase,
+            $this->databaseFactory,
             $this->shellProcessor,
             $this->filesystemProvider,
             $this->compressorFactory,
@@ -89,7 +85,7 @@ function setupRestoreExpectations(Restore $restore): void
     test()->restoreTask
         ->shouldReceive('prepareDatabase')
         ->once()
-        ->with($restore->targetServer, $restore->schema_name, Mockery::any())
+        ->with(Mockery::type(\App\Services\Backup\Databases\DatabaseInterface::class), $restore->schema_name, Mockery::any())
         ->andReturnNull();
 
     // Mock download - create a compressed file that will be decompressed
@@ -149,7 +145,7 @@ test('run executes mysql restore workflow successfully', function (string $cliTy
     // Expected commands
     $expectedCommands = [
         "gzip -d '$compressedFile'",
-        "{$expectedCommand} 'restored_db' -e \"source $decompressedFile\"",
+        "{$expectedCommand} 'restored_db' -e 'source $decompressedFile'",
     ];
 
     $commands = $this->shellProcessor->getCommands();
@@ -310,8 +306,7 @@ test('run throws exception when restore command failed', function () {
     $restoreTask = Mockery::mock(
         \App\Services\Backup\RestoreTask::class,
         [
-            $this->mysqlDatabase,
-            $this->postgresqlDatabase,
+            $this->databaseFactory,
             $shellProcessor,
             $this->filesystemProvider,
             $compressorFactory,
@@ -411,7 +406,7 @@ test('run executes sqlite restore workflow successfully', function () {
     // Expected commands - gzip extracts archive, then file copy + chmod for SQLite restore
     $expectedCommands = [
         "gzip -d '$compressedFile'",
-        "cp '$decompressedFile' '$sqlitePath' && chmod 0666 '$sqlitePath'",
+        "cp '$decompressedFile' '$sqlitePath' && chmod 0640 '$sqlitePath'",
     ];
 
     $commands = $this->shellProcessor->getCommands();
@@ -479,8 +474,7 @@ test('run establishes SSH tunnel when target server requires it', function () {
     $restoreTask = Mockery::mock(
         RestoreTask::class,
         [
-            $this->mysqlDatabase,
-            $this->postgresqlDatabase,
+            $this->databaseFactory,
             $this->shellProcessor,
             $this->filesystemProvider,
             $this->compressorFactory,

@@ -748,14 +748,16 @@ class DatabaseServerForm extends Form
             ? $this->buildSshConfigForTest()
             : null;
 
-        $result = DatabaseConnectionTester::test([
+        $server = DatabaseServer::forConnectionTest([
             'database_type' => $this->database_type,
             'host' => $this->isSqlite() ? $this->sqlite_path : $this->host,
             'port' => $this->port,
             'username' => $this->username,
             'password' => $password,
-            'database_name' => null,
+            'sqlite_path' => $this->isSqlite() ? $this->sqlite_path : null,
         ], $sshConfig);
+
+        $result = DatabaseConnectionTester::test($server);
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
@@ -788,7 +790,7 @@ class DatabaseServerForm extends Form
         }
 
         $sshConfig = $this->buildSshConfigForTest();
-        $result = SshTunnelService::testConnection($sshConfig);
+        $result = app(SshTunnelService::class)->testConnection($sshConfig);
 
         $this->sshTestSuccess = $result['success'];
         $this->sshTestMessage = $result['message'];

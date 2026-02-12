@@ -2,6 +2,12 @@
 
 namespace App\Services\Backup\Databases;
 
+use App\Exceptions\Backup\ConnectionException;
+use App\Models\BackupJob;
+use App\Support\Formatters;
+use Illuminate\Process\Exceptions\ProcessTimedOutException;
+use Illuminate\Support\Facades\Process;
+
 class PostgresqlDatabase implements DatabaseInterface
 {
     /** @var array<string, mixed> */
@@ -14,11 +20,6 @@ class PostgresqlDatabase implements DatabaseInterface
         '--no-privileges',          // Don't output GRANT/REVOKE (more portable)
         '--quote-all-identifiers',  // Quote all identifiers (safer for reserved words)
     ];
-
-    public function handles(mixed $type): bool
-    {
-        return strtolower($type ?? '') === 'postgres';
-    }
 
     /**
      * @param  array<string, mixed>  $config
@@ -55,20 +56,105 @@ class PostgresqlDatabase implements DatabaseInterface
         );
     }
 
-    /**
-     * Get a command to run a query for connection testing.
-     *
-     * @param  array<string, mixed>  $config
-     */
-    public function getQueryCommand(array $config, string $query): string
+    public function prepareForRestore(string $schemaName, BackupJob $job): void
+    {
+        try {
+            $dsn = sprintf('pgsql:host=%s;port=%d;dbname=postgres', $this->config['host'], $this->config['port']);
+            $pdo = new \PDO($dsn, $this->config['user'], $this->config['pass'], [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_TIMEOUT => 30,
+            ]);
+
+            // Escape double quotes for safe use in quoted PostgreSQL identifiers
+            $safeIdentifier = str_replace('"', '""', $schemaName);
+
+            $stmt = $pdo->prepare('SELECT 1 FROM pg_database WHERE datname = ?');
+            $stmt->execute([$schemaName]);
+            $exists = $stmt->fetchColumn();
+
+            if ($exists) {
+                $job->log('Database exists, terminating existing connections', 'info');
+
+                $terminateCommand = 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()';
+                $job->logCommand($terminateCommand, null, 0);
+                $terminateStmt = $pdo->prepare($terminateCommand);
+                $terminateStmt->execute([$schemaName]);
+
+                $dropCommand = "DROP DATABASE IF EXISTS \"{$safeIdentifier}\"";
+                $job->logCommand($dropCommand, null, 0);
+                $pdo->exec($dropCommand);
+            }
+
+            $createCommand = "CREATE DATABASE \"{$safeIdentifier}\"";
+            $job->logCommand($createCommand, null, 0);
+            $pdo->exec($createCommand);
+        } catch (\PDOException $e) {
+            throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
+        }
+    }
+
+    public function testConnection(): array
+    {
+        $versionCommand = $this->getQueryCommand('SELECT version();');
+        $startTime = microtime(true);
+
+        try {
+            $result = Process::timeout(10)->run($versionCommand);
+        } catch (ProcessTimedOutException) {
+            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+
+            return [
+                'success' => false,
+                'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
+                'details' => [],
+            ];
+        }
+
+        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+
+        if ($result->failed()) {
+            $errorOutput = trim($result->errorOutput() ?: $result->output());
+
+            return [
+                'success' => false,
+                'message' => $errorOutput ?: 'Connection failed with exit code '.$result->exitCode(),
+                'details' => [],
+            ];
+        }
+
+        $version = trim($result->output());
+
+        // Get SSL status (non-critical, ignore failures)
+        $sslCommand = $this->getQueryCommand(
+            "SELECT CASE WHEN ssl THEN 'yes' ELSE 'no' END FROM pg_stat_ssl WHERE pid = pg_backend_pid();"
+        );
+
+        try {
+            $sslResult = Process::timeout(10)->run($sslCommand);
+            $ssl = $sslResult->successful() ? trim($sslResult->output()) : 'unknown';
+        } catch (ProcessTimedOutException) {
+            $ssl = 'unknown';
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Connection successful',
+            'details' => [
+                'ping_ms' => $durationMs,
+                'output' => json_encode(['dbms' => $version, 'ssl' => $ssl], JSON_PRETTY_PRINT),
+            ],
+        ];
+    }
+
+    private function getQueryCommand(string $query): string
     {
         return sprintf(
             'PGPASSWORD=%s psql --host=%s --port=%s --user=%s %s -t -c %s',
-            escapeshellarg($config['pass']),
-            escapeshellarg($config['host']),
-            escapeshellarg((string) $config['port']),
-            escapeshellarg($config['user']),
-            escapeshellarg($config['database']),
+            escapeshellarg($this->config['pass']),
+            escapeshellarg($this->config['host']),
+            escapeshellarg((string) $this->config['port']),
+            escapeshellarg($this->config['user']),
+            escapeshellarg($this->config['database']),
             escapeshellarg($query)
         );
     }

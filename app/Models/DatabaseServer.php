@@ -171,6 +171,7 @@ class DatabaseServer extends Model
         $server->database_type = $config['database_type'] ?? 'mysql';
         $server->username = $config['username'] ?? '';
         $server->password = $config['password'] ?? '';
+        $server->sqlite_path = $config['sqlite_path'] ?? null;
 
         if ($sshConfig !== null) {
             $server->ssh_config_id = 'temp';

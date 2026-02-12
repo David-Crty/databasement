@@ -10,8 +10,7 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\CompressorFactory;
 use App\Services\Backup\DatabaseListService;
-use App\Services\Backup\Databases\MysqlDatabase;
-use App\Services\Backup\Databases\PostgresqlDatabase;
+use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -21,9 +20,7 @@ use Tests\Support\TestShellProcessor;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    // Use REAL services for command building
-    $this->mysqlDatabase = new MysqlDatabase;  // ✓ Real command building
-    $this->postgresqlDatabase = new PostgresqlDatabase;  // ✓ Real command building
+    $this->databaseFactory = new DatabaseFactory;  // ✓ Real factory for command building
     $this->shellProcessor = new TestShellProcessor;  // ✓ Captures commands without executing
     $this->compressorFactory = new CompressorFactory($this->shellProcessor);  // ✓ Real path manipulation
 
@@ -35,8 +32,7 @@ beforeEach(function () {
 
     // Create the BackupTask instance
     $this->backupTask = new BackupTask(
-        $this->mysqlDatabase,
-        $this->postgresqlDatabase,
+        $this->databaseFactory,
         $this->shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,
@@ -196,8 +192,7 @@ test('run throws exception when backup command failed', function () {
 
     // Create BackupTask with mocked shell processor
     $backupTask = new BackupTask(
-        $this->mysqlDatabase,
-        $this->postgresqlDatabase,
+        $this->databaseFactory,
         $shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,
@@ -380,8 +375,7 @@ test('run establishes SSH tunnel when server requires it', function () {
 
     // Create BackupTask with configured SSH mock
     $backupTask = new BackupTask(
-        $this->mysqlDatabase,
-        $this->postgresqlDatabase,
+        $this->databaseFactory,
         $this->shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,

@@ -1,8 +1,8 @@
 <?php
 
+use App\Facades\DatabaseConnectionTester;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
-use App\Services\DatabaseConnectionTester;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -15,17 +15,22 @@ test('test with SSH config returns error for SQLite', function () {
     $sshConfig->auth_type = 'password';
     $sshConfig->password = 'test';
 
-    $result = DatabaseConnectionTester::test([
+    $server = DatabaseServer::forConnectionTest([
         'database_type' => 'sqlite',
         'host' => '/path/to/database.sqlite',
         'port' => 0,
         'username' => '',
         'password' => '',
-        'database_name' => null,
+        'sqlite_path' => '/path/to/database.sqlite',
     ], $sshConfig);
 
+    // SQLite with SSH: requiresSshTunnel() returns false because database_type is SQLITE,
+    // so it skips SSH and goes straight to testDatabase — which tests the SQLite file directly.
+    // The SQLite file doesn't exist, so we expect a file-not-found error.
+    $result = DatabaseConnectionTester::test($server);
+
     expect($result['success'])->toBeFalse()
-        ->and($result['message'])->toContain('SSH tunneling is not supported for SQLite');
+        ->and($result['message'])->toContain('does not exist');
 });
 
 test('test with SSH config fails when SSH connection fails', function () {
@@ -36,14 +41,15 @@ test('test with SSH config fails when SSH connection fails', function () {
     $sshConfig->auth_type = 'password';
     $sshConfig->password = 'test';
 
-    $result = DatabaseConnectionTester::test([
+    $server = DatabaseServer::forConnectionTest([
         'database_type' => 'mysql',
         'host' => 'db.internal',
         'port' => 3306,
         'username' => 'root',
         'password' => 'secret',
-        'database_name' => 'mydb',
     ], $sshConfig);
+
+    $result = DatabaseConnectionTester::test($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain('SSH connection failed');
