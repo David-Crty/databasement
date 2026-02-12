@@ -5,7 +5,7 @@ use App\Facades\AppConfig;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\Restore;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\CompressorFactory;
+use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -180,7 +180,7 @@ test('run throws exception when restore command failed', function () {
         ->andThrow(new \App\Exceptions\ShellProcessFailed('Access denied for user'));
 
     // Mock compressor to skip decompression and simulate decompressed file
-    $compressor = Mockery::mock(\App\Services\Backup\CompressorInterface::class);
+    $compressor = Mockery::mock(\App\Services\Backup\Compressors\CompressorInterface::class);
     $compressor->shouldReceive('getExtension')->andReturn('gz');
     $compressor->shouldReceive('decompress')
         ->once()
@@ -191,7 +191,7 @@ test('run throws exception when restore command failed', function () {
             return $decompressedFile;
         });
 
-    $compressorFactory = Mockery::mock(\App\Services\Backup\CompressorFactory::class);
+    $compressorFactory = Mockery::mock(\App\Services\Backup\Compressors\CompressorFactory::class);
     $compressorFactory->shouldReceive('make')->andReturn($compressor);
 
     // Mock handler

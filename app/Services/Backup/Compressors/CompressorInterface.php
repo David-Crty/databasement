@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Services\Backup\Compressors;
 
 interface CompressorInterface
 {

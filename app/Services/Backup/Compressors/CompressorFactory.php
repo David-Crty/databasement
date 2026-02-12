@@ -1,9 +1,10 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Services\Backup\Compressors;
 
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
+use App\Services\Backup\ShellProcessor;
 
 class CompressorFactory
 {

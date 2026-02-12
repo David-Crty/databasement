@@ -9,6 +9,7 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
+use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Concerns\UsesSshTunnel;
 use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\DatabaseInterface;

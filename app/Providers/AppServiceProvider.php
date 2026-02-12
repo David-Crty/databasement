@@ -4,8 +4,8 @@ namespace App\Providers;
 
 use App\Facades\AppConfig;
 use App\Services\AppConfigService;
-use App\Services\Backup\CompressorFactory;
-use App\Services\Backup\CompressorInterface;
+use App\Services\Backup\Compressors\CompressorFactory;
+use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\Filesystems\FtpFilesystem;

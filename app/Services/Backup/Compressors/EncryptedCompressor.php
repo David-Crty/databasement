@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Services\Backup\Compressors;
 
 use App\Enums\CompressionType;
+use App\Services\Backup\ShellProcessor;
 
 /**
  * Compressor for AES-256 encrypted backups using 7-Zip.

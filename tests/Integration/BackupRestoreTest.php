@@ -12,7 +12,7 @@ use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
-use App\Services\Backup\CompressorInterface;
+use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\RestoreTask;
 use Tests\Support\IntegrationTestHelpers;

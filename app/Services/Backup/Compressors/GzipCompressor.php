@@ -1,14 +1,15 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Services\Backup\Compressors;
 
 use App\Enums\CompressionType;
+use App\Services\Backup\ShellProcessor;
 
-class ZstdCompressor implements CompressorInterface
+class GzipCompressor implements CompressorInterface
 {
     private const MIN_LEVEL = 1;
 
-    private const MAX_LEVEL = 19;
+    private const MAX_LEVEL = 9;
 
     public function __construct(
         private readonly ShellProcessor $shellProcessor,
@@ -26,6 +27,7 @@ class ZstdCompressor implements CompressorInterface
     {
         $this->shellProcessor->process($this->getDecompressCommandLine($compressedFile));
 
+        // gzip -d removes .gz suffix from the file
         $decompressedFile = $this->getDecompressedPath($compressedFile);
 
         if (! file_exists($decompressedFile)) {
@@ -37,21 +39,19 @@ class ZstdCompressor implements CompressorInterface
 
     public function getExtension(): string
     {
-        return CompressionType::ZSTD->extension();
+        return CompressionType::GZIP->extension();
     }
 
     public function getCompressCommandLine(string $inputPath): string
     {
         $level = $this->getLevel();
 
-        // --rm removes the original file after compression (like gzip does by default)
-        return sprintf('zstd -%d --rm %s', $level, escapeshellarg($inputPath));
+        return sprintf('gzip -%d %s', $level, escapeshellarg($inputPath));
     }
 
     public function getDecompressCommandLine(string $outputPath): string
     {
-        // -d decompress, --rm removes the compressed file after decompression
-        return sprintf('zstd -d --rm %s', escapeshellarg($outputPath));
+        return 'gzip -d '.escapeshellarg($outputPath);
     }
 
     public function getCompressedPath(string $inputPath): string
