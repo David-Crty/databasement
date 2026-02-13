@@ -101,7 +101,7 @@ class DatabaseProvider
 
             return $result;
         } catch (\Throwable $e) {
-            return ['success' => false, 'message' => 'Failed to establish SSH tunnel: '.$e->getMessage(), 'details' => []];
+            return ['success' => false, 'message' => 'Connection test failed: '.$e->getMessage(), 'details' => []];
         } finally {
             $this->sshTunnelService->close();
         }

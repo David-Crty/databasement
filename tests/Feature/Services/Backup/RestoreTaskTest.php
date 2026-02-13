@@ -33,7 +33,7 @@ beforeEach(function () {
 });
 
 // Helper to set up download mock and create a RestoreTask with mocked DatabaseProvider
-function setupRestoreWithMockedFactory(Restore $restore, DatabaseInterface $mockHandler): RestoreTask
+function setupRestoreWithMockedProvider(Restore $restore, DatabaseInterface $mockHandler): RestoreTask
 {
     // Mock download
     test()->filesystemProvider
@@ -49,13 +49,13 @@ function setupRestoreWithMockedFactory(Restore $restore, DatabaseInterface $mock
         ->once()
         ->andReturnNull();
 
-    $mockFactory = Mockery::mock(DatabaseProvider::class);
-    $mockFactory->shouldReceive('makeForServer')
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeForServer')
         ->once()
         ->andReturn($mockHandler);
 
     return new RestoreTask(
-        $mockFactory,
+        $mockProvider,
         test()->shellProcessor,
         test()->filesystemProvider,
         test()->compressorFactory,
@@ -97,7 +97,7 @@ test('run executes restore workflow successfully', function () {
         ->once()
         ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
 
-    $restoreTask = setupRestoreWithMockedFactory($restore, $mockHandler);
+    $restoreTask = setupRestoreWithMockedProvider($restore, $mockHandler);
     $restoreTask->run($restore);
 
     // Verify orchestration: job completed

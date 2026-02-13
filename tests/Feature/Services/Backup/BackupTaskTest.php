@@ -150,10 +150,10 @@ test('run executes backup for each database when backup_all_databases is enabled
         ->andReturn(['app_db', 'users_db']);
 
     $backupJobFactory = new BackupJobFactory($mockDatabaseProvider);
-    $databaseFactory = new DatabaseProvider;
+    $databaseProvider = new DatabaseProvider;
 
     $backupTask = new BackupTask(
-        $databaseFactory,
+        $databaseProvider,
         $this->shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,
@@ -190,10 +190,10 @@ test('run executes backup for each database when backup_all_databases is enabled
 });
 
 test('run handles backup path configuration correctly', function (?string $configuredPath, string $expectedPrefix) {
-    $databaseFactory = new DatabaseProvider;
+    $databaseProvider = new DatabaseProvider;
 
     $backupTask = new BackupTask(
-        $databaseFactory,
+        $databaseProvider,
         $this->shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,

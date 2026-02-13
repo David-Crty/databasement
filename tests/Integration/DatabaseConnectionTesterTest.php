@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Integration tests for DatabaseConnectionTester with real databases.
+ * Integration tests for DatabaseProvider::testConnectionForServer() with real databases.
  *
  * These tests require MySQL and PostgreSQL containers to be running.
  * Run with: php artisan test --group=integration
