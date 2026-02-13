@@ -135,7 +135,7 @@ test('postgresql prepareForRestore drops and recreates existing database', funct
     unset($dbPdo); // Close connection so terminate_backend can work
 
     // Build a configured PostgresqlDatabase and a BackupJob for logging
-    $database = app(\App\Services\Backup\Databases\DatabaseFactory::class)->makeForServer(
+    $database = app(\App\Services\Backup\Databases\DatabaseProvider::class)->makeForServer(
         $this->databaseServer,
         $this->restoredDatabaseName,
         $this->databaseServer->host,

@@ -6,8 +6,8 @@ use App\Models\DatabaseServerSshConfig;
 use App\Models\Restore;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Compressors\CompressorFactory;
-use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\RestoreTask;
@@ -32,7 +32,7 @@ beforeEach(function () {
     AppConfig::set('backup.working_directory', $this->tempDir);
 });
 
-// Helper to set up download mock and create a RestoreTask with mocked DatabaseFactory
+// Helper to set up download mock and create a RestoreTask with mocked DatabaseProvider
 function setupRestoreWithMockedFactory(Restore $restore, DatabaseInterface $mockHandler): RestoreTask
 {
     // Mock download
@@ -49,7 +49,7 @@ function setupRestoreWithMockedFactory(Restore $restore, DatabaseInterface $mock
         ->once()
         ->andReturnNull();
 
-    $mockFactory = Mockery::mock(DatabaseFactory::class);
+    $mockFactory = Mockery::mock(DatabaseProvider::class);
     $mockFactory->shouldReceive('makeForServer')
         ->once()
         ->andReturn($mockHandler);
@@ -107,7 +107,7 @@ test('run executes restore workflow successfully', function () {
 
 test('run throws exception when database types are incompatible', function () {
     $restoreTask = new RestoreTask(
-        new DatabaseFactory,
+        new DatabaseProvider,
         $this->shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,
@@ -200,7 +200,7 @@ test('run throws exception when restore command failed', function () {
     $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
     $mockHandler->shouldReceive('restore')->once()->andReturn(new DatabaseOperationResult(command: "mysql 'restored_db'"));
 
-    $mockFactory = Mockery::mock(DatabaseFactory::class);
+    $mockFactory = Mockery::mock(DatabaseProvider::class);
     $mockFactory->shouldReceive('makeForServer')->once()->andReturn($mockHandler);
 
     $restoreTask = new RestoreTask(
@@ -277,7 +277,7 @@ test('run establishes SSH tunnel when target server requires it', function () {
         ->once()
         ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
 
-    $mockFactory = Mockery::mock(DatabaseFactory::class);
+    $mockFactory = Mockery::mock(DatabaseProvider::class);
     $mockFactory->shouldReceive('makeForServer')
         ->once()
         ->with(

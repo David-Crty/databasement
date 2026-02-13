@@ -65,9 +65,9 @@ test('it returns correct message for multiple database backups', function () {
     ]);
     $server->load('backup.volume');
 
-    // Mock the DatabaseListService to return multiple databases
-    $this->mock(\App\Services\Backup\DatabaseListService::class, function ($mock) {
-        $mock->shouldReceive('listDatabases')->andReturn(['db1', 'db2', 'db3']);
+    // Mock the DatabaseProvider to return multiple databases
+    $this->mock(\App\Services\Backup\Databases\DatabaseProvider::class, function ($mock) {
+        $mock->shouldReceive('listDatabasesForServer')->andReturn(['db1', 'db2', 'db3']);
     });
 
     $action = app(TriggerBackupAction::class);

@@ -26,6 +26,11 @@ class SqliteDatabase implements DatabaseInterface
         $this->config = $config;
     }
 
+    public function listDatabases(): array
+    {
+        return [basename($this->config['sqlite_path'])];
+    }
+
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $sourcePath = $this->config['sqlite_path'];

@@ -141,7 +141,6 @@ The Docker setup provides:
 - `DatabaseConnectionTester` - Tests database connections via PDO (or CLI for Redis) with timeout/error handling
 - `BackupTask` - Executes database backups (dump, compress, transfer to volume)
 - `RestoreTask` - Restores database snapshots (download, decompress, drop/create DB, restore)
-- `DatabaseListService` - Lists databases from a server (for autocomplete in restore modal)
 
 ### Key Patterns
 
@@ -154,7 +153,7 @@ The Docker setup provides:
    - Selects use `:options` prop with `[['id' => '', 'name' => '']]` format
    - Dark mode follows system preference (`prefers-color-scheme`)
 
-3. **Database Connection Testing**: The `DatabaseConnectionTester` delegates to `DatabaseFactory` which creates the appropriate `DatabaseInterface` handler for the database type. Each handler implements its own `testConnection()` method.
+3. **Database Connection Testing**: The `DatabaseConnectionTester` delegates to `DatabaseProvider` which creates the appropriate `DatabaseInterface` handler for the database type. Each handler implements its own `testConnection()` method.
 
 4. **Authentication**: Laravel Fortify handles auth with optional two-factor authentication. All main routes require `auth` and `verified` middleware.
 
@@ -200,15 +199,14 @@ make test-filter FILTER=DatabaseServerTest
 
 ### Adding a New Database Type
 
-All database types implement `DatabaseInterface` and are resolved via `DatabaseFactory`. The factory centralizes type dispatch, so `BackupTask`, `RestoreTask`, and `DatabaseConnectionTester` require no changes.
+All database types implement `DatabaseInterface` and are resolved via `DatabaseProvider`. The provider centralizes type dispatch, so `BackupTask`, `RestoreTask`, and `DatabaseConnectionTester` require no changes.
 
 #### Files to Update
 
 **Core:**
 - `app/Enums/DatabaseType.php` - Add enum case, label, default port, `dumpExtension()`, DSN format in `buildDsn()`
-- `app/Services/Backup/Databases/{Type}Database.php` - Create handler implementing `DatabaseInterface` (`setConfig`, `getDumpCommandLine`, `getRestoreCommandLine`, `prepareForRestore`, `testConnection`)
-- `app/Services/Backup/Databases/DatabaseFactory.php` - Add case to `make()` and config handling in `makeForServer()`
-- `app/Services/Backup/DatabaseListService.php` - Add `list{Type}Databases()` method
+- `app/Services/Backup/Databases/{Type}Database.php` - Create handler implementing `DatabaseInterface` (`setConfig`, `dump`, `restore`, `prepareForRestore`, `listDatabases`, `testConnection`)
+- `app/Services/Backup/Databases/DatabaseProvider.php` - Add case to `make()` and config handling in `makeForServer()`
 - `app/Services/Backup/BackupJobFactory.php` - Add snapshot creation logic if different from default (e.g., instance-level types like Redis/SQLite)
 - `app/Livewire/Forms/DatabaseServerForm.php` - Validation rules, type helpers, UI behavior
 

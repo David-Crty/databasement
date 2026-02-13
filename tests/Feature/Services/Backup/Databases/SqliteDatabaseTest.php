@@ -13,6 +13,13 @@ beforeEach(function () {
     mkdir($this->tempDir, 0777, true);
 });
 
+test('listDatabases returns basename of sqlite path', function () {
+    $db = new SqliteDatabase;
+    $db->setConfig(['sqlite_path' => '/data/myapp.sqlite']);
+
+    expect($db->listDatabases())->toBe(['myapp.sqlite']);
+});
+
 test('dump copies local file', function () {
     $sourceFile = $this->tempDir.'/source.sqlite';
     file_put_contents($sourceFile, 'SQLite data');

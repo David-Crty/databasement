@@ -4,7 +4,7 @@ use App\Jobs\ProcessBackupJob;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
-use App\Services\Backup\DatabaseListService;
+use App\Services\Backup\Databases\DatabaseProvider;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
@@ -106,8 +106,8 @@ test('server with no databases does not prevent other backups from running', fun
     ]);
     $emptyServer->backup->update(['backup_schedule_id' => $schedule->id]);
 
-    $this->mock(DatabaseListService::class, function ($mock) {
-        $mock->shouldReceive('listDatabases')->andReturn([]);
+    $this->mock(DatabaseProvider::class, function ($mock) {
+        $mock->shouldReceive('listDatabasesForServer')->andReturn([]);
     });
 
     // Server with explicit database names
@@ -153,8 +153,8 @@ test('server throwing exception when listing databases does not prevent other ba
     ]);
     $normalServer->backup->update(['backup_schedule_id' => $schedule->id]);
 
-    $this->mock(DatabaseListService::class, function ($mock) use ($normalServer, $failingServer) {
-        $mock->shouldReceive('listDatabases')
+    $this->mock(DatabaseProvider::class, function ($mock) use ($normalServer, $failingServer) {
+        $mock->shouldReceive('listDatabasesForServer')
             ->andReturnUsing(function ($server) use ($normalServer, $failingServer) {
                 if ($server->id === $failingServer->id) {
                     throw new \RuntimeException('Connection refused');

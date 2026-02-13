@@ -54,6 +54,28 @@ test('testConnection returns success when process succeeds', function () {
         ->and($result['details']['output'])->toBe('Uptime: 12345');
 });
 
+test('listDatabases returns databases excluding system databases', function () {
+    $pdoStatement = Mockery::mock(\PDOStatement::class);
+    $pdoStatement->shouldReceive('fetchAll')
+        ->once()
+        ->with(PDO::FETCH_COLUMN, 0)
+        ->andReturn(['information_schema', 'performance_schema', 'mysql', 'sys', 'app_database', 'test_database']);
+
+    $pdo = Mockery::mock(PDO::class);
+    $pdo->shouldReceive('query')
+        ->once()
+        ->with('SHOW DATABASES')
+        ->andReturn($pdoStatement);
+
+    $db = Mockery::mock(MysqlDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
+    $db->shouldReceive('createPdo')->once()->andReturn($pdo);
+    $db->setConfig(['host' => 'db.local', 'port' => 3306, 'user' => 'root', 'pass' => 'secret', 'database' => '']);
+
+    $databases = $db->listDatabases();
+
+    expect($databases)->toBe(['app_database', 'test_database']);
+});
+
 test('testConnection returns failure when process fails', function () {
     config(['backup.mysql_cli_type' => 'mariadb']);
 

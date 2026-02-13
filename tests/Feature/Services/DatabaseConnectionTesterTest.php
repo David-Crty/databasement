@@ -3,8 +3,8 @@
 use App\Facades\DatabaseConnectionTester;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
-use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\SshTunnelService;
 
 test('test with SSH config for SQLite uses SFTP path', function () {
@@ -140,7 +140,7 @@ test('test delegates to handler with correct database name', function (string $d
         ->once()
         ->andReturn(['success' => true, 'message' => 'Connection successful', 'details' => []]);
 
-    $mockFactory = Mockery::mock(DatabaseFactory::class);
+    $mockFactory = Mockery::mock(DatabaseProvider::class);
     $mockFactory->shouldReceive('makeForServer')
         ->once()
         ->with(
@@ -226,7 +226,7 @@ test('testSftp returns success when file exists on remote', function () {
     $mockSftpFilesystem->shouldReceive('getFromSshConfig')->andReturn($mockFilesystem);
 
     $tester = new \App\Services\DatabaseConnectionTester(
-        new DatabaseFactory,
+        new DatabaseProvider,
         Mockery::mock(SshTunnelService::class),
         $mockSftpFilesystem,
     );
@@ -263,7 +263,7 @@ test('testSftp returns error when file does not exist on remote', function () {
     $mockSftpFilesystem->shouldReceive('getFromSshConfig')->andReturn($mockFilesystem);
 
     $tester = new \App\Services\DatabaseConnectionTester(
-        new DatabaseFactory,
+        new DatabaseProvider,
         Mockery::mock(SshTunnelService::class),
         $mockSftpFilesystem,
     );

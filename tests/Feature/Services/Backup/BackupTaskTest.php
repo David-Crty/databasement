@@ -6,9 +6,8 @@ use App\Models\Snapshot;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\Compressors\CompressorFactory;
-use App\Services\Backup\DatabaseListService;
-use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
@@ -60,7 +59,7 @@ test('run executes backup workflow successfully', function () {
             return new DatabaseOperationResult(command: "echo 'fake dump' > ".escapeshellarg($outputPath));
         });
 
-    $mockFactory = Mockery::mock(DatabaseFactory::class);
+    $mockFactory = Mockery::mock(DatabaseProvider::class);
     $mockFactory->shouldReceive('makeForServer')
         ->once()
         ->andReturn($mockHandler);
@@ -103,7 +102,7 @@ test('run throws exception when backup command failed', function () {
         ->once()
         ->andReturn(new DatabaseOperationResult(command: "mysqldump --host='localhost' 'myapp'"));
 
-    $mockFactory = Mockery::mock(DatabaseFactory::class);
+    $mockFactory = Mockery::mock(DatabaseProvider::class);
     $mockFactory->shouldReceive('makeForServer')
         ->once()
         ->andReturn($mockHandler);
@@ -145,13 +144,13 @@ test('run throws exception when backup command failed', function () {
 });
 
 test('run executes backup for each database when backup_all_databases is enabled', function () {
-    $mockDatabaseListService = Mockery::mock(DatabaseListService::class);
-    $mockDatabaseListService->shouldReceive('listDatabases')
+    $mockDatabaseProvider = Mockery::mock(DatabaseProvider::class);
+    $mockDatabaseProvider->shouldReceive('listDatabasesForServer')
         ->once()
         ->andReturn(['app_db', 'users_db']);
 
-    $backupJobFactory = new BackupJobFactory($mockDatabaseListService);
-    $databaseFactory = new DatabaseFactory;
+    $backupJobFactory = new BackupJobFactory($mockDatabaseProvider);
+    $databaseFactory = new DatabaseProvider;
 
     $backupTask = new BackupTask(
         $databaseFactory,
@@ -191,7 +190,7 @@ test('run executes backup for each database when backup_all_databases is enabled
 });
 
 test('run handles backup path configuration correctly', function (?string $configuredPath, string $expectedPrefix) {
-    $databaseFactory = new DatabaseFactory;
+    $databaseFactory = new DatabaseProvider;
 
     $backupTask = new BackupTask(
         $databaseFactory,
@@ -271,7 +270,7 @@ test('run establishes SSH tunnel when server requires it', function () {
         ->once()
         ->andReturnUsing(fn (string $outputPath) => new DatabaseOperationResult(command: "echo 'fake dump' > ".escapeshellarg($outputPath)));
 
-    $mockFactory = Mockery::mock(DatabaseFactory::class);
+    $mockFactory = Mockery::mock(DatabaseProvider::class);
     $mockFactory->shouldReceive('makeForServer')
         ->once()
         ->with(

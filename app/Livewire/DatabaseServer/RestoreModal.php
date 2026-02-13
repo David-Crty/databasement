@@ -8,7 +8,7 @@ use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\SnapshotQuery;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\DatabaseListService;
+use App\Services\Backup\Databases\DatabaseProvider;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -191,8 +191,7 @@ class RestoreModal extends Component
         }
 
         try {
-            $databaseListService = app(DatabaseListService::class);
-            $this->existingDatabases = $databaseListService->listDatabases($this->targetServer);
+            $this->existingDatabases = app(DatabaseProvider::class)->listDatabasesForServer($this->targetServer);
         } catch (\Exception $e) {
             $this->existingDatabases = [];
             // Silently fail - autocomplete just won't work

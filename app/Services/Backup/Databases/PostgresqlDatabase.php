@@ -60,11 +60,7 @@ class PostgresqlDatabase implements DatabaseInterface
     public function prepareForRestore(string $schemaName, BackupJob $job): void
     {
         try {
-            $dsn = sprintf('pgsql:host=%s;port=%d;dbname=postgres', $this->config['host'], $this->config['port']);
-            $pdo = new \PDO($dsn, $this->config['user'], $this->config['pass'], [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_TIMEOUT => 30,
-            ]);
+            $pdo = $this->createPdo();
 
             // Escape double quotes for safe use in quoted PostgreSQL identifiers
             $safeIdentifier = str_replace('"', '""', $schemaName);
@@ -92,6 +88,27 @@ class PostgresqlDatabase implements DatabaseInterface
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }
+    }
+
+    private const EXCLUDED_DATABASES = [
+        'postgres',          // Default administrative database
+        'rdsadmin',          // AWS RDS internal database
+        'azure_maintenance', // Azure Database for PostgreSQL internal database
+        'azure_sys',         // Azure Database for PostgreSQL internal database
+    ];
+
+    public function listDatabases(): array
+    {
+        $pdo = $this->createPdo();
+
+        $statement = $pdo->query('SELECT datname FROM pg_database WHERE datistemplate = false');
+        if ($statement === false) {
+            throw new \RuntimeException('Failed to execute query: SELECT datname FROM pg_database');
+        }
+
+        $databases = $statement->fetchAll(\PDO::FETCH_COLUMN, 0);
+
+        return array_values(array_filter($databases, fn ($db) => ! in_array($db, self::EXCLUDED_DATABASES)));
     }
 
     public function testConnection(): array
@@ -145,6 +162,16 @@ class PostgresqlDatabase implements DatabaseInterface
                 'output' => json_encode(['dbms' => $version, 'ssl' => $ssl], JSON_PRETTY_PRINT),
             ],
         ];
+    }
+
+    protected function createPdo(): \PDO
+    {
+        $dsn = sprintf('pgsql:host=%s;port=%d;dbname=postgres', $this->config['host'], $this->config['port']);
+
+        return new \PDO($dsn, $this->config['user'], $this->config['pass'], [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_TIMEOUT => 30,
+        ]);
     }
 
     private function getQueryCommand(string $query): string

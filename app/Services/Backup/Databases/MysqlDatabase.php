@@ -89,12 +89,7 @@ class MysqlDatabase implements DatabaseInterface
     public function prepareForRestore(string $schemaName, BackupJob $job): void
     {
         try {
-            $dsn = sprintf('mysql:host=%s;port=%d', $this->config['host'], $this->config['port']);
-            $pdo = new \PDO($dsn, $this->config['user'], $this->config['pass'], [
-                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                \PDO::ATTR_TIMEOUT => 30,
-            ]);
-
+            $pdo = $this->createPdo();
             $schemaName = str_replace('`', '', $schemaName);
 
             $dropCommand = "DROP DATABASE IF EXISTS `{$schemaName}`";
@@ -107,6 +102,27 @@ class MysqlDatabase implements DatabaseInterface
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }
+    }
+
+    private const EXCLUDED_DATABASES = [
+        'information_schema',
+        'performance_schema',
+        'mysql',
+        'sys',
+    ];
+
+    public function listDatabases(): array
+    {
+        $pdo = $this->createPdo();
+
+        $statement = $pdo->query('SHOW DATABASES');
+        if ($statement === false) {
+            throw new \RuntimeException('Failed to execute query: SHOW DATABASES');
+        }
+
+        $databases = $statement->fetchAll(\PDO::FETCH_COLUMN, 0);
+
+        return array_values(array_filter($databases, fn ($db) => ! in_array($db, self::EXCLUDED_DATABASES)));
     }
 
     public function testConnection(): array
@@ -146,6 +162,16 @@ class MysqlDatabase implements DatabaseInterface
                 'output' => trim($result->output()),
             ],
         ];
+    }
+
+    protected function createPdo(): \PDO
+    {
+        $dsn = sprintf('mysql:host=%s;port=%d', $this->config['host'], $this->config['port']);
+
+        return new \PDO($dsn, $this->config['user'], $this->config['pass'], [
+            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+            \PDO::ATTR_TIMEOUT => 30,
+        ]);
     }
 
     private function getStatusCommand(): string

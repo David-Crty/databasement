@@ -10,7 +10,7 @@ use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Rules\SafePath;
-use App\Services\Backup\DatabaseListService;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\SshTunnelService;
 use App\Support\Formatters;
 use Illuminate\Validation\Rule;
@@ -926,8 +926,7 @@ class DatabaseServerForm extends Form
                 'password' => $password,
             ], $sshConfig);
 
-            $databaseListService = app(DatabaseListService::class);
-            $databases = $databaseListService->listDatabases($tempServer);
+            $databases = app(DatabaseProvider::class)->listDatabasesForServer($tempServer);
 
             // Format for select options
             $this->availableDatabases = collect($databases)

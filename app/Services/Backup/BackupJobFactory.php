@@ -9,12 +9,13 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
+use App\Services\Backup\Databases\DatabaseProvider;
 use Illuminate\Support\Facades\Log;
 
 class BackupJobFactory
 {
     public function __construct(
-        protected DatabaseListService $databaseListService
+        protected DatabaseProvider $databaseProvider
     ) {}
 
     /**
@@ -50,7 +51,7 @@ class BackupJobFactory
         }
 
         if ($server->backup_all_databases) {
-            $databases = $this->databaseListService->listDatabases($server);
+            $databases = $this->databaseProvider->listDatabasesForServer($server);
 
             if (empty($databases)) {
                 Log::warning("No databases found on server [{$server->name}] to backup.");

@@ -29,6 +29,28 @@ test('restore builds correct psql command', function () {
         ->and($result->command)->toBe("PGPASSWORD='pg_secret' psql --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/restore.sql'");
 });
 
+test('listDatabases returns databases excluding system databases', function () {
+    $pdoStatement = Mockery::mock(\PDOStatement::class);
+    $pdoStatement->shouldReceive('fetchAll')
+        ->once()
+        ->with(PDO::FETCH_COLUMN, 0)
+        ->andReturn(['postgres', 'rdsadmin', 'azure_maintenance', 'azure_sys', 'app_database', 'analytics_db']);
+
+    $pdo = Mockery::mock(PDO::class);
+    $pdo->shouldReceive('query')
+        ->once()
+        ->with('SELECT datname FROM pg_database WHERE datistemplate = false')
+        ->andReturn($pdoStatement);
+
+    $db = Mockery::mock(PostgresqlDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
+    $db->shouldReceive('createPdo')->once()->andReturn($pdo);
+    $db->setConfig(['host' => 'pg.local', 'port' => 5432, 'user' => 'postgres', 'pass' => 'pg_secret', 'database' => 'postgres']);
+
+    $databases = $db->listDatabases();
+
+    expect($databases)->toBe(['app_database', 'analytics_db']);
+});
+
 test('testConnection returns success with version and SSL info', function () {
     Process::fake([
         '*version*' => Process::result(output: 'PostgreSQL 16.2'),

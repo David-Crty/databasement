@@ -28,6 +28,13 @@ interface DatabaseInterface
     public function prepareForRestore(string $schemaName, BackupJob $job): void;
 
     /**
+     * List available databases on the server.
+     *
+     * @return array<string>
+     */
+    public function listDatabases(): array;
+
+    /**
      * Test the database connection.
      *
      * @return array{success: bool, message: string, details: array<string, mixed>}

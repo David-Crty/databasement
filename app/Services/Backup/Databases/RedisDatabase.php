@@ -22,6 +22,11 @@ class RedisDatabase implements DatabaseInterface
         $this->config = $config;
     }
 
+    public function listDatabases(): array
+    {
+        return ['all'];
+    }
+
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $parts = $this->buildBaseCommand();

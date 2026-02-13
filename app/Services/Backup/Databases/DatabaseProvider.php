@@ -5,11 +5,13 @@ namespace App\Services\Backup\Databases;
 use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
 use App\Services\Backup\Filesystems\SftpFilesystem;
+use App\Services\SshTunnelService;
 
-class DatabaseFactory
+class DatabaseProvider
 {
     public function __construct(
         private readonly SftpFilesystem $sftpFilesystem = new SftpFilesystem,
+        private readonly SshTunnelService $sshTunnelService = new SshTunnelService,
     ) {}
 
     /**
@@ -66,5 +68,31 @@ class DatabaseFactory
         }
 
         return $this->makeConfigured($server->database_type, $config);
+    }
+
+    /**
+     * List databases for a server, handling SSH tunnel lifecycle.
+     *
+     * @return array<string>
+     */
+    public function listDatabasesForServer(DatabaseServer $server): array
+    {
+        $tunnelEndpoint = null;
+
+        try {
+            if ($server->requiresSshTunnel()) {
+                $tunnelEndpoint = $this->sshTunnelService->establish($server);
+            }
+
+            $host = $tunnelEndpoint['host'] ?? $server->host ?? '';
+            $port = $tunnelEndpoint['port'] ?? $server->port;
+            $databaseName = $server->database_type === DatabaseType::POSTGRESQL ? 'postgres' : '';
+
+            $database = $this->makeForServer($server, $databaseName, $host, $port);
+
+            return $database->listDatabases();
+        } finally {
+            $this->sshTunnelService->close();
+        }
     }
 }

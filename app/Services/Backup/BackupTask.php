@@ -9,7 +9,7 @@ use App\Models\Snapshot;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Concerns\UsesSshTunnel;
-use App\Services\Backup\Databases\DatabaseFactory;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
@@ -20,7 +20,7 @@ class BackupTask
     use UsesSshTunnel;
 
     public function __construct(
-        private readonly DatabaseFactory $databaseFactory,
+        private readonly DatabaseProvider $databaseProvider,
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
         private readonly CompressorFactory $compressorFactory,
@@ -60,7 +60,7 @@ class BackupTask
                 $this->establishSshTunnel($databaseServer, $job);
             }
 
-            $database = $this->databaseFactory->makeForServer(
+            $database = $this->databaseProvider->makeForServer(
                 $databaseServer,
                 $databaseName,
                 $this->getConnectionHost($databaseServer),

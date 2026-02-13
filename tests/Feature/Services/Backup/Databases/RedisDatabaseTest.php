@@ -15,6 +15,10 @@ beforeEach(function () {
     ]);
 });
 
+test('listDatabases returns all', function () {
+    expect($this->db->listDatabases())->toBe(['all']);
+});
+
 test('dump produces redis-cli rdb command', function () {
     $result = $this->db->dump('/tmp/dump.rdb');
 

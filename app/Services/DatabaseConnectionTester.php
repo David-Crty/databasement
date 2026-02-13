@@ -4,13 +4,13 @@ namespace App\Services;
 
 use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
-use App\Services\Backup\Databases\DatabaseFactory;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\Filesystems\SftpFilesystem;
 
 class DatabaseConnectionTester
 {
     public function __construct(
-        private readonly DatabaseFactory $databaseFactory,
+        private readonly DatabaseProvider $databaseProvider,
         private readonly SshTunnelService $sshTunnelService,
         private readonly SftpFilesystem $sftpFilesystem,
     ) {}
@@ -133,7 +133,7 @@ class DatabaseConnectionTester
     private function testDatabase(DatabaseServer $server): array
     {
         $databaseName = $server->database_type === DatabaseType::POSTGRESQL ? 'postgres' : '';
-        $database = $this->databaseFactory->makeForServer($server, $databaseName, $server->host, $server->port);
+        $database = $this->databaseProvider->makeForServer($server, $databaseName, $server->host, $server->port);
 
         return $database->testConnection();
     }
