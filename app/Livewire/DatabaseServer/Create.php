@@ -4,6 +4,7 @@ namespace App\Livewire\DatabaseServer;
 
 use App\Livewire\Concerns\HandlesDemoMode;
 use App\Livewire\Forms\DatabaseServerForm;
+use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -23,6 +24,11 @@ class Create extends Component
     public function mount(): void
     {
         $this->authorize('create', DatabaseServer::class);
+
+        $dailySchedule = BackupSchedule::where('name', 'Daily')->first();
+        if ($dailySchedule) {
+            $this->form->backup_schedule_id = $dailySchedule->id;
+        }
     }
 
     public function save(): void
