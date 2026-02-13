@@ -157,10 +157,21 @@ class BackupTask
         // Prepend path if configured
         $path = $databaseServer->backup?->path;
         if (! empty($path)) {
-            $path = trim($path, '/');
+            $path = $this->resolveDateVariables(trim($path, '/'));
             $filename = $path.'/'.$filename;
         }
 
         return $filename;
+    }
+
+    private function resolveDateVariables(string $path): string
+    {
+        $now = now();
+
+        return str_replace(
+            ['{year}', '{month}', '{day}'],
+            [$now->format('Y'), $now->format('m'), $now->format('d')],
+            $path
+        );
     }
 }

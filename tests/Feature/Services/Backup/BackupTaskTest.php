@@ -232,6 +232,9 @@ test('run handles backup path configuration correctly', function (?string $confi
     'no path configured' => [null, ''],
     'nested path' => ['mysql/production', 'mysql/production/'],
     'path with slashes trimmed' => ['/mysql/prod/', 'mysql/prod/'],
+    'path with year variable' => ['backups/{year}', 'backups/'.now()->format('Y').'/'],
+    'path with all date variables' => ['{year}/{month}/{day}', now()->format('Y').'/'.now()->format('m').'/'.now()->format('d').'/'],
+    'path with mixed static and variables' => ['prod/{year}/{month}', 'prod/'.now()->format('Y').'/'.now()->format('m').'/'],
 ]);
 
 test('run establishes SSH tunnel when server requires it', function () {

@@ -271,8 +271,8 @@
                     <x-input
                         wire:model="form.path"
                         label="{{ __('Subfolder Path') }}"
-                        placeholder="{{ __('e.g., production/mysql/') }}"
-                        hint="{{ __('Optional subfolder path within the volume to organize backups.') }}"
+                        placeholder="{{ __('e.g., backups/{year}/{month}/{day}') }}"
+                        hint="{{ __('Optional path to organize backups. Supports {year}, {month}, {day} variables (e.g., backups/{year}/{month} → backups/2026/02).') }}"
                         type="text"
                         icon="o-folder"
                     />
