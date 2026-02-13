@@ -174,13 +174,50 @@ test('SSH config model provides accessor methods', function () {
     expect($sshConfig->getDisplayName())->toBe('myuser@bastion.example.com:2222');
 });
 
-test('SSH tunnel section is not shown for SQLite', function () {
+test('SSH section is shown for SQLite with SFTP label', function () {
     $user = User::factory()->create();
 
     Livewire::actingAs($user)
         ->test(Create::class)
         ->set('form.database_type', 'sqlite')
-        ->assertDontSee('SSH Tunnel');
+        ->assertSee('Access via SSH (SFTP)');
+});
+
+test('can create SQLite server with SSH config for remote access', function () {
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'Test Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Remote SQLite via SFTP')
+        ->set('form.database_type', 'sqlite')
+        ->set('form.sqlite_path', '/data/remote.sqlite')
+        ->set('form.volume_id', $volume->id)
+        ->set('form.backup_schedule_id', dailySchedule()->id)
+        ->set('form.retention_days', 14)
+        // SSH config for SFTP
+        ->set('form.ssh_enabled', true)
+        ->set('form.ssh_config_mode', 'create')
+        ->set('form.ssh_host', 'remote.example.com')
+        ->set('form.ssh_port', 22)
+        ->set('form.ssh_username', 'deploy')
+        ->set('form.ssh_auth_type', 'password')
+        ->set('form.ssh_password', 'sftp_secret')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'Remote SQLite via SFTP')->first();
+    expect($server->database_type->value)->toBe('sqlite')
+        ->and($server->sqlite_path)->toBe('/data/remote.sqlite')
+        ->and($server->ssh_config_id)->not->toBeNull()
+        ->and($server->sshConfig->host)->toBe('remote.example.com')
+        ->and($server->requiresSftpTransfer())->toBeTrue()
+        ->and($server->requiresSshTunnel())->toBeFalse();
 });
 
 test('updating database server preserves SSH config when not changed', function () {

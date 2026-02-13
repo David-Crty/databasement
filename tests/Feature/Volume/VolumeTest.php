@@ -294,8 +294,6 @@ describe('connection testing', function () {
             ->call('testConnection')
             ->assertSet('form.connectionTestSuccess', true)
             ->assertSet('form.connectionTestMessage', 'Connection successful!');
-
-        rmdir($tempDir);
     });
 
     test('can test connection on edit using persisted password', function () {

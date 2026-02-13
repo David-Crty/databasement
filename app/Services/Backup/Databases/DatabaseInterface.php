@@ -3,6 +3,7 @@
 namespace App\Services\Backup\Databases;
 
 use App\Models\BackupJob;
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 
 interface DatabaseInterface
 {
@@ -11,9 +12,15 @@ interface DatabaseInterface
      */
     public function setConfig(array $config): void;
 
-    public function getDumpCommandLine(string $outputPath): string;
+    /**
+     * Dump the database to the given output path.
+     */
+    public function dump(string $outputPath): DatabaseOperationResult;
 
-    public function getRestoreCommandLine(string $inputPath): string;
+    /**
+     * Restore the database from the given input path.
+     */
+    public function restore(string $inputPath): DatabaseOperationResult;
 
     /**
      * Prepare the target database for restore (e.g. drop and recreate).

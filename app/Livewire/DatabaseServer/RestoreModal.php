@@ -98,10 +98,11 @@ class RestoreModal extends Component
     {
         $this->selectedSnapshotId = $snapshotId;
 
-        // Pre-fill schema name with original database name
-        $snapshot = Snapshot::find($snapshotId);
-        if ($snapshot) {
-            $this->schemaName = $snapshot->database_name;
+        // Pre-fill schema name: use target server's sqlite_path for SQLite, otherwise snapshot's database name
+        if ($this->targetServer?->database_type === DatabaseType::SQLITE && $this->targetServer->sqlite_path) {
+            $this->schemaName = $this->targetServer->sqlite_path;
+        } else {
+            $this->schemaName = Snapshot::findOrFail($snapshotId)->database_name;
         }
 
         // Load existing databases for autocomplete

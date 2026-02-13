@@ -4,6 +4,7 @@ namespace App\Services\Backup\Databases;
 
 use App\Exceptions\Backup\ConnectionException;
 use App\Models\BackupJob;
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
@@ -47,7 +48,7 @@ class MysqlDatabase implements DatabaseInterface
         $this->config = $config;
     }
 
-    public function getDumpCommandLine(string $outputPath): string
+    public function dump(string $outputPath): DatabaseOperationResult
     {
         $options = self::DUMP_OPTIONS;
 
@@ -55,7 +56,7 @@ class MysqlDatabase implements DatabaseInterface
             $options[] = '--skip_ssl';
         }
 
-        return sprintf(
+        return new DatabaseOperationResult(command: sprintf(
             '%s %s --host=%s --port=%s --user=%s --password=%s %s > %s',
             self::CLI_BINARIES[$this->getMysqlCliType()]['dump'],
             implode(' ', $options),
@@ -65,14 +66,14 @@ class MysqlDatabase implements DatabaseInterface
             escapeshellarg($this->config['pass']),
             escapeshellarg($this->config['database']),
             escapeshellarg($outputPath)
-        );
+        ));
     }
 
-    public function getRestoreCommandLine(string $inputPath): string
+    public function restore(string $inputPath): DatabaseOperationResult
     {
         $sslFlag = $this->getMysqlCliType() === 'mariadb' ? '--skip_ssl ' : '';
 
-        return sprintf(
+        return new DatabaseOperationResult(command: sprintf(
             '%s --host=%s --port=%s --user=%s --password=%s %s%s -e %s',
             self::CLI_BINARIES[$this->getMysqlCliType()]['restore'],
             escapeshellarg($this->config['host']),
@@ -82,7 +83,7 @@ class MysqlDatabase implements DatabaseInterface
             $sslFlag,
             escapeshellarg($this->config['database']),
             escapeshellarg('source '.$inputPath)
-        );
+        ));
     }
 
     public function prepareForRestore(string $schemaName, BackupJob $job): void

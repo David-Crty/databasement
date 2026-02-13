@@ -4,9 +4,14 @@ namespace App\Services\Backup\Databases;
 
 use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
+use App\Services\Backup\Filesystems\SftpFilesystem;
 
 class DatabaseFactory
 {
+    public function __construct(
+        private readonly SftpFilesystem $sftpFilesystem = new SftpFilesystem,
+    ) {}
+
     /**
      * Create a database interface instance for the given type.
      */
@@ -15,7 +20,7 @@ class DatabaseFactory
         return match ($type) {
             DatabaseType::MYSQL => new MysqlDatabase,
             DatabaseType::POSTGRESQL => new PostgresqlDatabase,
-            DatabaseType::SQLITE => new SqliteDatabase,
+            DatabaseType::SQLITE => new SqliteDatabase($this->sftpFilesystem),
             DatabaseType::REDIS => new RedisDatabase,
         };
     }
@@ -41,7 +46,12 @@ class DatabaseFactory
     public function makeForServer(DatabaseServer $server, string $databaseName, string $host, int $port): DatabaseInterface
     {
         if ($server->database_type === DatabaseType::SQLITE) {
-            $config = ['sqlite_path' => $server->sqlite_path];
+            $sqlitePath = str_starts_with($databaseName, '/') ? $databaseName : $server->sqlite_path;
+            $config = ['sqlite_path' => $sqlitePath];
+
+            if ($server->sshConfig !== null) {
+                $config['ssh_config'] = $server->sshConfig;
+            }
         } else {
             $config = [
                 'host' => $host,

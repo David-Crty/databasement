@@ -4,6 +4,7 @@ namespace App\Services\Backup\Databases;
 
 use App\Exceptions\Backup\ConnectionException;
 use App\Models\BackupJob;
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
@@ -29,9 +30,9 @@ class PostgresqlDatabase implements DatabaseInterface
         $this->config = $config;
     }
 
-    public function getDumpCommandLine(string $outputPath): string
+    public function dump(string $outputPath): DatabaseOperationResult
     {
-        return sprintf(
+        return new DatabaseOperationResult(command: sprintf(
             'PGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s %s -f %s',
             escapeshellarg($this->config['pass']),
             implode(' ', self::DUMP_OPTIONS),
@@ -40,12 +41,12 @@ class PostgresqlDatabase implements DatabaseInterface
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['database']),
             escapeshellarg($outputPath)
-        );
+        ));
     }
 
-    public function getRestoreCommandLine(string $inputPath): string
+    public function restore(string $inputPath): DatabaseOperationResult
     {
-        return sprintf(
+        return new DatabaseOperationResult(command: sprintf(
             'PGPASSWORD=%s psql --host=%s --port=%s --username=%s %s -f %s',
             escapeshellarg($this->config['pass']),
             escapeshellarg($this->config['host']),
@@ -53,7 +54,7 @@ class PostgresqlDatabase implements DatabaseInterface
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['database']),
             escapeshellarg($inputPath)
-        );
+        ));
     }
 
     public function prepareForRestore(string $schemaName, BackupJob $job): void

@@ -33,8 +33,8 @@ test('makeForServer uses explicit host and port parameters', function () {
     // Simulate SSH tunnel override: pass different host/port than model
     $database = $factory->makeForServer($server, 'myapp', '127.0.0.1', 54321);
 
-    $command = $database->getDumpCommandLine('/tmp/test.sql');
-    expect($command)->toContain("--host='127.0.0.1'")
+    $result = $database->dump('/tmp/test.sql');
+    expect($result->command)->toContain("--host='127.0.0.1'")
         ->toContain("--port='54321'")
         ->not->toContain('private-db.internal');
 });

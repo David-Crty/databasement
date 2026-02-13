@@ -52,7 +52,7 @@
                         wire:model="form.sqlite_path"
                         label="{{ __('Database File Path') }}"
                         placeholder="{{ __('e.g., /var/data/database.sqlite') }}"
-                        hint="{{ __('Absolute path to the SQLite database file') }}"
+                        hint="{{ $form->ssh_enabled ? __('Absolute path on the remote SSH server') : __('Absolute path to the SQLite database file') }}"
                         type="text"
                         required
                     />
@@ -98,9 +98,7 @@
                     </div>
                 @endif
 
-                @if(!$form->isSqlite())
-                    @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
-                @endif
+                @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
 
                 <!-- Test Connection Button -->
                 <div class="flex flex-wrap items-center gap-2 pt-2">
@@ -154,6 +152,10 @@
                 @if($form->connectionTestSuccess && !empty($form->connectionTestDetails['ssh_tunnel']))
                     <x-alert class="alert-info mt-2" icon="o-server-stack">
                         {{ __('Connected via SSH tunnel through') }} {{ $form->connectionTestDetails['ssh_host'] }}
+                    </x-alert>
+                @elseif($form->connectionTestSuccess && !empty($form->connectionTestDetails['sftp']))
+                    <x-alert class="alert-info mt-2" icon="o-server-stack">
+                        {{ __('Connected via SFTP through') }} {{ $form->connectionTestDetails['ssh_host'] }}
                     </x-alert>
                 @endif
 

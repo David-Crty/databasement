@@ -487,9 +487,17 @@ class DatabaseServerForm extends Form
      */
     private function getSqliteValidationRules(): array
     {
-        return [
+        $rules = [
             'sqlite_path' => 'required|string|max:1000',
+            'ssh_enabled' => 'boolean',
         ];
+
+        if ($this->ssh_enabled) {
+            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
+            $rules = array_merge($rules, $this->getSshValidationRules());
+        }
+
+        return $rules;
     }
 
     /**
@@ -758,9 +766,11 @@ class DatabaseServerForm extends Form
         // Validate only the connection-related fields
         try {
             if ($this->isSqlite()) {
-                $this->validate([
-                    'sqlite_path' => 'required|string|max:1000',
-                ]);
+                $rules = ['sqlite_path' => 'required|string|max:1000'];
+                if ($this->ssh_enabled) {
+                    $rules = array_merge($rules, $this->getSshValidationRules());
+                }
+                $this->validate($rules);
             } elseif ($this->isRedis()) {
                 $this->validate([
                     'host' => 'required|string|max:255',
@@ -794,7 +804,7 @@ class DatabaseServerForm extends Form
         }
 
         // Build SSH config for connection test
-        $sshConfig = $this->ssh_enabled && ! $this->isSqlite()
+        $sshConfig = $this->ssh_enabled
             ? $this->buildSshConfigForTest()
             : null;
 

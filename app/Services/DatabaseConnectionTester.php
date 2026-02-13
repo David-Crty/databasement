@@ -5,12 +5,14 @@ namespace App\Services;
 use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
 use App\Services\Backup\Databases\DatabaseFactory;
+use App\Services\Backup\Filesystems\SftpFilesystem;
 
 class DatabaseConnectionTester
 {
     public function __construct(
         private readonly DatabaseFactory $databaseFactory,
         private readonly SshTunnelService $sshTunnelService,
+        private readonly SftpFilesystem $sftpFilesystem,
     ) {}
 
     /**
@@ -20,6 +22,10 @@ class DatabaseConnectionTester
      */
     public function test(DatabaseServer $server): array
     {
+        if ($server->requiresSftpTransfer()) {
+            return $this->testSftp($server);
+        }
+
         if ($server->requiresSshTunnel()) {
             $sshResult = $this->testSsh($server);
             if (! $sshResult['success']) {
@@ -42,6 +48,51 @@ class DatabaseConnectionTester
             return $result;
         } finally {
             $this->sshTunnelService->close();
+        }
+    }
+
+    /**
+     * Test remote SQLite connection via SFTP: verify file exists on remote server.
+     *
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    private function testSftp(DatabaseServer $server): array
+    {
+        $sshConfig = $server->sshConfig;
+        if ($sshConfig === null) {
+            return ['success' => false, 'message' => 'SSH configuration not found for this server.', 'details' => []];
+        }
+
+        $remotePath = $server->sqlite_path ?? '';
+        if (empty($remotePath)) {
+            return ['success' => false, 'message' => 'Database file path is required.', 'details' => []];
+        }
+
+        try {
+            $filesystem = $this->sftpFilesystem->getFromSshConfig($sshConfig);
+
+            if (! $filesystem->fileExists($remotePath)) {
+                return ['success' => false, 'message' => 'Remote file does not exist: '.$remotePath, 'details' => []];
+            }
+
+            $fileSize = $filesystem->fileSize($remotePath);
+
+            return [
+                'success' => true,
+                'message' => 'Connection successful',
+                'details' => [
+                    'sftp' => true,
+                    'ssh_host' => $sshConfig->host,
+                    'output' => json_encode([
+                        'dbms' => 'SQLite (remote)',
+                        'file_size' => $fileSize,
+                        'path' => $remotePath,
+                        'access' => 'SFTP via '.$sshConfig->getDisplayName(),
+                    ], JSON_PRETTY_PRINT),
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'SFTP connection failed: '.$e->getMessage(), 'details' => []];
         }
     }
 

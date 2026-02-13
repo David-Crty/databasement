@@ -4,6 +4,7 @@ namespace App\Services\Backup\Databases;
 
 use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
 use App\Models\BackupJob;
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
@@ -21,15 +22,15 @@ class RedisDatabase implements DatabaseInterface
         $this->config = $config;
     }
 
-    public function getDumpCommandLine(string $outputPath): string
+    public function dump(string $outputPath): DatabaseOperationResult
     {
         $parts = $this->buildBaseCommand();
         $parts[] = '--rdb '.escapeshellarg($outputPath);
 
-        return implode(' ', $parts);
+        return new DatabaseOperationResult(command: implode(' ', $parts));
     }
 
-    public function getRestoreCommandLine(string $inputPath): string
+    public function restore(string $inputPath): DatabaseOperationResult
     {
         throw new UnsupportedDatabaseTypeException('redis');
     }

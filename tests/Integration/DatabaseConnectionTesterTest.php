@@ -40,9 +40,7 @@ test('connection succeeds', function (string $databaseType) {
         ->and($result['message'])->toBe('Connection successful');
 
     // Cleanup
-    if ($databaseType === 'sqlite') {
-        unlink($config['host']);
-    } elseif ($databaseType !== 'redis') {
+    if ($databaseType !== 'sqlite' && $databaseType !== 'redis') {
         IntegrationTestHelpers::dropDatabase($databaseType, $server, $config['database']);
         $server->delete();
     }
@@ -121,8 +119,6 @@ test('sqlite connection fails with invalid sqlite file', function () {
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain('Invalid SQLite database file');
-
-    unlink($invalidPath);
 });
 
 test('redis connection fails with wrong port', function () {

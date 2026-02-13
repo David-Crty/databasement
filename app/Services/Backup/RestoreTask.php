@@ -113,7 +113,14 @@ class RestoreTask
                 'source_database' => $snapshot->database_name,
                 'target_database' => $restore->schema_name,
             ]);
-            $this->shellProcessor->process($database->getRestoreCommandLine($workingFile));
+
+            $result = $database->restore($workingFile);
+            if ($result->command !== null) {
+                $this->shellProcessor->process($result->command);
+            }
+            if ($result->log !== null) {
+                $job->log($result->log->message, $result->log->level, $result->log->context ?? []);
+            }
 
             // Mark job as completed
             $job->markCompleted();

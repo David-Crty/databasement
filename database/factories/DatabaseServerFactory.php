@@ -50,6 +50,28 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
+     * Configure the factory for remote SQLite (via SSH/SFTP).
+     *
+     * Note: Uses afterCreating() hook, so only works with create(), not make().
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    public function sqliteRemote(array $overrides = []): static
+    {
+        return $this->sqlite()->afterCreating(function ($databaseServer) use ($overrides) {
+            $sshConfig = DatabaseServerSshConfig::factory()->create(array_merge([
+                'host' => 'remote.example.com',
+                'port' => 22,
+                'username' => 'deploy',
+                'auth_type' => 'password',
+                'password' => 'ssh_password',
+            ], $overrides));
+
+            $databaseServer->update(['ssh_config_id' => $sshConfig->id]);
+        });
+    }
+
+    /**
      * Configure the factory for Redis database type.
      */
     public function redis(): static

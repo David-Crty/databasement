@@ -15,7 +15,7 @@
             wire:model.live="form.ssh_enabled"
             class="toggle-primary"
         />
-        <span class="font-medium">{{ __('Use SSH Tunnel') }}</span>
+        <span class="font-medium">{{ $form->isSqlite() ? __('Access via SSH (SFTP)') : __('Use SSH Tunnel') }}</span>
     </label>
 
     <!-- SSH Configuration Form (shown only when enabled) -->

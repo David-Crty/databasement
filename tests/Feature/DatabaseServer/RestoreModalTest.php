@@ -188,6 +188,20 @@ test('can search and filter snapshots', function () {
         ->assertDontSee('orders_db');
 });
 
+test('sqlite restore pre-fills schema name with target server sqlite_path', function () {
+    $targetServer = DatabaseServer::factory()->sqlite()->create([
+        'sqlite_path' => '/data/production.sqlite',
+    ]);
+
+    $sourceServer = DatabaseServer::factory()->sqlite()->create();
+    $snapshot = Snapshot::factory()->forServer($sourceServer)->withFile()->create();
+
+    Livewire::test(RestoreModal::class)
+        ->dispatch('open-restore-modal', targetServerId: $targetServer->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->assertSet('schemaName', '/data/production.sqlite');
+});
+
 test('redis restore shows manual instructions modal', function () {
     $targetServer = DatabaseServer::factory()->create([
         'database_type' => 'redis',

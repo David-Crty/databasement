@@ -9,6 +9,7 @@ use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\DatabaseListService;
 use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use League\Flysystem\Filesystem;
@@ -53,10 +54,10 @@ function setupCommonExpectations(Snapshot $snapshot): void
 
 test('run executes backup workflow successfully', function () {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
-    $mockHandler->shouldReceive('getDumpCommandLine')
+    $mockHandler->shouldReceive('dump')
         ->once()
         ->andReturnUsing(function (string $outputPath) {
-            return "echo 'fake dump' > ".escapeshellarg($outputPath);
+            return new DatabaseOperationResult(command: "echo 'fake dump' > ".escapeshellarg($outputPath));
         });
 
     $mockFactory = Mockery::mock(DatabaseFactory::class);
@@ -98,9 +99,9 @@ test('run executes backup workflow successfully', function () {
 
 test('run throws exception when backup command failed', function () {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
-    $mockHandler->shouldReceive('getDumpCommandLine')
+    $mockHandler->shouldReceive('dump')
         ->once()
-        ->andReturn("mysqldump --host='localhost' 'myapp'");
+        ->andReturn(new DatabaseOperationResult(command: "mysqldump --host='localhost' 'myapp'"));
 
     $mockFactory = Mockery::mock(DatabaseFactory::class);
     $mockFactory->shouldReceive('makeForServer')
@@ -234,13 +235,7 @@ test('run handles backup path configuration correctly', function (?string $confi
 ]);
 
 test('run establishes SSH tunnel when server requires it', function () {
-    $sshConfig = DatabaseServerSshConfig::create([
-        'host' => 'bastion.example.com',
-        'port' => 22,
-        'username' => 'tunnel_user',
-        'auth_type' => 'password',
-        'password' => 'ssh_secret',
-    ]);
+    $sshConfig = DatabaseServerSshConfig::factory()->create();
 
     $databaseServer = createDatabaseServer([
         'name' => 'MySQL via SSH',
@@ -269,9 +264,9 @@ test('run establishes SSH tunnel when server requires it', function () {
 
     // Mock factory to verify it receives tunnel endpoint
     $mockHandler = Mockery::mock(DatabaseInterface::class);
-    $mockHandler->shouldReceive('getDumpCommandLine')
+    $mockHandler->shouldReceive('dump')
         ->once()
-        ->andReturnUsing(fn (string $outputPath) => "echo 'fake dump' > ".escapeshellarg($outputPath));
+        ->andReturnUsing(fn (string $outputPath) => new DatabaseOperationResult(command: "echo 'fake dump' > ".escapeshellarg($outputPath)));
 
     $mockFactory = Mockery::mock(DatabaseFactory::class);
     $mockFactory->shouldReceive('makeForServer')

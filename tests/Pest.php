@@ -48,6 +48,7 @@ afterEach(function () {
         '/volume-test-*',        // VolumeFactory
         '/backup-task-test-*',   // BackupTaskTest
         '/restore-task-test-*',  // RestoreTaskTest
+        '/sqlite-db-test-*',    // SqliteDatabaseTest
     ];
 
     foreach ($patterns as $pattern) {

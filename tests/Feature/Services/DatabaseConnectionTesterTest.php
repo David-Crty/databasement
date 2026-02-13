@@ -7,7 +7,7 @@ use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\SshTunnelService;
 
-test('test with SSH config returns error for SQLite', function () {
+test('test with SSH config for SQLite uses SFTP path', function () {
     $sshConfig = new DatabaseServerSshConfig;
     $sshConfig->host = 'bastion.example.com';
     $sshConfig->port = 22;
@@ -24,13 +24,12 @@ test('test with SSH config returns error for SQLite', function () {
         'sqlite_path' => '/path/to/database.sqlite',
     ], $sshConfig);
 
-    // SQLite with SSH: requiresSshTunnel() returns false because database_type is SQLITE,
-    // so it skips SSH and goes straight to testDatabase — which tests the SQLite file directly.
-    // The SQLite file doesn't exist, so we expect a file-not-found error.
+    // SQLite with SSH: requiresSftpTransfer() returns true, so it uses the SFTP test path.
+    // The SFTP connection will fail since the SSH server doesn't exist.
     $result = DatabaseConnectionTester::test($server);
 
     expect($result['success'])->toBeFalse()
-        ->and($result['message'])->toContain('does not exist');
+        ->and($result['message'])->toContain('SFTP connection failed');
 });
 
 test('test with SSH config fails when SSH connection fails', function () {
@@ -155,7 +154,11 @@ test('test delegates to handler with correct database name', function (string $d
     $mockSshService = Mockery::mock(SshTunnelService::class);
     $mockSshService->shouldReceive('close')->once();
 
-    $tester = new \App\Services\DatabaseConnectionTester($mockFactory, $mockSshService);
+    $tester = new \App\Services\DatabaseConnectionTester(
+        $mockFactory,
+        $mockSshService,
+        new \App\Services\Backup\Filesystems\SftpFilesystem,
+    );
 
     $server = DatabaseServer::forConnectionTest([
         'database_type' => $dbType,
@@ -173,3 +176,111 @@ test('test delegates to handler with correct database name', function (string $d
     'postgresql uses postgres database' => ['postgres', 'postgres'],
     'redis uses empty database name' => ['redis', ''],
 ]);
+
+test('testSftp returns error when sqlite_path is empty', function () {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'bastion.example.com';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'test';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'test';
+
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'sqlite',
+        'host' => '',
+        'port' => 0,
+        'username' => '',
+        'password' => '',
+        'sqlite_path' => '',
+    ], $sshConfig);
+
+    $result = DatabaseConnectionTester::test($server);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toBe('Database file path is required.');
+});
+
+test('testSftp returns success when file exists on remote', function () {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'bastion.example.com';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'test';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'test';
+
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'sqlite',
+        'host' => '',
+        'port' => 0,
+        'username' => '',
+        'password' => '',
+        'sqlite_path' => '/data/app.sqlite',
+    ], $sshConfig);
+
+    // Mock the SftpFilesystem to simulate a successful SFTP connection
+    $mockFilesystem = Mockery::mock(\League\Flysystem\Filesystem::class);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/app.sqlite')->andReturn(true);
+    $mockFilesystem->shouldReceive('fileSize')->with('/data/app.sqlite')->andReturn(4096);
+
+    $mockSftpFilesystem = Mockery::mock(\App\Services\Backup\Filesystems\SftpFilesystem::class);
+    $mockSftpFilesystem->shouldReceive('getFromSshConfig')->andReturn($mockFilesystem);
+
+    $tester = new \App\Services\DatabaseConnectionTester(
+        new DatabaseFactory,
+        Mockery::mock(SshTunnelService::class),
+        $mockSftpFilesystem,
+    );
+
+    $result = $tester->test($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['message'])->toBe('Connection successful')
+        ->and($result['details']['sftp'])->toBeTrue()
+        ->and($result['details']['ssh_host'])->toBe('bastion.example.com');
+});
+
+test('testSftp returns error when file does not exist on remote', function () {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'bastion.example.com';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'test';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'test';
+
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'sqlite',
+        'host' => '',
+        'port' => 0,
+        'username' => '',
+        'password' => '',
+        'sqlite_path' => '/data/missing.sqlite',
+    ], $sshConfig);
+
+    $mockFilesystem = Mockery::mock(\League\Flysystem\Filesystem::class);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/missing.sqlite')->andReturn(false);
+
+    $mockSftpFilesystem = Mockery::mock(\App\Services\Backup\Filesystems\SftpFilesystem::class);
+    $mockSftpFilesystem->shouldReceive('getFromSshConfig')->andReturn($mockFilesystem);
+
+    $tester = new \App\Services\DatabaseConnectionTester(
+        new DatabaseFactory,
+        Mockery::mock(SshTunnelService::class),
+        $mockSftpFilesystem,
+    );
+
+    $result = $tester->test($server);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toBe('Remote file does not exist: /data/missing.sqlite');
+});
+
+test('requiresSftpTransfer returns correct value', function () {
+    $sqliteWithSsh = DatabaseServer::factory()->sqliteRemote()->create();
+    $sqliteLocal = DatabaseServer::factory()->sqlite()->create();
+    $mysqlWithSsh = DatabaseServer::factory()->withSshTunnel()->create();
+
+    expect($sqliteWithSsh->ssh_config_id)->not->toBeNull()
+        ->and($sqliteWithSsh->requiresSftpTransfer())->toBeTrue()
+        ->and($sqliteLocal->requiresSftpTransfer())->toBeFalse()
+        ->and($mysqlWithSsh->requiresSftpTransfer())->toBeFalse();
+});

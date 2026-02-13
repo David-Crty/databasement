@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use Illuminate\Support\Facades\Process;
 
@@ -14,14 +15,18 @@ beforeEach(function () {
     ]);
 });
 
-test('getDumpCommandLine builds correct pg_dump command', function () {
-    expect($this->db->getDumpCommandLine('/tmp/dump.sql'))
-        ->toBe("PGPASSWORD='pg_secret' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/dump.sql'");
+test('dump builds correct pg_dump command', function () {
+    $result = $this->db->dump('/tmp/dump.sql');
+
+    expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
+        ->and($result->command)->toBe("PGPASSWORD='pg_secret' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/dump.sql'");
 });
 
-test('getRestoreCommandLine builds correct psql command', function () {
-    expect($this->db->getRestoreCommandLine('/tmp/restore.sql'))
-        ->toBe("PGPASSWORD='pg_secret' psql --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/restore.sql'");
+test('restore builds correct psql command', function () {
+    $result = $this->db->restore('/tmp/restore.sql');
+
+    expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
+        ->and($result->command)->toBe("PGPASSWORD='pg_secret' psql --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/restore.sql'");
 });
 
 test('testConnection returns success with version and SSL info', function () {

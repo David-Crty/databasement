@@ -24,7 +24,7 @@ class BackupTask
         private readonly ShellProcessor $shellProcessor,
         private readonly FilesystemProvider $filesystemProvider,
         private readonly CompressorFactory $compressorFactory,
-        private readonly SshTunnelService $sshTunnelService
+        private readonly SshTunnelService $sshTunnelService,
     ) {}
 
     protected function getSshTunnelService(): SshTunnelService
@@ -60,7 +60,21 @@ class BackupTask
                 $this->establishSshTunnel($databaseServer, $job);
             }
 
-            $this->dumpDatabase($databaseServer, $databaseName, $workingFile);
+            $database = $this->databaseFactory->makeForServer(
+                $databaseServer,
+                $databaseName,
+                $this->getConnectionHost($databaseServer),
+                $this->getConnectionPort($databaseServer),
+            );
+
+            $result = $database->dump($workingFile);
+            if ($result->command !== null) {
+                $this->shellProcessor->process($result->command);
+            }
+            if ($result->log !== null) {
+                $job->log($result->log->message, $result->log->level, $result->log->context ?? []);
+            }
+
             $archive = $compressor->compress($workingFile);
             $fileSize = filesize($archive);
             if ($fileSize === false) {
@@ -124,18 +138,6 @@ class BackupTask
                 FilesystemSupport::cleanupDirectory($workingDirectory);
             }
         }
-    }
-
-    private function dumpDatabase(DatabaseServer $databaseServer, string $databaseName, string $outputPath): void
-    {
-        $database = $this->databaseFactory->makeForServer(
-            $databaseServer,
-            $databaseName,
-            $this->getConnectionHost($databaseServer),
-            $this->getConnectionPort($databaseServer),
-        );
-
-        $this->shellProcessor->process($database->getDumpCommandLine($outputPath));
     }
 
     /**

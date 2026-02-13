@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Databases\MysqlDatabase;
 use Illuminate\Support\Facades\Process;
 
@@ -14,19 +15,25 @@ beforeEach(function () {
     ]);
 });
 
-test('getDumpCommandLine builds correct command', function (string $cliType, string $expectedCommand) {
+test('dump builds correct command', function (string $cliType, string $expectedCommand) {
     config(['backup.mysql_cli_type' => $cliType]);
 
-    expect($this->db->getDumpCommandLine('/tmp/dump.sql'))->toBe($expectedCommand);
+    $result = $this->db->dump('/tmp/dump.sql');
+
+    expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
+        ->and($result->command)->toBe($expectedCommand);
 })->with([
     'mariadb' => ['mariadb', "mariadb-dump --single-transaction --routines --add-drop-table --complete-insert --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' > '/tmp/dump.sql'"],
     'mysql' => ['mysql', "mysqldump --single-transaction --routines --add-drop-table --complete-insert --hex-blob --quote-names --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' > '/tmp/dump.sql'"],
 ]);
 
-test('getRestoreCommandLine builds correct command', function (string $cliType, string $expectedCommand) {
+test('restore builds correct command', function (string $cliType, string $expectedCommand) {
     config(['backup.mysql_cli_type' => $cliType]);
 
-    expect($this->db->getRestoreCommandLine('/tmp/restore.sql'))->toBe($expectedCommand);
+    $result = $this->db->restore('/tmp/restore.sql');
+
+    expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
+        ->and($result->command)->toBe($expectedCommand);
 })->with([
     'mariadb' => ['mariadb', "mariadb --host='db.local' --port='3306' --user='root' --password='secret' --skip_ssl 'myapp' -e 'source /tmp/restore.sql'"],
     'mysql' => ['mysql', "mysql --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' -e 'source /tmp/restore.sql'"],

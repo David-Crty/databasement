@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Databases\RedisDatabase;
 use Illuminate\Support\Facades\Process;
 
@@ -14,12 +15,14 @@ beforeEach(function () {
     ]);
 });
 
-test('getDumpCommandLine produces redis-cli rdb command', function () {
-    expect($this->db->getDumpCommandLine('/tmp/dump.rdb'))
-        ->toBe("redis-cli -h 'redis.example.com' -p '6379' --no-auth-warning --rdb '/tmp/dump.rdb'");
+test('dump produces redis-cli rdb command', function () {
+    $result = $this->db->dump('/tmp/dump.rdb');
+
+    expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
+        ->and($result->command)->toBe("redis-cli -h 'redis.example.com' -p '6379' --no-auth-warning --rdb '/tmp/dump.rdb'");
 });
 
-test('getDumpCommandLine includes auth flags when credentials provided', function () {
+test('dump includes auth flags when credentials provided', function () {
     $db = new RedisDatabase;
     $db->setConfig([
         'host' => 'redis.example.com',
@@ -28,11 +31,13 @@ test('getDumpCommandLine includes auth flags when credentials provided', functio
         'pass' => 'secret',
     ]);
 
-    expect($db->getDumpCommandLine('/tmp/dump.rdb'))
+    $result = $db->dump('/tmp/dump.rdb');
+
+    expect($result->command)
         ->toBe("redis-cli -h 'redis.example.com' -p '6379' --user 'myuser' -a 'secret' --no-auth-warning --rdb '/tmp/dump.rdb'");
 });
 
-test('getDumpCommandLine includes password only when no username', function () {
+test('dump includes password only when no username', function () {
     $db = new RedisDatabase;
     $db->setConfig([
         'host' => 'redis.example.com',
@@ -41,12 +46,14 @@ test('getDumpCommandLine includes password only when no username', function () {
         'pass' => 'secret',
     ]);
 
-    expect($db->getDumpCommandLine('/tmp/dump.rdb'))
+    $result = $db->dump('/tmp/dump.rdb');
+
+    expect($result->command)
         ->toBe("redis-cli -h 'redis.example.com' -p '6379' -a 'secret' --no-auth-warning --rdb '/tmp/dump.rdb'");
 });
 
-test('getRestoreCommandLine throws unsupported exception', function () {
-    expect(fn () => $this->db->getRestoreCommandLine('/tmp/dump.rdb'))
+test('restore throws unsupported exception', function () {
+    expect(fn () => $this->db->restore('/tmp/dump.rdb'))
         ->toThrow(UnsupportedDatabaseTypeException::class);
 });
 

@@ -8,6 +8,7 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Databases\DatabaseFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
+use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\RestoreTask;
 use App\Services\SshTunnelService;
@@ -92,9 +93,9 @@ test('run executes restore workflow successfully', function () {
 
     // Mock handler
     $mockHandler = Mockery::mock(DatabaseInterface::class);
-    $mockHandler->shouldReceive('getRestoreCommandLine')
+    $mockHandler->shouldReceive('restore')
         ->once()
-        ->andReturn("echo 'fake restore'");
+        ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
 
     $restoreTask = setupRestoreWithMockedFactory($restore, $mockHandler);
     $restoreTask->run($restore);
@@ -197,7 +198,7 @@ test('run throws exception when restore command failed', function () {
     // Mock handler
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
-    $mockHandler->shouldReceive('getRestoreCommandLine')->once()->andReturn("mysql 'restored_db'");
+    $mockHandler->shouldReceive('restore')->once()->andReturn(new DatabaseOperationResult(command: "mysql 'restored_db'"));
 
     $mockFactory = Mockery::mock(DatabaseFactory::class);
     $mockFactory->shouldReceive('makeForServer')->once()->andReturn($mockHandler);
@@ -238,13 +239,7 @@ test('run establishes SSH tunnel when target server requires it', function () {
         'database_names' => ['sourcedb'],
     ]);
 
-    $sshConfig = DatabaseServerSshConfig::create([
-        'host' => 'bastion.example.com',
-        'port' => 22,
-        'username' => 'tunnel_user',
-        'auth_type' => 'password',
-        'password' => 'ssh_secret',
-    ]);
+    $sshConfig = DatabaseServerSshConfig::factory()->create();
 
     $targetServer = createDatabaseServer([
         'name' => 'Target MySQL via SSH',
@@ -278,9 +273,9 @@ test('run establishes SSH tunnel when target server requires it', function () {
     // Mock factory to verify it receives tunnel endpoint
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
-    $mockHandler->shouldReceive('getRestoreCommandLine')
+    $mockHandler->shouldReceive('restore')
         ->once()
-        ->andReturn("echo 'fake restore'");
+        ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
 
     $mockFactory = Mockery::mock(DatabaseFactory::class);
     $mockFactory->shouldReceive('makeForServer')

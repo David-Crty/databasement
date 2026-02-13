@@ -158,6 +158,16 @@ class DatabaseServer extends Model
     }
 
     /**
+     * Check if this server requires SFTP file transfer for backups/restores.
+     * Only applies to SQLite servers accessed via SSH.
+     */
+    public function requiresSftpTransfer(): bool
+    {
+        return $this->database_type === DatabaseType::SQLITE
+            && $this->ssh_config_id !== null;
+    }
+
+    /**
      * Create a temporary DatabaseServer instance for connection testing.
      * This is not persisted to the database.
      *
@@ -206,11 +216,11 @@ class DatabaseServer extends Model
     }
 
     /**
-     * Get SSH tunnel display name if configured, null otherwise.
+     * Get SSH display name if configured (tunnel or SFTP), null otherwise.
      */
     public function getSshDisplayName(): ?string
     {
-        if (! $this->requiresSshTunnel() || $this->sshConfig === null) {
+        if ($this->ssh_config_id === null || $this->sshConfig === null) {
             return null;
         }
 

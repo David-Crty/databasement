@@ -4,6 +4,7 @@ use App\Livewire\DatabaseServer\Create;
 use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Models\Volume;
+use App\Services\DatabaseConnectionTester;
 use Livewire\Livewire;
 
 test('can create database server', function (array $config) {
@@ -164,3 +165,27 @@ test('cannot create database server with GFS retention when all tiers are empty'
         'name' => 'GFS Empty Tiers Server',
     ]);
 });
+
+test('can test database connection', function (bool $success, string $message) {
+    $user = User::factory()->create();
+
+    $mock = Mockery::mock(DatabaseConnectionTester::class);
+    $mock->shouldReceive('test')
+        ->once()
+        ->andReturn(['success' => $success, 'message' => $message, 'details' => []]);
+    app()->instance(DatabaseConnectionTester::class, $mock);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->call('testConnection')
+        ->assertSet('form.connectionTestSuccess', $success)
+        ->assertSet('form.connectionTestMessage', $message);
+})->with([
+    'success' => [true, 'Connection successful'],
+    'failure' => [false, 'Connection refused'],
+]);

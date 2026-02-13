@@ -221,10 +221,6 @@ test('sqlite backup and restore workflow', function () {
     expect((int) $result['count'])->toBe(3);
 
     $targetServer->delete();
-
-    // Cleanup SQLite test files
-    @unlink($sourceSqlitePath);
-    @unlink($restoredSqlitePath);
 });
 
 test('redis backup workflow', function () {
