@@ -1,5 +1,9 @@
 @props(['form', 'submitLabel' => 'Save', 'cancelRoute' => 'database-servers.index', 'isEdit' => false])
 
+@php
+use App\Enums\DatabaseType;
+@endphp
+
 <x-form wire:submit="save" class="space-y-6">
     <!-- Section 1: Basic Information -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
@@ -39,132 +43,148 @@
             </div>
 
             <div class="space-y-4">
-                <x-select
-                    wire:model.live="form.database_type"
-                    label="{{ __('Database Type') }}"
-                    :options="$form->getDatabaseTypeOptions()"
-                    hint="{{ __('Select your database engine') }}"
-                />
-
-                @if($form->isSqlite())
-                    <!-- SQLite Path -->
-                    <x-input
-                        wire:model="form.sqlite_path"
-                        label="{{ __('Database File Path') }}"
-                        placeholder="{{ __('e.g., /var/data/database.sqlite') }}"
-                        hint="{{ $form->ssh_enabled ? __('Absolute path on the remote SSH server') : __('Absolute path to the SQLite database file') }}"
-                        type="text"
-                        required
-                    />
-                @else
-                    <!-- Client-server database connection fields -->
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <x-input
-                            wire:model="form.host"
-                            label="{{ __('Host') }}"
-                            placeholder="{{ __('e.g., localhost or 192.168.1.100') }}"
-                            type="text"
-                            required
-                        />
-
-                        <x-input
-                            wire:model="form.port"
-                            label="{{ __('Port') }}"
-                            placeholder="{{ __('e.g., 3306') }}"
-                            type="number"
-                            min="1"
-                            max="65535"
-                            required
-                        />
-                    </div>
-
-                    <div class="grid gap-4 md:grid-cols-2">
-                        <x-input
-                            wire:model="form.username"
-                            label="{{ __('Username') }}"
-                            placeholder="{{ $form->isRedis() ? __('Optional (for ACL-enabled servers)') : __('Database username') }}"
-                            type="text"
-                            :required="!$form->isRedis()"
-                            autocomplete="off"
-                        />
-
-                        <x-password
-                            wire:model="form.password"
-                            label="{{ __('Password') }}"
-                            placeholder="{{ $isEdit ? __('Leave blank to keep current') : __('Database password') }}"
-                            :required="!$isEdit && !$form->isRedis()"
-                            autocomplete="off"
-                        />
-                    </div>
-                @endif
-
-                @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
-
-                <!-- Test Connection Button -->
-                <div class="flex flex-wrap items-center gap-2 pt-2">
-                    <x-button
-                        class="{{ $form->connectionTestSuccess ? 'btn-success' : 'btn-outline btn-primary' }}"
-                        type="button"
-                        icon="{{ $form->connectionTestSuccess ? 'o-check-circle' : 'o-bolt' }}"
-                        wire:click="testConnection"
-                        :disabled="$form->testingConnection"
-                        spinner="testConnection"
-                    >
-                        @if($form->testingConnection)
-                            {{ __('Testing...') }}
-                        @elseif($form->connectionTestSuccess)
-                            {{ __('Connection Verified') }}
-                            @if(!empty($form->connectionTestDetails['ping_ms']))
-                                ({{ $form->connectionTestDetails['ping_ms'] }}ms)
-                            @endif
-                        @else
-                            {{ __('Test Connection') }}
-                        @endif
-                    </x-button>
-
-                    @if($form->connectionTestSuccess && !empty($form->connectionTestDetails['output']))
-                        <x-button
-                            wire:click="$toggle('form.showConnectionDetails')"
-                            class="btn-ghost btn-sm"
-                            icon="{{ $form->showConnectionDetails ? 'o-eye-slash' : 'o-eye' }}"
-                            :label="$form->showConnectionDetails ? __('Hide Details') : __('Show Details')"
-                        />
-                    @endif
-                </div>
-
-                <!-- Connection Test Result -->
-                @if($form->connectionTestMessage && !$form->connectionTestSuccess)
-                    <x-alert class="alert-error mt-2" icon="o-x-circle">
-                        <div>
-                            <span class="font-bold">{{ __('Connection failed') }}</span>
-                            <p class="text-sm">{{ $form->connectionTestMessage }}</p>
-                        </div>
-                        <x-button
-                            label="{{ __('Troubleshooting Guide') }}"
-                            link="https://david-crty.github.io/databasement/user-guide/database-servers/#troubleshooting-connection-issues"
-                            external
-                            class="btn-ghost btn-sm mt-2"
-                            icon="o-arrow-top-right-on-square"
-                        />
-                    </x-alert>
-                @endif
-
-                @if($form->connectionTestSuccess && !empty($form->connectionTestDetails['ssh_tunnel']))
-                    <x-alert class="alert-info mt-2" icon="o-server-stack">
-                        {{ __('Connected via SSH tunnel through') }} {{ $form->connectionTestDetails['ssh_host'] }}
-                    </x-alert>
-                @elseif($form->connectionTestSuccess && !empty($form->connectionTestDetails['sftp']))
-                    <x-alert class="alert-info mt-2" icon="o-server-stack">
-                        {{ __('Connected via SFTP through') }} {{ $form->connectionTestDetails['ssh_host'] }}
-                    </x-alert>
-                @endif
-
-                @if($form->showConnectionDetails && !empty($form->connectionTestDetails['output']))
-                    <div class="mockup-code text-sm max-h-64 overflow-auto mt-2 max-w-full w-full overflow-x-auto">
-                        @foreach(explode("\n", trim($form->connectionTestDetails['output'])) as $line)
-                            <pre class="!whitespace-pre-wrap !break-all"><code>{{ $line }}</code></pre>
+                <!-- Database Type Selection -->
+                <div>
+                    <label class="label label-text font-semibold mb-2">{{ __('Database Type') }}</label>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        @foreach(DatabaseType::cases() as $dbType)
+                            @php
+                                $isSelected = $form->database_type === $dbType->value;
+                                $buttonClass = $isSelected ? 'btn-primary' : 'btn-outline';
+                            @endphp
+                            <button
+                                type="button"
+                                wire:click="$set('form.database_type', '{{ $dbType->value }}')"
+                                class="btn justify-start gap-2 h-auto py-3 {{ $buttonClass }}"
+                            >
+                                <x-database-type-icon :type="$dbType" class="w-5 h-5" />
+                                <span>{{ $dbType->label() }}</span>
+                            </button>
                         @endforeach
                     </div>
+                </div>
+
+                @if($form->database_type)
+                    @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
+
+                    @if($form->isSqlite())
+                        <!-- SQLite Path -->
+                        <x-input
+                            wire:model="form.sqlite_path"
+                            label="{{ __('Database File Path') }}"
+                            placeholder="{{ __('e.g., /var/data/database.sqlite') }}"
+                            hint="{{ $form->ssh_enabled ? __('Absolute path on the remote SSH server') : __('Absolute path to the SQLite database file') }}"
+                            type="text"
+                            required
+                        />
+                    @else
+                        <!-- Client-server database connection fields -->
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <x-input
+                                wire:model="form.host"
+                                label="{{ __('Host') }}"
+                                placeholder="{{ __('e.g., localhost or 192.168.1.100') }}"
+                                type="text"
+                                required
+                            />
+
+                            <x-input
+                                wire:model="form.port"
+                                label="{{ __('Port') }}"
+                                placeholder="{{ __('e.g., 3306') }}"
+                                type="number"
+                                min="1"
+                                max="65535"
+                                required
+                            />
+                        </div>
+
+                        <div class="grid gap-4 md:grid-cols-2">
+                            <x-input
+                                wire:model="form.username"
+                                label="{{ __('Username') }}"
+                                placeholder="{{ $form->isRedis() ? __('Optional (for ACL-enabled servers)') : __('Database username') }}"
+                                type="text"
+                                :required="!$form->isRedis()"
+                                autocomplete="off"
+                            />
+
+                            <x-password
+                                wire:model="form.password"
+                                label="{{ __('Password') }}"
+                                placeholder="{{ $isEdit ? __('Leave blank to keep current') : __('Database password') }}"
+                                :required="!$isEdit && !$form->isRedis()"
+                                autocomplete="off"
+                            />
+                        </div>
+                    @endif
+
+                    <!-- Test Connection Button -->
+                    <div class="flex flex-wrap items-center gap-2 pt-2">
+                        <x-button
+                            class="{{ $form->connectionTestSuccess ? 'btn-success' : 'btn-outline btn-primary' }}"
+                            type="button"
+                            icon="{{ $form->connectionTestSuccess ? 'o-check-circle' : 'o-bolt' }}"
+                            wire:click="testConnection"
+                            :disabled="$form->testingConnection"
+                            spinner="testConnection"
+                        >
+                            @if($form->testingConnection)
+                                {{ __('Testing...') }}
+                            @elseif($form->connectionTestSuccess)
+                                {{ __('Connection Verified') }}
+                                @if(!empty($form->connectionTestDetails['ping_ms']))
+                                    ({{ $form->connectionTestDetails['ping_ms'] }}ms)
+                                @endif
+                            @else
+                                {{ __('Test Connection') }}
+                            @endif
+                        </x-button>
+
+                        @if($form->connectionTestSuccess && !empty($form->connectionTestDetails['output']))
+                            <x-button
+                                wire:click="$toggle('form.showConnectionDetails')"
+                                class="btn-ghost btn-sm"
+                                icon="{{ $form->showConnectionDetails ? 'o-eye-slash' : 'o-eye' }}"
+                                :label="$form->showConnectionDetails ? __('Hide Details') : __('Show Details')"
+                            />
+                        @endif
+                    </div>
+
+                    <!-- Connection Test Result -->
+                    @if($form->connectionTestMessage && !$form->connectionTestSuccess)
+                        <x-alert class="alert-error mt-2" icon="o-x-circle">
+                            <div>
+                                <span class="font-bold">{{ __('Connection failed') }}</span>
+                                <p class="text-sm">{{ $form->connectionTestMessage }}</p>
+                            </div>
+                            <x-button
+                                label="{{ __('Troubleshooting Guide') }}"
+                                link="https://david-crty.github.io/databasement/user-guide/database-servers/#troubleshooting-connection-issues"
+                                external
+                                class="btn-ghost btn-sm mt-2"
+                                icon="o-arrow-top-right-on-square"
+                            />
+                        </x-alert>
+                    @endif
+
+                    @if($form->connectionTestSuccess && !empty($form->connectionTestDetails['ssh_tunnel']))
+                        <x-alert class="alert-info mt-2" icon="o-server-stack">
+                            {{ __('Connected via SSH tunnel through') }} {{ $form->connectionTestDetails['ssh_host'] }}
+                        </x-alert>
+                    @elseif($form->connectionTestSuccess && !empty($form->connectionTestDetails['sftp']))
+                        <x-alert class="alert-info mt-2" icon="o-server-stack">
+                            {{ __('Connected via SFTP through') }} {{ $form->connectionTestDetails['ssh_host'] }}
+                        </x-alert>
+                    @endif
+
+                    @if($form->showConnectionDetails && !empty($form->connectionTestDetails['output']))
+                        <div class="mockup-code text-sm max-h-64 overflow-auto mt-2 max-w-full w-full overflow-x-auto">
+                            @foreach(explode("\n", trim($form->connectionTestDetails['output'])) as $line)
+                                <pre class="!whitespace-pre-wrap !break-all"><code>{{ $line }}</code></pre>
+                            @endforeach
+                        </div>
+                    @endif
                 @endif
             </div>
         </div>

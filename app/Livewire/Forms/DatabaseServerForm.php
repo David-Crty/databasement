@@ -27,7 +27,7 @@ class DatabaseServerForm extends Form
 
     public int $port = 3306;
 
-    public string $database_type = 'mysql';
+    public string $database_type = '';
 
     public string $sqlite_path = '';
 
