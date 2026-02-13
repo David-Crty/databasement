@@ -10,6 +10,8 @@
     <x-devicon-postgresql {{ $attributes->merge(['class' => $class]) }} />
 @elseif($type === 'sqlite')
     <x-devicon-sqlite {{ $attributes->merge(['class' => $class]) }} />
+@elseif($type === 'redis')
+    <x-devicon-redis {{ $attributes->merge(['class' => $class]) }} />
 @else
     <x-icon name="o-circle-stack" {{ $attributes->merge(['class' => $class]) }} />
 @endif
