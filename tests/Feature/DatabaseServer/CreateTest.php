@@ -4,7 +4,7 @@ use App\Livewire\DatabaseServer\Create;
 use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Models\Volume;
-use App\Services\DatabaseConnectionTester;
+use App\Services\Backup\Databases\DatabaseProvider;
 use Livewire\Livewire;
 
 test('can create database server', function (array $config) {
@@ -169,11 +169,11 @@ test('cannot create database server with GFS retention when all tiers are empty'
 test('can test database connection', function (bool $success, string $message) {
     $user = User::factory()->create();
 
-    $mock = Mockery::mock(DatabaseConnectionTester::class);
-    $mock->shouldReceive('test')
+    $mock = Mockery::mock(DatabaseProvider::class);
+    $mock->shouldReceive('testConnectionForServer')
         ->once()
         ->andReturn(['success' => $success, 'message' => $message, 'details' => []]);
-    app()->instance(DatabaseConnectionTester::class, $mock);
+    app()->instance(DatabaseProvider::class, $mock);
 
     Livewire::actingAs($user)
         ->test(Create::class)

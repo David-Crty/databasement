@@ -4,7 +4,6 @@ namespace App\Livewire\Forms;
 
 use App\Enums\DatabaseType;
 use App\Exceptions\Backup\EncryptionException;
-use App\Facades\DatabaseConnectionTester;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
@@ -817,11 +816,11 @@ class DatabaseServerForm extends Form
             'sqlite_path' => $this->isSqlite() ? $this->sqlite_path : null,
         ], $sshConfig);
 
-        $result = DatabaseConnectionTester::test($server);
+        $result = app(DatabaseProvider::class)->testConnectionForServer($server);
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
-        $this->connectionTestDetails = $result['details'] ?? [];
+        $this->connectionTestDetails = $result['details'];
         $this->testingConnection = false;
 
         // If connection successful and not SQLite/Redis, load available databases

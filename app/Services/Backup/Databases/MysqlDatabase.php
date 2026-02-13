@@ -14,7 +14,7 @@ class MysqlDatabase implements DatabaseInterface
     /** @var array<string, mixed> */
     private array $config;
 
-    private const DUMP_OPTIONS = [
+    private const array DUMP_OPTIONS = [
         '--single-transaction', // Consistent snapshot for InnoDB without locking
         '--routines',           // Include stored procedures and functions
         '--add-drop-table',     // Add DROP TABLE before each CREATE TABLE
@@ -24,7 +24,7 @@ class MysqlDatabase implements DatabaseInterface
     ];
 
     /** @var array<string, array<string, string>> */
-    private const CLI_BINARIES = [
+    private const array CLI_BINARIES = [
         'mariadb' => [
             'dump' => 'mariadb-dump',
             'restore' => 'mariadb',
@@ -33,6 +33,13 @@ class MysqlDatabase implements DatabaseInterface
             'dump' => 'mysqldump',
             'restore' => 'mysql',
         ],
+    ];
+
+    private const array EXCLUDED_DATABASES = [
+        'information_schema',
+        'performance_schema',
+        'mysql',
+        'sys',
     ];
 
     private function getMysqlCliType(): string
@@ -103,13 +110,6 @@ class MysqlDatabase implements DatabaseInterface
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }
     }
-
-    private const EXCLUDED_DATABASES = [
-        'information_schema',
-        'performance_schema',
-        'mysql',
-        'sys',
-    ];
 
     public function listDatabases(): array
     {

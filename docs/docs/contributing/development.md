@@ -183,8 +183,7 @@ Ensure tests pass before committing.
 
 - **BackupTask** — Executes database dumps, compression, and storage
 - **RestoreTask** — Downloads, decompresses, and restores snapshots
-- **DatabaseListService** — Lists databases for autocomplete
-- **DatabaseConnectionTester** — Validates database connectivity
+- **DatabaseProvider** — Creates database handlers, tests connections, lists databases
 - **ShellProcessor** — Executes shell commands with logging
 
 ### Livewire Components

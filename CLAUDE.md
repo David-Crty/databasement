@@ -138,7 +138,6 @@ The Docker setup provides:
 - `ProcessRestoreJob` - Wraps `RestoreTask` service for async execution (no retries, 1hr timeout)
 
 **Services**:
-- `DatabaseConnectionTester` - Tests database connections via PDO (or CLI for Redis) with timeout/error handling
 - `BackupTask` - Executes database backups (dump, compress, transfer to volume)
 - `RestoreTask` - Restores database snapshots (download, decompress, drop/create DB, restore)
 
@@ -153,7 +152,7 @@ The Docker setup provides:
    - Selects use `:options` prop with `[['id' => '', 'name' => '']]` format
    - Dark mode follows system preference (`prefers-color-scheme`)
 
-3. **Database Connection Testing**: The `DatabaseConnectionTester` delegates to `DatabaseProvider` which creates the appropriate `DatabaseInterface` handler for the database type. Each handler implements its own `testConnection()` method.
+3. **Database Connection Testing**: `DatabaseProvider::testConnectionForServer()` orchestrates connection tests (including SSH tunnels and SFTP for remote SQLite), delegating to the appropriate `DatabaseInterface` handler. Each handler implements its own `testConnection()` method.
 
 4. **Authentication**: Laravel Fortify handles auth with optional two-factor authentication. All main routes require `auth` and `verified` middleware.
 
@@ -199,7 +198,7 @@ make test-filter FILTER=DatabaseServerTest
 
 ### Adding a New Database Type
 
-All database types implement `DatabaseInterface` and are resolved via `DatabaseProvider`. The provider centralizes type dispatch, so `BackupTask`, `RestoreTask`, and `DatabaseConnectionTester` require no changes.
+All database types implement `DatabaseInterface` and are resolved via `DatabaseProvider`. The provider centralizes type dispatch, so `BackupTask`, `RestoreTask`, and connection testing require no changes.
 
 #### Files to Update
 

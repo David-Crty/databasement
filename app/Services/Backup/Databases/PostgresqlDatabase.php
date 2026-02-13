@@ -14,12 +14,19 @@ class PostgresqlDatabase implements DatabaseInterface
     /** @var array<string, mixed> */
     private array $config;
 
-    private const DUMP_OPTIONS = [
+    private const array DUMP_OPTIONS = [
         '--clean',                  // Add DROP statements before CREATE
         '--if-exists',              // Use IF EXISTS with DROP to avoid errors
         '--no-owner',               // Don't output ownership commands (more portable)
         '--no-privileges',          // Don't output GRANT/REVOKE (more portable)
         '--quote-all-identifiers',  // Quote all identifiers (safer for reserved words)
+    ];
+
+    private const array EXCLUDED_DATABASES = [
+        'postgres',          // Default administrative database
+        'rdsadmin',          // AWS RDS internal database
+        'azure_maintenance', // Azure Database for PostgreSQL internal database
+        'azure_sys',         // Azure Database for PostgreSQL internal database
     ];
 
     /**
@@ -89,13 +96,6 @@ class PostgresqlDatabase implements DatabaseInterface
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }
     }
-
-    private const EXCLUDED_DATABASES = [
-        'postgres',          // Default administrative database
-        'rdsadmin',          // AWS RDS internal database
-        'azure_maintenance', // Azure Database for PostgreSQL internal database
-        'azure_sys',         // Azure Database for PostgreSQL internal database
-    ];
 
     public function listDatabases(): array
     {

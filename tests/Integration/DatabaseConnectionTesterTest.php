@@ -8,8 +8,8 @@
  */
 
 use App\Facades\AppConfig;
-use App\Facades\DatabaseConnectionTester;
 use App\Models\DatabaseServer;
+use App\Services\Backup\Databases\DatabaseProvider;
 use Tests\Support\IntegrationTestHelpers;
 
 test('connection succeeds', function (string $databaseType) {
@@ -34,7 +34,7 @@ test('connection succeeds', function (string $databaseType) {
         'sqlite_path' => $databaseType === 'sqlite' ? $config['host'] : null,
     ]);
 
-    $result = DatabaseConnectionTester::test($testServer);
+    $result = app(DatabaseProvider::class)->testConnectionForServer($testServer);
 
     expect($result['success'])->toBeTrue()
         ->and($result['message'])->toBe('Connection successful');
@@ -57,7 +57,7 @@ test('connection fails with invalid credentials', function (string $databaseType
         'password' => 'invalid_password',
     ]);
 
-    $result = DatabaseConnectionTester::test($server);
+    $result = app(DatabaseProvider::class)->testConnectionForServer($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->not->toBeEmpty();
@@ -72,7 +72,7 @@ test('connection fails with unreachable host', function (string $databaseType, i
         'password' => 'password',
     ]);
 
-    $result = DatabaseConnectionTester::test($server);
+    $result = app(DatabaseProvider::class)->testConnectionForServer($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->not->toBeEmpty();
@@ -91,7 +91,7 @@ test('sqlite connection fails', function (string $path, string $expectedMessage)
         'sqlite_path' => $path,
     ]);
 
-    $result = DatabaseConnectionTester::test($server);
+    $result = app(DatabaseProvider::class)->testConnectionForServer($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain($expectedMessage);
@@ -115,7 +115,7 @@ test('sqlite connection fails with invalid sqlite file', function () {
         'sqlite_path' => $invalidPath,
     ]);
 
-    $result = DatabaseConnectionTester::test($server);
+    $result = app(DatabaseProvider::class)->testConnectionForServer($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain('Invalid SQLite database file');
@@ -130,7 +130,7 @@ test('redis connection fails with wrong port', function () {
         'password' => '',
     ]);
 
-    $result = DatabaseConnectionTester::test($server);
+    $result = app(DatabaseProvider::class)->testConnectionForServer($server);
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->not->toBeEmpty();

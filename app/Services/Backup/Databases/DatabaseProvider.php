@@ -71,28 +71,126 @@ class DatabaseProvider
     }
 
     /**
+     * Test a database connection, establishing an SSH tunnel first if configured.
+     *
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    public function testConnectionForServer(DatabaseServer $server): array
+    {
+        if ($server->requiresSftpTransfer()) {
+            return $this->testSftp($server);
+        }
+
+        if ($server->requiresSshTunnel()) {
+            $sshResult = $this->sshTunnelService->testConnection($server->sshConfig);
+            if (! $sshResult['success']) {
+                return ['success' => false, 'message' => 'SSH connection failed: '.$sshResult['message'], 'details' => []];
+            }
+        }
+
+        try {
+            [$host, $port] = $this->resolveHostAndPort($server);
+
+            $database = $this->makeForServer($server, $this->getConnectionDatabaseName($server), $host, $port);
+            $result = $database->testConnection();
+
+            if ($result['success'] && $server->requiresSshTunnel()) {
+                $result['details']['ssh_tunnel'] = true;
+                $result['details']['ssh_host'] = $server->sshConfig->host;
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'Failed to establish SSH tunnel: '.$e->getMessage(), 'details' => []];
+        } finally {
+            $this->sshTunnelService->close();
+        }
+    }
+
+    /**
      * List databases for a server, handling SSH tunnel lifecycle.
      *
      * @return array<string>
      */
     public function listDatabasesForServer(DatabaseServer $server): array
     {
-        $tunnelEndpoint = null;
-
         try {
-            if ($server->requiresSshTunnel()) {
-                $tunnelEndpoint = $this->sshTunnelService->establish($server);
-            }
+            [$host, $port] = $this->resolveHostAndPort($server);
 
-            $host = $tunnelEndpoint['host'] ?? $server->host ?? '';
-            $port = $tunnelEndpoint['port'] ?? $server->port;
-            $databaseName = $server->database_type === DatabaseType::POSTGRESQL ? 'postgres' : '';
-
-            $database = $this->makeForServer($server, $databaseName, $host, $port);
+            $database = $this->makeForServer($server, $this->getConnectionDatabaseName($server), $host, $port);
 
             return $database->listDatabases();
         } finally {
             $this->sshTunnelService->close();
+        }
+    }
+
+    /**
+     * Resolve host and port, establishing an SSH tunnel if needed.
+     *
+     * @return array{0: string, 1: int}
+     */
+    private function resolveHostAndPort(DatabaseServer $server): array
+    {
+        if ($server->requiresSshTunnel()) {
+            $tunnelEndpoint = $this->sshTunnelService->establish($server);
+
+            return [$tunnelEndpoint['host'], $tunnelEndpoint['port']];
+        }
+
+        return [$server->host ?? '', $server->port];
+    }
+
+    /**
+     * Get the database name to use for connection testing and listing.
+     */
+    private function getConnectionDatabaseName(DatabaseServer $server): string
+    {
+        return $server->database_type === DatabaseType::POSTGRESQL ? 'postgres' : '';
+    }
+
+    /**
+     * Test remote SQLite connection via SFTP: verify file exists on remote server.
+     *
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    private function testSftp(DatabaseServer $server): array
+    {
+        $sshConfig = $server->sshConfig;
+        if ($sshConfig === null) {
+            return ['success' => false, 'message' => 'SSH configuration not found for this server.', 'details' => []];
+        }
+
+        $remotePath = $server->sqlite_path ?? '';
+        if (empty($remotePath)) {
+            return ['success' => false, 'message' => 'Database file path is required.', 'details' => []];
+        }
+
+        try {
+            $filesystem = $this->sftpFilesystem->getFromSshConfig($sshConfig);
+
+            if (! $filesystem->fileExists($remotePath)) {
+                return ['success' => false, 'message' => 'Remote file does not exist: '.$remotePath, 'details' => []];
+            }
+
+            $fileSize = $filesystem->fileSize($remotePath);
+
+            return [
+                'success' => true,
+                'message' => 'Connection successful',
+                'details' => [
+                    'sftp' => true,
+                    'ssh_host' => $sshConfig->host,
+                    'output' => json_encode([
+                        'dbms' => 'SQLite (remote)',
+                        'file_size' => $fileSize,
+                        'path' => $remotePath,
+                        'access' => 'SFTP via '.$sshConfig->getDisplayName(),
+                    ], JSON_PRETTY_PRINT),
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'SFTP connection failed: '.$e->getMessage(), 'details' => []];
         }
     }
 }
