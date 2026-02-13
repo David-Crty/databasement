@@ -30,7 +30,19 @@ use App\Enums\DatabaseType;
                     :hint="__('Notes for your team about this server\'s purpose')"
                     rows="2"
                 />
+            </div>
+        </div>
+    </div>
 
+    <!-- Section 2: Connection Details -->
+    <div class="card bg-base-100 shadow-sm border border-base-200">
+        <div class="card-body">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="badge badge-primary badge-lg font-bold">2</span>
+                <h3 class="card-title text-lg">{{ __('Connection Details') }}</h3>
+            </div>
+
+            <div class="space-y-4">
                 <!-- Database Type Selection -->
                 <div>
                     <label class="label label-text font-semibold mb-2">{{ __('Database Type') }}</label>
@@ -51,20 +63,8 @@ use App\Enums\DatabaseType;
                         @endforeach
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Section 2: Connection Details (only shown when a database type is selected) -->
-    @if($form->database_type)
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body">
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="badge badge-primary badge-lg font-bold">2</span>
-                    <h3 class="card-title text-lg">{{ __('Connection Details') }}</h3>
-                </div>
-
-                <div class="space-y-4">
+                @if($form->database_type)
                     @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
 
                     @if($form->isSqlite())
@@ -185,10 +185,10 @@ use App\Enums\DatabaseType;
                             @endforeach
                         </div>
                     @endif
-                </div>
+                @endif
             </div>
         </div>
-    @endif
+    </div>
 
     <!-- Enable Backups Toggle (shown after successful connection test or when editing) -->
     @if($form->connectionTestSuccess or $isEdit)

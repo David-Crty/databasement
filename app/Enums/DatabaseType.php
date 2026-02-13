@@ -21,6 +21,16 @@ enum DatabaseType: string
         };
     }
 
+    public function icon(): string
+    {
+        return match ($this) {
+            self::MYSQL => 'devicon.mysql',
+            self::POSTGRESQL => 'devicon.postgresql',
+            self::SQLITE => 'devicon.sqlite',
+            self::REDIS => 'devicon.redis',
+        };
+    }
+
     public function defaultPort(): int
     {
         return match ($this) {
