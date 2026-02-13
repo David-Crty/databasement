@@ -81,7 +81,7 @@ class BackupTask
                 throw new \RuntimeException("Failed to get file size for: {$archive}");
             }
             $humanFileSize = Formatters::humanFileSize($fileSize);
-            $filename = $this->generateFilename($databaseServer, $databaseName, $compressor);
+            $filename = $this->generateFilename($databaseServer, $databaseName, $compressor, $snapshot);
             $job->log("Transferring backup ({$humanFileSize}) to volume: {$snapshot->volume->name}", 'info', [
                 'volume_type' => $snapshot->volume->type,
                 'source' => $archive,
@@ -144,9 +144,9 @@ class BackupTask
      * Generate the filename to store in the volume.
      * Includes optional path prefix for organizing backups.
      */
-    private function generateFilename(DatabaseServer $databaseServer, string $databaseName, CompressorInterface $compressor): string
+    private function generateFilename(DatabaseServer $databaseServer, string $databaseName, CompressorInterface $compressor, Snapshot $snapshot): string
     {
-        $timestamp = now()->format('Y-m-d-His');
+        $timestamp = $snapshot->started_at->format('Y-m-d-His');
         $serverName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->name);
         $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName);
         $baseExtension = $databaseServer->database_type->dumpExtension();
@@ -157,20 +157,18 @@ class BackupTask
         // Prepend path if configured
         $path = $databaseServer->backup?->path;
         if (! empty($path)) {
-            $path = $this->resolveDateVariables(trim($path, '/'));
+            $path = $this->resolveDateVariables(trim($path, '/'), $snapshot->started_at);
             $filename = $path.'/'.$filename;
         }
 
         return $filename;
     }
 
-    private function resolveDateVariables(string $path): string
+    private function resolveDateVariables(string $path, \Illuminate\Support\Carbon $date): string
     {
-        $now = now();
-
         return str_replace(
             ['{year}', '{month}', '{day}'],
-            [$now->format('Y'), $now->format('m'), $now->format('d')],
+            [$date->format('Y'), $date->format('m'), $date->format('d')],
             $path
         );
     }
