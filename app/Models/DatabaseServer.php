@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string $username
  * @property string $password
  * @property array<string>|null $database_names
+ * @property array<string, mixed>|null $extra_config
  * @property bool $backup_all_databases
  * @property string|null $description
  * @property bool $backups_enabled
@@ -86,6 +87,7 @@ class DatabaseServer extends Model
         'description',
         'backups_enabled',
         'ssh_config_id',
+        'extra_config',
     ];
 
     protected $hidden = [
@@ -101,6 +103,7 @@ class DatabaseServer extends Model
             'backups_enabled' => 'boolean',
             'password' => 'encrypted',
             'database_names' => 'array',
+            'extra_config' => 'array',
         ];
     }
 

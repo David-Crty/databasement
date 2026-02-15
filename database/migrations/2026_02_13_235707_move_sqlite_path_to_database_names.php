@@ -25,6 +25,7 @@ return new class extends Migration
 
         Schema::table('database_servers', function (Blueprint $table) {
             $table->dropColumn('sqlite_path');
+            $table->json('extra_config')->nullable();
         });
     }
 
@@ -35,6 +36,7 @@ return new class extends Migration
     {
         Schema::table('database_servers', function (Blueprint $table) {
             $table->string('sqlite_path')->nullable()->after('database_type');
+            $table->dropColumn('extra_config');
         });
 
         // Copy database_names[0] back to sqlite_path for SQLite servers
