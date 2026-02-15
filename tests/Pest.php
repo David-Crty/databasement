@@ -142,7 +142,7 @@ dataset('database server configs', [
     'sqlite' => [[
         'type' => 'sqlite',
         'name' => 'SQLite Database',
-        'sqlite_path' => '/data/app.sqlite',
+        'database_names' => ['/data/app.sqlite'],
     ]],
     'redis' => [[
         'type' => 'redis',

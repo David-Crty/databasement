@@ -28,8 +28,6 @@ class DatabaseServerForm extends Form
 
     public string $database_type = '';
 
-    public string $sqlite_path = '';
-
     public string $username = '';
 
     public string $password = '';
@@ -150,6 +148,11 @@ class DatabaseServerForm extends Form
         // Reset connection test when type changes
         $this->resetConnectionTestState();
         $this->availableDatabases = [];
+
+        // Ensure SQLite always has at least one path row
+        if ($value === 'sqlite' && empty($this->database_names)) {
+            $this->database_names = [''];
+        }
     }
 
     /**
@@ -268,9 +271,11 @@ class DatabaseServerForm extends Form
         $this->host = $server->host ?? '';
         $this->port = $server->port ?? 3306;
         $this->database_type = $server->database_type->value;
-        $this->sqlite_path = $server->sqlite_path ?? '';
         $this->username = $server->username ?? '';
         $this->database_names = $server->database_names ?? [];
+        if ($server->database_type === DatabaseType::SQLITE && empty($this->database_names)) {
+            $this->database_names = [''];
+        }
         $this->database_names_input = implode(', ', $this->database_names);
         $this->backup_all_databases = $server->backup_all_databases ?? false;
         $this->description = $server->description;
@@ -326,6 +331,15 @@ class DatabaseServerForm extends Form
      */
     public function normalizeDatabaseNames(): void
     {
+        // SQLite uses array inputs directly
+        if ($this->isSqlite()) {
+            $this->database_names = array_values(array_filter(
+                array_map('trim', $this->database_names)
+            ));
+
+            return;
+        }
+
         // If multiselect is used (availableDatabases is populated), use database_names directly
         if (! empty($this->availableDatabases)) {
             return;
@@ -337,6 +351,21 @@ class DatabaseServerForm extends Form
                 array_map('trim', explode(',', $this->database_names_input))
             ));
         }
+    }
+
+    public function addDatabasePath(): void
+    {
+        $this->database_names[] = '';
+    }
+
+    public function removeDatabasePath(int $index): void
+    {
+        if (count($this->database_names) <= 1) {
+            return;
+        }
+
+        unset($this->database_names[$index]);
+        $this->database_names = array_values($this->database_names);
     }
 
     /**
@@ -480,16 +509,24 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Get SQLite-specific validation rules.
-     *
-     * @return array<string, mixed>
+     * @return array<string, string>
+     */
+    private function getSqlitePathRules(): array
+    {
+        return [
+            'database_names' => 'required|array|min:1',
+            'database_names.*' => 'required|string|max:1000',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
      */
     private function getSqliteValidationRules(): array
     {
-        $rules = [
-            'sqlite_path' => 'required|string|max:1000',
+        $rules = array_merge($this->getSqlitePathRules(), [
             'ssh_enabled' => 'boolean',
-        ];
+        ]);
 
         if ($this->ssh_enabled) {
             $rules['ssh_config_mode'] = 'required|string|in:existing,create';
@@ -765,7 +802,8 @@ class DatabaseServerForm extends Form
         // Validate only the connection-related fields
         try {
             if ($this->isSqlite()) {
-                $rules = ['sqlite_path' => 'required|string|max:1000'];
+                $this->normalizeDatabaseNames();
+                $rules = $this->getSqlitePathRules();
                 if ($this->ssh_enabled) {
                     $rules = array_merge($rules, $this->getSshValidationRules());
                 }
@@ -780,7 +818,7 @@ class DatabaseServerForm extends Form
                     'host' => 'required|string|max:255',
                     'port' => 'required|integer|min:1|max:65535',
                     'username' => 'required|string|max:255',
-                    'password' => (empty($this->server) ? 'required|string|max:255' : 'nullable'),
+                    'password' => ($this->server === null ? 'required|string|max:255' : 'nullable'),
                 ]);
             }
         } catch (ValidationException $e) {
@@ -793,7 +831,7 @@ class DatabaseServerForm extends Form
 
         // Test connection
         try {
-            $password = ($this->password) ?: $this->server?->getDecryptedPassword();
+            $password = $this->password ?: $this->server?->getDecryptedPassword();
         } catch (EncryptionException $e) {
             $this->testingConnection = false;
             $this->connectionTestSuccess = false;
@@ -809,11 +847,11 @@ class DatabaseServerForm extends Form
 
         $server = DatabaseServer::forConnectionTest([
             'database_type' => $this->database_type,
-            'host' => $this->isSqlite() ? $this->sqlite_path : $this->host,
+            'host' => $this->host,
             'port' => $this->port,
             'username' => $this->username,
             'password' => $password,
-            'sqlite_path' => $this->isSqlite() ? $this->sqlite_path : null,
+            'database_names' => $this->isSqlite() ? $this->database_names : null,
         ], $sshConfig);
 
         $result = app(DatabaseProvider::class)->testConnectionForServer($server);
@@ -911,7 +949,7 @@ class DatabaseServerForm extends Form
         $this->availableDatabases = [];
 
         try {
-            $password = ($this->password) ?: $this->server?->getDecryptedPassword();
+            $password = $this->password ?: $this->server?->getDecryptedPassword();
 
             // Build SSH config if enabled
             $sshConfig = $this->ssh_enabled ? $this->buildSshConfigForTest() : null;

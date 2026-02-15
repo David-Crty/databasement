@@ -48,8 +48,7 @@ class DatabaseProvider
     public function makeForServer(DatabaseServer $server, string $databaseName, string $host, int $port): DatabaseInterface
     {
         if ($server->database_type === DatabaseType::SQLITE) {
-            $sqlitePath = str_starts_with($databaseName, '/') ? $databaseName : $server->sqlite_path;
-            $config = ['sqlite_path' => $sqlitePath];
+            $config = ['sqlite_path' => $databaseName];
 
             if ($server->sshConfig !== null) {
                 $config['ssh_config'] = $server->sshConfig;
@@ -79,6 +78,10 @@ class DatabaseProvider
     {
         if ($server->requiresSftpTransfer()) {
             return $this->testSftp($server);
+        }
+
+        if ($server->database_type === DatabaseType::SQLITE) {
+            return $this->testLocalSqlite($server);
         }
 
         if ($server->requiresSshTunnel()) {
@@ -146,11 +149,61 @@ class DatabaseProvider
      */
     private function getConnectionDatabaseName(DatabaseServer $server): string
     {
+        if ($server->database_type === DatabaseType::SQLITE) {
+            return $server->database_names[0] ?? '';
+        }
+
         return $server->database_type === DatabaseType::POSTGRESQL ? 'postgres' : '';
     }
 
     /**
-     * Test remote SQLite connection via SFTP: verify file exists on remote server.
+     * Test all local SQLite database paths.
+     *
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    private function testLocalSqlite(DatabaseServer $server): array
+    {
+        $paths = $server->database_names ?? [];
+        if (empty($paths)) {
+            return ['success' => false, 'message' => 'Database file path is required.', 'details' => []];
+        }
+
+        $failures = [];
+        $outputEntries = [];
+
+        foreach ($paths as $path) {
+            $database = $this->makeForServer($server, $path, '', 0);
+            $result = $database->testConnection();
+
+            if (! $result['success']) {
+                $failures[] = $path.': '.$result['message'];
+            } elseif (! empty($result['details']['output'])) {
+                $decoded = json_decode($result['details']['output'], true);
+                if ($decoded !== null) {
+                    $outputEntries[] = $decoded;
+                }
+            }
+        }
+
+        if (! empty($failures)) {
+            return [
+                'success' => false,
+                'message' => implode("\n", $failures),
+                'details' => [],
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Connection successful',
+            'details' => [
+                'output' => json_encode($outputEntries, JSON_PRETTY_PRINT),
+            ],
+        ];
+    }
+
+    /**
+     * Test remote SQLite connection via SFTP: verify all files exist on remote server.
      *
      * @return array{success: bool, message: string, details: array<string, mixed>}
      */
@@ -161,19 +214,44 @@ class DatabaseProvider
             return ['success' => false, 'message' => 'SSH configuration not found for this server.', 'details' => []];
         }
 
-        $remotePath = $server->sqlite_path ?? '';
-        if (empty($remotePath)) {
+        $paths = $server->database_names ?? [];
+        if (empty($paths)) {
             return ['success' => false, 'message' => 'Database file path is required.', 'details' => []];
         }
 
         try {
             $filesystem = $this->sftpFilesystem->getFromSshConfig($sshConfig);
 
-            if (! $filesystem->fileExists($remotePath)) {
-                return ['success' => false, 'message' => 'Remote file does not exist: '.$remotePath, 'details' => []];
+            $failures = [];
+            $outputEntries = [];
+
+            foreach ($paths as $remotePath) {
+                if (! $filesystem->fileExists($remotePath)) {
+                    $failures[] = $remotePath;
+
+                    continue;
+                }
+
+                $fileSize = $filesystem->fileSize($remotePath);
+                $outputEntries[] = [
+                    'dbms' => 'SQLite (remote)',
+                    'file_size' => $fileSize,
+                    'path' => $remotePath,
+                    'access' => 'SFTP via '.$sshConfig->getDisplayName(),
+                ];
             }
 
-            $fileSize = $filesystem->fileSize($remotePath);
+            if (! empty($failures)) {
+                $pathList = implode(', ', $failures);
+
+                return [
+                    'success' => false,
+                    'message' => count($failures) === 1
+                        ? 'Remote file does not exist: '.$pathList
+                        : 'Remote files do not exist: '.$pathList,
+                    'details' => [],
+                ];
+            }
 
             return [
                 'success' => true,
@@ -181,12 +259,7 @@ class DatabaseProvider
                 'details' => [
                     'sftp' => true,
                     'ssh_host' => $sshConfig->host,
-                    'output' => json_encode([
-                        'dbms' => 'SQLite (remote)',
-                        'file_size' => $fileSize,
-                        'path' => $remotePath,
-                        'access' => 'SFTP via '.$sshConfig->getDisplayName(),
-                    ], JSON_PRETTY_PRINT),
+                    'output' => json_encode($outputEntries, JSON_PRETTY_PRINT),
                 ],
             ];
         } catch (\Throwable $e) {

@@ -31,7 +31,7 @@ test('connection succeeds', function (string $databaseType) {
         'port' => $config['port'],
         'username' => $config['username'],
         'password' => $config['password'],
-        'sqlite_path' => $databaseType === 'sqlite' ? $config['host'] : null,
+        'database_names' => $databaseType === 'sqlite' ? [$config['host']] : null,
     ]);
 
     $result = app(DatabaseProvider::class)->testConnectionForServer($testServer);
@@ -84,11 +84,11 @@ test('connection fails with unreachable host', function (string $databaseType, i
 test('sqlite connection fails', function (string $path, string $expectedMessage) {
     $server = DatabaseServer::forConnectionTest([
         'database_type' => 'sqlite',
-        'host' => $path,
+        'host' => '',
         'port' => 0,
         'username' => '',
         'password' => '',
-        'sqlite_path' => $path,
+        'database_names' => [$path],
     ]);
 
     $result = app(DatabaseProvider::class)->testConnectionForServer($server);
@@ -108,11 +108,11 @@ test('sqlite connection fails with invalid sqlite file', function () {
 
     $server = DatabaseServer::forConnectionTest([
         'database_type' => 'sqlite',
-        'host' => $invalidPath,
+        'host' => '',
         'port' => 0,
         'username' => '',
         'password' => '',
-        'sqlite_path' => $invalidPath,
+        'database_names' => [$invalidPath],
     ]);
 
     $result = app(DatabaseProvider::class)->testConnectionForServer($server);

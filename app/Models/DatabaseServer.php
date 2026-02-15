@@ -22,7 +22,6 @@ use Illuminate\Support\Carbon;
  * @property string $host
  * @property int $port
  * @property DatabaseType $database_type
- * @property string|null $sqlite_path
  * @property string $username
  * @property string $password
  * @property array<string>|null $database_names
@@ -80,7 +79,6 @@ class DatabaseServer extends Model
         'host',
         'port',
         'database_type',
-        'sqlite_path',
         'username',
         'password',
         'database_names',
@@ -181,7 +179,7 @@ class DatabaseServer extends Model
         $server->database_type = $config['database_type'] ?? 'mysql';
         $server->username = $config['username'] ?? '';
         $server->password = $config['password'] ?? '';
-        $server->sqlite_path = $config['sqlite_path'] ?? null;
+        $server->database_names = $config['database_names'] ?? null;
 
         if ($sshConfig !== null) {
             $server->ssh_config_id = 'temp';
@@ -197,19 +195,19 @@ class DatabaseServer extends Model
     public function getConnectionLabel(): string
     {
         if ($this->database_type === DatabaseType::SQLITE) {
-            return basename($this->sqlite_path ?? '');
+            return implode(', ', array_map('basename', $this->database_names ?? []));
         }
 
         return "{$this->host}:{$this->port}";
     }
 
     /**
-     * Get full connection details for popover/tooltip (full path for SQLite, host:port for client-server).
+     * Get full connection details for popover/tooltip (full paths for SQLite, host:port for client-server).
      */
     public function getConnectionDetails(): string
     {
         if ($this->database_type === DatabaseType::SQLITE) {
-            return $this->sqlite_path ?? '';
+            return implode(', ', $this->database_names ?? []);
         }
 
         return "{$this->host}:{$this->port}";

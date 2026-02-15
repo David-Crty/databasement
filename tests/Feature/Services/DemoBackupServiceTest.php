@@ -16,7 +16,7 @@ test('creates demo backup for sqlite database', function () {
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
         ->and($databaseServer->database_type)->toBe(DatabaseType::SQLITE)
-        ->and($databaseServer->sqlite_path)->toBe('/data/database.sqlite')
+        ->and($databaseServer->database_names)->toBe(['/data/database.sqlite'])
         ->and($databaseServer->host)->toBeNull()
         ->and($databaseServer->username)->toBeNull()
         ->and(Volume::count())->toBe(1)
@@ -44,7 +44,6 @@ test('creates demo backup for mysql database', function () {
         ->and($databaseServer->host)->toBe('mysql.example.com')
         ->and($databaseServer->port)->toBe(3306)
         ->and($databaseServer->username)->toBe('dbuser')
-        ->and($databaseServer->sqlite_path)->toBeNull()
         ->and(Volume::count())->toBe(1)
         ->and(Backup::count())->toBe(1)
         ->and($databaseServer->backup)->not->toBeNull();
@@ -69,7 +68,6 @@ test('creates demo backup for postgresql database', function () {
         ->and($databaseServer->host)->toBe('postgres.example.com')
         ->and($databaseServer->port)->toBe(5432)
         ->and($databaseServer->username)->toBe('pguser')
-        ->and($databaseServer->sqlite_path)->toBeNull()
         ->and(Volume::count())->toBe(1)
         ->and(Backup::count())->toBe(1)
         ->and($databaseServer->backup)->not->toBeNull();

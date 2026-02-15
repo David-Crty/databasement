@@ -43,7 +43,7 @@ class DemoBackupService
             $databaseServer = DatabaseServer::create([
                 'name' => 'Databasement Database',
                 'database_type' => 'sqlite',
-                'sqlite_path' => $dbConfig['database'],
+                'database_names' => [$dbConfig['database']],
                 'description' => 'Demo database',
             ]);
         } else {

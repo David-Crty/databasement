@@ -26,7 +26,9 @@ test('can create database server', function (array $config) {
 
     // Set type-specific fields
     if ($config['type'] === 'sqlite') {
-        $component->set('form.sqlite_path', $config['sqlite_path']);
+        foreach ($config['database_names'] as $i => $name) {
+            $component->set("form.database_names.{$i}", $name);
+        }
     } elseif ($config['type'] === 'redis') {
         $component
             ->set('form.host', $config['host'])
@@ -37,7 +39,7 @@ test('can create database server', function (array $config) {
             ->set('form.port', $config['port'])
             ->set('form.username', 'dbuser')
             ->set('form.password', 'secret123')
-            ->set('form.database_names_input', 'myapp_production');
+            ->set('form.database_names.0', 'myapp_production');
     }
 
     $component->call('save')
@@ -51,7 +53,7 @@ test('can create database server', function (array $config) {
     $server = DatabaseServer::where('name', $config['name'])->first();
 
     if ($config['type'] === 'sqlite') {
-        expect($server->sqlite_path)->toBe($config['sqlite_path']);
+        expect($server->database_names)->toBe(['/data/app.sqlite']);
         expect($server->host)->toBeNull();
         expect($server->username)->toBeNull();
     } else {
@@ -113,7 +115,7 @@ test('can create database server with retention policy', function (array $config
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
-        ->set('form.database_names_input', 'myapp_production')
+        ->set('form.database_names.0', 'myapp_production')
         ->set('form.volume_id', $volume->id)
         ->set('form.backup_schedule_id', dailySchedule()->id)
         ->set('form.retention_policy', $config['policy']);
@@ -151,7 +153,7 @@ test('cannot create database server with GFS retention when all tiers are empty'
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
-        ->set('form.database_names_input', 'myapp_production')
+        ->set('form.database_names.0', 'myapp_production')
         ->set('form.volume_id', $volume->id)
         ->set('form.backup_schedule_id', dailySchedule()->id)
         ->set('form.retention_policy', 'gfs')
@@ -189,3 +191,19 @@ test('can test database connection', function (bool $success, string $message) {
     'success' => [true, 'Connection successful'],
     'failure' => [false, 'Connection refused'],
 ]);
+
+test('can add and remove SQLite database paths', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'sqlite')
+        ->assertSet('form.database_names', [''])
+        ->set('form.database_names.0', '/data/app.sqlite')
+        ->call('addDatabasePath')
+        ->assertCount('form.database_names', 2)
+        ->set('form.database_names.1', '/data/other.sqlite')
+        ->call('removeDatabasePath', 0)
+        ->assertCount('form.database_names', 1)
+        ->assertSet('form.database_names.0', '/data/other.sqlite');
+});

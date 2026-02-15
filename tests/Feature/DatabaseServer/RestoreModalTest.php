@@ -6,6 +6,7 @@ use App\Livewire\DatabaseServer\RestoreModal;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\User;
+use App\Services\Backup\Databases\DatabaseProvider;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -14,6 +15,12 @@ use function Pest\Laravel\actingAs;
 beforeEach(function () {
     $this->user = User::factory()->create(['role' => 'admin']);
     actingAs($this->user);
+
+    // Mock DatabaseProvider to prevent real connection attempts in loadExistingDatabases()
+    // which would otherwise timeout (30s) when factory servers have unreachable hosts
+    $mock = Mockery::mock(DatabaseProvider::class);
+    $mock->shouldReceive('listDatabasesForServer')->andReturn([]);
+    app()->instance(DatabaseProvider::class, $mock);
 });
 
 test('can navigate through restore wizard steps', function (string $databaseType) {
@@ -188,9 +195,9 @@ test('can search and filter snapshots', function () {
         ->assertDontSee('orders_db');
 });
 
-test('sqlite restore pre-fills schema name with target server sqlite_path', function () {
+test('sqlite restore pre-fills schema name with target server database path', function () {
     $targetServer = DatabaseServer::factory()->sqlite()->create([
-        'sqlite_path' => '/data/production.sqlite',
+        'database_names' => ['/data/production.sqlite'],
     ]);
 
     $sourceServer = DatabaseServer::factory()->sqlite()->create();

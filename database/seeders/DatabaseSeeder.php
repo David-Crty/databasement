@@ -76,7 +76,7 @@ class DatabaseSeeder extends Seeder
         $sqlite = DatabaseServer::create([
             'name' => 'Local SQLite',
             'database_type' => 'sqlite',
-            'sqlite_path' => $sqlitePath,
+            'database_names' => [$sqlitePath],
             'host' => '',
             'port' => 0,
             'username' => '',

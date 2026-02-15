@@ -40,12 +40,11 @@ class DatabaseServerFactory extends Factory
         return $this->state(fn () => [
             'name' => fake()->company().' SQLite Database',
             'database_type' => 'sqlite',
-            'sqlite_path' => '/data/'.fake()->slug().'.sqlite',
             'host' => '',
             'port' => 0,
             'username' => '',
             'password' => '',
-            'database_names' => null,
+            'database_names' => ['/data/'.fake()->slug().'.sqlite'],
         ]);
     }
 

@@ -68,15 +68,39 @@ use App\Enums\DatabaseType;
                     @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
 
                     @if($form->isSqlite())
-                        <!-- SQLite Path -->
-                        <x-input
-                            wire:model="form.sqlite_path"
-                            label="{{ __('Database File Path') }}"
-                            placeholder="{{ __('e.g., /var/data/database.sqlite') }}"
-                            hint="{{ $form->ssh_enabled ? __('Absolute path on the remote SSH server') : __('Absolute path to the SQLite database file') }}"
-                            type="text"
-                            required
-                        />
+                        <!-- SQLite Paths -->
+                        <div class="space-y-3">
+                            <label class="label label-text font-semibold">{{ __('Database File Paths') }}</label>
+                            @foreach($form->database_names as $index => $path)
+                                <div wire:key="database-path-{{ $index }}" class="flex gap-2 items-center">
+                                    <div class="flex-1">
+                                        <x-input
+                                            wire:model="form.database_names.{{ $index }}"
+                                            placeholder="{{ __('e.g., /var/data/database.sqlite') }}"
+                                            type="text"
+                                        />
+                                    </div>
+                                    @if(count($form->database_names) > 1)
+                                        <x-button
+                                            wire:click="removeDatabasePath({{ $index }})"
+                                            icon="o-trash"
+                                            class="btn-ghost btn-square btn-sm text-error"
+                                            type="button"
+                                        />
+                                    @endif
+                                </div>
+                            @endforeach
+                            <x-button
+                                wire:click="addDatabasePath"
+                                icon="o-plus"
+                                class="btn-ghost btn-sm"
+                                :label="__('Add path')"
+                                type="button"
+                            />
+                            <p class="text-xs opacity-50">
+                                {{ $form->ssh_enabled ? __('Absolute paths on the remote SSH server') : __('Absolute paths to SQLite database files') }}
+                            </p>
+                        </div>
                     @else
                         <!-- Client-server database connection fields -->
                         <div class="grid gap-4 md:grid-cols-2">

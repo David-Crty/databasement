@@ -120,11 +120,11 @@ test('testConnectionForServer routes remote SQLite to SFTP test', function () {
 
     $server = DatabaseServer::forConnectionTest([
         'database_type' => 'sqlite',
-        'host' => '/path/to/database.sqlite',
+        'host' => '',
         'port' => 0,
         'username' => '',
         'password' => '',
-        'sqlite_path' => '/path/to/database.sqlite',
+        'database_names' => ['/path/to/database.sqlite'],
     ], $sshConfig);
 
     // SQLite with SSH: requiresSftpTransfer() returns true, so it uses the SFTP test path.
@@ -157,7 +157,7 @@ test('testConnectionForServer returns SSH failure', function () {
         ->and($result['message'])->toContain('SSH connection failed');
 });
 
-test('testConnectionForServer returns SFTP error when sqlite_path is empty', function () {
+test('testConnectionForServer returns error when database_names is empty for remote SQLite', function () {
     $sshConfig = new DatabaseServerSshConfig;
     $sshConfig->host = 'bastion.example.com';
     $sshConfig->port = 22;
@@ -171,7 +171,7 @@ test('testConnectionForServer returns SFTP error when sqlite_path is empty', fun
         'port' => 0,
         'username' => '',
         'password' => '',
-        'sqlite_path' => '',
+        'database_names' => [],
     ], $sshConfig);
 
     $result = app(DatabaseProvider::class)->testConnectionForServer($server);
@@ -194,7 +194,7 @@ test('testConnectionForServer returns SFTP success when file exists', function (
         'port' => 0,
         'username' => '',
         'password' => '',
-        'sqlite_path' => '/data/app.sqlite',
+        'database_names' => ['/data/app.sqlite'],
     ], $sshConfig);
 
     // Mock the SftpFilesystem to simulate a successful SFTP connection
@@ -218,6 +218,99 @@ test('testConnectionForServer returns SFTP success when file exists', function (
         ->and($result['details']['ssh_host'])->toBe('bastion.example.com');
 });
 
+test('testConnectionForServer tests all SFTP paths and reports failures', function () {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'bastion.example.com';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'test';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'test';
+
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'sqlite',
+        'host' => '',
+        'port' => 0,
+        'username' => '',
+        'password' => '',
+        'database_names' => ['/data/app.sqlite', '/data/missing.sqlite', '/data/other.sqlite'],
+    ], $sshConfig);
+
+    $mockFilesystem = Mockery::mock(\League\Flysystem\Filesystem::class);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/app.sqlite')->andReturn(true);
+    $mockFilesystem->shouldReceive('fileSize')->with('/data/app.sqlite')->andReturn(4096);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/missing.sqlite')->andReturn(false);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/other.sqlite')->andReturn(false);
+
+    $mockSftpFilesystem = Mockery::mock(SftpFilesystem::class);
+    $mockSftpFilesystem->shouldReceive('getFromSshConfig')->andReturn($mockFilesystem);
+
+    $provider = new DatabaseProvider(
+        $mockSftpFilesystem,
+        Mockery::mock(SshTunnelService::class),
+    );
+
+    $result = $provider->testConnectionForServer($server);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toContain('/data/missing.sqlite')
+        ->and($result['message'])->toContain('/data/other.sqlite')
+        ->and($result['message'])->not->toContain('/data/app.sqlite');
+});
+
+test('testConnectionForServer tests all local SQLite paths', function () {
+    $dbDir = sys_get_temp_dir().'/sqlite-db-test-'.uniqid();
+    mkdir($dbDir, 0755, true);
+
+    // Create two valid SQLite databases
+    $path1 = $dbDir.'/db1.sqlite';
+    $path2 = $dbDir.'/db2.sqlite';
+    (new \PDO("sqlite:{$path1}"))->exec('CREATE TABLE t1 (id INTEGER)');
+    (new \PDO("sqlite:{$path2}"))->exec('CREATE TABLE t2 (id INTEGER)');
+
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'sqlite',
+        'host' => '',
+        'port' => 0,
+        'username' => '',
+        'password' => '',
+        'database_names' => [$path1, $path2],
+    ]);
+
+    $result = app(DatabaseProvider::class)->testConnectionForServer($server);
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['message'])->toBe('Connection successful');
+
+    $output = json_decode($result['details']['output'], true);
+    expect($output)->toHaveCount(2)
+        ->and($output[0]['path'])->toBe($path1)
+        ->and($output[1]['path'])->toBe($path2);
+});
+
+test('testConnectionForServer reports failing local SQLite paths', function () {
+    $dbDir = sys_get_temp_dir().'/sqlite-db-test-'.uniqid();
+    mkdir($dbDir, 0755, true);
+
+    $validPath = $dbDir.'/valid.sqlite';
+    (new \PDO("sqlite:{$validPath}"))->exec('CREATE TABLE t1 (id INTEGER)');
+    $missingPath = $dbDir.'/missing.sqlite';
+
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'sqlite',
+        'host' => '',
+        'port' => 0,
+        'username' => '',
+        'password' => '',
+        'database_names' => [$validPath, $missingPath],
+    ]);
+
+    $result = app(DatabaseProvider::class)->testConnectionForServer($server);
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toContain($missingPath)
+        ->and($result['message'])->not->toContain($validPath);
+});
+
 test('testConnectionForServer returns SFTP error when file missing', function () {
     $sshConfig = new DatabaseServerSshConfig;
     $sshConfig->host = 'bastion.example.com';
@@ -232,7 +325,7 @@ test('testConnectionForServer returns SFTP error when file missing', function ()
         'port' => 0,
         'username' => '',
         'password' => '',
-        'sqlite_path' => '/data/missing.sqlite',
+        'database_names' => ['/data/missing.sqlite'],
     ], $sshConfig);
 
     $mockFilesystem = Mockery::mock(\League\Flysystem\Filesystem::class);

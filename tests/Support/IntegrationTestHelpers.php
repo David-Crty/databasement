@@ -164,7 +164,7 @@ class IntegrationTestHelpers
         return DatabaseServer::create([
             'name' => 'Integration Test SQLite Server',
             'database_type' => 'sqlite',
-            'sqlite_path' => $sqlitePath,
+            'database_names' => [$sqlitePath],
             'description' => 'Integration test SQLite database',
         ]);
     }

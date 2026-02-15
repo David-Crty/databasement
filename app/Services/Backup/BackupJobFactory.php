@@ -23,7 +23,7 @@ class BackupJobFactory
      *
      * For single database mode: Returns array with one Snapshot
      * For backup_all_databases mode: Returns array with Snapshot per database
-     * For SQLite: Returns array with one Snapshot (database name derived from path)
+     * For SQLite: Returns array with one Snapshot per configured path
      *
      * @param  'manual'|'scheduled'  $method
      * @return Snapshot[]
@@ -35,10 +35,11 @@ class BackupJobFactory
     ): array {
         $snapshots = [];
 
-        // SQLite: single snapshot, database name is the filename
+        // SQLite: one snapshot per database file path
         if ($server->database_type === DatabaseType::SQLITE) {
-            $databaseName = basename($server->sqlite_path);
-            $snapshots[] = $this->createSnapshot($server, $databaseName, $method, $triggeredByUserId);
+            foreach ($server->database_names ?? [] as $databasePath) {
+                $snapshots[] = $this->createSnapshot($server, $databasePath, $method, $triggeredByUserId);
+            }
 
             return $snapshots;
         }

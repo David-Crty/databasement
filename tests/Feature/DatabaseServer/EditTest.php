@@ -23,7 +23,7 @@ test('can edit database server', function (array $config) {
     ];
 
     if ($config['type'] === 'sqlite') {
-        $serverData['sqlite_path'] = $config['sqlite_path'];
+        $serverData['database_names'] = ['/data/app.sqlite'];
     } elseif ($config['type'] === 'redis') {
         $serverData['host'] = $config['host'];
         $serverData['port'] = $config['port'];
@@ -51,11 +51,11 @@ test('can edit database server', function (array $config) {
 
     if ($config['type'] === 'sqlite') {
         $component
-            ->assertSet('form.sqlite_path', $config['sqlite_path'])
+            ->assertSet('form.database_names', ['/data/app.sqlite'])
             ->assertSet('form.host', '')
             ->assertSet('form.username', '')
             ->set('form.name', "Updated {$config['name']}")
-            ->set('form.sqlite_path', '/data/new-app.sqlite');
+            ->set('form.database_names.0', '/data/new-app.sqlite');
     } elseif ($config['type'] === 'redis') {
         $component
             ->assertSet('form.host', $config['host'])
@@ -74,18 +74,18 @@ test('can edit database server', function (array $config) {
     $component->call('save')
         ->assertRedirect(route('database-servers.index'));
 
-    $expectedData = [
+    $this->assertDatabaseHas('database_servers', [
         'id' => $server->id,
         'name' => "Updated {$config['name']}",
-    ];
+    ]);
+
+    $server->refresh();
 
     if ($config['type'] === 'sqlite') {
-        $expectedData['sqlite_path'] = '/data/new-app.sqlite';
+        expect($server->database_names)->toBe(['/data/new-app.sqlite']);
     } else {
-        $expectedData['host'] = "{$config['type']}2.example.com";
+        expect($server->host)->toBe("{$config['type']}2.example.com");
     }
-
-    $this->assertDatabaseHas('database_servers', $expectedData);
 })->with('database server configs');
 
 test('can change retention policy', function (array $config) {
@@ -179,16 +179,28 @@ test('loadDatabases calls form method for non-SQLite servers', function () {
 
 test('loadDatabases skips for SQLite servers', function () {
     $user = User::factory()->create();
-    $server = DatabaseServer::factory()->create([
-        'database_type' => 'sqlite',
-        'sqlite_path' => '/data/app.sqlite',
-    ]);
+    $server = DatabaseServer::factory()->sqlite()->create();
 
     Livewire::actingAs($user)
         ->test(Edit::class, ['server' => $server])
         ->call('loadDatabases')
         // Should remain empty since SQLite doesn't support listing databases
         ->assertSet('form.availableDatabases', []);
+});
+
+test('can add and remove SQLite database paths', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->sqlite()->create();
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->assertCount('form.database_names', 1)
+        ->call('addDatabasePath')
+        ->assertCount('form.database_names', 2)
+        ->set('form.database_names.1', '/data/other.sqlite')
+        ->call('removeDatabasePath', 0)
+        ->assertCount('form.database_names', 1)
+        ->assertSet('form.database_names.0', '/data/other.sqlite');
 });
 
 test('refreshVolumes can be called without error', function () {

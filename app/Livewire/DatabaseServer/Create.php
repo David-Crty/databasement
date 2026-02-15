@@ -46,6 +46,16 @@ class Create extends Component
         }
     }
 
+    public function addDatabasePath(): void
+    {
+        $this->form->addDatabasePath();
+    }
+
+    public function removeDatabasePath(int $index): void
+    {
+        $this->form->removeDatabasePath($index);
+    }
+
     public function testConnection(): void
     {
         $this->form->testConnection();
