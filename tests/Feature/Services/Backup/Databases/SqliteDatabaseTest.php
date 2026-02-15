@@ -217,3 +217,148 @@ test('testConnection returns error for directory path', function () {
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain('not a file');
 });
+
+test('testConnection returns error when sqlite_paths is empty', function () {
+    $db = new SqliteDatabase;
+    $db->setConfig(['sqlite_paths' => []]);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toBe('Database file path is required.');
+});
+
+test('testConnection tests all local paths', function () {
+    $path1 = $this->tempDir.'/db1.sqlite';
+    $path2 = $this->tempDir.'/db2.sqlite';
+    (new PDO("sqlite:{$path1}"))->exec('CREATE TABLE t1 (id INTEGER)');
+    (new PDO("sqlite:{$path2}"))->exec('CREATE TABLE t2 (id INTEGER)');
+
+    $db = new SqliteDatabase;
+    $db->setConfig(['sqlite_paths' => [$path1, $path2]]);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['message'])->toBe('Connection successful');
+
+    $output = json_decode($result['details']['output'], true);
+    expect($output)->toHaveCount(2)
+        ->and($output[0]['path'])->toBe($path1)
+        ->and($output[1]['path'])->toBe($path2);
+});
+
+test('testConnection reports failing local paths', function () {
+    $validPath = $this->tempDir.'/valid.sqlite';
+    (new PDO("sqlite:{$validPath}"))->exec('CREATE TABLE t1 (id INTEGER)');
+    $missingPath = $this->tempDir.'/missing.sqlite';
+
+    $db = new SqliteDatabase;
+    $db->setConfig(['sqlite_paths' => [$validPath, $missingPath]]);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toContain($missingPath)
+        ->and($result['message'])->not->toContain($validPath);
+});
+
+test('testConnection routes to SFTP when ssh_config is present', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'bastion.example.com',
+    ]);
+
+    $db = new SqliteDatabase;
+    $db->setConfig([
+        'sqlite_paths' => ['/path/to/database.sqlite'],
+        'ssh_config' => $sshConfig,
+    ]);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toContain('SFTP connection failed');
+});
+
+test('testConnection returns SFTP success when remote file exists', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'bastion.example.com',
+        'port' => 22,
+        'username' => 'test',
+    ]);
+
+    $mockFilesystem = Mockery::mock(Filesystem::class);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/app.sqlite')->andReturn(true);
+    $mockFilesystem->shouldReceive('fileSize')->with('/data/app.sqlite')->andReturn(4096);
+
+    $mockSftp = Mockery::mock(SftpFilesystem::class);
+    $mockSftp->shouldReceive('getFromSshConfig')->andReturn($mockFilesystem);
+
+    $db = new SqliteDatabase($mockSftp);
+    $db->setConfig([
+        'sqlite_paths' => ['/data/app.sqlite'],
+        'ssh_config' => $sshConfig,
+    ]);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['message'])->toBe('Connection successful')
+        ->and($result['details']['sftp'])->toBeTrue()
+        ->and($result['details']['ssh_host'])->toBe('bastion.example.com');
+});
+
+test('testConnection tests all SFTP paths and reports failures', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'bastion.example.com',
+        'port' => 22,
+        'username' => 'test',
+    ]);
+
+    $mockFilesystem = Mockery::mock(Filesystem::class);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/app.sqlite')->andReturn(true);
+    $mockFilesystem->shouldReceive('fileSize')->with('/data/app.sqlite')->andReturn(4096);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/missing.sqlite')->andReturn(false);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/other.sqlite')->andReturn(false);
+
+    $mockSftp = Mockery::mock(SftpFilesystem::class);
+    $mockSftp->shouldReceive('getFromSshConfig')->andReturn($mockFilesystem);
+
+    $db = new SqliteDatabase($mockSftp);
+    $db->setConfig([
+        'sqlite_paths' => ['/data/app.sqlite', '/data/missing.sqlite', '/data/other.sqlite'],
+        'ssh_config' => $sshConfig,
+    ]);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toContain('/data/missing.sqlite')
+        ->and($result['message'])->toContain('/data/other.sqlite')
+        ->and($result['message'])->not->toContain('/data/app.sqlite');
+});
+
+test('testConnection returns SFTP error when remote file is missing', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'bastion.example.com',
+        'port' => 22,
+        'username' => 'test',
+    ]);
+
+    $mockFilesystem = Mockery::mock(Filesystem::class);
+    $mockFilesystem->shouldReceive('fileExists')->with('/data/missing.sqlite')->andReturn(false);
+
+    $mockSftp = Mockery::mock(SftpFilesystem::class);
+    $mockSftp->shouldReceive('getFromSshConfig')->andReturn($mockFilesystem);
+
+    $db = new SqliteDatabase($mockSftp);
+    $db->setConfig([
+        'sqlite_paths' => ['/data/missing.sqlite'],
+        'ssh_config' => $sshConfig,
+    ]);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toBe('Remote file does not exist: /data/missing.sqlite');
+});

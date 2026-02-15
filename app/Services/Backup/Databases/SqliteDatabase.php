@@ -117,8 +117,73 @@ class SqliteDatabase implements DatabaseInterface
 
     public function testConnection(): array
     {
-        $path = $this->config['sqlite_path'] ?? '';
+        $paths = $this->config['sqlite_paths'] ?? [];
 
+        // Fallback for single-path callers (dump/restore use sqlite_path)
+        if (empty($paths) && ! empty($this->config['sqlite_path'])) {
+            $paths = [$this->config['sqlite_path']];
+        }
+
+        if (empty($paths)) {
+            return ['success' => false, 'message' => 'Database file path is required.', 'details' => []];
+        }
+
+        $sshConfig = $this->config['ssh_config'] ?? null;
+        if ($sshConfig !== null) {
+            return $this->testRemotePaths($paths, $sshConfig);
+        }
+
+        return $this->testLocalPaths($paths);
+    }
+
+    /**
+     * Test all local SQLite database paths.
+     *
+     * @param  array<string>  $paths
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    private function testLocalPaths(array $paths): array
+    {
+        $failures = [];
+        $outputEntries = [];
+
+        foreach ($paths as $path) {
+            $result = $this->testSingleLocalPath($path);
+
+            if (! $result['success']) {
+                $failures[] = $path.': '.$result['message'];
+            } elseif (! empty($result['details']['output'])) {
+                $decoded = json_decode($result['details']['output'], true);
+                if ($decoded !== null) {
+                    $outputEntries[] = $decoded;
+                }
+            }
+        }
+
+        if (! empty($failures)) {
+            return [
+                'success' => false,
+                'message' => implode("\n", $failures),
+                'details' => [],
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Connection successful',
+            'details' => [
+                'output' => json_encode($outputEntries, JSON_PRETTY_PRINT),
+            ],
+        ];
+    }
+
+    /**
+     * Test a single local SQLite file via PDO.
+     *
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    private function testSingleLocalPath(string $path): array
+    {
         if (empty($path)) {
             return ['success' => false, 'message' => 'Database path is required.', 'details' => []];
         }
@@ -156,6 +221,62 @@ class SqliteDatabase implements DatabaseInterface
             ];
         } catch (\PDOException $e) {
             return ['success' => false, 'message' => 'Invalid SQLite database file: '.$e->getMessage(), 'details' => []];
+        }
+    }
+
+    /**
+     * Test remote SQLite paths via SFTP: verify all files exist on remote server.
+     *
+     * @param  array<string>  $paths
+     * @return array{success: bool, message: string, details: array<string, mixed>}
+     */
+    private function testRemotePaths(array $paths, \App\Models\DatabaseServerSshConfig $sshConfig): array
+    {
+        try {
+            $filesystem = $this->sftpFilesystem->getFromSshConfig($sshConfig);
+
+            $failures = [];
+            $outputEntries = [];
+
+            foreach ($paths as $remotePath) {
+                if (! $filesystem->fileExists($remotePath)) {
+                    $failures[] = $remotePath;
+
+                    continue;
+                }
+
+                $fileSize = $filesystem->fileSize($remotePath);
+                $outputEntries[] = [
+                    'dbms' => 'SQLite (remote)',
+                    'file_size' => $fileSize,
+                    'path' => $remotePath,
+                    'access' => 'SFTP via '.$sshConfig->getDisplayName(),
+                ];
+            }
+
+            if (! empty($failures)) {
+                $pathList = implode(', ', $failures);
+
+                return [
+                    'success' => false,
+                    'message' => count($failures) === 1
+                        ? 'Remote file does not exist: '.$pathList
+                        : 'Remote files do not exist: '.$pathList,
+                    'details' => [],
+                ];
+            }
+
+            return [
+                'success' => true,
+                'message' => 'Connection successful',
+                'details' => [
+                    'sftp' => true,
+                    'ssh_host' => $sshConfig->host,
+                    'output' => json_encode($outputEntries, JSON_PRETTY_PRINT),
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => 'SFTP connection failed: '.$e->getMessage(), 'details' => []];
         }
     }
 }
