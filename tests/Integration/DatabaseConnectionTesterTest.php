@@ -39,10 +39,9 @@ test('connection succeeds', function (string $databaseType) {
     expect($result['success'])->toBeTrue()
         ->and($result['message'])->toBe('Connection successful');
 
-    // Cleanup
+    // Cleanup external database
     if ($databaseType !== 'sqlite' && $databaseType !== 'redis') {
         IntegrationTestHelpers::dropDatabase($databaseType, $server, $config['database']);
-        $server->delete();
     }
 })->with(['mysql', 'postgres', 'sqlite', 'redis']);
 

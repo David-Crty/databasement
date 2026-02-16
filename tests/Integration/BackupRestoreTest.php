@@ -31,7 +31,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    // Cleanup restored database
+    // Cleanup restored database on the external database server
     if ($this->restoredDatabaseName && $this->databaseServer) {
         try {
             IntegrationTestHelpers::dropDatabase(
@@ -43,10 +43,6 @@ afterEach(function () {
             // Ignore cleanup errors
         }
     }
-
-    // Delete models (cascade handles backup and snapshots)
-    $this->databaseServer?->delete();
-    $this->volume?->delete();
 });
 
 test('client-server database backup and restore workflow', function (string $type, string $compression, string $expectedExt) {
@@ -219,8 +215,6 @@ test('sqlite backup and restore workflow', function () {
     $stmt = $pdo->query('SELECT COUNT(*) as count FROM test_table');
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     expect((int) $result['count'])->toBe(3);
-
-    $targetServer->delete();
 });
 
 test('mongodb backup and restore workflow', function () {

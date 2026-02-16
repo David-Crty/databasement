@@ -18,6 +18,22 @@ use App\Services\Backup\RestoreTask;
 use App\Services\SshTunnelService;
 use Tests\Support\IntegrationTestHelpers;
 
+beforeEach(function () {
+    $this->directServer = null;
+    $this->restoredDatabaseName = null;
+});
+
+afterEach(function () {
+    // Cleanup restored database on the external MySQL server
+    if ($this->restoredDatabaseName && $this->directServer) {
+        try {
+            IntegrationTestHelpers::dropDatabase('mysql', $this->directServer, $this->restoredDatabaseName);
+        } catch (Exception) {
+            // Ignore cleanup errors
+        }
+    }
+});
+
 test('SSH connection succeeds with password auth', function () {
     $sshConfig = IntegrationTestHelpers::createSshConfig();
 
@@ -39,9 +55,6 @@ test('MySQL connection test succeeds through SSH tunnel', function () {
     expect($result['success'])->toBeTrue()
         ->and($result['details']['ssh_tunnel'])->toBeTrue()
         ->and($result['details']['ssh_host'])->toBe($server->sshConfig->host);
-
-    $server->sshConfig->delete();
-    $server->delete();
 });
 
 test('MySQL backup and restore through SSH tunnel', function () {
@@ -51,16 +64,16 @@ test('MySQL backup and restore through SSH tunnel', function () {
     $filesystemProvider = app(FilesystemProvider::class);
 
     // Create a direct server (for loading data and verifying restore)
-    $directServer = IntegrationTestHelpers::createDatabaseServer('mysql');
+    $this->directServer = IntegrationTestHelpers::createDatabaseServer('mysql');
 
     // Create a tunneled server (for backup and restore operations) pointing at the same database
     $tunneledServer = IntegrationTestHelpers::createDatabaseServerWithSshTunnel('mysql');
     $volume = IntegrationTestHelpers::createVolume('mysql');
-    $backup = IntegrationTestHelpers::createBackup($tunneledServer, $volume);
+    IntegrationTestHelpers::createBackup($tunneledServer, $volume);
     $tunneledServer->load('backup.volume');
 
     // Load test data via direct connection
-    IntegrationTestHelpers::loadTestData('mysql', $directServer);
+    IntegrationTestHelpers::loadTestData('mysql', $this->directServer);
 
     // Run backup through SSH tunnel
     $snapshots = $backupJobFactory->createSnapshots(
@@ -85,26 +98,19 @@ test('MySQL backup and restore through SSH tunnel', function () {
 
     // Run restore through SSH tunnel to a new database
     $suffix = IntegrationTestHelpers::getParallelSuffix();
-    $restoredDatabaseName = 'testdb_ssh_restored_'.hrtime(true).$suffix;
+    $this->restoredDatabaseName = 'testdb_ssh_restored_'.hrtime(true).$suffix;
 
     $restore = $backupJobFactory->createRestore(
         snapshot: $snapshot,
         targetServer: $tunneledServer,
-        schemaName: $restoredDatabaseName,
+        schemaName: $this->restoredDatabaseName,
     );
     $restoreTask->run($restore);
 
     // Verify restore via direct connection
-    $pdo = IntegrationTestHelpers::connectToDatabase('mysql', $directServer, $restoredDatabaseName);
+    $pdo = IntegrationTestHelpers::connectToDatabase('mysql', $this->directServer, $this->restoredDatabaseName);
     $stmt = $pdo->query('SHOW TABLES');
     expect($stmt)->not->toBeFalse();
     $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
     expect($tables)->not->toBeEmpty();
-
-    // Cleanup
-    IntegrationTestHelpers::dropDatabase('mysql', $directServer, $restoredDatabaseName);
-    $tunneledServer->sshConfig->delete();
-    $tunneledServer->delete();
-    $directServer->delete();
-    $volume->delete();
 });
