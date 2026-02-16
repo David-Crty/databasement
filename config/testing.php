@@ -46,4 +46,23 @@ return [
             'auth_source' => env('TEST_MONGODB_AUTH_SOURCE', 'admin'),
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | SSH Tunnel Test Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the SSH server used in SSH tunnel integration tests.
+    | The SSH container can reach other Docker services by their service names,
+    | so mysql_host is the hostname of MySQL as seen from the SSH container.
+    |
+    */
+
+    'ssh' => [
+        'host' => env('TEST_SSH_HOST', 'ssh'),
+        'port' => (int) env('TEST_SSH_PORT', 2222),
+        'username' => env('TEST_SSH_USERNAME', 'testuser'),
+        'password' => env('TEST_SSH_PASSWORD', 'testpass'),
+        'mysql_host' => env('TEST_SSH_MYSQL_HOST', 'mysql'),
+    ],
 ];

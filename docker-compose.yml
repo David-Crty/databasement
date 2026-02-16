@@ -111,6 +111,25 @@ services:
       timeout: 5s
       retries: 5
 
+  ssh:
+    image: linuxserver/openssh-server:latest
+    container_name: databasement-ssh
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: UTC
+      USER_NAME: testuser
+      USER_PASSWORD: testpass
+      PASSWORD_ACCESS: "true"
+      DOCKER_MODS: linuxserver/mods:openssh-server-ssh-tunnel
+    ports:
+      - "2222:2222"
+    healthcheck:
+      test: [ "CMD-SHELL", "netstat -tlnp | grep -q ':2222'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   rustfs:
     image: rustfs/rustfs:latest
     container_name: databasement-rustfs
@@ -186,4 +205,5 @@ volumes:
   sftp-data:
   mongodb-data:
   redis-data:
+  ssh-data:
   ftp-data:
