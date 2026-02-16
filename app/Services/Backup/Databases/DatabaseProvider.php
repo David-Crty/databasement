@@ -24,6 +24,7 @@ class DatabaseProvider
             DatabaseType::POSTGRESQL => new PostgresqlDatabase,
             DatabaseType::SQLITE => new SqliteDatabase($this->sftpFilesystem),
             DatabaseType::REDIS => new RedisDatabase,
+            DatabaseType::MONGODB => new MongodbDatabase,
         };
     }
 
@@ -45,8 +46,13 @@ class DatabaseProvider
      *
      * Host and port are passed explicitly to support SSH tunnel overrides.
      */
-    public function makeForServer(DatabaseServer $server, string $databaseName, string $host, int $port): DatabaseInterface
-    {
+    public function makeForServer(
+        DatabaseServer $server,
+        string $databaseName,
+        string $host,
+        int $port,
+        ?string $sourceDatabaseName = null,
+    ): DatabaseInterface {
         if ($server->database_type === DatabaseType::SQLITE) {
             $config = ['sqlite_path' => $databaseName];
 
@@ -63,6 +69,13 @@ class DatabaseProvider
 
             if ($server->database_type !== DatabaseType::REDIS) {
                 $config['database'] = $databaseName;
+            }
+
+            if ($server->database_type === DatabaseType::MONGODB) {
+                $config['auth_source'] = $server->getExtraConfig('auth_source', 'admin');
+                if ($sourceDatabaseName !== null) {
+                    $config['source_database'] = $sourceDatabaseName;
+                }
             }
         }
 

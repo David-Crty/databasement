@@ -10,6 +10,7 @@ enum DatabaseType: string
     case POSTGRESQL = 'postgres';
     case SQLITE = 'sqlite';
     case REDIS = 'redis';
+    case MONGODB = 'mongodb';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum DatabaseType: string
             self::POSTGRESQL => 'PostgreSQL',
             self::SQLITE => 'SQLite',
             self::REDIS => 'Redis / Valkey',
+            self::MONGODB => 'MongoDB',
         };
     }
 
@@ -28,6 +30,7 @@ enum DatabaseType: string
             self::POSTGRESQL => 'devicon.postgresql',
             self::SQLITE => 'devicon.sqlite',
             self::REDIS => 'devicon.redis',
+            self::MONGODB => 'devicon.mongodb',
         };
     }
 
@@ -38,6 +41,7 @@ enum DatabaseType: string
             self::POSTGRESQL => 5432,
             self::SQLITE => 0,
             self::REDIS => 6379,
+            self::MONGODB => 27017,
         };
     }
 
@@ -62,6 +66,7 @@ enum DatabaseType: string
             ),
             self::SQLITE => "sqlite:{$host}",
             self::REDIS => throw new \RuntimeException('Redis does not support PDO connections'),
+            self::MONGODB => throw new \RuntimeException('MongoDB does not support PDO connections'),
         };
     }
 
@@ -74,8 +79,8 @@ enum DatabaseType: string
      */
     public function createPdo(DatabaseServer $server, ?string $database = null, int $timeout = 30): \PDO
     {
-        if ($this === self::REDIS) {
-            throw new \RuntimeException('Redis does not support PDO connections');
+        if (in_array($this, [self::REDIS, self::MONGODB], true)) {
+            throw new \RuntimeException("{$this->label()} does not support PDO connections");
         }
 
         $host = $server->host;
@@ -103,6 +108,7 @@ enum DatabaseType: string
         return match ($this) {
             self::SQLITE => 'db',
             self::REDIS => 'rdb',
+            self::MONGODB => 'archive',
             default => 'sql',
         };
     }

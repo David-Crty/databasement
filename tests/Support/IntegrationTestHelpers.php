@@ -7,8 +7,10 @@ use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Services\Backup\Databases\MongodbDatabase;
 use Illuminate\Support\Facades\ParallelTesting;
 use InvalidArgumentException;
+use MongoDB\Client as MongoClient;
 use PDO;
 
 class IntegrationTestHelpers
@@ -28,7 +30,7 @@ class IntegrationTestHelpers
      * Get database connection config for a given type.
      * When running in parallel, database names are suffixed with the process token to avoid conflicts.
      *
-     * @return array{host: string, port: int, username: string, password: string, database: string, database_type: string}
+     * @return array{host: string, port: int, username: string, password: string, database: string, database_type: string, auth_source?: string}
      */
     public static function getDatabaseConfig(string $type): array
     {
@@ -67,6 +69,15 @@ class IntegrationTestHelpers
                 'database' => 'all',
                 'database_type' => 'redis',
             ],
+            'mongodb' => [
+                'host' => config('testing.databases.mongodb.host'),
+                'port' => (int) config('testing.databases.mongodb.port'),
+                'username' => config('testing.databases.mongodb.username'),
+                'password' => config('testing.databases.mongodb.password'),
+                'database' => config('testing.databases.mongodb.database').$suffix,
+                'database_type' => 'mongodb',
+                'auth_source' => config('testing.databases.mongodb.auth_source'),
+            ],
             default => throw new InvalidArgumentException("Unsupported database type: {$type}"),
         };
     }
@@ -95,7 +106,7 @@ class IntegrationTestHelpers
     {
         $config = self::getDatabaseConfig($type);
 
-        return DatabaseServer::create([
+        $serverData = [
             'name' => "Integration Test {$type} Server",
             'host' => $config['host'],
             'port' => $config['port'],
@@ -104,7 +115,13 @@ class IntegrationTestHelpers
             'password' => $config['password'],
             'database_names' => [$config['database']],
             'description' => "Integration test {$type} database server",
-        ]);
+        ];
+
+        if (isset($config['auth_source'])) {
+            $serverData['extra_config'] = ['auth_source' => $config['auth_source']];
+        }
+
+        return DatabaseServer::create($serverData);
     }
 
     /**
@@ -119,6 +136,72 @@ class IntegrationTestHelpers
             'volume_id' => $volume->id,
             'backup_schedule_id' => $schedule->id,
         ]);
+    }
+
+    /**
+     * Build a MongoDB client for integration tests.
+     */
+    private static function createMongoClient(DatabaseServer $server): MongoClient
+    {
+        $uri = MongodbDatabase::buildConnectionUri(
+            $server->host,
+            $server->port,
+            $server->username,
+            $server->getDecryptedPassword(),
+            $server->getExtraConfig('auth_source', 'admin'),
+        );
+
+        return new MongoClient($uri);
+    }
+
+    /**
+     * Load test data into a MongoDB database.
+     */
+    public static function loadMongodbTestData(DatabaseServer $server): void
+    {
+        $databaseName = $server->database_names[0];
+        $client = self::createMongoClient($server);
+        $db = $client->selectDatabase($databaseName);
+
+        // Drop existing database
+        $db->drop();
+
+        // Insert test fixture data
+        $db->selectCollection('products')->insertMany([
+            ['name' => 'Widget A', 'price' => 9.99, 'stock' => 150],
+            ['name' => 'Widget B', 'price' => 24.99, 'stock' => 75],
+            ['name' => 'Gadget Pro', 'price' => 49.99, 'stock' => 30],
+            ['name' => 'Mega Bundle', 'price' => 99.99, 'stock' => 10],
+        ]);
+
+        $db->selectCollection('orders')->insertMany([
+            ['product' => 'Widget A', 'quantity' => 2, 'total' => 19.98],
+            ['product' => 'Widget B', 'quantity' => 1, 'total' => 24.99],
+            ['product' => 'Gadget Pro', 'quantity' => 3, 'total' => 149.97],
+            ['product' => 'Widget A', 'quantity' => 5, 'total' => 49.95],
+        ]);
+    }
+
+    /**
+     * Drop a MongoDB database.
+     */
+    public static function dropMongodbDatabase(DatabaseServer $server, string $databaseName): void
+    {
+        $client = self::createMongoClient($server);
+        $client->selectDatabase($databaseName)->drop();
+    }
+
+    /**
+     * Verify MongoDB restore by checking collection count.
+     */
+    public static function verifyMongodbRestore(DatabaseServer $server, string $databaseName): int
+    {
+        $client = self::createMongoClient($server);
+        $db = $client->selectDatabase($databaseName);
+
+        $collections = iterator_to_array($db->listCollectionNames());
+
+        return count($collections);
     }
 
     /**
@@ -200,6 +283,12 @@ class IntegrationTestHelpers
      */
     public static function dropDatabase(string $type, DatabaseServer $server, string $databaseName): void
     {
+        if ($type === 'mongodb') {
+            self::dropMongodbDatabase($server, $databaseName);
+
+            return;
+        }
+
         $pdo = DatabaseType::from($type)->createPdo($server);
 
         if ($type === 'mysql') {
@@ -218,6 +307,13 @@ class IntegrationTestHelpers
         // Redis uses its own data loading mechanism
         if ($type === 'redis') {
             self::loadRedisTestData($server);
+
+            return;
+        }
+
+        // MongoDB uses its own data loading mechanism
+        if ($type === 'mongodb') {
+            self::loadMongodbTestData($server);
 
             return;
         }

@@ -36,5 +36,14 @@ return [
             'port' => env('TEST_REDIS_PORT', 6379),
             'password' => env('TEST_REDIS_PASSWORD', null),
         ],
+
+        'mongodb' => [
+            'host' => env('TEST_MONGODB_HOST', 'mongodb'),
+            'port' => env('TEST_MONGODB_PORT', 27017),
+            'username' => env('TEST_MONGODB_USERNAME', 'root'),
+            'password' => env('TEST_MONGODB_PASSWORD', 'root'),
+            'database' => env('TEST_MONGODB_DATABASE', 'databasement_test'),
+            'auth_source' => env('TEST_MONGODB_AUTH_SOURCE', 'admin'),
+        ],
     ],
 ];

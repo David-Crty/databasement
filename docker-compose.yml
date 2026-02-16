@@ -82,6 +82,22 @@ services:
       timeout: 5s
       retries: 5
 
+  mongodb:
+    image: mongo:8
+    container_name: databasement-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   redis:
     image: redis:7
     container_name: databasement-redis
@@ -168,5 +184,6 @@ volumes:
   postgres-data:
   rustfs-data:
   sftp-data:
+  mongodb-data:
   redis-data:
   ftp-data:

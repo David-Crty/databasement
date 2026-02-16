@@ -21,7 +21,8 @@ RUN install-php-extensions \
     opcache \
     pcov \
     ftp \
-    sockets
+    sockets \
+    mongodb
 
 COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 
@@ -38,6 +39,9 @@ RUN apk add --no-cache git \
         openssh-client \
         sshpass \
         redis
+
+# Install MongoDB tools (mongodump, mongorestore) from Alpine edge community repo
+RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mongodb-tools
 
 COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini

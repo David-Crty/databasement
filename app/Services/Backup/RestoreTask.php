@@ -105,6 +105,7 @@ class RestoreTask
                 $restore->schema_name,
                 $this->getConnectionHost($targetServer),
                 $this->getConnectionPort($targetServer),
+                $snapshot->database_name,
             );
 
             $this->prepareDatabase($database, $restore->schema_name, $job);

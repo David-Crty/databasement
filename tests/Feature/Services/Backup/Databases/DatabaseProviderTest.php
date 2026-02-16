@@ -5,6 +5,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\Databases\MongodbDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Databases\RedisDatabase;
@@ -21,6 +22,7 @@ test('make returns correct handler for database type', function (DatabaseType $t
     'postgresql' => [DatabaseType::POSTGRESQL, PostgresqlDatabase::class],
     'sqlite' => [DatabaseType::SQLITE, SqliteDatabase::class],
     'redis' => [DatabaseType::REDIS, RedisDatabase::class],
+    'mongodb' => [DatabaseType::MONGODB, MongodbDatabase::class],
 ]);
 
 test('makeForServer uses explicit host and port parameters', function () {
@@ -72,6 +74,30 @@ test('listDatabasesForServer delegates to handler listDatabases', function () {
     expect($databases)->toBe(['app_db', 'test_db']);
 });
 
+test('makeForServer passes auth_source from extra_config for mongodb', function () {
+    $server = DatabaseServer::factory()->mongodb()->create();
+
+    $factory = new DatabaseProvider;
+
+    $database = $factory->makeForServer($server, 'mydb', '127.0.0.1', 27017);
+
+    $result = $database->dump('/tmp/dump.archive');
+    expect($result->command)->toContain("--authenticationDatabase='admin'")
+        ->toContain("--db='mydb'");
+});
+
+test('makeForServer passes sourceDatabaseName for mongodb restore', function () {
+    $server = DatabaseServer::factory()->mongodb()->create();
+
+    $factory = new DatabaseProvider;
+
+    $database = $factory->makeForServer($server, 'targetdb', '127.0.0.1', 27017, 'sourcedb');
+
+    $result = $database->restore('/tmp/dump.archive');
+    expect($result->command)->toContain("--nsFrom='sourcedb.*'")
+        ->toContain("--nsTo='targetdb.*'");
+});
+
 test('testConnectionForServer delegates to handler testConnection', function (string $dbType, string $expectedDbName) {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('testConnection')
@@ -108,6 +134,7 @@ test('testConnectionForServer delegates to handler testConnection', function (st
     'mysql uses empty database name' => ['mysql', ''],
     'postgresql uses postgres database' => ['postgres', 'postgres'],
     'redis uses empty database name' => ['redis', ''],
+    'mongodb uses empty database name' => ['mongodb', ''],
 ]);
 
 test('testConnectionForServer returns SSH failure', function () {

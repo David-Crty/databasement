@@ -94,8 +94,20 @@ class DatabaseSeeder extends Seeder
             'backup_all_databases' => true,
         ]);
 
+        // MongoDB server (from docker-compose)
+        $mongodb = DatabaseServer::create([
+            'name' => 'Local MongoDB',
+            'host' => 'mongodb',
+            'port' => 27017,
+            'database_type' => 'mongodb',
+            'username' => 'root',
+            'password' => 'root',
+            'backup_all_databases' => true,
+            'extra_config' => ['auth_source' => 'admin'],
+        ]);
+
         // Backup configurations
-        foreach ([$mysql, $postgres, $sqlite, $redis] as $server) {
+        foreach ([$mysql, $postgres, $sqlite, $redis, $mongodb] as $server) {
             Backup::create([
                 'database_server_id' => $server->id,
                 'volume_id' => $volume->id,

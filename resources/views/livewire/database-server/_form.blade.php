@@ -127,9 +127,9 @@ use App\Enums\DatabaseType;
                             <x-input
                                 wire:model="form.username"
                                 label="{{ __('Username') }}"
-                                placeholder="{{ $form->isRedis() ? __('Optional (for ACL-enabled servers)') : __('Database username') }}"
+                                placeholder="{{ $form->hasOptionalCredentials() ? __('Optional (for authenticated servers)') : __('Database username') }}"
                                 type="text"
-                                :required="!$form->isRedis()"
+                                :required="!$form->hasOptionalCredentials()"
                                 autocomplete="off"
                             />
 
@@ -137,10 +137,20 @@ use App\Enums\DatabaseType;
                                 wire:model="form.password"
                                 label="{{ __('Password') }}"
                                 placeholder="{{ $isEdit ? __('Leave blank to keep current') : __('Database password') }}"
-                                :required="!$isEdit && !$form->isRedis()"
+                                :required="!$isEdit && !$form->hasOptionalCredentials()"
                                 autocomplete="off"
                             />
                         </div>
+
+                        @if($form->isMongodb())
+                            <x-input
+                                wire:model="form.auth_source"
+                                label="{{ __('Authentication Database') }}"
+                                placeholder="admin"
+                                hint="{{ __('The database used to authenticate credentials (defaults to admin)') }}"
+                                type="text"
+                            />
+                        @endif
                     @endif
 
                     <!-- Test Connection Button -->

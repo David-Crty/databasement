@@ -88,6 +88,23 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
+     * Configure the factory for MongoDB database type.
+     */
+    public function mongodb(): static
+    {
+        return $this->state(fn () => [
+            'name' => fake()->company().' MongoDB Server',
+            'database_type' => 'mongodb',
+            'host' => fake()->randomElement(['localhost', '127.0.0.1']),
+            'port' => 27017,
+            'username' => 'root',
+            'password' => 'root',
+            'database_names' => ['app'],
+            'extra_config' => ['auth_source' => 'admin'],
+        ]);
+    }
+
+    /**
      * Configure the factory with SSH tunnel using password authentication.
      *
      * Note: Uses afterCreating() hook, so only works with create(), not make().

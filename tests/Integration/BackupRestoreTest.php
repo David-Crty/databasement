@@ -223,6 +223,48 @@ test('sqlite backup and restore workflow', function () {
     $targetServer->delete();
 });
 
+test('mongodb backup and restore workflow', function () {
+    // Create models
+    $this->volume = IntegrationTestHelpers::createVolume('mongodb');
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('mongodb');
+    $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
+    $this->databaseServer->load('backup.volume');
+
+    // Load test data
+    IntegrationTestHelpers::loadMongodbTestData($this->databaseServer);
+
+    // Run backup
+    $snapshots = $this->backupJobFactory->createSnapshots(
+        server: $this->databaseServer,
+        method: 'manual',
+    );
+    $this->snapshot = $snapshots[0];
+    $this->backupTask->run($this->snapshot);
+    $this->snapshot->refresh();
+    $this->snapshot->load('job');
+
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+
+    expect($this->snapshot->job->status)->toBe('completed')
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->filename)->toEndWith('.archive.gz')
+        ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
+
+    // Run restore (use unique name with parallel token and microseconds to avoid collisions)
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $this->restoredDatabaseName = 'testdb_restored_'.hrtime(true).$suffix;
+    $restore = $this->backupJobFactory->createRestore(
+        snapshot: $this->snapshot,
+        targetServer: $this->databaseServer,
+        schemaName: $this->restoredDatabaseName,
+    );
+    $this->restoreTask->run($restore);
+
+    // Verify restore — check that collections exist in the restored database
+    $collectionCount = IntegrationTestHelpers::verifyMongodbRestore($this->databaseServer, $this->restoredDatabaseName);
+    expect($collectionCount)->toBeGreaterThanOrEqual(2);
+});
+
 test('redis backup workflow', function () {
     // Create models
     $this->volume = IntegrationTestHelpers::createVolume('redis');

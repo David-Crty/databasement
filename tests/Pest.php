@@ -124,7 +124,7 @@ function createDatabaseServer(array $attributes = []): \App\Models\DatabaseServe
 |
 */
 
-dataset('database types', ['mysql', 'postgres', 'sqlite', 'redis']);
+dataset('database types', ['mysql', 'postgres', 'sqlite', 'redis', 'mongodb']);
 
 dataset('database server configs', [
     'mysql' => [[
@@ -149,6 +149,12 @@ dataset('database server configs', [
         'name' => 'Redis Server',
         'host' => 'redis.example.com',
         'port' => 6379,
+    ]],
+    'mongodb' => [[
+        'type' => 'mongodb',
+        'name' => 'MongoDB Server',
+        'host' => 'mongodb.example.com',
+        'port' => 27017,
     ]],
 ]);
 

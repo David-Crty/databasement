@@ -183,6 +183,7 @@ class DatabaseServer extends Model
         $server->username = $config['username'] ?? '';
         $server->password = $config['password'] ?? '';
         $server->database_names = $config['database_names'] ?? null;
+        $server->extra_config = $config['extra_config'] ?? null;
 
         if ($sshConfig !== null) {
             $server->ssh_config_id = 'temp';
@@ -214,6 +215,14 @@ class DatabaseServer extends Model
         }
 
         return "{$this->host}:{$this->port}";
+    }
+
+    /**
+     * Get a type-specific config value from extra_config.
+     */
+    public function getExtraConfig(string $key, mixed $default = null): mixed
+    {
+        return $this->extra_config[$key] ?? $default;
     }
 
     /**

@@ -33,6 +33,19 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+      mongodb:
+        image: mongo:8
+        env:
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: root
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.adminCommand({ping:1})' --quiet"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
       redis:
         image: redis:7
         ports:
@@ -53,12 +66,17 @@ jobs:
           php-version: 8.4
           tools: composer:v2
           coverage: pcov
-          extensions: pdo, pdo_mysql, pdo_pgsql
+          extensions: pdo, pdo_mysql, pdo_pgsql, mongodb
 
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y mysql-client postgresql-client redis-tools zstd p7zip-full
+          # Install MongoDB tools (mongodump, mongorestore)
+          wget -qO - https://www.mongodb.org/static/pgp/server-8.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+          echo "deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+          sudo apt-get update
+          sudo apt-get install -y mongodb-database-tools
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -91,6 +109,7 @@ jobs:
           TEST_MYSQL_HOST: 127.0.0.1
           TEST_POSTGRES_HOST: 127.0.0.1
           TEST_REDIS_HOST: 127.0.0.1
+          TEST_MONGODB_HOST: 127.0.0.1
         run: |
           php artisan migrate --force
           php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml

@@ -32,6 +32,8 @@ class DatabaseServerForm extends Form
 
     public string $password = '';
 
+    public string $auth_source = '';
+
     // SSH Tunnel Configuration
     public bool $ssh_enabled = false;
 
@@ -271,6 +273,7 @@ class DatabaseServerForm extends Form
         $this->host = $server->host ?? '';
         $this->port = $server->port ?? 3306;
         $this->database_type = $server->database_type->value;
+        $this->auth_source = $server->getExtraConfig('auth_source', '');
         $this->username = $server->username ?? '';
         $this->database_names = $server->database_names ?? [];
         if ($server->database_type === DatabaseType::SQLITE && empty($this->database_names)) {
@@ -385,6 +388,22 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Check if current database type is MongoDB
+     */
+    public function isMongodb(): bool
+    {
+        return $this->database_type === 'mongodb';
+    }
+
+    /**
+     * Check if current database type has optional credentials (username/password not required).
+     */
+    public function hasOptionalCredentials(): bool
+    {
+        return $this->isRedis() || $this->isMongodb();
+    }
+
+    /**
      * Get database type options for select
      *
      * @return array<array{id: string, name: string}>
@@ -454,6 +473,8 @@ class DatabaseServerForm extends Form
             $rules = array_merge($rules, $this->getSqliteValidationRules());
         } elseif ($this->isRedis()) {
             $rules = array_merge($rules, $this->getRedisValidationRules());
+        } elseif ($this->isMongodb()) {
+            $rules = array_merge($rules, $this->getMongodbValidationRules());
         } else {
             $rules = array_merge($rules, $this->getClientServerValidationRules());
         }
@@ -590,6 +611,37 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Get MongoDB-specific validation rules.
+     *
+     * @return array<string, mixed>
+     */
+    private function getMongodbValidationRules(): array
+    {
+        $rules = [
+            'host' => 'required|string|max:255',
+            'port' => 'required|integer|min:1|max:65535',
+            'username' => 'nullable|string|max:255',
+            'password' => 'nullable',
+            'auth_source' => 'nullable|string|max:255',
+            'backup_all_databases' => 'boolean',
+            'database_names' => 'nullable|array',
+            'database_names.*' => 'string|max:255',
+            'ssh_enabled' => 'boolean',
+        ];
+
+        if ($this->backups_enabled && ! $this->backup_all_databases) {
+            $rules['database_names'] = 'required|array|min:1';
+        }
+
+        if ($this->ssh_enabled) {
+            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
+            $rules = array_merge($rules, $this->getSshValidationRules());
+        }
+
+        return $rules;
+    }
+
+    /**
      * Validate GFS retention policy has at least one tier configured.
      *
      * @throws ValidationException
@@ -622,6 +674,8 @@ class DatabaseServerForm extends Form
             $serverData['backup_all_databases'] = true;
             $serverData['database_names'] = null;
         }
+
+        $this->moveTypeSpecificFieldsToExtraConfig($serverData);
 
         $server = DatabaseServer::create($serverData);
         $this->syncBackupConfiguration($server, $backupData);
@@ -660,10 +714,31 @@ class DatabaseServerForm extends Form
             $serverData['database_names'] = null;
         }
 
+        $this->moveTypeSpecificFieldsToExtraConfig($serverData);
+
         $this->server->update($serverData);
         $this->syncBackupConfiguration($this->server, $backupData);
 
         return true;
+    }
+
+    /**
+     * Move type-specific validated fields into extra_config.
+     *
+     * @param  array<string, mixed>  $serverData
+     */
+    private function moveTypeSpecificFieldsToExtraConfig(array &$serverData): void
+    {
+        $extraConfig = $this->server?->extra_config ?? []; // @phpstan-ignore nullsafe.neverNull
+
+        if ($this->isMongodb() && ! empty($serverData['auth_source'])) {
+            $extraConfig['auth_source'] = $serverData['auth_source'];
+        } else {
+            unset($extraConfig['auth_source']);
+        }
+        unset($serverData['auth_source']);
+
+        $serverData['extra_config'] = $extraConfig ?: null;
     }
 
     /**
@@ -808,7 +883,7 @@ class DatabaseServerForm extends Form
                     $rules = array_merge($rules, $this->getSshValidationRules());
                 }
                 $this->validate($rules);
-            } elseif ($this->isRedis()) {
+            } elseif ($this->hasOptionalCredentials()) {
                 $this->validate([
                     'host' => 'required|string|max:255',
                     'port' => 'required|integer|min:1|max:65535',
@@ -852,6 +927,7 @@ class DatabaseServerForm extends Form
             'username' => $this->username,
             'password' => $password,
             'database_names' => $this->isSqlite() ? $this->database_names : null,
+            'extra_config' => $this->isMongodb() ? ['auth_source' => $this->auth_source] : null,
         ], $sshConfig);
 
         $result = app(DatabaseProvider::class)->testConnectionForServer($server);
@@ -861,7 +937,7 @@ class DatabaseServerForm extends Form
         $this->connectionTestDetails = $result['details'];
         $this->testingConnection = false;
 
-        // If connection successful and not SQLite/Redis, load available databases
+        // If connection successful and supports per-database backups, load available databases
         if ($this->connectionTestSuccess && ! $this->isSqlite() && ! $this->isRedis()) {
             $this->loadAvailableDatabases();
         }
@@ -961,6 +1037,7 @@ class DatabaseServerForm extends Form
                 'database_type' => $this->database_type,
                 'username' => $this->username,
                 'password' => $password,
+                'extra_config' => $this->isMongodb() ? ['auth_source' => $this->auth_source] : null,
             ], $sshConfig);
 
             $databases = app(DatabaseProvider::class)->listDatabasesForServer($tempServer);

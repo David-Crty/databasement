@@ -284,7 +284,8 @@ test('run establishes SSH tunnel when target server requires it', function () {
             Mockery::on(fn ($server) => $server->id === $targetServer->id),
             'restored_db',
             '127.0.0.1',
-            54321
+            54321,
+            'sourcedb',
         )
         ->andReturn($mockHandler);
 
