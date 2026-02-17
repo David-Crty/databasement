@@ -314,8 +314,11 @@ class IntegrationTestHelpers
     /**
      * Create a database server configured to connect through an SSH tunnel.
      *
-     * The server's host is set to the MySQL hostname as seen from the SSH container
+     * The server's host is set to the database hostname as seen from the SSH container
      * (e.g. "mysql"), since the tunnel will forward connections from there.
+     *
+     * Currently only supports MySQL. Add config keys (e.g. testing.ssh.postgres_host)
+     * and extend the match below when adding SSH tunnel tests for other types.
      */
     public static function createDatabaseServerWithSshTunnel(string $type): DatabaseServer
     {
@@ -323,9 +326,14 @@ class IntegrationTestHelpers
         $sshConfig = self::createSshConfig();
         $ssh = self::getSshConfig();
 
+        $remoteHost = match ($type) {
+            'mysql' => $ssh['mysql_host'],
+            default => throw new InvalidArgumentException("SSH tunnel tests not configured for database type: {$type}"),
+        };
+
         return DatabaseServer::create([
             'name' => "Integration Test {$type} SSH Tunnel Server",
-            'host' => $ssh['mysql_host'],
+            'host' => $remoteHost,
             'port' => $dbConfig['port'],
             'database_type' => $dbConfig['database_type'],
             'username' => $dbConfig['username'],

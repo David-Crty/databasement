@@ -205,5 +205,4 @@ volumes:
   sftp-data:
   mongodb-data:
   redis-data:
-  ssh-data:
   ftp-data:
