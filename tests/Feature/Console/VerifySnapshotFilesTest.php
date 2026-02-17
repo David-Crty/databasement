@@ -3,7 +3,7 @@
 use App\Jobs\VerifySnapshotFileJob;
 use Illuminate\Support\Facades\Queue;
 
-test('dispatches a single verification job', function () {
+test('dispatches a verification job', function () {
     Queue::fake();
 
     $this->artisan('snapshots:verify-files')
