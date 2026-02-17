@@ -17,14 +17,13 @@ class VerifySnapshotFileJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(
-        public ?string $snapshotId = null
-    ) {
+    public function __construct()
+    {
         $this->onQueue('backups');
     }
 
     public function handle(SnapshotVerificationService $service): void
     {
-        $service->run($this->snapshotId);
+        $service->run();
     }
 }

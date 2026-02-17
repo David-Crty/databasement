@@ -19,20 +19,14 @@ class SnapshotVerificationService
     ) {}
 
     /**
-     * Verify a single snapshot or all completed snapshots.
+     * Verify all completed snapshots still exist on their storage volumes.
      *
      * @return array{verified: int, missing: int}
      */
-    public function run(?string $snapshotId = null): array
+    public function run(): array
     {
         $this->newlyMissing = collect();
         $verified = 0;
-
-        if ($snapshotId) {
-            $this->verifySnapshot($snapshotId);
-
-            return ['verified' => 1, 'missing' => $this->newlyMissing->count()];
-        }
 
         $snapshotIds = Snapshot::query()
             ->whereNotNull('filename')

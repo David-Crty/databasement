@@ -7,13 +7,13 @@ use Illuminate\Console\Command;
 
 class CleanupExpiredSnapshots extends Command
 {
-    protected $signature = 'snapshots:cleanup';
+    protected $signature = 'snapshots:cleanup {--dry-run}';
 
     protected $description = 'Delete snapshots older than the configured retention period';
 
     public function handle(): int
     {
-        CleanupExpiredSnapshotsJob::dispatch();
+        CleanupExpiredSnapshotsJob::dispatch((bool) $this->option('dry-run'));
 
         $this->info('Snapshot cleanup job dispatched.');
 

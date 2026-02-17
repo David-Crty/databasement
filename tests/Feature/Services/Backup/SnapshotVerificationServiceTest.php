@@ -30,7 +30,7 @@ test('sets file_exists to true when file exists on volume', function () {
         ->once()
         ->andReturn($mockFilesystem);
 
-    makeService($mockProvider)->run($snapshot->id);
+    makeService($mockProvider)->run();
 
     $snapshot->refresh();
     expect($snapshot->file_exists)->toBeTrue()
@@ -51,7 +51,7 @@ test('sets file_exists to false when file is missing from volume', function () {
         ->once()
         ->andReturn($mockFilesystem);
 
-    makeService($mockProvider)->run($snapshot->id);
+    makeService($mockProvider)->run();
 
     $snapshot->refresh();
     expect($snapshot->file_exists)->toBeFalse()
@@ -66,21 +66,14 @@ test('handles filesystem errors gracefully without changing file_exists', functi
         ->once()
         ->andThrow(new \Exception('Connection timeout'));
 
-    makeService($mockProvider)->run($snapshot->id);
+    makeService($mockProvider)->run();
 
     $snapshot->refresh();
     expect($snapshot->file_exists)->toBeTrue()
         ->and($snapshot->file_verified_at)->not->toBeNull();
 });
 
-test('skips gracefully when snapshot does not exist', function () {
-    $mockProvider = Mockery::mock(FilesystemProvider::class);
-    $mockProvider->shouldNotReceive('getForVolume');
-
-    makeService($mockProvider)->run('non-existent-id');
-});
-
-test('verifies all completed snapshots when no snapshotId provided', function () {
+test('verifies all completed snapshots', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['db1', 'db2']]);

@@ -107,7 +107,6 @@ test('verify files button dispatches verification job', function () {
         ->call('verifyFiles');
 
     Queue::assertPushed(VerifySnapshotFileJob::class, 1);
-    Queue::assertPushed(VerifySnapshotFileJob::class, fn ($job) => $job->snapshotId === null);
 });
 
 test('verify files button prevents rapid re-dispatch via cache lock', function () {

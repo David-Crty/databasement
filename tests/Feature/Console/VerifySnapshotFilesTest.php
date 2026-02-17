@@ -11,5 +11,4 @@ test('dispatches a verification job', function () {
         ->assertExitCode(0);
 
     Queue::assertPushed(VerifySnapshotFileJob::class, 1);
-    Queue::assertPushed(VerifySnapshotFileJob::class, fn ($job) => $job->snapshotId === null);
 });

@@ -17,13 +17,14 @@ class CleanupExpiredSnapshotsJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct()
-    {
+    public function __construct(
+        public bool $dryRun = false
+    ) {
         $this->onQueue('backups');
     }
 
     public function handle(SnapshotCleanupService $service): void
     {
-        $service->run();
+        $service->run($this->dryRun);
     }
 }
