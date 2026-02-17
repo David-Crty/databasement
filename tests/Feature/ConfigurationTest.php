@@ -1,6 +1,9 @@
 <?php
 
 use App\Facades\AppConfig;
+use App\Jobs\CleanupExpiredSnapshotsJob;
+use App\Jobs\ProcessBackupJob;
+use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Configuration\Index;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
@@ -10,6 +13,7 @@ use App\Services\FailureNotificationService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -443,5 +447,60 @@ test('non-admin cannot delete schedule', function () {
     Livewire::actingAs(User::factory()->create(['role' => 'member']))
         ->test(Index::class)
         ->call('deleteSchedule')
+        ->assertForbidden();
+});
+
+test('admin can run a schedule to trigger backups for all its servers', function () {
+    Queue::fake();
+
+    $schedule = BackupSchedule::factory()->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['app']]);
+    $server->backup->update(['backup_schedule_id' => $schedule->id]);
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('runSchedule', $schedule->id);
+
+    Queue::assertPushed(ProcessBackupJob::class);
+});
+
+test('non-admin cannot run a schedule', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'member']))
+        ->test(Index::class)
+        ->call('runSchedule', 'fake-id')
+        ->assertForbidden();
+});
+
+test('admin can run cleanup manually', function () {
+    Queue::fake();
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('runCleanup');
+
+    Queue::assertPushed(CleanupExpiredSnapshotsJob::class);
+});
+
+test('non-admin cannot run cleanup', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'member']))
+        ->test(Index::class)
+        ->call('runCleanup')
+        ->assertForbidden();
+});
+
+test('admin can run verify files manually', function () {
+    Queue::fake();
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('runVerifyFiles');
+
+    Queue::assertPushed(VerifySnapshotFileJob::class);
+});
+
+test('non-admin cannot run verify files', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'member']))
+        ->test(Index::class)
+        ->call('runVerifyFiles')
         ->assertForbidden();
 });

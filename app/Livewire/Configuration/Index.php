@@ -2,10 +2,13 @@
 
 namespace App\Livewire\Configuration;
 
+use App\Jobs\CleanupExpiredSnapshotsJob;
+use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Forms\ConfigurationForm;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Backup\TriggerBackupAction;
 use App\Services\FailureNotificationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Log;
@@ -144,6 +147,24 @@ class Index extends Component
         }
     }
 
+    public function runCleanup(): void
+    {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
+        CleanupExpiredSnapshotsJob::dispatch();
+
+        $this->success(__('Snapshot cleanup job dispatched.'), position: 'toast-bottom');
+    }
+
+    public function runVerifyFiles(): void
+    {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
+        VerifySnapshotFileJob::dispatch();
+
+        $this->success(__('Snapshot file verification job dispatched.'), position: 'toast-bottom');
+    }
+
     public function saveNotificationConfig(): void
     {
         abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
@@ -267,13 +288,47 @@ class Index extends Component
         }
     }
 
+    public function runSchedule(string $scheduleId, TriggerBackupAction $action): void
+    {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
+        $schedule = BackupSchedule::with('backups.databaseServer.backup.volume')->findOrFail($scheduleId);
+
+        $totalSnapshots = 0;
+        $errors = [];
+
+        foreach ($schedule->backups as $backup) {
+            try {
+                $userId = auth()->id();
+                $result = $action->execute($backup->databaseServer, is_int($userId) ? $userId : null);
+                $totalSnapshots += count($result['snapshots']);
+            } catch (\Throwable $e) {
+                $errors[] = $backup->databaseServer->name.': '.$e->getMessage();
+            }
+        }
+
+        if ($totalSnapshots > 0) {
+            $this->success(
+                trans_choice(':count backup started successfully!|:count backups started successfully!', $totalSnapshots),
+                position: 'toast-bottom'
+            );
+        }
+
+        if (! empty($errors)) {
+            $this->error(implode('; ', $errors), position: 'toast-bottom');
+        }
+    }
+
     /**
      * @return \Illuminate\Database\Eloquent\Collection<int, BackupSchedule>
      */
     #[Computed]
     public function backupSchedules(): \Illuminate\Database\Eloquent\Collection
     {
-        return BackupSchedule::withCount('backups')->orderBy('name')->get();
+        return BackupSchedule::withCount('backups')
+            ->with('backups.databaseServer:id,name')
+            ->orderBy('name')
+            ->get();
     }
 
     /**

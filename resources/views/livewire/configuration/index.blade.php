@@ -44,10 +44,17 @@
                             <span class="inline-flex flex-wrap items-center gap-2">
                                 {{ $schedule->name }}
                                 @if ($schedule->backups_count > 0)
-                                    <span class="badge badge-outline badge-info">
-                                        <x-icon name="o-server-stack" class="w-3 h-3" />
-                                        {{ trans_choice(':count server|:count servers', $schedule->backups_count) }}
-                                    </span>
+                                    <x-popover>
+                                        <x-slot:trigger>
+                                            <span class="badge badge-outline badge-info cursor-default">
+                                                <x-icon name="o-server-stack" class="w-3 h-3" />
+                                                {{ trans_choice(':count server|:count servers', $schedule->backups_count) }}
+                                            </span>
+                                        </x-slot:trigger>
+                                        <x-slot:content>
+                                            {{ $schedule->backups->pluck('databaseServer.name')->join(', ') }}
+                                        </x-slot:content>
+                                    </x-popover>
                                 @endif
                             </span>
                         </x-slot:label>
@@ -59,6 +66,9 @@
                             <span class="text-sm text-base-content/60 min-w-0">{{ \App\Support\Formatters::cronTranslation($schedule->expression) }}</span>
                             @if ($this->isAdmin)
                                 <div class="flex items-center gap-0.5 shrink-0 ml-auto">
+                                    @if ($schedule->backups_count > 0)
+                                        <x-button icon="o-play" class="btn-ghost btn-sm" wire:click="runSchedule('{{ $schedule->id }}')" spinner="runSchedule('{{ $schedule->id }}')" tooltip-left="{{ __('Run now') }}" />
+                                    @endif
                                     <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openScheduleModal('{{ $schedule->id }}')" tooltip-left="{{ __('Edit') }}" />
                                     @if ($schedule->backups_count > 0)
                                         <x-popover>
@@ -137,9 +147,14 @@
                     </x-config-row>
 
                     <x-config-row label="{{ __('Cleanup Cron') }}" description="{{ __('Cron expression that controls when old snapshots are cleaned up.') }}">
-                        <div>
-                            <x-input wire:model.blur="form.cleanup_cron" :disabled="!$this->isAdmin" />
-                            <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->cleanup_cron) }}</div>
+                        <div class="flex items-start gap-2">
+                            <div class="flex-1">
+                                <x-input wire:model.blur="form.cleanup_cron" :disabled="!$this->isAdmin" />
+                                <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->cleanup_cron) }}</div>
+                            </div>
+                            @if ($this->isAdmin)
+                                <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runCleanup" spinner="runCleanup" tooltip-left="{{ __('Run now') }}" />
+                            @endif
                         </div>
                     </x-config-row>
 
@@ -149,9 +164,14 @@
 
                     @if ($form->verify_files)
                         <x-config-row label="{{ __('Verify Files Cron') }}" description="{{ __('Cron expression that controls when snapshot file verification runs.') }}">
-                            <div>
-                                <x-input wire:model.blur="form.verify_files_cron" :disabled="!$this->isAdmin" />
-                                <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->verify_files_cron) }}</div>
+                            <div class="flex items-start gap-2">
+                                <div class="flex-1">
+                                    <x-input wire:model.blur="form.verify_files_cron" :disabled="!$this->isAdmin" />
+                                    <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->verify_files_cron) }}</div>
+                                </div>
+                                @if ($this->isAdmin)
+                                    <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runVerifyFiles" spinner="runVerifyFiles" tooltip-left="{{ __('Run now') }}" />
+                                @endif
                             </div>
                         </x-config-row>
                     @endif
