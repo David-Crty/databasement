@@ -33,25 +33,31 @@ class StatsCards extends Component
 
     public function mount(): void
     {
-        $this->totalSnapshots = Snapshot::count();
+        $successfulSnapshots = Snapshot::whereRelation('job', 'status', 'completed');
 
-        $totalBytes = Snapshot::sum('file_size');
+        $this->totalSnapshots = $successfulSnapshots->count();
+
+        $totalBytes = $successfulSnapshots->sum('file_size');
         $this->totalStorage = Formatters::humanFileSize((int) $totalBytes);
 
         $thirtyDaysAgo = Carbon::now()->subDays(30);
-        $completedJobs = BackupJob::where('created_at', '>=', $thirtyDaysAgo)
+        $total = BackupJob::where('created_at', '>=', $thirtyDaysAgo)
             ->whereIn('status', ['completed', 'failed'])
-            ->get();
+            ->count();
 
-        if ($completedJobs->count() > 0) {
-            $successful = $completedJobs->where('status', 'completed')->count();
-            $this->successRate = round(($successful / $completedJobs->count()) * 100, 1);
+        if ($total > 0) {
+            $successful = BackupJob::where('created_at', '>=', $thirtyDaysAgo)
+                ->where('status', 'completed')
+                ->count();
+            $this->successRate = round(($successful / $total) * 100, 1);
         }
 
         $this->runningJobs = BackupJob::where('status', 'running')->count();
 
-        $this->verifiedSnapshots = Snapshot::whereNotNull('file_verified_at')->count();
-        $this->missingSnapshots = Snapshot::where('file_exists', false)->count();
+        $this->verifiedSnapshots = Snapshot::whereRelation('job', 'status', 'completed')
+            ->whereNotNull('file_verified_at')->count();
+        $this->missingSnapshots = Snapshot::whereRelation('job', 'status', 'completed')
+            ->where('file_exists', false)->count();
     }
 
     public function placeholder(): View

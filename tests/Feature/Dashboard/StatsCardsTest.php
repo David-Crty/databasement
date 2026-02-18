@@ -30,7 +30,7 @@ test('stats cards calculates correct totals', function () {
     Livewire::withoutLazyLoading()
         ->actingAs($user)
         ->test(StatsCards::class)
-        ->assertSet('totalSnapshots', 4)
+        ->assertSet('totalSnapshots', 3) // only counts snapshots from successful jobs
         ->assertSet('successRate', 75.0); // 3 out of 4 = 75%
 });
 
