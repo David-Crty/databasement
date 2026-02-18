@@ -54,7 +54,12 @@
 
             @scope('cell_name', $server)
                 <div class="flex items-center gap-2">
-                    <x-database-type-icon :type="$server->database_type" />
+                    <div class="relative inline-flex">
+                        <x-database-type-icon :type="$server->database_type" class="w-6 h-6" />
+                        <div class="absolute -top-1 -right-1">
+                            <livewire:database-server.connection-status :server="$server" lazy :key="'conn-'.$server->id" />
+                        </div>
+                    </div>
                     <div>
                         <div class="table-cell-primary">{{ $server->name }}</div>
                         <div class="flex items-center gap-2 text-sm text-base-content/70">

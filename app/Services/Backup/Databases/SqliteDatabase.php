@@ -151,7 +151,7 @@ class SqliteDatabase implements DatabaseInterface
             $result = $this->testSingleLocalPath($path);
 
             if (! $result['success']) {
-                $failures[] = $path.': '.$result['message'];
+                $failures[] = $result['message'];
             } elseif (! empty($result['details']['output'])) {
                 $decoded = json_decode($result['details']['output'], true);
                 if ($decoded !== null) {
