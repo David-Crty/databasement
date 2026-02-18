@@ -59,8 +59,8 @@
     {{-- Success Rate --}}
     <x-card id="success-rate">
         <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-lg {{ $successRate >= 90 ? 'bg-success/10' : ($successRate >= 70 ? 'bg-warning/10' : 'bg-error/10') }} flex items-center justify-center">
-                <x-icon name="o-chart-pie" class="w-6 h-6 {{ $successRate >= 90 ? 'text-success' : ($successRate >= 70 ? 'text-warning' : 'text-error') }}" />
+            <div class="w-12 h-12 rounded-lg {{ $this->successRateColor['bg'] }} flex items-center justify-center">
+                <x-icon name="o-chart-pie" class="w-6 h-6 {{ $this->successRateColor['text'] }}" />
             </div>
             <div>
                 <div class="text-sm text-base-content/70">{{ __('Success Rate (30d)') }}</div>

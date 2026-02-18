@@ -102,7 +102,8 @@ test('verify files button dispatches verification job', function () {
 
     $user = User::factory()->create();
 
-    Livewire::actingAs($user)
+    Livewire::withoutLazyLoading()
+        ->actingAs($user)
         ->test(StatsCards::class)
         ->call('verifyFiles');
 
@@ -116,7 +117,8 @@ test('verify files button prevents rapid re-dispatch via cache lock', function (
 
     Cache::lock('verify-snapshot-files', 300)->get();
 
-    Livewire::actingAs($user)
+    Livewire::withoutLazyLoading()
+        ->actingAs($user)
         ->test(StatsCards::class)
         ->call('verifyFiles');
 

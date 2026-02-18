@@ -9,6 +9,7 @@ use App\Support\Formatters;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Lazy;
 use Livewire\Component;
 use Mary\Traits\Toast;
@@ -56,6 +57,17 @@ class StatsCards extends Component
     public function placeholder(): View
     {
         return view('components.lazy-placeholder-stats');
+    }
+
+    /** @return array{bg: string, text: string} */
+    #[Computed]
+    public function successRateColor(): array
+    {
+        return match (true) {
+            $this->successRate >= 90 => ['bg' => 'bg-success/10', 'text' => 'text-success'],
+            $this->successRate >= 70 => ['bg' => 'bg-warning/10', 'text' => 'text-warning'],
+            default => ['bg' => 'bg-error/10', 'text' => 'text-error'],
+        };
     }
 
     public function verifyFiles(): void
