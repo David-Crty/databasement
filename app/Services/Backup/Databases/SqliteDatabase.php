@@ -220,7 +220,7 @@ class SqliteDatabase implements DatabaseInterface
                 ],
             ];
         } catch (\PDOException $e) {
-            return ['success' => false, 'message' => 'Invalid SQLite database file: '.$e->getMessage(), 'details' => []];
+            return ['success' => false, 'message' => "Invalid SQLite database file ({$path}): ".$e->getMessage(), 'details' => []];
         }
     }
 

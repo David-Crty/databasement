@@ -5,20 +5,28 @@ namespace App\Livewire\DatabaseServer;
 use App\Models\DatabaseServer;
 use App\Services\Backup\Databases\DatabaseProvider;
 use Illuminate\Contracts\View\View;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Lazy;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 #[Lazy]
 class ConnectionStatus extends Component
 {
+    use AuthorizesRequests;
+
     public DatabaseServer $server;
 
+    #[Locked]
     public bool $success = false;
 
+    #[Locked]
     public string $message = '';
 
     public function mount(DatabaseProvider $provider): void
     {
+        $this->authorize('view', $this->server);
+
         $result = $provider->testConnectionForServer($this->server);
 
         $this->success = $result['success'];

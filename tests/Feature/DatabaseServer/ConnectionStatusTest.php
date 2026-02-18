@@ -10,9 +10,10 @@ test('renders success status when connection succeeds', function () {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->create();
 
-    $this->mock(DatabaseProvider::class, function ($mock) {
+    $this->mock(DatabaseProvider::class, function ($mock) use ($server) {
         $mock->shouldReceive('testConnectionForServer')
             ->once()
+            ->withArgs(fn (DatabaseServer $s) => $s->is($server))
             ->andReturn(['success' => true, 'message' => 'Connection successful', 'details' => []]);
     });
 
@@ -20,16 +21,18 @@ test('renders success status when connection succeeds', function () {
         ->actingAs($user)
         ->test(ConnectionStatus::class, ['server' => $server])
         ->assertSeeHtml('bg-success')
-        ->assertDontSeeHtml('bg-error');
+        ->assertDontSeeHtml('bg-error')
+        ->assertSee('Connection successful');
 });
 
 test('renders error status when connection fails', function () {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->create();
 
-    $this->mock(DatabaseProvider::class, function ($mock) {
+    $this->mock(DatabaseProvider::class, function ($mock) use ($server) {
         $mock->shouldReceive('testConnectionForServer')
             ->once()
+            ->withArgs(fn (DatabaseServer $s) => $s->is($server))
             ->andReturn(['success' => false, 'message' => 'Connection refused', 'details' => []]);
     });
 
@@ -37,5 +40,6 @@ test('renders error status when connection fails', function () {
         ->actingAs($user)
         ->test(ConnectionStatus::class, ['server' => $server])
         ->assertSeeHtml('bg-error')
-        ->assertDontSeeHtml('bg-success');
+        ->assertDontSeeHtml('bg-success')
+        ->assertSee('Connection refused');
 });
