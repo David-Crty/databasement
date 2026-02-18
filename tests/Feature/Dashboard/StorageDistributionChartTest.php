@@ -28,9 +28,9 @@ test('storage distribution chart builds doughnut chart data grouped by volume', 
     $snapshots2 = $factory->createSnapshots($server2, 'manual', $user->id);
     $snapshots2[0]->update(['file_size' => 1024 * 1024 * 50]); // 50 MB
 
-    $component = Livewire::actingAs($user)
-        ->test(StorageDistributionChart::class)
-        ->call('load');
+    $component = Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(StorageDistributionChart::class);
 
     $chart = $component->get('chart');
 
@@ -43,9 +43,9 @@ test('storage distribution chart builds doughnut chart data grouped by volume', 
 test('storage distribution chart handles no snapshots', function () {
     $user = User::factory()->create();
 
-    $component = Livewire::actingAs($user)
-        ->test(StorageDistributionChart::class)
-        ->call('load');
+    $component = Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(StorageDistributionChart::class);
 
     expect($component->get('totalBytes'))->toBe(0)
         ->and($component->get('chart')['data']['labels'])->toBeEmpty();
@@ -62,9 +62,9 @@ test('storage distribution chart labels include formatted size', function () {
     $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
     $snapshots[0]->update(['file_size' => 1024 * 1024 * 256]); // 256 MB
 
-    $component = Livewire::actingAs($user)
-        ->test(StorageDistributionChart::class)
-        ->call('load');
+    $component = Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(StorageDistributionChart::class);
 
     $chart = $component->get('chart');
 

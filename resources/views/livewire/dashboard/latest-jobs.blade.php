@@ -1,4 +1,4 @@
-<div wire:init="load" wire:poll.5s="fetchJobs" class="h-full">
+<div wire:poll.5s="fetchJobs" class="h-full">
     <x-card shadow class="h-full flex flex-col">
         <x-slot:title>
             <div class="flex items-center justify-between w-full">
@@ -11,17 +11,7 @@
             </div>
         </x-slot:title>
 
-        @if(!$loaded)
-            <div class="space-y-3">
-                @for($i = 0; $i < 5; $i++)
-                    <div class="flex items-center gap-3 animate-pulse">
-                        <div class="w-16 h-5 bg-base-300 rounded"></div>
-                        <div class="flex-1 h-5 bg-base-300 rounded"></div>
-                        <div class="w-20 h-5 bg-base-300 rounded"></div>
-                    </div>
-                @endfor
-            </div>
-        @elseif($jobs->isEmpty())
+        @if($jobs->isEmpty())
             <div class="text-center text-base-content/50 py-8">
                 @if($statusFilter !== 'all')
                     {{ __('No jobs with this status.') }}

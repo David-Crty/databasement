@@ -16,9 +16,9 @@ test('jobs activity chart builds chart data', function () {
     $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
     $snapshots[0]->job->markCompleted();
 
-    $component = Livewire::actingAs($user)
-        ->test(JobsActivityChart::class)
-        ->call('load');
+    $component = Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(JobsActivityChart::class);
 
     $chart = $component->get('chart');
 
@@ -31,9 +31,9 @@ test('jobs activity chart builds chart data', function () {
 test('jobs activity chart has 14 days of data', function () {
     $user = User::factory()->create();
 
-    $component = Livewire::actingAs($user)
-        ->test(JobsActivityChart::class)
-        ->call('load');
+    $component = Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(JobsActivityChart::class);
 
     $chart = $component->get('chart');
 

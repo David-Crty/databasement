@@ -2,22 +2,21 @@
 
 namespace App\Livewire\Dashboard;
 
-use App\Livewire\Concerns\WithDeferredLoading;
 use App\Support\Formatters;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
+#[Lazy]
 class StorageDistributionChart extends Component
 {
-    use WithDeferredLoading;
-
     /** @var array<string, mixed> */
     public array $chart = [];
 
     public int $totalBytes = 0;
 
-    protected function loadContent(): void
+    public function mount(): void
     {
         /** @var \Illuminate\Support\Collection<int, object{name: string, total_size: int}> $storageByVolume */
         $storageByVolume = DB::table('snapshots')
@@ -78,6 +77,11 @@ class StorageDistributionChart extends Component
                 ],
             ],
         ];
+    }
+
+    public function placeholder(): View
+    {
+        return view('components.lazy-placeholder', ['type' => 'chart']);
     }
 
     public function getFormattedTotal(): string

@@ -3,19 +3,20 @@
 namespace App\Livewire\Dashboard;
 
 use App\Jobs\VerifySnapshotFileJob;
-use App\Livewire\Concerns\WithDeferredLoading;
 use App\Models\BackupJob;
 use App\Models\Snapshot;
 use App\Support\Formatters;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 use Mary\Traits\Toast;
 
+#[Lazy]
 class StatsCards extends Component
 {
-    use Toast, WithDeferredLoading;
+    use Toast;
 
     public int $totalSnapshots = 0;
 
@@ -29,7 +30,7 @@ class StatsCards extends Component
 
     public int $verifiedSnapshots = 0;
 
-    protected function loadContent(): void
+    public function mount(): void
     {
         $this->totalSnapshots = Snapshot::count();
 
@@ -50,6 +51,11 @@ class StatsCards extends Component
 
         $this->verifiedSnapshots = Snapshot::whereNotNull('file_verified_at')->count();
         $this->missingSnapshots = Snapshot::where('file_exists', false)->count();
+    }
+
+    public function placeholder(): View
+    {
+        return view('components.lazy-placeholder-stats');
     }
 
     public function verifyFiles(): void

@@ -2,22 +2,21 @@
 
 namespace App\Livewire\Dashboard;
 
-use App\Livewire\Concerns\WithDeferredLoading;
 use App\Models\BackupJob;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
+#[Lazy]
 class SuccessRateChart extends Component
 {
-    use WithDeferredLoading;
-
     /** @var array<string, mixed> */
     public array $chart = [];
 
     public int $total = 0;
 
-    protected function loadContent(): void
+    public function mount(): void
     {
         $thirtyDaysAgo = Carbon::now()->subDays(30);
 
@@ -67,6 +66,11 @@ class SuccessRateChart extends Component
                 ],
             ],
         ];
+    }
+
+    public function placeholder(): View
+    {
+        return view('components.lazy-placeholder', ['type' => 'chart']);
     }
 
     public function render(): View

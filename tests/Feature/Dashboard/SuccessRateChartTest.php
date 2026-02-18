@@ -19,9 +19,9 @@ test('success rate chart builds doughnut chart data', function () {
     $failedSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
     $failedSnapshots[0]->job->markFailed(new Exception('Test'));
 
-    $component = Livewire::actingAs($user)
-        ->test(SuccessRateChart::class)
-        ->call('load');
+    $component = Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(SuccessRateChart::class);
 
     $chart = $component->get('chart');
 
@@ -33,9 +33,9 @@ test('success rate chart builds doughnut chart data', function () {
 test('success rate chart handles no jobs', function () {
     $user = User::factory()->create();
 
-    $component = Livewire::actingAs($user)
-        ->test(SuccessRateChart::class)
-        ->call('load');
+    $component = Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(SuccessRateChart::class);
 
     expect($component->get('total'))->toBe(0);
 });

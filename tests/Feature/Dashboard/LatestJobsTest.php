@@ -18,9 +18,9 @@ test('latest jobs displays recent jobs', function () {
     $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
     $snapshots[0]->job->markCompleted();
 
-    Livewire::actingAs($user)
+    Livewire::withoutLazyLoading()
+        ->actingAs($user)
         ->test(LatestJobs::class)
-        ->call('load')
         ->assertSee('Test Server');
 });
 
@@ -43,9 +43,9 @@ test('latest jobs can filter by status', function () {
     $failedSnapshots = $factory->createSnapshots($failedServer, 'manual', $user->id);
     $failedSnapshots[0]->job->markFailed(new Exception('Test error'));
 
-    Livewire::actingAs($user)
+    Livewire::withoutLazyLoading()
+        ->actingAs($user)
         ->test(LatestJobs::class)
-        ->call('load')
         ->assertSee('Completed Server')
         ->assertSee('Failed Server')
         ->set('statusFilter', 'failed')
@@ -65,9 +65,9 @@ test('latest jobs can open and close logs modal', function () {
     $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
     $job = $snapshots[0]->job;
 
-    Livewire::actingAs($user)
+    Livewire::withoutLazyLoading()
+        ->actingAs($user)
         ->test(LatestJobs::class)
-        ->call('load')
         ->assertSet('showLogsModal', false)
         ->assertSet('selectedJobId', null)
         ->call('viewLogs', $job->id)

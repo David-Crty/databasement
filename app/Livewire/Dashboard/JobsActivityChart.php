@@ -2,21 +2,20 @@
 
 namespace App\Livewire\Dashboard;
 
-use App\Livewire\Concerns\WithDeferredLoading;
 use App\Models\BackupJob;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
+#[Lazy]
 class JobsActivityChart extends Component
 {
-    use WithDeferredLoading;
-
     /** @var array<string, mixed> */
     public array $chart = [];
 
-    protected function loadContent(): void
+    public function mount(): void
     {
         $days = 14;
         $startDate = Carbon::now()->subDays($days - 1)->startOfDay();
@@ -101,6 +100,11 @@ class JobsActivityChart extends Component
                 ],
             ],
         ];
+    }
+
+    public function placeholder(): View
+    {
+        return view('components.lazy-placeholder', ['type' => 'chart']);
     }
 
     public function render(): View

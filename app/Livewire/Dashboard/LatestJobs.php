@@ -2,16 +2,15 @@
 
 namespace App\Livewire\Dashboard;
 
-use App\Livewire\Concerns\WithDeferredLoading;
 use App\Models\BackupJob;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
+use Livewire\Attributes\Lazy;
 use Livewire\Component;
 
+#[Lazy]
 class LatestJobs extends Component
 {
-    use WithDeferredLoading;
-
     public string $statusFilter = 'all';
 
     /** @var Collection<int, BackupJob> */
@@ -24,11 +23,12 @@ class LatestJobs extends Component
     public function mount(): void
     {
         $this->jobs = new Collection;
+        $this->fetchJobs();
     }
 
-    protected function loadContent(): void
+    public function placeholder(): View
     {
-        $this->fetchJobs();
+        return view('components.lazy-placeholder', ['type' => 'list']);
     }
 
     public function updatedStatusFilter(): void

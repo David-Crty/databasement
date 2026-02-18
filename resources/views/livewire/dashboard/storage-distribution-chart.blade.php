@@ -1,10 +1,6 @@
-<div wire:init="load">
+<div>
     <x-card title="{{ __('Storage by Volume') }}" shadow class="h-full">
-        @if(!$loaded)
-            <div class="h-48 flex items-center justify-center">
-                <x-loading class="loading-lg" />
-            </div>
-        @elseif($totalBytes === 0)
+        @if($totalBytes === 0)
             <div class="h-48 flex items-center justify-center text-base-content/50">
                 {{ __('No storage used yet') }}
             </div>
