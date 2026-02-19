@@ -9,6 +9,9 @@
             <livewire:dashboard.success-rate-card />
         </div>
 
+        {{-- Job Status Grid --}}
+        <livewire:dashboard.job-status-grid />
+
         {{-- Jobs Activity Chart --}}
         <livewire:dashboard.jobs-activity-chart />
 
