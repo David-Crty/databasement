@@ -19,15 +19,21 @@ class SuccessRateCard extends Component
     public function mount(): void
     {
         $thirtyDaysAgo = Carbon::now()->subDays(30);
-        $total = BackupJob::where('created_at', '>=', $thirtyDaysAgo)
+
+        $counts = BackupJob::query()
+            ->toBase()
+            ->where('created_at', '>=', $thirtyDaysAgo)
             ->whereIn('status', ['completed', 'failed'])
-            ->count();
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        $completed = (int) ($counts['completed'] ?? 0);
+        $failed = (int) ($counts['failed'] ?? 0);
+        $total = $completed + $failed;
 
         if ($total > 0) {
-            $successful = BackupJob::where('created_at', '>=', $thirtyDaysAgo)
-                ->where('status', 'completed')
-                ->count();
-            $this->successRate = round(($successful / $total) * 100, 1);
+            $this->successRate = round(($completed / $total) * 100, 1);
         }
 
         $this->runningJobs = BackupJob::where('status', 'running')->count();

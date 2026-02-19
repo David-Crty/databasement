@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Lazy;
 use Livewire\Component;
 use Mary\Traits\Toast;
+use Symfony\Component\HttpFoundation\Response;
 
 #[Lazy]
 class SnapshotsCard extends Component
@@ -37,6 +38,8 @@ class SnapshotsCard extends Component
 
     public function verifyFiles(): void
     {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
         $lock = Cache::lock('verify-snapshot-files', 300);
 
         if (! $lock->get()) {

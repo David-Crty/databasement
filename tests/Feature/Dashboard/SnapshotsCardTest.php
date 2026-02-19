@@ -79,10 +79,10 @@ test('snapshots card shows all verified when no snapshots are missing', function
 test('verify files button dispatches verification job', function () {
     Queue::fake();
 
-    $user = User::factory()->create();
+    $admin = User::factory()->create(['role' => 'admin']);
 
     Livewire::withoutLazyLoading()
-        ->actingAs($user)
+        ->actingAs($admin)
         ->test(SnapshotsCard::class)
         ->call('verifyFiles');
 
@@ -92,14 +92,28 @@ test('verify files button dispatches verification job', function () {
 test('verify files button prevents rapid re-dispatch via cache lock', function () {
     Queue::fake();
 
-    $user = User::factory()->create();
+    $admin = User::factory()->create(['role' => 'admin']);
 
     Cache::lock('verify-snapshot-files', 300)->get();
 
     Livewire::withoutLazyLoading()
-        ->actingAs($user)
+        ->actingAs($admin)
         ->test(SnapshotsCard::class)
         ->call('verifyFiles');
+
+    Queue::assertNothingPushed();
+});
+
+test('non-admin cannot dispatch verification job', function () {
+    Queue::fake();
+
+    $user = User::factory()->create();
+
+    Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(SnapshotsCard::class)
+        ->call('verifyFiles')
+        ->assertForbidden();
 
     Queue::assertNothingPushed();
 });

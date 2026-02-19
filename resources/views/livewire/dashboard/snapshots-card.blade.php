@@ -9,6 +9,7 @@
                 wire:click="verifyFiles"
                 spinner
                 class="btn-ghost btn-xs text-base-content/60"
+                :disabled="!auth()->user()->isAdmin()"
             />
         </div>
 
