@@ -86,7 +86,7 @@
     </x-slot:sidebar>
 
     {{-- The `$slot` goes here --}}
-    <x-slot:content>
+    <x-slot:content class="max-md:p-3">
         {{-- Demo mode banner --}}
         @if (config('app.demo_mode') && auth()->user()?->isDemo())
             <x-alert :title="__('You\'re in demo mode. Some data modifications are disabled.')" class="alert-warning mb-4" icon="o-eye" />

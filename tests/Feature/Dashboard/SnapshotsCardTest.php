@@ -1,7 +1,7 @@
 <?php
 
 use App\Jobs\VerifySnapshotFileJob;
-use App\Livewire\Dashboard\StatsCards;
+use App\Livewire\Dashboard\SnapshotsCard;
 use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Services\Backup\BackupJobFactory;
@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
-test('stats cards calculates correct totals', function () {
+test('snapshots card calculates correct total', function () {
     $user = User::factory()->create();
     $factory = app(BackupJobFactory::class);
 
@@ -18,23 +18,20 @@ test('stats cards calculates correct totals', function () {
     // Create 3 completed jobs
     for ($i = 0; $i < 3; $i++) {
         $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
-        $snapshots[0]->update(['file_size' => 1000]);
         $snapshots[0]->job->markCompleted();
     }
 
-    // Create 1 failed job
+    // Create 1 failed job (should not be counted)
     $failedSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
-    $failedSnapshots[0]->update(['file_size' => 500]);
     $failedSnapshots[0]->job->markFailed(new Exception('Test error'));
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
-        ->test(StatsCards::class)
-        ->assertSet('totalSnapshots', 3) // only counts snapshots from successful jobs
-        ->assertSet('successRate', 75.0); // 3 out of 4 = 75%
+        ->test(SnapshotsCard::class)
+        ->assertSet('totalSnapshots', 3);
 });
 
-test('stats cards shows missing snapshots count', function () {
+test('snapshots card shows missing snapshots count', function () {
     $user = User::factory()->create();
     $factory = app(BackupJobFactory::class);
 
@@ -53,12 +50,12 @@ test('stats cards shows missing snapshots count', function () {
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
-        ->test(StatsCards::class)
+        ->test(SnapshotsCard::class)
         ->assertSet('missingSnapshots', 2)
         ->assertSee('2 missing');
 });
 
-test('stats cards shows all verified when no snapshots are missing', function () {
+test('snapshots card shows all verified when no snapshots are missing', function () {
     $user = User::factory()->create();
     $factory = app(BackupJobFactory::class);
 
@@ -73,28 +70,10 @@ test('stats cards shows all verified when no snapshots are missing', function ()
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
-        ->test(StatsCards::class)
+        ->test(SnapshotsCard::class)
         ->assertSet('verifiedSnapshots', 2)
         ->assertSet('missingSnapshots', 0)
         ->assertSee('All verified');
-});
-
-test('stats cards shows running jobs count', function () {
-    $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
-
-    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-
-    // Create 2 running jobs
-    for ($i = 0; $i < 2; $i++) {
-        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
-        $snapshots[0]->job->markRunning();
-    }
-
-    Livewire::withoutLazyLoading()
-        ->actingAs($user)
-        ->test(StatsCards::class)
-        ->assertSet('runningJobs', 2);
 });
 
 test('verify files button dispatches verification job', function () {
@@ -104,7 +83,7 @@ test('verify files button dispatches verification job', function () {
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
-        ->test(StatsCards::class)
+        ->test(SnapshotsCard::class)
         ->call('verifyFiles');
 
     Queue::assertPushed(VerifySnapshotFileJob::class, 1);
@@ -119,7 +98,7 @@ test('verify files button prevents rapid re-dispatch via cache lock', function (
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
-        ->test(StatsCards::class)
+        ->test(SnapshotsCard::class)
         ->call('verifyFiles');
 
     Queue::assertNothingPushed();

@@ -1,9 +1,13 @@
-<div>
+<div class="dashboard">
     <x-header title="{{ __('Dashboard') }}" separator />
 
     <div class="flex flex-col gap-6">
         {{-- Stats Cards Row --}}
-        <livewire:dashboard.stats-cards />
+        <div class="grid gap-4 md:grid-cols-3">
+            <livewire:dashboard.snapshots-card />
+            <livewire:dashboard.storage-card />
+            <livewire:dashboard.success-rate-card />
+        </div>
 
         {{-- Jobs Activity Chart --}}
         <livewire:dashboard.jobs-activity-chart />
