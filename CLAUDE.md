@@ -327,8 +327,11 @@ The app uses Laravel's JSON translation files with the `__('...')` helper. Trans
 To find all translatable strings in the codebase:
 
 ```bash
-# Extract all __('...') calls from PHP and Blade files
-grep -rhoP "__\(\s*'[^']+'" app/ resources/ --include='*.php' --include='*.blade.php' | sed "s/__(\s*'//" | sed "s/'$//" | sort -u
+# Extract all __('...') and __("...") calls from PHP and Blade files
+# Handles escaped quotes (e.g., __('You\'re logged in')) and double-quoted strings (e.g., __("Use \"auto\""))
+grep -rhoP "__\(\s*'(?:[^'\\\\]|\\\\.)*'" app/ resources/ --include='*.php' --include='*.blade.php' | sed "s/__(\s*'//" | sed "s/'$//" | sed "s/\\\'/'/g" > /tmp/_keys1.txt
+grep -rhoP '__\(\s*"(?:[^"\\\\]|\\\\.)*"' app/ resources/ --include='*.php' --include='*.blade.php' | sed 's/__(\s*"//' | sed 's/"$//' | sed 's/\\"/"/g' > /tmp/_keys2.txt
+cat /tmp/_keys1.txt /tmp/_keys2.txt | sort -u
 ```
 
 #### Adding a New Locale
