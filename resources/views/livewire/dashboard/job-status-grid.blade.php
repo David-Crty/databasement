@@ -1,12 +1,12 @@
-<x-card title="{{ __('Jobs Status') }}" subtitle="{{ __(':count jobs in the last 30 days', ['count' => $jobs->count()]) }}">
-    @if($jobs->isEmpty())
+<x-card title="{{ __('Jobs Status') }}" subtitle="{{ __(':count jobs in the last 30 days', ['count' => $this->jobs->count()]) }}">
+    @if($this->jobs->isEmpty())
         <div class="text-center py-4 text-base-content/50 text-sm">
             {{ __('No jobs yet.') }}
         </div>
     @else
         <div @mouseleave="$dispatch('hide-job-tooltip')">
             <div class="grid gap-1 max-h-48 overflow-y-auto" style="grid-template-columns: repeat(auto-fill, 14px)">
-                @foreach($jobs as $job)
+                @foreach($this->jobs as $job)
                     @php
                         $colorClass = match($job->status) {
                             'completed' => 'bg-success',
@@ -42,7 +42,6 @@
                                 y: rect.top,
                             })
                         "
-                        @mouseleave="$dispatch('hide-job-tooltip')"
                         class="w-3.5 h-3.5 rounded-sm cursor-pointer transition-opacity hover:opacity-75 {{ $colorClass }}"
                     ></button>
                 @endforeach
@@ -52,7 +51,7 @@
         {{-- Shared popover --}}
         <div
             x-data="{ show: false, server: '', database: '', type: '', status: '', duration: '', ago: '', date: '', x: 0, y: 0 }"
-            x-on:show-job-tooltip.window="show = true; server = $event.detail.server; database = $event.detail.database; type = $event.detail.type; status = $event.detail.status; duration = $event.detail.duration; ago = $event.detail.ago; date = $event.detail.date; x = $event.detail.x; y = $event.detail.y"
+            x-on:show-job-tooltip.window="Object.assign($data, $event.detail); show = true"
             x-on:hide-job-tooltip.window="show = false"
         >
             <div
@@ -71,7 +70,7 @@
         </div>
     @endif
 
-    @if($jobs->isNotEmpty())
+    @if($this->jobs->isNotEmpty())
         <x-slot:actions class="!justify-start">
             <div class="flex items-center gap-3 text-xs text-base-content/70">
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm bg-success inline-block"></span> {{ __('Completed') }}</span>

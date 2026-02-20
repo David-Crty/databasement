@@ -14,8 +14,18 @@ class StorageCard extends Component
 {
     public string $totalStorage = '0 B';
 
-    #[On('refresh-dashboard')]
     public function mount(): void
+    {
+        $this->loadData();
+    }
+
+    #[On('refresh-dashboard')]
+    public function refreshDashboard(): void
+    {
+        $this->loadData();
+    }
+
+    private function loadData(): void
     {
         $totalBytes = Snapshot::whereRelation('job', 'status', 'completed')->sum('file_size');
         $this->totalStorage = Formatters::humanFileSize((int) $totalBytes);

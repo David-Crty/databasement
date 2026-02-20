@@ -17,22 +17,35 @@ class JobStatusGrid extends Component
 
     public ?string $selectedJobId = null;
 
-    /** @var Collection<int, BackupJob> */
-    public Collection $jobs;
-
-    #[On('refresh-dashboard')]
-    public function mount(): void
+    /**
+     * @return Collection<int, BackupJob>
+     */
+    #[Computed]
+    public function jobs(): Collection
     {
-        $this->jobs = BackupJob::query()
+        return BackupJob::query()
+            ->select(['id', 'status', 'duration_ms', 'created_at'])
             ->with([
-                'snapshot.databaseServer',
-                'restore.targetServer',
-                'restore.snapshot.databaseServer',
+                'snapshot:id,backup_job_id,database_name,database_server_id' => [
+                    'databaseServer:id,name',
+                ],
+                'restore:id,backup_job_id,target_server_id,snapshot_id' => [
+                    'targetServer:id,name',
+                    'snapshot:id,database_name,database_server_id' => [
+                        'databaseServer:id,name',
+                    ],
+                ],
             ])
             ->where('created_at', '>=', now()->subDays(30))
             ->latest('created_at')
             ->limit(1000)
             ->get();
+    }
+
+    #[On('refresh-dashboard')]
+    public function refreshJobs(): void
+    {
+        unset($this->jobs);
     }
 
     public function placeholder(): View

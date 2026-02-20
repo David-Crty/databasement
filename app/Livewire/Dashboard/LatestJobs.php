@@ -21,10 +21,15 @@ class LatestJobs extends Component
 
     public ?string $selectedJobId = null;
 
-    #[On('refresh-dashboard')]
     public function mount(): void
     {
         $this->jobs = new Collection;
+        $this->fetchJobs();
+    }
+
+    #[On('refresh-dashboard')]
+    public function refreshDashboard(): void
+    {
         $this->fetchJobs();
     }
 

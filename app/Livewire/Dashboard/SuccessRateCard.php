@@ -17,8 +17,18 @@ class SuccessRateCard extends Component
 
     public int $runningJobs = 0;
 
-    #[On('refresh-dashboard')]
     public function mount(): void
+    {
+        $this->loadData();
+    }
+
+    #[On('refresh-dashboard')]
+    public function refreshDashboard(): void
+    {
+        $this->loadData();
+    }
+
+    private function loadData(): void
     {
         $thirtyDaysAgo = Carbon::now()->subDays(30);
 

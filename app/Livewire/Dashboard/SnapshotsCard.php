@@ -23,8 +23,18 @@ class SnapshotsCard extends Component
 
     public int $missingSnapshots = 0;
 
-    #[On('refresh-dashboard')]
     public function mount(): void
+    {
+        $this->loadData();
+    }
+
+    #[On('refresh-dashboard')]
+    public function refreshDashboard(): void
+    {
+        $this->loadData();
+    }
+
+    private function loadData(): void
     {
         $baseQuery = Snapshot::whereRelation('job', 'status', 'completed');
 
