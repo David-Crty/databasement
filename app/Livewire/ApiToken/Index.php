@@ -99,7 +99,7 @@ class Index extends Component
             return false;
         }
 
-        return $user->isAdmin() || $token->tokenable_id === $user->id;
+        return $user->isAdmin() || (string) $token->tokenable_id === (string) $user->id;
     }
 
     public function render(): View

@@ -2,8 +2,8 @@
 
 namespace App\Services\Backup\Concerns;
 
+use App\Contracts\BackupLogger;
 use App\Exceptions\SshTunnelException;
-use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Services\SshTunnelService;
 
@@ -22,7 +22,7 @@ trait UsesSshTunnel
      *
      * @throws SshTunnelException
      */
-    protected function establishSshTunnel(DatabaseServer $server, BackupJob $job): void
+    protected function establishSshTunnel(DatabaseServer $server, BackupLogger $logger): void
     {
         $sshConfig = $server->sshConfig;
         if ($sshConfig === null) {
@@ -31,7 +31,7 @@ trait UsesSshTunnel
         $this->tunnelEndpoint = $this->getSshTunnelService()->establish($server);
 
         $safeSshConfig = $sshConfig->getSafe();
-        $job->log('SSH tunnel established', 'success', [
+        $logger->log('SSH tunnel established', 'success', [
             'local_port' => $this->tunnelEndpoint['port'],
             'ssh_host' => $safeSshConfig['host'] ?? null,
             'ssh_port' => $safeSshConfig['port'] ?? 22,
@@ -42,11 +42,11 @@ trait UsesSshTunnel
     /**
      * Close SSH tunnel if active.
      */
-    protected function closeSshTunnel(BackupJob $job): void
+    protected function closeSshTunnel(BackupLogger $logger): void
     {
         if ($this->getSshTunnelService()->isActive()) {
             $this->getSshTunnelService()->close();
-            $job->log('SSH tunnel closed');
+            $logger->log('SSH tunnel closed');
         }
         $this->tunnelEndpoint = null;
     }

@@ -30,8 +30,10 @@ use Illuminate\Support\Carbon;
  * @property string|null $description
  * @property bool $backups_enabled
  * @property string|null $ssh_config_id
+ * @property string|null $agent_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read Agent|null $agent
  * @property-read Backup|null $backup
  * @property-read DatabaseServerSshConfig|null $sshConfig
  * @property-read Collection<int, Snapshot> $snapshots
@@ -87,6 +89,7 @@ class DatabaseServer extends Model
         'description',
         'backups_enabled',
         'ssh_config_id',
+        'agent_id',
         'extra_config',
     ];
 
@@ -105,6 +108,14 @@ class DatabaseServer extends Model
             'database_names' => 'array',
             'extra_config' => 'array',
         ];
+    }
+
+    /**
+     * @return BelongsTo<Agent, DatabaseServer>
+     */
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class);
     }
 
     /**

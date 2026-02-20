@@ -39,6 +39,7 @@
                 <livewire:menu.jobs-menu-item />
                 <x-menu-item title="{{ __('Volumes') }}" icon="o-circle-stack" link="{{ route('volumes.index') }}" wire:navigate />
                 <x-menu-item title="{{ __('Users') }}" icon="o-users" link="{{ route('users.index') }}" wire:navigate />
+                <x-menu-item title="{{ __('Agents') }}" icon="o-cpu-chip" link="{{ route('agents.index') }}" wire:navigate />
                 <x-menu-separator />
                 <x-menu-item title="{{ __('Configuration') }}" icon="o-cog-6-tooth" link="{{ route('configuration.index') }}" wire:navigate />
                 <x-menu-item title="{{ __('API Docs') }}" no-wire-navigate="true" icon="o-document-text" link="{{ route('scramble.docs.ui') }}" />

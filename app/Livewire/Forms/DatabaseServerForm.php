@@ -4,6 +4,7 @@ namespace App\Livewire\Forms;
 
 use App\Enums\DatabaseType;
 use App\Exceptions\Backup\EncryptionException;
+use App\Models\Agent;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
@@ -72,6 +73,8 @@ class DatabaseServerForm extends Form
     public bool $backup_all_databases = false;
 
     public ?string $description = null;
+
+    public ?string $agent_id = null;
 
     public bool $backups_enabled = true;
 
@@ -287,6 +290,7 @@ class DatabaseServerForm extends Form
         $this->database_names_input = implode(', ', $this->database_names);
         $this->backup_all_databases = $server->backup_all_databases ?? false;
         $this->description = $server->description;
+        $this->agent_id = $server->agent_id;
         $this->backups_enabled = $server->backups_enabled ?? true;
         // Don't populate password for security
         $this->password = '';
@@ -449,6 +453,19 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Get agent options for select
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getAgentOptions(): array
+    {
+        return Agent::orderBy('name')->get()->map(fn (Agent $agent) => [
+            'id' => $agent->id,
+            'name' => $agent->name,
+        ])->toArray();
+    }
+
+    /**
      * Get volume options for select
      *
      * @return array<array{id: string, name: string}>
@@ -505,6 +522,7 @@ class DatabaseServerForm extends Form
                 DatabaseType::cases()
             ))],
             'description' => 'nullable|string|max:1000',
+            'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
         ];
     }

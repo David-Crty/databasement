@@ -1,0 +1,169 @@
+<?php
+
+namespace App\Models;
+
+use Database\Factories\AgentJobFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+
+/**
+ * @property string $id
+ * @property string|null $agent_id
+ * @property string $snapshot_id
+ * @property string $status
+ * @property array<string, mixed> $payload
+ * @property Carbon|null $lease_expires_at
+ * @property int $attempts
+ * @property int $max_attempts
+ * @property Carbon|null $claimed_at
+ * @property Carbon|null $completed_at
+ * @property string|null $error_message
+ * @property array<string, mixed>|null $logs
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property-read Agent|null $agent
+ * @property-read Snapshot $snapshot
+ *
+ * @method static AgentJobFactory factory($count = null, $state = [])
+ * @method static Builder<static>|AgentJob newModelQuery()
+ * @method static Builder<static>|AgentJob newQuery()
+ * @method static Builder<static>|AgentJob query()
+ * @method static Builder<static>|AgentJob whereId($value)
+ * @method static Builder<static>|AgentJob whereAgentId($value)
+ * @method static Builder<static>|AgentJob whereSnapshotId($value)
+ * @method static Builder<static>|AgentJob whereStatus($value)
+ * @method static Builder<static>|AgentJob whereCreatedAt($value)
+ * @method static Builder<static>|AgentJob whereUpdatedAt($value)
+ *
+ * @mixin \Eloquent
+ */
+class AgentJob extends Model
+{
+    /** @use HasFactory<AgentJobFactory> */
+    use HasFactory, HasUlids;
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_CLAIMED = 'claimed';
+
+    public const STATUS_RUNNING = 'running';
+
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_FAILED = 'failed';
+
+    protected $fillable = [
+        'agent_id',
+        'snapshot_id',
+        'status',
+        'payload',
+        'lease_expires_at',
+        'attempts',
+        'max_attempts',
+        'claimed_at',
+        'completed_at',
+        'error_message',
+        'logs',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'payload' => 'array',
+            'logs' => 'array',
+            'lease_expires_at' => 'datetime',
+            'claimed_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'attempts' => 'integer',
+            'max_attempts' => 'integer',
+        ];
+    }
+
+    /**
+     * @return BelongsTo<Agent, AgentJob>
+     */
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class);
+    }
+
+    /**
+     * @return BelongsTo<Snapshot, AgentJob>
+     */
+    public function snapshot(): BelongsTo
+    {
+        return $this->belongsTo(Snapshot::class);
+    }
+
+    /**
+     * Claim this job for an agent.
+     */
+    public function claim(Agent $agent, int $leaseDurationSeconds = 300): void
+    {
+        $this->update([
+            'agent_id' => $agent->id,
+            'status' => self::STATUS_CLAIMED,
+            'lease_expires_at' => now()->addSeconds($leaseDurationSeconds),
+            'claimed_at' => now(),
+            'attempts' => $this->attempts + 1,
+        ]);
+    }
+
+    /**
+     * Mark this job as running.
+     */
+    public function markRunning(): void
+    {
+        $this->update([
+            'status' => self::STATUS_RUNNING,
+        ]);
+    }
+
+    /**
+     * Mark this job as completed.
+     */
+    public function markCompleted(): void
+    {
+        $this->update([
+            'status' => self::STATUS_COMPLETED,
+            'completed_at' => now(),
+            'lease_expires_at' => null,
+        ]);
+    }
+
+    /**
+     * Mark this job as failed.
+     */
+    public function markFailed(string $errorMessage): void
+    {
+        $this->update([
+            'status' => self::STATUS_FAILED,
+            'error_message' => $errorMessage,
+            'completed_at' => now(),
+            'lease_expires_at' => null,
+        ]);
+    }
+
+    /**
+     * Extend the lease on this job.
+     */
+    public function extendLease(int $leaseDurationSeconds = 300): void
+    {
+        $this->update([
+            'lease_expires_at' => now()->addSeconds($leaseDurationSeconds),
+        ]);
+    }
+
+    /**
+     * Check if the lease has expired.
+     */
+    public function isLeaseExpired(): bool
+    {
+        return $this->lease_expires_at !== null
+            && $this->lease_expires_at->isPast();
+    }
+}

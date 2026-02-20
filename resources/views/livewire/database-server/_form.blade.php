@@ -30,6 +30,18 @@ use App\Enums\DatabaseType;
                     :hint="__('Notes for your team about this server\'s purpose')"
                     rows="2"
                 />
+
+                @php $agentOptions = $form->getAgentOptions(); @endphp
+                @if(count($agentOptions) > 0)
+                    <x-select
+                        wire:model="form.agent_id"
+                        :label="__('Remote Agent')"
+                        :options="$agentOptions"
+                        :placeholder="__('None (backup from this server)')"
+                        placeholder-value=""
+                        :hint="__('Assign a remote agent to execute backups for this server')"
+                    />
+                @endif
             </div>
         </div>
     </div>

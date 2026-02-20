@@ -45,6 +45,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
         ]);
+        $middleware->alias([
+            'agent' => \App\Http\Middleware\EnsureAgentToken::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

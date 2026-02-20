@@ -28,3 +28,6 @@ Schedule::command('snapshots:cleanup')->cron(AppConfig::get('backup.cleanup_cron
 Schedule::command('snapshots:verify-files')
     ->cron(AppConfig::get('backup.verify_files_cron'))
     ->when(fn () => AppConfig::get('backup.verify_files'));
+
+// Recover expired agent job leases
+Schedule::command('agent:recover-leases')->everyMinute();

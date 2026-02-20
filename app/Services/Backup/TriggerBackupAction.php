@@ -3,14 +3,17 @@
 namespace App\Services\Backup;
 
 use App\Jobs\ProcessBackupJob;
+use App\Models\AgentJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Agent\AgentJobPayloadBuilder;
 use RuntimeException;
 
 class TriggerBackupAction
 {
     public function __construct(
-        private BackupJobFactory $backupJobFactory
+        private BackupJobFactory $backupJobFactory,
+        private AgentJobPayloadBuilder $payloadBuilder,
     ) {}
 
     /**
@@ -34,8 +37,10 @@ class TriggerBackupAction
             triggeredByUserId: $triggeredByUserId
         );
 
-        foreach ($snapshots as $snapshot) {
-            ProcessBackupJob::dispatch($snapshot->id);
+        if ($server->agent_id) {
+            $this->dispatchToAgent($snapshots);
+        } else {
+            $this->dispatchToQueue($snapshots);
         }
 
         $count = count($snapshots);
@@ -47,5 +52,33 @@ class TriggerBackupAction
             'snapshots' => $snapshots,
             'message' => $message,
         ];
+    }
+
+    /**
+     * Dispatch snapshots to the queue for local execution.
+     *
+     * @param  Snapshot[]  $snapshots
+     */
+    private function dispatchToQueue(array $snapshots): void
+    {
+        foreach ($snapshots as $snapshot) {
+            ProcessBackupJob::dispatch($snapshot->id);
+        }
+    }
+
+    /**
+     * Create AgentJob records for remote agent execution.
+     *
+     * @param  Snapshot[]  $snapshots
+     */
+    private function dispatchToAgent(array $snapshots): void
+    {
+        foreach ($snapshots as $snapshot) {
+            AgentJob::create([
+                'snapshot_id' => $snapshot->id,
+                'status' => AgentJob::STATUS_PENDING,
+                'payload' => $this->payloadBuilder->build($snapshot),
+            ]);
+        }
     }
 }

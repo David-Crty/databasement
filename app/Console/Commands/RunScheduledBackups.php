@@ -3,8 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Jobs\ProcessBackupJob;
+use App\Models\AgentJob;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
+use App\Services\Agent\AgentJobPayloadBuilder;
 use App\Services\Backup\BackupJobFactory;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -15,7 +17,7 @@ class RunScheduledBackups extends Command
 
     protected $description = 'Run scheduled backups for a given backup schedule';
 
-    public function handle(BackupJobFactory $backupJobFactory): int
+    public function handle(BackupJobFactory $backupJobFactory, AgentJobPayloadBuilder $payloadBuilder): int
     {
         $scheduleId = $this->argument('schedule');
 
@@ -44,7 +46,7 @@ class RunScheduledBackups extends Command
 
         foreach ($backups as $backup) {
             try {
-                $this->dispatch($backup, $backupJobFactory);
+                $this->dispatch($backup, $backupJobFactory, $payloadBuilder);
             } catch (\Throwable $e) {
                 $failedCount++;
                 Log::error("Failed to dispatch backup job for server [{$backup->databaseServer->name}]", [
@@ -62,7 +64,7 @@ class RunScheduledBackups extends Command
         return self::SUCCESS;
     }
 
-    private function dispatch(Backup $backup, BackupJobFactory $backupJobFactory): void
+    private function dispatch(Backup $backup, BackupJobFactory $backupJobFactory, AgentJobPayloadBuilder $payloadBuilder): void
     {
         $server = $backup->databaseServer;
 
@@ -72,11 +74,20 @@ class RunScheduledBackups extends Command
         );
 
         foreach ($snapshots as $snapshot) {
-            ProcessBackupJob::dispatch($snapshot->id);
+            if ($server->agent_id) {
+                AgentJob::create([
+                    'snapshot_id' => $snapshot->id,
+                    'status' => AgentJob::STATUS_PENDING,
+                    'payload' => $payloadBuilder->build($snapshot),
+                ]);
+            } else {
+                ProcessBackupJob::dispatch($snapshot->id);
+            }
         }
 
         $count = count($snapshots);
+        $via = $server->agent_id ? 'agent' : 'queue';
         $dbInfo = $count === 1 ? '1 database' : "{$count} databases";
-        $this->line("  → Dispatched backup for: {$server->name} ({$dbInfo})");
+        $this->line("  → Dispatched backup for: {$server->name} ({$dbInfo}) via {$via}");
     }
 }
