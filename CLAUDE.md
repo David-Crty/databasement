@@ -340,11 +340,23 @@ cat /tmp/_keys1.txt /tmp/_keys2.txt | sort -u
 2. Create `lang/{locale}.json` with translations (copy `lang/fr.json` as a template)
 3. All `__('...')` keys not present in the JSON file fall back to the key itself (English)
 
+#### Avoiding HTML Encoding Artifacts
+
+Blade's `{{ }}` runs `htmlspecialchars()`, which encodes certain ASCII characters into HTML entities. When these appear in translation values, they cause visible artifacts like `&#039;` in the UI. **Always use Unicode equivalents** in translation values instead of these ASCII characters:
+
+| ASCII | Encoded as | Use instead | Example |
+|-------|-----------|-------------|---------|
+| `'` (U+0027) | `&#039;` | `'` (U+2019, right single quotation mark) | French: `l'application` |
+| `"` (U+0022) | `&quot;` | `«»` (U+00AB/U+00BB) or `""` (U+201C/U+201D) | French: `« auto »`, German: `„Wert"` |
+| `&` (U+0026) | `&amp;` | Rephrase to avoid, or use `et`/`und`/`y`/etc. | |
+
+This mostly affects languages that use apostrophes heavily (French, Italian, Catalan, Irish) and languages with special quotation mark conventions (German, French, Polish, etc.).
+
 #### Updating an Existing Locale
 
 1. Run the extraction command above to find all translatable strings
 2. Compare against the existing `lang/{locale}.json` to find missing keys
-3. Add translations for any missing keys
+3. Add translations for any missing keys (using typographic apostrophes in values)
 
 ## Important Files
 
