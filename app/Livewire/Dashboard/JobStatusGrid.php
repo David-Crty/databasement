@@ -56,8 +56,8 @@ class JobStatusGrid extends Component
                 'restore.targetServer',
                 'restore.snapshot.databaseServer',
             ])
+            ->where('created_at', '>=', now()->subDays(30))
             ->latest('created_at')
-            ->limit(189)
             ->get();
 
         return view('livewire.dashboard.job-status-grid', [

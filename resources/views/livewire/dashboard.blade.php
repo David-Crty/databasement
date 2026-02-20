@@ -9,9 +9,6 @@
             <livewire:dashboard.success-rate-card />
         </div>
 
-        {{-- Job Status Grid --}}
-        <livewire:dashboard.job-status-grid />
-
         {{-- Jobs Activity Chart --}}
         <livewire:dashboard.jobs-activity-chart />
 
@@ -21,7 +18,7 @@
                 <livewire:dashboard.latest-jobs />
             </div>
             <div class="grid grid-rows-2 gap-6 h-full">
-                <livewire:dashboard.success-rate-chart />
+                <livewire:dashboard.job-status-grid />
                 <livewire:dashboard.storage-distribution-chart />
             </div>
         </div>
