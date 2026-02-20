@@ -364,11 +364,20 @@ This mostly affects languages that use apostrophes heavily (French, Italian, Cat
 <x-header :title="__('Appearance & Language')" />
 ```
 
+#### Technical Terms — Do Not Over-Translate
+
+Keep universally understood technical terms in English across all locales. Translating them produces verbose, unnatural text that can break UI layouts (especially in badges, table cells, and buttons).
+
+Terms that must stay in English: **Backup**, **Restore**, **Snapshot(s)**.
+
+These are standard industry jargon that developers worldwide understand regardless of language. For example, Spanish devs say "hacer un backup", not "hacer una copia de seguridad". When adding a new locale, keep these terms in English — both as standalone labels and within compound phrases (e.g., "archivo de backup", not "archivo de copia de seguridad").
+
 #### Updating an Existing Locale
 
 1. Run the extraction command above to find all translatable strings
 2. Compare against the existing `lang/{locale}.json` to find missing keys
 3. Add translations for any missing keys (using typographic apostrophes in values)
+4. Ensure technical terms listed in **Technical Terms — Do Not Over-Translate** above stay in English — both as standalone labels and within compound phrases
 
 ## Important Files
 
