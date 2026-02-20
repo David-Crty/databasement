@@ -23,7 +23,7 @@
             icon="o-check"
             spinner="save"
         >
-            {{ __($submitLabel) }}
+            {{ $submitLabel }}
         </x-button>
     </div>
 </x-form>

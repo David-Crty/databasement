@@ -45,9 +45,11 @@
                         {{ __('No agents found matching your search.') }}
                     @else
                         {{ __('No agents yet.') }}
-                        <a href="{{ route('agents.create') }}" class="link link-primary" wire:navigate>
-                            {{ __('Create your first one.') }}
-                        </a>
+                        @can('create', App\Models\Agent::class)
+                            <a href="{{ route('agents.create') }}" class="link link-primary" wire:navigate>
+                                {{ __('Create your first one.') }}
+                            </a>
+                        @endcan
                     @endif
                 </div>
             </x-slot:empty>

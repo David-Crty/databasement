@@ -116,7 +116,7 @@ describe('fail', function () {
         $this->client->fail('job-1', $longMessage);
 
         Http::assertSent(function ($request) {
-            return strlen($request['error_message']) <= 10003; // 10000 + '...'
+            return strlen($request['error_message']) <= 10000;
         });
     });
 });

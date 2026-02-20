@@ -32,7 +32,7 @@ use App\Enums\DatabaseType;
                 />
 
                 @php $agentOptions = $form->getAgentOptions(); @endphp
-                @if(count($agentOptions) > 0)
+                @if(count($agentOptions) > 0 || !empty($form->agent_id))
                     <x-select
                         wire:model="form.agent_id"
                         :label="__('Remote Agent')"

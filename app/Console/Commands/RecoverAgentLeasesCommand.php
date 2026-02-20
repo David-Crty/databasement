@@ -39,9 +39,11 @@ class RecoverAgentLeasesCommand extends Command
                 $resetCount++;
             } else {
                 // Max attempts reached — mark as failed
-                $job->markFailed("Max attempts ({$job->max_attempts}) exceeded with expired lease.");
+                $errorMessage = "Max attempts ({$job->max_attempts}) exceeded with expired lease.";
+                $job->markFailed($errorMessage);
+
                 $job->snapshot->job->markFailed(
-                    new RuntimeException("Agent job failed: max attempts ({$job->max_attempts}) exceeded with expired lease.")
+                    new RuntimeException("Agent job failed: {$errorMessage}")
                 );
                 $failedCount++;
             }

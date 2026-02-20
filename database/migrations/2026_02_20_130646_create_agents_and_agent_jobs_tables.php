@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -61,6 +62,11 @@ return new class extends Migration
 
         Schema::dropIfExists('agent_jobs');
         Schema::dropIfExists('agents');
+
+        // Delete agent-scoped tokens before changing column type to avoid ULID-to-integer coercion
+        DB::table('personal_access_tokens')
+            ->where('tokenable_type', 'App\\Models\\Agent')
+            ->delete();
 
         Schema::table('personal_access_tokens', function (Blueprint $table) {
             $table->unsignedBigInteger('tokenable_id')->change();

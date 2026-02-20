@@ -3,6 +3,7 @@
 namespace App\Livewire\Agent;
 
 use App\Models\Agent;
+use App\Queries\AgentQuery;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
@@ -103,10 +104,7 @@ class Index extends Component
             $query->where('name', 'like', "%{$this->search}%");
         }
 
-        $query->orderBy(
-            $this->sortBy['column'],
-            $this->sortBy['direction']
-        );
+        AgentQuery::applySort($query, $this->sortBy);
 
         return view('livewire.agent.index', [
             'agents' => $query->paginate(10),

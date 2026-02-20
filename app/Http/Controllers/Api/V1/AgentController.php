@@ -98,6 +98,10 @@ class AgentController extends Controller
             return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
         }
 
+        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
+            return response()->json(['message' => "Cannot heartbeat a job with status '{$agentJob->status}'."], 409);
+        }
+
         $validated = $request->validate([
             'logs' => 'nullable|array',
         ]);
@@ -129,6 +133,10 @@ class AgentController extends Controller
             return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
         }
 
+        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
+            return response()->json(['message' => "Cannot acknowledge a job with status '{$agentJob->status}'."], 409);
+        }
+
         $validated = $request->validate([
             'filename' => 'required|string|max:1000',
             'file_size' => 'required|integer|min:0',
@@ -152,8 +160,9 @@ class AgentController extends Controller
             ]);
         }
 
-        // Mark the agent job as completed
+        // Mark the agent job and backup job as completed
         $agentJob->markCompleted();
+        $backupJob->markCompleted();
 
         return response()->json(['status' => 'ok']);
     }
@@ -170,6 +179,10 @@ class AgentController extends Controller
 
         if ($agentJob->agent_id !== $agent->id) {
             return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
+        }
+
+        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
+            return response()->json(['message' => "Cannot fail a job with status '{$agentJob->status}'."], 409);
         }
 
         $validated = $request->validate([

@@ -141,6 +141,7 @@ class AgentRunCommand extends Command
         $volume = new Volume;
         $volume->type = $volumeConfig['type'];
         $volume->config = $volumeConfig['config'];
+        $volume->name = $volumeConfig['name'] ?? 'Remote Volume';
 
         return $volume;
     }

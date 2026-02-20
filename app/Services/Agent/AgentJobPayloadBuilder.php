@@ -55,6 +55,7 @@ class AgentJobPayloadBuilder
     {
         return [
             'type' => $volume->type,
+            'name' => $volume->name,
             'config' => $volume->getDecryptedConfig(),
         ];
     }

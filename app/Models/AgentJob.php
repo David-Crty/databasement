@@ -73,7 +73,7 @@ class AgentJob extends Model
     protected function casts(): array
     {
         return [
-            'payload' => 'array',
+            'payload' => 'encrypted:array',
             'logs' => 'array',
             'lease_expires_at' => 'datetime',
             'claimed_at' => 'datetime',

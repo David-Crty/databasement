@@ -11,7 +11,7 @@
         <x-card class="space-y-6">
             @include('livewire.agent._form', [
                 'form' => $form,
-                'submitLabel' => 'Update Agent',
+                'submitLabel' => __('Update Agent'),
             ])
         </x-card>
 

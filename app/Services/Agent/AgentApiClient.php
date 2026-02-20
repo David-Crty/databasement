@@ -15,7 +15,7 @@ class AgentApiClient
 
     public function heartbeat(): void
     {
-        $this->post('/agent/heartbeat');
+        $this->post('/agent/heartbeat')->throw();
     }
 
     /**
@@ -37,7 +37,7 @@ class AgentApiClient
      */
     public function jobHeartbeat(string $jobId, array $logs = []): void
     {
-        $this->post("/agent/jobs/{$jobId}/heartbeat", empty($logs) ? [] : ['logs' => $logs]);
+        $this->post("/agent/jobs/{$jobId}/heartbeat", empty($logs) ? [] : ['logs' => $logs])->throw();
     }
 
     /**
@@ -50,7 +50,7 @@ class AgentApiClient
             'file_size' => $fileSize,
             'checksum' => $checksum,
             'logs' => $logs,
-        ], 30);
+        ], 30)->throw();
     }
 
     /**
@@ -59,9 +59,9 @@ class AgentApiClient
     public function fail(string $jobId, string $errorMessage, array $logs = []): void
     {
         $this->post("/agent/jobs/{$jobId}/fail", [
-            'error_message' => Str::limit($errorMessage, 10000),
+            'error_message' => Str::limit($errorMessage, 10000, ''),
             'logs' => $logs,
-        ]);
+        ])->throw();
     }
 
     /**
