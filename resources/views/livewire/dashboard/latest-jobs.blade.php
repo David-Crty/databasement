@@ -1,4 +1,4 @@
-<div wire:poll.5s="fetchJobs" class="h-full">
+<div class="h-full">
     <x-card shadow class="h-full flex flex-col">
         <x-slot:title>
             <div class="flex items-center justify-between w-full">

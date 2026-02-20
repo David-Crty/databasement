@@ -1,4 +1,4 @@
-<x-card title="{{ __('Jobs Status') }}" subtitle="{{ __('Last 30 days') }}">
+<x-card title="{{ __('Jobs Status') }}" subtitle="{{ __(':count jobs in the last 30 days', ['count' => $jobs->count()]) }}">
     @if($jobs->isEmpty())
         <div class="text-center py-4 text-base-content/50 text-sm">
             {{ __('No jobs yet.') }}
@@ -22,11 +22,14 @@
                         $databaseName = $job->snapshot?->database_name
                             ?? $job->restore?->snapshot?->database_name
                             ?? '';
+
+                        $jobType = $job->snapshot ? __('Backup') : __('Restore');
                     @endphp
                     <button
                         wire:click="viewLogs('{{ $job->id }}')"
                         data-server="{{ $serverName }}"
                         data-database="{{ $databaseName }}"
+                        data-type="{{ $jobType }}"
                         data-status="{{ ucfirst($job->status) }}"
                         data-duration="{{ $job->getHumanDuration() ?? '' }}"
                         data-ago="{{ $job->created_at?->diffForHumans(short: true) ?? '' }}"
@@ -34,12 +37,7 @@
                         @mouseenter="
                             let rect = $el.getBoundingClientRect();
                             $dispatch('show-job-tooltip', {
-                                server: $el.dataset.server,
-                                database: $el.dataset.database,
-                                status: $el.dataset.status,
-                                duration: $el.dataset.duration,
-                                ago: $el.dataset.ago,
-                                date: $el.dataset.date,
+                                ...$el.dataset,
                                 x: rect.left + rect.width / 2,
                                 y: rect.top,
                             })
@@ -53,8 +51,8 @@
 
         {{-- Shared popover --}}
         <div
-            x-data="{ show: false, server: '', database: '', status: '', duration: '', ago: '', date: '', x: 0, y: 0 }"
-            x-on:show-job-tooltip.window="show = true; server = $event.detail.server; database = $event.detail.database; status = $event.detail.status; duration = $event.detail.duration; ago = $event.detail.ago; date = $event.detail.date; x = $event.detail.x; y = $event.detail.y"
+            x-data="{ show: false, server: '', database: '', type: '', status: '', duration: '', ago: '', date: '', x: 0, y: 0 }"
+            x-on:show-job-tooltip.window="show = true; server = $event.detail.server; database = $event.detail.database; type = $event.detail.type; status = $event.detail.status; duration = $event.detail.duration; ago = $event.detail.ago; date = $event.detail.date; x = $event.detail.x; y = $event.detail.y"
             x-on:hide-job-tooltip.window="show = false"
         >
             <div
@@ -63,12 +61,12 @@
                 class="fixed z-50 pointer-events-none bg-base-300 text-base-content text-xs rounded-lg px-3 py-2 shadow-lg whitespace-nowrap -translate-x-1/2 -translate-y-full"
                 :style="`left: ${x}px; top: ${y - 6}px;`"
             >
-                <div class="font-semibold" x-text="database ? server + ' / ' + database : server"></div>
+                <div class="font-semibold" x-text="database ? server + ' | ' + database : server"></div>
                 <div class="text-base-content/70">
-                    <span x-text="status"></span>
-                    <span x-show="duration"> &mdash; <span x-text="duration"></span></span>
+                    <span x-text="type"></span> | <span x-text="status"></span>
+                    <span x-show="duration"> | <span x-text="duration"></span></span>
                 </div>
-                <div class="text-base-content/50" x-show="ago" x-text="ago + ' &mdash; ' + date"></div>
+                <div class="text-base-content/50" x-show="ago" x-text="ago + ' | ' + date"></div>
             </div>
         </div>
     @endif

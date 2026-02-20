@@ -1,4 +1,4 @@
-<div class="dashboard">
+<div class="dashboard" wire:poll.10s="poll">
     <x-header title="{{ __('Dashboard') }}" separator />
 
     <div class="flex flex-col gap-6">

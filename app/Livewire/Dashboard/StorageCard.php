@@ -6,6 +6,7 @@ use App\Models\Snapshot;
 use App\Support\Formatters;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Lazy;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 #[Lazy]
@@ -13,6 +14,7 @@ class StorageCard extends Component
 {
     public string $totalStorage = '0 B';
 
+    #[On('refresh-dashboard')]
     public function mount(): void
     {
         $totalBytes = Snapshot::whereRelation('job', 'status', 'completed')->sum('file_size');

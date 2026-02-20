@@ -9,6 +9,11 @@ use Livewire\Component;
 #[Title('Dashboard')]
 class Dashboard extends Component
 {
+    public function poll(): void
+    {
+        $this->dispatch('refresh-dashboard');
+    }
+
     public function render(): View
     {
         return view('livewire.dashboard');
