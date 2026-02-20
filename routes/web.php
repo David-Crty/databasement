@@ -89,8 +89,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('profile.edit');
     Route::livewire('settings/password', \App\Livewire\Settings\Password::class)
         ->name('user-password.edit');
-    Route::livewire('settings/appearance', \App\Livewire\Settings\Appearance::class)
-        ->name('appearance.edit');
+    Route::livewire('settings/preferences', \App\Livewire\Settings\Preferences::class)
+        ->name('preferences.edit');
 
     Route::livewire('settings/two-factor', \App\Livewire\Settings\TwoFactor::class)
         ->middleware(

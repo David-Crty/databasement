@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="{{ request()->cookie('theme', 'dark') }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
@@ -8,20 +8,6 @@
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}/">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script>
-        function applyTheme() {
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme) {
-                document.documentElement.setAttribute('data-theme', savedTheme);
-            }
-        }
-
-        applyTheme();
-        document.addEventListener('livewire:navigated', () => {
-            applyTheme();
-            console.log('theme changed');
-        });
-    </script>
 </head>
 <body class="min-h-screen font-sans antialiased bg-base-200">
 
@@ -63,7 +49,7 @@
             @if($user = auth()->user())
                 <x-menu activate-by-route class="mt-auto" title="">
                     <x-menu-sub title="{{ $user->name }}"  icon="o-user">
-                        <x-menu-item title="{{ __('Appearance') }}" icon="o-paint-brush" link="{{ route('appearance.edit') }}" wire:navigate />
+                        <x-menu-item title="{{ __('Preferences') }}" icon="o-paint-brush" link="{{ route('preferences.edit') }}" wire:navigate />
                         @unless($user->isDemo())
                             <x-menu-item title="{{ __('Profile') }}" icon="o-user" link="{{ route('profile.edit') }}" wire:navigate />
                             @unless($user->isOAuthOnly())

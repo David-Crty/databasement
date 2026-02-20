@@ -178,9 +178,9 @@ test('demo user cannot access api tokens settings', function () {
         ->assertForbidden();
 });
 
-test('demo user can access appearance settings', function () {
+test('demo user can access preferences settings', function () {
     $this->actingAs($this->demoUser)
-        ->get(route('appearance.edit'))
+        ->get(route('preferences.edit'))
         ->assertOk();
 });
 

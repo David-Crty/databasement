@@ -1,18 +1,33 @@
 <div x-data="{
-    currentTheme: localStorage.getItem('theme') || 'dark',
+    currentTheme: @js($theme),
     setTheme(theme) {
         this.currentTheme = theme;
-        localStorage.setItem('theme', theme);
         document.documentElement.setAttribute('data-theme', theme);
+        $wire.setTheme(theme);
     },
     isActive(theme) {
         return this.currentTheme === theme;
     }
-}" x-init="setTheme(currentTheme)">
+}">
     <div class="mx-auto max-w-7xl">
-        <x-header title="{{ __('Appearance') }}" subtitle="{{ __('Choose your preferred theme') }}" size="text-2xl" separator class="mb-6" />
+        <x-header title="{{ __('Appearance & Language') }}" subtitle="{{ __('Customize your display and language preferences') }}" size="text-2xl" separator class="mb-6" />
 
-        <x-card>
+        <x-card title="{{ __('Language') }}" subtitle="{{ __('Choose your preferred language') }}" class="mb-6">
+            <div class="flex flex-wrap gap-3">
+                @foreach($availableLocales as $code => $label)
+                    <button
+                        wire:click="setLocale('{{ $code }}')"
+                        wire:key="locale-{{ $code }}"
+                        aria-pressed="{{ $locale === $code ? 'true' : 'false' }}"
+                        class="btn {{ $locale === $code ? 'btn-primary' : 'btn-outline' }}"
+                    >
+                        {{ $label }}
+                    </button>
+                @endforeach
+            </div>
+        </x-card>
+
+        <x-card title="{{ __('Theme') }}" subtitle="{{ __('Choose your preferred theme') }}" class="mb-6">
             <div class="rounded-box grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                 @foreach([
                     'dark', 'light', 'cupcake', 'bumblebee', 'emerald', 'corporate', 'synthwave', 'retro',

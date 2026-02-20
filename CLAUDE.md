@@ -318,6 +318,31 @@ For new index pages (listing resources with tables, search, filters), follow the
 
 Use Mary UI's `<x-table>` component with `@scope` directives for cell rendering.
 
+### Localization
+
+The app uses Laravel's JSON translation files with the `__('...')` helper. Translations live in `lang/{locale}.json`. Available locales are defined in `config/app.php` under `available_locales`. The `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
+
+#### Extracting Translation Strings
+
+To find all translatable strings in the codebase:
+
+```bash
+# Extract all __('...') calls from PHP and Blade files
+grep -rhoP "__\(\s*'[^']+'" app/ resources/ --include='*.php' --include='*.blade.php' | sed "s/__(\s*'//" | sed "s/'$//" | sort -u
+```
+
+#### Adding a New Locale
+
+1. Add the locale to `config/app.php` in the `available_locales` array (key = locale code, value = display label)
+2. Create `lang/{locale}.json` with translations (copy `lang/fr.json` as a template)
+3. All `__('...')` keys not present in the JSON file fall back to the key itself (English)
+
+#### Updating an Existing Locale
+
+1. Run the extraction command above to find all translatable strings
+2. Compare against the existing `lang/{locale}.json` to find missing keys
+3. Add translations for any missing keys
+
 ## Important Files
 
 - `.env.example` - Environment template (copy to `.env`)
