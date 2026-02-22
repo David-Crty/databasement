@@ -4,6 +4,7 @@ namespace App\Services\Backup\Databases;
 
 use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
+use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\Filesystems\SftpFilesystem;
 use App\Services\SshTunnelService;
 
@@ -80,6 +81,47 @@ class DatabaseProvider
         }
 
         return $this->makeConfigured($server->database_type, $config);
+    }
+
+    /**
+     * Create a configured database interface from a DatabaseConnectionConfig DTO.
+     *
+     * Host and port are passed explicitly to support SSH tunnel overrides.
+     */
+    public function makeFromConfig(
+        DatabaseConnectionConfig $config,
+        string $databaseName,
+        string $host,
+        int $port,
+        ?string $sourceDatabaseName = null,
+    ): DatabaseInterface {
+        if ($config->databaseType === DatabaseType::SQLITE) {
+            $dbConfig = ['sqlite_path' => $databaseName];
+
+            if ($config->sshConfig !== null) {
+                $dbConfig['ssh_config_array'] = $config->sshConfig;
+            }
+        } else {
+            $dbConfig = [
+                'host' => $host,
+                'port' => $port,
+                'user' => $config->username,
+                'pass' => $config->password,
+            ];
+
+            if ($config->databaseType !== DatabaseType::REDIS) {
+                $dbConfig['database'] = $databaseName;
+            }
+
+            if ($config->databaseType === DatabaseType::MONGODB) {
+                $dbConfig['auth_source'] = $config->extraConfig['auth_source'] ?? 'admin';
+                if ($sourceDatabaseName !== null) {
+                    $dbConfig['source_database'] = $sourceDatabaseName;
+                }
+            }
+        }
+
+        return $this->makeConfigured($config->databaseType, $dbConfig);
     }
 
     /**

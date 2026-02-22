@@ -1,7 +1,7 @@
 <?php
 
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Databases\MongodbDatabase;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use MongoDB\Driver\Exception\ConnectionTimeoutException;
 
 beforeEach(function () {

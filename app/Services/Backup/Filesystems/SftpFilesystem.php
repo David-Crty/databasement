@@ -42,15 +42,23 @@ class SftpFilesystem implements FilesystemInterface
      */
     public function getFromSshConfig(DatabaseServerSshConfig $sshConfig, string $root = '/'): Filesystem
     {
-        $decrypted = $sshConfig->getDecrypted();
+        return $this->getFromDecryptedConfig($sshConfig->getDecrypted(), $root);
+    }
 
+    /**
+     * Build a Flysystem Filesystem from a decrypted SSH config array.
+     *
+     * @param  array<string, mixed>  $decryptedConfig  Decrypted SSH config (host, port, username, password, private_key, key_passphrase)
+     */
+    public function getFromDecryptedConfig(array $decryptedConfig, string $root = '/'): Filesystem
+    {
         return $this->get([
-            'host' => $decrypted['host'],
-            'port' => $decrypted['port'],
-            'username' => $decrypted['username'],
-            'password' => $decrypted['password'],
-            'private_key' => $decrypted['private_key'],
-            'key_passphrase' => $decrypted['key_passphrase'],
+            'host' => $decryptedConfig['host'],
+            'port' => $decryptedConfig['port'],
+            'username' => $decryptedConfig['username'],
+            'password' => $decryptedConfig['password'] ?? null,
+            'private_key' => $decryptedConfig['private_key'] ?? null,
+            'key_passphrase' => $decryptedConfig['key_passphrase'] ?? null,
             'root' => $root,
         ]);
     }

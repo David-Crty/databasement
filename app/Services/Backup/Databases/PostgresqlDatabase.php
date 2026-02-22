@@ -2,9 +2,9 @@
 
 namespace App\Services\Backup\Databases;
 
+use App\Contracts\BackupLogger;
 use App\Exceptions\Backup\ConnectionException;
-use App\Models\BackupJob;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
@@ -64,7 +64,7 @@ class PostgresqlDatabase implements DatabaseInterface
         ));
     }
 
-    public function prepareForRestore(string $schemaName, BackupJob $job): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
     {
         try {
             $pdo = $this->createPdo();
@@ -77,20 +77,20 @@ class PostgresqlDatabase implements DatabaseInterface
             $exists = $stmt->fetchColumn();
 
             if ($exists) {
-                $job->log('Database exists, terminating existing connections', 'info');
+                $logger->log('Database exists, terminating existing connections', 'info');
 
                 $terminateCommand = 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()';
-                $job->logCommand($terminateCommand, null, 0);
+                $logger->logCommand($terminateCommand, null, 0);
                 $terminateStmt = $pdo->prepare($terminateCommand);
                 $terminateStmt->execute([$schemaName]);
 
                 $dropCommand = "DROP DATABASE IF EXISTS \"{$safeIdentifier}\"";
-                $job->logCommand($dropCommand, null, 0);
+                $logger->logCommand($dropCommand, null, 0);
                 $pdo->exec($dropCommand);
             }
 
             $createCommand = "CREATE DATABASE \"{$safeIdentifier}\"";
-            $job->logCommand($createCommand, null, 0);
+            $logger->logCommand($createCommand, null, 0);
             $pdo->exec($createCommand);
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);

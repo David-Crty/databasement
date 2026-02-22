@@ -3,10 +3,11 @@
 namespace App\Console\Commands;
 
 use App\Enums\CompressionType;
-use App\Models\DatabaseServer;
-use App\Models\Volume;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Backup\BackupTask;
+use App\Services\Backup\DTO\BackupConfig;
+use App\Services\Backup\DTO\DatabaseConnectionConfig;
+use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\InMemoryBackupLogger;
 use Illuminate\Console\Command;
 
@@ -81,23 +82,25 @@ class AgentRunCommand extends Command
         $this->info("Processing job {$job['id']}: {$payload['server_name']} / {$dbConfig['database_name']}");
 
         $logger = new InMemoryBackupLogger;
-        $server = $this->buildTempServer($dbConfig, $payload['server_name']);
-        $volume = $this->buildTempVolume($payload['volume']);
         $workingDirectory = sys_get_temp_dir().'/agent-backup-'.$job['id'];
         mkdir($workingDirectory, 0755, true);
 
         try {
             $logger->log("Starting backup for database: {$dbConfig['database_name']}", 'info');
 
-            $result = $backupTask->execute(
-                server: $server,
+            $config = new BackupConfig(
+                database: DatabaseConnectionConfig::fromPayload($dbConfig, $payload['server_name']),
+                volume: VolumeConfig::fromPayload($payload['volume']),
                 databaseName: $dbConfig['database_name'],
-                volume: $volume,
-                logger: $logger,
                 workingDirectory: $workingDirectory,
                 backupPath: $payload['backup_path'] ?? '',
                 compressionType: CompressionType::from($payload['compression']['type']),
                 compressionLevel: $payload['compression']['level'] ?? null,
+            );
+
+            $result = $backupTask->execute(
+                $config,
+                $logger,
                 onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
             );
 
@@ -108,41 +111,5 @@ class AgentRunCommand extends Command
             $this->error("  Job failed: {$e->getMessage()}");
             $client->fail($job['id'], $e->getMessage(), $logger->flush());
         }
-    }
-
-    /**
-     * Build a temporary DatabaseServer from payload config.
-     *
-     * @param  array<string, mixed>  $dbConfig
-     */
-    private function buildTempServer(array $dbConfig, string $name): DatabaseServer
-    {
-        $server = DatabaseServer::forConnectionTest([
-            'database_type' => $dbConfig['type'],
-            'host' => $dbConfig['host'],
-            'port' => $dbConfig['port'],
-            'username' => $dbConfig['username'],
-            'password' => $dbConfig['password'],
-            'database_names' => [$dbConfig['database_name']],
-            'extra_config' => $dbConfig['extra_config'] ?? null,
-        ]);
-        $server->name = $name;
-
-        return $server;
-    }
-
-    /**
-     * Build a temporary Volume from payload config.
-     *
-     * @param  array<string, mixed>  $volumeConfig
-     */
-    private function buildTempVolume(array $volumeConfig): Volume
-    {
-        $volume = new Volume;
-        $volume->type = $volumeConfig['type'];
-        $volume->config = $volumeConfig['config'];
-        $volume->name = $volumeConfig['name'] ?? 'Remote Volume';
-
-        return $volume;
     }
 }

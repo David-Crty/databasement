@@ -5,6 +5,7 @@ namespace App\Services\Backup\Filesystems;
 use App\Exceptions\Backup\FilesystemException;
 use App\Models\Snapshot;
 use App\Models\Volume;
+use App\Services\Backup\DTO\VolumeConfig;
 use League\Flysystem\Filesystem;
 
 class FilesystemProvider
@@ -81,6 +82,43 @@ class FilesystemProvider
     public function transfer(Volume $volume, string $source, string $destination): void
     {
         $filesystem = $this->getForVolume($volume);
+        $this->writeToFilesystem($filesystem, $source, $destination);
+    }
+
+    public function download(Snapshot $snapshot, string $destination): void
+    {
+        $filesystem = $this->getForVolume($snapshot->volume);
+        $this->readFromFilesystem($filesystem, $snapshot->filename, $destination);
+    }
+
+    /**
+     * Get a filesystem instance for a VolumeConfig DTO (config already decrypted).
+     */
+    public function getForVolumeConfig(VolumeConfig $config): Filesystem
+    {
+        foreach ($this->filesystems as $filesystem) {
+            if ($filesystem->handles($config->type)) {
+                return $filesystem->get($config->config);
+            }
+        }
+
+        throw new FilesystemException("The requested filesystem type {$config->type} is not currently supported.");
+    }
+
+    public function transferFromConfig(VolumeConfig $config, string $source, string $destination): void
+    {
+        $filesystem = $this->getForVolumeConfig($config);
+        $this->writeToFilesystem($filesystem, $source, $destination);
+    }
+
+    public function downloadFromConfig(VolumeConfig $config, string $remoteFilename, string $destination): void
+    {
+        $filesystem = $this->getForVolumeConfig($config);
+        $this->readFromFilesystem($filesystem, $remoteFilename, $destination);
+    }
+
+    private function writeToFilesystem(Filesystem $filesystem, string $source, string $destination): void
+    {
         $stream = fopen($source, 'r');
         if ($stream === false) {
             throw new FilesystemException("Failed to open file: {$source}");
@@ -95,11 +133,9 @@ class FilesystemProvider
         }
     }
 
-    public function download(Snapshot $snapshot, string $destination): void
+    private function readFromFilesystem(Filesystem $filesystem, string $remoteFilename, string $destination): void
     {
-        $filesystem = $this->getForVolume($snapshot->volume);
-        // Use the filename directly
-        $stream = $filesystem->readStream($snapshot->filename);
+        $stream = $filesystem->readStream($remoteFilename);
         $localStream = fopen($destination, 'w');
 
         if ($localStream === false) {

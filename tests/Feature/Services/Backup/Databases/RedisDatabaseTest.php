@@ -1,8 +1,8 @@
 <?php
 
 use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Databases\RedisDatabase;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {

@@ -9,6 +9,8 @@
 
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
+use App\Jobs\ProcessBackupJob;
+use App\Jobs\ProcessRestoreJob;
 use App\Models\Backup;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
@@ -18,8 +20,6 @@ use App\Services\Backup\RestoreTask;
 use Tests\Support\IntegrationTestHelpers;
 
 beforeEach(function () {
-    $this->backupTask = app(BackupTask::class);
-    $this->restoreTask = app(RestoreTask::class);
     $this->backupJobFactory = app(BackupJobFactory::class);
     $this->filesystemProvider = app(FilesystemProvider::class);
 
@@ -56,8 +56,6 @@ test('client-server database backup and restore workflow', function (string $typ
     app()->forgetInstance(CompressorInterface::class);
     app()->forgetInstance(BackupTask::class);
     app()->forgetInstance(RestoreTask::class);
-    $this->backupTask = app(BackupTask::class);
-    $this->restoreTask = app(RestoreTask::class);
 
     // Create models
     $this->volume = IntegrationTestHelpers::createVolume($type);
@@ -74,7 +72,7 @@ test('client-server database backup and restore workflow', function (string $typ
         method: 'manual',
     );
     $this->snapshot = $snapshots[0];
-    $this->backupTask->run($this->snapshot);
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
@@ -94,7 +92,7 @@ test('client-server database backup and restore workflow', function (string $typ
         targetServer: $this->databaseServer,
         schemaName: $this->restoredDatabaseName,
     );
-    $this->restoreTask->run($restore);
+    ProcessRestoreJob::dispatchSync($restore->id);
 
     // Verify restore
     $pdo = IntegrationTestHelpers::connectToDatabase($type, $this->databaseServer, $this->restoredDatabaseName);
@@ -180,7 +178,7 @@ test('sqlite backup and restore workflow', function () {
         triggeredByUserId: null
     );
     $this->snapshot = $snapshots[0];
-    $this->backupTask->run($this->snapshot);
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
@@ -206,7 +204,7 @@ test('sqlite backup and restore workflow', function () {
         targetServer: $targetServer,
         schemaName: $restoredSqlitePath,
     );
-    $this->restoreTask->run($restore);
+    ProcessRestoreJob::dispatchSync($restore->id);
 
     // Verify restore - check that the restored database has the test data
     $pdo = new PDO("sqlite:{$restoredSqlitePath}");
@@ -233,7 +231,7 @@ test('mongodb backup and restore workflow', function () {
         method: 'manual',
     );
     $this->snapshot = $snapshots[0];
-    $this->backupTask->run($this->snapshot);
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
@@ -252,7 +250,7 @@ test('mongodb backup and restore workflow', function () {
         targetServer: $this->databaseServer,
         schemaName: $this->restoredDatabaseName,
     );
-    $this->restoreTask->run($restore);
+    ProcessRestoreJob::dispatchSync($restore->id);
 
     // Verify restore — check that collections exist in the restored database
     $collectionCount = IntegrationTestHelpers::verifyMongodbRestore($this->databaseServer, $this->restoredDatabaseName);
@@ -275,7 +273,7 @@ test('redis backup workflow', function () {
         method: 'manual',
     );
     $this->snapshot = $snapshots[0];
-    $this->backupTask->run($this->snapshot);
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 

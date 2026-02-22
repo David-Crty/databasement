@@ -2,8 +2,8 @@
 
 namespace App\Services\Backup\Databases;
 
-use App\Models\BackupJob;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
+use App\Contracts\BackupLogger;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 
 interface DatabaseInterface
 {
@@ -25,7 +25,7 @@ interface DatabaseInterface
     /**
      * Prepare the target database for restore (e.g. drop and recreate).
      */
-    public function prepareForRestore(string $schemaName, BackupJob $job): void;
+    public function prepareForRestore(string $schemaName, BackupLogger $logger): void;
 
     /**
      * List available databases on the server.

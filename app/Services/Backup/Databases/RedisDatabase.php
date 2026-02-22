@@ -2,9 +2,9 @@
 
 namespace App\Services\Backup\Databases;
 
+use App\Contracts\BackupLogger;
 use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
-use App\Models\BackupJob;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
@@ -40,7 +40,7 @@ class RedisDatabase implements DatabaseInterface
         throw new UnsupportedDatabaseTypeException('redis');
     }
 
-    public function prepareForRestore(string $schemaName, BackupJob $job): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
     {
         throw new UnsupportedDatabaseTypeException('redis');
     }
