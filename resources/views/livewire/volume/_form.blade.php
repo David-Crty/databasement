@@ -52,17 +52,15 @@ use App\Enums\VolumeType;
         <h3 class="text-lg font-semibold">{{ __('Configuration') }}</h3>
 
         @php
-            $configType = VolumeType::from($form->type);
-            $configProperty = $configType->configPropertyName();
+            $configPrefix = 'form.' . VolumeType::from($form->type)->configPropertyName();
+            $isEditing = $form->volume !== null;
         @endphp
 
-        <livewire:dynamic-component
-            :component="'volume.connectors.' . $form->type . '-config'"
-            :wire:model="'form.' . $configProperty"
-            :readonly="$readonly"
-            :is-editing="$form->volume !== null"
-            :wire:key="$form->type . '-config'"
-        />
+        @include('livewire.volume.connectors.' . $form->type . '-config', [
+            'configPrefix' => $configPrefix,
+            'readonly' => $readonly,
+            'isEditing' => $isEditing,
+        ])
 
         <!-- Test Connection Button -->
         <div class="pt-2">

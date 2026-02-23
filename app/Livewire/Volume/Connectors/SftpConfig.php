@@ -33,9 +33,4 @@ class SftpConfig extends BaseConfig
             "{$prefix}.timeout" => ['nullable', 'integer', 'min:1', 'max:300'],
         ];
     }
-
-    protected function viewName(): string
-    {
-        return 'livewire.volume.connectors.sftp-config';
-    }
 }

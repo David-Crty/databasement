@@ -25,9 +25,4 @@ class LocalConfig extends BaseConfig
             "{$prefix}.path" => ['required_if:type,local', 'string', 'max:500', new SafePath(allowAbsolute: true)],
         ];
     }
-
-    protected function viewName(): string
-    {
-        return 'livewire.volume.connectors.local-config';
-    }
 }

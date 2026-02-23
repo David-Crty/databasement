@@ -1,7 +1,7 @@
 <div class="space-y-4">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <x-input
-            wire:model="config.host"
+            wire:model="{{ $configPrefix }}.host"
             label="{{ __('Host') }}"
             placeholder="{{ __('e.g., ftp.example.com') }}"
             type="text"
@@ -10,7 +10,7 @@
         />
 
         <x-input
-            wire:model="config.port"
+            wire:model="{{ $configPrefix }}.port"
             label="{{ __('Port') }}"
             placeholder="21"
             type="number"
@@ -20,7 +20,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <x-input
-            wire:model="config.username"
+            wire:model="{{ $configPrefix }}.username"
             label="{{ __('Username') }}"
             placeholder="{{ __('e.g., backup-user') }}"
             type="text"
@@ -29,7 +29,7 @@
         />
 
         <x-password
-            wire:model="config.password"
+            wire:model="{{ $configPrefix }}.password"
             label="{{ __('Password') }}"
             placeholder="{{ $isEditing ? __('Leave blank to keep current') : '' }}"
             :disabled="$readonly"
@@ -38,7 +38,7 @@
     </div>
 
     <x-input
-        wire:model="config.root"
+        wire:model="{{ $configPrefix }}.root"
         label="{{ __('Root Directory') }}"
         placeholder="{{ __('e.g., /backups') }}"
         type="text"
@@ -47,20 +47,20 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <x-checkbox
-            wire:model="config.ssl"
+            wire:model="{{ $configPrefix }}.ssl"
             label="{{ __('Use SSL/TLS (FTPS)') }}"
             :disabled="$readonly"
         />
 
         <x-checkbox
-            wire:model="config.passive"
+            wire:model="{{ $configPrefix }}.passive"
             label="{{ __('Passive Mode') }}"
             :disabled="$readonly"
         />
     </div>
 
     <x-input
-        wire:model="config.timeout"
+        wire:model="{{ $configPrefix }}.timeout"
         label="{{ __('Connection Timeout (seconds)') }}"
         placeholder="90"
         type="number"

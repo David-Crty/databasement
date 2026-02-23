@@ -92,7 +92,7 @@ class Awss3Filesystem implements FilesystemInterface
 
         // Use IAM role assumption if role_arn is configured
         if (! empty($config['custom_role_arn'])) {
-            $clientConfig['credentials'] = $this->createCustomAssumeRoleCredentials($config);
+            $clientConfig['credentials'] = CredentialProvider::memoize($this->createCustomAssumeRoleCredentials($config));
         } elseif (! empty($config['access_key_id']) && ! empty($config['secret_access_key'])) {
             // Use explicit credentials when configured (e.g., for testing or non-AWS environments)
             $clientConfig['credentials'] = [
@@ -119,12 +119,19 @@ class Awss3Filesystem implements FilesystemInterface
      *
      * @param  array<string, mixed>  $config
      */
-    private function createCustomAssumeRoleCredentials(array $config): callable
+    protected function createCustomAssumeRoleCredentials(array $config): AssumeRoleCredentialProvider
     {
         $stsConfig = [
             'version' => 'latest',
             'region' => $config['region'] ?? 'us-east-1',
         ];
+
+        if (! empty($config['access_key_id']) && ! empty($config['secret_access_key'])) {
+            $stsConfig['credentials'] = [
+                'key' => $config['access_key_id'],
+                'secret' => $config['secret_access_key'],
+            ];
+        }
 
         if (! empty($config['sts_endpoint'])) {
             $stsConfig['endpoint'] = $config['sts_endpoint'];
@@ -132,14 +139,12 @@ class Awss3Filesystem implements FilesystemInterface
 
         $stsClient = new StsClient($stsConfig);
 
-        $assumeRoleProvider = new AssumeRoleCredentialProvider([
+        return new AssumeRoleCredentialProvider([
             'client' => $stsClient,
             'assume_role_params' => [
                 'RoleArn' => $config['custom_role_arn'],
                 'RoleSessionName' => $config['role_session_name'] ?? 'databasement',
             ],
         ]);
-
-        return CredentialProvider::memoize($assumeRoleProvider);
     }
 }

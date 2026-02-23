@@ -103,7 +103,7 @@ The password is encrypted at rest in the database using Laravel's encryption. It
 Before saving a volume, use the **Test Connection** button to verify:
 - The storage location is accessible
 - Write permissions are configured correctly
-- Credentials are valid (for SFTP/FTP)
+- Credentials are valid (for S3/SFTP/FTP)
 
 The test creates a small temporary file, reads it back to verify integrity, then deletes it.
 

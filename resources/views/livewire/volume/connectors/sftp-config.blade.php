@@ -1,7 +1,7 @@
 <div class="space-y-4">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <x-input
-            wire:model="config.host"
+            wire:model="{{ $configPrefix }}.host"
             label="{{ __('Host') }}"
             placeholder="{{ __('e.g., sftp.example.com') }}"
             type="text"
@@ -10,7 +10,7 @@
         />
 
         <x-input
-            wire:model="config.port"
+            wire:model="{{ $configPrefix }}.port"
             label="{{ __('Port') }}"
             placeholder="22"
             type="number"
@@ -20,7 +20,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <x-input
-            wire:model="config.username"
+            wire:model="{{ $configPrefix }}.username"
             label="{{ __('Username') }}"
             placeholder="{{ __('e.g., backup-user') }}"
             type="text"
@@ -29,7 +29,7 @@
         />
 
         <x-password
-            wire:model="config.password"
+            wire:model="{{ $configPrefix }}.password"
             label="{{ __('Password') }}"
             placeholder="{{ $isEditing ? __('Leave blank to keep current') : '' }}"
             :disabled="$readonly"
@@ -38,7 +38,7 @@
     </div>
 
     <x-input
-        wire:model="config.root"
+        wire:model="{{ $configPrefix }}.root"
         label="{{ __('Root Directory') }}"
         placeholder="{{ __('e.g., /home/backup-user/backups') }}"
         type="text"
@@ -46,7 +46,7 @@
     />
 
     <x-input
-        wire:model="config.timeout"
+        wire:model="{{ $configPrefix }}.timeout"
         label="{{ __('Connection Timeout (seconds)') }}"
         placeholder="10"
         type="number"

@@ -1,6 +1,6 @@
 <div class="space-y-4">
     <x-input
-        wire:model="config.path"
+        wire:model="{{ $configPrefix }}.path"
         label="{{ __('Path') }}"
         placeholder="{{ __('e.g., /var/backups or /mnt/backup-storage') }}"
         type="text"
