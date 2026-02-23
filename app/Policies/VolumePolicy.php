@@ -36,11 +36,11 @@ class VolumePolicy
 
     /**
      * Determine whether the user can update the model.
-     * Viewers cannot update.
+     * Viewers and demo users cannot update.
      */
     public function update(User $user, Volume $volume): bool
     {
-        return $user->canPerformActions();
+        return $user->canPerformActions() && ! $user->isDemo();
     }
 
     /**
