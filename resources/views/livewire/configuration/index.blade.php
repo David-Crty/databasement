@@ -20,6 +20,18 @@
         />
     </div>
 
+    @if($showDeprecatedBackupEnv)
+        <x-alert class="alert-warning mb-2" icon="o-exclamation-triangle" dismissible>
+            {{ __('Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.') }}
+        </x-alert>
+    @endif
+
+    @if($showDeprecatedNotificationEnv)
+        <x-alert class="alert-warning mb-2" icon="o-exclamation-triangle" dismissible>
+            {{ __('Deprecated NOTIFICATION_* environment variables detected. Notification settings are now configured in the UI. You can safely remove NOTIFICATION_* variables from your environment.') }}
+        </x-alert>
+    @endif
+
     <div class="grid gap-6">
         <!-- Application Configuration (read-only) -->
         <x-card title="{{ __('Application') }}" subtitle="{{ __('General application settings (read-only).') }}" shadow class="min-w-0">

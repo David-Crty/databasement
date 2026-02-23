@@ -16,6 +16,7 @@ use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
@@ -83,6 +84,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->warnDeprecatedEnvVars();
         $this->registerNotificationServiceConfigs();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
@@ -93,6 +95,25 @@ class AppServiceProvider extends ServiceProvider
                     SecurityScheme::http('bearer')
                 );
             });
+    }
+
+    /**
+     * Log deprecation warnings for environment variables that have been
+     * replaced by in-app configuration (volumes, backup, notifications).
+     */
+    private function warnDeprecatedEnvVars(): void
+    {
+        if (config('app.has_deprecated_aws_env')) {
+            Log::warning('Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.');
+        }
+
+        if (config('app.has_deprecated_backup_env')) {
+            Log::warning('Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.');
+        }
+
+        if (config('app.has_deprecated_notification_env')) {
+            Log::warning('Deprecated NOTIFICATION_* environment variables detected. Notification settings are now configured in the UI. You can safely remove NOTIFICATION_* variables from your environment.');
+        }
     }
 
     /**

@@ -387,6 +387,8 @@ class Index extends Component
             'compressionOptions' => $this->getCompressionOptions(),
             'channelOptions' => $this->getChannelOptions(),
             'backupSchedules' => $this->backupSchedules(),
+            'showDeprecatedBackupEnv' => config('app.has_deprecated_backup_env'),
+            'showDeprecatedNotificationEnv' => config('app.has_deprecated_notification_env'),
         ]);
     }
 }

@@ -101,6 +101,10 @@ return [
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
+    'has_deprecated_aws_env' => (bool) (env('AWS_REGION') || env('AWS_DEFAULT_REGION')),
+    'has_deprecated_backup_env' => (bool) env('BACKUP_WORKING_DIRECTORY'),
+    'has_deprecated_notification_env' => (bool) env('NOTIFICATION_ENABLED'),
+
     'available_locales' => [
         'en' => 'English',
         'fr' => 'Français',

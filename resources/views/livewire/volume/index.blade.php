@@ -26,6 +26,12 @@
         </x-slot:actions>
     </x-header>
 
+    @if($showAwsDeprecationWarning)
+        <x-alert class="alert-warning mb-4" icon="o-exclamation-triangle" dismissible>
+            {{ __('Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.') }}
+        </x-alert>
+    @endif
+
     <!-- SEARCH (Mobile) -->
     <div class="sm:hidden mb-4">
         <x-input

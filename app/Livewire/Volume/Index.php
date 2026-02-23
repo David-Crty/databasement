@@ -109,6 +109,7 @@ class Index extends Component
         return view('livewire.volume.index', [
             'volumes' => $volumes,
             'headers' => $this->headers(),
+            'showAwsDeprecationWarning' => config('app.has_deprecated_aws_env'),
         ]);
     }
 }
