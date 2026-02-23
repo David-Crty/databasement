@@ -16,39 +16,13 @@ class VolumeFactory extends Factory
      */
     public function definition(): array
     {
-        $type = fake()->randomElement(['local', 's3']);
-
         return [
             'name' => fake()->unique()->words(2, true).' Volume',
-            'type' => $type,
-            'config' => $this->buildConfig($type),
-        ];
-    }
-
-    /**
-     * Build configuration based on volume type.
-     */
-    private function buildConfig(string $type): array
-    {
-        return match ($type) {
-            's3' => [
-                'bucket' => 'backup-'.fake()->slug(),
-                'prefix' => fake()->optional()->slug(),
-                'region' => 'us-east-1',
-                'access_key_id' => 'test-key-'.fake()->slug(),
-                'secret_access_key' => 'test-secret-'.fake()->slug(),
-                'custom_endpoint' => '',
-                'public_endpoint' => '',
-                'use_path_style_endpoint' => false,
-                'custom_role_arn' => '',
-                'role_session_name' => '',
-                'sts_endpoint' => '',
-            ],
-            'local' => [
+            'type' => 'local',
+            'config' => [
                 'path' => $this->createTempDirectory(),
             ],
-            default => throw new \InvalidArgumentException("Invalid volume type: {$type}"),
-        };
+        ];
     }
 
     /**
