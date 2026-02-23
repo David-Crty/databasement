@@ -25,15 +25,33 @@ docker run -v /path/on/host:/backups davidcrty/databasement
 
 ### S3 Storage
 
-S3 volumes store backups in AWS S3 or any S3-compatible object storage (MinIO, DigitalOcean Spaces, Backblaze B2, etc.).
+S3 volumes store backups in AWS S3 or any S3-compatible object storage (MinIO, DigitalOcean Spaces, Backblaze B2, etc.). All credentials and settings are configured per-volume.
 
 | Field | Description |
 |-------|-------------|
 | **Bucket** | S3 bucket name |
 | **Prefix** | Optional path prefix within the bucket (e.g., `backups/production/`) |
+| **Region** | AWS region where the bucket is located (e.g., `us-east-1`) |
+| **Access Key ID** | AWS access key (optional — see below) |
+| **Secret Access Key** | AWS secret key (optional — see below) |
 
-:::info
-S3 credentials are configured via environment variables, not per-volume. See the [S3 Storage configuration](../self-hosting/configuration/backup#s3-storage) for setup instructions.
+**Advanced settings** (expand in the form):
+
+| Field | Description |
+|-------|-------------|
+| **Custom Endpoint** | For S3-compatible storage (MinIO, DigitalOcean Spaces, etc.) |
+| **Public Endpoint** | Public URL for presigned download links when the internal endpoint differs |
+| **Use Path-Style Endpoint** | Required for most S3-compatible providers (MinIO, etc.) |
+| **IAM Role ARN** | Assume this IAM role via STS before accessing S3 |
+| **Role Session Name** | Identifier for the assumed role session (default: `databasement`) |
+| **STS Endpoint** | Custom STS endpoint for role assumption |
+
+:::tip
+Credentials are optional. When left blank, the AWS SDK uses its default credential chain: environment variables, EC2/ECS instance roles, and EKS IRSA. This allows deployments on AWS infrastructure to work without explicit keys.
+:::
+
+:::tip
+The secret access key is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
 ### SFTP Storage

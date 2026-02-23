@@ -37,6 +37,9 @@ dataset('filesystem implementations', function () {
             'awss3',
             [
                 'bucket' => 'test-bucket',
+                'region' => 'us-east-1',
+                'access_key_id' => 'test-key',
+                'secret_access_key' => 'test-secret',
             ],
         ],
     ];

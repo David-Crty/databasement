@@ -68,7 +68,8 @@ enum VolumeType: string
     public function sensitiveFields(): array
     {
         return match ($this) {
-            self::LOCAL, self::S3 => [],
+            self::LOCAL => [],
+            self::S3 => ['secret_access_key'],
             self::SFTP, self::FTP => ['password'],
         };
     }
@@ -165,6 +166,7 @@ enum VolumeType: string
             ],
             self::S3 => array_filter([
                 'Bucket' => $config['bucket'] ?? '',
+                'Region' => $config['region'] ?? null,
                 'Prefix' => $config['prefix'] ?? null,
             ]),
             self::SFTP => [

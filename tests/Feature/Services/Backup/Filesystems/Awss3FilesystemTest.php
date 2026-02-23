@@ -3,19 +3,19 @@
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 
 test('getPresignedUrl uses public endpoint when configured', function () {
-    config([
-        'aws.region' => 'us-east-1',
-        'aws.s3_endpoint' => 'http://minio:9000',
-        'aws.s3_public_endpoint' => 'http://0.0.0.0:9001',
-        'aws.use_path_style_endpoint' => true,
-        'aws.access_key_id' => 'test-key',
-        'aws.secret_access_key' => 'test-secret',
-    ]);
-
     $filesystem = new Awss3Filesystem;
 
     $url = $filesystem->getPresignedUrl(
-        ['bucket' => 'test-bucket', 'prefix' => 'backups'],
+        [
+            'bucket' => 'test-bucket',
+            'prefix' => 'backups',
+            'region' => 'us-east-1',
+            'access_key_id' => 'test-key',
+            'secret_access_key' => 'test-secret',
+            'custom_endpoint' => 'http://minio:9000',
+            'public_endpoint' => 'http://0.0.0.0:9001',
+            'use_path_style_endpoint' => true,
+        ],
         'file.sql.gz'
     );
 
@@ -25,19 +25,17 @@ test('getPresignedUrl uses public endpoint when configured', function () {
 });
 
 test('getPresignedUrl uses internal endpoint when no public endpoint configured', function () {
-    config([
-        'aws.region' => 'us-east-1',
-        'aws.s3_endpoint' => 'http://minio:9000',
-        'aws.s3_public_endpoint' => null,
-        'aws.use_path_style_endpoint' => true,
-        'aws.access_key_id' => 'test-key',
-        'aws.secret_access_key' => 'test-secret',
-    ]);
-
     $filesystem = new Awss3Filesystem;
 
     $url = $filesystem->getPresignedUrl(
-        ['bucket' => 'test-bucket'],
+        [
+            'bucket' => 'test-bucket',
+            'region' => 'us-east-1',
+            'access_key_id' => 'test-key',
+            'secret_access_key' => 'test-secret',
+            'custom_endpoint' => 'http://minio:9000',
+            'use_path_style_endpoint' => true,
+        ],
         'file.sql.gz'
     );
 

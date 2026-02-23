@@ -9,6 +9,6 @@ This section contains all the environment variables you can use to configure Dat
 ## Sections
 
 - **[Application](./application)** - Core application settings including database, timezone, proxy configuration, and logging
-- **[Backup](./backup)** - Backup behavior, compression options, encryption, and S3 storage configuration
+- **[Backup](./backup)** - Backup behavior, compression options, encryption, and S3 IAM permissions
 - **[Notification](./notification)** - Failure notifications via Email, Slack, Discord, Telegram, Pushover, Gotify, and Webhook
 - **[SSO](./sso)** - OAuth and Single Sign-On authentication with Google, GitHub, GitLab, and OIDC providers

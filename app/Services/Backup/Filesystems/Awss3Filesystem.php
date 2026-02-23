@@ -11,8 +11,6 @@ use League\Flysystem\Filesystem;
 
 class Awss3Filesystem implements FilesystemInterface
 {
-    private ?S3Client $client = null;
-
     public function handles(?string $type): bool
     {
         return in_array(strtolower($type ?? ''), ['s3', 'awss3']);
@@ -20,7 +18,7 @@ class Awss3Filesystem implements FilesystemInterface
 
     public function get(array $config): Filesystem
     {
-        $client = $this->getClient();
+        $client = $this->createClient($config);
 
         // Support both 'root' (from config/backup.php) and 'prefix' (from Volume database)
         $root = $config['root'] ?? $config['prefix'] ?? '';
@@ -36,7 +34,7 @@ class Awss3Filesystem implements FilesystemInterface
     public function getPresignedUrl(array $config, string $path, int $expiresInMinutes = 60): string
     {
         // Use a client configured with the public endpoint so the signature is valid
-        $client = $this->getClientForPresignedUrls();
+        $client = $this->getClientForPresignedUrls($config);
         $key = $this->buildKeyPath($config, $path);
 
         $command = $client->getCommand('GetObject', [
@@ -61,71 +59,55 @@ class Awss3Filesystem implements FilesystemInterface
         return $prefix ? rtrim($prefix, '/').'/'.ltrim($path, '/') : $path;
     }
 
-    protected function getClient(): S3Client
-    {
-        if ($this->client !== null) {
-            return $this->client;
-        }
-
-        $this->client = $this->createClient();
-
-        return $this->client;
-    }
-
     /**
      * Get S3 client configured with public endpoint for generating presigned URLs
      *
      * When using S3-compatible storage in Docker, the internal endpoint (e.g., http://minio:9000)
      * differs from the public endpoint (e.g., http://localhost:9000). Presigned URLs must be
      * generated with the public endpoint so the signature matches when accessed from the browser.
+     *
+     * @param  array<string, mixed>  $config
      */
-    protected function getClientForPresignedUrls(): S3Client
+    protected function getClientForPresignedUrls(array $config): S3Client
     {
-        /** @var array<string, mixed> $awsConfig */
-        $awsConfig = config('aws');
-
-        $publicEndpoint = $awsConfig['s3_public_endpoint'] ?? null;
+        $publicEndpoint = $config['public_endpoint'] ?? null;
 
         // If no public endpoint configured, use the regular client
         if (empty($publicEndpoint)) {
-            return $this->getClient();
+            return $this->createClient($config);
         }
 
-        return $this->createClient($publicEndpoint);
+        return $this->createClient($config, $publicEndpoint);
     }
 
-    private function createClient(?string $endpointOverride = null): S3Client
+    /**
+     * @param  array<string, mixed>  $config
+     */
+    private function createClient(array $config, ?string $endpointOverride = null): S3Client
     {
-        /** @var array<string, mixed> $awsConfig */
-        $awsConfig = config('aws');
-
         $clientConfig = [
             'version' => 'latest',
-            'region' => $awsConfig['region'],
+            'region' => $config['region'] ?? 'us-east-1',
         ];
 
-        if (! empty($awsConfig['s3_profile'])) {
-            $clientConfig['profile'] = $awsConfig['s3_profile'];
-        }
-
         // Use IAM role assumption if role_arn is configured
-        if (! empty($awsConfig['custom_role_arn'])) {
-            $clientConfig['credentials'] = $this->createCustomAssumeRoleCredentials($awsConfig);
-        } elseif (! empty($awsConfig['access_key_id']) && ! empty($awsConfig['secret_access_key'])) {
+        if (! empty($config['custom_role_arn'])) {
+            $clientConfig['credentials'] = $this->createCustomAssumeRoleCredentials($config);
+        } elseif (! empty($config['access_key_id']) && ! empty($config['secret_access_key'])) {
             // Use explicit credentials when configured (e.g., for testing or non-AWS environments)
             $clientConfig['credentials'] = [
-                'key' => $awsConfig['access_key_id'],
-                'secret' => $awsConfig['secret_access_key'],
+                'key' => $config['access_key_id'],
+                'secret' => $config['secret_access_key'],
             ];
         }
 
         // Use endpoint override if provided (for presigned URLs), otherwise use configured endpoint
-        $endpoint = $endpointOverride ?? $awsConfig['s3_endpoint'] ?? null;
+        $endpoint = $endpointOverride ?? $config['custom_endpoint'] ?? null;
         if (! empty($endpoint)) {
             $clientConfig['endpoint'] = $endpoint;
         }
 
-        if (! empty($awsConfig['use_path_style_endpoint'])) {
+        if (! empty($config['use_path_style_endpoint'])) {
             $clientConfig['use_path_style_endpoint'] = true;
         }
 
@@ -135,21 +117,17 @@ class Awss3Filesystem implements FilesystemInterface
     /**
      * Create credentials provider using IAM role assumption via STS
      *
-     * @param  array<string, mixed>  $awsConfig
+     * @param  array<string, mixed>  $config
      */
-    private function createCustomAssumeRoleCredentials(array $awsConfig): callable
+    private function createCustomAssumeRoleCredentials(array $config): callable
     {
         $stsConfig = [
             'version' => 'latest',
-            'region' => $awsConfig['region'],
+            'region' => $config['region'] ?? 'us-east-1',
         ];
 
-        if (! empty($awsConfig['sts_profile'])) {
-            $stsConfig['profile'] = $awsConfig['sts_profile'];
-        }
-
-        if (! empty($awsConfig['sts_endpoint'])) {
-            $stsConfig['endpoint'] = $awsConfig['sts_endpoint'];
+        if (! empty($config['sts_endpoint'])) {
+            $stsConfig['endpoint'] = $config['sts_endpoint'];
         }
 
         $stsClient = new StsClient($stsConfig);
@@ -157,8 +135,8 @@ class Awss3Filesystem implements FilesystemInterface
         $assumeRoleProvider = new AssumeRoleCredentialProvider([
             'client' => $stsClient,
             'assume_role_params' => [
-                'RoleArn' => $awsConfig['custom_role_arn'],
-                'RoleSessionName' => $awsConfig['role_session_name'],
+                'RoleArn' => $config['custom_role_arn'],
+                'RoleSessionName' => $config['role_session_name'] ?? 'databasement',
             ],
         ]);
 

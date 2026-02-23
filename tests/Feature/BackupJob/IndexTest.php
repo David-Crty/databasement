@@ -228,15 +228,7 @@ test('can download snapshot from local storage', function () {
 test('can download snapshot from s3 storage redirects to presigned url', function () {
     $user = User::factory()->create();
 
-    $volume = Volume::factory()->create([
-        'type' => 's3',
-        'config' => [
-            'bucket' => 'test-bucket',
-            'region' => 'us-east-1',
-            'key' => 'test-key',
-            'secret' => 'test-secret',
-        ],
-    ]);
+    $volume = Volume::factory()->s3()->create();
 
     $server = DatabaseServer::factory()->create([
         'database_names' => ['test_db'],
@@ -253,12 +245,11 @@ test('can download snapshot from s3 storage redirects to presigned url', functio
     $snapshot->job->markCompleted();
 
     // Mock the S3 filesystem to return a presigned URL
-    // Note: The S3 adapter handles the prefix automatically, so we just pass the filename
     $mockS3Filesystem = Mockery::mock(Awss3Filesystem::class);
     $mockS3Filesystem->shouldReceive('getPresignedUrl')
         ->once()
         ->with(
-            $volume->config,
+            $volume->getDecryptedConfig(),
             $snapshot->filename,
             Mockery::any()
         )
@@ -273,22 +264,20 @@ test('can download snapshot from s3 storage redirects to presigned url', functio
 });
 
 test('s3 download presigned url includes volume prefix in key path', function () {
-    config([
-        'aws.region' => 'us-east-1',
-        'aws.s3_endpoint' => 'http://minio:9000',
-        'aws.s3_public_endpoint' => 'https://127.0.0.1:9022',
-        'aws.use_path_style_endpoint' => true,
-        'aws.access_key_id' => 'test-key',
-        'aws.secret_access_key' => 'test-secret',
-    ]);
     $user = User::factory()->create();
 
-    // Create S3 volume WITH a prefix
+    // Create S3 volume WITH a prefix and all AWS config
     $volume = Volume::factory()->create([
         'type' => 's3',
         'config' => [
             'bucket' => 'my-backup-bucket',
             'prefix' => 'backups/production',
+            'region' => 'us-east-1',
+            'access_key_id' => 'test-key',
+            'secret_access_key' => 'test-secret',
+            'custom_endpoint' => 'http://minio:9000',
+            'public_endpoint' => 'https://127.0.0.1:9022',
+            'use_path_style_endpoint' => true,
         ],
     ]);
 

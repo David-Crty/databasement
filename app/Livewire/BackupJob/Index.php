@@ -240,7 +240,7 @@ class Index extends Component
     {
         $s3Filesystem = app(Awss3Filesystem::class);
         $presignedUrl = $s3Filesystem->getPresignedUrl(
-            $snapshot->volume->config,
+            $snapshot->volume->getDecryptedConfig(),
             $snapshot->filename,
             expiresInMinutes: 15
         );

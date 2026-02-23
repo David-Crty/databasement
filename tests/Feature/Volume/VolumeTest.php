@@ -27,8 +27,19 @@ dataset('volume types', function () {
         ],
         's3' => [
             'type' => VolumeType::S3,
-            'formData' => ['bucket' => 'my-backup-bucket', 'prefix' => 'backups/production/'],
-            'expectedConfig' => ['bucket' => 'my-backup-bucket', 'prefix' => 'backups/production/'],
+            'formData' => [
+                'bucket' => 'my-backup-bucket',
+                'prefix' => 'backups/production/',
+                'region' => 'eu-west-1',
+                'access_key_id' => 'AKIAIOSFODNN7EXAMPLE',
+                'secret_access_key' => 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+            ],
+            'expectedConfig' => [
+                'bucket' => 'my-backup-bucket',
+                'prefix' => 'backups/production/',
+                'region' => 'eu-west-1',
+                'access_key_id' => 'AKIAIOSFODNN7EXAMPLE',
+            ],
             'updateData' => ['bucket' => 'new-bucket', 'prefix' => 'new/'],
             'expectedField' => 'bucket',
             'expectedValue' => 'new-bucket',
@@ -162,6 +173,27 @@ describe('volume editing', function () {
         $volume->refresh();
         expect($volume->getDecryptedConfig()['host'])->toBe('updated-host.example.com')
             ->and($volume->getDecryptedConfig()['password'])->toBe($originalPassword);
+    });
+
+    test('blank secret_access_key on edit preserves existing value', function () {
+        $user = User::factory()->create();
+        $volume = Volume::factory()->s3()->create();
+
+        $originalSecret = $volume->getDecryptedConfig()['secret_access_key'];
+        expect($originalSecret)->not->toBeEmpty();
+
+        // Edit volume with blank secret_access_key (should keep existing)
+        Livewire::actingAs($user)
+            ->test(Edit::class, ['volume' => $volume])
+            ->assertSet('form.s3Config.secret_access_key', '') // Secret is masked on load
+            ->set('form.s3Config.bucket', 'updated-bucket')
+            ->set('form.s3Config.secret_access_key', '') // Leave blank
+            ->call('save')
+            ->assertRedirect(route('volumes.index'));
+
+        $volume->refresh();
+        expect($volume->getDecryptedConfig()['bucket'])->toBe('updated-bucket')
+            ->and($volume->getDecryptedConfig()['secret_access_key'])->toBe($originalSecret);
     });
 });
 

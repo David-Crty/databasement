@@ -30,11 +30,11 @@ If you change the encryption key, you will not be able to restore backups that w
 
 Databasement supports AWS S3 and S3-compatible storage (MinIO, DigitalOcean Spaces, etc.) for backup volumes.
 
-We use environment variables to configure the S3 client.
+All S3 settings (region, credentials, endpoints) are configured **per-volume** in the web UI when creating or editing an S3 volume. See the [Volumes user guide](../../user-guide/volumes#s3-storage) for field descriptions.
 
 ### S3 IAM Permissions
 
-The AWS credentials need these permissions:
+The AWS credentials used by each S3 volume need these permissions:
 
 ```json
 {
@@ -57,67 +57,24 @@ The AWS credentials need these permissions:
 }
 ```
 
-### Access keys (Optional)
+### Credentials
 
-This is not recommended but for standard AWS access using access keys:
+You can provide explicit **Access Key ID** and **Secret Access Key** in the volume form. However, credentials are optional — when left blank, the AWS SDK uses its [default credential chain](https://docs.aws.amazon.com/sdk-for-php/v3/developer-guide/guide_credentials.html):
 
-```bash
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_REGION=us-east-1
-```
+- Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+- EC2/ECS instance roles
+- EKS IRSA (IAM Roles for Service Accounts)
+
+This means deployments on AWS infrastructure can work without storing any credentials in the database.
 
 ### S3-Compatible Storage (MinIO, etc.)
 
-For S3-compatible storage providers, configure a custom endpoint:
-
-```bash
-AWS_ENDPOINT_URL_S3=https://minio.yourdomain.com
-AWS_USE_PATH_STYLE_ENDPOINT=true
-# AWS_PUBLIC_ENDPOINT_URL_S3=https://minio.yourdomain.com
-```
+For S3-compatible providers, set the **Custom Endpoint** and enable **Use Path-Style Endpoint** in the Advanced S3 Settings section of the volume form.
 
 :::tip
-If your internal endpoint differs from the public URL (e.g., `http://minio:9000` vs `http://localhost:9000`), set `AWS_PUBLIC_ENDPOINT_URL_S3` for presigned download URLs to work correctly in your browser.
+If your internal endpoint differs from the public URL (e.g., `http://minio:9000` vs `http://localhost:9000`), set the **Public Endpoint** field so presigned download URLs work correctly in your browser.
 :::
 
-### IAM Role Assumption (Restricted Environments)
+### Migration from Environment Variables
 
-To force Databasement to assume an IAM role, set the `AWS_CUSTOM_ROLE_ARN` environment variable:
-
-```bash
-AWS_CUSTOM_ROLE_ARN=arn:aws:iam::123456789:role/your-role-name
-```
-
-### AWS Profile Support
-
-If using AWS credential profiles (from `~/.aws/credentials`):
-
-```bash
-AWS_S3_PROFILE=my-s3-profile
-```
-
-### All S3 Environment Variables
-
-| Variable                      | Description                                     | Default        |
-| ----------------------------- | ----------------------------------------------- | -------------- |
-| `AWS_ACCESS_KEY_ID`           | AWS access key (picked up automatically by SDK) | -              |
-| `AWS_SECRET_ACCESS_KEY`       | AWS secret key (picked up automatically by SDK) | -              |
-| `AWS_REGION`                  | AWS region                                      | `us-east-1`    |
-| `AWS_ENDPOINT_URL_S3`         | Custom S3 endpoint URL (internal)               | -              |
-| `AWS_PUBLIC_ENDPOINT_URL_S3`  | Public S3 endpoint for presigned URLs           | -              |
-| `AWS_USE_PATH_STYLE_ENDPOINT` | Use path-style URLs (required for MinIO)        | `false`        |
-| `AWS_S3_PROFILE`              | AWS credential profile for S3                   | -              |
-| `AWS_CUSTOM_ROLE_ARN`         | IAM custom role ARN to assume                   | -              |
-| `AWS_ROLE_SESSION_NAME`       | Session name for role assumption                | `databasement` |
-| `AWS_ENDPOINT_URL_STS`        | Custom STS endpoint URL                         | -              |
-| `AWS_STS_PROFILE`             | AWS credential profile for STS                  | -              |
-
-### Show AWS Configuration
-
-Debug the aws configuration by running:
-```bash
-php artisan config:show aws
-```
-
-This is where we create the S3 client: [app/Services/Backup/Filesystems/Awss3Filesystem.php](https://github.com/David-Crty/databasement/blob/main/app/Services/Backup/Filesystems/Awss3Filesystem.php)
+If you previously configured S3 via environment variables (`AWS_ACCESS_KEY_ID`, `AWS_REGION`, etc.), the migration automatically copies those values into each existing S3 volume's config. After upgrading, you can remove the AWS environment variables from your `.env` file.

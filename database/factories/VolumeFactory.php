@@ -34,6 +34,15 @@ class VolumeFactory extends Factory
             's3' => [
                 'bucket' => 'backup-'.fake()->slug(),
                 'prefix' => fake()->optional()->slug(),
+                'region' => 'us-east-1',
+                'access_key_id' => 'test-key-'.fake()->slug(),
+                'secret_access_key' => 'test-secret-'.fake()->slug(),
+                'custom_endpoint' => '',
+                'public_endpoint' => '',
+                'use_path_style_endpoint' => false,
+                'custom_role_arn' => '',
+                'role_session_name' => '',
+                'sts_endpoint' => '',
             ],
             'local' => [
                 'path' => $this->createTempDirectory(),
@@ -77,6 +86,15 @@ class VolumeFactory extends Factory
             'config' => [
                 'bucket' => 'backup-'.fake()->slug(),
                 'prefix' => fake()->optional()->slug(),
+                'region' => 'us-east-1',
+                'access_key_id' => 'test-key-'.fake()->slug(),
+                'secret_access_key' => 'test-secret-'.fake()->slug(),
+                'custom_endpoint' => '',
+                'public_endpoint' => '',
+                'use_path_style_endpoint' => false,
+                'custom_role_arn' => '',
+                'role_session_name' => '',
+                'sts_endpoint' => '',
             ],
         ]);
     }
