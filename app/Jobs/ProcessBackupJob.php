@@ -5,7 +5,11 @@ namespace App\Jobs;
 use App\Facades\AppConfig;
 use App\Models\Snapshot;
 use App\Services\Backup\BackupTask;
+use App\Services\Backup\DTO\BackupConfig;
+use App\Services\Backup\DTO\DatabaseConnectionConfig;
+use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\FailureNotificationService;
+use App\Support\FilesystemSupport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,24 +44,63 @@ class ProcessBackupJob implements ShouldQueue
      */
     public function handle(BackupTask $backupTask): void
     {
-        $snapshot = Snapshot::with(['job', 'volume', 'databaseServer'])->findOrFail($this->snapshotId);
+        $snapshot = Snapshot::with(['job', 'volume', 'databaseServer.backup', 'databaseServer.sshConfig'])->findOrFail($this->snapshotId);
+        $databaseServer = $snapshot->databaseServer;
+        $job = $snapshot->job;
 
-        // Update job with queue job ID for tracking
-        $snapshot->job->update(['job_id' => $this->job->getJobId()]);
+        // Update job with queue job ID for tracking (guard for dispatchSync)
+        if ($this->job) {
+            $job->update(['job_id' => $this->job->getJobId()]);
+        }
 
-        // Run the backup task
-        $backupTask->run($snapshot, $this->attempts(), $this->tries);
+        try {
+            $job->markRunning();
 
-        Log::info('Backup completed successfully', [
-            'snapshot_id' => $this->snapshotId,
-            'database_server_id' => $snapshot->databaseServer->id,
-            'method' => $snapshot->method,
-        ]);
+            $attemptInfo = $this->job ? " (attempt {$this->attempts()}/{$this->tries})" : '';
+            $job->log("Starting backup for database: {$snapshot->database_name}{$attemptInfo}", 'info');
+
+            if (! $databaseServer->backup) {
+                throw new \RuntimeException("Backup not configured for server: {$databaseServer->name}");
+            }
+
+            $config = new BackupConfig(
+                database: DatabaseConnectionConfig::fromServer($databaseServer),
+                volume: VolumeConfig::fromVolume($snapshot->volume),
+                databaseName: $snapshot->database_name,
+                workingDirectory: FilesystemSupport::createWorkingDirectory('backup', $snapshot->id),
+                backupPath: $databaseServer->backup->path ?? '',
+            );
+
+            $result = $backupTask->execute($config, $job);
+
+            $snapshot->update([
+                'filename' => $result->filename,
+                'file_size' => $result->fileSize,
+                'checksum' => $result->checksum,
+                'file_verified_at' => now(),
+            ]);
+
+            $job->markCompleted();
+
+            Log::info('Backup completed successfully', [
+                'snapshot_id' => $this->snapshotId,
+                'database_server_id' => $databaseServer->id,
+                'method' => $snapshot->method,
+            ]);
+        } catch (\Throwable $e) {
+            $job->log("Backup failed: {$e->getMessage()}", 'error', [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            $job->markFailed($e);
+
+            throw $e;
+        }
     }
 
     /**
      * Handle a job failure (called by Laravel queue after all retries exhausted).
-     * Note: Job is already marked as failed by BackupTask::run() catch block.
      */
     public function failed(\Throwable $exception): void
     {

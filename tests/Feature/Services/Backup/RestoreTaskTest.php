@@ -1,15 +1,17 @@
 <?php
 
 use App\Enums\CompressionType;
+use App\Enums\DatabaseType;
 use App\Facades\AppConfig;
-use App\Models\DatabaseServerSshConfig;
-use App\Models\Restore;
-use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
+use App\Services\Backup\DTO\DatabaseConnectionConfig;
+use App\Services\Backup\DTO\DatabaseOperationResult;
+use App\Services\Backup\DTO\RestoreConfig;
+use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use App\Services\Backup\InMemoryBackupLogger;
 use App\Services\Backup\RestoreTask;
 use App\Services\SshTunnelService;
 use Tests\Support\TestShellProcessor;
@@ -18,94 +20,104 @@ beforeEach(function () {
     $this->shellProcessor = new TestShellProcessor;
     $this->compressorFactory = new CompressorFactory($this->shellProcessor);
 
-    // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
     $this->sshTunnelService = Mockery::mock(SshTunnelService::class);
     $this->sshTunnelService->shouldReceive('isActive')->andReturn(false);
 
-    // Use real BackupJobFactory from container
-    $this->backupJobFactory = app(BackupJobFactory::class);
-
-    // Create temp directory for test files and set it as the backup tmp folder
     $this->tempDir = sys_get_temp_dir().'/restore-task-test-'.uniqid();
     mkdir($this->tempDir, 0777, true);
     AppConfig::set('backup.working_directory', $this->tempDir);
 });
 
-// Helper to set up download mock and create a RestoreTask with mocked DatabaseProvider
-function setupRestoreWithMockedProvider(Restore $restore, DatabaseInterface $mockHandler): RestoreTask
+function buildTargetConfig(string $host = 'localhost'): DatabaseConnectionConfig
 {
-    // Mock download
-    test()->filesystemProvider
-        ->shouldReceive('download')
-        ->once()
-        ->with($restore->snapshot, Mockery::any())
-        ->andReturnUsing(function ($snap, $destination) {
-            file_put_contents($destination, 'compressed backup data');
-        });
-
-    // Mock prepareForRestore on handler
-    $mockHandler->shouldReceive('prepareForRestore')
-        ->once()
-        ->andReturnNull();
-
-    $mockProvider = Mockery::mock(DatabaseProvider::class);
-    $mockProvider->shouldReceive('makeForServer')
-        ->once()
-        ->andReturn($mockHandler);
-
-    return new RestoreTask(
-        $mockProvider,
-        test()->shellProcessor,
-        test()->filesystemProvider,
-        test()->compressorFactory,
-        test()->sshTunnelService,
+    return new DatabaseConnectionConfig(
+        databaseType: DatabaseType::MYSQL,
+        serverName: 'Target Server',
+        host: $host,
+        port: 3306,
+        username: 'root',
+        password: 'secret',
     );
 }
 
-test('run executes restore workflow successfully', function () {
-    $sourceServer = createDatabaseServer([
-        'name' => 'Source MySQL',
-        'host' => 'source.localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['sourcedb'],
-    ]);
+function buildSnapshotVolumeConfig(): VolumeConfig
+{
+    return new VolumeConfig(
+        type: 'local',
+        name: 'Test Volume',
+        config: ['root' => '/tmp/backups'],
+    );
+}
 
-    $targetServer = createDatabaseServer([
-        'name' => 'Target MySQL',
-        'host' => 'target.localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['targetdb'],
-    ]);
+function buildRestoreConfig(?string $workingDirectory = null): RestoreConfig
+{
+    return new RestoreConfig(
+        targetServer: buildTargetConfig(),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.sql.gz',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::MYSQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $workingDirectory ?? test()->tempDir.'/restore-test-'.uniqid(),
+    );
+}
 
-    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
-    $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
-    $snapshot->job->markCompleted();
-
-    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
-
-    // Mock handler
+function buildMockRestoreProvider(): DatabaseProvider
+{
     $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
     $mockHandler->shouldReceive('restore')
         ->once()
         ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
 
-    $restoreTask = setupRestoreWithMockedProvider($restore, $mockHandler);
-    $restoreTask->run($restore);
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')
+        ->once()
+        ->andReturn($mockHandler);
 
-    // Verify orchestration: job completed
-    $restore->refresh();
-    expect($restore->job->status)->toBe('completed');
+    return $mockProvider;
+}
+
+function setupDownloadMock(): void
+{
+    test()->filesystemProvider
+        ->shouldReceive('downloadFromConfig')
+        ->once()
+        ->andReturnUsing(function ($volumeConfig, $remoteFilename, $destination) {
+            file_put_contents($destination, 'compressed backup data');
+        });
+}
+
+test('execute restores successfully', function () {
+    $mockProvider = buildMockRestoreProvider();
+    setupDownloadMock();
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $config = buildRestoreConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $logger = new InMemoryBackupLogger;
+    $restoreTask->execute($config, $logger);
+
+    $successLogs = collect($logger->getLogs())
+        ->where('level', 'success')
+        ->pluck('message')
+        ->toArray();
+
+    expect($successLogs)->toContain('Restore completed successfully');
 });
 
-test('run throws exception when database types are incompatible', function () {
+test('execute throws when database types are incompatible', function () {
     $restoreTask = new RestoreTask(
         new DatabaseProvider,
         $this->shellProcessor,
@@ -114,73 +126,182 @@ test('run throws exception when database types are incompatible', function () {
         $this->sshTunnelService,
     );
 
-    $sourceServer = createDatabaseServer([
-        'name' => 'Source MySQL',
-        'host' => 'localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['sourcedb'],
-    ]);
+    $config = new RestoreConfig(
+        targetServer: new DatabaseConnectionConfig(
+            databaseType: DatabaseType::POSTGRESQL,
+            serverName: 'Target PostgreSQL',
+            host: 'localhost',
+            port: 5432,
+            username: 'postgres',
+            password: 'secret',
+        ),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.sql.gz',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::MYSQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $this->tempDir.'/compat-test-'.uniqid(),
+    );
 
-    $targetServer = createDatabaseServer([
-        'name' => 'Target PostgreSQL',
-        'host' => 'localhost',
-        'port' => 5432,
-        'database_type' => 'postgres',
-        'username' => 'postgres',
-        'password' => 'secret',
-        'database_names' => ['targetdb'],
-    ]);
+    mkdir($config->workingDirectory, 0755, true);
 
-    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
-    $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
-    $snapshot->job->markCompleted();
-
-    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
-
-    expect(fn () => $restoreTask->run($restore))
+    expect(fn () => $restoreTask->execute($config, new InMemoryBackupLogger))
         ->toThrow(\App\Exceptions\Backup\RestoreException::class, 'Cannot restore mysql snapshot to postgres server');
 });
 
-test('run throws exception when restore command failed', function () {
-    $sourceServer = createDatabaseServer([
-        'name' => 'Source MySQL',
-        'host' => 'source.localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['sourcedb'],
-    ]);
+test('execute throws for Redis restore', function () {
+    $restoreTask = new RestoreTask(
+        new DatabaseProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
 
-    $targetServer = createDatabaseServer([
-        'name' => 'Target MySQL',
-        'host' => 'target.localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['targetdb'],
-    ]);
+    $config = new RestoreConfig(
+        targetServer: new DatabaseConnectionConfig(
+            databaseType: DatabaseType::REDIS,
+            serverName: 'Redis Server',
+            host: 'localhost',
+            port: 6379,
+            username: '',
+            password: '',
+        ),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.rdb.gz',
+        snapshotFileSize: 512,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::REDIS,
+        snapshotDatabaseName: 'all',
+        schemaName: 'all',
+        workingDirectory: $this->tempDir.'/redis-test-'.uniqid(),
+    );
 
-    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
-    $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
-    $snapshot->job->markCompleted();
+    mkdir($config->workingDirectory, 0755, true);
 
-    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
+    expect(fn () => $restoreTask->execute($config, new InMemoryBackupLogger))
+        ->toThrow(\App\Exceptions\Backup\RestoreException::class, 'Automated restore is not supported for Redis/Valkey');
+});
 
-    // Shell processor that fails on restore command
+test('execute establishes SSH tunnel when target server requires it', function () {
+    $targetConfig = new DatabaseConnectionConfig(
+        databaseType: DatabaseType::MYSQL,
+        serverName: 'MySQL via SSH',
+        host: 'private-db.internal',
+        port: 3306,
+        username: 'root',
+        password: 'secret',
+        sshConfig: [
+            'host' => 'ssh.example.com',
+            'port' => 22,
+            'username' => 'deploy',
+            'auth_type' => 'password',
+            'password' => 'sshpass',
+            'private_key' => null,
+            'key_passphrase' => null,
+        ],
+    );
+
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
+    $mockHandler->shouldReceive('restore')
+        ->once()
+        ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')
+        ->once()
+        ->with(
+            Mockery::on(fn ($c) => $c->host === 'private-db.internal'),
+            'restored_db',
+            '127.0.0.1',
+            54321,
+            'sourcedb',
+        )
+        ->andReturn($mockHandler);
+
+    setupDownloadMock();
+
+    $sshTunnelService = Mockery::mock(SshTunnelService::class);
+    $sshTunnelService->shouldReceive('establishFromConfig')
+        ->once()
+        ->with(
+            Mockery::on(fn ($c) => $c['host'] === 'ssh.example.com'),
+            'private-db.internal',
+            3306
+        )
+        ->andReturn(['host' => '127.0.0.1', 'port' => 54321]);
+    $sshTunnelService->shouldReceive('isActive')->andReturn(true);
+    $sshTunnelService->shouldReceive('close')->once();
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $sshTunnelService,
+    );
+
+    $workingDirectory = $this->tempDir.'/ssh-test-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    $config = new RestoreConfig(
+        targetServer: $targetConfig,
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.sql.gz',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::MYSQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $workingDirectory,
+    );
+
+    $restoreTask->execute($config, new InMemoryBackupLogger);
+});
+
+test('execute cleans up working directory on success', function () {
+    $mockProvider = buildMockRestoreProvider();
+    setupDownloadMock();
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $config = buildRestoreConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $restoreTask->execute($config, new InMemoryBackupLogger);
+
+    expect(is_dir($config->workingDirectory))->toBeFalse();
+});
+
+test('execute cleans up working directory on failure', function () {
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
+    $mockHandler->shouldReceive('restore')
+        ->once()
+        ->andReturn(new DatabaseOperationResult(command: "mysql 'restored_db'"));
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')
+        ->once()
+        ->andReturn($mockHandler);
+
+    setupDownloadMock();
+
     $shellProcessor = Mockery::mock(\App\Services\Backup\ShellProcessor::class);
     $shellProcessor->shouldReceive('setLogger')->once();
     $shellProcessor->shouldReceive('process')
         ->once()
-        ->andThrow(new \App\Exceptions\ShellProcessFailed('Access denied for user'));
+        ->andThrow(new \App\Exceptions\ShellProcessFailed('Command failed'));
 
-    // Mock compressor to skip decompression and simulate decompressed file
     $compressor = Mockery::mock(\App\Services\Backup\Compressors\CompressorInterface::class);
     $compressor->shouldReceive('getExtension')->andReturn('gz');
     $compressor->shouldReceive('decompress')
@@ -195,118 +316,19 @@ test('run throws exception when restore command failed', function () {
     $compressorFactory = Mockery::mock(\App\Services\Backup\Compressors\CompressorFactory::class);
     $compressorFactory->shouldReceive('make')->andReturn($compressor);
 
-    // Mock handler
-    $mockHandler = Mockery::mock(DatabaseInterface::class);
-    $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
-    $mockHandler->shouldReceive('restore')->once()->andReturn(new DatabaseOperationResult(command: "mysql 'restored_db'"));
-
-    $mockFactory = Mockery::mock(DatabaseProvider::class);
-    $mockFactory->shouldReceive('makeForServer')->once()->andReturn($mockHandler);
-
     $restoreTask = new RestoreTask(
-        $mockFactory,
+        $mockProvider,
         $shellProcessor,
         $this->filesystemProvider,
         $compressorFactory,
         $this->sshTunnelService,
     );
 
-    // Mock download
-    $this->filesystemProvider
-        ->shouldReceive('download')
-        ->once()
-        ->andReturnUsing(function ($snap, $destination) {
-            file_put_contents($destination, 'compressed backup data');
-        });
+    $config = buildRestoreConfig();
+    mkdir($config->workingDirectory, 0755, true);
 
-    expect(fn () => $restoreTask->run($restore))
-        ->toThrow(\App\Exceptions\ShellProcessFailed::class, 'Access denied for user');
+    expect(fn () => $restoreTask->execute($config, new InMemoryBackupLogger))
+        ->toThrow(\App\Exceptions\ShellProcessFailed::class);
 
-    $restore->refresh();
-    expect($restore->job->status)->toBe('failed')
-        ->and($restore->job->error_message)->toBe('Access denied for user')
-        ->and($restore->job->completed_at)->not->toBeNull();
-});
-
-test('run establishes SSH tunnel when target server requires it', function () {
-    $sourceServer = createDatabaseServer([
-        'name' => 'Source MySQL',
-        'host' => 'source.localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['sourcedb'],
-    ]);
-
-    $sshConfig = DatabaseServerSshConfig::factory()->create();
-
-    $targetServer = createDatabaseServer([
-        'name' => 'Target MySQL via SSH',
-        'host' => 'private-db.internal',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['targetdb'],
-        'ssh_config_id' => $sshConfig->id,
-    ]);
-
-    $snapshots = $this->backupJobFactory->createSnapshots($sourceServer, 'manual');
-    $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
-    $snapshot->job->markCompleted();
-
-    $restore = $this->backupJobFactory->createRestore($snapshot, $targetServer, 'restored_db');
-
-    // Configure SSH tunnel mock
-    $sshTunnelService = Mockery::mock(SshTunnelService::class);
-    $sshTunnelService->shouldReceive('establish')
-        ->once()
-        ->with(Mockery::on(fn ($server) => $server->id === $targetServer->id))
-        ->andReturn(['host' => '127.0.0.1', 'port' => 54321]);
-    $sshTunnelService->shouldReceive('isActive')
-        ->andReturn(true);
-    $sshTunnelService->shouldReceive('close')
-        ->once();
-
-    // Mock factory to verify it receives tunnel endpoint
-    $mockHandler = Mockery::mock(DatabaseInterface::class);
-    $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
-    $mockHandler->shouldReceive('restore')
-        ->once()
-        ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
-
-    $mockFactory = Mockery::mock(DatabaseProvider::class);
-    $mockFactory->shouldReceive('makeForServer')
-        ->once()
-        ->with(
-            Mockery::on(fn ($server) => $server->id === $targetServer->id),
-            'restored_db',
-            '127.0.0.1',
-            54321,
-            'sourcedb',
-        )
-        ->andReturn($mockHandler);
-
-    $restoreTask = new RestoreTask(
-        $mockFactory,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $sshTunnelService,
-    );
-
-    // Mock download
-    $this->filesystemProvider
-        ->shouldReceive('download')
-        ->once()
-        ->andReturnUsing(function ($snap, $destination) {
-            file_put_contents($destination, 'compressed backup data');
-        });
-
-    $restoreTask->run($restore);
-
-    $restore->refresh();
-    expect($restore->job->status)->toBe('completed');
+    expect(is_dir($config->workingDirectory))->toBeFalse();
 });

@@ -2,9 +2,9 @@
 
 namespace App\Services\Backup\Concerns;
 
+use App\Contracts\BackupLogger;
 use App\Exceptions\SshTunnelException;
-use App\Models\BackupJob;
-use App\Models\DatabaseServer;
+use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\SshTunnelService;
 
 /**
@@ -18,20 +18,20 @@ trait UsesSshTunnel
     abstract protected function getSshTunnelService(): SshTunnelService;
 
     /**
-     * Establish SSH tunnel for the database server.
+     * Establish SSH tunnel for the database connection config.
      *
      * @throws SshTunnelException
      */
-    protected function establishSshTunnel(DatabaseServer $server, BackupJob $job): void
+    protected function establishSshTunnel(DatabaseConnectionConfig $config, BackupLogger $logger): void
     {
-        $sshConfig = $server->sshConfig;
+        $sshConfig = $config->sshConfig;
         if ($sshConfig === null) {
             throw new SshTunnelException('SSH configuration not found for this server');
         }
-        $this->tunnelEndpoint = $this->getSshTunnelService()->establish($server);
+        $this->tunnelEndpoint = $this->getSshTunnelService()->establishFromConfig($sshConfig, $config->host, $config->port);
 
-        $safeSshConfig = $sshConfig->getSafe();
-        $job->log('SSH tunnel established', 'success', [
+        $safeSshConfig = $config->getSafeSshConfig();
+        $logger->log('SSH tunnel established', 'success', [
             'local_port' => $this->tunnelEndpoint['port'],
             'ssh_host' => $safeSshConfig['host'] ?? null,
             'ssh_port' => $safeSshConfig['port'] ?? 22,
@@ -42,11 +42,11 @@ trait UsesSshTunnel
     /**
      * Close SSH tunnel if active.
      */
-    protected function closeSshTunnel(BackupJob $job): void
+    protected function closeSshTunnel(BackupLogger $logger): void
     {
         if ($this->getSshTunnelService()->isActive()) {
             $this->getSshTunnelService()->close();
-            $job->log('SSH tunnel closed');
+            $logger->log('SSH tunnel closed');
         }
         $this->tunnelEndpoint = null;
     }
@@ -54,16 +54,16 @@ trait UsesSshTunnel
     /**
      * Get connection host, using tunnel endpoint if active.
      */
-    protected function getConnectionHost(DatabaseServer $server): string
+    protected function getConnectionHost(DatabaseConnectionConfig $config): string
     {
-        return $this->tunnelEndpoint['host'] ?? $server->host ?? '';
+        return $this->tunnelEndpoint['host'] ?? $config->host;
     }
 
     /**
      * Get connection port, using tunnel endpoint if active.
      */
-    protected function getConnectionPort(DatabaseServer $server): int
+    protected function getConnectionPort(DatabaseConnectionConfig $config): int
     {
-        return $this->tunnelEndpoint['port'] ?? $server->port;
+        return $this->tunnelEndpoint['port'] ?? $config->port;
     }
 }

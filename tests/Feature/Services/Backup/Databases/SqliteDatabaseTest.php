@@ -3,8 +3,8 @@
 use App\Exceptions\Backup\DatabaseDumpException;
 use App\Exceptions\Backup\RestoreException;
 use App\Models\DatabaseServerSshConfig;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Databases\SqliteDatabase;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Services\Backup\Filesystems\SftpFilesystem;
 use League\Flysystem\Filesystem;
 
@@ -160,12 +160,12 @@ test('restore throws on local copy failure', function () {
 })->throws(RestoreException::class, 'Failed to copy SQLite file');
 
 test('prepareForRestore is a no-op', function () {
-    $job = Mockery::mock(\App\Models\BackupJob::class);
-    $job->shouldNotReceive('logCommand');
+    $logger = Mockery::mock(\App\Contracts\BackupLogger::class);
+    $logger->shouldNotReceive('logCommand');
 
     $db = new SqliteDatabase;
     $db->setConfig(['sqlite_path' => '/data/app.sqlite']);
-    $db->prepareForRestore('app.sqlite', $job);
+    $db->prepareForRestore('app.sqlite', $logger);
 });
 
 test('testConnection returns success for valid SQLite file', function () {

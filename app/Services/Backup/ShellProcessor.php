@@ -2,16 +2,16 @@
 
 namespace App\Services\Backup;
 
+use App\Contracts\BackupLogger;
 use App\Exceptions\ShellProcessFailed;
-use App\Models\BackupJob;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 
 class ShellProcessor
 {
-    private ?BackupJob $logger = null;
+    private ?BackupLogger $logger = null;
 
-    public function setLogger(BackupJob $logger): void
+    public function setLogger(BackupLogger $logger): void
     {
         $this->logger = $logger;
     }

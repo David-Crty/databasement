@@ -2,9 +2,9 @@
 
 namespace App\Services\Backup\Databases;
 
+use App\Contracts\BackupLogger;
 use App\Exceptions\Backup\ConnectionException;
-use App\Models\BackupJob;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
@@ -93,18 +93,18 @@ class MysqlDatabase implements DatabaseInterface
         ));
     }
 
-    public function prepareForRestore(string $schemaName, BackupJob $job): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
     {
         try {
             $pdo = $this->createPdo();
             $schemaName = str_replace('`', '', $schemaName);
 
             $dropCommand = "DROP DATABASE IF EXISTS `{$schemaName}`";
-            $job->logCommand($dropCommand, null, 0);
+            $logger->logCommand($dropCommand, null, 0);
             $pdo->exec($dropCommand);
 
             $createCommand = "CREATE DATABASE `{$schemaName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-            $job->logCommand($createCommand, null, 0);
+            $logger->logCommand($createCommand, null, 0);
             $pdo->exec($createCommand);
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);

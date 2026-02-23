@@ -4,8 +4,12 @@ namespace App\Jobs;
 
 use App\Facades\AppConfig;
 use App\Models\Restore;
+use App\Services\Backup\DTO\DatabaseConnectionConfig;
+use App\Services\Backup\DTO\RestoreConfig;
+use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\RestoreTask;
 use App\Services\FailureNotificationService;
+use App\Support\FilesystemSupport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,26 +44,59 @@ class ProcessRestoreJob implements ShouldQueue
      */
     public function handle(RestoreTask $restoreTask): void
     {
-        $restore = Restore::with(['job', 'snapshot.volume', 'snapshot.databaseServer', 'targetServer'])
+        $restore = Restore::with(['job', 'snapshot.volume', 'snapshot.databaseServer', 'targetServer.sshConfig'])
             ->findOrFail($this->restoreId);
+        $targetServer = $restore->targetServer;
+        $snapshot = $restore->snapshot;
+        $job = $restore->job;
 
-        // Update job with queue job ID for tracking
-        $restore->job->update(['job_id' => $this->job->getJobId()]);
+        // Update job with queue job ID for tracking (guard for dispatchSync)
+        if ($this->job) {
+            $job->update(['job_id' => $this->job->getJobId()]);
+        }
 
-        // Run the restore task
-        $restoreTask->run($restore, $this->attempts(), $this->tries);
+        try {
+            $job->markRunning();
 
-        Log::info('Restore completed successfully', [
-            'restore_id' => $this->restoreId,
-            'snapshot_id' => $restore->snapshot_id,
-            'target_server_id' => $restore->target_server_id,
-            'schema_name' => $restore->schema_name,
-        ]);
+            $attemptInfo = $this->job ? " (attempt {$this->attempts()}/{$this->tries})" : '';
+            $job->log("Starting restore operation{$attemptInfo}", 'info');
+
+            $config = new RestoreConfig(
+                targetServer: DatabaseConnectionConfig::fromServer($targetServer),
+                snapshotVolume: VolumeConfig::fromVolume($snapshot->volume),
+                snapshotFilename: $snapshot->filename,
+                snapshotFileSize: $snapshot->file_size,
+                snapshotCompressionType: $snapshot->compression_type,
+                snapshotDatabaseType: $snapshot->database_type,
+                snapshotDatabaseName: $snapshot->database_name,
+                schemaName: $restore->schema_name,
+                workingDirectory: FilesystemSupport::createWorkingDirectory('restore', $restore->id),
+            );
+
+            $restoreTask->execute($config, $job);
+
+            $job->markCompleted();
+
+            Log::info('Restore completed successfully', [
+                'restore_id' => $this->restoreId,
+                'snapshot_id' => $restore->snapshot_id,
+                'target_server_id' => $restore->target_server_id,
+                'schema_name' => $restore->schema_name,
+            ]);
+        } catch (\Throwable $e) {
+            $job->log("Restore failed: {$e->getMessage()}", 'error', [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            $job->markFailed($e);
+
+            throw $e;
+        }
     }
 
     /**
      * Handle a job failure (called by Laravel queue after all retries exhausted).
-     * Note: Job is already marked as failed by RestoreTask::run() catch block.
      */
     public function failed(\Throwable $exception): void
     {

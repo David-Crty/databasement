@@ -2,12 +2,14 @@
 
 namespace App\Services\Backup\Databases;
 
+use App\Contracts\BackupLogger;
 use App\Exceptions\Backup\DatabaseDumpException;
 use App\Exceptions\Backup\RestoreException;
-use App\Models\BackupJob;
-use App\Services\Backup\Databases\DTO\DatabaseOperationLog;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
+use App\Models\DatabaseServerSshConfig;
+use App\Services\Backup\DTO\DatabaseOperationLog;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Services\Backup\Filesystems\SftpFilesystem;
+use League\Flysystem\Filesystem;
 
 class SqliteDatabase implements DatabaseInterface
 {
@@ -34,10 +36,9 @@ class SqliteDatabase implements DatabaseInterface
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $sourcePath = $this->config['sqlite_path'];
-        $sshConfig = $this->config['ssh_config'] ?? null;
+        $filesystem = $this->getSftpFilesystem();
 
-        if ($sshConfig !== null) {
-            $filesystem = $this->sftpFilesystem->getFromSshConfig($sshConfig);
+        if ($filesystem !== null) {
             $source = $filesystem->readStream($sourcePath);
 
             $dest = fopen($outputPath, 'wb');
@@ -59,7 +60,7 @@ class SqliteDatabase implements DatabaseInterface
             return new DatabaseOperationResult(log: new DatabaseOperationLog(
                 'Downloaded SQLite database via SFTP',
                 'success',
-                ['host' => $sshConfig->host, 'path' => $sourcePath],
+                ['host' => $this->getSshHost(), 'path' => $sourcePath],
             ));
         }
 
@@ -76,10 +77,9 @@ class SqliteDatabase implements DatabaseInterface
 
     public function restore(string $inputPath): DatabaseOperationResult
     {
-        $sshConfig = $this->config['ssh_config'] ?? null;
+        $filesystem = $this->getSftpFilesystem();
 
-        if ($sshConfig !== null) {
-            $filesystem = $this->sftpFilesystem->getFromSshConfig($sshConfig);
+        if ($filesystem !== null) {
             $stream = fopen($inputPath, 'rb');
             if ($stream === false) {
                 throw new RestoreException("Failed to open file for reading: {$inputPath}");
@@ -93,7 +93,7 @@ class SqliteDatabase implements DatabaseInterface
             return new DatabaseOperationResult(log: new DatabaseOperationLog(
                 'Uploaded SQLite database via SFTP',
                 'success',
-                ['host' => $sshConfig->host, 'path' => $this->config['sqlite_path']],
+                ['host' => $this->getSshHost(), 'path' => $this->config['sqlite_path']],
             ));
         }
 
@@ -110,7 +110,7 @@ class SqliteDatabase implements DatabaseInterface
         ));
     }
 
-    public function prepareForRestore(string $schemaName, BackupJob $job): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
     {
         // SQLite doesn't need database preparation — the file is replaced during restore
     }
@@ -128,12 +128,50 @@ class SqliteDatabase implements DatabaseInterface
             return ['success' => false, 'message' => 'Database file path is required.', 'details' => []];
         }
 
-        $sshConfig = $this->config['ssh_config'] ?? null;
-        if ($sshConfig !== null) {
-            return $this->testRemotePaths($paths, $sshConfig);
+        $filesystem = $this->getSftpFilesystem();
+        if ($filesystem !== null) {
+            return $this->testRemotePaths($paths, $filesystem, $this->getSshHost());
         }
 
         return $this->testLocalPaths($paths);
+    }
+
+    /**
+     * Get an SFTP filesystem if SSH config is available (model or array).
+     */
+    private function getSftpFilesystem(): ?Filesystem
+    {
+        $sshConfig = $this->config['ssh_config'] ?? null;
+        $sshConfigArray = $this->config['ssh_config_array'] ?? null;
+
+        if ($sshConfig instanceof DatabaseServerSshConfig) {
+            return $this->sftpFilesystem->getFromSshConfig($sshConfig);
+        }
+
+        if (is_array($sshConfigArray)) {
+            return $this->sftpFilesystem->getFromDecryptedConfig($sshConfigArray);
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the SSH host for logging purposes.
+     */
+    private function getSshHost(): string
+    {
+        $sshConfig = $this->config['ssh_config'] ?? null;
+        $sshConfigArray = $this->config['ssh_config_array'] ?? null;
+
+        if ($sshConfig instanceof DatabaseServerSshConfig) {
+            return $sshConfig->host;
+        }
+
+        if (is_array($sshConfigArray)) {
+            return $sshConfigArray['host'] ?? 'unknown';
+        }
+
+        return 'unknown';
     }
 
     /**
@@ -230,11 +268,9 @@ class SqliteDatabase implements DatabaseInterface
      * @param  array<string>  $paths
      * @return array{success: bool, message: string, details: array<string, mixed>}
      */
-    private function testRemotePaths(array $paths, \App\Models\DatabaseServerSshConfig $sshConfig): array
+    private function testRemotePaths(array $paths, Filesystem $filesystem, string $sshHost): array
     {
         try {
-            $filesystem = $this->sftpFilesystem->getFromSshConfig($sshConfig);
-
             $failures = [];
             $outputEntries = [];
 
@@ -250,7 +286,7 @@ class SqliteDatabase implements DatabaseInterface
                     'dbms' => 'SQLite (remote)',
                     'file_size' => $fileSize,
                     'path' => $remotePath,
-                    'access' => 'SFTP via '.$sshConfig->getDisplayName(),
+                    'access' => 'SFTP via '.$sshHost,
                 ];
             }
 
@@ -271,7 +307,7 @@ class SqliteDatabase implements DatabaseInterface
                 'message' => 'Connection successful',
                 'details' => [
                     'sftp' => true,
-                    'ssh_host' => $sshConfig->host,
+                    'ssh_host' => $sshHost,
                     'output' => json_encode($outputEntries, JSON_PRETTY_PRINT),
                 ],
             ];

@@ -1,8 +1,8 @@
 <?php
 
 use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Databases\RedisDatabase;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
@@ -62,9 +62,9 @@ test('restore throws unsupported exception', function () {
 });
 
 test('prepareForRestore throws unsupported exception', function () {
-    $job = Mockery::mock(\App\Models\BackupJob::class);
+    $logger = Mockery::mock(\App\Contracts\BackupLogger::class);
 
-    expect(fn () => $this->db->prepareForRestore('all', $job))
+    expect(fn () => $this->db->prepareForRestore('all', $logger))
         ->toThrow(UnsupportedDatabaseTypeException::class);
 });
 

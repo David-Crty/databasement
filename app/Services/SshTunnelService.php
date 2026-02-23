@@ -42,19 +42,32 @@ class SshTunnelService
             throw new SshTunnelException('SSH configuration not found for this server');
         }
 
-        $decrypted = $sshConfig->getDecrypted();
+        return $this->establishFromConfig($sshConfig->getDecrypted(), $server->host, $server->port);
+    }
 
+    /**
+     * Establish an SSH tunnel from a decrypted SSH config array.
+     *
+     * @param  array<string, mixed>  $sshConfig  Decrypted SSH config (host, port, username, auth_type, password, private_key, key_passphrase)
+     * @param  string  $remoteHost  The remote host to tunnel to
+     * @param  int  $remotePort  The remote port to tunnel to
+     * @return array{host: string, port: int} The local endpoint to connect to
+     *
+     * @throws SshTunnelException
+     */
+    public function establishFromConfig(array $sshConfig, string $remoteHost, int $remotePort): array
+    {
         $this->localPort = $this->allocateLocalPort();
         $command = $this->buildSshCommand(
-            sshHost: $decrypted['host'],
-            sshPort: (int) ($decrypted['port'] ?? 22),
-            sshUsername: $decrypted['username'],
-            authType: $decrypted['auth_type'] ?? 'password',
-            password: $decrypted['password'] ?? null,
-            privateKey: $decrypted['private_key'] ?? null,
-            keyPassphrase: $decrypted['key_passphrase'] ?? null,
-            remoteHost: $server->host,
-            remotePort: $server->port,
+            sshHost: $sshConfig['host'] ?? '',
+            sshPort: (int) ($sshConfig['port'] ?? 22),
+            sshUsername: $sshConfig['username'] ?? '',
+            authType: $sshConfig['auth_type'] ?? 'password',
+            password: $sshConfig['password'] ?? null,
+            privateKey: $sshConfig['private_key'] ?? null,
+            keyPassphrase: $sshConfig['key_passphrase'] ?? null,
+            remoteHost: $remoteHost,
+            remotePort: $remotePort,
             localPort: $this->localPort
         );
 

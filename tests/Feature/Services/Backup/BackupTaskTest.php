@@ -1,109 +1,276 @@
 <?php
 
+use App\Enums\CompressionType;
+use App\Enums\DatabaseType;
 use App\Facades\AppConfig;
-use App\Models\DatabaseServerSshConfig;
-use App\Models\Snapshot;
-use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
+use App\Services\Backup\DTO\BackupConfig;
+use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\DatabaseConnectionConfig;
+use App\Services\Backup\DTO\DatabaseOperationResult;
+use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use App\Services\Backup\InMemoryBackupLogger;
 use App\Services\SshTunnelService;
-use League\Flysystem\Filesystem;
 use Tests\Support\TestShellProcessor;
 
 beforeEach(function () {
     $this->shellProcessor = new TestShellProcessor;
     $this->compressorFactory = new CompressorFactory($this->shellProcessor);
 
-    // Mock external dependencies only
     $this->filesystemProvider = Mockery::mock(FilesystemProvider::class);
     $this->sshTunnelService = Mockery::mock(SshTunnelService::class);
     $this->sshTunnelService->shouldReceive('isActive')->andReturn(false);
 
-    // Use real BackupJobFactory from container
-    $this->backupJobFactory = app(BackupJobFactory::class);
-
-    // Create temp directory for test files and set config
     $this->tempDir = sys_get_temp_dir().'/backup-task-test-'.uniqid();
     mkdir($this->tempDir, 0777, true);
     AppConfig::set('backup.working_directory', $this->tempDir);
     AppConfig::set('backup.compression', 'gzip');
 });
 
-// Helper function to set up common expectations
-function setupCommonExpectations(Snapshot $snapshot): void
+function buildMockDatabaseProvider(): DatabaseProvider
 {
-    test()->filesystemProvider
-        ->shouldReceive('getConfig')
-        ->with('local', 'root')
-        ->andReturn(test()->tempDir);
-
-    test()->filesystemProvider
-        ->shouldReceive('get')
-        ->with($snapshot->databaseServer->backup->volume->type)
-        ->andReturn(Mockery::mock(Filesystem::class));
-
-    test()->filesystemProvider
-        ->shouldReceive('transfer')
-        ->once();
-}
-
-test('run executes backup workflow successfully', function () {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('dump')
         ->once()
-        ->andReturnUsing(function (string $outputPath) {
-            return new DatabaseOperationResult(command: "echo 'fake dump' > ".escapeshellarg($outputPath));
-        });
+        ->andReturnUsing(fn (string $outputPath) => new DatabaseOperationResult(
+            command: "echo 'fake dump' > ".escapeshellarg($outputPath),
+        ));
 
     $mockFactory = Mockery::mock(DatabaseProvider::class);
-    $mockFactory->shouldReceive('makeForServer')
+    $mockFactory->shouldReceive('makeFromConfig')
         ->once()
         ->andReturn($mockHandler);
 
+    return $mockFactory;
+}
+
+function buildDbConfig(string $name = 'Test Server'): DatabaseConnectionConfig
+{
+    return new DatabaseConnectionConfig(
+        databaseType: DatabaseType::MYSQL,
+        serverName: $name,
+        host: 'localhost',
+        port: 3306,
+        username: 'root',
+        password: 'secret',
+    );
+}
+
+function buildVolumeConfig(): VolumeConfig
+{
+    return new VolumeConfig(
+        type: 'local',
+        name: 'Test Volume',
+        config: ['root' => '/tmp/backups'],
+    );
+}
+
+function buildBackupConfig(?string $workingDirectory = null): BackupConfig
+{
+    return new BackupConfig(
+        database: buildDbConfig(),
+        volume: buildVolumeConfig(),
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory ?? test()->tempDir.'/execute-test-'.uniqid(),
+    );
+}
+
+test('execute returns BackupResult with filename, fileSize, and checksum', function () {
+    $mockProvider = buildMockDatabaseProvider();
+
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
     $backupTask = new BackupTask(
-        $mockFactory,
+        $mockProvider,
         $this->shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,
-        $this->sshTunnelService
+        $this->sshTunnelService,
     );
 
-    $databaseServer = createDatabaseServer([
-        'name' => 'Production MySQL',
-        'host' => 'localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['myapp'],
-    ]);
+    $config = buildBackupConfig();
+    mkdir($config->workingDirectory, 0755, true);
 
-    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
-    $snapshot = $snapshots[0];
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
 
-    setupCommonExpectations($snapshot);
-    $backupTask->run($snapshot);
-
-    // Verify orchestration outcomes: snapshot completed with metadata
-    $snapshot->refresh();
-    expect($snapshot->job->status)->toBe('completed')
-        ->and($snapshot->filename)->not->toBeEmpty()
-        ->and($snapshot->file_size)->toBeGreaterThan(0)
-        ->and($snapshot->checksum)->not->toBeEmpty();
+    expect($result)->toBeInstanceOf(BackupResult::class)
+        ->and($result->filename)->toContain('Test-Server-myapp-')
+        ->and($result->filename)->toEndWith('.sql.gz')
+        ->and($result->fileSize)->toBeGreaterThan(0)
+        ->and($result->checksum)->toMatch('/^[a-f0-9]{64}$/');
 });
 
-test('run throws exception when backup command failed', function () {
+test('execute calls onProgress callback at each checkpoint', function () {
+    $mockProvider = buildMockDatabaseProvider();
+
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $config = buildBackupConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $progressCount = 0;
+
+    $backupTask->execute(
+        $config,
+        new InMemoryBackupLogger,
+        onProgress: function () use (&$progressCount) {
+            $progressCount++;
+        },
+    );
+
+    expect($progressCount)->toBe(3);
+});
+
+test('execute establishes SSH tunnel when server requires it', function () {
+    $dbConfig = new DatabaseConnectionConfig(
+        databaseType: DatabaseType::MYSQL,
+        serverName: 'MySQL via SSH',
+        host: 'private-db.internal',
+        port: 3306,
+        username: 'root',
+        password: 'secret',
+        sshConfig: [
+            'host' => 'ssh.example.com',
+            'port' => 22,
+            'username' => 'deploy',
+            'auth_type' => 'password',
+            'password' => 'sshpass',
+            'private_key' => null,
+            'key_passphrase' => null,
+        ],
+    );
+
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('dump')
         ->once()
-        ->andReturn(new DatabaseOperationResult(command: "mysqldump --host='localhost' 'myapp'"));
+        ->andReturnUsing(fn (string $outputPath) => new DatabaseOperationResult(
+            command: "echo 'fake dump' > ".escapeshellarg($outputPath),
+        ));
 
-    $mockFactory = Mockery::mock(DatabaseProvider::class);
-    $mockFactory->shouldReceive('makeForServer')
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')
+        ->once()
+        ->with(
+            Mockery::on(fn ($c) => $c->host === 'private-db.internal'),
+            'myapp',
+            '127.0.0.1',
+            54321
+        )
+        ->andReturn($mockHandler);
+
+    $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $sshTunnelService = Mockery::mock(SshTunnelService::class);
+    $sshTunnelService->shouldReceive('establishFromConfig')
+        ->once()
+        ->with(
+            Mockery::on(fn ($c) => $c['host'] === 'ssh.example.com'),
+            'private-db.internal',
+            3306
+        )
+        ->andReturn(['host' => '127.0.0.1', 'port' => 54321]);
+    $sshTunnelService->shouldReceive('isActive')->andReturn(true);
+    $sshTunnelService->shouldReceive('close')->once();
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $sshTunnelService,
+    );
+
+    $workingDirectory = $this->tempDir.'/ssh-test-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    $config = new BackupConfig(
+        database: $dbConfig,
+        volume: buildVolumeConfig(),
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+    );
+
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
+
+    expect($result)->toBeInstanceOf(BackupResult::class);
+});
+
+test('execute uses server host and port when no SSH tunnel is needed', function () {
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('dump')
+        ->once()
+        ->andReturnUsing(fn (string $outputPath) => new DatabaseOperationResult(
+            command: "echo 'fake dump' > ".escapeshellarg($outputPath),
+        ));
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')
+        ->once()
+        ->with(
+            Mockery::type(DatabaseConnectionConfig::class),
+            'myapp',
+            'localhost',
+            3306
+        )
+        ->andReturn($mockHandler);
+
+    $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $config = buildBackupConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $backupTask->execute($config, new InMemoryBackupLogger);
+});
+
+test('execute cleans up working directory on success', function () {
+    $mockProvider = buildMockDatabaseProvider();
+
+    $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $config = buildBackupConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $backupTask->execute($config, new InMemoryBackupLogger);
+
+    expect(is_dir($config->workingDirectory))->toBeFalse();
+});
+
+test('execute cleans up working directory on failure', function () {
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('dump')
+        ->once()
+        ->andReturn(new DatabaseOperationResult(command: 'false'));
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')
         ->once()
         ->andReturn($mockHandler);
 
@@ -111,187 +278,100 @@ test('run throws exception when backup command failed', function () {
     $shellProcessor->shouldReceive('setLogger')->once();
     $shellProcessor->shouldReceive('process')
         ->once()
-        ->andThrow(new \App\Exceptions\ShellProcessFailed('Access denied for user'));
+        ->andThrow(new \App\Exceptions\ShellProcessFailed('Command failed'));
 
     $backupTask = new BackupTask(
-        $mockFactory,
+        $mockProvider,
         $shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,
-        $this->sshTunnelService
+        $this->sshTunnelService,
     );
 
-    $databaseServer = createDatabaseServer([
-        'name' => 'Production MySQL',
-        'host' => 'localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['myapp'],
-    ]);
+    $config = buildBackupConfig();
+    mkdir($config->workingDirectory, 0755, true);
 
-    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
-    $snapshot = $snapshots[0];
+    expect(fn () => $backupTask->execute($config, new InMemoryBackupLogger))
+        ->toThrow(\App\Exceptions\ShellProcessFailed::class);
 
-    expect(fn () => $backupTask->run($snapshot))
-        ->toThrow(\App\Exceptions\ShellProcessFailed::class, 'Access denied for user');
-
-    $snapshot->refresh();
-    expect($snapshot->job->status)->toBe('failed')
-        ->and($snapshot->job->error_message)->toBe('Access denied for user')
-        ->and($snapshot->job->completed_at)->not->toBeNull();
+    expect(is_dir($config->workingDirectory))->toBeFalse();
 });
 
-test('run executes backup for each database when backup_all_databases is enabled', function () {
-    $mockDatabaseProvider = Mockery::mock(DatabaseProvider::class);
-    $mockDatabaseProvider->shouldReceive('listDatabasesForServer')
-        ->once()
-        ->andReturn(['app_db', 'users_db']);
-
-    $backupJobFactory = new BackupJobFactory($mockDatabaseProvider);
-    $databaseProvider = new DatabaseProvider;
-
-    $backupTask = new BackupTask(
-        $databaseProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService
-    );
-
-    $databaseServer = createDatabaseServer([
-        'name' => 'Multi-DB Server',
-        'host' => 'localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => null,
-        'backup_all_databases' => true,
-    ]);
-
-    $snapshots = $backupJobFactory->createSnapshots($databaseServer, 'scheduled');
-
-    foreach ($snapshots as $snapshot) {
-        $this->shellProcessor->clearCommands();
-        setupCommonExpectations($snapshot);
-        $backupTask->run($snapshot);
-    }
-
-    expect($snapshots)->toHaveCount(2);
-
-    foreach ($snapshots as $snapshot) {
-        $snapshot->refresh();
-        expect($snapshot->job->status)->toBe('completed')
-            ->and($snapshot->filename)->not->toBeEmpty()
-            ->and($snapshot->file_size)->toBeGreaterThan(0);
-    }
-});
-
-test('run handles backup path configuration correctly', function (?string $configuredPath, string $expectedPrefix) {
-    $databaseProvider = new DatabaseProvider;
-
-    $backupTask = new BackupTask(
-        $databaseProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService
-    );
-
-    $databaseServer = createDatabaseServer([
-        'name' => 'MySQL Server',
-        'host' => 'localhost',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['myapp'],
-    ]);
-
-    if ($configuredPath !== null) {
-        $databaseServer->backup->update(['path' => $configuredPath]);
-    }
-
-    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
-    $snapshot = $snapshots[0];
-
-    setupCommonExpectations($snapshot);
-    $backupTask->run($snapshot);
-
-    $snapshot->refresh();
-
-    if ($expectedPrefix === '') {
-        expect($snapshot->filename)->not->toContain('/');
-    } else {
-        expect($snapshot->filename)->toStartWith($expectedPrefix);
-    }
-})->with([
-    'no path configured' => [null, ''],
-    'nested path' => ['mysql/production', 'mysql/production/'],
-    'path with slashes trimmed' => ['/mysql/prod/', 'mysql/prod/'],
-    'path with year variable' => ['backups/{year}', 'backups/'.now()->format('Y').'/'],
-    'path with all date variables' => ['{year}/{month}/{day}', now()->format('Y').'/'.now()->format('m').'/'.now()->format('d').'/'],
-    'path with mixed static and variables' => ['prod/{year}/{month}', 'prod/'.now()->format('Y').'/'.now()->format('m').'/'],
-]);
-
-test('run establishes SSH tunnel when server requires it', function () {
-    $sshConfig = DatabaseServerSshConfig::factory()->create();
-
-    $databaseServer = createDatabaseServer([
-        'name' => 'MySQL via SSH',
-        'host' => 'private-db.internal',
-        'port' => 3306,
-        'database_type' => 'mysql',
-        'username' => 'root',
-        'password' => 'secret',
-        'database_names' => ['myapp'],
-        'ssh_config_id' => $sshConfig->id,
-    ]);
-
-    $snapshots = $this->backupJobFactory->createSnapshots($databaseServer, 'manual');
-    $snapshot = $snapshots[0];
-
-    // Configure SSH tunnel mock
-    $sshTunnelService = Mockery::mock(SshTunnelService::class);
-    $sshTunnelService->shouldReceive('establish')
-        ->once()
-        ->with(Mockery::on(fn ($server) => $server->id === $databaseServer->id))
-        ->andReturn(['host' => '127.0.0.1', 'port' => 54321]);
-    $sshTunnelService->shouldReceive('isActive')
-        ->andReturn(true);
-    $sshTunnelService->shouldReceive('close')
-        ->once();
-
-    // Mock factory to verify it receives tunnel endpoint
+test('execute uses custom compression type and level', function () {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('dump')
         ->once()
-        ->andReturnUsing(fn (string $outputPath) => new DatabaseOperationResult(command: "echo 'fake dump' > ".escapeshellarg($outputPath)));
+        ->andReturnUsing(fn (string $outputPath) => new DatabaseOperationResult(
+            command: "echo 'fake dump' > ".escapeshellarg($outputPath),
+        ));
 
-    $mockFactory = Mockery::mock(DatabaseProvider::class);
-    $mockFactory->shouldReceive('makeForServer')
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')
         ->once()
-        ->with(
-            Mockery::on(fn ($server) => $server->id === $databaseServer->id),
-            'myapp',
-            '127.0.0.1',
-            54321
-        )
         ->andReturn($mockHandler);
 
+    $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
     $backupTask = new BackupTask(
-        $mockFactory,
+        $mockProvider,
         $this->shellProcessor,
         $this->filesystemProvider,
         $this->compressorFactory,
-        $sshTunnelService
+        $this->sshTunnelService,
     );
 
-    setupCommonExpectations($snapshot);
-    $backupTask->run($snapshot);
+    $workingDirectory = $this->tempDir.'/compression-test-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
 
-    $snapshot->refresh();
-    expect($snapshot->job->status)->toBe('completed');
+    $config = new BackupConfig(
+        database: buildDbConfig(),
+        volume: buildVolumeConfig(),
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+        compressionType: CompressionType::ZSTD,
+        compressionLevel: 5,
+    );
+
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
+
+    expect($result->filename)->toEndWith('.sql.zst');
+
+    // Verify zstd command was used with level 5
+    $zstdCommands = array_filter(
+        $this->shellProcessor->getCommands(),
+        fn (string $cmd) => str_starts_with($cmd, 'zstd'),
+    );
+    expect($zstdCommands)->not->toBeEmpty();
+    expect(array_values($zstdCommands)[0])->toContain('-5');
+});
+
+test('execute prepends backup path with date variables to filename', function () {
+    $mockProvider = buildMockDatabaseProvider();
+
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $workingDirectory = $this->tempDir.'/path-test-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    $config = new BackupConfig(
+        database: buildDbConfig(),
+        volume: buildVolumeConfig(),
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+        backupPath: 'backups/{year}/{month}',
+    );
+
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
+
+    $expectedPrefix = 'backups/'.now()->format('Y').'/'.now()->format('m').'/';
+    expect($result->filename)->toStartWith($expectedPrefix)
+        ->and($result->filename)->toContain('Test-Server-myapp-');
 });

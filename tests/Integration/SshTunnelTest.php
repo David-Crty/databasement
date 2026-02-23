@@ -10,11 +10,11 @@
  * Run with: php artisan test --filter=SshTunnelTest
  */
 
+use App\Jobs\ProcessBackupJob;
+use App\Jobs\ProcessRestoreJob;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\BackupTask;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\Filesystems\FilesystemProvider;
-use App\Services\Backup\RestoreTask;
 use App\Services\SshTunnelService;
 use Tests\Support\IntegrationTestHelpers;
 
@@ -58,8 +58,6 @@ test('MySQL connection test succeeds through SSH tunnel', function () {
 });
 
 test('MySQL backup and restore through SSH tunnel', function () {
-    $backupTask = app(BackupTask::class);
-    $restoreTask = app(RestoreTask::class);
     $backupJobFactory = app(BackupJobFactory::class);
     $filesystemProvider = app(FilesystemProvider::class);
 
@@ -81,7 +79,7 @@ test('MySQL backup and restore through SSH tunnel', function () {
         method: 'manual',
     );
     $snapshot = $snapshots[0];
-    $backupTask->run($snapshot);
+    ProcessBackupJob::dispatchSync($snapshot->id);
     $snapshot->refresh();
     $snapshot->load('job');
 
@@ -105,7 +103,7 @@ test('MySQL backup and restore through SSH tunnel', function () {
         targetServer: $tunneledServer,
         schemaName: $this->restoredDatabaseName,
     );
-    $restoreTask->run($restore);
+    ProcessRestoreJob::dispatchSync($restore->id);
 
     // Verify restore via direct connection
     $pdo = IntegrationTestHelpers::connectToDatabase('mysql', $this->directServer, $this->restoredDatabaseName);

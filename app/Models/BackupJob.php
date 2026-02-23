@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\BackupLogger;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -41,7 +42,7 @@ use Illuminate\Support\Carbon;
  *
  * @mixin \Eloquent
  */
-class BackupJob extends Model
+class BackupJob extends Model implements BackupLogger
 {
     use HasUlids;
 

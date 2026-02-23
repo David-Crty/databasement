@@ -5,23 +5,18 @@ namespace App\Services\Backup\Filesystems;
 use App\Exceptions\Backup\FilesystemException;
 use App\Models\Snapshot;
 use App\Models\Volume;
+use App\Services\Backup\DTO\VolumeConfig;
 use League\Flysystem\Filesystem;
 
 class FilesystemProvider
 {
-    /** @var array<string, mixed> */
-    private array $config;
-
     /** @var FilesystemInterface[] */
     private array $filesystems = [];
 
     /**
      * @param  array<string, mixed>  $config
      */
-    public function __construct(array $config)
-    {
-        $this->config = $config;
-    }
+    public function __construct(private array $config) {}
 
     public function add(FilesystemInterface $filesystem): void
     {
@@ -33,14 +28,7 @@ class FilesystemProvider
      */
     public function getForVolume(Volume $volume): Filesystem
     {
-        foreach ($this->filesystems as $filesystem) {
-            if ($filesystem->handles($volume->type)) {
-                // Use decrypted config for sensitive fields (passwords, etc.)
-                return $filesystem->get($volume->getDecryptedConfig());
-            }
-        }
-
-        throw new FilesystemException("The requested filesystem type {$volume->type} is not currently supported.");
+        return $this->getForVolumeConfig(VolumeConfig::fromVolume($volume));
     }
 
     /**
@@ -81,6 +69,43 @@ class FilesystemProvider
     public function transfer(Volume $volume, string $source, string $destination): void
     {
         $filesystem = $this->getForVolume($volume);
+        $this->writeToFilesystem($filesystem, $source, $destination);
+    }
+
+    public function download(Snapshot $snapshot, string $destination): void
+    {
+        $filesystem = $this->getForVolume($snapshot->volume);
+        $this->readFromFilesystem($filesystem, $snapshot->filename, $destination);
+    }
+
+    /**
+     * Get a filesystem instance for a VolumeConfig DTO (config already decrypted).
+     */
+    public function getForVolumeConfig(VolumeConfig $config): Filesystem
+    {
+        foreach ($this->filesystems as $filesystem) {
+            if ($filesystem->handles($config->type)) {
+                return $filesystem->get($config->config);
+            }
+        }
+
+        throw new FilesystemException("The requested filesystem type {$config->type} is not currently supported.");
+    }
+
+    public function transferFromConfig(VolumeConfig $config, string $source, string $destination): void
+    {
+        $filesystem = $this->getForVolumeConfig($config);
+        $this->writeToFilesystem($filesystem, $source, $destination);
+    }
+
+    public function downloadFromConfig(VolumeConfig $config, string $remoteFilename, string $destination): void
+    {
+        $filesystem = $this->getForVolumeConfig($config);
+        $this->readFromFilesystem($filesystem, $remoteFilename, $destination);
+    }
+
+    private function writeToFilesystem(Filesystem $filesystem, string $source, string $destination): void
+    {
         $stream = fopen($source, 'r');
         if ($stream === false) {
             throw new FilesystemException("Failed to open file: {$source}");
@@ -95,11 +120,8 @@ class FilesystemProvider
         }
     }
 
-    public function download(Snapshot $snapshot, string $destination): void
+    private function readFromFilesystem(Filesystem $filesystem, string $remoteFilename, string $destination): void
     {
-        $filesystem = $this->getForVolume($snapshot->volume);
-        // Use the filename directly
-        $stream = $filesystem->readStream($snapshot->filename);
         $localStream = fopen($destination, 'w');
 
         if ($localStream === false) {
@@ -107,9 +129,13 @@ class FilesystemProvider
         }
 
         try {
-            stream_copy_to_stream($stream, $localStream);
+            $stream = $filesystem->readStream($remoteFilename);
+            $bytes = stream_copy_to_stream($stream, $localStream);
+            if ($bytes === false) {
+                throw new FilesystemException("Failed to copy stream for: {$remoteFilename}");
+            }
         } finally {
-            if (is_resource($stream)) {
+            if (isset($stream) && is_resource($stream)) {
                 fclose($stream);
             }
             fclose($localStream);

@@ -1,7 +1,7 @@
 <?php
 
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
 use App\Services\Backup\Databases\MongodbDatabase;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use MongoDB\Driver\Exception\ConnectionTimeoutException;
 
 beforeEach(function () {
@@ -108,9 +108,9 @@ test('restore uses same database for nsFrom when source_database not set', funct
 });
 
 test('prepareForRestore is a no-op', function () {
-    $job = Mockery::mock(\App\Models\BackupJob::class);
+    $logger = Mockery::mock(\App\Contracts\BackupLogger::class);
 
-    expect(fn () => $this->db->prepareForRestore('mydb', $job))->not->toThrow(Exception::class);
+    expect(fn () => $this->db->prepareForRestore('mydb', $logger))->not->toThrow(Exception::class);
 });
 
 test('listDatabases returns databases excluding system databases', function () {

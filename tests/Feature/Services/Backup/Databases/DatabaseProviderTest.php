@@ -137,6 +137,43 @@ test('testConnectionForServer delegates to handler testConnection', function (st
     'mongodb uses empty database name' => ['mongodb', ''],
 ]);
 
+test('makeFromConfig builds correct config for SQLite with SSH array', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::SQLITE,
+        serverName: 'SQLite Server',
+        host: '',
+        port: 0,
+        username: '',
+        password: '',
+        sshConfig: ['host' => 'ssh.example.com', 'port' => 22, 'username' => 'deploy'],
+    );
+
+    $provider = new DatabaseProvider;
+    $database = $provider->makeFromConfig($config, '/data/app.db', '', 0);
+
+    expect($database)->toBeInstanceOf(SqliteDatabase::class);
+});
+
+test('makeFromConfig builds correct config for MongoDB with source database', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::MONGODB,
+        serverName: 'Mongo Server',
+        host: 'mongo.local',
+        port: 27017,
+        username: 'admin',
+        password: 'secret',
+        extraConfig: ['auth_source' => 'myauth'],
+    );
+
+    $provider = new DatabaseProvider;
+    $database = $provider->makeFromConfig($config, 'targetdb', 'mongo.local', 27017, 'sourcedb');
+
+    $result = $database->restore('/tmp/dump.archive');
+    expect($result->command)->toContain("--nsFrom='sourcedb.*'")
+        ->toContain("--nsTo='targetdb.*'")
+        ->toContain("--authenticationDatabase='myauth'");
+});
+
 test('testConnectionForServer returns SSH failure', function () {
     $sshConfig = new DatabaseServerSshConfig;
     $sshConfig->host = 'nonexistent.invalid.host.example';

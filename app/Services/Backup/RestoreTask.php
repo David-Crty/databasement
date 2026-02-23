@@ -2,17 +2,15 @@
 
 namespace App\Services\Backup;
 
+use App\Contracts\BackupLogger;
 use App\Enums\DatabaseType;
 use App\Exceptions\Backup\RestoreException;
 use App\Facades\AppConfig;
-use App\Models\BackupJob;
-use App\Models\DatabaseServer;
-use App\Models\Restore;
-use App\Models\Snapshot;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Concerns\UsesSshTunnel;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
@@ -36,83 +34,61 @@ class RestoreTask
     }
 
     /**
-     * Restore a snapshot to a target database server
+     * Execute the core restore workflow: download, decompress, prepare, restore.
      *
-     * @throws \Exception
+     * This is the pure restore engine with no model persistence.
+     * `ProcessRestoreJob` delegates to this method.
      */
-    public function run(Restore $restore, ?int $attempt = null, ?int $maxAttempts = null): Restore
+    public function execute(RestoreConfig $config, BackupLogger $logger): void
     {
-        $targetServer = $restore->targetServer;
-        $snapshot = $restore->snapshot;
-        $job = $restore->job;
+        $this->shellProcessor->setLogger($logger);
+        $target = $config->targetServer;
+
         try {
             AppConfig::ensureBackupTmpFolderExists();
-            $this->validateCompatibility($targetServer, $snapshot);
 
-            if ($targetServer->database_type === DatabaseType::REDIS) {
+            $this->validateCompatibility($target->databaseType, $config->snapshotDatabaseType);
+
+            if ($target->databaseType === DatabaseType::REDIS) {
                 throw new RestoreException('Automated restore is not supported for Redis/Valkey. Please restore manually.');
             }
 
-            $this->shellProcessor->setLogger($job);
-            $workingDirectory = FilesystemSupport::createWorkingDirectory('restore', $restore->id);
-
-            $job->markRunning();
-
-            $attemptInfo = $attempt && $maxAttempts ? " (attempt {$attempt}/{$maxAttempts})" : '';
-            $job->log("Starting restore operation{$attemptInfo}", 'info', [
-                'target_database_server' => [
-                    'id' => $targetServer->id,
-                    'name' => $targetServer->name,
-                    'database_name' => $restore->schema_name,
-                    'database_type' => $targetServer->database_type,
-                ],
-                'snapshot' => [
-                    'id' => $snapshot->id,
-                    'database_name' => $snapshot->database_name,
-                    'database_server' => [
-                        'id' => $snapshot->databaseServer->id,
-                        'name' => $snapshot->databaseServer->name,
-                        'database_type' => $snapshot->databaseServer->database_type,
-                    ],
-                ],
-            ]);
-
-            if ($targetServer->requiresSshTunnel()) {
-                $this->establishSshTunnel($targetServer, $job);
+            if ($target->requiresSshTunnel()) {
+                $this->establishSshTunnel($target, $logger);
             }
 
-            $humanFileSize = Formatters::humanFileSize($snapshot->file_size);
-            $compressedFile = $workingDirectory.'/snapshot.'.$snapshot->compression_type->extension();
-            $compressor = $this->compressorFactory->make($snapshot->compression_type);
+            $humanFileSize = Formatters::humanFileSize($config->snapshotFileSize);
+            $compressedFile = $config->workingDirectory.'/snapshot.'.$config->snapshotCompressionType->extension();
+            $compressor = $this->compressorFactory->make($config->snapshotCompressionType);
 
             // Download snapshot from volume
-            $job->log("Downloading snapshot ({$humanFileSize}) from volume: {$snapshot->volume->name}", 'info', [
-                'volume_type' => $snapshot->volume->type,
-                'source' => $snapshot->filename,
+            $logger->log("Downloading snapshot ({$humanFileSize}) from volume: {$config->snapshotVolume->name}", 'info', [
+                'volume_type' => $config->snapshotVolume->type,
+                'source' => $config->snapshotFilename,
                 'destination' => $compressedFile,
-                'compression_type' => $snapshot->compression_type->value,
+                'compression_type' => $config->snapshotCompressionType->value,
             ]);
             $transferStart = microtime(true);
-            $this->filesystemProvider->download($snapshot, $compressedFile);
+            $this->filesystemProvider->downloadFromConfig($config->snapshotVolume, $config->snapshotFilename, $compressedFile);
             $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
-            $job->log('Download completed successfully in '.$transferDuration, 'success');
+            $logger->log('Download completed successfully in '.$transferDuration, 'success');
 
             // Decompress the archive
             $workingFile = $compressor->decompress($compressedFile);
 
-            $database = $this->databaseProvider->makeForServer(
-                $targetServer,
-                $restore->schema_name,
-                $this->getConnectionHost($targetServer),
-                $this->getConnectionPort($targetServer),
-                $snapshot->database_name,
+            $database = $this->databaseProvider->makeFromConfig(
+                $target,
+                $config->schemaName,
+                $this->getConnectionHost($target),
+                $this->getConnectionPort($target),
+                $config->snapshotDatabaseName,
             );
 
-            $this->prepareDatabase($database, $restore->schema_name, $job);
+            $this->prepareDatabase($database, $config->schemaName, $logger);
 
-            $job->log('Restoring database from snapshot', 'info', [
-                'source_database' => $snapshot->database_name,
-                'target_database' => $restore->schema_name,
+            $logger->log('Restoring database from snapshot', 'info', [
+                'source_database' => $config->snapshotDatabaseName,
+                'target_database' => $config->schemaName,
             ]);
 
             $result = $database->restore($workingFile);
@@ -120,44 +96,34 @@ class RestoreTask
                 $this->shellProcessor->process($result->command);
             }
             if ($result->log !== null) {
-                $job->log($result->log->message, $result->log->level, $result->log->context ?? []);
+                $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
             }
 
             // Mark job as completed
-            $job->markCompleted();
-
-            return $restore;
-        } catch (\Throwable $e) {
-            $job->log("Restore failed: {$e->getMessage()}", 'error', [
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
-            $job->markFailed($e);
-            throw $e;
+            $logger->log('Restore completed successfully', 'success');
         } finally {
             // Close SSH tunnel if active
-            $this->closeSshTunnel($job);
+            $this->closeSshTunnel($logger);
 
-            // Clean up working directory and all files within (safety net, Job also cleans up on failure)
-            if (isset($workingDirectory) && is_dir($workingDirectory)) {
-                $job->log('Cleaning up temporary files', 'info');
-                FilesystemSupport::cleanupDirectory($workingDirectory);
+            // Clean up working directory and all files within
+            if (is_dir($config->workingDirectory)) {
+                $logger->log('Cleaning up temporary files', 'info');
+                FilesystemSupport::cleanupDirectory($config->workingDirectory);
             }
         }
     }
 
-    private function validateCompatibility(DatabaseServer $targetServer, Snapshot $snapshot): void
+    private function validateCompatibility(DatabaseType $targetType, DatabaseType $snapshotType): void
     {
-        if ($targetServer->database_type !== $snapshot->database_type) {
+        if ($targetType !== $snapshotType) {
             throw new RestoreException(
-                "Cannot restore {$snapshot->database_type->value} snapshot to {$targetServer->database_type->value} server"
+                "Cannot restore {$snapshotType->value} snapshot to {$targetType->value} server"
             );
         }
     }
 
-    protected function prepareDatabase(DatabaseInterface $database, string $schemaName, BackupJob $job): void
+    protected function prepareDatabase(DatabaseInterface $database, string $schemaName, BackupLogger $logger): void
     {
-        $database->prepareForRestore($schemaName, $job);
+        $database->prepareForRestore($schemaName, $logger);
     }
 }

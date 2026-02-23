@@ -2,14 +2,13 @@
 
 namespace App\Services\Backup;
 
-use App\Facades\AppConfig;
-use App\Models\BackupJob;
-use App\Models\DatabaseServer;
-use App\Models\Snapshot;
+use App\Contracts\BackupLogger;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Concerns\UsesSshTunnel;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DTO\BackupConfig;
+use App\Services\Backup\DTO\BackupResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
@@ -32,39 +31,35 @@ class BackupTask
         return $this->sshTunnelService;
     }
 
-    public function setLogger(BackupJob $job): void
-    {
-        $this->shellProcessor->setLogger($job);
-    }
+    /**
+     * Execute the core backup workflow: dump, compress, transfer, checksum.
+     *
+     * This is the pure backup engine with no model persistence.
+     * `ProcessBackupJob` delegates to this method.
+     *
+     * @param  callable|null  $onProgress  Called after dump, compression, and transfer steps
+     */
+    public function execute(
+        BackupConfig $config,
+        BackupLogger $logger,
+        ?callable $onProgress = null,
+    ): BackupResult {
+        $this->shellProcessor->setLogger($logger);
+        $db = $config->database;
 
-    public function run(Snapshot $snapshot, ?int $attempt = null, ?int $maxAttempts = null): Snapshot
-    {
-        $databaseServer = $snapshot->databaseServer;
-        $job = $snapshot->job;
         try {
-            AppConfig::ensureBackupTmpFolderExists();
-            $this->setLogger($job);
-            $compressor = $this->compressorFactory->make();
-            $workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $snapshot->id);
-            $workingFile = $workingDirectory.'/dump.'.$databaseServer->database_type->dumpExtension();
-
-            $job->markRunning();
-
-            // Use the database name from the snapshot (important for multi-database backups)
-            $databaseName = $snapshot->database_name;
-
-            $attemptInfo = $attempt && $maxAttempts ? " (attempt {$attempt}/{$maxAttempts})" : '';
-            $job->log("Starting backup for database: {$databaseName}{$attemptInfo}", 'info');
-
-            if ($databaseServer->requiresSshTunnel()) {
-                $this->establishSshTunnel($databaseServer, $job);
+            if ($db->requiresSshTunnel()) {
+                $this->establishSshTunnel($db, $logger);
             }
 
-            $database = $this->databaseProvider->makeForServer(
-                $databaseServer,
-                $databaseName,
-                $this->getConnectionHost($databaseServer),
-                $this->getConnectionPort($databaseServer),
+            $workingFile = $config->workingDirectory.'/dump.'.$db->databaseType->dumpExtension();
+
+            // Database dump
+            $database = $this->databaseProvider->makeFromConfig(
+                $db,
+                $config->databaseName,
+                $this->getConnectionHost($db),
+                $this->getConnectionPort($db),
             );
 
             $result = $database->dump($workingFile);
@@ -72,70 +67,61 @@ class BackupTask
                 $this->shellProcessor->process($result->command);
             }
             if ($result->log !== null) {
-                $job->log($result->log->message, $result->log->level, $result->log->context ?? []);
+                $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
             }
 
+            if ($onProgress !== null) {
+                $onProgress();
+            }
+
+            // Compress
+            $compressor = $this->compressorFactory->make($config->compressionType, $config->compressionLevel);
             $archive = $compressor->compress($workingFile);
             $fileSize = filesize($archive);
             if ($fileSize === false) {
                 throw new \RuntimeException("Failed to get file size for: {$archive}");
             }
+
+            if ($onProgress !== null) {
+                $onProgress();
+            }
+
+            // Generate filename and transfer
             $humanFileSize = Formatters::humanFileSize($fileSize);
-            $filename = $this->generateFilename($databaseServer, $databaseName, $compressor, $snapshot);
-            $job->log("Transferring backup ({$humanFileSize}) to volume: {$snapshot->volume->name}", 'info', [
-                'volume_type' => $snapshot->volume->type,
+            $filename = $this->generateFilename($db->serverName, $config->databaseName, $db->databaseType->dumpExtension(), $compressor, $config->backupPath);
+            $logger->log("Transferring backup ({$humanFileSize}) to volume: {$config->volume->name}", 'info', [
+                'volume_type' => $config->volume->type,
                 'source' => $archive,
                 'destination' => $filename,
             ]);
             $transferStart = microtime(true);
-            $this->filesystemProvider->transfer(
-                $snapshot->volume,
-                $archive,
-                $filename
-            );
+            $this->filesystemProvider->transferFromConfig($config->volume, $archive, $filename);
             $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
-            $job->log('Transfer completed successfully in '.$transferDuration, 'success');
+            $logger->log('Transfer completed successfully in '.$transferDuration, 'success');
 
+            if ($onProgress !== null) {
+                $onProgress();
+            }
+
+            // Checksum
             $checksum = hash_file('sha256', $archive);
             if ($checksum === false) {
                 throw new \RuntimeException("Failed to calculate checksum for: {$archive}");
             }
 
-            $job->log('Backup completed successfully', 'success', [
+            $logger->log('Backup completed successfully', 'success', [
                 'file_size' => $humanFileSize,
                 'checksum' => substr($checksum, 0, 16).'...',
                 'filename' => $filename,
             ]);
 
-            // Update snapshot with success
-            $snapshot->update([
-                'filename' => $filename,
-                'file_size' => $fileSize,
-                'checksum' => $checksum,
-                'file_verified_at' => now(),
-            ]);
-
-            // Mark job as completed
-            $job->markCompleted();
-
-            return $snapshot;
-        } catch (\Throwable $e) {
-            $job->log("Backup failed: {$e->getMessage()}", 'error', [
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ]);
-            $job->markFailed($e);
-
-            throw $e;
+            return new BackupResult($filename, $fileSize, $checksum);
         } finally {
-            // Close SSH tunnel if active
-            $this->closeSshTunnel($job);
+            $this->closeSshTunnel($logger);
 
-            // Clean up working directory and all files within (safety net, Job also cleans up on failure)
-            if (isset($workingDirectory) && is_dir($workingDirectory)) {
-                $job->log('Cleaning up temporary files', 'info');
-                FilesystemSupport::cleanupDirectory($workingDirectory);
+            if (is_dir($config->workingDirectory)) {
+                $logger->log('Cleaning up temporary files', 'info');
+                FilesystemSupport::cleanupDirectory($config->workingDirectory);
             }
         }
     }
@@ -144,28 +130,27 @@ class BackupTask
      * Generate the filename to store in the volume.
      * Includes optional path prefix for organizing backups.
      */
-    private function generateFilename(DatabaseServer $databaseServer, string $databaseName, CompressorInterface $compressor, Snapshot $snapshot): string
+    private function generateFilename(string $serverName, string $databaseName, string $baseExtension, CompressorInterface $compressor, string $backupPath): string
     {
-        $timestamp = $snapshot->started_at->format('Y-m-d-His');
-        $serverName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseServer->name);
-        $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName);
-        $baseExtension = $databaseServer->database_type->dumpExtension();
+        $timestamp = now()->format('Y-m-d-His');
+        $sanitizedServerName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $serverName) ?? $serverName;
+        $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName) ?? $databaseName;
         $compressionExtension = $compressor->getExtension();
 
-        $filename = sprintf('%s-%s-%s.%s.%s', $serverName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
+        $filename = sprintf('%s-%s-%s.%s.%s', $sanitizedServerName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
 
-        // Prepend path if configured
-        $path = $databaseServer->backup?->path;
-        if (! empty($path)) {
-            $path = $this->resolveDateVariables(trim($path, '/'), $snapshot->started_at);
+        if (! empty($backupPath)) {
+            $path = $this->resolveDateVariables(trim($backupPath, '/'));
             $filename = $path.'/'.$filename;
         }
 
         return $filename;
     }
 
-    private function resolveDateVariables(string $path, \Illuminate\Support\Carbon $date): string
+    private function resolveDateVariables(string $path): string
     {
+        $date = now();
+
         return str_replace(
             ['{year}', '{month}', '{day}'],
             [$date->format('Y'), $date->format('m'), $date->format('d')],

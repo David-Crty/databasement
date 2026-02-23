@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Services\Backup\BackupJobFactory;
+use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\RestoreTask;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -25,34 +27,95 @@ test('job is configured with correct queue and settings', function () {
         ->and($job->backoff)->toBe(AppConfig::get('backup.job_backoff'));
 });
 
-test('job calls RestoreTask run method', function () {
+test('handle builds config from models and marks job completed', function () {
     Log::spy();
 
-    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $sourceServer = createDatabaseServer([
+        'name' => 'Source MySQL',
+        'host' => 'source.localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_names' => ['sourcedb'],
+    ]);
+
+    $targetServer = createDatabaseServer([
+        'name' => 'Target MySQL',
+        'host' => 'target.localhost',
+        'port' => 3307,
+        'database_type' => 'mysql',
+        'username' => 'admin',
+        'password' => 'targetpass',
+        'database_names' => ['targetdb'],
+    ]);
+
     $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot = $factory->createSnapshots($sourceServer, 'manual')[0];
+    $snapshot->update(['filename' => 'backup.sql.gz', 'file_size' => 2048, 'compression_type' => CompressionType::GZIP]);
     $snapshot->job->markCompleted();
 
-    $restore = $factory->createRestore($snapshot, $server, 'restored_db');
+    $restore = $factory->createRestore($snapshot, $targetServer, 'restored_db');
 
-    // Mock RestoreTask to avoid actual restore execution
     $mockRestoreTask = Mockery::mock(RestoreTask::class);
-    $mockRestoreTask->shouldReceive('run')
+    $mockRestoreTask->shouldReceive('execute')
         ->once()
         ->with(
-            Mockery::on(fn ($r) => $r->id === $restore->id),
-            Mockery::type('int'),  // attempt
-            Mockery::type('int')   // maxAttempts
+            Mockery::on(fn (RestoreConfig $config) => $config->targetServer->host === 'target.localhost'
+                && $config->targetServer->port === 3307
+                && $config->targetServer->username === 'admin'
+                && $config->snapshotFilename === 'backup.sql.gz'
+                && $config->snapshotFileSize === 2048
+                && $config->snapshotDatabaseName === 'sourcedb'
+                && $config->schemaName === 'restored_db'
+                && $config->snapshotVolume->name === $snapshot->volume->name
+                && str_contains($config->workingDirectory, 'restore-')
+            ),
+            Mockery::any(), // BackupLogger (the job itself)
         );
 
-    app()->instance(RestoreTask::class, $mockRestoreTask);
+    (new ProcessRestoreJob($restore->id))->handle($mockRestoreTask);
 
-    // Dispatch and process the job synchronously
-    ProcessRestoreJob::dispatchSync($restore->id);
+    $restore->refresh();
+    expect($restore->job->status)->toBe('completed');
+});
 
-    // Verify log was called
-    Log::shouldHaveReceived('info')
-        ->with('Restore completed successfully', Mockery::type('array'));
+test('handle marks job as failed and re-throws on execute failure', function () {
+    $sourceServer = createDatabaseServer([
+        'name' => 'Source MySQL',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'database_names' => ['sourcedb'],
+    ]);
+
+    $targetServer = createDatabaseServer([
+        'name' => 'Target MySQL',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'database_names' => ['targetdb'],
+    ]);
+
+    $factory = app(BackupJobFactory::class);
+    $snapshot = $factory->createSnapshots($sourceServer, 'manual')[0];
+    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
+    $snapshot->job->markCompleted();
+
+    $restore = $factory->createRestore($snapshot, $targetServer, 'restored_db');
+
+    $mockRestoreTask = Mockery::mock(RestoreTask::class);
+    $mockRestoreTask->shouldReceive('execute')
+        ->once()
+        ->andThrow(new \App\Exceptions\ShellProcessFailed('Access denied for user'));
+
+    expect(fn () => (new ProcessRestoreJob($restore->id))->handle($mockRestoreTask))
+        ->toThrow(\App\Exceptions\ShellProcessFailed::class, 'Access denied for user');
+
+    $restore->refresh();
+    expect($restore->job->status)->toBe('failed')
+        ->and($restore->job->error_message)->toBe('Access denied for user')
+        ->and($restore->job->completed_at)->not->toBeNull();
 });
 
 test('job can be dispatched to queue', function () {
@@ -86,10 +149,8 @@ test('failed method sends notification', function () {
     $job = new ProcessRestoreJob($restore->id);
     $exception = new \Exception('Restore failed: access denied');
 
-    // Call the failed method (simulates Laravel queue calling this after all retries)
     $job->failed($exception);
 
-    // Verify notification was sent
     Notification::assertSentOnDemand(
         \App\Notifications\RestoreFailedNotification::class,
         fn ($notification) => $notification->restore->id === $restore->id

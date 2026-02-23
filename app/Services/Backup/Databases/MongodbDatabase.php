@@ -2,8 +2,8 @@
 
 namespace App\Services\Backup\Databases;
 
-use App\Models\BackupJob;
-use App\Services\Backup\Databases\DTO\DatabaseOperationResult;
+use App\Contracts\BackupLogger;
+use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use MongoDB\Driver\Command;
 use MongoDB\Driver\Exception\Exception as MongoException;
@@ -59,7 +59,7 @@ class MongodbDatabase implements DatabaseInterface
         return new DatabaseOperationResult(command: implode(' ', $parts));
     }
 
-    public function prepareForRestore(string $schemaName, BackupJob $job): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
     {
         // MongoDB restore uses --drop flag to handle existing collections; no separate preparation needed
     }
