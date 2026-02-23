@@ -38,6 +38,8 @@ class Index extends Component
 
     public int $deleteSnapshotCount = 0;
 
+    public bool $keepFiles = false;
+
     public function updatingSearch(): void
     {
         $this->resetPage();
@@ -81,6 +83,7 @@ class Index extends Component
 
         $this->deleteId = $id;
         $this->deleteSnapshotCount = $server->snapshots()->count();
+        $this->keepFiles = false;
         $this->showDeleteModal = true;
     }
 
@@ -94,6 +97,7 @@ class Index extends Component
 
         $this->authorize('delete', $server);
 
+        $server->skipFileCleanup = $this->keepFiles;
         $server->delete();
         $this->deleteId = null;
         $this->showDeleteModal = false;

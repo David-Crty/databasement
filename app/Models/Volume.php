@@ -45,6 +45,20 @@ class Volume extends Model
 
     use HasUlids;
 
+    public bool $skipFileCleanup = false;
+
+    protected static function booted(): void
+    {
+        // Delete snapshots through Eloquent to trigger their deleting events
+        // (which clean up associated BackupJobs, Restores, and backup files)
+        static::deleting(function (Volume $volume) {
+            foreach ($volume->snapshots as $snapshot) {
+                $snapshot->skipFileCleanup = $volume->skipFileCleanup;
+                $snapshot->delete();
+            }
+        });
+    }
+
     protected $fillable = [
         'name',
         'type',

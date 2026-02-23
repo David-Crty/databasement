@@ -170,13 +170,10 @@
     @include('livewire.backup-job._logs-modal')
 
     <!-- DELETE CONFIRMATION MODAL -->
-    <x-modal wire:model="showDeleteModal" title="{{ __('Delete Snapshot') }}" separator>
-        <div class="py-4">
-            {{ __('Are you sure you want to delete this snapshot? The backup file will be permanently removed.') }}
-        </div>
-        <x-slot:actions>
-            <x-button label="{{ __('Cancel') }}" @click="$wire.showDeleteModal = false" />
-            <x-button label="{{ __('Delete') }}" class="btn-error" wire:click="deleteSnapshot" spinner />
-        </x-slot:actions>
-    </x-modal>
+    <x-delete-confirmation-modal
+        :title="__('Delete Snapshot')"
+        :message="__('Are you sure you want to delete this snapshot? The backup file will be permanently removed.')"
+        onConfirm="deleteSnapshot"
+        :showKeepFiles="true"
+    />
 </div>

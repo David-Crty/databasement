@@ -76,6 +76,8 @@ class Snapshot extends Model
 
     use HasUlids;
 
+    public bool $skipFileCleanup = false;
+
     protected $fillable = [
         'backup_job_id',
         'database_server_id',
@@ -175,7 +177,9 @@ class Snapshot extends Model
     {
         // Delete the backup file, associated restores and job when snapshot is deleted
         static::deleting(function (Snapshot $snapshot) {
-            $snapshot->deleteBackupFile();
+            if (! $snapshot->skipFileCleanup) {
+                $snapshot->deleteBackupFile();
+            }
 
             // Delete restores first (this triggers their booted method to delete their jobs)
             foreach ($snapshot->restores as $restore) {

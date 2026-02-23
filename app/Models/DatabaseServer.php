@@ -64,12 +64,15 @@ class DatabaseServer extends Model
 
     use HasUlids;
 
+    public bool $skipFileCleanup = false;
+
     protected static function booted(): void
     {
         // Delete snapshots through Eloquent to trigger their deleting events
-        // (which clean up associated BackupJobs and Restores)
+        // (which clean up associated BackupJobs, Restores, and backup files)
         static::deleting(function (DatabaseServer $server) {
             foreach ($server->snapshots as $snapshot) {
+                $snapshot->skipFileCleanup = $server->skipFileCleanup;
                 $snapshot->delete();
             }
         });

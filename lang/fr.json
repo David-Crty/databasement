@@ -278,6 +278,7 @@
     "Job not found: ": "Tâche introuvable : ",
     "Jobs": "Tâches",
     "Jobs Activity": "Activité des tâches",
+    "Keep backup files on storage (only delete database records)": "Conserver les fichiers de backup sur le stockage (supprimer uniquement les enregistrements de la base de données)",
     "Jobs Status": "État des tâches",
     "Job Timeout": "Délai d’expiration des tâches",
     "Job Tries": "Nombre de tentatives",

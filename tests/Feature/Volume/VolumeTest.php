@@ -4,7 +4,9 @@ use App\Enums\VolumeType;
 use App\Livewire\Volume\Create;
 use App\Livewire\Volume\Edit;
 use App\Livewire\Volume\Index;
+use App\Models\BackupJob;
 use App\Models\DatabaseServer;
+use App\Models\Restore;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
@@ -225,6 +227,105 @@ describe('volume deletion', function () {
         $this->assertDatabaseMissing('volumes', [
             'id' => $volume->id,
         ]);
+    });
+
+    test('deleting volume cascades to snapshots, jobs, restores, and files', function () {
+        $user = User::factory()->create();
+
+        // Create volume with temp directory
+        $volume = Volume::factory()->local()->create();
+        $tempDir = $volume->config['path'];
+
+        // Create a backup file
+        $backupFilename = 'cascade-test.sql.gz';
+        $backupFilePath = $tempDir.'/'.$backupFilename;
+        file_put_contents($backupFilePath, 'test backup content');
+
+        // Create server with backup using our volume
+        $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+        $server->backup->update(['volume_id' => $volume->id]);
+
+        // Create snapshot with real file
+        $factory = app(BackupJobFactory::class);
+        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshot = $snapshots[0];
+        $snapshot->update([
+            'filename' => $backupFilename,
+            'file_size' => filesize($backupFilePath),
+        ]);
+        $snapshot->job->markCompleted();
+        $snapshotJobId = $snapshot->job->id;
+
+        // Create a restore record
+        $restoreJob = BackupJob::create([
+            'type' => 'restore',
+            'status' => 'completed',
+            'started_at' => now(),
+            'completed_at' => now(),
+        ]);
+        $restore = Restore::create([
+            'backup_job_id' => $restoreJob->id,
+            'snapshot_id' => $snapshot->id,
+            'target_server_id' => $server->id,
+            'schema_name' => 'restored_db',
+            'triggered_by_user_id' => $user->id,
+        ]);
+        $restoreJobId = $restoreJob->id;
+
+        // Delete the volume via Livewire
+        Livewire::actingAs($user)
+            ->test(Index::class)
+            ->call('confirmDelete', $volume->id)
+            ->call('delete');
+
+        // Verify cascade deletion
+        expect($snapshot->fresh())->toBeNull('Snapshot should be deleted')
+            ->and(Restore::find($restore->id))->toBeNull('Restore should be cascade deleted')
+            ->and(BackupJob::find($snapshotJobId))->toBeNull('Snapshot job should be cascade deleted')
+            ->and(BackupJob::find($restoreJobId))->toBeNull('Restore job should be cascade deleted')
+            ->and(file_exists($backupFilePath))->toBeFalse('Backup file should be deleted from storage');
+    });
+
+    test('deleting volume with keepFiles preserves backup files', function () {
+        $user = User::factory()->create();
+
+        // Create volume with temp directory
+        $volume = Volume::factory()->local()->create();
+        $tempDir = $volume->config['path'];
+
+        // Create a backup file
+        $backupFilename = 'keep-files-test.sql.gz';
+        $backupFilePath = $tempDir.'/'.$backupFilename;
+        file_put_contents($backupFilePath, 'test backup content');
+
+        // Create server with backup using our volume
+        $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+        $server->backup->update(['volume_id' => $volume->id]);
+
+        // Create snapshot with real file
+        $factory = app(BackupJobFactory::class);
+        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshot = $snapshots[0];
+        $snapshot->update([
+            'filename' => $backupFilename,
+            'file_size' => filesize($backupFilePath),
+        ]);
+        $snapshot->job->markCompleted();
+
+        $backupJobId = $snapshot->backup_job_id;
+
+        // Delete volume with keepFiles checked
+        Livewire::actingAs($user)
+            ->test(Index::class)
+            ->call('confirmDelete', $volume->id)
+            ->set('keepFiles', true)
+            ->call('delete');
+
+        // DB records deleted, but file preserved
+        expect($snapshot->fresh())->toBeNull('Snapshot should be deleted')
+            ->and(BackupJob::find($backupJobId))->toBeNull('BackupJob should be cascade deleted')
+            ->and(Volume::find($volume->id))->toBeNull('Volume should be deleted')
+            ->and(file_exists($backupFilePath))->toBeTrue('Backup file should be preserved on storage');
     });
 });
 

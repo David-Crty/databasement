@@ -278,6 +278,7 @@
     "Job not found: ": "Trabajo no encontrado: ",
     "Jobs": "Trabajos",
     "Jobs Activity": "Actividad de los trabajos",
+    "Keep backup files on storage (only delete database records)": "Conservar los archivos de backup en el almacenamiento (solo eliminar los registros de la base de datos)",
     "Jobs Status": "Estado de los trabajos",
     "Job Timeout": "Tiempo de espera del trabajo",
     "Job Tries": "Intentos de trabajo",

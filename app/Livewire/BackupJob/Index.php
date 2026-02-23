@@ -50,6 +50,8 @@ class Index extends Component
 
     public bool $showDeleteModal = false;
 
+    public bool $keepFiles = false;
+
     public function mount(): void
     {
         // If a job ID is in the URL, validate and authorize before opening modal
@@ -253,6 +255,7 @@ class Index extends Component
         $this->authorize('delete', $snapshot);
 
         $this->deleteSnapshotId = $snapshotId;
+        $this->keepFiles = false;
         $this->showDeleteModal = true;
     }
 
@@ -266,6 +269,7 @@ class Index extends Component
 
         $this->authorize('delete', $snapshot);
 
+        $snapshot->skipFileCleanup = $this->keepFiles;
         $snapshot->delete();
         $this->deleteSnapshotId = null;
         $this->showDeleteModal = false;

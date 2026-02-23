@@ -102,18 +102,11 @@
     </x-card>
 
     <!-- DELETE CONFIRMATION MODAL -->
-    <x-modal wire:model="showDeleteModal" :title="__('Delete Volume')" class="backdrop-blur">
-        <p>{{ __('Are you sure you want to delete this volume? This action cannot be undone.') }}</p>
-
-        @if($deleteSnapshotCount > 0)
-            <x-alert icon="o-exclamation-triangle" class="alert-warning mt-4">
-                {{ trans_choice(':count snapshot will also be deleted.|:count snapshots will also be deleted.', $deleteSnapshotCount, ['count' => $deleteSnapshotCount]) }}
-            </x-alert>
-        @endif
-
-        <x-slot:actions>
-            <x-button label="{{ __('Cancel') }}" @click="$wire.showDeleteModal = false" />
-            <x-button label="{{ __('Delete') }}" class="btn-error" wire:click="delete" />
-        </x-slot:actions>
-    </x-modal>
+    <x-delete-confirmation-modal
+        :title="__('Delete Volume')"
+        :message="__('Are you sure you want to delete this volume? This action cannot be undone.')"
+        onConfirm="delete"
+        :showKeepFiles="$deleteSnapshotCount > 0"
+        :snapshotCount="$deleteSnapshotCount"
+    />
 </div>
