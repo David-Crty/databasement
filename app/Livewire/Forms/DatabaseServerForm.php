@@ -791,9 +791,16 @@ class DatabaseServerForm extends Form
             return;
         }
 
+        if ($this->isSqlite()) {
+            $serverData['database_selection_mode'] = 'selected';
+            $serverData['database_include_pattern'] = null;
+
+            return;
+        }
+
         $mode = $serverData['database_selection_mode'] ?? $this->database_selection_mode;
 
-        if ($mode !== 'selected' && ! $this->isSqlite()) {
+        if ($mode !== 'selected') {
             $serverData['database_names'] = null;
         }
 
