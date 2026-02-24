@@ -316,7 +316,10 @@ use App\Enums\DatabaseType;
                     @if($form->database_selection_mode === 'pattern')
                         <div class="space-y-3">
                             <div>
-                                <label class="label label-text font-semibold">{{ __('Include Pattern') }}</label>
+                                <div class="flex items-center justify-between mb-1">
+                                    <label class="text-xs font-medium text-base-content/70">{{ __('Include Pattern') }}</label>
+                                    <span class="font-mono text-[10px] text-base-content/40">regex · case-insensitive</span>
+                                </div>
                                 <div class="flex items-center gap-0">
                                     <span class="bg-base-200 border border-r-0 border-base-300 rounded-l-lg px-3 py-2 text-base-content/50 font-mono text-sm">/</span>
                                     <input
@@ -327,11 +330,21 @@ use App\Enums\DatabaseType;
                                     />
                                     <span class="bg-base-200 border border-l-0 border-base-300 rounded-r-lg px-3 py-2 text-base-content/50 font-mono text-sm">/i</span>
                                 </div>
-                                <p class="text-xs text-base-content/50 mt-1">
-                                    {{ __('Examples:') }}
-                                    <code class="text-xs">^prod_</code> {{ __('matches databases starting with prod_') }} ·
-                                    <code class="text-xs">^(?!test_)</code> {{ __('excludes databases starting with test_') }}
-                                </p>
+                                <div class="mt-2 text-xs text-base-content/50 space-y-1">
+                                    <div class="font-semibold">{{ __('Examples:') }}</div>
+                                    <div class="flex items-baseline gap-2">
+                                        <code class="bg-base-200 px-1.5 py-0.5 rounded font-mono shrink-0">^prod_</code>
+                                        <span>{{ __('matches databases starting with prod_') }}</span>
+                                    </div>
+                                    <div class="flex items-baseline gap-2">
+                                        <code class="bg-base-200 px-1.5 py-0.5 rounded font-mono shrink-0">^(?!test_)</code>
+                                        <span>{{ __('excludes databases starting with test_') }}</span>
+                                    </div>
+                                    <div class="flex items-baseline gap-2">
+                                        <code class="bg-base-200 px-1.5 py-0.5 rounded font-mono shrink-0">^(?!.*preprod)</code>
+                                        <span>{{ __('excludes databases containing preprod') }}</span>
+                                    </div>
+                                </div>
                             </div>
 
                             @error('form.database_include_pattern')
