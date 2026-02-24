@@ -44,7 +44,41 @@ class FailureNotificationService
             return;
         }
 
+        $this->refreshChannelServiceConfigs($routes);
+
         Notification::routes($routes)->notify($notification);
+    }
+
+    /**
+     * Refresh third-party service configs from AppConfig before sending.
+     *
+     * This ensures tokens are fresh when channel classes are resolved from the
+     * container — critical for Octane, where boot-time config may be stale
+     * (e.g. Pushover's token is baked in at construction time).
+     *
+     * @param  array<string, string>  $routes
+     */
+    private function refreshChannelServiceConfigs(array $routes): void
+    {
+        $tokenMap = [
+            'discord' => ['notifications.discord.token' => 'services.discord.token'],
+            'telegram' => ['notifications.telegram.bot_token' => 'services.telegram-bot-api.token'],
+            'pushover' => ['notifications.pushover.token' => 'services.pushover.token'],
+        ];
+
+        foreach ($tokenMap as $routeKey => $mappings) {
+            if (! isset($routes[$routeKey])) {
+                continue;
+            }
+
+            foreach ($mappings as $appConfigKey => $servicesConfigKey) {
+                $token = AppConfig::get($appConfigKey);
+
+                if ($token) {
+                    config([$servicesConfigKey => $token]);
+                }
+            }
+        }
     }
 
     /**

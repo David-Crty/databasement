@@ -2,7 +2,6 @@
 
 namespace App\Notifications;
 
-use App\Facades\AppConfig;
 use App\Notifications\Channels\GotifyChannel;
 use App\Notifications\Channels\WebhookChannel;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -91,23 +90,11 @@ abstract class BaseFailedNotification extends Notification
 
     public function toDiscord(object $notifiable): DiscordMessage
     {
-        // Ensure the Discord token is fresh from AppConfig at send time
-        $token = AppConfig::get('notifications.discord.token');
-        if ($token) {
-            config(['services.discord.token' => $token]);
-        }
-
         return $this->getMessage()->toDiscord();
     }
 
     public function toTelegram(object $notifiable): TelegramMessage
     {
-        // Ensure the Telegram bot token is fresh from AppConfig at send time
-        $token = AppConfig::get('notifications.telegram.bot_token');
-        if ($token) {
-            config(['services.telegram-bot-api.token' => $token]);
-        }
-
         $chatId = (string) ($notifiable->routes['telegram'] ?? '');
 
         return $this->getMessage()->toTelegram($chatId);
@@ -115,12 +102,6 @@ abstract class BaseFailedNotification extends Notification
 
     public function toPushover(object $notifiable): PushoverMessage
     {
-        // Ensure the Pushover app token is fresh from AppConfig at send time
-        $token = AppConfig::get('notifications.pushover.token');
-        if ($token) {
-            config(['services.pushover.token' => $token]);
-        }
-
         return $this->getMessage()->toPushover();
     }
 

@@ -132,6 +132,32 @@ test('notification is sent to channel when configured', function (string $config
     'webhook' => ['notifications.webhook.url', 'https://webhook.example.com/hook', WebhookChannel::class, 'webhook'],
 ]);
 
+test('send refreshes service configs from AppConfig before dispatching', function () {
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.pushover.user_key', 'user-key-123');
+    AppConfig::set('notifications.pushover.token', 'app-token-fresh');
+    AppConfig::set('notifications.discord.channel_id', '123456789');
+    AppConfig::set('notifications.discord.token', 'discord-token-fresh');
+    AppConfig::set('notifications.telegram.chat_id', '999');
+    AppConfig::set('notifications.telegram.bot_token', 'telegram-token-fresh');
+
+    // Simulate Octane stale config: services.* keys are empty
+    config([
+        'services.pushover.token' => null,
+        'services.discord.token' => null,
+        'services.telegram-bot-api.token' => null,
+    ]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = createTestSnapshot($server);
+
+    app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+
+    expect(config('services.pushover.token'))->toBe('app-token-fresh')
+        ->and(config('services.discord.token'))->toBe('discord-token-fresh')
+        ->and(config('services.telegram-bot-api.token'))->toBe('telegram-token-fresh');
+});
+
 test('via method returns channels based on configured routes', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
