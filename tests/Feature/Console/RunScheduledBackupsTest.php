@@ -145,7 +145,7 @@ test('server throwing exception when listing databases does not prevent other ba
     ]);
     $failingServer->backup->update(['backup_schedule_id' => $schedule->id]);
 
-    // Server with explicit database names that should still work
+    // Server with selection_mode=all that should still work (databases from mock provider)
     $normalServer = DatabaseServer::factory()->create([
         'name' => 'Normal Server',
         'database_selection_mode' => 'all',

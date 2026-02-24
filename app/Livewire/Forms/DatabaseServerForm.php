@@ -605,25 +605,13 @@ class DatabaseServerForm extends Form
      */
     private function getClientServerValidationRules(): array
     {
-        $rules = [
+        $rules = array_merge([
             'host' => 'required|string|max:255',
             'port' => 'required|integer|min:1|max:65535',
             'username' => 'required|string|max:255',
             'password' => 'nullable',
-            'database_selection_mode' => 'required|string|in:all,selected,pattern',
-            'database_names' => 'nullable|array',
-            'database_names.*' => 'string|max:255',
-            'database_include_pattern' => 'nullable|string|max:500',
             'ssh_enabled' => 'boolean',
-        ];
-
-        if ($this->backups_enabled && $this->database_selection_mode === 'selected') {
-            $rules['database_names'] = 'required|array|min:1';
-        }
-
-        if ($this->backups_enabled && $this->database_selection_mode === 'pattern') {
-            $rules['database_include_pattern'] = 'required|string|max:500';
-        }
+        ], $this->getDatabaseSelectionRules());
 
         if ($this->ssh_enabled) {
             $rules['ssh_config_mode'] = 'required|string|in:existing,create';
@@ -663,17 +651,35 @@ class DatabaseServerForm extends Form
      */
     private function getMongodbValidationRules(): array
     {
-        $rules = [
+        $rules = array_merge([
             'host' => 'required|string|max:255',
             'port' => 'required|integer|min:1|max:65535',
             'username' => 'nullable|string|max:255',
             'password' => 'nullable',
             'auth_source' => 'nullable|string|max:255',
+            'ssh_enabled' => 'boolean',
+        ], $this->getDatabaseSelectionRules());
+
+        if ($this->ssh_enabled) {
+            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
+            $rules = array_merge($rules, $this->getSshValidationRules());
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Get database selection validation rules shared by client-server and MongoDB types.
+     *
+     * @return array<string, mixed>
+     */
+    private function getDatabaseSelectionRules(): array
+    {
+        $rules = [
             'database_selection_mode' => 'required|string|in:all,selected,pattern',
             'database_names' => 'nullable|array',
             'database_names.*' => 'string|max:255',
             'database_include_pattern' => 'nullable|string|max:500',
-            'ssh_enabled' => 'boolean',
         ];
 
         if ($this->backups_enabled && $this->database_selection_mode === 'selected') {
@@ -682,11 +688,6 @@ class DatabaseServerForm extends Form
 
         if ($this->backups_enabled && $this->database_selection_mode === 'pattern') {
             $rules['database_include_pattern'] = 'required|string|max:500';
-        }
-
-        if ($this->ssh_enabled) {
-            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
-            $rules = array_merge($rules, $this->getSshValidationRules());
         }
 
         return $rules;
@@ -785,6 +786,7 @@ class DatabaseServerForm extends Form
         if ($this->isRedis()) {
             $serverData['database_selection_mode'] = 'all';
             $serverData['database_names'] = null;
+            $serverData['database_include_pattern'] = null;
 
             return;
         }
@@ -793,6 +795,10 @@ class DatabaseServerForm extends Form
 
         if ($mode !== 'selected' && ! $this->isSqlite()) {
             $serverData['database_names'] = null;
+        }
+
+        if ($mode !== 'pattern') {
+            $serverData['database_include_pattern'] = null;
         }
     }
 

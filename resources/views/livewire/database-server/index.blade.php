@@ -98,11 +98,11 @@
                 @if($server->database_type === 'sqlite')
                     <span class="text-base-content/50 italic">{{ __('Single file') }}</span>
                 @elseif($server->database_selection_mode === 'all')
-                    <x-badge value="{{ __('All') }}" class="badge-info badge-soft" />
+                    <x-badge :value="__('All')" class="badge-info badge-soft" />
                 @elseif($server->database_selection_mode === 'pattern')
                     <x-popover>
                         <x-slot:trigger>
-                            <x-badge value="{{ __('Pattern') }}" class="badge-warning badge-soft cursor-pointer" />
+                            <x-badge :value="__('Pattern')" class="badge-warning badge-soft cursor-pointer" />
                         </x-slot:trigger>
                         <x-slot:content class="text-sm font-mono">
                             /{{ $server->database_include_pattern }}/i
