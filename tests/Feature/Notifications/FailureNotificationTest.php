@@ -158,6 +158,29 @@ test('send refreshes service configs from AppConfig before dispatching', functio
         ->and(config('services.telegram-bot-api.token'))->toBe('telegram-token-fresh');
 });
 
+test('notification is not sent to pushover after user removes it from configuration', function () {
+    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('notifications.mail.to', 'admin@example.com');
+
+    // User previously had Pushover configured, then removed it
+    AppConfig::set('notifications.pushover.user_key', null);
+    AppConfig::set('notifications.pushover.token', null);
+
+    // Simulate Octane stale config: old token still present from previous boot
+    config(['services.pushover.token' => 'stale-old-token']);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = createTestSnapshot($server);
+
+    app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+
+    Notification::assertSentOnDemand(
+        BackupFailedNotification::class,
+        fn ($notification, $channels) => in_array('mail', $channels)
+            && ! in_array(PushoverChannel::class, $channels)
+    );
+});
+
 test('via method returns channels based on configured routes', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);

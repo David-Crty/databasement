@@ -72,11 +72,7 @@ class FailureNotificationService
             }
 
             foreach ($mappings as $appConfigKey => $servicesConfigKey) {
-                $token = AppConfig::get($appConfigKey);
-
-                if ($token) {
-                    config([$servicesConfigKey => $token]);
-                }
+                config([$servicesConfigKey => AppConfig::get($appConfigKey)]);
             }
         }
     }
