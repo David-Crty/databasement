@@ -219,7 +219,7 @@ class IntegrationTestHelpers
             'database_type' => 'redis',
             'username' => $config['username'],
             'password' => $config['password'],
-            'backup_all_databases' => true,
+            'database_selection_mode' => 'all',
             'description' => 'Integration test Redis server',
         ]);
     }

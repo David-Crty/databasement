@@ -25,7 +25,7 @@ test('it creates a snapshot and dispatches backup job for single database', func
     // Factory automatically creates backup via afterCreating hook
     $server = DatabaseServer::factory()->create([
         'database_names' => ['test_db'],
-        'backup_all_databases' => false,
+        'database_selection_mode' => 'selected',
     ]);
     $server->load('backup.volume');
 
@@ -44,7 +44,7 @@ test('it tracks the user who triggered the backup', function () {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->create([
         'database_names' => ['test_db'],
-        'backup_all_databases' => false,
+        'database_selection_mode' => 'selected',
     ]);
     $server->load('backup.volume');
 
@@ -61,7 +61,7 @@ test('it returns correct message for multiple database backups', function () {
         'database_type' => 'mysql',
         'username' => 'root',
         'password' => 'password',
-        'backup_all_databases' => true,
+        'database_selection_mode' => 'all',
     ]);
     $server->load('backup.volume');
 
@@ -77,4 +77,27 @@ test('it returns correct message for multiple database backups', function () {
         ->and($result['message'])->toBe('3 database backups started successfully!');
 
     Queue::assertPushed(ProcessBackupJob::class, 3);
+});
+
+test('pattern mode creates snapshots only for matching databases', function () {
+    $server = DatabaseServer::factory()->create([
+        'database_selection_mode' => 'pattern',
+        'database_include_pattern' => '^prod_',
+        'database_names' => null,
+    ]);
+    $server->load('backup.volume');
+
+    $this->mock(\App\Services\Backup\Databases\DatabaseProvider::class, function ($mock) {
+        $mock->shouldReceive('listDatabasesForServer')
+            ->andReturn(['prod_users', 'prod_orders', 'test_db', 'staging_db']);
+    });
+
+    $action = app(TriggerBackupAction::class);
+    $result = $action->execute($server);
+
+    expect($result['snapshots'])->toHaveCount(2)
+        ->and($result['snapshots'][0]->database_name)->toBe('prod_users')
+        ->and($result['snapshots'][1]->database_name)->toBe('prod_orders');
+
+    Queue::assertPushed(ProcessBackupJob::class, 2);
 });

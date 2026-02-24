@@ -28,6 +28,7 @@ class DatabaseServerFactory extends Factory
             'username' => fake()->userName(),
             'password' => fake()->password(),
             'database_names' => fake()->optional()->randomElements(['app', 'users', 'orders', 'products', 'analytics'], fake()->numberBetween(1, 3)),
+            'database_selection_mode' => 'selected',
             'description' => fake()->optional()->sentence(),
         ];
     }
@@ -83,7 +84,19 @@ class DatabaseServerFactory extends Factory
             'username' => '',
             'password' => '',
             'database_names' => null,
-            'backup_all_databases' => true,
+            'database_selection_mode' => 'all',
+        ]);
+    }
+
+    /**
+     * Configure the factory for pattern-based database selection.
+     */
+    public function pattern(string $pattern = '^prod_'): static
+    {
+        return $this->state(fn () => [
+            'database_selection_mode' => 'pattern',
+            'database_include_pattern' => $pattern,
+            'database_names' => null,
         ]);
     }
 

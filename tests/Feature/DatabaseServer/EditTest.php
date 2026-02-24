@@ -27,7 +27,7 @@ test('can edit database server', function (array $config) {
     } elseif ($config['type'] === 'redis') {
         $serverData['host'] = $config['host'];
         $serverData['port'] = $config['port'];
-        $serverData['backup_all_databases'] = true;
+        $serverData['database_selection_mode'] = 'all';
     } else {
         $serverData['host'] = $config['host'];
         $serverData['port'] = $config['port'];

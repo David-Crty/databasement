@@ -69,7 +69,9 @@ class DatabaseServerForm extends Form
     /** @var string Input field for manual database entry (comma-separated) */
     public string $database_names_input = '';
 
-    public bool $backup_all_databases = false;
+    public string $database_selection_mode = 'all';
+
+    public string $database_include_pattern = '';
 
     public ?string $description = null;
 
@@ -160,6 +162,38 @@ class DatabaseServerForm extends Form
         if ($value === 'mongodb' && $this->auth_source === '') {
             $this->auth_source = 'admin';
         }
+    }
+
+    /**
+     * Called when database_selection_mode changes - auto-load databases if needed.
+     */
+    public function updatedDatabaseSelectionMode(): void
+    {
+        // Auto-load databases when switching to selected/pattern mode in edit
+        if (in_array($this->database_selection_mode, ['selected', 'pattern'])
+            && empty($this->availableDatabases)
+            && $this->server !== null
+            && ! $this->isSqlite()
+            && ! $this->isRedis()
+        ) {
+            $this->loadAvailableDatabases();
+        }
+    }
+
+    /**
+     * Get databases matching the current pattern from available databases.
+     *
+     * @return array<string>
+     */
+    public function getFilteredDatabases(): array
+    {
+        if ($this->database_include_pattern === '' || empty($this->availableDatabases)) {
+            return [];
+        }
+
+        $databaseNames = array_column($this->availableDatabases, 'name');
+
+        return DatabaseServer::filterDatabasesByPattern($databaseNames, $this->database_include_pattern);
     }
 
     /**
@@ -285,7 +319,8 @@ class DatabaseServerForm extends Form
             $this->database_names = [''];
         }
         $this->database_names_input = implode(', ', $this->database_names);
-        $this->backup_all_databases = $server->backup_all_databases ?? false;
+        $this->database_selection_mode = $server->database_selection_mode ?? 'all';
+        $this->database_include_pattern = $server->database_include_pattern ?? '';
         $this->description = $server->description;
         $this->backups_enabled = $server->backups_enabled ?? true;
         // Don't populate password for security
@@ -486,6 +521,7 @@ class DatabaseServerForm extends Form
 
         $validated = $this->validate($rules);
 
+        $this->validatePatternMode();
         $this->validateGfsPolicy();
 
         return $validated;
@@ -574,14 +610,19 @@ class DatabaseServerForm extends Form
             'port' => 'required|integer|min:1|max:65535',
             'username' => 'required|string|max:255',
             'password' => 'nullable',
-            'backup_all_databases' => 'boolean',
+            'database_selection_mode' => 'required|string|in:all,selected,pattern',
             'database_names' => 'nullable|array',
             'database_names.*' => 'string|max:255',
+            'database_include_pattern' => 'nullable|string|max:500',
             'ssh_enabled' => 'boolean',
         ];
 
-        if ($this->backups_enabled && ! $this->backup_all_databases) {
+        if ($this->backups_enabled && $this->database_selection_mode === 'selected') {
             $rules['database_names'] = 'required|array|min:1';
+        }
+
+        if ($this->backups_enabled && $this->database_selection_mode === 'pattern') {
+            $rules['database_include_pattern'] = 'required|string|max:500';
         }
 
         if ($this->ssh_enabled) {
@@ -628,14 +669,19 @@ class DatabaseServerForm extends Form
             'username' => 'nullable|string|max:255',
             'password' => 'nullable',
             'auth_source' => 'nullable|string|max:255',
-            'backup_all_databases' => 'boolean',
+            'database_selection_mode' => 'required|string|in:all,selected,pattern',
             'database_names' => 'nullable|array',
             'database_names.*' => 'string|max:255',
+            'database_include_pattern' => 'nullable|string|max:500',
             'ssh_enabled' => 'boolean',
         ];
 
-        if ($this->backups_enabled && ! $this->backup_all_databases) {
+        if ($this->backups_enabled && $this->database_selection_mode === 'selected') {
             $rules['database_names'] = 'required|array|min:1';
+        }
+
+        if ($this->backups_enabled && $this->database_selection_mode === 'pattern') {
+            $rules['database_include_pattern'] = 'required|string|max:500';
         }
 
         if ($this->ssh_enabled) {
@@ -644,6 +690,23 @@ class DatabaseServerForm extends Form
         }
 
         return $rules;
+    }
+
+    /**
+     * Validate pattern mode has a valid regex.
+     *
+     * @throws ValidationException
+     */
+    private function validatePatternMode(): void
+    {
+        if ($this->database_selection_mode === 'pattern'
+            && ! empty($this->database_include_pattern)
+            && ! DatabaseServer::isValidDatabasePattern($this->database_include_pattern)
+        ) {
+            throw ValidationException::withMessages([
+                'form.database_include_pattern' => __('The pattern is not a valid regular expression.'),
+            ]);
+        }
     }
 
     /**
@@ -671,15 +734,8 @@ class DatabaseServerForm extends Form
 
         [$serverData, $backupData] = $this->extractBackupData($validated);
 
-        // Handle SSH config
         $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
-
-        // Redis always backs up the entire instance
-        if ($this->isRedis()) {
-            $serverData['backup_all_databases'] = true;
-            $serverData['database_names'] = null;
-        }
-
+        $this->normalizeSelectionMode($serverData);
         $this->moveTypeSpecificFieldsToExtraConfig($serverData);
 
         $server = DatabaseServer::create($serverData);
@@ -706,18 +762,9 @@ class DatabaseServerForm extends Form
         if (isset($serverData['password']) && empty($serverData['password'])) {
             unset($serverData['password']);
         }
-        if (! empty($serverData['backup_all_databases'])) {
-            $serverData['database_names'] = null;
-        }
 
-        // Handle SSH config
         $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
-
-        // Redis always backs up the entire instance
-        if ($this->isRedis()) {
-            $serverData['backup_all_databases'] = true;
-            $serverData['database_names'] = null;
-        }
+        $this->normalizeSelectionMode($serverData);
 
         $this->moveTypeSpecificFieldsToExtraConfig($serverData);
 
@@ -725,6 +772,28 @@ class DatabaseServerForm extends Form
         $this->syncBackupConfiguration($this->server, $backupData);
 
         return true;
+    }
+
+    /**
+     * Normalize database selection mode and clear irrelevant fields.
+     * Redis always uses 'all'; non-selected modes clear database_names.
+     *
+     * @param  array<string, mixed>  $serverData
+     */
+    private function normalizeSelectionMode(array &$serverData): void
+    {
+        if ($this->isRedis()) {
+            $serverData['database_selection_mode'] = 'all';
+            $serverData['database_names'] = null;
+
+            return;
+        }
+
+        $mode = $serverData['database_selection_mode'] ?? $this->database_selection_mode;
+
+        if ($mode !== 'selected' && ! $this->isSqlite()) {
+            $serverData['database_names'] = null;
+        }
     }
 
     /**

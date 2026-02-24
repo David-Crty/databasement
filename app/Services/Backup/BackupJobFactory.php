@@ -21,8 +21,9 @@ class BackupJobFactory
     /**
      * Create backup job(s) for a database server.
      *
-     * For single database mode: Returns array with one Snapshot
-     * For backup_all_databases mode: Returns array with Snapshot per database
+     * For selected mode: Returns array with one Snapshot per selected database
+     * For all mode: Returns array with Snapshot per database on server
+     * For pattern mode: Returns array with Snapshot per matching database
      * For SQLite: Returns array with one Snapshot per configured path
      *
      * @param  'manual'|'scheduled'  $method
@@ -51,24 +52,21 @@ class BackupJobFactory
             return $snapshots;
         }
 
-        if ($server->backup_all_databases) {
-            $databases = $this->databaseProvider->listDatabasesForServer($server);
+        $databases = match ($server->database_selection_mode) {
+            'all' => $this->databaseProvider->listDatabasesForServer($server),
+            'pattern' => DatabaseServer::filterDatabasesByPattern(
+                $this->databaseProvider->listDatabasesForServer($server),
+                $server->database_include_pattern ?? ''
+            ),
+            default => $server->database_names ?? [],
+        };
 
-            if (empty($databases)) {
-                Log::warning("No databases found on server [{$server->name}] to backup.");
-            }
+        if (empty($databases)) {
+            Log::warning("No databases found on server [{$server->name}] to backup.");
+        }
 
-            foreach ($databases as $databaseName) {
-                $snapshots[] = $this->createSnapshot($server, $databaseName, $method, $triggeredByUserId);
-            }
-        } else {
-            if (empty($server->database_names)) {
-                Log::warning("No database names configured for server [{$server->name}] to backup.");
-            }
-
-            foreach ($server->database_names as $databaseName) {
-                $snapshots[] = $this->createSnapshot($server, $databaseName, $method, $triggeredByUserId);
-            }
+        foreach ($databases as $databaseName) {
+            $snapshots[] = $this->createSnapshot($server, $databaseName, $method, $triggeredByUserId);
         }
 
         return $snapshots;

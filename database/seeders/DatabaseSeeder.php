@@ -55,7 +55,7 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'mysql',
             'username' => 'root',
             'password' => 'root',
-            'backup_all_databases' => true,
+            'database_selection_mode' => 'all',
         ]);
 
         // PostgreSQL server (from docker-compose)
@@ -66,7 +66,7 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'postgres',
             'username' => 'root',
             'password' => 'root',
-            'backup_all_databases' => true,
+            'database_selection_mode' => 'all',
         ]);
 
         // SQLite server
@@ -91,7 +91,7 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'redis',
             'username' => '',
             'password' => '',
-            'backup_all_databases' => true,
+            'database_selection_mode' => 'all',
         ]);
 
         // MongoDB server (from docker-compose)
@@ -102,7 +102,7 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'mongodb',
             'username' => 'root',
             'password' => 'root',
-            'backup_all_databases' => true,
+            'database_selection_mode' => 'all',
             'extra_config' => ['auth_source' => 'admin'],
         ]);
 

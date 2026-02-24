@@ -97,8 +97,17 @@
             @scope('cell_database_names', $server)
                 @if($server->database_type === 'sqlite')
                     <span class="text-base-content/50 italic">{{ __('Single file') }}</span>
-                @elseif($server->backup_all_databases)
+                @elseif($server->database_selection_mode === 'all')
                     <x-badge value="{{ __('All') }}" class="badge-info badge-soft" />
+                @elseif($server->database_selection_mode === 'pattern')
+                    <x-popover>
+                        <x-slot:trigger>
+                            <x-badge value="{{ __('Pattern') }}" class="badge-warning badge-soft cursor-pointer" />
+                        </x-slot:trigger>
+                        <x-slot:content class="text-sm font-mono">
+                            /{{ $server->database_include_pattern }}/i
+                        </x-slot:content>
+                    </x-popover>
                 @elseif($server->database_names && count($server->database_names) > 0)
                     @if(count($server->database_names) === 1)
                         {{ $server->database_names[0] }}

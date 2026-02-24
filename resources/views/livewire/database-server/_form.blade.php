@@ -248,15 +248,45 @@ use App\Enums\DatabaseType;
                 </div>
 
                 <div class="space-y-4">
-                    <div class="p-4 rounded-lg bg-base-200">
-                        <x-checkbox
-                            wire:model.live="form.backup_all_databases"
-                            :label="$form->availableDatabases ? __('Backup all databases') . ' (' . count($form->availableDatabases) . ' ' . __('available') . ')' : __('Backup all databases')"
-                            hint="{{ __('All user databases will be backed up. System databases are automatically excluded.') }}"
-                        />
+                    <!-- Segmented Control -->
+                    @php
+                        $modes = [
+                            'all' => ['icon' => 'o-circle-stack', 'label' => __('All Databases'), 'hint' => __('Backup everything')],
+                            'selected' => ['icon' => 'o-check-badge', 'label' => __('Selected'), 'hint' => __('Pick specific ones')],
+                            'pattern' => ['icon' => null, 'label' => __('Pattern'), 'hint' => __('Match by regex')],
+                        ];
+                    @endphp
+                    <div class="grid grid-cols-3 gap-2 rounded-xl bg-base-200 p-2">
+                        @foreach($modes as $mode => $opt)
+                            @php $isActive = $form->database_selection_mode === $mode; @endphp
+                            <button
+                                type="button"
+                                wire:click="$set('form.database_selection_mode', '{{ $mode }}')"
+                                class="flex flex-col items-center gap-1 rounded-lg px-3 py-3 text-center transition-all cursor-pointer {{ $isActive ? 'bg-base-100 shadow-sm ring-1 ring-base-300' : 'hover:bg-base-100/50' }}"
+                            >
+                                @if($opt['icon'])
+                                    <x-icon :name="$opt['icon']" class="w-5 h-5 {{ $isActive ? 'text-base-content' : 'text-base-content/50' }}" />
+                                @else
+                                    <x-icon-regex class="w-5 h-5 {{ $isActive ? 'text-base-content' : 'text-base-content/50' }}" />
+                                @endif
+                                <span class="text-sm font-semibold {{ $isActive ? 'text-base-content' : 'text-base-content/70' }}">{{ $opt['label'] }}</span>
+                                <span class="text-xs {{ $isActive ? 'text-base-content/60' : 'text-base-content/40' }}">{{ $opt['hint'] }}</span>
+                            </button>
+                        @endforeach
                     </div>
 
-                    @if(!$form->backup_all_databases)
+                    <!-- All Databases Panel -->
+                    @if($form->database_selection_mode === 'all')
+                        <x-alert class="alert-info" icon="o-information-circle">
+                            {{ __('All user databases will be backed up. System databases are automatically excluded.') }}
+                            @if(count($form->availableDatabases) > 0)
+                                <span class="font-semibold">({{ count($form->availableDatabases) }} {{ __('available') }})</span>
+                            @endif
+                        </x-alert>
+                    @endif
+
+                    <!-- Selected Databases Panel -->
+                    @if($form->database_selection_mode === 'selected')
                         @if($form->loadingDatabases)
                             <div class="flex items-center gap-2 text-base-content/70">
                                 <x-loading class="loading-spinner loading-sm" />
@@ -280,6 +310,73 @@ use App\Enums\DatabaseType;
                                 required
                             />
                         @endif
+                    @endif
+
+                    <!-- Pattern Panel -->
+                    @if($form->database_selection_mode === 'pattern')
+                        <div class="space-y-3">
+                            <div>
+                                <label class="label label-text font-semibold">{{ __('Include Pattern') }}</label>
+                                <div class="flex items-center gap-0">
+                                    <span class="bg-base-200 border border-r-0 border-base-300 rounded-l-lg px-3 py-2 text-base-content/50 font-mono text-sm">/</span>
+                                    <input
+                                        type="text"
+                                        wire:model.live.debounce.300ms="form.database_include_pattern"
+                                        class="input input-bordered rounded-none flex-1 font-mono text-sm"
+                                        placeholder="{{ __('e.g., ^prod_ or ^(?!test_)') }}"
+                                    />
+                                    <span class="bg-base-200 border border-l-0 border-base-300 rounded-r-lg px-3 py-2 text-base-content/50 font-mono text-sm">/i</span>
+                                </div>
+                                <p class="text-xs text-base-content/50 mt-1">
+                                    {{ __('Examples:') }}
+                                    <code class="text-xs">^prod_</code> {{ __('matches databases starting with prod_') }} ·
+                                    <code class="text-xs">^(?!test_)</code> {{ __('excludes databases starting with test_') }}
+                                </p>
+                            </div>
+
+                            @error('form.database_include_pattern')
+                                <x-alert class="alert-error" icon="o-x-circle">
+                                    {{ $message }}
+                                </x-alert>
+                            @enderror
+
+                            <!-- Live Preview -->
+                            @if(count($form->availableDatabases) > 0 && $form->database_include_pattern !== '')
+                                @php
+                                    $filteredDbs = $form->getFilteredDatabases();
+                                    $isValidPattern = \App\Models\DatabaseServer::isValidDatabasePattern($form->database_include_pattern);
+                                @endphp
+
+                                @if(!$isValidPattern)
+                                    <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                                        {{ __('Invalid regular expression pattern.') }}
+                                    </x-alert>
+                                @else
+                                    <div class="border border-base-300 rounded-lg overflow-hidden">
+                                        <div class="bg-base-200 px-3 py-2 text-sm font-semibold border-b border-base-300">
+                                            {{ __('Preview') }} — {{ count($filteredDbs) }}/{{ count($form->availableDatabases) }} {{ __('databases matched') }}
+                                        </div>
+                                        <div class="max-h-48 overflow-y-auto divide-y divide-base-200">
+                                            @foreach($form->availableDatabases as $db)
+                                                @php $matched = in_array($db['name'], $filteredDbs); @endphp
+                                                <div class="flex items-center gap-2 px-3 py-1.5 text-sm {{ $matched ? '' : 'opacity-40' }}">
+                                                    @if($matched)
+                                                        <x-icon name="o-check-circle" class="w-4 h-4 text-success" />
+                                                    @else
+                                                        <x-icon name="o-minus-circle" class="w-4 h-4" />
+                                                    @endif
+                                                    <span class="font-mono">{{ $db['name'] }}</span>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                            @elseif(empty($form->availableDatabases))
+                                <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                                    {{ __('Test connection to see pattern preview.') }}
+                                </x-alert>
+                            @endif
+                        </div>
                     @endif
                 </div>
             </div>

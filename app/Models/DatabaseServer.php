@@ -25,8 +25,9 @@ use Illuminate\Support\Carbon;
  * @property string $username
  * @property string $password
  * @property array<string>|null $database_names
+ * @property string $database_selection_mode
+ * @property string|null $database_include_pattern
  * @property array<string, mixed>|null $extra_config
- * @property bool $backup_all_databases
  * @property string|null $description
  * @property bool $backups_enabled
  * @property string|null $ssh_config_id
@@ -52,7 +53,7 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|DatabaseServer wherePort($value)
  * @method static Builder<static>|DatabaseServer whereUpdatedAt($value)
  * @method static Builder<static>|DatabaseServer whereUsername($value)
- * @method static Builder<static>|DatabaseServer whereBackupAllDatabases($value)
+ * @method static Builder<static>|DatabaseServer whereDatabaseSelectionMode($value)
  * @method static Builder<static>|DatabaseServer whereBackupsEnabled($value)
  *
  * @mixin \Eloquent
@@ -86,7 +87,8 @@ class DatabaseServer extends Model
         'username',
         'password',
         'database_names',
-        'backup_all_databases',
+        'database_selection_mode',
+        'database_include_pattern',
         'description',
         'backups_enabled',
         'ssh_config_id',
@@ -102,7 +104,6 @@ class DatabaseServer extends Model
         return [
             'port' => 'integer',
             'database_type' => DatabaseType::class,
-            'backup_all_databases' => 'boolean',
             'backups_enabled' => 'boolean',
             'password' => 'encrypted',
             'database_names' => 'array',
@@ -238,5 +239,38 @@ class DatabaseServer extends Model
         }
 
         return $this->sshConfig->getDisplayName();
+    }
+
+    /**
+     * Filter a list of database names using a regex pattern.
+     *
+     * @param  array<string>  $databases
+     * @return array<string>
+     */
+    public static function filterDatabasesByPattern(array $databases, string $pattern): array
+    {
+        if (! self::isValidDatabasePattern($pattern)) {
+            return [];
+        }
+
+        $regex = '/'.$pattern.'/i';
+
+        return array_values(array_filter($databases, fn (string $db) => preg_match($regex, $db) === 1));
+    }
+
+    /**
+     * Check if a regex pattern is valid.
+     */
+    public static function isValidDatabasePattern(string $pattern): bool
+    {
+        if ($pattern === '') {
+            return false;
+        }
+
+        set_error_handler(fn () => true);
+        $result = preg_match('/'.$pattern.'/i', '') !== false;
+        restore_error_handler();
+
+        return $result;
     }
 }
