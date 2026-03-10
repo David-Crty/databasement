@@ -65,8 +65,7 @@ test('can download snapshot stored on SFTP volume via streamed route', function 
         ->get(route('snapshots.download', $snapshot));
 
     $response->assertOk()
-        ->assertHeader('content-type', 'application/gzip')
-        ->assertHeader('content-disposition', 'attachment; filename='.basename($snapshot->filename));
+        ->assertDownload(basename($snapshot->filename));
 
     // Verify the streamed content is non-empty and matches the file size on SFTP
     expect(strlen($response->streamedContent()))->toBe($snapshot->file_size);

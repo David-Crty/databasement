@@ -40,9 +40,7 @@ class SnapshotDownloadController extends Controller
 
         abort_unless(file_exists($fullPath), 404, __('Backup file not found.'));
 
-        return response()->download($fullPath, basename($snapshot->filename), [
-            'Content-Type' => 'application/gzip',
-        ]);
+        return response()->download($fullPath, basename($snapshot->filename));
     }
 
     /**
@@ -73,8 +71,6 @@ class SnapshotDownloadController extends Controller
             if (is_resource($stream)) {
                 fclose($stream);
             }
-        }, basename($snapshot->filename), [
-            'Content-Type' => 'application/gzip',
-        ]);
+        }, basename($snapshot->filename));
     }
 }
