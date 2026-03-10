@@ -15,20 +15,6 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use Tests\Support\IntegrationTestHelpers;
 
-beforeEach(function () {
-    $this->directServer = null;
-    $this->restoredDatabaseName = null;
-});
-
-afterEach(function () {
-    if ($this->restoredDatabaseName && $this->directServer) {
-        try {
-            IntegrationTestHelpers::dropDatabase('mysql', $this->directServer, $this->restoredDatabaseName);
-        } catch (Exception) {
-        }
-    }
-});
-
 test('can download snapshot stored on SFTP volume via streamed route', function () {
     $user = User::factory()->create();
     $backupJobFactory = app(BackupJobFactory::class);

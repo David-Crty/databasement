@@ -106,6 +106,9 @@ class FilesystemProvider
 
     private function writeToFilesystem(Filesystem $filesystem, string $source, string $destination): void
     {
+        // Ensure the destination directory exists (including the root).
+        $filesystem->createDirectory(dirname($destination));
+
         $stream = fopen($source, 'r');
         if ($stream === false) {
             throw new FilesystemException("Failed to open file: {$source}");
