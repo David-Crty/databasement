@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup\Filesystems;
 
+use App\Enums\VolumeType;
 use App\Exceptions\Backup\FilesystemException;
 use App\Models\Snapshot;
 use App\Models\Volume;
@@ -69,6 +70,7 @@ class FilesystemProvider
     public function transfer(Volume $volume, string $source, string $destination): void
     {
         $filesystem = $this->getForVolume($volume);
+        $this->ensureRootExists($volume->type, $filesystem);
         $this->writeToFilesystem($filesystem, $source, $destination);
     }
 
@@ -95,6 +97,7 @@ class FilesystemProvider
     public function transferFromConfig(VolumeConfig $config, string $source, string $destination): void
     {
         $filesystem = $this->getForVolumeConfig($config);
+        $this->ensureRootExists($config->type, $filesystem);
         $this->writeToFilesystem($filesystem, $source, $destination);
     }
 
@@ -104,11 +107,21 @@ class FilesystemProvider
         $this->readFromFilesystem($filesystem, $remoteFilename, $destination);
     }
 
+    /**
+     * Remote filesystems (SFTP, FTP) may not have the root directory yet.
+     * Local and S3 don't need this — local roots are pre-existing and S3 has virtual directories.
+     */
+    private function ensureRootExists(string $type, Filesystem $filesystem): void
+    {
+        $volumeType = VolumeType::from($type);
+
+        if ($volumeType === VolumeType::SFTP || $volumeType === VolumeType::FTP) {
+            $filesystem->createDirectory('.');
+        }
+    }
+
     private function writeToFilesystem(Filesystem $filesystem, string $source, string $destination): void
     {
-        // Ensure the destination directory exists (including the root).
-        $filesystem->createDirectory(dirname($destination));
-
         $stream = fopen($source, 'r');
         if ($stream === false) {
             throw new FilesystemException("Failed to open file: {$source}");

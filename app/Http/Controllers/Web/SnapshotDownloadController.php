@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Web;
 
+use App\Enums\VolumeType;
 use App\Http\Controllers\Controller;
 use App\Models\Snapshot;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
@@ -23,9 +24,9 @@ class SnapshotDownloadController extends Controller
 
         $snapshot->loadMissing('volume');
 
-        return match ($snapshot->volume->type) {
-            'local' => $this->downloadLocal($snapshot),
-            's3' => $this->downloadS3($snapshot),
+        return match ($snapshot->volume->getVolumeType()) {
+            VolumeType::LOCAL => $this->downloadLocal($snapshot),
+            VolumeType::S3 => $this->downloadS3($snapshot),
             default => $this->downloadStream($snapshot),
         };
     }

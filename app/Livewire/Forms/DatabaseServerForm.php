@@ -546,7 +546,7 @@ class DatabaseServerForm extends Form
     public function getVolumeOptions(): array
     {
         return \App\Models\Volume::orderBy('name')->get()->map(function ($v) {
-            $isLocalWithAgent = $this->use_agent && $v->type === \App\Enums\VolumeType::LOCAL->value;
+            $isLocalWithAgent = $this->use_agent && $v->getVolumeType() === \App\Enums\VolumeType::LOCAL;
 
             return [
                 'id' => $v->id,
