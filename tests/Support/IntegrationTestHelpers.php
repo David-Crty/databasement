@@ -101,6 +101,27 @@ class IntegrationTestHelpers
     }
 
     /**
+     * Create an SFTP volume pointing at the SSH test container.
+     */
+    public static function createSftpVolume(): Volume
+    {
+        $ssh = self::getSshConfig();
+
+        return Volume::create([
+            'name' => 'Integration Test SFTP Volume',
+            'type' => 'sftp',
+            'config' => [
+                'host' => $ssh['host'],
+                'port' => $ssh['port'],
+                'username' => $ssh['username'],
+                'password' => $ssh['password'],
+                'root' => '/config/backups',
+                'timeout' => 10,
+            ],
+        ]);
+    }
+
+    /**
      * Create a database server for integration tests.
      */
     public static function createDatabaseServer(string $type): DatabaseServer
