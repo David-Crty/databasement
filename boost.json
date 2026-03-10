@@ -7,6 +7,7 @@
     "mcp": true,
     "sail": false,
     "skills": [
+        "socialite-development",
         "livewire-development",
         "pest-testing",
         "tailwindcss-development"

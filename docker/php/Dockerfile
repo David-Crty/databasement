@@ -1,4 +1,4 @@
-FROM dunglas/frankenphp:1.11-php8.4-alpine
+FROM dunglas/frankenphp:1.12-php8.4-alpine
 
 RUN install-php-extensions \
     ctype \

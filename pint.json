@@ -1,5 +1,8 @@
 {
     "exclude": [
         "docker"
-    ]
+    ],
+    "rules": {
+        "fully_qualified_strict_types": false
+    }
 }
