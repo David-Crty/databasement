@@ -108,14 +108,13 @@ class FilesystemProvider
     }
 
     /**
-     * Remote filesystems (SFTP, FTP) may not have the root directory yet.
-     * Local and S3 don't need this — local roots are pre-existing and S3 has virtual directories.
+     * SFTP volumes may not have the root directory yet.
+     * FTP adapters resolve the root on connect and throw if missing — nothing we can do here.
+     * Local and S3 don't need this — local roots are auto-created and S3 has virtual directories.
      */
     private function ensureRootExists(string $type, Filesystem $filesystem): void
     {
-        $volumeType = VolumeType::from($type);
-
-        if ($volumeType === VolumeType::SFTP || $volumeType === VolumeType::FTP) {
+        if (VolumeType::tryFrom($type) === VolumeType::SFTP) {
             $filesystem->createDirectory('.');
         }
     }

@@ -66,6 +66,8 @@ class SnapshotDownloadController extends Controller
     {
         $filesystem = app(FilesystemProvider::class)->getForVolume($snapshot->volume);
 
+        abort_unless($filesystem->fileExists($snapshot->filename), 404, __('Backup file not found.'));
+
         return response()->streamDownload(function () use ($filesystem, $snapshot) {
             $stream = $filesystem->readStream($snapshot->filename);
             fpassthru($stream);
