@@ -47,3 +47,20 @@ test('encrypted compressor executes compress and returns correct path', function
 
     unlink($compressedPath);
 });
+
+test('encrypted compressor removes stale archive before compressing', function () {
+    $testFile = '/tmp/test_stale_dump.sql';
+    $stalePath = $testFile.'.7z';
+
+    file_put_contents($testFile, 'test data');
+    file_put_contents($stalePath, 'corrupted archive');
+
+    $factory = new CompressorFactory($this->shellProcessor);
+    $compressor = $factory->make(CompressionType::ENCRYPTED);
+    $compressedPath = $compressor->compress($testFile);
+
+    // The stale content should have been replaced by a valid 7z archive
+    expect(file_get_contents($compressedPath))->not->toBe('corrupted archive');
+
+    unlink($compressedPath);
+});

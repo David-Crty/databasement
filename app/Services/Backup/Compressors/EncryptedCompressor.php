@@ -8,28 +8,14 @@ use App\Services\Backup\ShellProcessor;
 /**
  * Compressor for AES-256 encrypted backups using 7-Zip.
  */
-class EncryptedCompressor implements CompressorInterface
+class EncryptedCompressor extends BaseCompressor
 {
-    private const MIN_LEVEL = 1;
-
-    private const MAX_LEVEL = 9;
-
     public function __construct(
-        private readonly ShellProcessor $shellProcessor,
-        private readonly int $level,
+        ShellProcessor $shellProcessor,
+        int $level,
         private readonly ?string $password = null
-    ) {}
-
-    public function compress(string $inputPath): string
-    {
-        $this->shellProcessor->process($this->getCompressCommandLine($inputPath));
-
-        // 7z doesn't remove the original file, so we do it manually
-        if (file_exists($inputPath)) {
-            unlink($inputPath);
-        }
-
-        return $this->getCompressedPath($inputPath);
+    ) {
+        parent::__construct($shellProcessor, $level, minLevel: 1, maxLevel: 9);
     }
 
     public function decompress(string $compressedFile): string
@@ -48,12 +34,11 @@ class EncryptedCompressor implements CompressorInterface
 
     public function getCompressCommandLine(string $inputPath): string
     {
-        $level = $this->getLevel();
         $outputPath = $this->getCompressedPath($inputPath);
 
         // 7z a -t7z -mx={level} -mhe=on -p{password} output.7z input
         // -mhe=on encrypts headers (file names)
-        $command = sprintf('7z a -t7z -mx=%d -mhe=on', $level);
+        $command = sprintf('7z a -t7z -mx=%d -mhe=on', $this->getLevel());
 
         if ($this->password !== null) {
             $command .= sprintf(' -p%s', escapeshellarg($this->password));
@@ -81,11 +66,6 @@ class EncryptedCompressor implements CompressorInterface
         return $command;
     }
 
-    public function getCompressedPath(string $inputPath): string
-    {
-        return $inputPath.'.'.$this->getExtension();
-    }
-
     public function getDecompressedPath(string $inputPath): string
     {
         $targets = ['dump.sql', 'dump.db'];
@@ -99,10 +79,5 @@ class EncryptedCompressor implements CompressorInterface
         }
 
         throw new \RuntimeException('Decompression failed: output file not found');
-    }
-
-    private function getLevel(): int
-    {
-        return max(self::MIN_LEVEL, min(self::MAX_LEVEL, $this->level));
     }
 }
