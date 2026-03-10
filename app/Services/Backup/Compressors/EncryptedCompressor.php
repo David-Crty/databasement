@@ -22,6 +22,15 @@ class EncryptedCompressor implements CompressorInterface
 
     public function compress(string $inputPath): string
     {
+        $outputPath = $this->getCompressedPath($inputPath);
+
+        // Remove any leftover archive from a previous failed attempt.
+        // If 7z finds an existing .7z file, it tries to open and append to it.
+        // A corrupted file from a timed-out attempt causes 7z to fail or hang indefinitely.
+        if (file_exists($outputPath)) {
+            unlink($outputPath);
+        }
+
         $this->shellProcessor->process($this->getCompressCommandLine($inputPath));
 
         // 7z doesn't remove the original file, so we do it manually
@@ -29,7 +38,7 @@ class EncryptedCompressor implements CompressorInterface
             unlink($inputPath);
         }
 
-        return $this->getCompressedPath($inputPath);
+        return $outputPath;
     }
 
     public function decompress(string $compressedFile): string
