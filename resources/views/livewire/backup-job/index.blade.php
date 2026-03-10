@@ -136,8 +136,8 @@
                         @can('download', $job->snapshot)
                             <x-button
                                 icon="o-arrow-down-tray"
-                                wire:click="download('{{ $job->snapshot->id }}')"
-                                spinner
+                                :link="route('snapshots.download', $job->snapshot)"
+                                external
                                 tooltip="{{ __('Download') }}"
                                 class="btn-ghost btn-sm text-info"
                             />

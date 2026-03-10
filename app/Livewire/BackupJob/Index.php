@@ -6,7 +6,6 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\BackupJobQuery;
-use App\Services\Backup\Filesystems\Awss3Filesystem;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
@@ -15,7 +14,6 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Mary\Traits\Toast;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 #[Title('Jobs')]
 class Index extends Component
@@ -187,65 +185,6 @@ class Index extends Component
                 'name' => $server->name,
             ])
             ->toArray();
-    }
-
-    public function download(string $snapshotId): ?BinaryFileResponse
-    {
-        $snapshot = Snapshot::with('volume')->findOrFail($snapshotId);
-
-        $this->authorize('download', $snapshot);
-
-        try {
-            $volumeType = $snapshot->volume->type;
-
-            if ($volumeType === 'local') {
-                return $this->downloadLocal($snapshot);
-            }
-
-            if ($volumeType === 's3') {
-                $this->downloadS3($snapshot);
-
-                return null;
-            }
-
-            $this->error(__('Unsupported storage type.'), position: 'toast-bottom');
-
-            return null;
-        } catch (\Exception $e) {
-            $this->error(__('Failed to download backup: ').$e->getMessage(), position: 'toast-bottom');
-
-            return null;
-        }
-    }
-
-    private function downloadLocal(Snapshot $snapshot): ?BinaryFileResponse
-    {
-        // Build full path from volume root and filename
-        $volumeRoot = $snapshot->volume->config['path'] ?? $snapshot->volume->config['root'] ?? '';
-        $fullPath = rtrim($volumeRoot, '/').'/'.$snapshot->filename;
-
-        if (! file_exists($fullPath)) {
-            $this->error(__('Backup file not found.'), position: 'toast-bottom');
-
-            return null;
-        }
-
-        return response()->file($fullPath, [
-            'Content-Type' => 'application/gzip',
-            'Content-Disposition' => 'attachment; filename="'.basename($snapshot->filename).'"',
-        ]);
-    }
-
-    private function downloadS3(Snapshot $snapshot): void
-    {
-        $s3Filesystem = app(Awss3Filesystem::class);
-        $presignedUrl = $s3Filesystem->getPresignedUrl(
-            $snapshot->volume->getDecryptedConfig(),
-            $snapshot->filename,
-            expiresInMinutes: 15
-        );
-
-        $this->redirect($presignedUrl);
     }
 
     public function confirmDeleteSnapshot(string $snapshotId): void

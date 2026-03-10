@@ -64,6 +64,12 @@ Route::middleware(['auth'])->group(function () {
         ->name('api-tokens.index');
 });
 
+// Snapshot download - dedicated route to avoid Livewire OOM on large files
+Route::middleware(['auth'])->group(function () {
+    Route::get('snapshots/{snapshot}/download', \App\Http\Controllers\Web\SnapshotDownloadController::class)
+        ->name('snapshots.download');
+});
+
 // Action routes - authorization handled by Policies in components
 Route::middleware(['auth'])->group(function () {
     // Database Servers
