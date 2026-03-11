@@ -30,12 +30,12 @@ The only external requirement is a database for the application itself:
 
 ### Supported Application Database Versions
 
-| Engine | Minimum Version | Recommended |
-|--------|----------------|-------------|
-| SQLite | 3.26+ | Latest |
-| MySQL | 5.7+ | 8.x |
-| MariaDB | 10.3+ | 11.x |
-| PostgreSQL | 10.0+ | 16+ |
+| Engine     | Minimum Version | Recommended |
+|------------|-----------------|-------------|
+| SQLite     | 3.26+           | Latest      |
+| MySQL      | 5.7+            | 8.x         |
+| MariaDB    | 10.3+           | 11.x        |
+| PostgreSQL | 10.0+           | 16+         |
 
 These are the databases Databasement uses to store its own configuration, users, and backup metadata -- not the databases you back up (see [Supported Versions](../user-guide/database-servers#supported-versions) for that).
 

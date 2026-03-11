@@ -50,12 +50,12 @@
 
 Databasement is designed to be self-hosted. We provide several deployment options:
 
-| Method | Description | Guide |
-|--------|-------------|-------|
-| **Docker** | Single container deployment | [View Guide](https://david-crty.github.io/databasement/self-hosting/docker) |
-| **Docker Compose** | Multi-container setup with external database | [View Guide](https://david-crty.github.io/databasement/self-hosting/docker-compose) |
-| **Kubernetes + Helm** | For Kubernetes clusters | [View Guide](https://david-crty.github.io/databasement/self-hosting/kubernetes-helm) |
-| **Native Ubuntu** | Traditional installation without Docker | [View Guide](https://david-crty.github.io/databasement/self-hosting/native-ubuntu) |
+| Method                | Description                                  | Guide                                                                                |
+|-----------------------|----------------------------------------------|--------------------------------------------------------------------------------------|
+| **Docker**            | Single container deployment                  | [View Guide](https://david-crty.github.io/databasement/self-hosting/docker)          |
+| **Docker Compose**    | Multi-container setup with external database | [View Guide](https://david-crty.github.io/databasement/self-hosting/docker-compose)  |
+| **Kubernetes + Helm** | For Kubernetes clusters                      | [View Guide](https://david-crty.github.io/databasement/self-hosting/kubernetes-helm) |
+| **Native Ubuntu**     | Traditional installation without Docker      | [View Guide](https://david-crty.github.io/databasement/self-hosting/native-ubuntu)   |
 
 ### Quick Start
 
@@ -79,15 +79,15 @@ For production deployments, see our [configuration guide](https://david-crty.git
 
 ## Supported Database Versions
 
-| Engine | Supported Versions | CLI Tool | Restore |
-|--------|-------------------|----------|---------|
-| MySQL | 5.6, 5.7, 8.x, 9.x | `mariadb-dump` | Yes |
-| MariaDB | 10.4 - 11.x | `mariadb-dump` | Yes |
-| PostgreSQL | 12, 13, 14, 15, 16, 17, 18 | `pg_dump` v18 | Yes |
-| MongoDB | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes |
-| SQLite | 3.x | File copy | Yes |
-| Redis | 2.8+ | `redis-cli --rdb` | No |
-| Valkey | 7.2+ | `redis-cli --rdb` | No |
+| Engine     | Supported Versions           | CLI Tool                     | Restore |
+|------------|------------------------------|------------------------------|---------|
+| MySQL      | 5.6, 5.7, 8.x, 9.x           | `mariadb-dump`               | Yes     |
+| MariaDB    | 10.4 - 11.x                  | `mariadb-dump`               | Yes     |
+| PostgreSQL | 12, 13, 14, 15, 16, 17, 18   | `pg_dump` v18                | Yes     |
+| MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes     |
+| SQLite     | 3.x                          | File copy                    | Yes     |
+| Redis      | 2.8+                         | `redis-cli --rdb`            | No      |
+| Valkey     | 7.2+                         | `redis-cli --rdb`            | No      |
 
 See the [Database Servers documentation](https://david-crty.github.io/databasement/user-guide/database-servers#supported-versions) for version-specific backup and restore details.
 
