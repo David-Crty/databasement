@@ -11,6 +11,7 @@ use App\Models\Snapshot;
 use App\Services\Backup\TriggerBackupAction;
 use App\Services\FailureNotificationService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Validation\Rule;
@@ -292,12 +293,17 @@ class Index extends Component
     {
         abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
 
-        $schedule = BackupSchedule::with('backups.databaseServer.backup.volume')->findOrFail($scheduleId);
+        $schedule = BackupSchedule::findOrFail($scheduleId);
+
+        $backups = $schedule->backups()
+            ->whereRelation('databaseServer', 'backups_enabled', true)
+            ->with('databaseServer.backup.volume')
+            ->get();
 
         $totalSnapshots = 0;
         $errors = [];
 
-        foreach ($schedule->backups as $backup) {
+        foreach ($backups as $backup) {
             try {
                 $userId = auth()->id();
                 $result = $action->execute($backup->databaseServer, is_int($userId) ? $userId : null);
@@ -320,13 +326,20 @@ class Index extends Component
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Collection<int, BackupSchedule>
+     * @return Collection<int, BackupSchedule>
      */
     #[Computed]
-    public function backupSchedules(): \Illuminate\Database\Eloquent\Collection
+    public function backupSchedules(): Collection
     {
-        return BackupSchedule::withCount('backups')
-            ->with('backups.databaseServer:id,name')
+        return BackupSchedule::withCount([
+            'backups as backups_count' => function ($query) {
+                $query->whereRelation('databaseServer', 'backups_enabled', true);
+            },
+            'backups as total_backups_count',
+        ])
+            ->with(['backups' => function ($query) {
+                $query->whereRelation('databaseServer', 'backups_enabled', true);
+            }, 'backups.databaseServer:id,name'])
             ->orderBy('name')
             ->get();
     }

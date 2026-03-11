@@ -82,7 +82,7 @@
                                         <x-button icon="o-play" class="btn-ghost btn-sm" wire:click="runSchedule('{{ $schedule->id }}')" spinner="runSchedule('{{ $schedule->id }}')" tooltip-left="{{ __('Run now') }}" />
                                     @endif
                                     <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openScheduleModal('{{ $schedule->id }}')" tooltip-left="{{ __('Edit') }}" />
-                                    @if ($schedule->backups_count > 0)
+                                    @if ($schedule->total_backups_count > 0)
                                         <x-popover>
                                             <x-slot:trigger>
                                                 <x-button icon="o-trash" class="btn-ghost btn-sm opacity-40" disabled />

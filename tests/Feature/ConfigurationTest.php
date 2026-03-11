@@ -7,6 +7,7 @@ use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Configuration\Index;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Models\User;
 use App\Notifications\BackupFailedNotification;
 use App\Services\FailureNotificationService;
@@ -216,7 +217,7 @@ test('sendTestNotification handles notification failure gracefully', function ()
 
     $mock = Mockery::mock(FailureNotificationService::class);
     $mock->shouldReceive('getNotificationRoutes')->andReturn(['mail' => 'admin@example.com']);
-    $mock->shouldReceive('notifyBackupFailed')->andThrow(new \RuntimeException('SMTP connection failed'));
+    $mock->shouldReceive('notifyBackupFailed')->andThrow(new RuntimeException('SMTP connection failed'));
     app()->instance(FailureNotificationService::class, $mock);
 
     Livewire::actingAs(User::factory()->create(['role' => 'admin']))
@@ -462,6 +463,28 @@ test('admin can run a schedule to trigger backups for all its servers', function
         ->call('runSchedule', $schedule->id);
 
     Queue::assertPushed(ProcessBackupJob::class);
+});
+
+test('running a schedule skips servers with backups disabled', function () {
+    Queue::fake();
+
+    $schedule = BackupSchedule::factory()->create();
+    $enabledServer = DatabaseServer::factory()->create(['database_names' => ['app'], 'backups_enabled' => true]);
+    $disabledServer = DatabaseServer::factory()->create(['database_names' => ['app'], 'backups_enabled' => false]);
+    $enabledServer->backup->update(['backup_schedule_id' => $schedule->id]);
+    $disabledServer->backup->update(['backup_schedule_id' => $schedule->id]);
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('runSchedule', $schedule->id);
+
+    Queue::assertPushed(ProcessBackupJob::class, function ($job) use ($enabledServer) {
+        return Snapshot::find($job->snapshotId)->database_server_id === $enabledServer->id;
+    });
+
+    Queue::assertNotPushed(ProcessBackupJob::class, function ($job) use ($disabledServer) {
+        return Snapshot::find($job->snapshotId)->database_server_id === $disabledServer->id;
+    });
 });
 
 test('non-admin cannot run a schedule', function () {

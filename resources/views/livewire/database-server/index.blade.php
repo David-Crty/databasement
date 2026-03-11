@@ -123,7 +123,12 @@
             @endscope
 
             @scope('cell_backup', $server)
-                @if($server->backup)
+                @if(!$server->backups_enabled)
+                    <span class="badge badge-warning badge-soft badge-xs gap-1">
+                        <x-icon name="o-no-symbol" class="w-3 h-3" />
+                        {{ __('Disabled') }}
+                    </span>
+                @elseif($server->backup)
                     <div class="table-cell-primary flex items-center gap-1.5">
                         <x-volume-type-icon :type="$server->backup->volume->type" class="w-4 h-4 text-base-content/70" />
                         {{ $server->backup->volume->name }}
