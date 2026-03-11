@@ -9,6 +9,7 @@ This guide will help you deploy Databasement using Docker. This is the simplest 
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/engine/install/) installed on your system
+- A [supported application database](intro#supported-application-database-versions) (SQLite, MySQL, MariaDB, or PostgreSQL)
 
 ## Quick Start (SQLite)
 

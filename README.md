@@ -77,6 +77,20 @@ Open http://localhost:2226 and create your first admin account.
 
 For production deployments, see our [configuration guide](https://david-crty.github.io/databasement/self-hosting/configuration) for environment variables and best practices.
 
+## Supported Database Versions
+
+| Engine | Supported Versions | CLI Tool | Restore |
+|--------|-------------------|----------|---------|
+| MySQL | 5.6, 5.7, 8.x, 9.x | `mariadb-dump` | Yes |
+| MariaDB | 10.4 - 11.x | `mariadb-dump` | Yes |
+| PostgreSQL | 12, 13, 14, 15, 16, 17, 18 | `pg_dump` v18 | Yes |
+| MongoDB | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes |
+| SQLite | 3.x | File copy | Yes |
+| Redis | 2.8+ | `redis-cli --rdb` | No |
+| Valkey | 7.2+ | `redis-cli --rdb` | No |
+
+See the [Database Servers documentation](https://david-crty.github.io/databasement/user-guide/database-servers#supported-versions) for version-specific backup and restore details.
+
 ## Documentation
 
 Full documentation is available at [david-crty.github.io/databasement](https://david-crty.github.io/databasement/).

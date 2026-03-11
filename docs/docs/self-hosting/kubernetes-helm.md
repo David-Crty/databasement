@@ -51,7 +51,7 @@ ingress:
 
 #### Production Configuration (External Database)
 
-For production, we recommend using MySQL or PostgreSQL instead of SQLite:
+For production, we recommend using MySQL or PostgreSQL instead of SQLite (see [supported versions](intro#supported-application-database-versions)):
 
 ```yaml title="values.yaml"
 # ... other app config

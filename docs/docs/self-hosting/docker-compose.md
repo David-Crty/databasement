@@ -9,6 +9,7 @@ This guide will help you deploy Databasement using Docker Compose. This method i
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- A [supported application database](intro#supported-application-database-versions) (SQLite, MySQL, MariaDB, or PostgreSQL)
 
 ## Quick Start
 

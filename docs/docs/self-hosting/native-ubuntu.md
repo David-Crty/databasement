@@ -11,6 +11,7 @@ This guide will help you install Databasement directly on Ubuntu without Docker.
 - Ubuntu 22.04 LTS or 24.04 LTS
 - Root or sudo access
 - A web server (Nginx or Apache)
+- A [supported application database](intro#supported-application-database-versions) (SQLite, MySQL, MariaDB, or PostgreSQL)
 
 ## Install PHP 8.4
 
