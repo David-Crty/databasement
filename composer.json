@@ -11,8 +11,8 @@
     "require": {
         "php": "^8.4",
         "ext-ftp": "*",
-        "ext-pdo": "*",
         "ext-mongodb": "*",
+        "ext-pdo": "*",
         "blade-ui-kit/blade-icons": "^1.8",
         "codeat3/blade-devicons": "^1.8",
         "dedoc/scramble": "^0.13.8",
@@ -22,6 +22,7 @@
         "laravel-notification-channels/telegram": "^6.0",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^12.0",
+        "laravel/mcp": "^0.6.2",
         "laravel/octane": "^2.13",
         "laravel/sanctum": "^4.2",
         "laravel/slack-notification-channel": "^3.7",
