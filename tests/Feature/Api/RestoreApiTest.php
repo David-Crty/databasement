@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\User;
@@ -54,6 +55,8 @@ test('authenticated users can trigger a restore', function () {
                 'job',
             ],
         ]);
+
+    Queue::assertPushed(ProcessRestoreJob::class);
 });
 
 test('restore requires snapshot_id and schema_name', function () {

@@ -87,20 +87,6 @@ class DatabaseServerController extends Controller
         /** @var Snapshot $snapshot */
         $snapshot = Snapshot::findOrFail($request->validated('snapshot_id'));
 
-        // Validate snapshot database type is compatible with target server
-        if ($snapshot->database_type !== $databaseServer->database_type) {
-            return response()->json([
-                'message' => 'Snapshot database type does not match the target server.',
-            ], 422);
-        }
-
-        // Prevent restoring over the app's own database
-        if ($databaseServer->isAppDatabase($request->validated('schema_name'))) {
-            return response()->json([
-                'message' => 'Cannot restore over the application database.',
-            ], 422);
-        }
-
         /** @var int|null $userId */
         $userId = auth()->id();
 
@@ -112,8 +98,6 @@ class DatabaseServerController extends Controller
         );
 
         ProcessRestoreJob::dispatch($restore->id);
-
-        $restore->load(['job', 'snapshot', 'targetServer']);
 
         return response()->json([
             'message' => 'Restore started successfully!',

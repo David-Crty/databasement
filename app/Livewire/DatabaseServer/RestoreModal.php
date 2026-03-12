@@ -168,13 +168,6 @@ class RestoreModal extends Component
 
         $this->validateSchemaName();
 
-        // Prevent restoring over the app's own database
-        if ($this->targetServer->isAppDatabase($this->schemaName)) {
-            $this->error(__('Cannot restore over the application database. This would crash the application.'));
-
-            return;
-        }
-
         try {
             $snapshot = Snapshot::findOrFail($this->selectedSnapshotId);
 

@@ -12,6 +12,7 @@ use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Services\Backup\Databases\DatabaseProvider;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class BackupJobFactory
 {
@@ -117,6 +118,8 @@ class BackupJobFactory
 
     /**
      * Create a BackupJob and Restore for a snapshot restore operation.
+     *
+     * @throws ValidationException
      */
     public function createRestore(
         Snapshot $snapshot,
@@ -124,6 +127,18 @@ class BackupJobFactory
         string $schemaName,
         ?int $triggeredByUserId = null
     ): Restore {
+        if ($snapshot->database_type !== $targetServer->database_type) {
+            throw ValidationException::withMessages([
+                'snapshot_id' => 'Snapshot database type does not match the target server.',
+            ]);
+        }
+
+        if ($targetServer->isAppDatabase($schemaName)) {
+            throw ValidationException::withMessages([
+                'schema_name' => 'Cannot restore over the application database.',
+            ]);
+        }
+
         $job = BackupJob::create(['status' => 'pending']);
 
         $restore = Restore::create([
