@@ -119,49 +119,6 @@ class RestoreModal extends Component
     }
 
     /**
-     * Check if the target server and schema match the application's own database.
-     */
-    protected function isAppDatabase(): bool
-    {
-        if (! $this->targetServer) {
-            return false;
-        }
-
-        $targetType = $this->targetServer->database_type;
-        $appDatabaseTypes = [DatabaseType::MYSQL, DatabaseType::POSTGRESQL];
-
-        if (! in_array($targetType, $appDatabaseTypes)) {
-            return false;
-        }
-
-        $defaultConnection = config('database.default');
-        $appDbDriver = config("database.connections.{$defaultConnection}.driver");
-
-        // Map Laravel driver names to DatabaseType enum
-        $driverToType = [
-            'mysql' => DatabaseType::MYSQL,
-            'mariadb' => DatabaseType::MYSQL,
-            'pgsql' => DatabaseType::POSTGRESQL,
-        ];
-
-        $appDbType = $driverToType[$appDbDriver] ?? null;
-
-        // If database types don't match, it's not the app database
-        if ($appDbType !== $targetType) {
-            return false;
-        }
-
-        // Compare host, port, and database name
-        $appDbHost = config("database.connections.{$defaultConnection}.host");
-        $appDbPort = (int) config("database.connections.{$defaultConnection}.port");
-        $appDbDatabase = config("database.connections.{$defaultConnection}.database");
-
-        return $this->targetServer->host === $appDbHost
-            && $this->targetServer->port === $appDbPort
-            && $this->schemaName === $appDbDatabase;
-    }
-
-    /**
      * Validate schema name based on database type.
      */
     protected function validateSchemaName(): void
@@ -212,7 +169,7 @@ class RestoreModal extends Component
         $this->validateSchemaName();
 
         // Prevent restoring over the app's own database
-        if ($this->isAppDatabase()) {
+        if ($this->targetServer->isAppDatabase($this->schemaName)) {
             $this->error(__('Cannot restore over the application database. This would crash the application.'));
 
             return;

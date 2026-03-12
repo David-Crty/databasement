@@ -8,7 +8,7 @@ use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\Agent\AgentJobPayloadBuilder;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
+use Illuminate\Validation\ValidationException;
 
 class TriggerBackupAction
 {
@@ -22,14 +22,14 @@ class TriggerBackupAction
      *
      * @return array{snapshots: Snapshot[], message: string}
      *
-     * @throws RuntimeException
+     * @throws ValidationException
      */
     public function execute(DatabaseServer $server, ?int $triggeredByUserId = null): array
     {
         if (! $server->backup) {
-            throw new RuntimeException(
-                'No backup configuration found for this database server.'
-            );
+            throw ValidationException::withMessages([
+                'server' => 'No backup configuration found for this database server.',
+            ]);
         }
 
         $snapshots = $this->backupJobFactory->createSnapshots(

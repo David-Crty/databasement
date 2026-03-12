@@ -20,7 +20,7 @@ test('it throws exception when server has no backup configuration', function () 
     $action = app(TriggerBackupAction::class);
 
     expect(fn () => $action->execute($server))
-        ->toThrow(RuntimeException::class, 'No backup configuration found for this database server.');
+        ->toThrow(\Illuminate\Validation\ValidationException::class);
 });
 
 test('it creates a snapshot and dispatches backup job for single database', function () {

@@ -272,6 +272,41 @@ class DatabaseServer extends Model
     }
 
     /**
+     * Check if this server and schema match the application's own database.
+     */
+    public function isAppDatabase(string $schemaName): bool
+    {
+        $appDatabaseTypes = [DatabaseType::MYSQL, DatabaseType::POSTGRESQL];
+
+        if (! in_array($this->database_type, $appDatabaseTypes)) {
+            return false;
+        }
+
+        $defaultConnection = config('database.default');
+        $appDbDriver = config("database.connections.{$defaultConnection}.driver");
+
+        $driverToType = [
+            'mysql' => DatabaseType::MYSQL,
+            'mariadb' => DatabaseType::MYSQL,
+            'pgsql' => DatabaseType::POSTGRESQL,
+        ];
+
+        $appDbType = $driverToType[$appDbDriver] ?? null;
+
+        if ($appDbType !== $this->database_type) {
+            return false;
+        }
+
+        $appDbHost = config("database.connections.{$defaultConnection}.host");
+        $appDbPort = (int) config("database.connections.{$defaultConnection}.port");
+        $appDbDatabase = config("database.connections.{$defaultConnection}.database");
+
+        return $this->host === $appDbHost
+            && $this->port === $appDbPort
+            && $schemaName === $appDbDatabase;
+    }
+
+    /**
      * Check if a regex pattern is valid.
      */
     public static function isValidDatabasePattern(string $pattern): bool

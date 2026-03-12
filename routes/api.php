@@ -12,6 +12,8 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
         ->only(['index', 'show']);
     Route::post('database-servers/{database_server}/backup', [DatabaseServerController::class, 'backup'])
         ->name('database-servers.backup');
+    Route::post('database-servers/{database_server}/restore', [DatabaseServerController::class, 'restore'])
+        ->name('database-servers.restore');
 
     Route::apiResource('jobs', BackupJobController::class)
         ->only(['index', 'show'])
