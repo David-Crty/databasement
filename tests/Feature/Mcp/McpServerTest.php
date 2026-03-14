@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ProcessBackupJob;
 use App\Jobs\ProcessRestoreJob;
 use App\Mcp\Servers\DatabasementServer;
 use App\Mcp\Tools\GetJobStatusTool;
@@ -7,6 +8,8 @@ use App\Mcp\Tools\ListDatabaseServersTool;
 use App\Mcp\Tools\ListSnapshotsTool;
 use App\Mcp\Tools\TriggerBackupTool;
 use App\Mcp\Tools\TriggerRestoreTool;
+use App\Models\BackupJob;
+use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
 use Illuminate\Support\Facades\Queue;
@@ -86,6 +89,8 @@ test('trigger backup dispatches job', function () {
 
     $response->assertOk()
         ->assertSee('Backup started successfully');
+
+    Queue::assertPushed(ProcessBackupJob::class);
 });
 
 test('trigger backup rejects viewer users', function () {
@@ -162,6 +167,158 @@ test('get job status returns status info', function () {
     $response->assertOk()
         ->assertSee('completed')
         ->assertSee('status_db');
+});
+
+test('list database servers includes backup configuration', function () {
+    $user = User::factory()->create();
+    $server = createDatabaseServer(['name' => 'Configured Server', 'backups_enabled' => true]);
+
+    $response = DatabasementServer::actingAs($user)->tool(ListDatabaseServersTool::class);
+
+    $response->assertOk()
+        ->assertSee('Configured Server')
+        ->assertSee('Backup: configured')
+        ->assertSee('Schedule:')
+        ->assertSee('Backups enabled: yes');
+});
+
+test('list database servers shows unconfigured backup', function () {
+    $user = User::factory()->create();
+
+    \App\Models\DatabaseServer::create([
+        'name' => 'No Backup Server',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_names' => ['testdb'],
+        'database_selection_mode' => 'selected',
+    ]);
+
+    $response = DatabasementServer::actingAs($user)->tool(ListDatabaseServersTool::class);
+
+    $response->assertOk()
+        ->assertSee('No Backup Server')
+        ->assertSee('Backup: not configured');
+});
+
+test('list snapshots returns empty message when none exist', function () {
+    $user = User::factory()->create();
+
+    $response = DatabasementServer::actingAs($user)->tool(ListSnapshotsTool::class);
+
+    $response->assertOk()
+        ->assertSee('No snapshots found');
+});
+
+test('list snapshots includes snapshot details', function () {
+    $user = User::factory()->create();
+    $server = createDatabaseServer(['name' => 'Detail Server']);
+    $snapshot = Snapshot::factory()->forServer($server)->create([
+        'database_name' => 'detail_db',
+    ]);
+
+    $response = DatabasementServer::actingAs($user)->tool(ListSnapshotsTool::class);
+
+    $response->assertOk()
+        ->assertSee('detail_db')
+        ->assertSee('Detail Server')
+        ->assertSee('Status:')
+        ->assertSee('Volume:');
+});
+
+test('trigger backup returns snapshot ids', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $server = createDatabaseServer(['database_names' => ['db1', 'db2']]);
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
+        'database_server_id' => $server->id,
+    ]);
+
+    $response->assertOk()
+        ->assertSee('Snapshot IDs:')
+        ->assertSee('Use get-job-status');
+});
+
+test('trigger backup rejects server without backup config', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+
+    // Create server without the factory's afterCreating hook
+    $server = \App\Models\DatabaseServer::create([
+        'name' => 'No Backup Server',
+        'host' => 'localhost',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_names' => ['testdb'],
+        'database_selection_mode' => 'selected',
+    ]);
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
+        'database_server_id' => $server->id,
+    ]);
+
+    $response->assertHasErrors();
+});
+
+test('get job status shows restore job details', function () {
+    $user = User::factory()->create();
+    $server = createDatabaseServer(['name' => 'Restore Server', 'database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($server)->create([
+        'database_name' => 'restore_db',
+    ]);
+
+    $job = BackupJob::create([
+        'status' => 'completed',
+        'started_at' => now()->subMinutes(5),
+        'completed_at' => now(),
+        'duration_ms' => 300000,
+    ]);
+
+    Restore::create([
+        'backup_job_id' => $job->id,
+        'snapshot_id' => $snapshot->id,
+        'target_server_id' => $server->id,
+        'schema_name' => 'restored_schema',
+    ]);
+
+    $response = DatabasementServer::actingAs($user)->tool(GetJobStatusTool::class, [
+        'job_id' => $job->id,
+    ]);
+
+    $response->assertOk()
+        ->assertSee('Type: restore')
+        ->assertSee('restore_db')
+        ->assertSee('Restore Server')
+        ->assertSee('Started:')
+        ->assertSee('Completed:')
+        ->assertSee('Duration:');
+});
+
+test('get job status shows error message for failed jobs', function () {
+    $user = User::factory()->create();
+    $server = createDatabaseServer();
+    $snapshot = Snapshot::factory()->forServer($server)->create();
+
+    $snapshot->job->update([
+        'status' => 'failed',
+        'started_at' => now()->subMinutes(1),
+        'completed_at' => now(),
+        'duration_ms' => 60000,
+        'error_message' => 'Connection refused',
+    ]);
+
+    $response = DatabasementServer::actingAs($user)->tool(GetJobStatusTool::class, [
+        'job_id' => $snapshot->backup_job_id,
+    ]);
+
+    $response->assertOk()
+        ->assertSee('failed')
+        ->assertSee('Error: Connection refused');
 });
 
 test('web mcp route requires authentication', function () {

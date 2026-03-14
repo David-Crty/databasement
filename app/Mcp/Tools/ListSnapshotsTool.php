@@ -37,7 +37,7 @@ class ListSnapshotsTool extends Tool
             $status = $snapshot->job->status;
             $size = $snapshot->getHumanFileSize();
             $date = $snapshot->created_at?->toDateTimeString() ?? 'unknown';
-            $server = $snapshot->databaseServer->name ?? 'unknown';
+            $server = $snapshot->databaseServer->name;
 
             return "- **{$snapshot->database_name}** on {$server} (ID: {$snapshot->id})\n"
                 ."  Status: {$status} | Size: {$size} | Date: {$date}\n"
