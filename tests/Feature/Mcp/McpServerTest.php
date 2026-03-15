@@ -238,7 +238,7 @@ test('trigger backup returns snapshot ids', function () {
     ]);
 
     $response->assertOk()
-        ->assertSee('Snapshot IDs:')
+        ->assertSee('Job ID:')
         ->assertSee('Use get-job-status');
 });
 

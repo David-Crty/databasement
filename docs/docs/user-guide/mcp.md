@@ -39,33 +39,17 @@ Backup and restore operations are **asynchronous** — they dispatch jobs to the
 |------|-------------|:---:|
 | **list-database-servers** | List all registered servers with connection details and backup config. Optionally filter by database type. | No |
 | **list-snapshots** | List backup snapshots, optionally filtered by server. Returns most recent first. | No |
-| **trigger-backup** | Trigger an on-demand backup for a server. Returns snapshot IDs for status tracking. | No |
+| **trigger-backup** | Trigger an on-demand backup for a server. Returns snapshot IDs and job IDs for status tracking. | No |
 | **trigger-restore** | Restore a snapshot to a target server. Drops and recreates the target database. | **Yes** |
 | **get-job-status** | Check the status of a backup or restore job (pending, running, completed, failed). | No |
 
-## Remote Configuration (Sanctum)
+## Configuration
 
-The MCP server is available over HTTP at `/mcp`, protected by Sanctum authentication.
+Databasement exposes two MCP transports: **stdio** (local) and **HTTP** (remote). Choose the one that fits your setup.
 
-1. Create a Sanctum API token for your user (via the API or Tinker).
-2. Configure your MCP client with the following JSON:
+### Local (stdio) — Recommended for local AI clients {#local}
 
-```json
-{
-  "mcpServers": {
-    "databasement": {
-      "url": "https://your-databasement-instance.com/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_SANCTUM_TOKEN"
-      }
-    }
-  }
-}
-```
-
-## Local Configuration (stdio)
-
-If your AI client runs on the same machine as Databasement (e.g., during development), you can use the local stdio transport:
+If your AI client runs on the same machine as Databasement (e.g., Claude Code during development), use the stdio transport. This is the most reliable option — the client spawns the MCP server as a child process, so there are no networking or authentication issues.
 
 ```json
 {
@@ -81,6 +65,32 @@ If your AI client runs on the same machine as Databasement (e.g., during develop
   }
 }
 ```
+
+Tools will appear natively in your AI client (e.g., as `mcp__databasement__trigger-backup-tool` in Claude Code).
+
+### Remote (HTTP + Sanctum) {#remote}
+
+For remote access or when the AI client runs on a different machine, use the HTTP transport. The MCP server is available at `/mcp`, protected by Sanctum token authentication.
+
+1. Create a Sanctum API token for your user (via the API or Tinker).
+2. Configure your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "databasement": {
+      "url": "https://your-databasement-instance.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_SANCTUM_TOKEN"
+      }
+    }
+  }
+}
+```
+
+:::tip
+Some AI clients (including Claude Code) may have limited support for the HTTP streamable transport. If tools don't appear in your client, switch to the [stdio transport](#local) instead.
+:::
 
 ## Testing Your Connection
 

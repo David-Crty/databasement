@@ -37,12 +37,13 @@ class TriggerBackupTool extends Tool
             return Response::error(collect($e->errors())->flatten()->implode(' '));
         }
 
-        $snapshotIds = collect($result['snapshots'])->pluck('id')->implode(', ');
+        $snapshots = collect($result['snapshots']);
         $message = $result['message'];
 
-        if (! empty($snapshotIds)) {
-            $message .= "\nSnapshot IDs: {$snapshotIds}";
-            $message .= "\nUse get-job-status with the snapshot's backup_job_id to track progress.";
+        if ($snapshots->isNotEmpty()) {
+            $snapshotLines = $snapshots->map(fn ($s) => "- Snapshot: {$s->id} (Job ID: {$s->backup_job_id})");
+            $message .= "\n".$snapshotLines->implode("\n");
+            $message .= "\nUse get-job-status with a Job ID to track progress.";
         }
 
         return Response::text($message);
