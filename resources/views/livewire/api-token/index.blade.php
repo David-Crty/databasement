@@ -6,6 +6,13 @@
             </x-slot:actions>
         </x-header>
 
+        <x-alert class="alert-info mb-4" icon="o-information-circle">
+            {{ __('API tokens authenticate requests to both the') }}
+            <a href="https://david-crty.github.io/databasement/user-guide/api" class="link link-primary font-medium" target="_blank">{{ __('REST API') }}</a>
+            {{ __('and the') }}
+            <a href="https://david-crty.github.io/databasement/user-guide/mcp" class="link link-primary font-medium" target="_blank">{{ __('MCP server') }}</a>.
+        </x-alert>
+
         <x-card>
             @if($tokens->isEmpty())
                 <div class="text-center text-base-content/50 py-8">
