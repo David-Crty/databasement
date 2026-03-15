@@ -1,51 +1,49 @@
 <div>
-    <div class="mx-auto max-w-4xl">
-        <x-header title="{{ __('Two Factor Authentication') }}" subtitle="{{ __('Manage your two-factor authentication settings') }}" size="text-2xl" separator class="mb-6" />
+    <x-header title="{{ __('Two Factor Authentication') }}" subtitle="{{ __('Manage your two-factor authentication settings') }}" size="text-2xl" separator class="mb-6" />
 
-        <x-card>
-            <div class="flex flex-col w-full mx-auto space-y-6 text-sm" wire:cloak>
-                @if ($twoFactorEnabled)
-                    <div class="space-y-4">
-                        <div class="flex items-center gap-3">
-                            <span class="badge badge-success">{{ __('Enabled') }}</span>
-                        </div>
-
-                        <p>
-                            {{ __('With two-factor authentication enabled, you will be prompted for a secure, random pin during login, which you can retrieve from the TOTP-supported application on your phone.') }}
-                        </p>
-
-                        <livewire:settings.two-factor.recovery-codes :requiresConfirmation="$requiresConfirmation" />
-
-                        <div class="flex justify-start">
-                            <x-button
-                                class="btn-error"
-                                icon="o-shield-exclamation"
-                                wire:click="disable"
-                                label="{{ __('Disable 2FA') }}"
-                            />
-                        </div>
+    <x-card>
+        <div class="flex flex-col w-full mx-auto space-y-6 text-sm" wire:cloak>
+            @if ($twoFactorEnabled)
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3">
+                        <span class="badge badge-success">{{ __('Enabled') }}</span>
                     </div>
-                @else
-                    <div class="space-y-4">
-                        <div class="flex items-center gap-3">
-                            <span class="badge badge-error">{{ __('Disabled') }}</span>
-                        </div>
 
-                        <p class="opacity-70">
-                            {{ __('When you enable two-factor authentication, you will be prompted for a secure pin during login. This pin can be retrieved from a TOTP-supported application on your phone.') }}
-                        </p>
+                    <p>
+                        {{ __('With two-factor authentication enabled, you will be prompted for a secure, random pin during login, which you can retrieve from the TOTP-supported application on your phone.') }}
+                    </p>
 
+                    <livewire:settings.two-factor.recovery-codes :requiresConfirmation="$requiresConfirmation" />
+
+                    <div class="flex justify-start">
                         <x-button
-                            class="btn-primary"
-                            icon="o-shield-check"
-                            wire:click="enable"
-                            label="{{ __('Enable 2FA') }}"
+                            class="btn-error"
+                            icon="o-shield-exclamation"
+                            wire:click="disable"
+                            label="{{ __('Disable 2FA') }}"
                         />
                     </div>
-                @endif
-            </div>
-        </x-card>
-    </div>
+                </div>
+            @else
+                <div class="space-y-4">
+                    <div class="flex items-center gap-3">
+                        <span class="badge badge-error">{{ __('Disabled') }}</span>
+                    </div>
+
+                    <p class="opacity-70">
+                        {{ __('When you enable two-factor authentication, you will be prompted for a secure pin during login. This pin can be retrieved from a TOTP-supported application on your phone.') }}
+                    </p>
+
+                    <x-button
+                        class="btn-primary"
+                        icon="o-shield-check"
+                        wire:click="enable"
+                        label="{{ __('Enable 2FA') }}"
+                    />
+                </div>
+            @endif
+        </div>
+    </x-card>
 
     <x-modal
         wire:model="showModal"
