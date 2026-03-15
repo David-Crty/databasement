@@ -5,6 +5,7 @@ use App\Livewire\DatabaseServer\Create as DatabaseServerCreate;
 use App\Livewire\DatabaseServer\Edit as DatabaseServerEdit;
 use App\Livewire\DatabaseServer\Index as DatabaseServerIndex;
 use App\Livewire\Volume\Create as VolumeCreate;
+use App\Livewire\Volume\Edit as VolumeEdit;
 use App\Livewire\Volume\Index as VolumeIndex;
 use App\Models\DatabaseServer;
 use App\Models\User;
@@ -81,12 +82,21 @@ test('demo user can view create volume page but cannot save', function () {
         ->assertSessionHas('demo_notice');
 });
 
-test('demo user cannot access edit volume page', function () {
+test('demo user can view edit volume page but cannot save', function () {
     $volume = Volume::factory()->create();
 
+    // Demo user can view the edit page
     $this->actingAs($this->demoUser)
         ->get(route('volumes.edit', $volume))
-        ->assertForbidden();
+        ->assertOk();
+
+    // But attempting to save redirects with a demo notice
+    Livewire::actingAs($this->demoUser)
+        ->test(VolumeEdit::class, ['volume' => $volume])
+        ->set('form.name', 'Updated Volume')
+        ->call('save')
+        ->assertRedirect(route('volumes.index'))
+        ->assertSessionHas('demo_notice');
 });
 
 test('demo user cannot delete volume', function () {

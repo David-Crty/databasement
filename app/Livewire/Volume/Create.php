@@ -2,11 +2,11 @@
 
 namespace App\Livewire\Volume;
 
-use App\Livewire\Concerns\HandlesDemoMode;
 use App\Livewire\Forms\VolumeForm;
 use App\Models\Volume;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -14,22 +14,22 @@ use Livewire\Component;
 class Create extends Component
 {
     use AuthorizesRequests;
-    use HandlesDemoMode;
 
     public VolumeForm $form;
 
     public function mount(): void
     {
-        $this->authorize('create', Volume::class);
+        $this->authorize('viewForm', Volume::class);
     }
 
     public function save(): void
     {
-        if ($this->abortIfDemoMode('volumes.index')) {
+        if (Gate::denies('create', Volume::class)) {
+            session()->flash('demo_notice', __('Demo mode is enabled. Changes cannot be saved.'));
+            $this->redirect(route('volumes.index'), navigate: true);
+
             return;
         }
-
-        $this->authorize('create', Volume::class);
 
         $this->form->store();
 

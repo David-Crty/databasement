@@ -26,8 +26,17 @@ class VolumePolicy
     }
 
     /**
+     * Determine whether the user can view the create/edit form.
+     * Demo users can view forms but not submit them.
+     */
+    public function viewForm(User $user, ?Volume $volume = null): bool
+    {
+        return $user->isDemo() || $user->canPerformActions();
+    }
+
+    /**
      * Determine whether the user can create models.
-     * Viewers cannot create.
+     * Viewers and demo users cannot create.
      */
     public function create(User $user): bool
     {
@@ -40,7 +49,7 @@ class VolumePolicy
      */
     public function update(User $user, Volume $volume): bool
     {
-        return $user->canPerformActions() && ! $user->isDemo();
+        return $user->canPerformActions();
     }
 
     /**
@@ -49,6 +58,6 @@ class VolumePolicy
      */
     public function delete(User $user, Volume $volume): bool
     {
-        return $user->canPerformActions() && ! $user->isDemo();
+        return $user->canPerformActions();
     }
 }

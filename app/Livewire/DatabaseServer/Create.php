@@ -2,12 +2,12 @@
 
 namespace App\Livewire\DatabaseServer;
 
-use App\Livewire\Concerns\HandlesDemoMode;
 use App\Livewire\Forms\DatabaseServerForm;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Mary\Traits\Toast;
@@ -16,14 +16,13 @@ use Mary\Traits\Toast;
 class Create extends Component
 {
     use AuthorizesRequests;
-    use HandlesDemoMode;
     use Toast;
 
     public DatabaseServerForm $form;
 
     public function mount(): void
     {
-        $this->authorize('create', DatabaseServer::class);
+        $this->authorize('viewForm', DatabaseServer::class);
 
         $dailySchedule = BackupSchedule::where('name', 'Daily')->first();
         if ($dailySchedule) {
@@ -33,11 +32,12 @@ class Create extends Component
 
     public function save(): void
     {
-        if ($this->abortIfDemoMode('database-servers.index')) {
+        if (Gate::denies('create', DatabaseServer::class)) {
+            session()->flash('demo_notice', __('Demo mode is enabled. Changes cannot be saved.'));
+            $this->redirect(route('database-servers.index'), navigate: true);
+
             return;
         }
-
-        $this->authorize('create', DatabaseServer::class);
 
         if ($this->form->store()) {
             session()->flash('status', 'Database server created successfully!');

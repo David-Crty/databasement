@@ -31,15 +31,15 @@ class SnapshotPolicy
      */
     public function delete(User $user, Snapshot $snapshot): bool
     {
-        return $user->canPerformActions() && ! $user->isDemo();
+        return $user->canPerformActions();
     }
 
     /**
      * Determine whether the user can download the snapshot.
-     * Viewers cannot download.
+     * Demo users can download snapshots.
      */
     public function download(User $user, Snapshot $snapshot): bool
     {
-        return $user->canPerformActions();
+        return $user->isDemo() || $user->canPerformActions();
     }
 }

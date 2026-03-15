@@ -26,8 +26,17 @@ class AgentPolicy
     }
 
     /**
+     * Determine whether the user can view the create/edit form.
+     * Demo users can view forms but not submit them.
+     */
+    public function viewForm(User $user, ?Agent $agent = null): bool
+    {
+        return $user->isDemo() || $user->canPerformActions();
+    }
+
+    /**
      * Determine whether the user can create models.
-     * Viewers cannot create.
+     * Viewers and demo users cannot create.
      */
     public function create(User $user): bool
     {
@@ -36,7 +45,7 @@ class AgentPolicy
 
     /**
      * Determine whether the user can update the model.
-     * Viewers cannot update.
+     * Viewers and demo users cannot update.
      */
     public function update(User $user, Agent $agent): bool
     {
@@ -49,6 +58,6 @@ class AgentPolicy
      */
     public function delete(User $user, Agent $agent): bool
     {
-        return $user->canPerformActions() && ! $user->isDemo();
+        return $user->canPerformActions();
     }
 }

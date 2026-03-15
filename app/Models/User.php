@@ -180,7 +180,7 @@ class User extends Authenticatable
 
     public function canPerformActions(): bool
     {
-        return ! $this->isViewer();
+        return ! $this->isViewer() && ! $this->isDemo();
     }
 
     public function isPending(): bool

@@ -26,8 +26,17 @@ class DatabaseServerPolicy
     }
 
     /**
+     * Determine whether the user can view the create/edit form.
+     * Demo users can view forms but not submit them.
+     */
+    public function viewForm(User $user, ?DatabaseServer $databaseServer = null): bool
+    {
+        return $user->isDemo() || $user->canPerformActions();
+    }
+
+    /**
      * Determine whether the user can create models.
-     * Viewers cannot create.
+     * Viewers and demo users cannot create.
      */
     public function create(User $user): bool
     {
@@ -36,7 +45,7 @@ class DatabaseServerPolicy
 
     /**
      * Determine whether the user can update the model.
-     * Viewers cannot update.
+     * Viewers and demo users cannot update.
      */
     public function update(User $user, DatabaseServer $databaseServer): bool
     {
@@ -49,24 +58,24 @@ class DatabaseServerPolicy
      */
     public function delete(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->canPerformActions() && ! $user->isDemo();
+        return $user->canPerformActions();
     }
 
     /**
      * Determine whether the user can run a backup.
-     * Viewers cannot run backups.
+     * Demo users can trigger backups.
      */
     public function backup(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->canPerformActions();
+        return $user->isDemo() || $user->canPerformActions();
     }
 
     /**
      * Determine whether the user can restore to a server.
-     * Viewers cannot restore.
+     * Demo users can trigger restores.
      */
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->canPerformActions();
+        return $user->isDemo() || $user->canPerformActions();
     }
 }
