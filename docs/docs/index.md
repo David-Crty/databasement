@@ -22,6 +22,7 @@ Databasement is a web application for managing database server backups. It allow
 - **Cross-server restore**: Restore snapshots from one server to another
 - **Failure notifications**: Get alerted via Email, Slack, Discord, Telegram, Pushover, Gotify, or Webhook when jobs fail
 - **User management**: Multi-user support with two-factor authentication
+- **Automation**: REST API and MCP server for scripting, CI/CD, and AI assistant integration
 - **Simple deployment**: Single container with built-in web server, queue worker, and scheduler
 
 ## Quick Start

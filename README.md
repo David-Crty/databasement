@@ -45,6 +45,7 @@
 - **Real-time monitoring** — Track backup and restore progress with detailed job logs
 - **Failure notifications** — Get alerted via Email, Slack, Discord, Telegram, Pushover, Gotify, or Webhook when jobs fail
 - **Team ready** — Multi-user support with role-based access and optional two-factor authentication
+- **Automation** — REST API and MCP server for scripting, CI/CD, and AI assistant integration
 - **Simple deployment** — Single Docker container with built-in web server, queue worker, and scheduler
 
 > **Try it out!** Explore the [live demo](https://databasement-demo.crty.dev/) to see Databasement in action before installing.
@@ -93,6 +94,13 @@ For production deployments, see our [configuration guide](https://david-crty.git
 | Valkey     | 7.2+                         | `redis-cli --rdb`            | No      |
 
 See the [Database Servers documentation](https://david-crty.github.io/databasement/user-guide/database-servers#supported-versions) for version-specific backup and restore details.
+
+## Automation
+
+Databasement can be managed programmatically through its **REST API** and **MCP server**, enabling integration with scripts, CI/CD pipelines, and AI assistants.
+
+- **REST API** — Full API for managing servers, backups, and restores. See the [API documentation](https://david-crty.github.io/databasement/user-guide/api).
+- **MCP Server** — Connect AI assistants (Claude Code, Cursor, VS Code Copilot, etc.) to manage backups through natural language. See the [MCP documentation](https://david-crty.github.io/databasement/user-guide/mcp).
 
 ## Documentation
 

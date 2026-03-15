@@ -16,23 +16,6 @@ MCP is an open protocol that allows AI clients (Claude Code, Cursor, VS Code Cop
 
 The MCP server wraps the same services that power the web UI and REST API, so behavior is consistent across all interfaces.
 
-## Architecture
-
-```
-AI Client (Claude Code, Cursor, etc.)
-        │
-        ▼
-  MCP Server (Databasement)
-        │
-        ├── List Servers      → Eloquent queries
-        ├── List Snapshots    → Eloquent queries
-        ├── Trigger Backup    → TriggerBackupAction → Queue
-        ├── Trigger Restore   → BackupJobFactory → Queue
-        └── Get Job Status    → Eloquent queries
-```
-
-Backup and restore operations are **asynchronous** — they dispatch jobs to the queue just like the web UI does. Use the "get job status" tool to poll for completion.
-
 ## Available Tools
 
 | Tool | Description | Destructive? |
@@ -43,65 +26,38 @@ Backup and restore operations are **asynchronous** — they dispatch jobs to the
 | **trigger-restore** | Restore a snapshot to a target server. Drops and recreates the target database. | **Yes** |
 | **get-job-status** | Check the status of a backup or restore job (pending, running, completed, failed). | No |
 
-## Configuration
+## Setup
 
-Databasement exposes two MCP transports: **stdio** (local) and **HTTP** (remote). Choose the one that fits your setup.
+The MCP server is available at `/mcp`, protected by [Sanctum](https://laravel.com/docs/sanctum) token authentication.
 
-### Local (stdio) — Recommended for local AI clients {#local}
+### 1. Create an API Token
 
-If your AI client runs on the same machine as Databasement (e.g., Claude Code during development), use the stdio transport. This is the most reliable option — the client spawns the MCP server as a child process, so there are no networking or authentication issues.
+Go to **Settings → API Tokens** (`/api-tokens`) in the Databasement UI and create a new token.
+
+### 2. Configure Your AI Client
+
+Add the following to your MCP client configuration (e.g., `~/.claude/settings.json` or `.mcp.json` for Claude Code, `mcp.json` for Cursor):
 
 ```json
 {
   "mcpServers": {
     "databasement": {
-      "type": "stdio",
-      "command": "docker",
+      "command": "npx",
       "args": [
-        "compose", "exec", "--user", "application", "-T", "app",
-        "php", "artisan", "mcp:start", "databasement"
+        "mcp-remote",
+        "https://your-databasement-instance.com/mcp",
+        "--header",
+        "Authorization: Bearer YOUR_SANCTUM_TOKEN"
       ]
     }
   }
 }
 ```
 
+Replace the URL with your Databasement instance address and the token with the one generated in step 1.
+
 Tools will appear natively in your AI client (e.g., as `mcp__databasement__trigger-backup-tool` in Claude Code).
 
-### Remote (HTTP + Sanctum) {#remote}
-
-For remote access or when the AI client runs on a different machine, use the HTTP transport. The MCP server is available at `/mcp`, protected by Sanctum token authentication.
-
-1. Create a Sanctum API token for your user (via the API or Tinker).
-2. Configure your MCP client:
-
-```json
-{
-  "mcpServers": {
-    "databasement": {
-      "url": "https://your-databasement-instance.com/mcp",
-      "headers": {
-        "Authorization": "Bearer YOUR_SANCTUM_TOKEN"
-      }
-    }
-  }
-}
-```
-
-:::tip
-Some AI clients (including Claude Code) may have limited support for the HTTP streamable transport. If tools don't appear in your client, switch to the [stdio transport](#local) instead.
+:::note
+[mcp-remote](https://www.npmjs.com/package/mcp-remote) requires Node.js to be installed. It bridges the HTTP transport to stdio, which is supported by all MCP clients.
 :::
-
-## Testing Your Connection
-
-Use the built-in MCP Inspector to verify your server is working:
-
-```bash
-# Test the web server
-docker compose exec --user application -T app php artisan mcp:inspector mcp
-
-# Test the local server
-docker compose exec --user application -T app php artisan mcp:inspector databasement
-```
-
-The inspector will list all available tools and let you invoke them interactively.
