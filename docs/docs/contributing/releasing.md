@@ -28,7 +28,7 @@ Both the base image (`davidcrty/databasement-php`) and the app image (`davidcrty
 | Trigger | Tags produced | Example |
 |---------|--------------|---------|
 | Push tag `v0.2.0` | `:0.2.0`, `:0.2`, `:0` | `davidcrty/databasement:0.2.0` |
-| Push to `main` | `:latest`, `:sha-<hash>` | `davidcrty/databasement:latest` |
+| Push to `main` | `:latest` | `davidcrty/databasement:latest` |
 | Push to any other branch | `:<branch-slug>` | `davidcrty/databasement:feature-foo` |
 
 ### Semver tags

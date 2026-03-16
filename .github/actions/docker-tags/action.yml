@@ -1,5 +1,5 @@
 name: Generate Docker Tags
-description: Generate Docker tags based on git ref (semver for tags, latest+sha for main, slug for branches)
+description: Generate Docker tags based on git ref (semver for tags, latest for main, slug for branches)
 
 inputs:
   image:
@@ -31,7 +31,6 @@ runs:
         elif [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
           echo "tags<<EOF" >> $GITHUB_OUTPUT
           echo "${IMAGE}:latest" >> $GITHUB_OUTPUT
-          echo "${IMAGE}:sha-${{ github.sha }}" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         else
           BRANCH="${GITHUB_REF#refs/heads/}"
