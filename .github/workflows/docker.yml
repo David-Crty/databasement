@@ -61,7 +61,8 @@ jobs:
         run: |
           if [[ "${{ steps.filter.outputs.base }}" == "true" ]]; then
             # Base image was rebuilt, use the first tag
-            echo "tag=$(echo '${{ steps.tags.outputs.tags }}' | head -1 | cut -d: -f2)" >> $GITHUB_OUTPUT
+            FIRST_TAG=$(echo '${{ steps.tags.outputs.tags }}' | head -1)
+            echo "tag=${FIRST_TAG##*:}" >> $GITHUB_OUTPUT
           else
             # Base image not rebuilt, fall back to latest
             echo "tag=latest" >> $GITHUB_OUTPUT
@@ -92,6 +93,11 @@ jobs:
         with:
           image: davidcrty/databasement
 
+      - name: Extract version from tag
+        id: version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
       - name: Build and push app image
         uses: docker/build-push-action@v6
         with:
@@ -101,6 +107,7 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             APP_COMMIT_HASH=${{ github.sha }}
+            APP_VERSION=${{ steps.version.outputs.version }}
             BASE_IMAGE=davidcrty/databasement-php:${{ needs.build-base-image.outputs.base_image_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

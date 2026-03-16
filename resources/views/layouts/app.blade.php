@@ -95,7 +95,7 @@
 
         {{-- FOOTER --}}
         @php
-            $commitHash = \App\Support\GitInfo::getCommitHash();
+            $versionLabel = \App\Support\GitInfo::getVersionLabel();
             $commitUrl = \App\Support\GitInfo::getCommitUrl();
             $githubRepo = \App\Support\GitInfo::getGitHubRepo();
             $githubRepoShort = \App\Support\GitInfo::getGitHubRepoShort();
@@ -125,9 +125,9 @@
                     <a href="{{ $githubRepo }}/blob/main/LICENSE" target="_blank" rel="noopener" class="link link-hover">
                         MIT License
                     </a>
-                    @if($commitHash)
+                    @if($versionLabel)
                         <a href="{{ $commitUrl }}" target="_blank" rel="noopener" class="link link-hover font-mono text-xs">
-                            {{ $commitHash }}
+                            {{ $versionLabel }}
                         </a>
                     @endif
                 </div>

@@ -177,6 +177,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Version
+    |--------------------------------------------------------------------------
+    |
+    | The semver version of the current build. Set via APP_VERSION
+    | environment variable during deployment (injected at Docker build time
+    | from the git tag).
+    |
+    */
+
+    'version' => env('APP_VERSION'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Demo Mode
     |--------------------------------------------------------------------------
     |

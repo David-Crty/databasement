@@ -24,7 +24,6 @@ jobs:
         run: helm unittest helm/databasement/
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
     needs: test
     runs-on: ubuntu-latest
     permissions:

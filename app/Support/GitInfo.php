@@ -4,6 +4,27 @@ namespace App\Support;
 
 class GitInfo
 {
+    public static function getVersion(): ?string
+    {
+        return config('app.version') ?: null;
+    }
+
+    public static function getVersionLabel(): ?string
+    {
+        $version = self::getVersion();
+        $commitHash = self::getCommitHash();
+
+        if ($version && $commitHash) {
+            return "v{$version} ({$commitHash})";
+        }
+
+        if ($version) {
+            return "v{$version}";
+        }
+
+        return $commitHash;
+    }
+
     public static function getCommitHash(): ?string
     {
         $configuredHash = config('app.commit_hash');

@@ -34,7 +34,7 @@ runs:
           echo "EOF" >> $GITHUB_OUTPUT
         else
           BRANCH="${GITHUB_REF#refs/heads/}"
-          SLUG=$(echo "$BRANCH" | sed 's/\//-/g' | sed 's/[^a-zA-Z0-9._-]//g' | sed 's/^[-.]*//' | cut -c1-128)
+          SLUG=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/\//-/g' | sed 's/[^a-z0-9._-]//g' | sed 's/^[-.]*//' | cut -c1-128)
           if [[ -z "$SLUG" ]]; then
             echo "Error: Branch name '$BRANCH' resulted in empty Docker tag after slugification"
             exit 1
