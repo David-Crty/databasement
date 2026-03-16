@@ -54,7 +54,7 @@ should render deployment with default values:
                   value: warning
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
-              image: davidcrty/databasement:latest
+              image: davidcrty/databasement:0.0.0-dev
               imagePullPolicy: Always
               livenessProbe:
                 failureThreshold: 3
@@ -124,7 +124,7 @@ should render deployment with default values:
                   value: warning
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
-              image: davidcrty/databasement:latest
+              image: davidcrty/databasement:0.0.0-dev
               imagePullPolicy: Always
               name: databasement-worker
               resources:
@@ -169,7 +169,7 @@ should render deployment with default values:
                   value: warning
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
-              image: davidcrty/databasement:latest
+              image: davidcrty/databasement:0.0.0-dev
               imagePullPolicy: Always
               name: databasement-migrations
               resources:
@@ -256,7 +256,7 @@ should render deployment with mysql database:
                   value: warning
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
-              image: davidcrty/databasement:latest
+              image: davidcrty/databasement:0.0.0-dev
               imagePullPolicy: Always
               livenessProbe:
                 failureThreshold: 3
@@ -337,7 +337,7 @@ should render deployment with mysql database:
                   value: warning
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
-              image: davidcrty/databasement:latest
+              image: davidcrty/databasement:0.0.0-dev
               imagePullPolicy: Always
               name: databasement-worker
               resources:
@@ -393,7 +393,7 @@ should render deployment with mysql database:
                   value: warning
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
-              image: davidcrty/databasement:latest
+              image: davidcrty/databasement:0.0.0-dev
               imagePullPolicy: Always
               name: databasement-migrations
               resources:

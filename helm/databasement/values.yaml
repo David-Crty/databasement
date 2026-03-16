@@ -6,7 +6,7 @@ replicaCount: 1
 image:
   repository: davidcrty/databasement
   pullPolicy: Always
-  tag: "latest"
+  tag: "0.0.0-dev"
 
 imagePullSecrets: []
 nameOverride: ""

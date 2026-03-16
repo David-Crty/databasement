@@ -1,0 +1,46 @@
+name: Generate Docker Tags
+description: Generate Docker tags based on git ref (semver for tags, latest+sha for main, slug for branches)
+
+inputs:
+  image:
+    description: Docker image name (e.g., davidcrty/databasement)
+    required: true
+
+outputs:
+  tags:
+    description: Newline-separated list of fully qualified image tags
+    value: ${{ steps.tags.outputs.tags }}
+
+runs:
+  using: composite
+  steps:
+    - name: Generate Docker tags
+      id: tags
+      shell: bash
+      run: |
+        IMAGE="${{ inputs.image }}"
+        if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f1-2)
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${IMAGE}:${VERSION}" >> $GITHUB_OUTPUT
+          echo "${IMAGE}:${MINOR}" >> $GITHUB_OUTPUT
+          echo "${IMAGE}:${MAJOR}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        elif [[ "$GITHUB_REF" == "refs/heads/main" ]]; then
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${IMAGE}:latest" >> $GITHUB_OUTPUT
+          echo "${IMAGE}:sha-${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        else
+          BRANCH="${GITHUB_REF#refs/heads/}"
+          SLUG=$(echo "$BRANCH" | sed 's/\//-/g' | sed 's/[^a-zA-Z0-9._-]//g' | sed 's/^[-.]*//' | cut -c1-128)
+          if [[ -z "$SLUG" ]]; then
+            echo "Error: Branch name '$BRANCH' resulted in empty Docker tag after slugification"
+            exit 1
+          fi
+          echo "tags<<EOF" >> $GITHUB_OUTPUT
+          echo "${IMAGE}:${SLUG}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+        fi
