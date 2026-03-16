@@ -68,10 +68,10 @@ jobs:
           TMPDIR=$(mktemp -d)
           git worktree add "$TMPDIR" gh-pages
 
-          # Copy the packaged chart and rebuild index
+          # Copy the packaged chart and merge into existing index
           mkdir -p "$TMPDIR/charts"
           cp .cr-release-packages/*.tgz "$TMPDIR/charts/"
-          helm repo index "$TMPDIR/charts" --url https://david-crty.github.io/databasement/charts
+          helm repo index "$TMPDIR/charts" --url https://david-crty.github.io/databasement/charts --merge "$TMPDIR/charts/index.yaml"
 
           # Commit and push
           cd "$TMPDIR"
