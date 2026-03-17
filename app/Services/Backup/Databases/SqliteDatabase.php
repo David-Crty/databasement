@@ -61,7 +61,12 @@ class SqliteDatabase implements DatabaseInterface
 
     /**
      * Download a remote SQLite database via SFTP, including WAL/SHM files if present,
-     * then use sqlite3 .backup locally to produce a consistent snapshot.
+     * then use sqlite3 .backup locally to consolidate into a single file.
+     *
+     * Note: This is a best-effort approach for WAL-mode databases. The sequential SFTP
+     * downloads are not atomic — a checkpoint or commit between reads could produce an
+     * inconsistent set of files. For guaranteed WAL-safe backups of remote SQLite databases,
+     * SSH command execution on the remote host would be required.
      */
     private function dumpRemote(Filesystem $filesystem, string $sourcePath, string $outputPath): DatabaseOperationResult
     {
@@ -92,7 +97,13 @@ class SqliteDatabase implements DatabaseInterface
 
         if (! empty($downloadedCompanions)) {
             $context['wal_files'] = $downloadedCompanions;
+            $context['best_effort'] = true;
         }
+
+        $logLevel = empty($downloadedCompanions) ? 'success' : 'warning';
+        $logMessage = empty($downloadedCompanions)
+            ? 'Downloaded SQLite database via SFTP'
+            : 'Downloaded SQLite database via SFTP (best-effort: WAL files were downloaded sequentially and may not be consistent)';
 
         // Use sqlite3 .backup to consolidate the database (and any WAL data) into the output file
         return new DatabaseOperationResult(
@@ -102,8 +113,8 @@ class SqliteDatabase implements DatabaseInterface
                 escapeshellarg('.backup '.$outputPath),
             ),
             log: new DatabaseOperationLog(
-                'Downloaded SQLite database via SFTP',
-                'success',
+                $logMessage,
+                $logLevel,
                 $context,
             ),
         );

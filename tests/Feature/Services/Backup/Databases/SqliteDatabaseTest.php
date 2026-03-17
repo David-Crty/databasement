@@ -118,7 +118,10 @@ test('dump downloads remote WAL and SHM files when present', function () {
     $localDb = $this->tempDir.'/sftp_download.db';
 
     expect($result->command)->toContain('sqlite3')
+        ->and($result->log->level)->toBe('warning')
+        ->and($result->log->message)->toContain('best-effort')
         ->and($result->log->context['wal_files'])->toBe(['-wal', '-shm'])
+        ->and($result->log->context['best_effort'])->toBeTrue()
         ->and(file_get_contents($localDb))->toBe('main db')
         ->and(file_get_contents($localDb.'-wal'))->toBe('wal data')
         ->and(file_get_contents($localDb.'-shm'))->toBe('shm data');
