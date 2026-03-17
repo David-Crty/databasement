@@ -209,6 +209,37 @@ test('can add and remove SQLite database paths', function () {
         ->assertSet('form.database_names.0', '/data/other.sqlite');
 });
 
+test('can create database server with dump flags', function () {
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'Test Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'MySQL With Flags')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.dump_flags', '--no-tablespaces --column-statistics=0')
+        ->set('form.database_names.0', 'myapp')
+        ->set('form.volume_id', $volume->id)
+        ->set('form.backup_schedule_id', dailySchedule()->id)
+        ->set('form.retention_days', 14)
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'MySQL With Flags')->first();
+
+    expect($server->getExtraConfig('dump_flags'))
+        ->toBe('--no-tablespaces --column-statistics=0');
+});
+
 test('local volume options reflect use_agent state', function (bool $useAgent, bool $expectedDisabled) {
     $user = User::factory()->create();
     $localVolume = Volume::create(['name' => 'Local Vol', 'type' => 'local', 'config' => ['path' => '/backups']]);

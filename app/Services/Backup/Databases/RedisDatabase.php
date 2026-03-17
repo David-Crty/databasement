@@ -30,6 +30,11 @@ class RedisDatabase implements DatabaseInterface
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $parts = $this->buildBaseCommand();
+
+        if (! empty($this->config['dump_flags'])) {
+            $parts[] = $this->config['dump_flags'];
+        }
+
         $parts[] = '--rdb '.escapeshellarg($outputPath);
 
         return new DatabaseOperationResult(command: implode(' ', $parts));

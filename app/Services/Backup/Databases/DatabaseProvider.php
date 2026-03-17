@@ -78,6 +78,11 @@ class DatabaseProvider
                     $config['source_database'] = $sourceDatabaseName;
                 }
             }
+
+            $dumpFlags = $server->getExtraConfig('dump_flags', '');
+            if ($dumpFlags !== '') {
+                $config['dump_flags'] = $dumpFlags;
+            }
         }
 
         return $this->makeConfigured($server->database_type, $config);
@@ -118,6 +123,11 @@ class DatabaseProvider
                 if ($sourceDatabaseName !== null) {
                     $dbConfig['source_database'] = $sourceDatabaseName;
                 }
+            }
+
+            $dumpFlags = $config->extraConfig['dump_flags'] ?? '';
+            if ($dumpFlags !== '') {
+                $dbConfig['dump_flags'] = $dumpFlags;
             }
         }
 

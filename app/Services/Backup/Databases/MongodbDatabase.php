@@ -35,8 +35,13 @@ class MongodbDatabase implements DatabaseInterface
             ...$this->buildBaseArgs(),
             ...$this->buildAuthFlags(),
             '--db='.escapeshellarg($this->config['database']),
-            '--archive='.escapeshellarg($outputPath),
         ];
+
+        if (! empty($this->config['dump_flags'])) {
+            $parts[] = $this->config['dump_flags'];
+        }
+
+        $parts[] = '--archive='.escapeshellarg($outputPath);
 
         return new DatabaseOperationResult(command: implode(' ', $parts));
     }

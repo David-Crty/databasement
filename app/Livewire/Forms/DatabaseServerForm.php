@@ -36,6 +36,8 @@ class DatabaseServerForm extends Form
 
     public string $auth_source = '';
 
+    public string $dump_flags = '';
+
     // SSH Tunnel Configuration
     public bool $ssh_enabled = false;
 
@@ -339,6 +341,7 @@ class DatabaseServerForm extends Form
         $this->port = $server->port ?? 3306;
         $this->database_type = $server->database_type->value;
         $this->auth_source = $server->getExtraConfig('auth_source', '');
+        $this->dump_flags = $server->getExtraConfig('dump_flags', '');
         $this->username = $server->username ?? '';
         $this->database_names = $server->database_names ?? [];
         if ($server->database_type === DatabaseType::SQLITE && empty($this->database_names)) {
@@ -469,6 +472,51 @@ class DatabaseServerForm extends Form
     public function hasOptionalCredentials(): bool
     {
         return $this->isRedis() || $this->isMongodb();
+    }
+
+    /**
+     * Check if current database type supports custom dump flags.
+     */
+    public function supportsDumpFlags(): bool
+    {
+        return ! $this->isSqlite() && $this->database_type !== '';
+    }
+
+    /**
+     * Get a preview of the dump command for the current database type.
+     */
+    public function getDumpCommandPreview(): string
+    {
+        if (! $this->supportsDumpFlags()) {
+            return '';
+        }
+
+        $type = DatabaseType::tryFrom($this->database_type);
+        if ($type === null) {
+            return '';
+        }
+
+        $config = [
+            'host' => $this->host ?: 'hostname',
+            'port' => $this->port ?: $type->defaultPort(),
+            'user' => $this->username ?: 'user',
+            'pass' => '********',
+            'database' => 'dbname',
+            'dump_flags' => $this->dump_flags,
+        ];
+
+        if ($type === DatabaseType::MONGODB) {
+            $config['auth_source'] = $this->auth_source ?: 'admin';
+        }
+
+        try {
+            $provider = new DatabaseProvider;
+            $database = $provider->makeConfigured($type, $config);
+
+            return $database->dump('/path/to/output')->command;
+        } catch (\Throwable) {
+            return '';
+        }
     }
 
     /**
@@ -605,6 +653,7 @@ class DatabaseServerForm extends Form
             'description' => 'nullable|string|max:1000',
             'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
+            'dump_flags' => 'nullable|string|max:500',
         ];
     }
 
@@ -897,6 +946,13 @@ class DatabaseServerForm extends Form
             unset($extraConfig['auth_source']);
         }
         unset($serverData['auth_source']);
+
+        if (! empty($serverData['dump_flags'])) {
+            $extraConfig['dump_flags'] = $serverData['dump_flags'];
+        } else {
+            unset($extraConfig['dump_flags']);
+        }
+        unset($serverData['dump_flags']);
 
         $serverData['extra_config'] = $extraConfig ?: null;
     }

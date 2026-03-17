@@ -39,16 +39,23 @@ class PostgresqlDatabase implements DatabaseInterface
 
     public function dump(string $outputPath): DatabaseOperationResult
     {
-        return new DatabaseOperationResult(command: sprintf(
-            'PGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s %s -f %s',
+        $command = sprintf(
+            'PGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s %s',
             escapeshellarg($this->config['pass']),
             implode(' ', self::DUMP_OPTIONS),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['database']),
-            escapeshellarg($outputPath)
-        ));
+        );
+
+        if (! empty($this->config['dump_flags'])) {
+            $command .= ' '.$this->config['dump_flags'];
+        }
+
+        $command .= ' -f '.escapeshellarg($outputPath);
+
+        return new DatabaseOperationResult(command: $command);
     }
 
     public function restore(string $inputPath): DatabaseOperationResult

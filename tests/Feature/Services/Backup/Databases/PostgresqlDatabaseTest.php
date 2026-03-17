@@ -22,6 +22,23 @@ test('dump builds correct pg_dump command', function () {
         ->and($result->command)->toBe("PGPASSWORD='pg_secret' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/dump.sql'");
 });
 
+test('dump includes extra dump flags', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'dump_flags' => '--exclude-table=large_logs',
+    ]);
+
+    $result = $db->dump('/tmp/dump.sql');
+
+    expect($result->command)->toContain('--exclude-table=large_logs')
+        ->and($result->command)->toEndWith("-f '/tmp/dump.sql'");
+});
+
 test('restore builds correct psql command', function () {
     $result = $this->db->restore('/tmp/restore.sql');
 

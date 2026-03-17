@@ -8,7 +8,7 @@ use App\Enums\DatabaseType;
 <x-form wire:submit="save" class="space-y-6">
     <!-- Section 1: Basic Information -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body">
+        <div class="card-body p-3 sm:p-8">
             <div class="flex items-center gap-3 mb-4">
                 <span class="badge badge-primary badge-lg font-bold">1</span>
                 <h3 class="card-title text-lg">{{ __('Basic Information') }}</h3>
@@ -95,7 +95,7 @@ use App\Enums\DatabaseType;
 
     <!-- Section 2: Connection Details -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
-        <div class="card-body">
+        <div class="card-body p-3 sm:p-8">
             <div class="flex items-center gap-3 mb-4">
                 <span class="badge badge-primary badge-lg font-bold">2</span>
                 <h3 class="card-title text-lg">{{ __('Connection Details') }}</h3>
@@ -105,7 +105,7 @@ use App\Enums\DatabaseType;
                 <!-- Database Type Selection -->
                 <div>
                     <label class="label label-text font-semibold mb-2">{{ __('Database Type') }}</label>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
                         @foreach(DatabaseType::cases() as $dbType)
                             @php
                                 $isSelected = $form->database_type === $dbType->value;
@@ -212,6 +212,32 @@ use App\Enums\DatabaseType;
                         @endif
                     @endif
 
+                    @if($form->supportsDumpFlags())
+                        <x-input
+                            wire:model.live.debounce.300ms="form.dump_flags"
+                            :label="__('Extra Dump Flags')"
+                            placeholder="{{ __('e.g., --no-tablespaces --column-statistics=0') }}"
+                            :hint="__('Additional flags appended to the dump command')"
+                            type="text"
+                            icon="o-command-line"
+                        />
+
+                        @php $dumpPreview = $form->getDumpCommandPreview() @endphp
+                        @if($dumpPreview)
+                            <x-collapse>
+                                <x-slot:heading>
+                                    <x-icon name="o-command-line" class="w-4 h-4" />
+                                    {{ __('Dump command preview') }}
+                                </x-slot:heading>
+                                <x-slot:content>
+                                    <div class="mockup-code mt-2 text-xs">
+                                        <pre data-prefix="$"><code>{{ $dumpPreview }}</code></pre>
+                                    </div>
+                                </x-slot:content>
+                            </x-collapse>
+                        @endif
+                    @endif
+
                     <!-- Test Connection Button -->
                     @if($form->hasAgent())
                         <x-alert class="alert-info mt-2" icon="o-information-circle">
@@ -292,7 +318,7 @@ use App\Enums\DatabaseType;
     <!-- Enable Backups Toggle (shown after successful connection test, agent assigned, or when editing) -->
     @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit)
         <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body">
+            <div class="card-body p-3 sm:p-8">
                 <x-toggle
                     wire:model.live="form.backups_enabled"
                     label="{{ __('Enable Scheduled Backups') }}"
@@ -306,7 +332,7 @@ use App\Enums\DatabaseType;
     <!-- Section 3: Database Selection (only shown after successful connection, agent assigned, not for SQLite, and when backups enabled) -->
     @if(($form->connectionTestSuccess or $form->hasAgent() or $isEdit) && !$form->isSqlite() && !$form->isRedis() && $form->backups_enabled)
         <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body">
+            <div class="card-body p-3 sm:p-8">
                 <div class="flex items-center gap-3 mb-4">
                     <span class="badge badge-primary badge-lg font-bold">3</span>
                     <h3 class="card-title text-lg">{{ __('Database Selection') }}</h3>
@@ -464,7 +490,7 @@ use App\Enums\DatabaseType;
     <!-- Section 4: Backup Configuration (only shown when backups enabled) -->
     @if(($form->connectionTestSuccess or $form->hasAgent() or $isEdit) && $form->backups_enabled)
         <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body">
+            <div class="card-body p-3 sm:p-8">
                 <div class="flex items-center gap-3 mb-4">
                     <span class="badge badge-primary badge-lg font-bold">{{ ($form->isSqlite() || $form->isRedis()) ? '3' : '4' }}</span>
                     <h3 class="card-title text-lg">{{ __('Backup Configuration') }}</h3>

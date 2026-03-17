@@ -63,8 +63,8 @@ class MysqlDatabase implements DatabaseInterface
             $options[] = '--skip_ssl';
         }
 
-        return new DatabaseOperationResult(command: sprintf(
-            '%s %s --host=%s --port=%s --user=%s --password=%s %s > %s',
+        $command = sprintf(
+            '%s %s --host=%s --port=%s --user=%s --password=%s %s',
             self::CLI_BINARIES[$this->getMysqlCliType()]['dump'],
             implode(' ', $options),
             escapeshellarg($this->config['host']),
@@ -72,8 +72,15 @@ class MysqlDatabase implements DatabaseInterface
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
             escapeshellarg($this->config['database']),
-            escapeshellarg($outputPath)
-        ));
+        );
+
+        if (! empty($this->config['dump_flags'])) {
+            $command .= ' '.$this->config['dump_flags'];
+        }
+
+        $command .= ' > '.escapeshellarg($outputPath);
+
+        return new DatabaseOperationResult(command: $command);
     }
 
     public function restore(string $inputPath): DatabaseOperationResult

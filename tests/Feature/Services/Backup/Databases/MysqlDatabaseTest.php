@@ -27,6 +27,25 @@ test('dump builds correct command', function (string $cliType, string $expectedC
     'mysql' => ['mysql', "mysqldump --single-transaction --routines --add-drop-table --complete-insert --hex-blob --quote-names --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' > '/tmp/dump.sql'"],
 ]);
 
+test('dump includes extra dump flags', function () {
+    config(['backup.mysql_cli_type' => 'mariadb']);
+
+    $db = new MysqlDatabase;
+    $db->setConfig([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+        'dump_flags' => '--no-tablespaces --column-statistics=0',
+    ]);
+
+    $result = $db->dump('/tmp/dump.sql');
+
+    expect($result->command)->toContain('--no-tablespaces --column-statistics=0')
+        ->and($result->command)->toEndWith("> '/tmp/dump.sql'");
+});
+
 test('restore builds correct command', function (string $cliType, string $expectedCommand) {
     config(['backup.mysql_cli_type' => $cliType]);
 
