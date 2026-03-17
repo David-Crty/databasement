@@ -32,7 +32,7 @@ test('dump returns sqlite3 backup command for local file', function () {
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
         ->and($result->command)->toBe(
-            sprintf('sqlite3 %s %s', escapeshellarg($sourceFile), escapeshellarg('.backup '.$outputPath))
+            sprintf('sqlite3 -readonly %s %s', escapeshellarg($sourceFile), escapeshellarg('.backup '.$outputPath))
         )
         ->and($result->log->message)->toBe('Backed up local SQLite database')
         ->and($result->log->context)->toBe(['path' => $sourceFile]);
@@ -75,7 +75,7 @@ test('dump downloads remote file via SFTP and returns sqlite3 backup command', f
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
         ->and($result->command)->toBe(
-            sprintf('sqlite3 %s %s', escapeshellarg($localDb), escapeshellarg('.backup '.$outputPath))
+            sprintf('sqlite3 -readonly %s %s', escapeshellarg($localDb), escapeshellarg('.backup '.$outputPath))
         )
         ->and($result->log->message)->toBe('Downloaded SQLite database via SFTP')
         ->and($result->log->context)->toBe(['host' => 'remote.example.com', 'path' => '/data/remote.sqlite'])

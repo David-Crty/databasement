@@ -47,7 +47,7 @@ class SqliteDatabase implements DatabaseInterface
         // a consistent snapshot even when the database is actively being written to.
         return new DatabaseOperationResult(
             command: sprintf(
-                'sqlite3 %s %s',
+                'sqlite3 -readonly %s %s',
                 escapeshellarg($sourcePath),
                 escapeshellarg('.backup '.$outputPath),
             ),
@@ -97,7 +97,7 @@ class SqliteDatabase implements DatabaseInterface
         // Use sqlite3 .backup to consolidate the database (and any WAL data) into the output file
         return new DatabaseOperationResult(
             command: sprintf(
-                'sqlite3 %s %s',
+                'sqlite3 -readonly %s %s',
                 escapeshellarg($localDb),
                 escapeshellarg('.backup '.$outputPath),
             ),
