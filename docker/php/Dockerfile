@@ -38,7 +38,8 @@ RUN apk add --no-cache git \
         bash \
         openssh-client \
         sshpass \
-        redis
+        redis \
+        sqlite
 
 # Install MongoDB tools (mongodump, mongorestore) from Alpine edge community repo
 RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mongodb-tools

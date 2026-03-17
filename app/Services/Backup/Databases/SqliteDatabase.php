@@ -39,40 +39,98 @@ class SqliteDatabase implements DatabaseInterface
         $filesystem = $this->getSftpFilesystem();
 
         if ($filesystem !== null) {
-            $source = $filesystem->readStream($sourcePath);
+            return $this->dumpRemote($filesystem, $sourcePath, $outputPath);
+        }
 
-            $dest = fopen($outputPath, 'wb');
-            if ($dest === false) {
-                fclose($source);
-                throw new DatabaseDumpException("Failed to open destination for writing: {$outputPath}");
+        // Use sqlite3 .backup command to safely handle WAL mode databases.
+        // The .backup command uses SQLite's online backup API, which produces
+        // a consistent snapshot even when the database is actively being written to.
+        return new DatabaseOperationResult(
+            command: sprintf(
+                'sqlite3 %s %s',
+                escapeshellarg($sourcePath),
+                escapeshellarg('.backup '.$outputPath),
+            ),
+            log: new DatabaseOperationLog(
+                'Backed up local SQLite database',
+                'success',
+                ['path' => $sourcePath],
+            ),
+        );
+    }
+
+    /**
+     * Download a remote SQLite database via SFTP, including WAL/SHM files if present,
+     * then use sqlite3 .backup locally to produce a consistent snapshot.
+     */
+    private function dumpRemote(Filesystem $filesystem, string $sourcePath, string $outputPath): DatabaseOperationResult
+    {
+        $workingDir = dirname($outputPath);
+        $localDb = $workingDir.'/sftp_download.db';
+
+        // Download the main database file
+        $this->downloadRemoteFile($filesystem, $sourcePath, $localDb);
+
+        // Download WAL and SHM companion files if they exist on the remote
+        $walFiles = ['-wal', '-shm'];
+        $downloadedCompanions = [];
+
+        foreach ($walFiles as $suffix) {
+            $remotePath = $sourcePath.$suffix;
+
+            if (! $filesystem->fileExists($remotePath)) {
+                continue;
             }
 
-            try {
-                $bytes = stream_copy_to_stream($source, $dest);
-                if ($bytes === false || $bytes === 0) {
-                    throw new DatabaseDumpException("Failed to copy remote SQLite file {$sourcePath} to {$outputPath}");
-                }
-            } finally {
-                fclose($source);
-                fclose($dest);
-            }
+            $localPath = $localDb.$suffix;
+            $this->downloadRemoteFile($filesystem, $remotePath, $localPath);
+            $downloadedCompanions[] = $suffix;
+        }
 
-            return new DatabaseOperationResult(log: new DatabaseOperationLog(
+        $host = $this->getSshHost();
+        $context = ['host' => $host, 'path' => $sourcePath];
+
+        if (! empty($downloadedCompanions)) {
+            $context['wal_files'] = $downloadedCompanions;
+        }
+
+        // Use sqlite3 .backup to consolidate the database (and any WAL data) into the output file
+        return new DatabaseOperationResult(
+            command: sprintf(
+                'sqlite3 %s %s',
+                escapeshellarg($localDb),
+                escapeshellarg('.backup '.$outputPath),
+            ),
+            log: new DatabaseOperationLog(
                 'Downloaded SQLite database via SFTP',
                 'success',
-                ['host' => $this->getSshHost(), 'path' => $sourcePath],
-            ));
+                $context,
+            ),
+        );
+    }
+
+    /**
+     * Download a single file from the SFTP filesystem to a local path.
+     */
+    private function downloadRemoteFile(Filesystem $filesystem, string $remotePath, string $localPath): void
+    {
+        $source = $filesystem->readStream($remotePath);
+
+        $dest = fopen($localPath, 'wb');
+        if ($dest === false) {
+            fclose($source);
+            throw new DatabaseDumpException("Failed to open destination for writing: {$localPath}");
         }
 
-        if (! @copy($sourcePath, $outputPath)) {
-            throw new DatabaseDumpException("Failed to copy local SQLite file {$sourcePath} to {$outputPath}");
+        try {
+            $bytes = stream_copy_to_stream($source, $dest);
+            if ($bytes === false || $bytes === 0) {
+                throw new DatabaseDumpException("Failed to copy remote SQLite file {$remotePath} to {$localPath}");
+            }
+        } finally {
+            fclose($source);
+            fclose($dest);
         }
-
-        return new DatabaseOperationResult(log: new DatabaseOperationLog(
-            'Copied local SQLite database',
-            'success',
-            ['path' => $sourcePath],
-        ));
     }
 
     public function restore(string $inputPath): DatabaseOperationResult

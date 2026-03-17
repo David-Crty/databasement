@@ -20,7 +20,7 @@ test('listDatabases returns basename of sqlite path', function () {
     expect($db->listDatabases())->toBe(['myapp.sqlite']);
 });
 
-test('dump copies local file', function () {
+test('dump returns sqlite3 backup command for local file', function () {
     $sourceFile = $this->tempDir.'/source.sqlite';
     file_put_contents($sourceFile, 'SQLite data');
 
@@ -31,13 +31,14 @@ test('dump copies local file', function () {
     $result = $db->dump($outputPath);
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBeNull()
-        ->and($result->log->message)->toBe('Copied local SQLite database')
-        ->and($result->log->context)->toBe(['path' => $sourceFile])
-        ->and(file_get_contents($outputPath))->toBe('SQLite data');
+        ->and($result->command)->toBe(
+            sprintf('sqlite3 %s %s', escapeshellarg($sourceFile), escapeshellarg('.backup '.$outputPath))
+        )
+        ->and($result->log->message)->toBe('Backed up local SQLite database')
+        ->and($result->log->context)->toBe(['path' => $sourceFile]);
 });
 
-test('dump downloads remote file via SFTP', function () {
+test('dump downloads remote file via SFTP and returns sqlite3 backup command', function () {
     $sshConfig = DatabaseServerSshConfig::factory()->create([
         'host' => 'remote.example.com',
     ]);
@@ -51,6 +52,12 @@ test('dump downloads remote file via SFTP', function () {
         ->once()
         ->with('/data/remote.sqlite')
         ->andReturn($stream);
+    $mockRemoteFs->shouldReceive('fileExists')
+        ->with('/data/remote.sqlite-wal')
+        ->andReturn(false);
+    $mockRemoteFs->shouldReceive('fileExists')
+        ->with('/data/remote.sqlite-shm')
+        ->andReturn(false);
 
     $mockSftp = Mockery::mock(SftpFilesystem::class);
     $mockSftp->shouldReceive('getFromSshConfig')
@@ -64,19 +71,69 @@ test('dump downloads remote file via SFTP', function () {
     $outputPath = $this->tempDir.'/dump.db';
     $result = $db->dump($outputPath);
 
+    $localDb = $this->tempDir.'/sftp_download.db';
+
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBeNull()
+        ->and($result->command)->toBe(
+            sprintf('sqlite3 %s %s', escapeshellarg($localDb), escapeshellarg('.backup '.$outputPath))
+        )
         ->and($result->log->message)->toBe('Downloaded SQLite database via SFTP')
         ->and($result->log->context)->toBe(['host' => 'remote.example.com', 'path' => '/data/remote.sqlite'])
-        ->and(file_get_contents($outputPath))->toBe('remote SQLite data');
+        ->and(file_get_contents($localDb))->toBe('remote SQLite data');
 });
 
-test('dump throws on local copy failure', function () {
+test('dump downloads remote WAL and SHM files when present', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'remote.example.com',
+    ]);
+
+    $dbStream = fopen('php://memory', 'r+');
+    fwrite($dbStream, 'main db');
+    rewind($dbStream);
+
+    $walStream = fopen('php://memory', 'r+');
+    fwrite($walStream, 'wal data');
+    rewind($walStream);
+
+    $shmStream = fopen('php://memory', 'r+');
+    fwrite($shmStream, 'shm data');
+    rewind($shmStream);
+
+    $mockRemoteFs = Mockery::mock(Filesystem::class);
+    $mockRemoteFs->shouldReceive('readStream')->with('/data/app.sqlite')->andReturn($dbStream);
+    $mockRemoteFs->shouldReceive('fileExists')->with('/data/app.sqlite-wal')->andReturn(true);
+    $mockRemoteFs->shouldReceive('readStream')->with('/data/app.sqlite-wal')->andReturn($walStream);
+    $mockRemoteFs->shouldReceive('fileExists')->with('/data/app.sqlite-shm')->andReturn(true);
+    $mockRemoteFs->shouldReceive('readStream')->with('/data/app.sqlite-shm')->andReturn($shmStream);
+
+    $mockSftp = Mockery::mock(SftpFilesystem::class);
+    $mockSftp->shouldReceive('getFromSshConfig')->andReturn($mockRemoteFs);
+
+    $db = new SqliteDatabase($mockSftp);
+    $db->setConfig(['sqlite_path' => '/data/app.sqlite', 'ssh_config' => $sshConfig]);
+
+    $outputPath = $this->tempDir.'/dump.db';
+    $result = $db->dump($outputPath);
+
+    $localDb = $this->tempDir.'/sftp_download.db';
+
+    expect($result->command)->toContain('sqlite3')
+        ->and($result->log->context['wal_files'])->toBe(['-wal', '-shm'])
+        ->and(file_get_contents($localDb))->toBe('main db')
+        ->and(file_get_contents($localDb.'-wal'))->toBe('wal data')
+        ->and(file_get_contents($localDb.'-shm'))->toBe('shm data');
+});
+
+test('dump returns sqlite3 backup command even for nonexistent file', function () {
     $db = new SqliteDatabase;
     $db->setConfig(['sqlite_path' => '/nonexistent/source.sqlite']);
 
-    $db->dump($this->tempDir.'/dump.db');
-})->throws(DatabaseDumpException::class, 'Failed to copy local SQLite file /nonexistent/source.sqlite');
+    $result = $db->dump($this->tempDir.'/dump.db');
+
+    // The command is built but not executed here — ShellProcessor handles execution and errors
+    expect($result->command)->toContain('sqlite3')
+        ->and($result->command)->toContain('/nonexistent/source.sqlite');
+});
 
 test('dump throws when remote stream copy returns zero bytes', function () {
     $sshConfig = DatabaseServerSshConfig::factory()->create([
