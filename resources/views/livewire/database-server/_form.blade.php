@@ -213,29 +213,29 @@ use App\Enums\DatabaseType;
                     @endif
 
                     @if($form->supportsDumpFlags())
-                        <x-input
-                            wire:model.live.debounce.300ms="form.dump_flags"
-                            :label="__('Extra Dump Flags')"
-                            placeholder="{{ __('e.g., --no-tablespaces --column-statistics=0') }}"
-                            :hint="__('Additional flags appended to the dump command')"
-                            type="text"
-                            icon="o-command-line"
-                        />
+                        <x-collapse>
+                            <x-slot:heading>
+                                <x-icon name="o-command-line" class="w-4 h-4" />
+                                {{ __('Dump Command Configuration') }}
+                            </x-slot:heading>
+                            <x-slot:content class="space-y-3">
+                                <x-input
+                                    wire:model.live.debounce.300ms="form.dump_flags"
+                                    placeholder="{{ __('e.g., --no-tablespaces --column-statistics=0') }}"
+                                    :hint="__('Additional flags appended to the dump command')"
+                                    :label="__('Extra Dump Flags')"
+                                    type="text"
+                                />
 
-                        @php $dumpPreview = $form->getDumpCommandPreview() @endphp
-                        @if($dumpPreview)
-                            <x-collapse>
-                                <x-slot:heading>
-                                    <x-icon name="o-command-line" class="w-4 h-4" />
-                                    {{ __('Dump command preview') }}
-                                </x-slot:heading>
-                                <x-slot:content>
-                                    <div class="mockup-code mt-2 text-xs">
+                                @php $dumpPreview = $form->getDumpCommandPreview() @endphp
+                                @if($dumpPreview)
+                                    <p class="text-xs font-medium text-base-content/60">{{ __('Command preview') }}</p>
+                                    <div class="mockup-code text-xs">
                                         <pre data-prefix="$"><code>{{ $dumpPreview }}</code></pre>
                                     </div>
-                                </x-slot:content>
-                            </x-collapse>
-                        @endif
+                                @endif
+                            </x-slot:content>
+                        </x-collapse>
                     @endif
 
                     <!-- Test Connection Button -->
