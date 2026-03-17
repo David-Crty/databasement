@@ -105,7 +105,7 @@ helm upgrade --install databasement databasement/databasement -f values.yaml
 
 ```bash
 helm repo update
-helm upgrade --install databasement databasement/databasement --version !.X.X -f values.yaml
+helm upgrade --install databasement databasement/databasement --version X.X.X -f values.yaml
 ```
 
 Migrations run automatically on startup.
