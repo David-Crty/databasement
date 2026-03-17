@@ -2,10 +2,13 @@
 
 Deploy [Databasement](https://github.com/david-crty/databasement) on Kubernetes using Helm.
 
+The chart version matches the application version — chart `1.0.1` deploys app `1.0.1`.
+
 ## Links
 
 - [Documentation](https://david-crty.github.io/databasement)
 - [GitHub Repository](https://github.com/david-crty/databasement)
+- [GitHub Releases](https://github.com/David-Crty/databasement/releases)
 - [Docker Hub](https://hub.docker.com/r/davidcrty/databasement)
 - [Artifact Hub](https://artifacthub.io/packages/helm/databasement/databasement)
 
@@ -23,7 +26,7 @@ helm repo update
 Before deploying, generate an application encryption key:
 
 ```bash
-docker run --rm davidcrty/databasement:latest php artisan key:generate --show
+docker run --rm davidcrty/databasement:1 php artisan key:generate --show
 ```
 
 Copy the output (e.g., `base64:abc123...`) for use in your values file.
@@ -54,9 +57,7 @@ ingress:
 
 For production, we recommend using MySQL or PostgreSQL instead of SQLite:
 
-```yaml title="values.yaml"
-# ... other app config
-
+```yaml
 database:
   connection: mysql  # or pgsql
   host: your-mysql-host.example.com
@@ -99,6 +100,15 @@ database:
 ```bash
 helm upgrade --install databasement databasement/databasement -f values.yaml
 ```
+
+## Updating
+
+```bash
+helm repo update
+helm upgrade --install databasement databasement/databasement --version !.X.X -f values.yaml
+```
+
+Migrations run automatically on startup.
 
 ## Configuration
 

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 6
+sidebar_position: 7
 ---
 
 # Native Ubuntu Installation
@@ -320,9 +320,14 @@ For additional troubleshooting options including debug mode and trusted proxy co
 
 ## Updating Databasement
 
+Check the [GitHub Releases](https://github.com/David-Crty/databasement/releases) page for available versions, then update to a specific release:
+
 ```bash
-# Pull latest changes
-git pull origin main
+cd /var/www/databasement
+
+# Fetch tags and checkout the desired version
+git fetch --tags
+git checkout v1.0.1
 
 # Install dependencies
 composer install --no-dev --optimize-autoloader

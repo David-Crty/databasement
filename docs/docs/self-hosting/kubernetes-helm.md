@@ -22,7 +22,7 @@ helm repo update
 Before deploying, generate an application encryption key:
 
 ```bash
-docker run --rm davidcrty/databasement:latest php artisan key:generate --show
+docker run --rm davidcrty/databasement:1 php artisan key:generate --show
 ```
 
 Copy the output (e.g., `base64:abc123...`) for use in your values file.
@@ -98,6 +98,8 @@ database:
 ```bash
 helm upgrade --install databasement databasement/databasement -f values.yaml
 ```
+
+See [Versioning](versioning) for available chart versions. The chart version matches the application version.
 
 ## Configuration
 
@@ -175,6 +177,17 @@ worker:
 :::note
 Separate worker deployment requires either ReadWriteMany storage or AWS S3 storage + an external database (MySQL/PostgreSQL).
 :::
+
+## Updating
+
+Update the `--version` flag and run the same install command. Migrations run automatically on startup.
+
+```bash
+helm repo update
+helm upgrade --install databasement databasement/databasement --version 1.0.1 -f values.yaml
+```
+
+See [Versioning](versioning) for available versions.
 
 ## Troubleshooting
 

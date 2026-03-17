@@ -36,7 +36,7 @@ docker run -d \
   -e DB_DATABASE=/data/database.sqlite \
   -e ENABLE_QUEUE_WORKER=true \
   -v ./databasement-data:/data \
-  davidcrty/databasement:latest
+  davidcrty/databasement:1
 ```
 
 Open http://localhost:2226 and create your first admin account.

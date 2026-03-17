@@ -17,6 +17,8 @@ We provide guides to deploy Databasement using:
 - [**Kubernetes + Helm**](kubernetes-helm) - For Kubernetes clusters
 - [**Native Ubuntu**](native-ubuntu) - Traditional installation without Docker
 
+See [Versioning](versioning) for available Docker image tags and Helm chart versions.
+
 ## Requirements
 
 Databasement runs in a single container that includes:
@@ -48,7 +50,7 @@ docker run -d \
   --name databasement \
   -p 2226:2226 \
   -v databasement-data:/app/storage \
-  davidcrty/databasement:latest
+  davidcrty/databasement:1
 ```
 
 Then open http://localhost:2226 in your browser.

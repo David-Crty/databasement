@@ -21,7 +21,7 @@ Core application settings including database, timezone, proxy configuration, and
 The `APP_KEY` is required for encryption. Generate one with:
 
 ```bash
-docker run --rm davidcrty/databasement:latest php artisan key:generate --show
+docker run --rm davidcrty/databasement:1 php artisan key:generate --show
 ```
 
 Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.

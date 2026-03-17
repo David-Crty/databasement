@@ -22,7 +22,7 @@ mkdir databasement && cd databasement
 ### 2. Generate Application Key
 
 ```bash
-docker run --rm davidcrty/databasement:latest php artisan key:generate --show
+docker run --rm davidcrty/databasement:1 php artisan key:generate --show
 ```
 
 Save this key for the next step.
@@ -83,7 +83,7 @@ To store backups in AWS S3 or S3-compatible storage (MinIO, DigitalOcean Spaces,
 ```yaml title="docker-compose.yml"
 services:
   app:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     container_name: databasement
     restart: unless-stopped
     ports:
@@ -98,7 +98,7 @@ services:
       retries: 5
 
   worker:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     container_name: databasement-worker
     restart: unless-stopped
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
@@ -115,7 +115,7 @@ services:
 ```yaml title="docker-compose.yml"
 services:
   app:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     container_name: databasement
     restart: unless-stopped
     ports:
@@ -133,7 +133,7 @@ services:
       retries: 5
 
   worker:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     container_name: databasement-worker
     restart: unless-stopped
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
@@ -169,7 +169,7 @@ services:
 ```yaml title="docker-compose.yml"
 services:
   app:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     container_name: databasement
     restart: unless-stopped
     ports:
@@ -187,7 +187,7 @@ services:
       retries: 5
 
   worker:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     container_name: databasement-worker
     restart: unless-stopped
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
@@ -216,6 +216,10 @@ services:
       timeout: 5s
       retries: 5
 ```
+
+:::tip Pin a version
+See [Versioning](versioning) for available tags.
+:::
 
 :::tip
 Remember to restart both the `app` and `worker` services whenever you change the `.env` file: `docker compose restart app worker`
@@ -260,14 +264,14 @@ By default, the application runs as PUID/PGID `1000`. You can customize this usi
 ```yaml title="docker-compose.yml"
 services:
   app:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     environment:
       PUID: 1001
       PGID: 1001
     # ... rest of config
 
   worker:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     environment:
       PUID: 1001
       PGID: 1001
@@ -285,12 +289,12 @@ For rootless Docker or Podman environments, use the `user` directive. When using
 ```yaml
 services:
   app:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     user: "1010:1010"
     # ... rest of config
 
   worker:
-    image: davidcrty/databasement:latest
+    image: davidcrty/databasement:1
     user: "1010:1010"
     # ... rest of config
 ```
@@ -298,6 +302,17 @@ services:
 :::note
 When using `user`, you must manually set `/data` directory volume permissions before starting the container since the automatic permission fix requires root: `sudo chown 1010:1010 /path/to/databasement/data`
 :::
+
+## Updating
+
+Update the image tag in your `docker-compose.yml`, then pull and recreate. Migrations run automatically on startup.
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+See [Versioning](versioning) for available versions.
 
 ## Troubleshooting
 

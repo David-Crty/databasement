@@ -17,7 +17,7 @@ The simplest way to run Databasement with SQLite as the database:
 
 ```bash
 # Generate an application key
-APP_KEY=$(docker run --rm davidcrty/databasement:latest php artisan key:generate --show)
+APP_KEY=$(docker run --rm davidcrty/databasement:1 php artisan key:generate --show)
 
 
 # Run the container
@@ -29,7 +29,7 @@ docker run -d \
   -e DB_DATABASE=/data/database.sqlite \
   -e ENABLE_QUEUE_WORKER=true \
   -v ./databasement-data:/data \
-  davidcrty/databasement:latest
+  davidcrty/databasement:1
 ```
 
 :::note
@@ -37,6 +37,10 @@ The `ENABLE_QUEUE_WORKER=true` environment variable enables the background queue
 :::
 
 Access the application at http://localhost:2226
+
+:::tip Pin a version
+See [Versioning](versioning) for available tags.
+:::
 
 :::tip S3 Storage
 To store backups in AWS S3 or S3-compatible storage (MinIO, DigitalOcean Spaces, etc.), see the [S3 Storage Configuration](./configuration/backup#s3-storage) section.
@@ -77,6 +81,28 @@ docker run -d \
 :::note
 When using `--user`, you must manually set `/data` directory volume permissions before starting the container since the automatic permission fix requires root: `sudo chown 499:499 /path/to/databasement/data`
 :::
+
+## Updating
+
+Pull the new image and recreate the container. Migrations run automatically on startup.
+
+```bash
+docker pull davidcrty/databasement:1
+docker stop databasement && docker rm databasement
+
+# Re-run with the new version (same command as initial setup)
+docker run -d \
+  --name databasement \
+  -p 2226:2226 \
+  -e APP_KEY=$APP_KEY \
+  -e DB_CONNECTION=sqlite \
+  -e DB_DATABASE=/data/database.sqlite \
+  -e ENABLE_QUEUE_WORKER=true \
+  -v ./databasement-data:/data \
+  davidcrty/databasement:1
+```
+
+See [Versioning](versioning) for available versions.
 
 ## Troubleshooting
 
