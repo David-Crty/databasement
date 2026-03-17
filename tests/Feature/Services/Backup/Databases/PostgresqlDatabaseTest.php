@@ -35,7 +35,7 @@ test('dump includes extra dump flags', function () {
 
     $result = $db->dump('/tmp/dump.sql');
 
-    expect($result->command)->toContain('--exclude-table=large_logs')
+    expect($result->command)->toContain("'--exclude-table=large_logs'")
         ->and($result->command)->toEndWith("-f '/tmp/dump.sql'");
 });
 

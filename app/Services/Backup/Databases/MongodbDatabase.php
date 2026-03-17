@@ -38,7 +38,7 @@ class MongodbDatabase implements DatabaseInterface
         ];
 
         if (! empty($this->config['dump_flags'])) {
-            $parts[] = $this->config['dump_flags'];
+            $parts[] = DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
         }
 
         $parts[] = '--archive='.escapeshellarg($outputPath);

@@ -42,7 +42,7 @@ test('dump includes extra dump flags', function () {
 
     $result = $db->dump('/tmp/dump.sql');
 
-    expect($result->command)->toContain('--no-tablespaces --column-statistics=0')
+    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0'")
         ->and($result->command)->toEndWith("> '/tmp/dump.sql'");
 });
 

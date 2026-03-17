@@ -75,7 +75,7 @@ class MysqlDatabase implements DatabaseInterface
         );
 
         if (! empty($this->config['dump_flags'])) {
-            $command .= ' '.$this->config['dump_flags'];
+            $command .= ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
         }
 
         $command .= ' > '.escapeshellarg($outputPath);

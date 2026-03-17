@@ -499,11 +499,17 @@ class DatabaseServerForm extends Form
         $config = [
             'host' => $this->host ?: 'hostname',
             'port' => $this->port ?: $type->defaultPort(),
-            'user' => $this->username ?: 'user',
-            'pass' => '********',
             'database' => 'dbname',
             'dump_flags' => $this->dump_flags,
         ];
+
+        if ($this->hasOptionalCredentials()) {
+            $config['user'] = $this->username;
+            $config['pass'] = $this->password ? '********' : '';
+        } else {
+            $config['user'] = $this->username ?: 'user';
+            $config['pass'] = '********';
+        }
 
         if ($type === DatabaseType::MONGODB) {
             $config['auth_source'] = $this->auth_source ?: 'admin';
@@ -653,7 +659,7 @@ class DatabaseServerForm extends Form
             'description' => 'nullable|string|max:1000',
             'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
-            'dump_flags' => 'nullable|string|max:500',
+            'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
         ];
     }
 
@@ -947,7 +953,7 @@ class DatabaseServerForm extends Form
         }
         unset($serverData['auth_source']);
 
-        if (! empty($serverData['dump_flags'])) {
+        if ($this->supportsDumpFlags() && ! empty($serverData['dump_flags'])) {
             $extraConfig['dump_flags'] = $serverData['dump_flags'];
         } else {
             unset($extraConfig['dump_flags']);

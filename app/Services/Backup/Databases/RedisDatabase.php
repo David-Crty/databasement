@@ -32,7 +32,7 @@ class RedisDatabase implements DatabaseInterface
         $parts = $this->buildBaseCommand();
 
         if (! empty($this->config['dump_flags'])) {
-            $parts[] = $this->config['dump_flags'];
+            $parts[] = DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
         }
 
         $parts[] = '--rdb '.escapeshellarg($outputPath);
