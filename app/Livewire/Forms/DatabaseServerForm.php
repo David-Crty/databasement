@@ -491,25 +491,15 @@ class DatabaseServerForm extends Form
             return '';
         }
 
-        $type = DatabaseType::tryFrom($this->database_type);
-        if ($type === null) {
-            return '';
-        }
-
+        $type = DatabaseType::from($this->database_type);
         $config = [
-            'host' => $this->host ?: 'hostname',
-            'port' => $this->port ?: $type->defaultPort(),
+            'host' => 'hostname',
+            'port' => $type->defaultPort(),
             'database' => 'dbname',
             'dump_flags' => $this->dump_flags,
+            'user' => 'user',
+            'pass' => '********',
         ];
-
-        if ($this->hasOptionalCredentials()) {
-            $config['user'] = $this->username;
-            $config['pass'] = $this->password ? '********' : '';
-        } else {
-            $config['user'] = $this->username ?: 'user';
-            $config['pass'] = '********';
-        }
 
         if ($type === DatabaseType::MONGODB) {
             $config['auth_source'] = $this->auth_source ?: 'admin';
