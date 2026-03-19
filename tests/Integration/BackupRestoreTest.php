@@ -157,6 +157,40 @@ test('postgresql prepareForRestore drops and recreates existing database', funct
         ->and($loggedCommands)->toContain("CREATE DATABASE \"{$safe}\"");
 });
 
+test('backup with extra dump flags succeeds', function (string $type, string $flag) {
+    // Create models with dump flags in extra_config
+    $this->volume = IntegrationTestHelpers::createVolume($type);
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer($type);
+    $this->databaseServer->update([
+        'extra_config' => array_merge(
+            $this->databaseServer->extra_config ?? [],
+            ['dump_flags' => $flag],
+        ),
+    ]);
+    $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
+    $this->databaseServer->load('backup.volume');
+
+    // Load test data
+    IntegrationTestHelpers::loadTestData($type, $this->databaseServer);
+
+    // Run backup — this would fail if flags are mispositioned (e.g., after the database name)
+    $snapshots = $this->backupJobFactory->createSnapshots(
+        server: $this->databaseServer,
+        method: 'manual',
+    );
+    $this->snapshot = $snapshots[0];
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
+    $this->snapshot->refresh();
+    $this->snapshot->load('job');
+
+    expect($this->snapshot->job->status)->toBe('completed')
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0);
+})->with([
+    'mysql with --verbose' => ['mysql', '--verbose'],
+    'postgres with --verbose' => ['postgres', '--verbose'],
+    'mongodb with --verbose' => ['mongodb', '--verbose'],
+]);
+
 test('sqlite backup and restore workflow', function () {
     // Create a test SQLite database with some data (use unique names for parallel testing)
     $backupDir = AppConfig::get('backup.working_directory');

@@ -42,7 +42,8 @@ test('dump includes extra dump flags', function () {
 
     $result = $db->dump('/tmp/dump.sql');
 
-    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0'")
+    // Flags must appear before the database name (mysqldump treats post-db args as table names)
+    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0' 'myapp'")
         ->and($result->command)->toEndWith("> '/tmp/dump.sql'");
 });
 

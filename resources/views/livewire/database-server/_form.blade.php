@@ -213,7 +213,7 @@ use App\Enums\DatabaseType;
                     @endif
 
                     @if($form->supportsDumpFlags())
-                        <x-collapse>
+                        <x-collapse class="mt-2" :open="!empty($form->dump_flags)">
                             <x-slot:heading>
                                 <x-icon name="o-command-line" class="w-4 h-4" />
                                 {{ __('Dump Command Configuration') }}
@@ -229,7 +229,7 @@ use App\Enums\DatabaseType;
 
                                 @php $dumpPreview = $form->getDumpCommandPreview() @endphp
                                 @if($dumpPreview)
-                                    <p class="text-xs font-medium text-base-content/60">{{ __('Command preview') }}</p>
+                                    <x-badge :value="__('Command preview')" class="badge-primary badge-soft "/>
                                     <div class="mockup-code text-xs">
                                         <pre data-prefix="$"><code>{{ $dumpPreview }}</code></pre>
                                     </div>

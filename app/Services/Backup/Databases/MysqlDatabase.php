@@ -63,20 +63,23 @@ class MysqlDatabase implements DatabaseInterface
             $options[] = '--skip_ssl';
         }
 
+        $extraFlags = '';
+        if (! empty($this->config['dump_flags'])) {
+            $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
+        }
+
+        // Flags must come before the database name; mysqldump treats anything after it as table names
         $command = sprintf(
-            '%s %s --host=%s --port=%s --user=%s --password=%s %s',
+            '%s %s --host=%s --port=%s --user=%s --password=%s%s %s',
             self::CLI_BINARIES[$this->getMysqlCliType()]['dump'],
             implode(' ', $options),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
+            $extraFlags,
             escapeshellarg($this->config['database']),
         );
-
-        if (! empty($this->config['dump_flags'])) {
-            $command .= ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
-        }
 
         $command .= ' > '.escapeshellarg($outputPath);
 

@@ -39,19 +39,22 @@ class PostgresqlDatabase implements DatabaseInterface
 
     public function dump(string $outputPath): DatabaseOperationResult
     {
+        $extraFlags = '';
+        if (! empty($this->config['dump_flags'])) {
+            $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
+        }
+
+        // Flags must come before the database name (last positional argument)
         $command = sprintf(
-            'PGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s %s',
+            'PGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s%s %s',
             escapeshellarg($this->config['pass']),
             implode(' ', self::DUMP_OPTIONS),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
+            $extraFlags,
             escapeshellarg($this->config['database']),
         );
-
-        if (! empty($this->config['dump_flags'])) {
-            $command .= ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
-        }
 
         $command .= ' -f '.escapeshellarg($outputPath);
 
