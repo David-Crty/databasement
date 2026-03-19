@@ -23,6 +23,7 @@ class DatabaseServerQuery
                 AllowedFilter::partial('host'),
                 AllowedFilter::exact('database_type'),
                 AllowedFilter::partial('description'),
+                AllowedFilter::exact('managed_by'),
             ])
             ->allowedSorts([
                 AllowedSort::field('name'),

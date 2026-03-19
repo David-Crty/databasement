@@ -33,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @property bool $backups_enabled
  * @property string|null $ssh_config_id
  * @property string|null $agent_id
+ * @property string|null $managed_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Agent|null $agent
@@ -97,6 +98,7 @@ class DatabaseServer extends Model
         'ssh_config_id',
         'agent_id',
         'extra_config',
+        'managed_by',
     ];
 
     protected $hidden = [

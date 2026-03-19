@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function () {
     Route::apiResource('database-servers', DatabaseServerController::class)
-        ->only(['index', 'show']);
+        ->only(['index', 'show', 'store', 'update', 'destroy']);
     Route::post('database-servers/{database_server}/backup', [DatabaseServerController::class, 'backup'])
         ->name('database-servers.backup');
     Route::post('database-servers/{database_server}/restore', [DatabaseServerController::class, 'restore'])
