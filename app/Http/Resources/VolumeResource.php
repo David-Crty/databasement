@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\VolumeType;
 use App\Models\Volume;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;

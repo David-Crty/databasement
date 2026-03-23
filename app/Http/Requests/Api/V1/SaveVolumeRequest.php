@@ -20,7 +20,7 @@ class SaveVolumeRequest extends FormRequest
     {
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'string', 'in:' . implode(',', array_column(VolumeType::cases(), 'value'))],
+            'type' => ['required', 'string', 'in:'.implode(',', array_column(VolumeType::cases(), 'value'))],
             'config' => ['required', 'array'],
         ];
 
@@ -28,11 +28,11 @@ class SaveVolumeRequest extends FormRequest
         if ($type !== null) {
             // Connector rules use prefixed keys like "localConfig.path" — remap to "config.path"
             foreach ($type->configRules() as $key => $fieldRules) {
-                $suffix = str_replace($type->configPropertyName() . '.', '', $key);
+                $suffix = str_replace($type->configPropertyName().'.', '', $key);
                 $remappedRules = array_map(function ($rule) use ($type) {
                     // Remap required_if/required_with references from configPropertyName to "config"
                     if (is_string($rule)) {
-                        return str_replace($type->configPropertyName() . '.', 'config.', $rule);
+                        return str_replace($type->configPropertyName().'.', 'config.', $rule);
                     }
 
                     return $rule;
