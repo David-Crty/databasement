@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AgentController;
 use App\Http\Controllers\Api\V1\BackupJobController;
+use App\Http\Controllers\Api\V1\BackupScheduleController;
 use App\Http\Controllers\Api\V1\DatabaseServerController;
 use App\Http\Controllers\Api\V1\SnapshotController;
 use App\Http\Controllers\Api\V1\VolumeController;
@@ -25,9 +26,17 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
         ->only(['index', 'show']);
 
     Route::apiResource('volumes', VolumeController::class)
+        ->only(['index', 'show', 'destroy']);
+    Route::post('volumes/local', [VolumeController::class, 'storeLocal'])->name('volumes.store.local');
+    Route::post('volumes/s3', [VolumeController::class, 'storeS3'])->name('volumes.store.s3');
+    Route::post('volumes/sftp', [VolumeController::class, 'storeSftp'])->name('volumes.store.sftp');
+    Route::post('volumes/ftp', [VolumeController::class, 'storeFtp'])->name('volumes.store.ftp');
+    Route::put('volumes/{volume}', [VolumeController::class, 'update'])->name('volumes.update');
+
+    Route::apiResource('backup-schedules', BackupScheduleController::class)
         ->only(['index', 'show', 'store', 'destroy']);
-    Route::put('volumes/{volume}', [VolumeController::class, 'update'])
-        ->name('volumes.update');
+    Route::put('backup-schedules/{backup_schedule}', [BackupScheduleController::class, 'update'])
+        ->name('backup-schedules.update');
 });
 
 // Agent API routes — authenticated via Sanctum with agent-specific token check

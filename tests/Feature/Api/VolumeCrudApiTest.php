@@ -3,90 +3,34 @@
 use App\Models\User;
 use App\Models\Volume;
 
-// ─── Store ───────────────────────────────────────────────────────────────────
-
-test('unauthenticated users cannot create volumes', function () {
-    $this->postJson('/api/v1/volumes')
-        ->assertUnauthorized();
-});
-
-test('viewers cannot create volumes', function () {
-    $user = User::factory()->create(['role' => 'viewer']);
-
-    $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/volumes', [
-            'name' => 'Test Volume',
-            'type' => 'local',
-            'config' => ['path' => '/backups'],
-        ])
-        ->assertForbidden();
-});
-
-test('can create a local volume via api', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/volumes', [
+dataset('volume store payloads', [
+    'local' => [[
+        'endpoint' => '/api/v1/volumes/local',
+        'payload' => [
             'name' => 'Local Backups',
-            'type' => 'local',
             'config' => ['path' => '/backups'],
-        ]);
-
-    $response->assertCreated()
-        ->assertJsonPath('data.name', 'Local Backups')
-        ->assertJsonPath('data.type', 'local')
-        ->assertJsonPath('data.config.path', '/backups');
-
-    $this->assertDatabaseHas('volumes', ['name' => 'Local Backups']);
-});
-
-test('can create an s3 volume via api', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/volumes', [
+        ],
+        'expect' => ['data.type' => 'local', 'data.config.path' => '/backups'],
+        'hidden_config_keys' => [],
+    ]],
+    's3' => [[
+        'endpoint' => '/api/v1/volumes/s3',
+        'payload' => [
             'name' => 'S3 Backups',
-            'type' => 's3',
             'config' => [
                 'bucket' => 'my-backups',
                 'region' => 'us-east-1',
                 'access_key_id' => 'AKIATEST',
                 'secret_access_key' => 'secret123',
             ],
-        ]);
-
-    $response->assertCreated()
-        ->assertJsonPath('data.name', 'S3 Backups')
-        ->assertJsonPath('data.type', 's3')
-        ->assertJsonPath('data.config.bucket', 'my-backups');
-});
-
-test('sensitive fields are not exposed in store response', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/volumes', [
-            'name' => 'S3 Secret Test',
-            'type' => 's3',
-            'config' => [
-                'bucket' => 'my-backups',
-                'region' => 'us-east-1',
-                'access_key_id' => 'AKIATEST',
-                'secret_access_key' => 'super-secret-key',
-            ],
-        ]);
-
-    $response->assertCreated();
-    expect($response->json('data.config'))->not->toHaveKey('secret_access_key');
-});
-
-test('can create an sftp volume via api', function () {
-    $user = User::factory()->create();
-
-    $response = $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/volumes', [
+        ],
+        'expect' => ['data.type' => 's3', 'data.config.bucket' => 'my-backups'],
+        'hidden_config_keys' => ['secret_access_key'],
+    ]],
+    'sftp' => [[
+        'endpoint' => '/api/v1/volumes/sftp',
+        'payload' => [
             'name' => 'SFTP Backups',
-            'type' => 'sftp',
             'config' => [
                 'host' => 'sftp.example.com',
                 'port' => 22,
@@ -94,32 +38,82 @@ test('can create an sftp volume via api', function () {
                 'password' => 'secret',
                 'root' => '/backups',
             ],
-        ]);
+        ],
+        'expect' => ['data.type' => 'sftp', 'data.config.host' => 'sftp.example.com'],
+        'hidden_config_keys' => ['password'],
+    ]],
+    'ftp' => [[
+        'endpoint' => '/api/v1/volumes/ftp',
+        'payload' => [
+            'name' => 'FTP Backups',
+            'config' => [
+                'host' => 'ftp.example.com',
+                'port' => 21,
+                'username' => 'backup',
+                'password' => 'secret',
+                'root' => '/backups',
+                'ssl' => true,
+                'passive' => true,
+            ],
+        ],
+        'expect' => ['data.type' => 'ftp', 'data.config.host' => 'ftp.example.com'],
+        'hidden_config_keys' => ['password'],
+    ]],
+]);
+
+// ─── Store ───────────────────────────────────────────────────────────────────
+
+test('unauthenticated users cannot create volumes', function () {
+    $this->postJson('/api/v1/volumes/local')
+        ->assertUnauthorized();
+});
+
+test('viewers cannot create volumes', function () {
+    $user = User::factory()->create(['role' => 'viewer']);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/volumes/local', [
+            'name' => 'Test Volume',
+            'config' => ['path' => '/backups'],
+        ])
+        ->assertForbidden();
+});
+
+test('can create volume and sensitive fields are hidden', function (array $data) {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->postJson($data['endpoint'], $data['payload']);
 
     $response->assertCreated()
-        ->assertJsonPath('data.type', 'sftp')
-        ->assertJsonPath('data.config.host', 'sftp.example.com');
+        ->assertJsonPath('data.name', $data['payload']['name']);
 
-    // Password should not be in response
-    expect($response->json('data.config'))->not->toHaveKey('password');
-});
+    foreach ($data['expect'] as $path => $value) {
+        $response->assertJsonPath($path, $value);
+    }
+
+    foreach ($data['hidden_config_keys'] as $key) {
+        expect($response->json('data.config'))->not->toHaveKey($key);
+    }
+
+    $this->assertDatabaseHas('volumes', ['name' => $data['payload']['name']]);
+})->with('volume store payloads');
 
 test('store returns validation errors for missing required fields', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/volumes', [])
+        ->postJson('/api/v1/volumes/s3', [])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['name', 'type']);
+        ->assertJsonValidationErrors(['name', 'config']);
 });
 
 test('store validates type-specific config', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/volumes', [
+        ->postJson('/api/v1/volumes/s3', [
             'name' => 'Bad S3',
-            'type' => 's3',
             'config' => [],
         ])
         ->assertUnprocessable()
@@ -142,7 +136,6 @@ test('viewers cannot update volumes', function () {
     $this->actingAs($user, 'sanctum')
         ->putJson("/api/v1/volumes/{$volume->id}", [
             'name' => 'Updated',
-            'type' => 'local',
             'config' => ['path' => '/backups'],
         ])
         ->assertForbidden();
@@ -155,7 +148,6 @@ test('can update a volume via api', function () {
     $response = $this->actingAs($user, 'sanctum')
         ->putJson("/api/v1/volumes/{$volume->id}", [
             'name' => 'Updated Volume',
-            'type' => 'local',
             'config' => ['path' => '/new-backups'],
         ]);
 
@@ -171,7 +163,6 @@ test('blank sensitive fields preserve existing values on update', function () {
     $this->actingAs($user, 'sanctum')
         ->putJson("/api/v1/volumes/{$volume->id}", [
             'name' => $volume->name,
-            'type' => 'sftp',
             'config' => [
                 'host' => 'sftp.example.com',
                 'username' => 'backup',
@@ -182,18 +173,17 @@ test('blank sensitive fields preserve existing values on update', function () {
         ->assertOk();
 
     $volume->refresh();
-    // Password should still be present (preserved from existing)
     expect($volume->config['password'])->not->toBeEmpty();
 });
 
 test('update returns validation errors', function () {
     $user = User::factory()->create();
-    $volume = Volume::factory()->create();
+    $volume = Volume::factory()->local()->create();
 
     $this->actingAs($user, 'sanctum')
         ->putJson("/api/v1/volumes/{$volume->id}", [])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['name', 'type']);
+        ->assertJsonValidationErrors(['name']);
 });
 
 // ─── Destroy ─────────────────────────────────────────────────────────────────

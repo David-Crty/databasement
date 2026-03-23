@@ -4,7 +4,12 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\VolumeType;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\V1\SaveVolumeRequest;
+use App\Http\Requests\Api\V1\Volume\StoreFtpVolumeRequest;
+use App\Http\Requests\Api\V1\Volume\StoreLocalVolumeRequest;
+use App\Http\Requests\Api\V1\Volume\StoreS3VolumeRequest;
+use App\Http\Requests\Api\V1\Volume\StoreSftpVolumeRequest;
+use App\Http\Requests\Api\V1\Volume\StoreVolumeRequest;
+use App\Http\Requests\Api\V1\Volume\UpdateVolumeRequest;
 use App\Http\Resources\VolumeResource;
 use App\Models\Volume;
 use App\Queries\VolumeQuery;
@@ -42,35 +47,54 @@ class VolumeController extends Controller
     }
 
     /**
-     * Create a volume.
+     * Create a local volume.
      *
      * @response 201
      */
-    public function store(SaveVolumeRequest $request): JsonResponse
+    public function storeLocal(StoreLocalVolumeRequest $request): JsonResponse
     {
-        $this->authorize('create', Volume::class);
+        return $this->createVolume($request);
+    }
 
-        $validated = $request->validated();
-        $volumeType = VolumeType::from($validated['type']);
+    /**
+     * Create an S3 volume.
+     *
+     * @response 201
+     */
+    public function storeS3(StoreS3VolumeRequest $request): JsonResponse
+    {
+        return $this->createVolume($request);
+    }
 
-        $validated['config'] = $volumeType->encryptSensitiveFields($validated['config']);
+    /**
+     * Create an SFTP volume.
+     *
+     * @response 201
+     */
+    public function storeSftp(StoreSftpVolumeRequest $request): JsonResponse
+    {
+        return $this->createVolume($request);
+    }
 
-        $volume = Volume::create($validated);
-
-        return (new VolumeResource($volume))
-            ->response()
-            ->setStatusCode(201);
+    /**
+     * Create an FTP volume.
+     *
+     * @response 201
+     */
+    public function storeFtp(StoreFtpVolumeRequest $request): JsonResponse
+    {
+        return $this->createVolume($request);
     }
 
     /**
      * Update a volume.
      */
-    public function update(SaveVolumeRequest $request, Volume $volume): VolumeResource
+    public function update(UpdateVolumeRequest $request, Volume $volume): VolumeResource
     {
         $this->authorize('update', $volume);
 
         $validated = $request->validated();
-        $volumeType = VolumeType::from($validated['type']);
+        $volumeType = VolumeType::from($volume->type);
 
         // Encrypt sensitive fields, preserving existing encrypted values when blank
         $validated['config'] = $volumeType->encryptSensitiveFields(
@@ -95,5 +119,21 @@ class VolumeController extends Controller
         $volume->delete();
 
         return response()->noContent();
+    }
+
+    private function createVolume(StoreVolumeRequest $request): JsonResponse
+    {
+        $this->authorize('create', Volume::class);
+
+        $validated = $request->validated();
+        $volumeType = VolumeType::from($validated['type']);
+
+        $validated['config'] = $volumeType->encryptSensitiveFields($validated['config']);
+
+        $volume = Volume::create($validated);
+
+        return new VolumeResource($volume)
+            ->response()
+            ->setStatusCode(201);
     }
 }
