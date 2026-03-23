@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Volume\Connectors;
 
+use App\Rules\SafePath;
+
 class SftpConfig extends BaseConfig
 {
     /**
@@ -29,7 +31,7 @@ class SftpConfig extends BaseConfig
             "{$prefix}.port" => ['nullable', 'integer', 'min:1', 'max:65535'],
             "{$prefix}.username" => ['required_if:type,sftp', 'string', 'max:255'],
             "{$prefix}.password" => ['required_if:type,sftp', 'string', 'max:1000'],
-            "{$prefix}.root" => ['nullable', 'string', 'max:500'],
+            "{$prefix}.root" => ['nullable', 'string', 'max:500', new SafePath(allowAbsolute: true)],
             "{$prefix}.timeout" => ['nullable', 'integer', 'min:1', 'max:300'],
         ];
     }
