@@ -1,8 +1,6 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 echo "🎨 Running code formatter..."
 make lint-fix
+git add -u
 echo ""
 
 echo "🔍 Running static analysis..."

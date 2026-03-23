@@ -5,7 +5,7 @@ on: [push]
 jobs:
   ci:
     runs-on: ubuntu-latest
-    environment: Testing
+
 
     services:
       mysql:
