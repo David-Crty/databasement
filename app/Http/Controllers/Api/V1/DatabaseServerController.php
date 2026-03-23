@@ -232,19 +232,23 @@ class DatabaseServerController extends Controller
 
         $type = $data['database_type'] ?? '';
 
-        if ($type === 'mongodb' && ! empty($data['auth_source'])) {
-            $extraConfig['auth_source'] = $data['auth_source'];
-        } else {
-            unset($extraConfig['auth_source']);
+        if (array_key_exists('auth_source', $data)) {
+            if ($type === 'mongodb' && ! empty($data['auth_source'])) {
+                $extraConfig['auth_source'] = $data['auth_source'];
+            } else {
+                unset($extraConfig['auth_source']);
+            }
+            unset($data['auth_source']);
         }
-        unset($data['auth_source']);
 
-        if ($type !== 'sqlite' && ! empty($data['dump_flags'])) {
-            $extraConfig['dump_flags'] = $data['dump_flags'];
-        } else {
-            unset($extraConfig['dump_flags']);
+        if (array_key_exists('dump_flags', $data)) {
+            if ($type !== 'sqlite' && ! empty($data['dump_flags'])) {
+                $extraConfig['dump_flags'] = $data['dump_flags'];
+            } else {
+                unset($extraConfig['dump_flags']);
+            }
+            unset($data['dump_flags']);
         }
-        unset($data['dump_flags']);
 
         $data['extra_config'] = $extraConfig ?: null;
     }

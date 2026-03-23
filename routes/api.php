@@ -9,7 +9,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function () {
     Route::apiResource('database-servers', DatabaseServerController::class)
-        ->only(['index', 'show', 'store', 'update', 'destroy']);
+        ->only(['index', 'show', 'store', 'destroy']);
+    Route::put('database-servers/{database_server}', [DatabaseServerController::class, 'update'])
+        ->name('database-servers.update');
     Route::post('database-servers/{database_server}/backup', [DatabaseServerController::class, 'backup'])
         ->name('database-servers.backup');
     Route::post('database-servers/{database_server}/restore', [DatabaseServerController::class, 'restore'])

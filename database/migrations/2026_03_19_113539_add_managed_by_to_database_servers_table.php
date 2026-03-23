@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('database_servers', function (Blueprint $table) {
-            $table->string('managed_by')->nullable()->after('agent_id');
+            $table->string('managed_by')->nullable()->index()->after('agent_id');
         });
     }
 

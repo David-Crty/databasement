@@ -148,6 +148,34 @@ test('store moves auth_source and dump_flags to extra_config', function () {
         ->assertJsonPath('data.extra_config.dump_flags', '--single-transaction');
 });
 
+test('update preserves extra_config when keys are not sent', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+        'extra_config' => ['dump_flags' => '--single-transaction'],
+    ]);
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-servers/{$server->id}", [
+            'name' => 'Updated Name',
+            'database_type' => 'mysql',
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'database_selection_mode' => 'all',
+            'backup' => [
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ],
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.extra_config.dump_flags', '--single-transaction');
+});
+
 test('password is not in store response', function () {
     $user = User::factory()->create();
 
