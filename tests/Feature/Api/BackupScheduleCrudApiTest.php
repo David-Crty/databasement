@@ -3,6 +3,49 @@
 use App\Models\BackupSchedule;
 use App\Models\User;
 
+// ─── Index ───────────────────────────────────────────────────────────────────
+
+test('unauthenticated users cannot list backup schedules', function () {
+    $this->getJson('/api/v1/backup-schedules')
+        ->assertUnauthorized();
+});
+
+test('can list backup schedules via api', function () {
+    $user = User::factory()->create();
+    BackupSchedule::factory()->create(['name' => 'Schedule Alpha']);
+    BackupSchedule::factory()->create(['name' => 'Schedule Beta']);
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->getJson('/api/v1/backup-schedules');
+
+    $response->assertOk()
+        ->assertJsonStructure(['data' => [['id', 'name', 'expression']]]);
+
+    $names = collect($response->json('data'))->pluck('name');
+    expect($names)->toContain('Schedule Alpha', 'Schedule Beta');
+});
+
+// ─── Show ────────────────────────────────────────────────────────────────────
+
+test('unauthenticated users cannot view a backup schedule', function () {
+    $schedule = BackupSchedule::factory()->create();
+
+    $this->getJson("/api/v1/backup-schedules/{$schedule->id}")
+        ->assertUnauthorized();
+});
+
+test('can view a backup schedule via api', function () {
+    $user = User::factory()->create();
+    $schedule = BackupSchedule::factory()->create(['name' => 'Nightly', 'expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->getJson("/api/v1/backup-schedules/{$schedule->id}")
+        ->assertOk()
+        ->assertJsonPath('data.id', $schedule->id)
+        ->assertJsonPath('data.name', 'Nightly')
+        ->assertJsonPath('data.expression', '0 2 * * *');
+});
+
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 test('unauthenticated users cannot create backup schedules', function () {
