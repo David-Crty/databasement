@@ -111,10 +111,13 @@ class SaveDatabaseServerRequest extends FormRequest
 
     private function validatePatternMode(Validator $validator): void
     {
-        if ($this->input('database_selection_mode') === 'pattern'
-            && $this->filled('database_include_pattern')
-            && ! DatabaseServer::isValidDatabasePattern($this->input('database_include_pattern'))
-        ) {
+        $pattern = $this->input('database_include_pattern');
+
+        if ($this->input('database_selection_mode') !== 'pattern' || ! $this->filled('database_include_pattern')) {
+            return;
+        }
+
+        if (! is_string($pattern) || ! DatabaseServer::isValidDatabasePattern($pattern)) {
             $validator->errors()->add('database_include_pattern', 'The pattern is not a valid regular expression.');
         }
     }
