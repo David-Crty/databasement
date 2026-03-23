@@ -15,9 +15,11 @@ use App\Services\Backup\ShellProcessor;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
+use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
@@ -90,6 +92,7 @@ class AppServiceProvider extends ServiceProvider
         $this->validateOAuthConfiguration();
 
         Scramble::configure()
+            ->routes(fn (Route $route) => Str::startsWith($route->uri, 'api/') && ! Str::startsWith($route->uri, 'api/v1/agent'))
             ->withDocumentTransformers(function (OpenApi $openApi) {
                 $openApi->secure(
                     SecurityScheme::http('bearer')

@@ -54,7 +54,7 @@ class Volume extends Model
         // Type is immutable after creation — changing it would leave ghost config fields.
         static::updating(function (Volume $volume) {
             if ($volume->isDirty('type')) {
-                $volume->type = $volume->getOriginal('type');
+                throw new \RuntimeException('Changing volume type is not allowed.');
             }
         });
 
