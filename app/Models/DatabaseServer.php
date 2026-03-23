@@ -309,6 +309,76 @@ class DatabaseServer extends Model
     }
 
     /**
+     * Normalize selection mode and clear irrelevant fields based on database type.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function normalizeSelectionMode(array &$data): void
+    {
+        $type = $data['database_type'] ?? '';
+
+        if ($type === DatabaseType::REDIS->value) {
+            $data['database_selection_mode'] = DatabaseSelectionMode::All->value;
+            $data['database_names'] = null;
+            $data['database_include_pattern'] = null;
+
+            return;
+        }
+
+        if ($type === DatabaseType::SQLITE->value) {
+            $data['database_selection_mode'] = DatabaseSelectionMode::Selected->value;
+            $data['database_include_pattern'] = null;
+
+            return;
+        }
+
+        $mode = $data['database_selection_mode'] ?? null;
+
+        if ($mode !== DatabaseSelectionMode::Selected->value) {
+            $data['database_names'] = null;
+        }
+
+        if ($mode !== DatabaseSelectionMode::Pattern->value) {
+            $data['database_include_pattern'] = null;
+        }
+    }
+
+    /**
+     * Move type-specific fields (auth_source, dump_flags) into extra_config.
+     * Clears stale keys when database type has changed.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>|null  $existingExtraConfig
+     */
+    public static function buildExtraConfig(array &$data, ?array $existingExtraConfig = null, ?string $previousType = null): void
+    {
+        $type = $data['database_type'] ?? '';
+
+        // Reset extra_config when type changes to avoid stale keys
+        $extraConfig = ($previousType !== null && $previousType !== $type) ? [] : ($existingExtraConfig ?? []);
+
+        if (array_key_exists('auth_source', $data)) {
+            if ($type === DatabaseType::MONGODB->value && ($data['auth_source'] !== '' && $data['auth_source'] !== null)) {
+                $extraConfig['auth_source'] = $data['auth_source'];
+            } else {
+                unset($extraConfig['auth_source']);
+            }
+            unset($data['auth_source']);
+        }
+
+        if (array_key_exists('dump_flags', $data)) {
+            if ($type !== DatabaseType::SQLITE->value && ($data['dump_flags'] !== '' && $data['dump_flags'] !== null)) {
+                $extraConfig['dump_flags'] = $data['dump_flags'];
+            } else {
+                unset($extraConfig['dump_flags']);
+            }
+            unset($data['dump_flags']);
+        }
+
+        $data['extra_config'] = $extraConfig ?: null;
+    }
+
+    /**
      * Check if a regex pattern is valid.
      */
     public static function isValidDatabasePattern(string $pattern): bool

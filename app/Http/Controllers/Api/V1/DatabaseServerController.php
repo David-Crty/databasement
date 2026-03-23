@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\DatabaseSelectionMode;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestoreRequest;
 use App\Http\Requests\Api\V1\SaveDatabaseServerRequest;
@@ -70,8 +69,8 @@ class DatabaseServerController extends Controller
             $validated['backups_enabled'] = true;
         }
 
-        $this->normalizeSelectionMode($validated);
-        $this->buildExtraConfig($validated);
+        DatabaseServer::normalizeSelectionMode($validated);
+        DatabaseServer::buildExtraConfig($validated);
 
         $server = DatabaseServer::create($validated);
         $this->syncBackupConfiguration($server, $backupData);
@@ -95,7 +94,7 @@ class DatabaseServerController extends Controller
         unset($validated['backup']);
 
         // Skip password update if blank/missing
-        if (array_key_exists('password', $validated) && empty($validated['password'])) {
+        if (array_key_exists('password', $validated) && ($validated['password'] === '' || $validated['password'] === null)) {
             unset($validated['password']);
         }
 
@@ -104,8 +103,8 @@ class DatabaseServerController extends Controller
             $validated['backups_enabled'] = $databaseServer->backups_enabled;
         }
 
-        $this->normalizeSelectionMode($validated);
-        $this->buildExtraConfig($validated, $databaseServer);
+        DatabaseServer::normalizeSelectionMode($validated);
+        DatabaseServer::buildExtraConfig($validated, $databaseServer->extra_config, $databaseServer->database_type->value);
 
         $databaseServer->update($validated);
         $this->syncBackupConfiguration($databaseServer, $backupData);
@@ -201,73 +200,6 @@ class DatabaseServerController extends Controller
             'message' => 'Restore started successfully!',
             'restore' => new RestoreResource($restore),
         ], 202);
-    }
-
-    /**
-     * Normalize database selection mode and clear irrelevant fields.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    private function normalizeSelectionMode(array &$data): void
-    {
-        $type = $data['database_type'] ?? '';
-
-        if ($type === 'redis') {
-            $data['database_selection_mode'] = DatabaseSelectionMode::All->value;
-            $data['database_names'] = null;
-            $data['database_include_pattern'] = null;
-
-            return;
-        }
-
-        if ($type === 'sqlite') {
-            $data['database_selection_mode'] = DatabaseSelectionMode::Selected->value;
-            $data['database_include_pattern'] = null;
-
-            return;
-        }
-
-        $mode = $data['database_selection_mode'] ?? null;
-
-        if ($mode !== DatabaseSelectionMode::Selected->value) {
-            $data['database_names'] = null;
-        }
-
-        if ($mode !== DatabaseSelectionMode::Pattern->value) {
-            $data['database_include_pattern'] = null;
-        }
-    }
-
-    /**
-     * Move type-specific fields (auth_source, dump_flags) into extra_config.
-     *
-     * @param  array<string, mixed>  $data
-     */
-    private function buildExtraConfig(array &$data, ?DatabaseServer $existing = null): void
-    {
-        $extraConfig = ($existing !== null ? $existing->extra_config : null) ?? [];
-
-        $type = $data['database_type'] ?? '';
-
-        if (array_key_exists('auth_source', $data)) {
-            if ($type === 'mongodb' && ! empty($data['auth_source'])) {
-                $extraConfig['auth_source'] = $data['auth_source'];
-            } else {
-                unset($extraConfig['auth_source']);
-            }
-            unset($data['auth_source']);
-        }
-
-        if (array_key_exists('dump_flags', $data)) {
-            if ($type !== 'sqlite' && ! empty($data['dump_flags'])) {
-                $extraConfig['dump_flags'] = $data['dump_flags'];
-            } else {
-                unset($extraConfig['dump_flags']);
-            }
-            unset($data['dump_flags']);
-        }
-
-        $data['extra_config'] = $extraConfig ?: null;
     }
 
     /**

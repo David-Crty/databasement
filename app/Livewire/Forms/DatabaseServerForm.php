@@ -854,8 +854,8 @@ class DatabaseServerForm extends Form
         [$serverData, $backupData] = $this->extractBackupData($validated);
 
         $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
-        $this->normalizeSelectionMode($serverData);
-        $this->moveTypeSpecificFieldsToExtraConfig($serverData);
+        DatabaseServer::normalizeSelectionMode($serverData);
+        DatabaseServer::buildExtraConfig($serverData);
 
         $server = DatabaseServer::create($serverData);
         $this->syncBackupConfiguration($server, $backupData);
@@ -878,79 +878,18 @@ class DatabaseServerForm extends Form
         [$serverData, $backupData] = $this->extractBackupData($validated);
 
         // Only update password if a new one is provided
-        if (isset($serverData['password']) && empty($serverData['password'])) {
+        if (isset($serverData['password']) && $serverData['password'] === '') {
             unset($serverData['password']);
         }
 
         $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
-        $this->normalizeSelectionMode($serverData);
-
-        $this->moveTypeSpecificFieldsToExtraConfig($serverData);
+        DatabaseServer::normalizeSelectionMode($serverData);
+        DatabaseServer::buildExtraConfig($serverData, $this->server->extra_config, $this->server->database_type->value);
 
         $this->server->update($serverData);
         $this->syncBackupConfiguration($this->server, $backupData);
 
         return true;
-    }
-
-    /**
-     * Normalize database selection mode and clear irrelevant fields.
-     * Redis always uses 'all'; non-selected modes clear database_names.
-     *
-     * @param  array<string, mixed>  $serverData
-     */
-    private function normalizeSelectionMode(array &$serverData): void
-    {
-        if ($this->isRedis()) {
-            $serverData['database_selection_mode'] = DatabaseSelectionMode::All->value;
-            $serverData['database_names'] = null;
-            $serverData['database_include_pattern'] = null;
-
-            return;
-        }
-
-        if ($this->isSqlite()) {
-            $serverData['database_selection_mode'] = DatabaseSelectionMode::Selected->value;
-            $serverData['database_include_pattern'] = null;
-
-            return;
-        }
-
-        $mode = $serverData['database_selection_mode'] ?? $this->database_selection_mode;
-
-        if ($mode !== DatabaseSelectionMode::Selected->value) {
-            $serverData['database_names'] = null;
-        }
-
-        if ($mode !== DatabaseSelectionMode::Pattern->value) {
-            $serverData['database_include_pattern'] = null;
-        }
-    }
-
-    /**
-     * Move type-specific validated fields into extra_config.
-     *
-     * @param  array<string, mixed>  $serverData
-     */
-    private function moveTypeSpecificFieldsToExtraConfig(array &$serverData): void
-    {
-        $extraConfig = $this->server?->extra_config ?? []; // @phpstan-ignore nullsafe.neverNull
-
-        if ($this->isMongodb() && ! empty($serverData['auth_source'])) {
-            $extraConfig['auth_source'] = $serverData['auth_source'];
-        } else {
-            unset($extraConfig['auth_source']);
-        }
-        unset($serverData['auth_source']);
-
-        if ($this->supportsDumpFlags() && ! empty($serverData['dump_flags'])) {
-            $extraConfig['dump_flags'] = $serverData['dump_flags'];
-        } else {
-            unset($extraConfig['dump_flags']);
-        }
-        unset($serverData['dump_flags']);
-
-        $serverData['extra_config'] = $extraConfig ?: null;
     }
 
     /**
