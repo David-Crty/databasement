@@ -1,5 +1,6 @@
 echo "🎨 Running code formatter..."
 make lint-fix
+git add -u
 echo ""
 
 echo "🔍 Running static analysis..."
