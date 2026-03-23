@@ -25,7 +25,9 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
         ->only(['index', 'show']);
 
     Route::apiResource('volumes', VolumeController::class)
-        ->only(['index', 'show']);
+        ->only(['index', 'show', 'store', 'destroy']);
+    Route::put('volumes/{volume}', [VolumeController::class, 'update'])
+        ->name('volumes.update');
 });
 
 // Agent API routes — authenticated via Sanctum with agent-specific token check
