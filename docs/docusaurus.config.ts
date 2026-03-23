@@ -2,6 +2,8 @@ import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
+const version = process.env.DOCS_VERSION;
+
 const config: Config = {
     title: 'Databasement',
     tagline: 'Simple and powerful database backup management',
@@ -71,6 +73,11 @@ const config: Config = {
                     position: 'left',
                     label: 'User Guide',
                 },
+                ...(version ? [{
+                    type: 'html' as const,
+                    position: 'right' as const,
+                    value: `<span class="badge badge--secondary">v${version}</span>`,
+                }] : []),
                 {
                     href: 'https://github.com/David-Crty/databasement',
                     label: 'GitHub',
