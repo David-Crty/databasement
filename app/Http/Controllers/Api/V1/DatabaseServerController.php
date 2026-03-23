@@ -98,9 +98,9 @@ class DatabaseServerController extends Controller
             unset($validated['password']);
         }
 
-        // Default backups_enabled to true if not provided
+        // Preserve current backups_enabled if not provided
         if (! array_key_exists('backups_enabled', $validated)) {
-            $validated['backups_enabled'] = true;
+            $validated['backups_enabled'] = $databaseServer->backups_enabled;
         }
 
         $this->normalizeSelectionMode($validated);
