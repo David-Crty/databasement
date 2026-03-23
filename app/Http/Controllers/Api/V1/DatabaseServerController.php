@@ -15,6 +15,7 @@ use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\BackupJobFactory;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -126,6 +127,22 @@ class DatabaseServerController extends Controller
         $databaseServer->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Test connection.
+     *
+     * Tests the connection to the specified database server.
+     */
+    public function testConnection(DatabaseServer $databaseServer, DatabaseProvider $databaseProvider): JsonResponse
+    {
+        $this->authorize('view', $databaseServer);
+
+        $databaseServer->load('sshConfig');
+
+        $result = $databaseProvider->testConnectionForServer($databaseServer);
+
+        return response()->json($result);
     }
 
     /**

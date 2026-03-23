@@ -2,6 +2,9 @@
 
 use App\Models\User;
 use App\Models\Volume;
+use App\Services\Backup\Filesystems\FilesystemProvider;
+use League\Flysystem\Filesystem;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 
 dataset('volume store payloads', [
     'local' => [[
@@ -213,4 +216,46 @@ test('can delete a volume via api', function () {
         ->assertNoContent();
 
     $this->assertDatabaseMissing('volumes', ['id' => $volume->id]);
+});
+
+// ─── Test Connection ────────────────────────────────────────────────────────
+
+test('unauthenticated users cannot test volume connection', function () {
+    $volume = Volume::factory()->create();
+
+    $this->getJson("/api/v1/volumes/{$volume->id}/test-connection")
+        ->assertUnauthorized();
+});
+
+test('can test connection for a volume', function () {
+    $user = User::factory()->create();
+    $volume = Volume::factory()->local()->create();
+
+    $mockProvider = Mockery::mock(FilesystemProvider::class);
+    $mockProvider->shouldReceive('getForVolume')
+        ->once()
+        ->andReturn(new Filesystem(new LocalFilesystemAdapter(sys_get_temp_dir())));
+    app()->instance(FilesystemProvider::class, $mockProvider);
+
+    $this->actingAs($user, 'sanctum')
+        ->getJson("/api/v1/volumes/{$volume->id}/test-connection")
+        ->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('message', 'Connection successful!');
+});
+
+test('test connection returns failure details', function () {
+    $user = User::factory()->create();
+    $volume = Volume::factory()->s3()->create();
+
+    $mockProvider = Mockery::mock(FilesystemProvider::class);
+    $mockProvider->shouldReceive('getForVolume')
+        ->once()
+        ->andThrow(new \RuntimeException('Access denied'));
+    app()->instance(FilesystemProvider::class, $mockProvider);
+
+    $this->actingAs($user, 'sanctum')
+        ->getJson("/api/v1/volumes/{$volume->id}/test-connection")
+        ->assertOk()
+        ->assertJsonPath('success', false);
 });

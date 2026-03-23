@@ -4,6 +4,7 @@ use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Models\Volume;
+use App\Services\Backup\Databases\DatabaseProvider;
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -406,4 +407,60 @@ test('can filter database servers by managed_by', function () {
     $response->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.managed_by', 'docker:abc123');
+});
+
+// ─── Test Connection ────────────────────────────────────────────────────────
+
+test('unauthenticated users cannot test connection', function () {
+    $server = DatabaseServer::factory()->create();
+
+    $this->getJson("/api/v1/database-servers/{$server->id}/test-connection")
+        ->assertUnauthorized();
+});
+
+test('can test connection for a database server', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+
+    $this->mock(DatabaseProvider::class, function ($mock) use ($server) {
+        $mock->shouldReceive('testConnectionForServer')
+            ->once()
+            ->with(\Mockery::on(fn ($s) => $s->id === $server->id))
+            ->andReturn([
+                'success' => true,
+                'message' => 'Connection successful',
+                'details' => ['ping_ms' => 12],
+            ]);
+    });
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->getJson("/api/v1/database-servers/{$server->id}/test-connection");
+
+    $response->assertOk()
+        ->assertJsonPath('success', true)
+        ->assertJsonPath('message', 'Connection successful')
+        ->assertJsonPath('details.ping_ms', 12);
+});
+
+test('test connection returns failure details', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+
+    $this->mock(DatabaseProvider::class, function ($mock) use ($server) {
+        $mock->shouldReceive('testConnectionForServer')
+            ->once()
+            ->with(\Mockery::on(fn ($s) => $s->id === $server->id))
+            ->andReturn([
+                'success' => false,
+                'message' => 'Connection refused',
+                'details' => [],
+            ]);
+    });
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->getJson("/api/v1/database-servers/{$server->id}/test-connection");
+
+    $response->assertOk()
+        ->assertJsonPath('success', false)
+        ->assertJsonPath('message', 'Connection refused');
 });

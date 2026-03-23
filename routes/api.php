@@ -13,6 +13,8 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
         ->only(['index', 'show', 'store', 'destroy']);
     Route::put('database-servers/{database_server}', [DatabaseServerController::class, 'update'])
         ->name('database-servers.update');
+    Route::get('database-servers/{database_server}/test-connection', [DatabaseServerController::class, 'testConnection'])
+        ->name('database-servers.test-connection');
     Route::post('database-servers/{database_server}/backup', [DatabaseServerController::class, 'backup'])
         ->name('database-servers.backup');
     Route::post('database-servers/{database_server}/restore', [DatabaseServerController::class, 'restore'])
@@ -32,6 +34,7 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
     Route::post('volumes/sftp', [VolumeController::class, 'storeSftp'])->name('volumes.store.sftp');
     Route::post('volumes/ftp', [VolumeController::class, 'storeFtp'])->name('volumes.store.ftp');
     Route::put('volumes/{volume}', [VolumeController::class, 'update'])->name('volumes.update');
+    Route::get('volumes/{volume}/test-connection', [VolumeController::class, 'testConnection'])->name('volumes.test-connection');
 
     Route::apiResource('backup-schedules', BackupScheduleController::class)
         ->only(['index', 'show', 'store', 'destroy']);

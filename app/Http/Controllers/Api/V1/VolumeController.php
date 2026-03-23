@@ -13,6 +13,7 @@ use App\Http\Requests\Api\V1\Volume\UpdateVolumeRequest;
 use App\Http\Resources\VolumeResource;
 use App\Models\Volume;
 use App\Queries\VolumeQuery;
+use App\Services\VolumeConnectionTester;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -105,6 +106,18 @@ class VolumeController extends Controller
         $volume->update($validated);
 
         return new VolumeResource($volume);
+    }
+
+    /**
+     * Test connection.
+     *
+     * Tests the connection to the specified volume by writing and reading a test file.
+     */
+    public function testConnection(Volume $volume, VolumeConnectionTester $tester): JsonResponse
+    {
+        $this->authorize('view', $volume);
+
+        return response()->json($tester->test($volume));
     }
 
     /**
