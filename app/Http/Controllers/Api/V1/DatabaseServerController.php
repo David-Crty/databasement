@@ -286,23 +286,18 @@ class DatabaseServerController extends Controller
             'path' => ! empty($backupData['path']) ? $backupData['path'] : null,
             'backup_schedule_id' => $backupData['backup_schedule_id'],
             'retention_policy' => $retentionPolicy,
+            'retention_days' => null,
+            'gfs_keep_daily' => null,
+            'gfs_keep_weekly' => null,
+            'gfs_keep_monthly' => null,
         ];
 
         if ($retentionPolicy === Backup::RETENTION_DAYS) {
             $normalized['retention_days'] = $backupData['retention_days'] ?? null;
-            $normalized['gfs_keep_daily'] = null;
-            $normalized['gfs_keep_weekly'] = null;
-            $normalized['gfs_keep_monthly'] = null;
         } elseif ($retentionPolicy === Backup::RETENTION_GFS) {
-            $normalized['retention_days'] = null;
             $normalized['gfs_keep_daily'] = ! empty($backupData['gfs_keep_daily']) ? $backupData['gfs_keep_daily'] : null;
             $normalized['gfs_keep_weekly'] = ! empty($backupData['gfs_keep_weekly']) ? $backupData['gfs_keep_weekly'] : null;
             $normalized['gfs_keep_monthly'] = ! empty($backupData['gfs_keep_monthly']) ? $backupData['gfs_keep_monthly'] : null;
-        } else {
-            $normalized['retention_days'] = null;
-            $normalized['gfs_keep_daily'] = null;
-            $normalized['gfs_keep_weekly'] = null;
-            $normalized['gfs_keep_monthly'] = null;
         }
 
         $server->backup()->updateOrCreate(

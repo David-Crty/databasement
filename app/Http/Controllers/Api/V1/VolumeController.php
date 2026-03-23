@@ -9,7 +9,6 @@ use App\Http\Requests\Api\V1\Volume\StoreLocalVolumeRequest;
 use App\Http\Requests\Api\V1\Volume\StoreS3VolumeRequest;
 use App\Http\Requests\Api\V1\Volume\StoreSftpVolumeRequest;
 use App\Http\Requests\Api\V1\Volume\StoreVolumeRequest;
-use App\Http\Requests\Api\V1\Volume\UpdateVolumeRequest;
 use App\Http\Resources\VolumeResource;
 use App\Models\Volume;
 use App\Queries\VolumeQuery;
@@ -85,27 +84,6 @@ class VolumeController extends Controller
     public function storeFtp(StoreFtpVolumeRequest $request): JsonResponse
     {
         return $this->createVolume($request);
-    }
-
-    /**
-     * Update a volume.
-     */
-    public function update(UpdateVolumeRequest $request, Volume $volume): VolumeResource
-    {
-        $this->authorize('update', $volume);
-
-        $validated = $request->validated();
-        $volumeType = VolumeType::from($volume->type);
-
-        // Encrypt sensitive fields, preserving existing encrypted values when blank
-        $validated['config'] = $volumeType->encryptSensitiveFields(
-            $validated['config'],
-            $volume->config
-        );
-
-        $volume->update($validated);
-
-        return new VolumeResource($volume);
     }
 
     /**

@@ -111,7 +111,6 @@ class VolumeForm extends Form
 
         $this->volume->update([
             'name' => $this->name,
-            'type' => $this->type,
             'config' => $this->buildConfig(),
         ]);
     }

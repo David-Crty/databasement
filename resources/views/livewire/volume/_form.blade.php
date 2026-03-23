@@ -17,7 +17,8 @@ use App\Enums\VolumeType;
             required
         />
 
-        <!-- Storage Type Selection -->
+        <!-- Storage Type Selection (immutable after creation) -->
+        @php $typeDisabled = $readonly || $form->volume !== null; @endphp
         <div>
             <label class="label label-text font-semibold mb-2">{{ __('Storage Type') }}</label>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -25,16 +26,16 @@ use App\Enums\VolumeType;
                     @php
                         $isSelected = $form->type === $volumeType->value;
                         $buttonClass = match(true) {
-                            $isSelected && $readonly => 'btn-primary opacity-70 cursor-not-allowed border-2 border-primary',
+                            $isSelected && $typeDisabled => 'btn-primary opacity-70 cursor-not-allowed border-2 border-primary',
                             $isSelected => 'btn-primary',
-                            $readonly => 'btn-outline opacity-40 cursor-not-allowed',
+                            $typeDisabled => 'btn-outline opacity-40 cursor-not-allowed',
                             default => 'btn-outline',
                         };
                     @endphp
                     <button
                         type="button"
                         wire:click="$set('form.type', '{{ $volumeType->value }}')"
-                        @if($readonly) disabled @endif
+                        @if($typeDisabled) disabled @endif
                         class="btn justify-start gap-2 h-auto py-3 {{ $buttonClass }}"
                     >
                         <x-volume-type-icon :type="$volumeType" class="w-5 h-5" />
