@@ -67,7 +67,7 @@ return [
     |
     */
 
-    'trusted_proxies' => env('TRUSTED_PROXIES', '127.0.0.0/8,10.0.0.0/8,100.64.0.0/10,169.254.0.0/16,172.16.0.0/12,192.168.0.0/16'),
+    'trusted_proxies' => env('TRUSTED_PROXIES', TRUSTED_PROXIES_DEFAULT),
 
     /*
     |--------------------------------------------------------------------------

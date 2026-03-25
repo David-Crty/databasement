@@ -6,6 +6,10 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Symfony\Component\HttpFoundation\Request;
 
+if (! defined('TRUSTED_PROXIES_DEFAULT')) {
+    define('TRUSTED_PROXIES_DEFAULT', '127.0.0.0/8,10.0.0.0/8,100.64.0.0/10,169.254.0.0/16,172.16.0.0/12,192.168.0.0/16');
+}
+
 if (file_exists(dirname(__DIR__).'/.env.local')) {
     $dotenv = Dotenv::createImmutable(dirname(__DIR__), '.env.local');
     $dotenv->load();
@@ -27,7 +31,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(
-            at: env('TRUSTED_PROXIES'),
+            at: env('TRUSTED_PROXIES', TRUSTED_PROXIES_DEFAULT),
             headers: Request::HEADER_X_FORWARDED_FOR |
             Request::HEADER_X_FORWARDED_HOST |
             Request::HEADER_X_FORWARDED_PORT |
