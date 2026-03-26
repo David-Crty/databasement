@@ -151,7 +151,7 @@
                         :class="empty($job->logs) ? 'opacity-30' : ''"
                         :disabled="empty($job->logs)"
                     />
-                    @if($job->snapshot && $job->status === 'completed')
+                    @if($job->snapshot && in_array($job->status, ['completed', 'failed']))
                         @can('delete', $job->snapshot)
                             <x-button
                                 icon="o-trash"
