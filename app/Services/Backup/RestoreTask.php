@@ -99,9 +99,9 @@ class RestoreTask
                 $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
             }
 
-            if ($config->grantUser !== null && $database instanceof Databases\PostgresqlDatabase) {
-                $logger->log("Granting all privileges to user \"{$config->grantUser}\" on database \"{$config->schemaName}\"", 'info');
-                $database->grantPrivileges($config->schemaName, $config->grantUser, $logger);
+            if ($config->ownerUser !== null && $database instanceof Databases\PostgresqlDatabase) {
+                $logger->log("Transferring ownership of database \"{$config->schemaName}\" to user \"{$config->ownerUser}\"", 'info');
+                $database->transferOwnership($config->schemaName, $config->ownerUser, $logger);
             }
 
             // Mark job as completed

@@ -18,6 +18,6 @@ readonly class RestoreConfig
         public string $schemaName,
         public string $workingDirectory,
         public bool $forceDatabase = false,
-        public ?string $grantUser = null,
+        public ?string $ownerUser = null,
     ) {}
 }

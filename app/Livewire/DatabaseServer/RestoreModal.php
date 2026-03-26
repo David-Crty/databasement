@@ -41,7 +41,7 @@ class RestoreModal extends Component
 
     public bool $forceDatabase = false;
 
-    public string $grantUser = '';
+    public string $ownerUser = '';
 
     public string $snapshotSearch = '';
 
@@ -87,7 +87,7 @@ class RestoreModal extends Component
     #[On('open-restore-modal')]
     public function openModal(string $targetServerId): void
     {
-        $this->reset(['selectedSnapshotId', 'schemaName', 'forceDatabase', 'grantUser', 'currentStep', 'existingDatabases', 'snapshotSearch', 'serverFilter']);
+        $this->reset(['selectedSnapshotId', 'schemaName', 'forceDatabase', 'ownerUser', 'currentStep', 'existingDatabases', 'snapshotSearch', 'serverFilter']);
         $this->resetPage('snapshots');
         $this->targetServer = DatabaseServer::find($targetServerId);
 
@@ -181,7 +181,7 @@ class RestoreModal extends Component
                 triggeredByUserId: is_int($userId) ? $userId : null,
                 options: array_filter([
                     'force_database' => $this->forceDatabase ?: null,
-                    'grant_user' => $this->grantUser !== '' ? $this->grantUser : null,
+                    'owner_user' => $this->ownerUser !== '' ? $this->ownerUser : null,
                 ]),
             );
 

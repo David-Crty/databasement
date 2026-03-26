@@ -141,10 +141,10 @@
 
                     @if($targetServer?->database_type === \App\Enums\DatabaseType::POSTGRESQL)
                         <x-input
-                            wire:model="grantUser"
-                            :label="__('Grant all privileges to user after restore')"
+                            wire:model="ownerUser"
+                            :label="__('Transfer database ownership to user after restore')"
                             :placeholder="__('PostgreSQL username (leave empty to skip)')"
-                            :hint="__('Grants ALL PRIVILEGES on the database, schema, tables, sequences, and functions to this user. Useful when the restore user differs from the application user.')"
+                            :hint="__('Transfers ownership of the database and all its objects (tables, sequences, functions, schemas) to this user. Useful when the restore user differs from the application user.')"
                         />
                     @endif
 

@@ -113,41 +113,27 @@ class PostgresqlDatabase implements DatabaseInterface
         }
     }
 
-    public function grantPrivileges(string $schemaName, string $username, BackupLogger $logger): void
+    public function transferOwnership(string $schemaName, string $username, BackupLogger $logger): void
     {
         try {
             $safeUser = str_replace('"', '""', $username);
-
-            // Grant database-level privileges (via admin connection to postgres db)
-            $adminPdo = $this->createPdo();
             $safeDb = str_replace('"', '""', $schemaName);
+            $safeRestoreUser = str_replace('"', '""', $this->config['user']);
 
-            $dbGrant = "GRANT ALL PRIVILEGES ON DATABASE \"{$safeDb}\" TO \"{$safeUser}\"";
-            $logger->logCommand($dbGrant, null, 0);
-            $adminPdo->exec($dbGrant);
+            // Transfer database ownership
+            $adminPdo = $this->createPdo();
+            $ownerCmd = "ALTER DATABASE \"{$safeDb}\" OWNER TO \"{$safeUser}\"";
+            $logger->logCommand($ownerCmd, null, 0);
+            $adminPdo->exec($ownerCmd);
 
-            // Grant schema-level privileges (must connect to the target database)
+            // Reassign all objects (tables, sequences, functions, views, schemas)
+            // from the restore connection user to the target user
             $targetPdo = $this->createPdoForDatabase($schemaName);
-
-            $schemaGrant = "GRANT ALL PRIVILEGES ON SCHEMA public TO \"{$safeUser}\"";
-            $logger->logCommand($schemaGrant, null, 0);
-            $targetPdo->exec($schemaGrant);
-
-            $grants = [
-                "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"{$safeUser}\"",
-                "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"{$safeUser}\"",
-                "GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO \"{$safeUser}\"",
-                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"{$safeUser}\"",
-                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \"{$safeUser}\"",
-                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO \"{$safeUser}\"",
-            ];
-
-            foreach ($grants as $grant) {
-                $logger->logCommand($grant, null, 0);
-                $targetPdo->exec($grant);
-            }
+            $reassignCmd = "REASSIGN OWNED BY \"{$safeRestoreUser}\" TO \"{$safeUser}\"";
+            $logger->logCommand($reassignCmd, null, 0);
+            $targetPdo->exec($reassignCmd);
         } catch (\PDOException $e) {
-            throw new ConnectionException("Failed to grant privileges: {$e->getMessage()}", 0, $e);
+            throw new ConnectionException("Failed to transfer ownership: {$e->getMessage()}", 0, $e);
         }
     }
 

@@ -73,7 +73,7 @@ class Restore extends Model
      */
     public function getOption(string $key, mixed $default = null): mixed
     {
-        return $this->options[$key] ?? $default;
+        return is_array($this->options) ? ($this->options[$key] ?? $default) : $default;
     }
 
     /**

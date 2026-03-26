@@ -109,22 +109,15 @@ class MysqlDatabase implements DatabaseInterface
             $pdo = $this->createPdo();
             $schemaName = str_replace('`', '', $schemaName);
 
-            $stmt = $pdo->prepare('SELECT 1 FROM information_schema.schemata WHERE schema_name = ?');
-            $stmt->execute([$schemaName]);
-            $exists = $stmt->fetchColumn();
-
-            if ($exists && $forceDatabase) {
+            if ($forceDatabase) {
                 $dropCommand = "DROP DATABASE IF EXISTS `{$schemaName}`";
                 $logger->logCommand($dropCommand, null, 0);
                 $pdo->exec($dropCommand);
-                $exists = false;
             }
 
-            if (! $exists) {
-                $createCommand = "CREATE DATABASE `{$schemaName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-                $logger->logCommand($createCommand, null, 0);
-                $pdo->exec($createCommand);
-            }
+            $createCommand = "CREATE DATABASE IF NOT EXISTS `{$schemaName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+            $logger->logCommand($createCommand, null, 0);
+            $pdo->exec($createCommand);
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }

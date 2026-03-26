@@ -153,8 +153,10 @@ test('postgresql prepareForRestore terminates connections without dropping datab
         ->pluck('command')
         ->toArray();
 
-    expect($loggedCommands)->not->toContain("DROP DATABASE IF EXISTS \"{$safe}\"")
-        ->and($loggedCommands)->not->toContain("CREATE DATABASE \"{$safe}\"");
+    expect($loggedCommands)
+        ->toContain('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()')
+        ->not->toContain("DROP DATABASE IF EXISTS \"{$safe}\"")
+        ->not->toContain("CREATE DATABASE \"{$safe}\"");
 });
 
 test('backup with extra dump flags succeeds', function (string $type, string $flag) {
