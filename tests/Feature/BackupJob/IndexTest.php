@@ -190,6 +190,72 @@ test('clear resets file missing filter', function () {
         ->assertSet('fileMissing', '');
 });
 
+test('can cancel a pending backup job', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshot = $snapshots[0];
+    $job = $snapshot->job;
+
+    expect($job->status)->toBe('pending');
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('confirmCancelJob', $job->id)
+        ->assertSet('showDeleteModal', true)
+        ->assertSet('cancelJobId', $job->id)
+        ->call('deletePendingJob')
+        ->assertSet('showDeleteModal', false);
+
+    expect(BackupJob::find($job->id))->toBeNull();
+});
+
+test('cannot cancel a non-pending backup job', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshot = $snapshots[0];
+    $job = $snapshot->job;
+    $job->markRunning();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('confirmCancelJob', $job->id)
+        ->assertForbidden();
+});
+
+test('deleting database server cleans up cross-server restore jobs', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $sourceServer = DatabaseServer::factory()->create(['database_names' => ['source_db']]);
+    $targetServer = DatabaseServer::factory()->create([
+        'database_names' => ['target_db'],
+        'database_type' => $sourceServer->database_type,
+    ]);
+
+    // Create a backup on source server
+    $snapshots = $factory->createSnapshots($sourceServer, 'manual', $user->id);
+    $snapshot = $snapshots[0];
+    $snapshot->update(['filename' => 'test.sql.gz', 'file_size' => 100]);
+    $snapshot->job->markCompleted();
+
+    // Create a cross-server restore (source → target)
+    $restore = $factory->createRestore($snapshot, $targetServer, 'restored_db', $user->id);
+    $restoreJobId = $restore->job->id;
+
+    // Delete the TARGET server
+    $targetServer->skipFileCleanup = true;
+    $targetServer->delete();
+
+    // The restore's BackupJob should be cleaned up
+    expect(BackupJob::find($restoreJobId))->toBeNull();
+});
+
 test('can delete snapshot with file and cascades restores and jobs', function () {
     $user = User::factory()->create();
 

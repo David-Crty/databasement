@@ -151,12 +151,22 @@
                         :class="empty($job->logs) ? 'opacity-30' : ''"
                         :disabled="empty($job->logs)"
                     />
-                    @if($job->snapshot)
+                    @if($job->snapshot && $job->status === 'completed')
                         @can('delete', $job->snapshot)
                             <x-button
                                 icon="o-trash"
                                 wire:click="confirmDeleteSnapshot('{{ $job->snapshot->id }}')"
                                 tooltip="{{ __('Delete') }}"
+                                class="btn-ghost btn-sm text-error"
+                            />
+                        @endcan
+                    @endif
+                    @if($job->status === 'pending')
+                        @can('delete', $job)
+                            <x-button
+                                icon="o-x-mark"
+                                wire:click="confirmCancelJob('{{ $job->id }}')"
+                                tooltip="{{ __('Cancel') }}"
                                 class="btn-ghost btn-sm text-error"
                             />
                         @endcan
@@ -170,10 +180,18 @@
     @include('livewire.backup-job._logs-modal')
 
     <!-- DELETE CONFIRMATION MODAL -->
-    <x-delete-confirmation-modal
-        :title="__('Delete Snapshot')"
-        :message="__('Are you sure you want to delete this snapshot? The backup file will be permanently removed.')"
-        onConfirm="deleteSnapshot"
-        :showKeepFiles="true"
-    />
+    @if($cancelJobId)
+        <x-delete-confirmation-modal
+            :title="__('Cancel Job')"
+            :message="__('Are you sure you want to cancel this pending job?')"
+            onConfirm="deletePendingJob"
+        />
+    @else
+        <x-delete-confirmation-modal
+            :title="__('Delete Snapshot')"
+            :message="__('Are you sure you want to delete this snapshot? The backup file will be permanently removed.')"
+            onConfirm="deleteSnapshot"
+            :showKeepFiles="true"
+        />
+    @endif
 </div>

@@ -46,6 +46,9 @@ class Index extends Component
     #[Locked]
     public ?string $deleteSnapshotId = null;
 
+    #[Locked]
+    public ?string $cancelJobId = null;
+
     public bool $showDeleteModal = false;
 
     public bool $keepFiles = false;
@@ -194,7 +197,19 @@ class Index extends Component
         $this->authorize('delete', $snapshot);
 
         $this->deleteSnapshotId = $snapshotId;
+        $this->cancelJobId = null;
         $this->keepFiles = false;
+        $this->showDeleteModal = true;
+    }
+
+    public function confirmCancelJob(string $jobId): void
+    {
+        $job = BackupJob::findOrFail($jobId);
+
+        $this->authorize('delete', $job);
+
+        $this->cancelJobId = $jobId;
+        $this->deleteSnapshotId = null;
         $this->showDeleteModal = true;
     }
 
@@ -214,6 +229,30 @@ class Index extends Component
         $this->showDeleteModal = false;
 
         $this->success(__('Snapshot deleted successfully!'), position: 'toast-bottom');
+    }
+
+    public function deletePendingJob(): void
+    {
+        if (! $this->cancelJobId) {
+            return;
+        }
+
+        $job = BackupJob::findOrFail($this->cancelJobId);
+
+        $this->authorize('delete', $job);
+
+        if ($job->status !== 'pending') {
+            $this->error(__('Job is no longer pending and cannot be deleted.'), position: 'toast-bottom');
+            $this->showDeleteModal = false;
+
+            return;
+        }
+
+        $job->delete();
+        $this->cancelJobId = null;
+        $this->showDeleteModal = false;
+
+        $this->success(__('Job deleted successfully!'), position: 'toast-bottom');
     }
 
     public function render(): View

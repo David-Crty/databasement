@@ -80,6 +80,12 @@ class DatabaseServer extends Model
                 $snapshot->skipFileCleanup = $server->skipFileCleanup;
                 $snapshot->delete();
             }
+
+            // Delete restores targeting this server (cross-server restores)
+            // to trigger their deleting events which clean up BackupJobs
+            foreach (Restore::where('target_server_id', $server->id)->get() as $restore) {
+                $restore->delete();
+            }
         });
     }
 

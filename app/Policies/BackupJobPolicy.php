@@ -15,4 +15,13 @@ class BackupJobPolicy
     {
         return true;
     }
+
+    /**
+     * Determine whether the user can delete the model.
+     * Only pending jobs can be deleted (cancelled before they start).
+     */
+    public function delete(User $user, BackupJob $backupJob): bool
+    {
+        return $backupJob->status === 'pending';
+    }
 }
