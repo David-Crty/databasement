@@ -220,12 +220,20 @@ test('cannot cancel a non-pending backup job', function () {
     $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
     $snapshot = $snapshots[0];
     $job = $snapshot->job;
-    $job->markRunning();
 
-    Livewire::actingAs($user)
+    $component = Livewire::actingAs($user)
         ->test(Index::class)
         ->call('confirmCancelJob', $job->id)
-        ->assertForbidden();
+        ->assertSet('showDeleteModal', true);
+
+    // Job starts running while modal is open
+    $job->markRunning();
+
+    $component
+        ->call('deletePendingJob')
+        ->assertSet('showDeleteModal', false);
+
+    expect(BackupJob::find($job->id))->not->toBeNull();
 });
 
 test('deleting database server cleans up cross-server restore jobs', function () {

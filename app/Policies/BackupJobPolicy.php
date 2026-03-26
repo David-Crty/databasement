@@ -22,6 +22,6 @@ class BackupJobPolicy
      */
     public function delete(User $user, BackupJob $backupJob): bool
     {
-        return $backupJob->status === 'pending';
+        return $user->canPerformActions() && $backupJob->status === 'pending';
     }
 }
