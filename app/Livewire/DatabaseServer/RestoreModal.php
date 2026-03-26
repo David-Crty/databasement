@@ -181,7 +181,7 @@ class RestoreModal extends Component
                 triggeredByUserId: is_int($userId) ? $userId : null,
                 options: array_filter([
                     'force_database' => $this->forceDatabase ?: null,
-                    'owner_user' => $this->ownerUser !== '' ? $this->ownerUser : null,
+                    'owner_user' => ($trimmedOwner = trim($this->ownerUser)) !== '' ? $trimmedOwner : null,
                 ]),
             );
 

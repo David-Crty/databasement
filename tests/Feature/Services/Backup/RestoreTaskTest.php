@@ -91,6 +91,128 @@ function setupDownloadMock(): void
         });
 }
 
+test('execute calls transferOwnership when ownerUser is set and database is PostgreSQL', function () {
+    $mockHandler = Mockery::mock(\App\Services\Backup\Databases\PostgresqlDatabase::class);
+    $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
+    $mockHandler->shouldReceive('restore')
+        ->once()
+        ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
+    $mockHandler->shouldReceive('transferOwnership')
+        ->once()
+        ->with('restored_db', 'app_user', Mockery::type(InMemoryBackupLogger::class));
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')->once()->andReturn($mockHandler);
+
+    setupDownloadMock();
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $config = new RestoreConfig(
+        targetServer: buildTargetConfig(),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.sql.gz',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::MYSQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $this->tempDir.'/owner-test-'.uniqid(),
+        ownerUser: 'app_user',
+    );
+
+    mkdir($config->workingDirectory, 0755, true);
+
+    $logger = new InMemoryBackupLogger;
+    $restoreTask->execute($config, $logger);
+
+    $infoLogs = collect($logger->getLogs())->where('level', 'info')->pluck('message')->toArray();
+    expect($infoLogs)->toContain('Transferring ownership of database "restored_db" to user "app_user"');
+});
+
+test('execute does not call transferOwnership for non-PostgreSQL databases', function () {
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('prepareForRestore')->once()->andReturnNull();
+    $mockHandler->shouldReceive('restore')
+        ->once()
+        ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
+    $mockHandler->shouldNotReceive('transferOwnership');
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')->once()->andReturn($mockHandler);
+
+    setupDownloadMock();
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $config = new RestoreConfig(
+        targetServer: buildTargetConfig(),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.sql.gz',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::MYSQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $this->tempDir.'/no-owner-test-'.uniqid(),
+        ownerUser: 'app_user',
+    );
+
+    mkdir($config->workingDirectory, 0755, true);
+    $restoreTask->execute($config, new InMemoryBackupLogger);
+});
+
+test('execute passes forceDatabase flag to prepareForRestore', function () {
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('prepareForRestore')
+        ->once()
+        ->with('restored_db', Mockery::type(InMemoryBackupLogger::class), true);
+    $mockHandler->shouldReceive('restore')
+        ->once()
+        ->andReturn(new DatabaseOperationResult(command: "echo 'fake restore'"));
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')->once()->andReturn($mockHandler);
+
+    setupDownloadMock();
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $config = new RestoreConfig(
+        targetServer: buildTargetConfig(),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.sql.gz',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::MYSQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $this->tempDir.'/force-test-'.uniqid(),
+        forceDatabase: true,
+    );
+
+    mkdir($config->workingDirectory, 0755, true);
+    $restoreTask->execute($config, new InMemoryBackupLogger);
+});
+
 test('execute restores successfully', function () {
     $mockProvider = buildMockRestoreProvider();
     setupDownloadMock();

@@ -126,12 +126,16 @@ class PostgresqlDatabase implements DatabaseInterface
             $logger->logCommand($ownerCmd, null, 0);
             $adminPdo->exec($ownerCmd);
 
-            // Reassign all objects (tables, sequences, functions, views, schemas)
-            // from the restore connection user to the target user
-            $targetPdo = $this->createPdoForDatabase($schemaName);
-            $reassignCmd = "REASSIGN OWNED BY \"{$safeRestoreUser}\" TO \"{$safeUser}\"";
-            $logger->logCommand($reassignCmd, null, 0);
-            $targetPdo->exec($reassignCmd);
+            // Reassign all objects from the restore connection user to the target user.
+            // Skip when users are the same (would be a no-op).
+            if ($this->config['user'] !== $username) {
+                $targetPdo = $this->createPdoForDatabase($schemaName);
+                $reassignCmd = "REASSIGN OWNED BY \"{$safeRestoreUser}\" TO \"{$safeUser}\"";
+                $logger->logCommand($reassignCmd, null, 0);
+                $targetPdo->exec($reassignCmd);
+            } else {
+                $logger->log('Restore user and target user are the same, skipping object reassignment');
+            }
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to transfer ownership: {$e->getMessage()}", 0, $e);
         }

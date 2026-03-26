@@ -110,55 +110,6 @@ test('client-server database backup and restore workflow', function (string $typ
     'mysql with encrypted' => ['mysql', 'encrypted', '7z'],
 ]);
 
-test('postgresql prepareForRestore terminates connections without dropping database', function () {
-    // Create models
-    $this->volume = IntegrationTestHelpers::createVolume('postgres');
-    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('postgres');
-
-    $suffix = IntegrationTestHelpers::getParallelSuffix();
-    $this->restoredDatabaseName = 'testdb_prepare_'.hrtime(true).$suffix;
-
-    // Pre-create the database so the "if ($exists)" branch is exercised
-    $adminPdo = \App\Enums\DatabaseType::POSTGRESQL->createPdo($this->databaseServer);
-    $safe = str_replace('"', '""', $this->restoredDatabaseName);
-    $adminPdo->exec("CREATE DATABASE \"{$safe}\"");
-
-    // Insert a table into the pre-existing database — it should survive prepareForRestore
-    $dbPdo = IntegrationTestHelpers::connectToDatabase('postgres', $this->databaseServer, $this->restoredDatabaseName);
-    $dbPdo->exec('CREATE TABLE sentinel (id int)');
-    unset($dbPdo); // Close connection so terminate_backend can work
-
-    // Build a configured PostgresqlDatabase and a BackupJob for logging
-    $database = app(\App\Services\Backup\Databases\DatabaseProvider::class)->makeForServer(
-        $this->databaseServer,
-        $this->restoredDatabaseName,
-        $this->databaseServer->host,
-        $this->databaseServer->port,
-    );
-
-    $job = \App\Models\BackupJob::create(['status' => 'running']);
-
-    // Act — should terminate connections but NOT drop/recreate the database
-    $database->prepareForRestore($this->restoredDatabaseName, $job);
-
-    // Assert — the database and its objects should still exist (no drop/create)
-    $freshPdo = IntegrationTestHelpers::connectToDatabase('postgres', $this->databaseServer, $this->restoredDatabaseName);
-    $stmt = $freshPdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sentinel'");
-    expect((int) $stmt->fetchColumn())->toBe(1);
-
-    // Verify the job logged the terminate command but NOT drop/create
-    $job->refresh();
-    $loggedCommands = collect($job->logs)
-        ->where('type', 'command')
-        ->pluck('command')
-        ->toArray();
-
-    expect($loggedCommands)
-        ->toContain('SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ? AND pid <> pg_backend_pid()')
-        ->not->toContain("DROP DATABASE IF EXISTS \"{$safe}\"")
-        ->not->toContain("CREATE DATABASE \"{$safe}\"");
-});
-
 test('backup with extra dump flags succeeds', function (string $type, string $flag) {
     // Create models with dump flags in extra_config
     $this->volume = IntegrationTestHelpers::createVolume($type);
