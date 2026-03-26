@@ -45,7 +45,7 @@ class RedisDatabase implements DatabaseInterface
         throw new UnsupportedDatabaseTypeException('redis');
     }
 
-    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
         throw new UnsupportedDatabaseTypeException('redis');
     }

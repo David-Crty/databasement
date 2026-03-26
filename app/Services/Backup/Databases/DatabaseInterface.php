@@ -25,7 +25,7 @@ interface DatabaseInterface
     /**
      * Prepare the target database for restore (e.g. drop and recreate).
      */
-    public function prepareForRestore(string $schemaName, BackupLogger $logger): void;
+    public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void;
 
     /**
      * List available databases on the server.

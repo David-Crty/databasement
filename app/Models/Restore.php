@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
  * @property string $snapshot_id
  * @property string $target_server_id
  * @property string $schema_name
+ * @property array<string, mixed>|null $options
  * @property string|null $triggered_by_user_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -53,8 +54,27 @@ class Restore extends Model
         'snapshot_id',
         'target_server_id',
         'schema_name',
+        'options',
         'triggered_by_user_id',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'options' => 'array',
+        ];
+    }
+
+    /**
+     * Get a restore option value.
+     */
+    public function getOption(string $key, mixed $default = null): mixed
+    {
+        return $this->options[$key] ?? $default;
+    }
 
     /**
      * @return BelongsTo<Snapshot, Restore>

@@ -71,6 +71,8 @@ class ProcessRestoreJob implements ShouldQueue
                 snapshotDatabaseName: $snapshot->database_name,
                 schemaName: $restore->schema_name,
                 workingDirectory: FilesystemSupport::createWorkingDirectory('restore', $restore->id),
+                forceDatabase: (bool) $restore->getOption('force_database', false),
+                grantUser: $restore->getOption('grant_user'),
             );
 
             $restoreTask->execute($config, $job);

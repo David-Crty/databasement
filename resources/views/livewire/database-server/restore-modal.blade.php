@@ -1,5 +1,5 @@
 <div>
-    <x-modal wire:model="showModal" title="{{ __('Restore Database Snapshot') }}" subtitle="{{ __('Restore to:') }} {{ $targetServer?->name }}" box-class="max-w-3xl w-11/12" class="backdrop-blur">
+    <x-modal wire:model="showModal" :title="__('Restore Database Snapshot')" :subtitle="__('Restore to:') . ' ' . $targetServer?->name" box-class="max-w-3xl w-11/12" class="backdrop-blur">
         <div class="space-y-4">
             <!-- Step Indicator -->
             <ul class="steps steps-horizontal w-full">
@@ -22,7 +22,7 @@
                         />
                         <x-input
                             wire:model.live.debounce.300ms="snapshotSearch"
-                            placeholder="{{ __('Search database...') }}"
+                            :placeholder="__('Search database...')"
                             icon="o-magnifying-glass"
                             clearable
                             class="flex-1"
@@ -97,8 +97,8 @@
                     <div x-data="{ open: false }" @click.outside="open = false" class="relative">
                         <x-input
                             wire:model.live.debounce.200ms="schemaName"
-                            label="{{ __('Destination Database Name') }}"
-                            placeholder="{{ __('Type or select database name...') }}"
+                            :label="__('Destination Database Name')"
+                            :placeholder="__('Type or select database name...')"
                             @focus="open = true"
                             @keydown.escape="open = false"
                             autocomplete="off"
@@ -137,6 +137,23 @@
                             The database <x-badge class="badge-error badge-dash" :value="$schemaName" /> already exists.<br>
                             {{ __('It will be overwritten if you continue.') }}
                         </x-alert>
+                    @endif
+
+                    @if($targetServer?->database_type === \App\Enums\DatabaseType::POSTGRESQL)
+                        <x-input
+                            wire:model="grantUser"
+                            :label="__('Grant all privileges to user after restore')"
+                            :placeholder="__('PostgreSQL username (leave empty to skip)')"
+                            :hint="__('Grants ALL PRIVILEGES on the database, schema, tables, sequences, and functions to this user. Useful when the restore user differs from the application user.')"
+                        />
+                    @endif
+
+                    @if(in_array($targetServer?->database_type, [\App\Enums\DatabaseType::MYSQL, \App\Enums\DatabaseType::POSTGRESQL]))
+                        <x-checkbox
+                            wire:model="forceDatabase"
+                            :label="__('Drop and recreate database before restore')"
+                            :hint="__('Not usually needed — dumps already include per-table DROP/CREATE statements. Use this only if you need a completely clean database (e.g. to remove tables not in the snapshot).')"
+                        />
                     @endif
 
                     @if($this->selectedSnapshot)

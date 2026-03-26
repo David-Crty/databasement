@@ -84,7 +84,7 @@ class RestoreTask
                 $config->snapshotDatabaseName,
             );
 
-            $this->prepareDatabase($database, $config->schemaName, $logger);
+            $this->prepareDatabase($database, $config->schemaName, $logger, $config->forceDatabase);
 
             $logger->log('Restoring database from snapshot', 'info', [
                 'source_database' => $config->snapshotDatabaseName,
@@ -97,6 +97,11 @@ class RestoreTask
             }
             if ($result->log !== null) {
                 $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
+            }
+
+            if ($config->grantUser !== null && $database instanceof Databases\PostgresqlDatabase) {
+                $logger->log("Granting all privileges to user \"{$config->grantUser}\" on database \"{$config->schemaName}\"", 'info');
+                $database->grantPrivileges($config->schemaName, $config->grantUser, $logger);
             }
 
             // Mark job as completed
@@ -122,8 +127,8 @@ class RestoreTask
         }
     }
 
-    protected function prepareDatabase(DatabaseInterface $database, string $schemaName, BackupLogger $logger): void
+    protected function prepareDatabase(DatabaseInterface $database, string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
-        $database->prepareForRestore($schemaName, $logger);
+        $database->prepareForRestore($schemaName, $logger, $forceDatabase);
     }
 }

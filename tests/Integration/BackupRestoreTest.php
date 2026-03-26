@@ -110,7 +110,7 @@ test('client-server database backup and restore workflow', function (string $typ
     'mysql with encrypted' => ['mysql', 'encrypted', '7z'],
 ]);
 
-test('postgresql prepareForRestore drops and recreates existing database', function () {
+test('postgresql prepareForRestore terminates connections without dropping database', function () {
     // Create models
     $this->volume = IntegrationTestHelpers::createVolume('postgres');
     $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('postgres');
@@ -123,7 +123,7 @@ test('postgresql prepareForRestore drops and recreates existing database', funct
     $safe = str_replace('"', '""', $this->restoredDatabaseName);
     $adminPdo->exec("CREATE DATABASE \"{$safe}\"");
 
-    // Insert a table into the pre-existing database to verify it gets dropped
+    // Insert a table into the pre-existing database — it should survive prepareForRestore
     $dbPdo = IntegrationTestHelpers::connectToDatabase('postgres', $this->databaseServer, $this->restoredDatabaseName);
     $dbPdo->exec('CREATE TABLE sentinel (id int)');
     unset($dbPdo); // Close connection so terminate_backend can work
@@ -138,23 +138,23 @@ test('postgresql prepareForRestore drops and recreates existing database', funct
 
     $job = \App\Models\BackupJob::create(['status' => 'running']);
 
-    // Act — this should hit the $exists branch: terminate connections, drop, then create
+    // Act — should terminate connections but NOT drop/recreate the database
     $database->prepareForRestore($this->restoredDatabaseName, $job);
 
-    // Assert — the database exists but the sentinel table should be gone (fresh database)
+    // Assert — the database and its objects should still exist (no drop/create)
     $freshPdo = IntegrationTestHelpers::connectToDatabase('postgres', $this->databaseServer, $this->restoredDatabaseName);
     $stmt = $freshPdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'sentinel'");
-    expect((int) $stmt->fetchColumn())->toBe(0);
+    expect((int) $stmt->fetchColumn())->toBe(1);
 
-    // Verify the job logged the drop and create commands
+    // Verify the job logged the terminate command but NOT drop/create
     $job->refresh();
     $loggedCommands = collect($job->logs)
         ->where('type', 'command')
         ->pluck('command')
         ->toArray();
 
-    expect($loggedCommands)->toContain("DROP DATABASE IF EXISTS \"{$safe}\"")
-        ->and($loggedCommands)->toContain("CREATE DATABASE \"{$safe}\"");
+    expect($loggedCommands)->not->toContain("DROP DATABASE IF EXISTS \"{$safe}\"")
+        ->and($loggedCommands)->not->toContain("CREATE DATABASE \"{$safe}\"");
 });
 
 test('backup with extra dump flags succeeds', function (string $type, string $flag) {

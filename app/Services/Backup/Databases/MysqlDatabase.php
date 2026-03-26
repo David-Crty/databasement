@@ -103,19 +103,28 @@ class MysqlDatabase implements DatabaseInterface
         ));
     }
 
-    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
         try {
             $pdo = $this->createPdo();
             $schemaName = str_replace('`', '', $schemaName);
 
-            $dropCommand = "DROP DATABASE IF EXISTS `{$schemaName}`";
-            $logger->logCommand($dropCommand, null, 0);
-            $pdo->exec($dropCommand);
+            $stmt = $pdo->prepare('SELECT 1 FROM information_schema.schemata WHERE schema_name = ?');
+            $stmt->execute([$schemaName]);
+            $exists = $stmt->fetchColumn();
 
-            $createCommand = "CREATE DATABASE `{$schemaName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-            $logger->logCommand($createCommand, null, 0);
-            $pdo->exec($createCommand);
+            if ($exists && $forceDatabase) {
+                $dropCommand = "DROP DATABASE IF EXISTS `{$schemaName}`";
+                $logger->logCommand($dropCommand, null, 0);
+                $pdo->exec($dropCommand);
+                $exists = false;
+            }
+
+            if (! $exists) {
+                $createCommand = "CREATE DATABASE `{$schemaName}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+                $logger->logCommand($createCommand, null, 0);
+                $pdo->exec($createCommand);
+            }
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
         }

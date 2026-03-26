@@ -39,6 +39,10 @@ class RestoreModal extends Component
 
     public bool $showModal = false;
 
+    public bool $forceDatabase = false;
+
+    public string $grantUser = '';
+
     public string $snapshotSearch = '';
 
     public ?string $serverFilter = null;
@@ -83,13 +87,11 @@ class RestoreModal extends Component
     #[On('open-restore-modal')]
     public function openModal(string $targetServerId): void
     {
-        $this->reset(['selectedSnapshotId', 'schemaName', 'currentStep', 'existingDatabases', 'snapshotSearch', 'serverFilter']);
+        $this->reset(['selectedSnapshotId', 'schemaName', 'forceDatabase', 'grantUser', 'currentStep', 'existingDatabases', 'snapshotSearch', 'serverFilter']);
         $this->resetPage('snapshots');
         $this->targetServer = DatabaseServer::find($targetServerId);
 
         $this->authorize('restore', $this->targetServer);
-
-        $this->currentStep = 1;
 
         $this->showModal = true;
     }
@@ -176,7 +178,11 @@ class RestoreModal extends Component
                 snapshot: $snapshot,
                 targetServer: $this->targetServer,
                 schemaName: $this->schemaName,
-                triggeredByUserId: is_int($userId) ? $userId : null
+                triggeredByUserId: is_int($userId) ? $userId : null,
+                options: array_filter([
+                    'force_database' => $this->forceDatabase ?: null,
+                    'grant_user' => $this->grantUser !== '' ? $this->grantUser : null,
+                ]),
             );
 
             ProcessRestoreJob::dispatch($restore->id);
@@ -194,9 +200,9 @@ class RestoreModal extends Component
     /**
      * Get compatible servers for the filter dropdown.
      *
-     * @return \Illuminate\Database\Eloquent\Collection<int, DatabaseServer>|Collection<int, never>
+     * @return Collection<int, DatabaseServer>
      */
-    public function getCompatibleServersProperty(): Collection|\Illuminate\Database\Eloquent\Collection
+    public function getCompatibleServersProperty(): Collection
     {
         if (! $this->targetServer) {
             return collect();

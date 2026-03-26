@@ -74,7 +74,7 @@ class PostgresqlDatabase implements DatabaseInterface
         ));
     }
 
-    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
         try {
             $pdo = $this->createPdo();
@@ -94,16 +94,60 @@ class PostgresqlDatabase implements DatabaseInterface
                 $terminateStmt = $pdo->prepare($terminateCommand);
                 $terminateStmt->execute([$schemaName]);
 
-                $dropCommand = "DROP DATABASE IF EXISTS \"{$safeIdentifier}\"";
-                $logger->logCommand($dropCommand, null, 0);
-                $pdo->exec($dropCommand);
-            }
+                if ($forceDatabase) {
+                    $dropCommand = "DROP DATABASE IF EXISTS \"{$safeIdentifier}\"";
+                    $logger->logCommand($dropCommand, null, 0);
+                    $pdo->exec($dropCommand);
 
-            $createCommand = "CREATE DATABASE \"{$safeIdentifier}\"";
-            $logger->logCommand($createCommand, null, 0);
-            $pdo->exec($createCommand);
+                    $createCommand = "CREATE DATABASE \"{$safeIdentifier}\"";
+                    $logger->logCommand($createCommand, null, 0);
+                    $pdo->exec($createCommand);
+                }
+            } else {
+                $createCommand = "CREATE DATABASE \"{$safeIdentifier}\"";
+                $logger->logCommand($createCommand, null, 0);
+                $pdo->exec($createCommand);
+            }
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to prepare database: {$e->getMessage()}", 0, $e);
+        }
+    }
+
+    public function grantPrivileges(string $schemaName, string $username, BackupLogger $logger): void
+    {
+        try {
+            $safeUser = str_replace('"', '""', $username);
+
+            // Grant database-level privileges (via admin connection to postgres db)
+            $adminPdo = $this->createPdo();
+            $safeDb = str_replace('"', '""', $schemaName);
+
+            $dbGrant = "GRANT ALL PRIVILEGES ON DATABASE \"{$safeDb}\" TO \"{$safeUser}\"";
+            $logger->logCommand($dbGrant, null, 0);
+            $adminPdo->exec($dbGrant);
+
+            // Grant schema-level privileges (must connect to the target database)
+            $targetPdo = $this->createPdoForDatabase($schemaName);
+
+            $schemaGrant = "GRANT ALL PRIVILEGES ON SCHEMA public TO \"{$safeUser}\"";
+            $logger->logCommand($schemaGrant, null, 0);
+            $targetPdo->exec($schemaGrant);
+
+            $grants = [
+                "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"{$safeUser}\"",
+                "GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"{$safeUser}\"",
+                "GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO \"{$safeUser}\"",
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"{$safeUser}\"",
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \"{$safeUser}\"",
+                "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO \"{$safeUser}\"",
+            ];
+
+            foreach ($grants as $grant) {
+                $logger->logCommand($grant, null, 0);
+                $targetPdo->exec($grant);
+            }
+        } catch (\PDOException $e) {
+            throw new ConnectionException("Failed to grant privileges: {$e->getMessage()}", 0, $e);
         }
     }
 
@@ -176,7 +220,12 @@ class PostgresqlDatabase implements DatabaseInterface
 
     protected function createPdo(): \PDO
     {
-        $dsn = sprintf('pgsql:host=%s;port=%d;dbname=postgres', $this->config['host'], $this->config['port']);
+        return $this->createPdoForDatabase('postgres');
+    }
+
+    protected function createPdoForDatabase(string $database): \PDO
+    {
+        $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s', $this->config['host'], $this->config['port'], $database);
 
         return new \PDO($dsn, $this->config['user'], $this->config['pass'], [
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,

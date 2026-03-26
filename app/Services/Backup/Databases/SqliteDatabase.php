@@ -179,7 +179,7 @@ class SqliteDatabase implements DatabaseInterface
         ));
     }
 
-    public function prepareForRestore(string $schemaName, BackupLogger $logger): void
+    public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
         // SQLite doesn't need database preparation — the file is replaced during restore
     }

@@ -119,13 +119,16 @@ class BackupJobFactory
     /**
      * Create a BackupJob and Restore for a snapshot restore operation.
      *
+     * @param  array<string, mixed>  $options
+     *
      * @throws ValidationException
      */
     public function createRestore(
         Snapshot $snapshot,
         DatabaseServer $targetServer,
         string $schemaName,
-        ?int $triggeredByUserId = null
+        ?int $triggeredByUserId = null,
+        array $options = [],
     ): Restore {
         if ($snapshot->database_type !== $targetServer->database_type) {
             throw ValidationException::withMessages([
@@ -146,6 +149,7 @@ class BackupJobFactory
             'snapshot_id' => $snapshot->id,
             'target_server_id' => $targetServer->id,
             'schema_name' => $schemaName,
+            'options' => $options ?: null,
             'triggered_by_user_id' => $triggeredByUserId,
         ]);
 
