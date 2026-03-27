@@ -7,6 +7,7 @@ use App\Notifications\Channels\WebhookChannel;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Notifications\Slack\SlackMessage;
+use NotificationChannels\Discord\DiscordChannel;
 use NotificationChannels\Discord\DiscordMessage;
 use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverMessage;
@@ -23,7 +24,7 @@ abstract class BaseFailedNotification extends Notification
     private const array CHANNEL_MAP = [
         'mail' => 'mail',
         'slack' => 'slack',
-        'discord' => 'discord',
+        'discord' => DiscordChannel::class,
         'telegram' => TelegramChannel::class,
         'pushover' => PushoverChannel::class,
         'gotify' => GotifyChannel::class,

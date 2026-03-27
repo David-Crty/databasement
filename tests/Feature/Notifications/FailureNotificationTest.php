@@ -17,6 +17,7 @@ use Illuminate\Notifications\Slack\SlackMessage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use NotificationChannels\Discord\DiscordChannel;
 use NotificationChannels\Discord\DiscordMessage;
 use NotificationChannels\Pushover\PushoverChannel;
 use NotificationChannels\Pushover\PushoverMessage;
@@ -125,7 +126,7 @@ test('notification is sent to channel when configured', function (string $config
     );
 })->with([
     'slack' => ['notifications.slack.webhook_url', 'https://hooks.slack.com/services/test', 'slack', 'slack'],
-    'discord' => ['notifications.discord.channel_id', '123456789012345678', 'discord', 'discord'],
+    'discord' => ['notifications.discord.channel_id', '123456789012345678', DiscordChannel::class, 'discord'],
     'telegram' => ['notifications.telegram.chat_id', '123456', TelegramChannel::class, 'telegram'],
     'pushover' => ['notifications.pushover.user_key', 'user-key-123', PushoverChannel::class, 'pushover'],
     'gotify' => ['notifications.gotify.url', 'https://gotify.example.com', GotifyChannel::class, 'gotify'],
@@ -200,7 +201,7 @@ test('via method returns channels based on configured routes', function () {
     expect($channels)->toBe([
         'mail',
         'slack',
-        'discord',
+        DiscordChannel::class,
         TelegramChannel::class,
         PushoverChannel::class,
         GotifyChannel::class,
