@@ -270,6 +270,20 @@
                     </x-config-row>
                 @endif
 
+                @if (in_array('discord_webhook', $form->channels))
+                    <x-hr class="my-2" />
+
+                    <x-config-row label="{{ __('Discord Webhook URL') }}">
+                        <x-slot:description>
+                            {{ __('Webhook URL for Discord notifications. No bot required.') }}
+                            @if ($form->has_discord_webhook_url)
+                                {{ __('Leave blank to keep the current value.') }}
+                            @endif
+                        </x-slot:description>
+                        <x-input wire:model.blur="form.discord_webhook_url" type="password" placeholder="{{ $form->has_discord_webhook_url ? '********' : '' }}" :disabled="!$this->isAdmin" />
+                    </x-config-row>
+                @endif
+
                 @if (in_array('telegram', $form->channels))
                     <x-hr class="my-2" />
 

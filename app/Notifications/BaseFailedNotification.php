@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Channels\DiscordWebhookChannel;
 use App\Notifications\Channels\GotifyChannel;
 use App\Notifications\Channels\WebhookChannel;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -28,6 +29,7 @@ abstract class BaseFailedNotification extends Notification
         'telegram' => TelegramChannel::class,
         'pushover' => PushoverChannel::class,
         'gotify' => GotifyChannel::class,
+        'discord_webhook' => DiscordWebhookChannel::class,
         'webhook' => WebhookChannel::class,
     ];
 
@@ -104,6 +106,14 @@ abstract class BaseFailedNotification extends Notification
     public function toPushover(object $notifiable): PushoverMessage
     {
         return $this->getMessage()->toPushover();
+    }
+
+    /**
+     * @return array{content: string, embeds: array<int, array<string, mixed>>}
+     */
+    public function toDiscordWebhook(object $notifiable): array
+    {
+        return $this->getMessage()->toDiscordWebhook();
     }
 
     /**

@@ -383,7 +383,8 @@ class Index extends Component
         return [
             ['id' => 'email', 'name' => __('Email')],
             ['id' => 'slack', 'name' => __('Slack')],
-            ['id' => 'discord', 'name' => __('Discord')],
+            ['id' => 'discord', 'name' => __('Discord (Bot)')],
+            ['id' => 'discord_webhook', 'name' => __('Discord (Webhook)')],
             ['id' => 'telegram', 'name' => __('Telegram')],
             ['id' => 'pushover', 'name' => __('Pushover')],
             ['id' => 'gotify', 'name' => __('Gotify')],

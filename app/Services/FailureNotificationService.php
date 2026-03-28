@@ -93,6 +93,7 @@ class FailureNotificationService
             'telegram' => AppConfig::get('notifications.telegram.chat_id'),
             'pushover' => AppConfig::get('notifications.pushover.user_key'),
             'gotify' => AppConfig::get('notifications.gotify.url'),
+            'discord_webhook' => AppConfig::get('notifications.discord_webhook.url'),
             'webhook' => AppConfig::get('notifications.webhook.url'),
         ]);
     }

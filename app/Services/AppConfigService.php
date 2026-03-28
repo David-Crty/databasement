@@ -34,6 +34,7 @@ class AppConfigService
         'notifications.pushover.user_key' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
         'notifications.gotify.url' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
         'notifications.gotify.token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
+        'notifications.discord_webhook.url' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
         'notifications.webhook.url' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
         'notifications.webhook.secret' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
     ];

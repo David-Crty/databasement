@@ -295,6 +295,19 @@ test('saving webhook config persists values', function () {
     expect(AppConfig::get('notifications.webhook.url'))->toBe('https://webhook.example.com/hook');
 });
 
+test('saving discord webhook config persists url', function () {
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->set('form.channels', ['discord_webhook'])
+        ->set('form.discord_webhook_url', 'https://discord.com/api/webhooks/123/abc')
+        ->call('saveNotificationConfig')
+        ->assertHasNoErrors()
+        ->assertSet('form.has_discord_webhook_url', true)
+        ->assertSet('form.discord_webhook_url', '');
+
+    expect(AppConfig::get('notifications.discord_webhook.url'))->toBe('https://discord.com/api/webhooks/123/abc');
+});
+
 test('deselecting new channels nulls their values on save', function () {
     AppConfig::set('notifications.telegram.bot_token', 'bot-token');
     AppConfig::set('notifications.telegram.chat_id', '123');
@@ -302,6 +315,7 @@ test('deselecting new channels nulls their values on save', function () {
     AppConfig::set('notifications.pushover.user_key', 'push-user');
     AppConfig::set('notifications.gotify.url', 'https://gotify.example.com');
     AppConfig::set('notifications.gotify.token', 'token');
+    AppConfig::set('notifications.discord_webhook.url', 'https://discord.com/api/webhooks/123/abc');
     AppConfig::set('notifications.webhook.url', 'https://webhook.example.com');
     AppConfig::set('notifications.webhook.secret', 'secret');
 
@@ -317,6 +331,7 @@ test('deselecting new channels nulls their values on save', function () {
         ->and(AppConfig::get('notifications.pushover.user_key'))->toBeNull()
         ->and(AppConfig::get('notifications.gotify.url'))->toBeNull()
         ->and(AppConfig::get('notifications.gotify.token'))->toBeNull()
+        ->and(AppConfig::get('notifications.discord_webhook.url'))->toBeNull()
         ->and(AppConfig::get('notifications.webhook.url'))->toBeNull()
         ->and(AppConfig::get('notifications.webhook.secret'))->toBeNull();
 });
@@ -346,6 +361,10 @@ test('form pre-selects channel when config exists', function (array $setup, stri
     'gotify' => [
         ['notifications.gotify.url' => 'https://gotify.example.com', 'notifications.gotify.token' => 'app-token'],
         'gotify',
+    ],
+    'discord_webhook' => [
+        ['notifications.discord_webhook.url' => 'https://discord.com/api/webhooks/123/abc'],
+        'discord_webhook',
     ],
     'webhook' => [
         ['notifications.webhook.url' => 'https://webhook.example.com/hook'],

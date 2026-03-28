@@ -6,6 +6,7 @@ use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Notifications\BackupFailedNotification;
+use App\Notifications\Channels\DiscordWebhookChannel;
 use App\Notifications\Channels\GotifyChannel;
 use App\Notifications\Channels\WebhookChannel;
 use App\Notifications\RestoreFailedNotification;
@@ -130,6 +131,7 @@ test('notification is sent to channel when configured', function (string $config
     'telegram' => ['notifications.telegram.chat_id', '123456', TelegramChannel::class, 'telegram'],
     'pushover' => ['notifications.pushover.user_key', 'user-key-123', PushoverChannel::class, 'pushover'],
     'gotify' => ['notifications.gotify.url', 'https://gotify.example.com', GotifyChannel::class, 'gotify'],
+    'discord_webhook' => ['notifications.discord_webhook.url', 'https://discord.com/api/webhooks/123/abc', DiscordWebhookChannel::class, 'discord_webhook'],
     'webhook' => ['notifications.webhook.url', 'https://webhook.example.com/hook', WebhookChannel::class, 'webhook'],
 ]);
 
@@ -196,6 +198,7 @@ test('via method returns channels based on configured routes', function () {
         'telegram' => '123456',
         'pushover' => 'user-key-123',
         'gotify' => 'https://gotify.example.com',
+        'discord_webhook' => 'https://discord.com/api/webhooks/123/abc',
         'webhook' => 'https://webhook.example.com/hook',
     ]]);
     expect($channels)->toBe([
@@ -205,6 +208,7 @@ test('via method returns channels based on configured routes', function () {
         TelegramChannel::class,
         PushoverChannel::class,
         GotifyChannel::class,
+        DiscordWebhookChannel::class,
         WebhookChannel::class,
     ]);
 
@@ -284,6 +288,14 @@ test('notification renders channel correctly', function (Closure $assert) {
             ->and($gotify['message'])->toContain('Test error')
             ->and($gotify['priority'])->toBe(8);
     }],
+    'discord_webhook' => [function (BackupFailedNotification $notification) {
+        $payload = $notification->toDiscordWebhook((object) []);
+        expect($payload)->toBeArray()
+            ->and($payload['content'])->toBeString()
+            ->and($payload['embeds'])->toHaveCount(1)
+            ->and($payload['embeds'][0]['title'])->toContain('Backup Failed')
+            ->and($payload['embeds'][0]['color'])->toBe(15158332);
+    }],
     'webhook' => [function (BackupFailedNotification $notification) {
         $webhook = $notification->toWebhook((object) []);
         expect($webhook)->toBeArray()
@@ -317,6 +329,12 @@ test('custom channel sends HTTP request', function (string $channelClass, array 
             && $request->hasHeader('X-Gotify-Key', 'app-token')
             && str_contains($request['title'], 'Backup Failed'),
     ],
+    'discord_webhook' => [
+        DiscordWebhookChannel::class,
+        ['notifications.discord_webhook.url' => 'https://discord.com/api/webhooks/123/abc'],
+        fn (Request $request) => $request->url() === 'https://discord.com/api/webhooks/123/abc'
+            && str_contains($request['embeds'][0]['title'], 'Backup Failed'),
+    ],
     'webhook' => [
         WebhookChannel::class,
         ['notifications.webhook.url' => 'https://webhook.example.com/hook', 'notifications.webhook.secret' => 'my-secret'],
@@ -348,6 +366,11 @@ test('custom channel logs on HTTP failure without throwing', function (string $c
         GotifyChannel::class,
         ['notifications.gotify.url' => 'https://gotify.example.com', 'notifications.gotify.token' => 'app-token'],
         'Gotify notification failed',
+    ],
+    'discord_webhook' => [
+        DiscordWebhookChannel::class,
+        ['notifications.discord_webhook.url' => 'https://discord.com/api/webhooks/123/abc'],
+        'Discord webhook notification failed',
     ],
     'webhook' => [
         WebhookChannel::class,

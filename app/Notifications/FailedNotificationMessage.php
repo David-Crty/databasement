@@ -144,6 +144,33 @@ class FailedNotificationMessage
     }
 
     /**
+     * @return array{content: string, embeds: array<int, array<string, mixed>>}
+     */
+    public function toDiscordWebhook(): array
+    {
+        $embedFields = [];
+
+        foreach ($this->fields as $label => $value) {
+            $embedFields[] = ['name' => $label, 'value' => $value, 'inline' => true];
+        }
+
+        $embedFields[] = ['name' => 'Error', 'value' => "```{$this->errorMessage}```", 'inline' => false];
+        $embedFields[] = ['name' => 'Job Details', 'value' => "[{$this->actionText}]({$this->actionUrl})", 'inline' => false];
+
+        return [
+            'content' => $this->body,
+            'embeds' => [
+                [
+                    'title' => $this->title,
+                    'color' => 15158332,
+                    'fields' => $embedFields,
+                    'footer' => ['text' => $this->footerText],
+                ],
+            ],
+        ];
+    }
+
+    /**
      * @return array{event: string, title: string, body: string, fields: array<string, string>, error: string, action_url: string, timestamp: string}
      */
     public function toWebhook(string $event): array

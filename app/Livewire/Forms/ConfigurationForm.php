@@ -65,6 +65,10 @@ class ConfigurationForm extends Form
 
     public bool $has_gotify_token = false;
 
+    public string $discord_webhook_url = '';
+
+    public bool $has_discord_webhook_url = false;
+
     public string $webhook_url = '';
 
     public string $webhook_secret = '';
@@ -98,6 +102,7 @@ class ConfigurationForm extends Form
         $this->has_pushover_user_key = (bool) AppConfig::get('notifications.pushover.user_key');
         $this->gotify_url = (string) AppConfig::get('notifications.gotify.url');
         $this->has_gotify_token = (bool) AppConfig::get('notifications.gotify.token');
+        $this->has_discord_webhook_url = (bool) AppConfig::get('notifications.discord_webhook.url');
         $this->webhook_url = (string) AppConfig::get('notifications.webhook.url');
         $this->has_webhook_secret = (bool) AppConfig::get('notifications.webhook.secret');
 
@@ -120,6 +125,9 @@ class ConfigurationForm extends Form
         }
         if ($this->gotify_url !== '' || $this->has_gotify_token) {
             $this->channels[] = 'gotify';
+        }
+        if ($this->has_discord_webhook_url) {
+            $this->channels[] = 'discord_webhook';
         }
         if ($this->webhook_url !== '') {
             $this->channels[] = 'webhook';
@@ -166,6 +174,7 @@ class ConfigurationForm extends Form
             'pushover_user_key' => [$this->channelSelected('pushover') && ! $this->has_pushover_user_key ? 'required' : 'nullable', 'string', 'max:100'],
             'gotify_url' => [$this->channelSelected('gotify') ? 'required' : 'nullable', 'string', 'url', 'max:500'],
             'gotify_token' => [$this->channelSelected('gotify') && ! $this->has_gotify_token ? 'required' : 'nullable', 'string', 'max:500'],
+            'discord_webhook_url' => [$this->channelSelected('discord_webhook') && ! $this->has_discord_webhook_url ? 'required' : 'nullable', 'string', 'url', 'max:500'],
             'webhook_url' => [$this->channelSelected('webhook') ? 'required' : 'nullable', 'string', 'url', 'max:500'],
             'webhook_secret' => ['nullable', 'string', 'max:500'],
         ];
@@ -276,6 +285,13 @@ class ConfigurationForm extends Form
             AppConfig::set('notifications.gotify.url', null);
             $this->clearSensitiveField('notifications.gotify.token', 'gotify_token', 'has_gotify_token');
             $this->gotify_url = '';
+        }
+
+        // Discord Webhook channel
+        if ($this->channelSelected('discord_webhook')) {
+            $this->saveSensitiveField('notifications.discord_webhook.url', 'discord_webhook_url', 'has_discord_webhook_url');
+        } else {
+            $this->clearSensitiveField('notifications.discord_webhook.url', 'discord_webhook_url', 'has_discord_webhook_url');
         }
 
         // Webhook channel
