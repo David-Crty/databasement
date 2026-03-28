@@ -57,7 +57,7 @@ Channels are mapped by route key in `BaseFailedNotification::CHANNEL_MAP`. The r
 
 ## Anti-patterns
 
-- **Channels should use `->throw()` on HTTP responses** — consistent with Laravel's Slack channel. `FailureNotificationService::send()` wraps the notify call in try/catch, so exceptions are logged without crashing jobs or killing `sendTestNotification()` feedback.
+- **Channels should use `->throw()` on HTTP responses** — consistent with Laravel's Slack channel. `FailureNotificationService::send()` does NOT catch exceptions; they bubble up to callers. `sendTestNotification()` has its own try/catch to show errors in the UI. Production callers (queue job `failed()` methods) are protected by Laravel's `Worker::runJob()` catch-all.
 - **Never read tokens from `config('services.*')` in custom channels** — use `AppConfig::get()` directly. The services config may be stale under Octane.
 - **Never add channel-specific rendering in concrete notifications** — all rendering goes through `FailedNotificationMessage`. Concrete notifications only define `getMessage()`.
 - **Never use `$notifiable->routeNotificationFor()` in custom channels** — that pattern is for vendor channels. Custom channels fetch their own config from `AppConfig`.

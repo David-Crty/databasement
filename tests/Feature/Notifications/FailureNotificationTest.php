@@ -16,7 +16,6 @@ use App\Services\FailureNotificationService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Notifications\Slack\SlackMessage;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use NotificationChannels\Discord\DiscordChannel;
 use NotificationChannels\Discord\DiscordMessage;
@@ -366,15 +365,12 @@ test('custom channel throws on HTTP failure', function (string $channelClass, ar
     'discord_webhook' => [
         DiscordWebhookChannel::class,
         ['notifications.discord_webhook.url' => 'https://discord.com/api/webhooks/123/abc'],
-        'Discord webhook notification failed',
     ],
     'webhook' => [
         WebhookChannel::class,
         ['notifications.webhook.url' => 'https://webhook.example.com/hook'],
     ],
 ]);
-
-
 
 test('ProcessBackupJob sends notification when backup fails', function () {
     AppConfig::set('notifications.enabled', true);
