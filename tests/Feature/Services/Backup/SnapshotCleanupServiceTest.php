@@ -63,7 +63,9 @@ test('dry-run mode does not delete snapshots', function () {
 });
 
 test('GFS retention combines daily, weekly, and monthly tiers', function () {
-    $this->travelTo(now()->next('Saturday')->setTime(12, 0));
+    // Fixed mid-month Saturday avoids day3 landing on a month boundary,
+    // which would cause the monthly tier to keep it as the oldest in the month.
+    $this->travelTo(\Carbon\Carbon::create(2026, 6, 20, 12, 0));
 
     $server = DatabaseServer::factory()->create();
     $server->backup->update([
