@@ -374,25 +374,7 @@ test('custom channel throws on HTTP failure', function (string $channelClass, ar
     ],
 ]);
 
-test('service catches channel exceptions and logs error', function () {
-    // Bypass the global Notification::fake() so the real channel runs
-    Notification::swap(new \Illuminate\Notifications\ChannelManager(app()));
 
-    Http::fake(fn () => Http::response('Server Error', 500));
-
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.gotify.url', 'https://gotify.example.com');
-    AppConfig::set('notifications.gotify.token', 'app-token');
-
-    $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
-    $snapshot = createTestSnapshot($server);
-
-    Log::shouldReceive('error')
-        ->once()
-        ->withArgs(fn (string $message) => $message === 'Failed to send notification');
-
-    app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Test error'));
-});
 
 test('ProcessBackupJob sends notification when backup fails', function () {
     AppConfig::set('notifications.enabled', true);

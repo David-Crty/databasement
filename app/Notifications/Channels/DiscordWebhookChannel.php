@@ -5,7 +5,6 @@ namespace App\Notifications\Channels;
 use App\Facades\AppConfig;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class DiscordWebhookChannel
 {
@@ -20,21 +19,6 @@ class DiscordWebhookChannel
             return;
         }
 
-        try {
-            $response = Http::timeout(10)->post($url, $payload);
-        } catch (\Throwable $e) {
-            Log::error('Discord webhook notification failed', [
-                'exception' => $e->getMessage(),
-            ]);
-
-            return;
-        }
-
-        if ($response->failed()) {
-            Log::error('Discord webhook notification failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-        }
+        Http::timeout(10)->post($url, $payload)->throw();
     }
 }
