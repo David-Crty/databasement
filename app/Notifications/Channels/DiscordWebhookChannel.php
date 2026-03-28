@@ -20,7 +20,15 @@ class DiscordWebhookChannel
             return;
         }
 
-        $response = Http::timeout(10)->post($url, $payload);
+        try {
+            $response = Http::timeout(10)->post($url, $payload);
+        } catch (\Throwable $e) {
+            Log::error('Discord webhook notification failed', [
+                'exception' => $e->getMessage(),
+            ]);
+
+            return;
+        }
 
         if ($response->failed()) {
             Log::error('Discord webhook notification failed', [
