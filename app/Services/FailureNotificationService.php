@@ -10,6 +10,7 @@ use App\Notifications\BaseFailedNotification;
 use App\Notifications\RestoreFailedNotification;
 use App\Notifications\SnapshotsMissingNotification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
 class FailureNotificationService
@@ -46,7 +47,14 @@ class FailureNotificationService
 
         $this->refreshChannelServiceConfigs($routes);
 
-        Notification::routes($routes)->notify($notification);
+        try {
+            Notification::routes($routes)->notify($notification);
+        } catch (\Throwable $e) {
+            Log::error('Failed to send notification', [
+                'notification' => class_basename($notification),
+                'exception' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

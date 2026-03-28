@@ -5,7 +5,6 @@ namespace App\Notifications\Channels;
 use App\Facades\AppConfig;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 
 class WebhookChannel
 {
@@ -23,14 +22,6 @@ class WebhookChannel
         $secret = AppConfig::get('notifications.webhook.secret');
         $headers = $secret ? ['X-Webhook-Token' => $secret] : [];
 
-        $response = Http::timeout(10)->withHeaders($headers)->post($url, $payload);
-
-        if ($response->failed()) {
-            Log::error('Webhook notification failed', [
-                'url' => $url,
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-        }
+        Http::timeout(10)->withHeaders($headers)->post($url, $payload)->throw();
     }
 }
