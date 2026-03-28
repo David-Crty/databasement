@@ -108,9 +108,22 @@ To receive failure notifications in Slack, you need to create an Incoming Webhoo
 6. Select the channel where you want notifications
 7. Copy the webhook URL and paste it in the Configuration page
 
-## Discord {#discord}
+## Discord Webhook {#discord-webhook}
 
-To receive failure notifications in Discord, you need a bot token and a channel ID.
+The simplest way to receive failure notifications in Discord — no bot required.
+
+1. Open **Server Settings** > **Integrations** > **Webhooks**
+2. Click **New Webhook**
+3. Choose the channel where you want notifications
+4. Click **Copy Webhook URL**
+
+Paste the **Webhook URL** on the Configuration page (select the **Discord (Webhook)** channel).
+
+> **Tip:** If you just need notifications in a single channel, Discord Webhook is easier to set up than the bot-based integration below.
+
+## Discord Bot {#discord}
+
+To receive failure notifications in Discord via a bot, you need a bot token and a channel ID. This gives more flexibility (e.g., sending to multiple channels) but requires more setup.
 
 ### Creating a Discord Bot
 
@@ -130,7 +143,7 @@ To receive failure notifications in Discord, you need a bot token and a channel 
 3. Right-click the channel where you want notifications
 4. Click **Copy Channel ID**
 
-Enter both the **Bot Token** and **Channel ID** on the Configuration page.
+Enter both the **Bot Token** and **Channel ID** on the Configuration page (select the **Discord (Bot)** channel).
 
 ## Telegram {#telegram}
 

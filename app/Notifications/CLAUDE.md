@@ -53,6 +53,7 @@ Channels are mapped by route key in `BaseFailedNotification::CHANNEL_MAP`. The r
 9. Add UI fields in `configuration/index.blade.php`
 10. Add to test datasets in `FailureNotificationTest.php` and `ConfigurationTest.php`
 11. Add translation keys to `lang/*.json`
+12. Add setup guide in `docs/docs/self-hosting/configuration/notification.md`
 
 ## Anti-patterns
 
