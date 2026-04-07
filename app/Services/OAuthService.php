@@ -15,50 +15,22 @@ class OAuthService
     public function findOrCreateUser(SocialiteUser $socialiteUser, string $provider): User
     {
         return DB::transaction(function () use ($socialiteUser, $provider) {
-            // First, check if we have an existing OAuth identity for this provider
             $identity = OAuthIdentity::where('provider', $provider)
                 ->where('provider_user_id', $socialiteUser->getId())
                 ->first();
 
             if ($identity) {
-                // Update tokens and return existing user
                 $this->updateIdentityTokens($identity, $socialiteUser);
+                $this->syncUserRole($identity->user, $socialiteUser, $provider);
 
                 return $identity->user;
             }
 
-            // No existing OAuth identity - try to find user by email
-            $user = null;
-            $existingUserByEmail = $socialiteUser->getEmail()
-                ? User::where('email', $socialiteUser->getEmail())->first()
-                : null;
+            // Resolve role early to fail fast in strict mode before creating anything
+            $resolvedRole = $this->resolveOidcRole($socialiteUser, $provider);
 
-            if (config('oauth.auto_link_by_email') && $existingUserByEmail) {
-                $user = $existingUserByEmail;
+            $user = $this->findOrCreateLocalUser($socialiteUser, $provider, $resolvedRole);
 
-                // Clear password to enforce OAuth-only login going forward
-                $user->password = null;
-                $user->save();
-            }
-
-            // Create new user if auto-creation is enabled and no existing user found
-            if (! $user && config('oauth.auto_create_users')) {
-                // Check if email already exists (when auto_link is disabled)
-                if ($existingUserByEmail) {
-                    throw new \RuntimeException(
-                        __('An account with this email already exists. Please log in with your password or contact an administrator.')
-                    );
-                }
-                $user = $this->createUser($socialiteUser);
-            }
-
-            if (! $user) {
-                throw new \RuntimeException(
-                    __('No matching user found and auto-creation is disabled.')
-                );
-            }
-
-            // Create the OAuth identity for this user
             $this->createIdentity($user, $socialiteUser, $provider);
 
             return $user;
@@ -66,21 +38,147 @@ class OAuthService
     }
 
     /**
+     * Find an existing local user to link or create a new one.
+     *
+     * @throws \RuntimeException when no user can be found or created
+     */
+    private function findOrCreateLocalUser(SocialiteUser $socialiteUser, string $provider, ?string $resolvedRole): User
+    {
+        $existingUser = $socialiteUser->getEmail()
+            ? User::where('email', $socialiteUser->getEmail())->first()
+            : null;
+
+        if (config('oauth.auto_link_by_email') && $existingUser) {
+            $existingUser->password = null;
+            $existingUser->save();
+
+            $this->syncUserRole($existingUser, $socialiteUser, $provider, $resolvedRole);
+
+            return $existingUser;
+        }
+
+        if (! config('oauth.auto_create_users')) {
+            throw new \RuntimeException(
+                __('No matching user found and auto-creation is disabled.')
+            );
+        }
+
+        if ($existingUser) {
+            throw new \RuntimeException(
+                __('An account with this email already exists. Please log in with your password or contact an administrator.')
+            );
+        }
+
+        return $this->createUser($socialiteUser, $resolvedRole);
+    }
+
+    /**
+     * Resolve user role from OIDC group claims.
+     *
+     * Returns the mapped role if a match is found, null if mapping is
+     * inactive or no match, or throws if strict mode denies access.
+     */
+    private function resolveOidcRole(SocialiteUser $socialiteUser, string $provider): ?string
+    {
+        if ($provider !== 'oidc') {
+            return null;
+        }
+
+        if (! $this->isRoleMappingConfigured()) {
+            return null;
+        }
+
+        $claim = config('oauth.role_mapping.claim', 'groups');
+        $raw = method_exists($socialiteUser, 'getRaw') ? $socialiteUser->getRaw() : [];
+        $claimValue = $raw[$claim] ?? null;
+
+        if ($claimValue === null) {
+            return $this->handleUnmappedUser();
+        }
+
+        // Normalize to array (claim could be a string for a single group)
+        $userGroups = (array) $claimValue;
+
+        // Check roles in priority order: admin > member > viewer
+        foreach (['admin', 'member', 'viewer'] as $role) {
+            $configuredGroups = $this->parseGroupList(config("oauth.role_mapping.{$role}", ''));
+
+            if ($configuredGroups !== [] && array_intersect($userGroups, $configuredGroups) !== []) {
+                return $role;
+            }
+        }
+
+        return $this->handleUnmappedUser();
+    }
+
+    /**
+     * Handle the case where no OIDC group matches any configured mapping.
+     *
+     * @throws \RuntimeException when strict mode is enabled
+     */
+    private function handleUnmappedUser(): null
+    {
+        if (config('oauth.role_mapping.strict')) {
+            throw new \RuntimeException(
+                __('Your account is not authorized to access this application.')
+            );
+        }
+
+        return null;
+    }
+
+    /**
+     * Sync user role from OIDC claims.
+     */
+    private function syncUserRole(User $user, SocialiteUser $socialiteUser, string $provider, ?string $resolvedRole = null): void
+    {
+        $role = $resolvedRole ?? $this->resolveOidcRole($socialiteUser, $provider);
+
+        if ($role !== null) {
+            $user->role = $role;
+            $user->save();
+        }
+    }
+
+    /**
+     * Check if any role mapping env vars are configured.
+     */
+    private function isRoleMappingConfigured(): bool
+    {
+        return config('oauth.role_mapping.admin', '') !== ''
+            || config('oauth.role_mapping.member', '') !== ''
+            || config('oauth.role_mapping.viewer', '') !== '';
+    }
+
+    /**
+     * Parse a comma-separated group list into a clean array.
+     *
+     * @return array<int, string>
+     */
+    private function parseGroupList(string $value): array
+    {
+        if ($value === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map('trim', explode(',', $value))));
+    }
+
+    /**
      * Create a new user from OAuth data.
      */
-    private function createUser(SocialiteUser $socialiteUser): User
+    private function createUser(SocialiteUser $socialiteUser, ?string $resolvedRole = null): User
     {
-        $role = config('oauth.default_role', User::ROLE_MEMBER);
+        $role = $resolvedRole ?? config('oauth.default_role', User::ROLE_MEMBER);
 
-        // Validate the role is valid
         if (! in_array($role, User::ROLES)) {
             $role = User::ROLE_MEMBER;
         }
 
-        $user = User::create([
+        $user = new User([
             'name' => $socialiteUser->getName() ?? $socialiteUser->getNickname() ?? 'OAuth User',
             'email' => $socialiteUser->getEmail(),
-            'password' => null, // OAuth users don't need a password
+            'password' => null,
             'role' => $role,
             'invitation_accepted_at' => now(),
         ]);

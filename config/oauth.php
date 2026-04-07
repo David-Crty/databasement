@@ -48,6 +48,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | OIDC Role Mapping
+    |--------------------------------------------------------------------------
+    |
+    | Map OIDC group claims to Databasement roles. When at least one
+    | ROLE_MAP is set, mapping is active. Roles are checked in priority
+    | order: admin > member > viewer. The first match wins.
+    |
+    | When strict mode is enabled, users without a matching group are
+    | denied access entirely (even returning users).
+    |
+    */
+    'role_mapping' => [
+        'claim' => env('OAUTH_OIDC_ROLE_CLAIM', 'groups'),
+        'admin' => env('OAUTH_OIDC_ROLE_MAP_ADMIN', ''),
+        'member' => env('OAUTH_OIDC_ROLE_MAP_MEMBER', ''),
+        'viewer' => env('OAUTH_OIDC_ROLE_MAP_VIEWER', ''),
+        'strict' => env('OAUTH_OIDC_ROLE_STRICT', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | OAuth Providers
     |--------------------------------------------------------------------------
     |
@@ -83,6 +104,7 @@ return [
             'client_id' => env('OAUTH_OIDC_CLIENT_ID'),
             'client_secret' => env('OAUTH_OIDC_CLIENT_SECRET'),
             'base_url' => env('OAUTH_OIDC_BASE_URL'),
+            'extra_scopes' => env('OAUTH_OIDC_SCOPES', ''),
             'icon' => 'o-key',
             'label' => env('OAUTH_OIDC_LABEL', 'SSO'),
         ],

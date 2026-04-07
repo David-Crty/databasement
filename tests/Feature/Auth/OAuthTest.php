@@ -9,11 +9,39 @@ use Laravel\Socialite\Two\User as SocialiteUser;
 
 uses(RefreshDatabase::class);
 
+function enableOidcProvider(): void
+{
+    Config::set('oauth.providers.oidc.enabled', true);
+    Config::set('oauth.providers.oidc.client_id', 'test-client');
+    Config::set('oauth.providers.oidc.client_secret', 'test-secret');
+    Config::set('oauth.providers.oidc.base_url', 'https://idp.example.com');
+}
+
+function fakeOidcUser(string $id, string $email, string $name = 'OIDC User', ?array $groups = null): SocialiteUser
+{
+    $raw = ['sub' => $id, 'name' => $name, 'email' => $email];
+    if ($groups !== null) {
+        $raw['groups'] = $groups;
+    }
+
+    return (new SocialiteUser)->setRaw($raw)->map([
+        'id' => $id,
+        'name' => $name,
+        'email' => $email,
+        'nickname' => $name,
+    ])->setToken('fake-token');
+}
+
 beforeEach(function () {
     Config::set('oauth.providers.github.enabled', true);
     Config::set('oauth.auto_link_by_email', true);
     Config::set('oauth.auto_create_users', true);
     Config::set('oauth.default_role', 'member');
+    Config::set('oauth.role_mapping.claim', 'groups');
+    Config::set('oauth.role_mapping.admin', '');
+    Config::set('oauth.role_mapping.member', '');
+    Config::set('oauth.role_mapping.viewer', '');
+    Config::set('oauth.role_mapping.strict', false);
 });
 
 test('oauth redirect returns 404 for disabled provider', function () {
@@ -84,17 +112,12 @@ test('oauth callback links to existing user by email and clears password', funct
 
     $response->assertRedirect(route('dashboard'));
 
-    // Should not create a new user
     expect(User::count())->toBe(1);
 
-    // Should link OAuth identity to existing user
     $existingUser->refresh();
     expect($existingUser->oauthIdentities)->toHaveCount(1)
-        ->and($existingUser->role)->toBe(User::ROLE_ADMIN)
-        ->and($existingUser->password)->toBeNull();
-    // Role unchanged
-
-    // Password should be cleared to enforce OAuth-only login
+        ->and($existingUser->role)->toBe(User::ROLE_ADMIN) // unchanged
+        ->and($existingUser->password)->toBeNull(); // cleared to enforce OAuth-only login
 });
 
 test('oauth callback logs in returning oauth user', function () {
@@ -230,4 +253,214 @@ test('user can have multiple oauth providers linked', function () {
     $providers = $user->oauthIdentities->pluck('provider')->toArray();
     expect($providers)->toContain('github')
         ->and($providers)->toContain('google');
+});
+
+// -------------------------------------------------------
+// OIDC Group-Based Role Mapping
+// -------------------------------------------------------
+
+test('oidc role mapping assigns admin role from matching group', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-1', 'admin@example.com', 'Admin', ['databasement-admins']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'admin@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_ADMIN);
+});
+
+test('oidc role mapping assigns member role from matching group', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.member', 'databasement-members');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-2', 'member@example.com', 'Member', ['databasement-members']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'member@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_MEMBER);
+});
+
+test('oidc role mapping assigns viewer role from matching group', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.viewer', 'databasement-viewers');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-3', 'viewer@example.com', 'Viewer', ['databasement-viewers']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'viewer@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_VIEWER);
+});
+
+test('oidc role mapping uses highest priority role when multiple groups match', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+    Config::set('oauth.role_mapping.member', 'databasement-members');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-4', 'multi@example.com', 'Multi', ['databasement-members', 'databasement-admins']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'multi@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_ADMIN);
+});
+
+test('oidc role mapping falls back to default role when no group matches and strict is off', function () {
+    enableOidcProvider();
+    Config::set('oauth.default_role', 'viewer');
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-5', 'fallback@example.com', 'Fallback', ['unrelated-group']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'fallback@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_VIEWER);
+});
+
+test('oidc role mapping denies access when no group matches and strict is on', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+    Config::set('oauth.role_mapping.strict', true);
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-6', 'denied@example.com', 'Denied', ['unrelated-group']));
+
+    $response = $this->get(route('oauth.callback', 'oidc'));
+
+    $response->assertRedirect(route('login'));
+    $response->assertSessionHas('error', 'Your account is not authorized to access this application.');
+    expect(User::where('email', 'denied@example.com')->exists())->toBeFalse();
+});
+
+test('oidc role mapping syncs role for returning user', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+
+    $user = User::factory()->create(['role' => User::ROLE_MEMBER]);
+    OAuthIdentity::create([
+        'user_id' => $user->id,
+        'provider' => 'oidc',
+        'provider_user_id' => 'oidc-7',
+        'email' => $user->email,
+    ]);
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-7', $user->email, $user->name, ['databasement-admins']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user->refresh();
+    expect($user->role)->toBe(User::ROLE_ADMIN);
+});
+
+test('oidc role mapping updates role when groups change for returning user', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+    Config::set('oauth.role_mapping.viewer', 'databasement-viewers');
+
+    $user = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    OAuthIdentity::create([
+        'user_id' => $user->id,
+        'provider' => 'oidc',
+        'provider_user_id' => 'oidc-8',
+        'email' => $user->email,
+    ]);
+
+    // User lost admin group, now only has viewer group
+    Socialite::fake('oidc', fakeOidcUser('oidc-8', $user->email, $user->name, ['databasement-viewers']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user->refresh();
+    expect($user->role)->toBe(User::ROLE_VIEWER);
+});
+
+test('oidc role mapping uses default role when no mapping is configured', function () {
+    enableOidcProvider();
+    Config::set('oauth.default_role', 'viewer');
+    // All role_mapping values are empty (from beforeEach)
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-9', 'default@example.com', 'Default', ['some-group']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'default@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_VIEWER);
+});
+
+test('oidc role mapping reads from custom claim name', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.claim', 'roles');
+    Config::set('oauth.role_mapping.admin', 'super-admin');
+
+    $raw = ['sub' => 'oidc-10', 'name' => 'Custom', 'email' => 'custom@example.com', 'roles' => ['super-admin']];
+    $socialiteUser = (new SocialiteUser)->setRaw($raw)->map([
+        'id' => 'oidc-10',
+        'name' => 'Custom',
+        'email' => 'custom@example.com',
+        'nickname' => 'Custom',
+    ])->setToken('fake-token');
+
+    Socialite::fake('oidc', $socialiteUser);
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'custom@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_ADMIN);
+});
+
+test('oidc role mapping does not apply to non-oidc providers', function () {
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+    Config::set('oauth.default_role', 'member');
+
+    Socialite::fake('github', (new SocialiteUser)->setRaw([
+        'sub' => 'gh-role',
+        'groups' => ['databasement-admins'],
+    ])->map([
+        'id' => 'gh-role',
+        'name' => 'GitHub User',
+        'email' => 'ghuser@example.com',
+        'nickname' => 'ghuser',
+    ])->setToken('token'));
+
+    $this->get(route('oauth.callback', 'github'));
+
+    $user = User::where('email', 'ghuser@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_MEMBER);
+});
+
+test('oidc role mapping supports comma-separated groups in env var', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'super-admins, databasement-admins, ops-team');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-12', 'comma@example.com', 'Comma', ['ops-team']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'comma@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_ADMIN);
+});
+
+test('oidc role mapping strict mode denies returning user with revoked groups', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+    Config::set('oauth.role_mapping.strict', true);
+
+    $user = User::factory()->create(['role' => User::ROLE_ADMIN]);
+    OAuthIdentity::create([
+        'user_id' => $user->id,
+        'provider' => 'oidc',
+        'provider_user_id' => 'oidc-13',
+        'email' => $user->email,
+    ]);
+
+    // User's groups have been revoked in IdP
+    Socialite::fake('oidc', fakeOidcUser('oidc-13', $user->email, $user->name, ['unrelated']));
+
+    $response = $this->get(route('oauth.callback', 'oidc'));
+
+    $response->assertRedirect(route('login'));
+    $response->assertSessionHas('error', 'Your account is not authorized to access this application.');
 });

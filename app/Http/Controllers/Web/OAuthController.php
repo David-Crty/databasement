@@ -26,9 +26,14 @@ class OAuthController extends Controller
 
         $driver = $this->getDriver($provider);
 
-        // For OIDC, we need to set scopes
+        // Set OIDC scopes including any extra scopes (e.g. "groups" for role mapping).
+        // The method_exists guard is needed because scopes() is not on the Provider contract.
         if ($provider === 'oidc' && method_exists($driver, 'scopes')) {
-            $driver->scopes(['openid', 'profile', 'email']);
+            $scopes = ['openid', 'profile', 'email', ...array_filter(
+                array_map('trim', explode(',', config('oauth.providers.oidc.extra_scopes', '')))
+            )];
+
+            $driver->scopes($scopes);
         }
 
         return $driver->redirect();
@@ -94,13 +99,6 @@ class OAuthController extends Controller
      */
     private function getDriver(string $provider): \Laravel\Socialite\Contracts\Provider
     {
-        // Map internal provider names to Socialite driver names
-        $driverMap = [
-            'oidc' => 'oidc',
-        ];
-
-        $driver = $driverMap[$provider] ?? $provider;
-
-        return Socialite::driver($driver);
+        return Socialite::driver($provider);
     }
 }

@@ -73,8 +73,14 @@ class AppServiceProvider extends ServiceProvider
                 $serviceConfig['host'] = $provider['host'];
             }
 
-            if ($name === 'oidc' && isset($provider['base_url'])) {
-                $serviceConfig['base_url'] = $provider['base_url'];
+            if ($name === 'oidc') {
+                if (isset($provider['base_url'])) {
+                    $serviceConfig['base_url'] = $provider['base_url'];
+                }
+
+                if (! empty($provider['extra_scopes'])) {
+                    $serviceConfig['scopes'] = str_replace(',', ' ', trim($provider['extra_scopes']));
+                }
             }
 
             config(["services.{$name}" => $serviceConfig]);
@@ -197,6 +203,18 @@ class AppServiceProvider extends ServiceProvider
                     "OAuth provider 'oidc' is enabled but missing required base URL"
                 );
             }
+        }
+
+        // Validate role mapping: strict mode requires at least one mapping
+        $roleMapping = config('oauth.role_mapping', []);
+        $hasMapping = ($roleMapping['admin'] ?? '') !== ''
+            || ($roleMapping['member'] ?? '') !== ''
+            || ($roleMapping['viewer'] ?? '') !== '';
+
+        if (! empty($roleMapping['strict']) && ! $hasMapping) {
+            throw new \InvalidArgumentException(
+                'OAUTH_OIDC_ROLE_STRICT is enabled but no role mappings are configured. Set at least one of: OAUTH_OIDC_ROLE_MAP_ADMIN, OAUTH_OIDC_ROLE_MAP_MEMBER, OAUTH_OIDC_ROLE_MAP_VIEWER'
+            );
         }
     }
 }

@@ -170,7 +170,11 @@ services:
 # To enable: 1) Add "127.0.0.1 dex-local" to /etc/hosts
 #            2) Uncomment this service
 #            3) Set OAUTH_OIDC_ENABLED=true in .env.local
-# Test user: user@databasement.com (password: databasement)
+# Test users (password: databasement):
+#   admin@databasement.com   (groups: databasement-admins, team-a)
+#   user@databasement.com    (groups: databasement-members, team-b)
+#   viewer@databasement.com  (groups: databasement-viewers)
+#   outsider@databasement.com (no groups)
 #  dex:
 #    image: ghcr.io/dexidp/dex:v2.38.0
 #    container_name: databasement-dex

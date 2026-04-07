@@ -146,4 +146,82 @@ When enabled (default), OAuth logins are automatically linked to existing users 
 OAUTH_AUTO_LINK_BY_EMAIL=true  # Default: true
 ```
 
+## OIDC Group-Based Role Mapping
+
+When using a Generic OIDC provider (Keycloak, Authentik, Dex, etc.), you can map IdP groups to Databasement roles automatically. This lets you control who can access Databasement and what role they get — all from your identity provider.
+
+### How It Works
+
+1. Your IdP includes a `groups` claim in the OIDC token (e.g., `["devops", "databasement-admins"]`)
+2. Databasement checks the user's groups against your configured mappings
+3. The user gets the highest-priority matching role: **admin > member > viewer**
+4. Roles are synced on every login, so changes in the IdP take effect immediately
+
+### Configuration
+
+First, make sure your IdP sends groups in the token. Most IdPs require requesting the `groups` scope:
+
+```env
+OAUTH_OIDC_SCOPES=groups
+```
+
+Then map IdP groups to Databasement roles. Use comma-separated values if multiple IdP groups should map to the same role:
+
+```env
+OAUTH_OIDC_ROLE_MAP_ADMIN=databasement-admins
+OAUTH_OIDC_ROLE_MAP_MEMBER=databasement-members,devops-team
+OAUTH_OIDC_ROLE_MAP_VIEWER=databasement-viewers,interns
+```
+
+When at least one `ROLE_MAP` is set, mapping is active. Users whose groups don't match any mapping get the `OAUTH_DEFAULT_ROLE`.
+
+### Strict Mode
+
+To deny access to users without a matching group (instead of falling back to the default role):
+
+```env
+OAUTH_OIDC_ROLE_STRICT=true
+```
+
+With strict mode, users who don't have any matching group are rejected at login — even returning users whose groups have been revoked in the IdP.
+
+### Custom Claim Name
+
+By default, Databasement reads the `groups` claim. If your IdP uses a different claim name (e.g., `roles` or `realm_access`):
+
+```env
+OAUTH_OIDC_ROLE_CLAIM=roles
+```
+
+### Full Example (Keycloak)
+
+```env
+OAUTH_OIDC_ENABLED=true
+OAUTH_OIDC_CLIENT_ID=databasement
+OAUTH_OIDC_CLIENT_SECRET=your-secret
+OAUTH_OIDC_BASE_URL=https://keycloak.example.com/realms/your-realm
+OAUTH_OIDC_LABEL=Keycloak
+OAUTH_OIDC_SCOPES=groups
+
+OAUTH_OIDC_ROLE_MAP_ADMIN=databasement-admins
+OAUTH_OIDC_ROLE_MAP_MEMBER=databasement-members
+OAUTH_OIDC_ROLE_MAP_VIEWER=databasement-viewers
+OAUTH_OIDC_ROLE_STRICT=true
+```
+
+:::tip Keycloak Group Mapper
+In Keycloak, go to your client > **Client scopes** > **databasement-dedicated** > **Mappers** > **Add mapper** > **Group Membership**. Set the token claim name to `groups` and disable "Full group path" to get flat group names.
+:::
+
+### Environment Variables Reference
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OAUTH_OIDC_SCOPES` | *(empty)* | Extra OIDC scopes to request (comma-separated, e.g., `groups`) |
+| `OAUTH_OIDC_ROLE_CLAIM` | `groups` | JWT claim containing the user's groups |
+| `OAUTH_OIDC_ROLE_MAP_ADMIN` | *(empty)* | IdP groups that map to the **admin** role (comma-separated) |
+| `OAUTH_OIDC_ROLE_MAP_MEMBER` | *(empty)* | IdP groups that map to the **member** role (comma-separated) |
+| `OAUTH_OIDC_ROLE_MAP_VIEWER` | *(empty)* | IdP groups that map to the **viewer** role (comma-separated) |
+| `OAUTH_OIDC_ROLE_STRICT` | `false` | Deny login when no group matches (instead of using default role) |
+
 For local development OAuth testing, see the [Development Guide](/contributing/development#oauth--sso-testing).
