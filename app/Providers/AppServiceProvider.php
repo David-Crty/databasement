@@ -207,9 +207,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Validate role mapping: strict mode requires at least one mapping
         $roleMapping = config('oauth.role_mapping', []);
-        $hasMapping = ($roleMapping['admin'] ?? '') !== ''
-            || ($roleMapping['member'] ?? '') !== ''
-            || ($roleMapping['viewer'] ?? '') !== '';
+        $hasMapping = trim((string) ($roleMapping['admin'] ?? '')) !== ''
+            || trim((string) ($roleMapping['member'] ?? '')) !== ''
+            || trim((string) ($roleMapping['viewer'] ?? '')) !== '';
 
         if (! empty($roleMapping['strict']) && ! $hasMapping) {
             throw new \InvalidArgumentException(

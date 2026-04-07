@@ -96,8 +96,8 @@ class OAuthService
             return $this->handleUnmappedUser();
         }
 
-        // Normalize to array (claim could be a string for a single group)
-        $userGroups = (array) $claimValue;
+        // Normalize to array and lowercase for case-insensitive matching
+        $userGroups = array_map('mb_strtolower', (array) $claimValue);
 
         // Check roles in priority order: admin > member > viewer
         foreach (['admin', 'member', 'viewer'] as $role) {
@@ -145,13 +145,13 @@ class OAuthService
      */
     private function isRoleMappingConfigured(): bool
     {
-        return config('oauth.role_mapping.admin', '') !== ''
-            || config('oauth.role_mapping.member', '') !== ''
-            || config('oauth.role_mapping.viewer', '') !== '';
+        return trim((string) config('oauth.role_mapping.admin', '')) !== ''
+            || trim((string) config('oauth.role_mapping.member', '')) !== ''
+            || trim((string) config('oauth.role_mapping.viewer', '')) !== '';
     }
 
     /**
-     * Parse a comma-separated group list into a clean array.
+     * Parse a comma-separated group list into a clean, lowercased array.
      *
      * @return array<int, string>
      */
@@ -161,7 +161,10 @@ class OAuthService
             return [];
         }
 
-        return array_values(array_filter(array_map('trim', explode(',', $value))));
+        return array_values(array_filter(array_map(
+            fn (string $group) => mb_strtolower(trim($group)),
+            explode(',', $value),
+        )));
     }
 
     /**

@@ -390,6 +390,33 @@ test('oidc role mapping uses default role when no mapping is configured', functi
     expect($user->role)->toBe(User::ROLE_VIEWER);
 });
 
+test('oidc role mapping falls back to default role when groups claim is missing', function () {
+    enableOidcProvider();
+    Config::set('oauth.default_role', 'viewer');
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-no-groups', 'noclaimuser@example.com', 'No Groups'));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'noclaimuser@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_VIEWER);
+});
+
+test('oidc role mapping strict mode denies access when groups claim is missing', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'databasement-admins');
+    Config::set('oauth.role_mapping.strict', true);
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-no-groups-strict', 'denied-noclaim@example.com', 'No Groups'));
+
+    $response = $this->get(route('oauth.callback', 'oidc'));
+
+    $response->assertRedirect(route('login'));
+    $response->assertSessionHas('error', 'Your account is not authorized to access this application.');
+    expect(User::where('email', 'denied-noclaim@example.com')->exists())->toBeFalse();
+});
+
 test('oidc role mapping reads from custom claim name', function () {
     enableOidcProvider();
     Config::set('oauth.role_mapping.claim', 'roles');
@@ -440,6 +467,18 @@ test('oidc role mapping supports comma-separated groups in env var', function ()
     $this->get(route('oauth.callback', 'oidc'));
 
     $user = User::where('email', 'comma@example.com')->first();
+    expect($user->role)->toBe(User::ROLE_ADMIN);
+});
+
+test('oidc role mapping matches groups case-insensitively', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.admin', 'Databasement-Admins');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-case', 'case@example.com', 'Case', ['databasement-admins']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'case@example.com')->first();
     expect($user->role)->toBe(User::ROLE_ADMIN);
 });
 
