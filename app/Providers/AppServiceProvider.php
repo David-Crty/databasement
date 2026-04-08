@@ -205,16 +205,18 @@ class AppServiceProvider extends ServiceProvider
             }
         }
 
-        // Validate role mapping: strict mode requires at least one mapping
-        $roleMapping = config('oauth.role_mapping', []);
-        $hasMapping = trim((string) ($roleMapping['admin'] ?? '')) !== ''
-            || trim((string) ($roleMapping['member'] ?? '')) !== ''
-            || trim((string) ($roleMapping['viewer'] ?? '')) !== '';
+        // Validate role mapping: strict mode requires at least one mapping (only when OIDC is enabled)
+        if (config('oauth.providers.oidc.enabled', false)) {
+            $roleMapping = config('oauth.role_mapping', []);
+            $hasMapping = trim((string) ($roleMapping['admin'] ?? '')) !== ''
+                || trim((string) ($roleMapping['member'] ?? '')) !== ''
+                || trim((string) ($roleMapping['viewer'] ?? '')) !== '';
 
-        if (! empty($roleMapping['strict']) && ! $hasMapping) {
-            throw new \InvalidArgumentException(
-                'OAUTH_OIDC_ROLE_STRICT is enabled but no role mappings are configured. Set at least one of: OAUTH_OIDC_ROLE_MAP_ADMIN, OAUTH_OIDC_ROLE_MAP_MEMBER, OAUTH_OIDC_ROLE_MAP_VIEWER'
-            );
+            if (! empty($roleMapping['strict']) && ! $hasMapping) {
+                throw new \InvalidArgumentException(
+                    'OAUTH_OIDC_ROLE_STRICT is enabled but no role mappings are configured. Set at least one of: OAUTH_OIDC_ROLE_MAP_ADMIN, OAUTH_OIDC_ROLE_MAP_MEMBER, OAUTH_OIDC_ROLE_MAP_VIEWER'
+                );
+            }
         }
     }
 }

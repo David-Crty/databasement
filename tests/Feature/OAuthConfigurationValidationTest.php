@@ -44,7 +44,12 @@ test('throws exception when oidc provider is missing base url', function () {
 
 test('throws exception when strict mode is enabled without any role mappings', function () {
     Config::set('oauth.default_role', 'member');
-    Config::set('oauth.providers', []);
+    Config::set('oauth.providers.oidc', [
+        'enabled' => true,
+        'client_id' => 'id',
+        'client_secret' => 'secret',
+        'base_url' => 'https://idp.example.com',
+    ]);
     Config::set('oauth.role_mapping', [
         'claim' => 'groups',
         'admin' => '',
@@ -61,10 +66,31 @@ test('throws exception when strict mode is enabled without any role mappings', f
 
 test('does not throw when strict mode is enabled with role mappings', function () {
     Config::set('oauth.default_role', 'member');
-    Config::set('oauth.providers', []);
+    Config::set('oauth.providers.oidc', [
+        'enabled' => true,
+        'client_id' => 'id',
+        'client_secret' => 'secret',
+        'base_url' => 'https://idp.example.com',
+    ]);
     Config::set('oauth.role_mapping', [
         'claim' => 'groups',
         'admin' => 'my-admins',
+        'member' => '',
+        'viewer' => '',
+        'strict' => true,
+    ]);
+
+    $provider = new AppServiceProvider(app());
+
+    expect(fn () => $provider->performOAuthValidation())->not->toThrow(\InvalidArgumentException::class);
+});
+
+test('does not throw strict mode error when oidc is disabled', function () {
+    Config::set('oauth.default_role', 'member');
+    Config::set('oauth.providers', []);
+    Config::set('oauth.role_mapping', [
+        'claim' => 'groups',
+        'admin' => '',
         'member' => '',
         'viewer' => '',
         'strict' => true,
