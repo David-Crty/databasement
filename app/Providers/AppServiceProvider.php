@@ -73,14 +73,8 @@ class AppServiceProvider extends ServiceProvider
                 $serviceConfig['host'] = $provider['host'];
             }
 
-            if ($name === 'oidc') {
-                if (isset($provider['base_url'])) {
-                    $serviceConfig['base_url'] = $provider['base_url'];
-                }
-
-                if (! empty($provider['extra_scopes'])) {
-                    $serviceConfig['scopes'] = str_replace(',', ' ', trim($provider['extra_scopes']));
-                }
+            if ($name === 'oidc' && isset($provider['base_url'])) {
+                $serviceConfig['base_url'] = $provider['base_url'];
             }
 
             config(["services.{$name}" => $serviceConfig]);
