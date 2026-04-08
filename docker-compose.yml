@@ -176,7 +176,7 @@ services:
 #   viewer@databasement.com  (groups: databasement-viewers)
 #   outsider@databasement.com (no groups)
 #  dex:
-#    image: ghcr.io/dexidp/dex:v2.38.0
+#    image: ghcr.io/dexidp/dex:v2.45.0
 #    container_name: databasement-dex
 #    volumes:
 #      - ./docker/dex/config.yaml:/etc/dex/config.yaml:ro
