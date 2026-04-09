@@ -68,13 +68,7 @@ enum NotificationChannelType: string
     {
         return match ($this) {
             self::Email => 'mail',
-            self::Slack => 'slack',
-            self::Discord => 'discord',
-            self::DiscordWebhook => 'discord_webhook',
-            self::Telegram => 'telegram',
-            self::Pushover => 'pushover',
-            self::Gotify => 'gotify',
-            self::Webhook => 'webhook',
+            default => $this->value,
         };
     }
 
@@ -89,11 +83,9 @@ enum NotificationChannelType: string
             self::Email => $config['to'] ?? null,
             self::Slack => $config['webhook_url'] ?? null,
             self::Discord => $config['channel_id'] ?? null,
-            self::DiscordWebhook => $config['url'] ?? null,
+            self::DiscordWebhook, self::Gotify, self::Webhook => $config['url'] ?? null,
             self::Telegram => $config['chat_id'] ?? null,
             self::Pushover => $config['user_key'] ?? null,
-            self::Gotify => $config['url'] ?? null,
-            self::Webhook => $config['url'] ?? null,
         };
     }
 
@@ -116,23 +108,6 @@ enum NotificationChannelType: string
             self::Gotify => array_filter(['URL' => $config['url'] ?? '']),
             self::Webhook => array_filter(['URL' => $config['url'] ?? '']),
         };
-    }
-
-    /**
-     * Mask sensitive fields by setting them to empty strings.
-     *
-     * @param  array<string, mixed>  $config
-     * @return array<string, mixed>
-     */
-    public function maskSensitiveFields(array $config): array
-    {
-        foreach ($this->sensitiveFields() as $field) {
-            if (isset($config[$field])) {
-                $config[$field] = '';
-            }
-        }
-
-        return $config;
     }
 
     /**

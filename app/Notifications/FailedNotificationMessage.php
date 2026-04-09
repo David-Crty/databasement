@@ -64,21 +64,12 @@ class FailedNotificationMessage
 
     public function toDiscord(): DiscordMessage
     {
-        $embedFields = [];
-
-        foreach ($this->fields as $label => $value) {
-            $embedFields[] = ['name' => $label, 'value' => $value, 'inline' => true];
-        }
-
-        $embedFields[] = ['name' => $this->errorLabel, 'value' => "```{$this->errorMessage}```", 'inline' => false];
-        $embedFields[] = ['name' => 'Job Details', 'value' => "[{$this->actionText}]({$this->actionUrl})", 'inline' => false];
-
         return DiscordMessage::create()
             ->body($this->body)
             ->embed([
                 'title' => $this->title,
                 'color' => 15158332, // Red color
-                'fields' => $embedFields,
+                'fields' => $this->buildEmbedFields(),
                 'footer' => ['text' => $this->footerText],
             ]);
     }
@@ -148,22 +139,13 @@ class FailedNotificationMessage
      */
     public function toDiscordWebhook(): array
     {
-        $embedFields = [];
-
-        foreach ($this->fields as $label => $value) {
-            $embedFields[] = ['name' => $label, 'value' => $value, 'inline' => true];
-        }
-
-        $embedFields[] = ['name' => $this->errorLabel, 'value' => "```{$this->errorMessage}```", 'inline' => false];
-        $embedFields[] = ['name' => 'Job Details', 'value' => "[{$this->actionText}]({$this->actionUrl})", 'inline' => false];
-
         return [
             'content' => $this->body,
             'embeds' => [
                 [
                     'title' => $this->title,
                     'color' => 15158332,
-                    'fields' => $embedFields,
+                    'fields' => $this->buildEmbedFields(),
                     'footer' => ['text' => $this->footerText],
                 ],
             ],
@@ -184,5 +166,22 @@ class FailedNotificationMessage
             'action_url' => $this->actionUrl,
             'timestamp' => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * @return array<int, array{name: string, value: string, inline: bool}>
+     */
+    private function buildEmbedFields(): array
+    {
+        $embedFields = [];
+
+        foreach ($this->fields as $label => $value) {
+            $embedFields[] = ['name' => $label, 'value' => $value, 'inline' => true];
+        }
+
+        $embedFields[] = ['name' => $this->errorLabel, 'value' => "```{$this->errorMessage}```", 'inline' => false];
+        $embedFields[] = ['name' => 'Job Details', 'value' => "[{$this->actionText}]({$this->actionUrl})", 'inline' => false];
+
+        return $embedFields;
     }
 }

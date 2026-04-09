@@ -4,6 +4,7 @@ namespace App\Livewire\Forms;
 
 use App\Enums\NotificationChannelType;
 use App\Models\NotificationChannel;
+use Illuminate\Validation\Rule;
 use Livewire\Form;
 
 class NotificationChannelForm extends Form
@@ -53,14 +54,13 @@ class NotificationChannelForm extends Form
         $this->type = $channel->type->value;
 
         $config = $channel->config;
-        $type = $channel->type;
 
-        // Load non-sensitive fields, set existence flags for sensitive ones
-        match ($type) {
+        // Load non-sensitive fields directly, set existence flags for sensitive ones
+        match ($channel->type) {
             NotificationChannelType::Email => $this->config_to = $config['to'] ?? '',
             NotificationChannelType::Slack => $this->has_config_webhook_url = ! empty($config['webhook_url']),
-            NotificationChannelType::Discord => $this->loadDiscordConfig($config),
             NotificationChannelType::DiscordWebhook => $this->has_config_url = ! empty($config['url']),
+            NotificationChannelType::Discord => $this->loadDiscordConfig($config),
             NotificationChannelType::Telegram => $this->loadTelegramConfig($config),
             NotificationChannelType::Pushover => $this->loadPushoverConfig($config),
             NotificationChannelType::Gotify => $this->loadGotifyConfig($config),
@@ -123,7 +123,7 @@ class NotificationChannelForm extends Form
 
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'type' => ['required', 'string', \Illuminate\Validation\Rule::in(array_column(NotificationChannelType::cases(), 'value'))],
+            'type' => ['required', 'string', Rule::in(array_column(NotificationChannelType::cases(), 'value'))],
         ];
 
         return match ($type) {
@@ -181,7 +181,7 @@ class NotificationChannelForm extends Form
         };
 
         $decryptedConfig = $this->channel?->getDecryptedConfig() ?? [];
-        $rawConfig = $this->channel->config ?? [];
+        $rawConfig = $this->channel?->config ?? []; // @phpstan-ignore nullsafe.neverNull
 
         return $type->encryptSensitiveFields(
             $type->mergeSensitiveFromPersisted($config, $decryptedConfig),
@@ -215,24 +215,7 @@ class NotificationChannelForm extends Form
 
     public function resetFields(): void
     {
-        $this->channel = null;
-        $this->name = '';
-        $this->type = 'email';
-        $this->config_to = '';
-        $this->config_webhook_url = '';
-        $this->config_token = '';
-        $this->config_channel_id = '';
-        $this->config_bot_token = '';
-        $this->config_chat_id = '';
-        $this->config_user_key = '';
-        $this->config_url = '';
-        $this->config_secret = '';
-        $this->has_config_webhook_url = false;
-        $this->has_config_token = false;
-        $this->has_config_bot_token = false;
-        $this->has_config_user_key = false;
-        $this->has_config_url = false;
-        $this->has_config_secret = false;
+        $this->reset();
         $this->resetValidation();
     }
 }

@@ -4,6 +4,8 @@ namespace App\Livewire\Forms;
 
 use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;
+use App\Enums\NotificationChannelSelection;
+use App\Enums\NotificationTrigger;
 use App\Exceptions\Backup\EncryptionException;
 use App\Models\Agent;
 use App\Models\Backup;
@@ -662,8 +664,8 @@ class DatabaseServerForm extends Form
             'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
-            'notification_trigger' => ['required', 'string', Rule::in(['all', 'success', 'failure', 'none'])],
-            'notification_channel_selection' => ['required', 'string', Rule::in(['all', 'selected'])],
+            'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
+            'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],
             'notification_channel_ids' => ['array'],
             'notification_channel_ids.*' => ['string', 'exists:notification_channels,id'],
         ];

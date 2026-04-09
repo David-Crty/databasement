@@ -16,63 +16,53 @@ use App\Notifications\SnapshotsMissingNotification;
 use App\Notifications\TestNotification;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 class NotificationService
 {
     public function notifyBackupFailed(Snapshot $snapshot, \Throwable $exception): void
     {
-        $server = $snapshot->databaseServer;
-
-        if (! $server->shouldNotifyOn('failure')) {
-            return;
-        }
-
-        $this->sendToChannels(
+        $this->notifyServer(
+            $snapshot->databaseServer,
+            'failure',
             new BackupFailedNotification($snapshot, $exception),
-            $server->resolveNotificationChannels(),
         );
     }
 
     public function notifyBackupSuccess(Snapshot $snapshot): void
     {
-        $server = $snapshot->databaseServer;
-
-        if (! $server->shouldNotifyOn('success')) {
-            return;
-        }
-
-        $this->sendToChannels(
+        $this->notifyServer(
+            $snapshot->databaseServer,
+            'success',
             new BackupSuccessNotification($snapshot),
-            $server->resolveNotificationChannels(),
         );
     }
 
     public function notifyRestoreFailed(Restore $restore, \Throwable $exception): void
     {
-        $server = $restore->targetServer;
-
-        if (! $server->shouldNotifyOn('failure')) {
-            return;
-        }
-
-        $this->sendToChannels(
+        $this->notifyServer(
+            $restore->targetServer,
+            'failure',
             new RestoreFailedNotification($restore, $exception),
-            $server->resolveNotificationChannels(),
         );
     }
 
     public function notifyRestoreSuccess(Restore $restore): void
     {
-        $server = $restore->targetServer;
+        $this->notifyServer(
+            $restore->targetServer,
+            'success',
+            new RestoreSuccessNotification($restore),
+        );
+    }
 
-        if (! $server->shouldNotifyOn('success')) {
+    private function notifyServer(DatabaseServer $server, string $event, Notification $notification): void
+    {
+        if (! $server->shouldNotifyOn($event)) {
             return;
         }
 
-        $this->sendToChannels(
-            new RestoreSuccessNotification($restore),
-            $server->resolveNotificationChannels(),
-        );
+        $this->sendToChannels($notification, $server->resolveNotificationChannels());
     }
 
     /**
@@ -128,7 +118,7 @@ class NotificationService
             channelConfig: $config,
         );
 
-        \Illuminate\Support\Facades\Notification::send($notifiable, $notification);
+        NotificationFacade::send($notifiable, $notification);
     }
 
     /**
