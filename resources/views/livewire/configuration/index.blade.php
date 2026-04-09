@@ -342,24 +342,24 @@
             @if ($channelForm->type === 'email')
                 <x-input wire:model="channelForm.config_to" :label="__('Recipient Email')" type="email" required />
             @elseif ($channelForm->type === 'slack')
-                <x-input wire:model="channelForm.config_webhook_url" :label="__('Webhook URL')" type="password" :placeholder="$channelForm->has_config_webhook_url ? '********' : ''" />
+                <x-password wire:model="channelForm.config_webhook_url" :label="__('Webhook URL')" :placeholder="$channelForm->has_config_webhook_url ? '********' : ''" />
             @elseif ($channelForm->type === 'discord')
-                <x-input wire:model="channelForm.config_token" :label="__('Bot Token')" type="password" :placeholder="$channelForm->has_config_token ? '********' : ''" />
+                <x-password wire:model="channelForm.config_token" :label="__('Bot Token')" :placeholder="$channelForm->has_config_token ? '********' : ''" />
                 <x-input wire:model="channelForm.config_channel_id" :label="__('Channel ID')" required />
             @elseif ($channelForm->type === 'discord_webhook')
-                <x-input wire:model="channelForm.config_url" :label="__('Webhook URL')" type="password" :placeholder="$channelForm->has_config_url ? '********' : ''" />
+                <x-password wire:model="channelForm.config_url" :label="__('Webhook URL')" :placeholder="$channelForm->has_config_url ? '********' : ''" />
             @elseif ($channelForm->type === 'telegram')
-                <x-input wire:model="channelForm.config_bot_token" :label="__('Bot Token')" type="password" :placeholder="$channelForm->has_config_bot_token ? '********' : ''" />
+                <x-password wire:model="channelForm.config_bot_token" :label="__('Bot Token')" :placeholder="$channelForm->has_config_bot_token ? '********' : ''" />
                 <x-input wire:model="channelForm.config_chat_id" :label="__('Chat ID')" required />
             @elseif ($channelForm->type === 'pushover')
-                <x-input wire:model="channelForm.config_token" :label="__('App Token')" type="password" :placeholder="$channelForm->has_config_token ? '********' : ''" />
-                <x-input wire:model="channelForm.config_user_key" :label="__('User Key')" type="password" :placeholder="$channelForm->has_config_user_key ? '********' : ''" />
+                <x-password wire:model="channelForm.config_token" :label="__('App Token')" :placeholder="$channelForm->has_config_token ? '********' : ''" />
+                <x-password wire:model="channelForm.config_user_key" :label="__('User Key')" :placeholder="$channelForm->has_config_user_key ? '********' : ''" />
             @elseif ($channelForm->type === 'gotify')
                 <x-input wire:model="channelForm.config_url" :label="__('Server URL')" :placeholder="__('https://gotify.example.com')" required />
-                <x-input wire:model="channelForm.config_token" :label="__('App Token')" type="password" :placeholder="$channelForm->has_config_token ? '********' : ''" />
+                <x-password wire:model="channelForm.config_token" :label="__('App Token')" :placeholder="$channelForm->has_config_token ? '********' : ''" />
             @elseif ($channelForm->type === 'webhook')
                 <x-input wire:model="channelForm.config_url" :label="__('Webhook URL')" required />
-                <x-input wire:model="channelForm.config_secret" :label="__('Secret (optional)')" type="password" :placeholder="$channelForm->has_config_secret ? '********' : ''" />
+                <x-password wire:model="channelForm.config_secret" :label="__('Secret (optional)')" :placeholder="$channelForm->has_config_secret ? '********' : ''" />
             @endif
 
             @if ($editingChannelId)

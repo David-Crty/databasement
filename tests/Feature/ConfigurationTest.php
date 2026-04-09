@@ -191,7 +191,7 @@ test('sendTestNotification handles notification failure gracefully', function ()
         ->assertSuccessful();
 });
 
-test('admin can create notification channels of various types', function (string $type, array $formFields) {
+test('admin can create notification channels of various types', function (string $type, array $formFields, array $expectedOnEdit) {
     $component = Livewire::actingAs(User::factory()->create(['role' => 'admin']))
         ->test(Index::class)
         ->call('openChannelModal')
@@ -206,15 +206,24 @@ test('admin can create notification channels of various types', function (string
         ->assertHasNoErrors()
         ->assertSet('showChannelModal', false);
 
-    $this->assertDatabaseHas('notification_channels', ['name' => 'Test Channel', 'type' => $type]);
+    $channel = NotificationChannel::where('name', 'Test Channel')->where('type', $type)->firstOrFail();
+
+    // Re-open the modal to exercise setChannel() for this type
+    $component->call('openChannelModal', $channel->id)
+        ->assertSet('channelForm.name', 'Test Channel')
+        ->assertSet('channelForm.type', $type);
+
+    foreach ($expectedOnEdit as $prop => $value) {
+        $component->assertSet("channelForm.{$prop}", $value);
+    }
 })->with([
-    'slack' => ['slack', ['config_webhook_url' => 'https://hooks.slack.com/services/test']],
-    'discord' => ['discord', ['config_token' => 'bot-token', 'config_channel_id' => '123456']],
-    'discord_webhook' => ['discord_webhook', ['config_url' => 'https://discord.com/api/webhooks/123/abc']],
-    'telegram' => ['telegram', ['config_bot_token' => 'bot-token', 'config_chat_id' => '-123456']],
-    'pushover' => ['pushover', ['config_token' => 'app-token', 'config_user_key' => 'user-key']],
-    'gotify' => ['gotify', ['config_url' => 'https://gotify.example.com', 'config_token' => 'app-token']],
-    'webhook' => ['webhook', ['config_url' => 'https://webhook.example.com/notify']],
+    'slack' => ['slack', ['config_webhook_url' => 'https://hooks.slack.com/services/test'], ['has_config_webhook_url' => true]],
+    'discord' => ['discord', ['config_token' => 'bot-token', 'config_channel_id' => '123456'], ['has_config_token' => true, 'config_channel_id' => '123456']],
+    'discord_webhook' => ['discord_webhook', ['config_url' => 'https://discord.com/api/webhooks/123/abc'], ['has_config_url' => true]],
+    'telegram' => ['telegram', ['config_bot_token' => 'bot-token', 'config_chat_id' => '-123456'], ['has_config_bot_token' => true, 'config_chat_id' => '-123456']],
+    'pushover' => ['pushover', ['config_token' => 'app-token', 'config_user_key' => 'user-key'], ['has_config_token' => true, 'has_config_user_key' => true]],
+    'gotify' => ['gotify', ['config_url' => 'https://gotify.example.com', 'config_token' => 'app-token'], ['config_url' => 'https://gotify.example.com', 'has_config_token' => true]],
+    'webhook' => ['webhook', ['config_url' => 'https://webhook.example.com/notify'], ['config_url' => 'https://webhook.example.com/notify', 'has_config_secret' => false]],
 ]);
 
 test('editing a channel preserves sensitive fields when left blank', function () {
