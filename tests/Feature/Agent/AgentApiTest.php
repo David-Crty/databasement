@@ -1,6 +1,5 @@
 <?php
 
-use App\Facades\AppConfig;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\DatabaseServer;
@@ -240,8 +239,7 @@ describe('job failure', function () {
 
     test('fail sends failure notification for backup jobs', function () {
         Notification::fake();
-        AppConfig::set('notifications.enabled', true);
-        AppConfig::set('notifications.mail.to', 'admin@example.com');
+        \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
@@ -252,7 +250,7 @@ describe('job failure', function () {
             ])
             ->assertOk();
 
-        Notification::assertSentOnDemand(\App\Notifications\BackupFailedNotification::class);
+        Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
     });
 
     test('failing a discovery job marks it failed without notification or backup job impact', function () {

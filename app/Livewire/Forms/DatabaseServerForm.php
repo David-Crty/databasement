@@ -10,6 +10,7 @@ use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
+use App\Models\NotificationChannel;
 use App\Rules\SafePath;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\SshTunnelService;
@@ -84,6 +85,14 @@ class DatabaseServerForm extends Form
     public ?string $agent_id = null;
 
     public bool $backups_enabled = true;
+
+    // Notification preferences
+    public string $notification_trigger = 'failure';
+
+    public string $notification_channel_selection = 'all';
+
+    /** @var array<string> */
+    public array $notification_channel_ids = [];
 
     public string $volume_id = '';
 
@@ -354,6 +363,9 @@ class DatabaseServerForm extends Form
         $this->agent_id = $server->agent_id;
         $this->use_agent = ! empty($server->agent_id);
         $this->backups_enabled = $server->backups_enabled ?? true;
+        $this->notification_trigger = $server->notification_trigger?->value ?? 'failure'; // @phpstan-ignore nullCoalesce.expr
+        $this->notification_channel_selection = $server->notification_channel_selection?->value ?? 'all'; // @phpstan-ignore nullCoalesce.expr
+        $this->notification_channel_ids = $server->notificationChannels()->pluck('notification_channels.id')->toArray();
         // Don't populate password for security
         $this->password = '';
 
@@ -650,6 +662,10 @@ class DatabaseServerForm extends Form
             'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
+            'notification_trigger' => ['required', 'string', Rule::in(['all', 'success', 'failure', 'none'])],
+            'notification_channel_selection' => ['required', 'string', Rule::in(['all', 'selected'])],
+            'notification_channel_ids' => ['array'],
+            'notification_channel_ids.*' => ['string', 'exists:notification_channels,id'],
         ];
     }
 
@@ -859,6 +875,7 @@ class DatabaseServerForm extends Form
 
         $server = DatabaseServer::create($serverData);
         $this->syncBackupConfiguration($server, $backupData);
+        $this->syncNotificationChannels($server);
 
         return true;
     }
@@ -888,6 +905,7 @@ class DatabaseServerForm extends Form
 
         $this->server->update($serverData);
         $this->syncBackupConfiguration($this->server, $backupData);
+        $this->syncNotificationChannels($this->server);
 
         return true;
     }
@@ -999,7 +1017,8 @@ class DatabaseServerForm extends Form
             $validated['retention_policy'],
             $validated['gfs_keep_daily'],
             $validated['gfs_keep_weekly'],
-            $validated['gfs_keep_monthly']
+            $validated['gfs_keep_monthly'],
+            $validated['notification_channel_ids']
         );
 
         return [$validated, $backupData];
@@ -1016,6 +1035,29 @@ class DatabaseServerForm extends Form
                 $backupData
             );
         }
+    }
+
+    private function syncNotificationChannels(DatabaseServer $server): void
+    {
+        if ($this->notification_channel_selection === 'selected') {
+            $server->notificationChannels()->sync($this->notification_channel_ids);
+        } else {
+            $server->notificationChannels()->detach();
+        }
+    }
+
+    /**
+     * @return array<array{id: string, name: string}>
+     */
+    public function getNotificationChannelOptions(): array
+    {
+        return NotificationChannel::orderBy('name')
+            ->get()
+            ->map(fn (NotificationChannel $c) => [
+                'id' => $c->id,
+                'name' => $c->name.' ('.$c->type->label().')',
+            ])
+            ->toArray();
     }
 
     public function testConnection(): void

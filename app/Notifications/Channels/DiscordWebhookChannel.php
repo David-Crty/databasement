@@ -2,7 +2,6 @@
 
 namespace App\Notifications\Channels;
 
-use App\Facades\AppConfig;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
 
@@ -13,7 +12,8 @@ class DiscordWebhookChannel
         /** @var array{content: string, embeds: array<int, array<string, mixed>>} $payload */
         $payload = $notification->toDiscordWebhook($notifiable); // @phpstan-ignore method.notFound
 
-        $url = AppConfig::get('notifications.discord_webhook.url');
+        $config = $notifiable->channelConfig ?? [];
+        $url = $config['url'] ?? null;
 
         if (! $url) {
             return;

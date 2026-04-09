@@ -8,7 +8,7 @@ use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\RestoreTask;
-use App\Services\FailureNotificationService;
+use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -79,6 +79,8 @@ class ProcessRestoreJob implements ShouldQueue
 
             $job->markCompleted();
 
+            app(NotificationService::class)->notifyRestoreSuccess($restore);
+
             Log::info('Restore completed successfully', [
                 'restore_id' => $this->restoreId,
                 'snapshot_id' => $restore->snapshot_id,
@@ -103,6 +105,6 @@ class ProcessRestoreJob implements ShouldQueue
     public function failed(\Throwable $exception): void
     {
         $restore = Restore::with(['targetServer', 'snapshot'])->findOrFail($this->restoreId);
-        app(FailureNotificationService::class)->notifyRestoreFailed($restore, $exception);
+        app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
     }
 }

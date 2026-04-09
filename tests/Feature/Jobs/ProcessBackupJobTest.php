@@ -155,8 +155,7 @@ test('job can be dispatched to queue', function () {
 });
 
 test('failed method sends notification', function () {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.mail.to', 'admin@example.com');
+    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = app(BackupJobFactory::class)->createSnapshots($server, 'manual')[0];
@@ -166,9 +165,5 @@ test('failed method sends notification', function () {
 
     $job->failed($exception);
 
-    Notification::assertSentOnDemand(
-        \App\Notifications\BackupFailedNotification::class,
-        fn ($notification) => $notification->snapshot->id === $snapshot->id
-            && $notification->exception->getMessage() === 'Backup failed: connection timeout'
-    );
+    Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
 });

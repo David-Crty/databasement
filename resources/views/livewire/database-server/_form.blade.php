@@ -639,6 +639,64 @@ use App\Enums\DatabaseType;
         </div>
     @endif
 
+    <!-- Section 5: Notifications -->
+    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit)
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body p-3 sm:p-8">
+                <div class="flex items-center gap-3 mb-4">
+                    @php
+                        $notifSection = ($form->isSqlite() || $form->isRedis()) ? ($form->backups_enabled ? 4 : 3) : ($form->backups_enabled ? 5 : 4);
+                    @endphp
+                    <span class="badge badge-primary badge-lg font-bold">{{ $notifSection }}</span>
+                    <h3 class="card-title text-lg">{{ __('Notifications') }}</h3>
+                </div>
+
+                <div class="space-y-4">
+                    <x-select
+                        wire:model.live="form.notification_trigger"
+                        :label="__('Notification Trigger')"
+                        :options="[
+                            ['id' => 'all', 'name' => __('All events')],
+                            ['id' => 'success', 'name' => __('Success only')],
+                            ['id' => 'failure', 'name' => __('Failure only')],
+                            ['id' => 'none', 'name' => __('None')],
+                        ]"
+                        :hint="__('Controls when notifications are sent for this server.')"
+                    />
+
+                    @if($form->notification_trigger !== 'none')
+                        <x-select
+                            wire:model.live="form.notification_channel_selection"
+                            :label="__('Notification Channels')"
+                            :options="[
+                                ['id' => 'all', 'name' => __('All channels')],
+                                ['id' => 'selected', 'name' => __('Selected channels')],
+                            ]"
+                            :hint="__('Controls which notification channels are used.')"
+                        />
+
+                        @if($form->notification_channel_selection === 'selected')
+                            @php $channelOptions = $form->getNotificationChannelOptions(); @endphp
+                            @if(empty($channelOptions))
+                                <x-alert class="alert-info" icon="o-information-circle">
+                                    {{ __('No notification channels configured.') }}
+                                    <a href="{{ route('configuration.index') }}" class="link link-primary underline-offset-2" wire:navigate>{{ __('Add channels in Configuration.') }}</a>
+                                </x-alert>
+                            @else
+                                <x-choices-offline
+                                    wire:model="form.notification_channel_ids"
+                                    :options="$channelOptions"
+                                    :label="__('Select Channels')"
+                                    searchable
+                                />
+                            @endif
+                        @endif
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- Form Actions -->
     <div class="flex flex-col-reverse sm:flex-row items-center justify-end gap-3 pt-4">
         <x-button class="btn-ghost w-full sm:w-auto" link="{{ route($cancelRoute) }}" wire:navigate>

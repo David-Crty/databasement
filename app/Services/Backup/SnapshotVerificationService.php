@@ -4,18 +4,18 @@ namespace App\Services\Backup;
 
 use App\Models\Snapshot;
 use App\Services\Backup\Filesystems\FilesystemProvider;
-use App\Services\FailureNotificationService;
+use App\Services\NotificationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class SnapshotVerificationService
 {
-    /** @var Collection<int, array{server: string, database: string, filename: string}> */
+    /** @var Collection<int, array{server: string, database: string, filename: string, database_server_id: string}> */
     private Collection $newlyMissing;
 
     public function __construct(
         private FilesystemProvider $filesystemProvider,
-        private FailureNotificationService $notificationService
+        private NotificationService $notificationService
     ) {}
 
     /**
@@ -40,7 +40,8 @@ class SnapshotVerificationService
         }
 
         if ($this->newlyMissing->isNotEmpty()) {
-            $this->notificationService->notifySnapshotsMissing($this->newlyMissing);
+            $affectedServerIds = $this->newlyMissing->pluck('database_server_id')->unique()->values();
+            $this->notificationService->notifySnapshotsMissing($this->newlyMissing, $affectedServerIds);
         }
 
         Log::info("Snapshot verification: {$verified} snapshot(s) verified, {$this->newlyMissing->count()} newly missing.");
@@ -72,6 +73,7 @@ class SnapshotVerificationService
                     'server' => $snapshot->databaseServer->name ?? 'Unknown',
                     'database' => $snapshot->database_name,
                     'filename' => $snapshot->filename,
+                    'database_server_id' => $snapshot->database_server_id,
                 ]);
             }
         } catch (\Throwable $e) {

@@ -5,18 +5,14 @@ namespace App\Notifications;
 use App\Notifications\Concerns\HasChannelRouting;
 use Illuminate\Notifications\Notification;
 
-abstract class BaseFailedNotification extends Notification
+abstract class BaseSuccessNotification extends Notification
 {
     use HasChannelRouting;
 
-    public function __construct(
-        public \Throwable $exception
-    ) {}
-
-    abstract public function getMessage(): FailedNotificationMessage;
+    abstract public function getMessage(): SuccessNotificationMessage;
 
     /**
-     * Create a failed notification message.
+     * Create a success notification message.
      *
      * @param  array<string, string>  $fields
      */
@@ -26,14 +22,11 @@ abstract class BaseFailedNotification extends Notification
         string $actionText,
         string $actionUrl,
         string $footerText,
-        string $errorLabel,
         array $fields = [],
-    ): FailedNotificationMessage {
-        return new FailedNotificationMessage(
+    ): SuccessNotificationMessage {
+        return new SuccessNotificationMessage(
             title: $title,
             body: $body,
-            errorMessage: $this->exception->getMessage(),
-            errorLabel: $errorLabel,
             actionText: $actionText,
             actionUrl: $actionUrl,
             footerText: $footerText,

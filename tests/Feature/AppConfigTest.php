@@ -2,19 +2,16 @@
 
 use App\Facades\AppConfig;
 use App\Models\AppConfig as AppConfigModel;
-use Illuminate\Support\Facades\Crypt;
 
 test('default values exist after migration', function () {
     expect(AppConfigModel::find('backup.working_directory'))->not->toBeNull()
-        ->and(AppConfigModel::find('backup.compression'))->not->toBeNull()
-        ->and(AppConfigModel::find('notifications.enabled'))->not->toBeNull();
+        ->and(AppConfigModel::find('backup.compression'))->not->toBeNull();
 });
 
 test('get returns correctly casted values', function () {
     expect(AppConfig::get('backup.compression'))->toBeString()
         ->and(AppConfig::get('backup.compression_level'))->toBeInt()
-        ->and(AppConfig::get('backup.verify_files'))->toBeBool()
-        ->and(AppConfig::get('notifications.enabled'))->toBeBool();
+        ->and(AppConfig::get('backup.verify_files'))->toBeBool();
 });
 
 test('get returns default values', function () {
@@ -26,8 +23,7 @@ test('get returns default values', function () {
         ->and(AppConfig::get('backup.job_backoff'))->toBe(60)
         ->and(AppConfig::get('backup.cleanup_cron'))->toBe('0 4 * * *')
         ->and(AppConfig::get('backup.verify_files'))->toBeTrue()
-        ->and(AppConfig::get('backup.verify_files_cron'))->toBe('0 5 * * *')
-        ->and(AppConfig::get('notifications.enabled'))->toBeFalse();
+        ->and(AppConfig::get('backup.verify_files_cron'))->toBe('0 5 * * *');
 });
 
 test('set persists values', function () {
@@ -41,17 +37,17 @@ test('set persists values', function () {
 });
 
 test('set persists boolean values', function () {
-    AppConfig::set('notifications.enabled', true);
+    AppConfig::set('backup.verify_files', true);
 
-    expect(AppConfig::get('notifications.enabled'))->toBeTrue();
+    expect(AppConfig::get('backup.verify_files'))->toBeTrue();
 
     // Verify DB stores as string
-    $row = AppConfigModel::find('notifications.enabled');
+    $row = AppConfigModel::find('backup.verify_files');
     expect($row->value)->toBe('1');
 
     // Verify false round-trip
-    AppConfig::set('notifications.enabled', false);
-    expect(AppConfig::get('notifications.enabled'))->toBeFalse();
+    AppConfig::set('backup.verify_files', false);
+    expect(AppConfig::get('backup.verify_files'))->toBeFalse();
 
     $row->refresh();
     expect($row->value)->toBe('0');
@@ -61,27 +57,6 @@ test('set persists integer values', function () {
     AppConfig::set('backup.job_timeout', 3600);
 
     expect(AppConfig::get('backup.job_timeout'))->toBe(3600);
-});
-
-test('sensitive values are encrypted in DB and decrypted by get', function () {
-    AppConfig::set('notifications.slack.webhook_url', 'https://hooks.slack.com/test');
-
-    // Verify it's encrypted in DB
-    $row = AppConfigModel::find('notifications.slack.webhook_url');
-    expect($row->value)->not->toBe('https://hooks.slack.com/test')
-        ->and(Crypt::decryptString($row->value))->toBe('https://hooks.slack.com/test');
-
-    // Verify get decrypts
-    expect(AppConfig::get('notifications.slack.webhook_url'))->toBe('https://hooks.slack.com/test');
-});
-
-test('set handles null for nullable fields', function () {
-    AppConfig::set('notifications.mail.to', null);
-
-    expect(AppConfig::get('notifications.mail.to'))->toBeNull();
-
-    $row = AppConfigModel::find('notifications.mail.to');
-    expect($row->value)->toBeNull();
 });
 
 test('get reads fresh values from database', function () {

@@ -23,20 +23,6 @@ class AppConfigService
         'backup.cleanup_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 4 * * *'],
         'backup.verify_files' => ['type' => 'boolean', 'is_sensitive' => false, 'default' => true],
         'backup.verify_files_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 5 * * *'],
-        'notifications.enabled' => ['type' => 'boolean', 'is_sensitive' => false, 'default' => false],
-        'notifications.mail.to' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
-        'notifications.slack.webhook_url' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
-        'notifications.discord.token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
-        'notifications.discord.channel_id' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
-        'notifications.telegram.bot_token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
-        'notifications.telegram.chat_id' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
-        'notifications.pushover.token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
-        'notifications.pushover.user_key' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
-        'notifications.gotify.url' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
-        'notifications.gotify.token' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
-        'notifications.discord_webhook.url' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
-        'notifications.webhook.url' => ['type' => 'string', 'is_sensitive' => false, 'default' => null],
-        'notifications.webhook.secret' => ['type' => 'string', 'is_sensitive' => true, 'default' => null],
     ];
 
     /**

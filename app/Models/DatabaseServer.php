@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;
+use App\Enums\NotificationChannelSelection;
+use App\Enums\NotificationTrigger;
 use App\Exceptions\Backup\EncryptionException;
 use Database\Factories\DatabaseServerFactory;
 use Illuminate\Contracts\Encryption\DecryptException;
@@ -13,6 +15,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
@@ -34,6 +37,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $ssh_config_id
  * @property string|null $agent_id
  * @property string|null $managed_by
+ * @property NotificationTrigger $notification_trigger
+ * @property NotificationChannelSelection $notification_channel_selection
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Agent|null $agent
@@ -41,6 +46,8 @@ use Illuminate\Support\Carbon;
  * @property-read DatabaseServerSshConfig|null $sshConfig
  * @property-read Collection<int, Snapshot> $snapshots
  * @property-read int|null $snapshots_count
+ * @property-read Collection<int, NotificationChannel> $notificationChannels
+ * @property-read int|null $notification_channels_count
  *
  * @method static DatabaseServerFactory factory($count = null, $state = [])
  * @method static Builder<static>|DatabaseServer newModelQuery()
@@ -105,6 +112,8 @@ class DatabaseServer extends Model
         'agent_id',
         'extra_config',
         'managed_by',
+        'notification_trigger',
+        'notification_channel_selection',
     ];
 
     protected $hidden = [
@@ -121,6 +130,8 @@ class DatabaseServer extends Model
             'password' => 'encrypted',
             'database_names' => 'array',
             'extra_config' => 'array',
+            'notification_trigger' => NotificationTrigger::class,
+            'notification_channel_selection' => NotificationChannelSelection::class,
         ];
     }
 
@@ -146,6 +157,14 @@ class DatabaseServer extends Model
     public function snapshots(): HasMany
     {
         return $this->hasMany(Snapshot::class);
+    }
+
+    /**
+     * @return BelongsToMany<NotificationChannel, DatabaseServer>
+     */
+    public function notificationChannels(): BelongsToMany
+    {
+        return $this->belongsToMany(NotificationChannel::class, 'database_server_notification_channel');
     }
 
     /**
@@ -398,5 +417,26 @@ class DatabaseServer extends Model
         restore_error_handler();
 
         return $result;
+    }
+
+    /**
+     * Check if this server should send notifications for the given event type.
+     */
+    public function shouldNotifyOn(string $event): bool
+    {
+        return $this->notification_trigger->shouldNotifyOn($event);
+    }
+
+    /**
+     * Resolve which notification channels to use for this server.
+     *
+     * @return Collection<int, NotificationChannel>
+     */
+    public function resolveNotificationChannels(): Collection
+    {
+        return match ($this->notification_channel_selection) {
+            NotificationChannelSelection::All => NotificationChannel::all(),
+            NotificationChannelSelection::Selected => $this->notificationChannels,
+        };
     }
 }

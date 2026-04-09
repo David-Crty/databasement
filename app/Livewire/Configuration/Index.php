@@ -2,14 +2,15 @@
 
 namespace App\Livewire\Configuration;
 
+use App\Enums\NotificationChannelType;
 use App\Jobs\CleanupExpiredSnapshotsJob;
 use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Forms\ConfigurationForm;
+use App\Livewire\Forms\NotificationChannelForm;
 use App\Models\BackupSchedule;
-use App\Models\DatabaseServer;
-use App\Models\Snapshot;
+use App\Models\NotificationChannel;
 use App\Services\Backup\TriggerBackupAction;
-use App\Services\FailureNotificationService;
+use App\Services\NotificationService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
@@ -28,6 +29,9 @@ class Index extends Component
 
     public ConfigurationForm $form;
 
+    public NotificationChannelForm $channelForm;
+
+    // Schedule modal state
     public bool $showScheduleModal = false;
 
     public ?string $editingScheduleId = null;
@@ -35,6 +39,15 @@ class Index extends Component
     public ?string $deleteScheduleId = null;
 
     public bool $showDeleteScheduleModal = false;
+
+    // Notification channel modal state
+    public bool $showChannelModal = false;
+
+    public ?string $editingChannelId = null;
+
+    public ?string $deleteChannelId = null;
+
+    public bool $showDeleteChannelModal = false;
 
     public function mount(): void
     {
@@ -166,15 +179,7 @@ class Index extends Component
         $this->success(__('Snapshot file verification job dispatched.'), position: 'toast-bottom');
     }
 
-    public function saveNotificationConfig(): void
-    {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
-        $this->form->saveNotifications();
-
-        $this->dispatch('notification-saved');
-        $this->success(__('Notification configuration saved.'), position: 'toast-bottom');
-    }
+    // --- Backup Schedules ---
 
     public function openScheduleModal(?string $scheduleId = null): void
     {
@@ -257,38 +262,6 @@ class Index extends Component
         }
     }
 
-    public function sendTestNotification(): void
-    {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
-        $service = app(FailureNotificationService::class);
-        $routes = $service->getNotificationRoutes();
-
-        if (empty($routes)) {
-            $this->error(__('No notification channels configured. Please configure at least one notification channel.'), position: 'toast-bottom');
-
-            return;
-        }
-
-        try {
-            $server = new DatabaseServer(['name' => '[TEST] Production Database']);
-            $snapshot = new Snapshot([
-                'database_name' => 'app_production',
-                'backup_job_id' => 'test-notification',
-            ]);
-            $snapshot->setRelation('databaseServer', $server);
-
-            $exception = new \Exception('SQLSTATE[HY000] [2002] Connection refused (This is a test notification)');
-
-            $service->notifyBackupFailed($snapshot, $exception);
-
-            $channelNames = implode(', ', array_keys($routes));
-            $this->success(__('Test notification sent to: :channels', ['channels' => $channelNames]), position: 'toast-bottom');
-        } catch (\Throwable $e) {
-            $this->error(__('Failed to send test notification: :message', ['message' => $e->getMessage()]), position: 'toast-bottom');
-        }
-    }
-
     public function runSchedule(string $scheduleId, TriggerBackupAction $action): void
     {
         abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
@@ -325,6 +298,77 @@ class Index extends Component
         }
     }
 
+    // --- Notification Channels ---
+
+    public function openChannelModal(?string $channelId = null): void
+    {
+        $this->channelForm->resetFields();
+        $this->editingChannelId = $channelId;
+
+        if ($channelId) {
+            $channel = NotificationChannel::findOrFail($channelId);
+            $this->channelForm->setChannel($channel);
+        }
+
+        $this->showChannelModal = true;
+    }
+
+    public function saveChannel(): void
+    {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
+        if ($this->editingChannelId) {
+            $this->channelForm->channel = NotificationChannel::findOrFail($this->editingChannelId);
+            $this->channelForm->update();
+        } else {
+            $this->channelForm->store();
+        }
+
+        $this->showChannelModal = false;
+        $this->editingChannelId = null;
+        $this->channelForm->resetFields();
+
+        $this->success(__('Notification channel saved.'), position: 'toast-bottom');
+    }
+
+    public function confirmDeleteChannel(string $channelId): void
+    {
+        $this->deleteChannelId = $channelId;
+        $this->showDeleteChannelModal = true;
+    }
+
+    public function deleteChannel(): void
+    {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
+        if (! $this->deleteChannelId) {
+            return;
+        }
+
+        NotificationChannel::findOrFail($this->deleteChannelId)->delete();
+        $this->showDeleteChannelModal = false;
+        $this->deleteChannelId = null;
+
+        $this->success(__('Notification channel deleted.'), position: 'toast-bottom');
+    }
+
+    public function sendTestNotification(string $channelId): void
+    {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
+        $channel = NotificationChannel::findOrFail($channelId);
+
+        try {
+            app(NotificationService::class)->sendTestNotification($channel);
+
+            $this->success(__('Test notification sent to: :channel', ['channel' => $channel->name]), position: 'toast-bottom');
+        } catch (\Throwable $e) {
+            $this->error(__('Failed to send test notification: :message', ['message' => $e->getMessage()]), position: 'toast-bottom');
+        }
+    }
+
+    // --- Computed Properties ---
+
     /**
      * @return Collection<int, BackupSchedule>
      */
@@ -345,6 +389,15 @@ class Index extends Component
     }
 
     /**
+     * @return Collection<int, NotificationChannel>
+     */
+    #[Computed]
+    public function notificationChannels(): Collection
+    {
+        return NotificationChannel::orderBy('name')->get();
+    }
+
+    /**
      * @return array<int, array{id: string, name: string}>
      */
     public function getCompressionOptions(): array
@@ -354,6 +407,17 @@ class Index extends Component
             ['id' => 'zstd', 'name' => 'zstd'],
             ['id' => 'encrypted', 'name' => 'encrypted'],
         ];
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string}>
+     */
+    public function getChannelTypeOptions(): array
+    {
+        return array_map(
+            fn (NotificationChannelType $type) => ['id' => $type->value, 'name' => $type->label()],
+            NotificationChannelType::cases(),
+        );
     }
 
     private function restartScheduler(): bool
@@ -375,23 +439,6 @@ class Index extends Component
         return true;
     }
 
-    /**
-     * @return array<int, array{id: string, name: string}>
-     */
-    public function getChannelOptions(): array
-    {
-        return [
-            ['id' => 'email', 'name' => __('Email')],
-            ['id' => 'slack', 'name' => __('Slack')],
-            ['id' => 'discord', 'name' => __('Discord (Bot)')],
-            ['id' => 'discord_webhook', 'name' => __('Discord (Webhook)')],
-            ['id' => 'telegram', 'name' => __('Telegram')],
-            ['id' => 'pushover', 'name' => __('Pushover')],
-            ['id' => 'gotify', 'name' => __('Gotify')],
-            ['id' => 'webhook', 'name' => __('Webhook')],
-        ];
-    }
-
     public function render(): View
     {
         return view('livewire.configuration.index', [
@@ -399,10 +446,10 @@ class Index extends Component
             'appConfig' => $this->getAppConfig(),
             'ssoConfig' => $this->getSsoConfig(),
             'compressionOptions' => $this->getCompressionOptions(),
-            'channelOptions' => $this->getChannelOptions(),
+            'channelTypeOptions' => $this->getChannelTypeOptions(),
             'backupSchedules' => $this->backupSchedules(),
+            'notificationChannels' => $this->notificationChannels(),
             'showDeprecatedBackupEnv' => config('app.has_deprecated_backup_env'),
-            'showDeprecatedNotificationEnv' => config('app.has_deprecated_notification_env'),
         ]);
     }
 }

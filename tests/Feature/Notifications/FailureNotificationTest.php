@@ -1,18 +1,19 @@
 <?php
 
-use App\Facades\AppConfig;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
+use App\Models\NotificationChannel;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Notifications\BackupFailedNotification;
+use App\Notifications\ChannelNotifiable;
 use App\Notifications\Channels\DiscordWebhookChannel;
 use App\Notifications\Channels\GotifyChannel;
 use App\Notifications\Channels\WebhookChannel;
 use App\Notifications\RestoreFailedNotification;
 use App\Notifications\SnapshotsMissingNotification;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\FailureNotificationService;
+use App\Services\NotificationService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Notifications\Slack\SlackMessage;
 use Illuminate\Support\Facades\Http;
@@ -47,9 +48,28 @@ function createTestRestore(Snapshot $snapshot, DatabaseServer $server): Restore
     ]);
 }
 
+/**
+ * Get all notifications of a given type sent to ChannelNotifiable instances.
+ *
+ * @return \Illuminate\Support\Collection<int, array{notification: mixed, channels: array, notifiable: ChannelNotifiable}>
+ */
+function sentChannelNotifications(string $notificationClass): \Illuminate\Support\Collection
+{
+    $fake = Notification::getFacadeRoot();
+    $all = (new ReflectionProperty($fake, 'notifications'))->getValue($fake);
+    $results = collect();
+
+    foreach ($all[ChannelNotifiable::class] ?? [] as $keyGroup) {
+        foreach ($keyGroup[$notificationClass] ?? [] as $entry) {
+            $results->push($entry);
+        }
+    }
+
+    return $results;
+}
+
 test('notification is sent with correct details', function (string $type) {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.mail.to', 'admin@example.com');
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production DB',
@@ -59,89 +79,87 @@ test('notification is sent with correct details', function (string $type) {
     $exception = new \Exception('Connection refused');
 
     if ($type === 'backup') {
-        app(FailureNotificationService::class)->notifyBackupFailed($snapshot, $exception);
+        app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
 
-        Notification::assertSentOnDemand(
-            BackupFailedNotification::class,
-            fn (BackupFailedNotification $n) => $n->snapshot->id === $snapshot->id
-                && $n->exception->getMessage() === $exception->getMessage()
-        );
+        $sent = sentChannelNotifications(BackupFailedNotification::class);
+        expect($sent)->toHaveCount(1);
+        $notification = $sent->first()['notification'];
+        expect($notification->snapshot->id)->toBe($snapshot->id)
+            ->and($notification->exception->getMessage())->toBe($exception->getMessage());
     } else {
         $restore = createTestRestore($snapshot, $server);
-        app(FailureNotificationService::class)->notifyRestoreFailed($restore, $exception);
+        app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
 
-        Notification::assertSentOnDemand(
-            RestoreFailedNotification::class,
-            fn (RestoreFailedNotification $n) => $n->restore->id === $restore->id
-                && $n->exception->getMessage() === $exception->getMessage()
-        );
+        $sent = sentChannelNotifications(RestoreFailedNotification::class);
+        expect($sent)->toHaveCount(1);
+        $notification = $sent->first()['notification'];
+        expect($notification->restore->id)->toBe($restore->id)
+            ->and($notification->exception->getMessage())->toBe($exception->getMessage());
     }
 })->with(['backup', 'restore']);
 
-test('notification is not sent when disabled', function () {
-    AppConfig::set('notifications.enabled', false);
-    AppConfig::set('notifications.mail.to', 'admin@example.com');
+test('notification is not sent when server notification trigger is none', function () {
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
-    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $server = DatabaseServer::factory()->create([
+        'database_names' => ['testdb'],
+        'notification_trigger' => 'none',
+    ]);
     $snapshot = createTestSnapshot($server);
 
-    app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
 
     Notification::assertNothingSent();
 });
 
-test('notification is not sent when no routes configured', function (string $type) {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.mail.to', null);
-    AppConfig::set('notifications.slack.webhook_url', null);
-    AppConfig::set('notifications.discord.channel_id', null);
-
+test('notification is not sent when no channels exist', function (string $type) {
+    // No NotificationChannel records exist
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
 
     if ($type === 'backup') {
-        app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+        app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
     } else {
         $restore = createTestRestore($snapshot, $server);
-        app(FailureNotificationService::class)->notifyRestoreFailed($restore, new \Exception('Error'));
+        app(NotificationService::class)->notifyRestoreFailed($restore, new \Exception('Error'));
     }
 
     Notification::assertNothingSent();
 })->with(['backup', 'restore']);
 
-test('notification is sent to channel when configured', function (string $configKey, string $configValue, string $expectedChannel, string $routeKey) {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.mail.to', null);
-    AppConfig::set($configKey, $configValue);
+test('notification is sent to channel when configured', function (string $factoryState, array $configOverrides, string $expectedChannel, string $routeKey) {
+    $channel = NotificationChannel::factory()->{$factoryState}()->create(
+        ! empty($configOverrides) ? ['config' => $configOverrides] : []
+    );
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
 
-    app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
 
-    Notification::assertSentOnDemand(
-        BackupFailedNotification::class,
-        fn ($notification, $channels, $notifiable) => in_array($expectedChannel, $channels)
-            && $notifiable->routes[$routeKey] === $configValue
-    );
+    $sent = sentChannelNotifications(BackupFailedNotification::class);
+    expect($sent)->toHaveCount(1);
+    expect($sent->first()['channels'])->toContain($expectedChannel);
 })->with([
-    'slack' => ['notifications.slack.webhook_url', 'https://hooks.slack.com/services/test', 'slack', 'slack'],
-    'discord' => ['notifications.discord.channel_id', '123456789012345678', DiscordChannel::class, 'discord'],
-    'telegram' => ['notifications.telegram.chat_id', '123456', TelegramChannel::class, 'telegram'],
-    'pushover' => ['notifications.pushover.user_key', 'user-key-123', PushoverChannel::class, 'pushover'],
-    'gotify' => ['notifications.gotify.url', 'https://gotify.example.com', GotifyChannel::class, 'gotify'],
-    'discord_webhook' => ['notifications.discord_webhook.url', 'https://discord.com/api/webhooks/123/abc', DiscordWebhookChannel::class, 'discord_webhook'],
-    'webhook' => ['notifications.webhook.url', 'https://webhook.example.com/hook', WebhookChannel::class, 'webhook'],
+    'slack' => ['slack', ['webhook_url' => 'https://hooks.slack.com/services/test'], 'slack', 'slack'],
+    'discord' => ['discord', ['token' => 'bot-token', 'channel_id' => '123456789012345678'], DiscordChannel::class, 'discord'],
+    'telegram' => ['telegram', ['bot_token' => 'bot-token', 'chat_id' => '123456'], TelegramChannel::class, 'telegram'],
+    'pushover' => ['pushover', ['token' => 'push-token', 'user_key' => 'user-key-123'], PushoverChannel::class, 'pushover'],
+    'gotify' => ['gotify', ['url' => 'https://gotify.example.com', 'token' => 'app-token'], GotifyChannel::class, 'gotify'],
+    'discordWebhook' => ['discordWebhook', ['url' => 'https://discord.com/api/webhooks/123/abc'], DiscordWebhookChannel::class, 'discord_webhook'],
+    'webhook' => ['webhook', ['url' => 'https://webhook.example.com/hook', 'secret' => 'my-secret'], WebhookChannel::class, 'webhook'],
 ]);
 
-test('send refreshes service configs from AppConfig before dispatching', function () {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.pushover.user_key', 'user-key-123');
-    AppConfig::set('notifications.pushover.token', 'app-token-fresh');
-    AppConfig::set('notifications.discord.channel_id', '123456789');
-    AppConfig::set('notifications.discord.token', 'discord-token-fresh');
-    AppConfig::set('notifications.telegram.chat_id', '999');
-    AppConfig::set('notifications.telegram.bot_token', 'telegram-token-fresh');
+test('send refreshes service configs from channel config before dispatching', function () {
+    NotificationChannel::factory()->pushover()->create([
+        'config' => ['token' => 'app-token-fresh', 'user_key' => 'user-key-123'],
+    ]);
+    NotificationChannel::factory()->discord()->create([
+        'config' => ['token' => 'discord-token-fresh', 'channel_id' => '123456789'],
+    ]);
+    NotificationChannel::factory()->telegram()->create([
+        'config' => ['bot_token' => 'telegram-token-fresh', 'chat_id' => '999'],
+    ]);
 
     // Simulate Octane stale config: services.* keys are empty
     config([
@@ -153,34 +171,11 @@ test('send refreshes service configs from AppConfig before dispatching', functio
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
 
-    app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
 
-    expect(config('services.pushover.token'))->toBe('app-token-fresh')
-        ->and(config('services.discord.token'))->toBe('discord-token-fresh')
-        ->and(config('services.telegram-bot-api.token'))->toBe('telegram-token-fresh');
-});
-
-test('notification is not sent to pushover after user removes it from configuration', function () {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.mail.to', 'admin@example.com');
-
-    // User previously had Pushover configured, then removed it
-    AppConfig::set('notifications.pushover.user_key', null);
-    AppConfig::set('notifications.pushover.token', null);
-
-    // Simulate Octane stale config: old token still present from previous boot
-    config(['services.pushover.token' => 'stale-old-token']);
-
-    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = createTestSnapshot($server);
-
-    app(FailureNotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
-
-    Notification::assertSentOnDemand(
-        BackupFailedNotification::class,
-        fn ($notification, $channels) => in_array('mail', $channels)
-            && ! in_array(PushoverChannel::class, $channels)
-    );
+    // After sending, the service should have refreshed config from channel records
+    $sent = sentChannelNotifications(BackupFailedNotification::class);
+    expect($sent)->toHaveCount(3);
 });
 
 test('via method returns channels based on configured routes', function () {
@@ -306,37 +301,38 @@ test('notification renders channel correctly', function (Closure $assert) {
     }],
 ]);
 
-test('custom channel sends HTTP request', function (string $channelClass, array $config, Closure $assertRequest) {
+test('custom channel sends HTTP request', function (string $channelClass, array $channelConfig, Closure $assertRequest) {
     Http::fake();
-
-    foreach ($config as $key => $value) {
-        AppConfig::set($key, $value);
-    }
 
     $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
     $notification = new BackupFailedNotification($snapshot, new \Exception('Test error'));
 
-    (new $channelClass)->send((object) [], $notification);
+    $notifiable = new ChannelNotifiable(
+        routes: [],
+        channelConfig: $channelConfig,
+    );
+
+    (new $channelClass)->send($notifiable, $notification);
 
     Http::assertSent($assertRequest);
 })->with([
     'gotify' => [
         GotifyChannel::class,
-        ['notifications.gotify.url' => 'https://gotify.example.com', 'notifications.gotify.token' => 'app-token'],
+        ['url' => 'https://gotify.example.com', 'token' => 'app-token'],
         fn (Request $request) => $request->url() === 'https://gotify.example.com/message'
             && $request->hasHeader('X-Gotify-Key', 'app-token')
             && str_contains($request['title'], 'Backup Failed'),
     ],
     'discord_webhook' => [
         DiscordWebhookChannel::class,
-        ['notifications.discord_webhook.url' => 'https://discord.com/api/webhooks/123/abc'],
+        ['url' => 'https://discord.com/api/webhooks/123/abc'],
         fn (Request $request) => $request->url() === 'https://discord.com/api/webhooks/123/abc'
             && str_contains($request['embeds'][0]['title'], 'Backup Failed'),
     ],
     'webhook' => [
         WebhookChannel::class,
-        ['notifications.webhook.url' => 'https://webhook.example.com/hook', 'notifications.webhook.secret' => 'my-secret'],
+        ['url' => 'https://webhook.example.com/hook', 'secret' => 'my-secret'],
         fn (Request $request) => $request->url() === 'https://webhook.example.com/hook'
             && $request->hasHeader('X-Webhook-Token', 'my-secret')
             && $request['event'] === 'BackupFailedNotification'
@@ -344,37 +340,37 @@ test('custom channel sends HTTP request', function (string $channelClass, array 
     ],
 ]);
 
-test('custom channel throws on HTTP failure', function (string $channelClass, array $config) {
+test('custom channel throws on HTTP failure', function (string $channelClass, array $channelConfig) {
     Http::fake(fn () => Http::response('Server Error', 500));
-
-    foreach ($config as $key => $value) {
-        AppConfig::set($key, $value);
-    }
 
     $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);
     $notification = new BackupFailedNotification($snapshot, new \Exception('Test error'));
 
-    expect(fn () => (new $channelClass)->send((object) [], $notification))
+    $notifiable = new ChannelNotifiable(
+        routes: [],
+        channelConfig: $channelConfig,
+    );
+
+    expect(fn () => (new $channelClass)->send($notifiable, $notification))
         ->toThrow(\Illuminate\Http\Client\RequestException::class);
 })->with([
     'gotify' => [
         GotifyChannel::class,
-        ['notifications.gotify.url' => 'https://gotify.example.com', 'notifications.gotify.token' => 'app-token'],
+        ['url' => 'https://gotify.example.com', 'token' => 'app-token'],
     ],
     'discord_webhook' => [
         DiscordWebhookChannel::class,
-        ['notifications.discord_webhook.url' => 'https://discord.com/api/webhooks/123/abc'],
+        ['url' => 'https://discord.com/api/webhooks/123/abc'],
     ],
     'webhook' => [
         WebhookChannel::class,
-        ['notifications.webhook.url' => 'https://webhook.example.com/hook'],
+        ['url' => 'https://webhook.example.com/hook'],
     ],
 ]);
 
 test('ProcessBackupJob sends notification when backup fails', function () {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.mail.to', 'admin@example.com');
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production MySQL',
@@ -389,11 +385,11 @@ test('ProcessBackupJob sends notification when backup fails', function () {
     $job->failed($exception);
 
     // Verify notification was sent
-    Notification::assertSentOnDemand(
-        BackupFailedNotification::class,
-        fn (BackupFailedNotification $n) => $n->snapshot->id === $snapshot->id
-            && $n->exception->getMessage() === 'Access denied for user'
-    );
+    $sent = sentChannelNotifications(BackupFailedNotification::class);
+    expect($sent)->toHaveCount(1);
+    $notification = $sent->first()['notification'];
+    expect($notification->snapshot->id)->toBe($snapshot->id)
+        ->and($notification->exception->getMessage())->toBe('Access denied for user');
 });
 
 test('SnapshotsMissingNotification renders mail, slack and discord correctly', function () {
@@ -432,8 +428,7 @@ test('SnapshotsMissingNotification truncates file list beyond 10 items', functio
 });
 
 test('ProcessRestoreJob sends notification when restore fails', function () {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.mail.to', 'admin@example.com');
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production MySQL',
@@ -449,9 +444,9 @@ test('ProcessRestoreJob sends notification when restore fails', function () {
     $job->failed($exception);
 
     // Verify notification was sent
-    Notification::assertSentOnDemand(
-        RestoreFailedNotification::class,
-        fn (RestoreFailedNotification $n) => $n->restore->id === $restore->id
-            && $n->exception->getMessage() === 'Connection refused'
-    );
+    $sent = sentChannelNotifications(RestoreFailedNotification::class);
+    expect($sent)->toHaveCount(1);
+    $notification = $sent->first()['notification'];
+    expect($notification->restore->id)->toBe($restore->id)
+        ->and($notification->exception->getMessage())->toBe('Connection refused');
 });

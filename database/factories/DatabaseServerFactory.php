@@ -30,6 +30,8 @@ class DatabaseServerFactory extends Factory
             'database_names' => fake()->optional()->randomElements(['app', 'users', 'orders', 'products', 'analytics'], fake()->numberBetween(1, 3)),
             'database_selection_mode' => 'selected',
             'description' => fake()->optional()->sentence(),
+            'notification_trigger' => 'failure',
+            'notification_channel_selection' => 'all',
         ];
     }
 

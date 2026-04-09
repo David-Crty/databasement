@@ -26,12 +26,6 @@
         </x-alert>
     @endif
 
-    @if($showDeprecatedNotificationEnv)
-        <x-alert class="alert-warning mb-2" icon="o-exclamation-triangle" dismissible>
-            {{ __('Deprecated NOTIFICATION_* environment variables detected. Notification settings are now configured in the UI. You can safely remove NOTIFICATION_* variables from your environment.') }}
-        </x-alert>
-    @endif
-
     <div class="grid gap-6">
         <!-- Application Configuration (read-only) -->
         <x-card title="{{ __('Application') }}" subtitle="{{ __('General application settings (read-only).') }}" shadow class="min-w-0">
@@ -202,11 +196,11 @@
             </form>
         </x-card>
 
-        <!-- Notification Configuration (editable) -->
-        <x-card title="{{ __('Notifications') }}" subtitle="{{ __('Failure notification settings for backup and restore jobs.') }}" shadow class="min-w-0">
+        <!-- Notification Channels -->
+        <x-card :title="__('Notification Channels')" :subtitle="__('Manage notification channels for backup and restore events. Assign channels per database server.')" shadow class="min-w-0">
             <x-slot:menu>
                 <x-button
-                    label="{{ __('Documentation') }}"
+                    :label="__('Documentation')"
                     icon="o-book-open"
                     link="https://david-crty.github.io/databasement/self-hosting/configuration/notification"
                     external
@@ -214,195 +208,46 @@
                 />
             </x-slot:menu>
 
-            <form wire:submit="saveNotificationConfig" x-data="{ dirty: false }" x-init="$watch('$wire.form.channels', () => dirty = true)" @input="dirty = true" @change="dirty = true" @notification-saved.window="dirty = false">
-                <x-config-row label="{{ __('Enable Notifications') }}" description="{{ __('Send notifications when backup or restore jobs fail.') }}">
-                    <x-toggle wire:model="form.notifications_enabled" :disabled="!$this->isAdmin" />
-                </x-config-row>
-
-                <x-hr class="my-2" />
-
-                <x-config-row label="{{ __('Channels') }}" description="{{ __('Select which channels receive failure notifications.') }}">
-                    <x-choices-offline wire:model.live="form.channels" :options="$channelOptions" :disabled="!$this->isAdmin" />
-                </x-config-row>
-
-                @if (in_array('email', $form->channels))
-                    <x-hr class="my-2" />
-
-                    <x-config-row label="{{ __('Mail Recipient') }}">
-                        <x-slot:description>
-                            {{ __('Email address that receives failure notifications.') }}
-                            {{ __('Ensure your MAIL_ environment variables are') }}
-                            <a href="https://david-crty.github.io/databasement/self-hosting/configuration/notification#email" target="_blank" class="link link-primary underline-offset-2">{{ __('configured') }}</a>.
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.mail_to" type="email" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-                @endif
-
-                @if (in_array('slack', $form->channels))
-                    <x-hr class="my-2" />
-
-                    <x-config-row label="{{ __('Slack Webhook URL') }}">
-                        <x-slot:description>
-                            {{ __('Incoming webhook URL for Slack notifications.') }}
-                            @if ($form->has_slack_webhook_url)
-                                {{ __('Leave blank to keep the current value.') }}
+            <div class="divide-y divide-base-200/80">
+                @forelse ($notificationChannels as $channel)
+                    <x-config-row wire:key="channel-{{ $channel->id }}">
+                        <x-slot:label>
+                            <span class="inline-flex flex-wrap items-center gap-2">
+                                <x-icon :name="$channel->type->icon()" class="w-4 h-4 text-base-content/60" />
+                                {{ $channel->name }}
+                                <span class="badge badge-outline badge-sm">{{ $channel->type->label() }}</span>
+                            </span>
+                        </x-slot:label>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <span class="text-sm text-base-content/60 min-w-0">
+                                @foreach($channel->getConfigSummary() as $label => $value)
+                                    {{ $label }}: {{ $value }}{{ !$loop->last ? ' · ' : '' }}
+                                @endforeach
+                            </span>
+                            @if ($this->isAdmin)
+                                <div class="flex items-center gap-0.5 shrink-0 ml-auto">
+                                    <x-button icon="o-paper-airplane" class="btn-ghost btn-sm" wire:click="sendTestNotification('{{ $channel->id }}')" spinner="sendTestNotification('{{ $channel->id }}')" tooltip-left="{{ __('Test') }}" />
+                                    <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openChannelModal('{{ $channel->id }}')" tooltip-left="{{ __('Edit') }}" />
+                                    <x-button icon="o-trash" class="btn-ghost btn-sm text-error hover:bg-error/10" wire:click="confirmDeleteChannel('{{ $channel->id }}')" tooltip-left="{{ __('Delete') }}" />
+                                </div>
                             @endif
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.slack_webhook_url" type="password" placeholder="{{ $form->has_slack_webhook_url ? '********' : '' }}" :disabled="!$this->isAdmin" />
+                        </div>
                     </x-config-row>
-                @endif
+                @empty
+                    <p class="text-sm text-base-content/50 py-4 text-center">{{ __('No notification channels configured.') }}</p>
+                @endforelse
+            </div>
 
-                @if (in_array('discord', $form->channels))
-                    <x-hr class="my-2" />
-
-                    <x-config-row label="{{ __('Discord Bot Token') }}">
-                        <x-slot:description>
-                            {{ __('Bot token for Discord notifications.') }}
-                            @if ($form->has_discord_token)
-                                {{ __('Leave blank to keep the current value.') }}
-                            @endif
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.discord_token" type="password" placeholder="{{ $form->has_discord_token ? '********' : '' }}" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-
-                    <x-config-row label="{{ __('Discord Channel ID') }}" description="{{ __('The Discord channel where failure notifications are sent.') }}">
-                        <x-input wire:model.blur="form.discord_channel_id" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-                @endif
-
-                @if (in_array('discord_webhook', $form->channels))
-                    <x-hr class="my-2" />
-
-                    <x-config-row label="{{ __('Discord Webhook URL') }}">
-                        <x-slot:description>
-                            {{ __('Webhook URL for Discord notifications. No bot required.') }}
-                            @if ($form->has_discord_webhook_url)
-                                {{ __('Leave blank to keep the current value.') }}
-                            @endif
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.discord_webhook_url" type="password" placeholder="{{ $form->has_discord_webhook_url ? '********' : '' }}" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-                @endif
-
-                @if (in_array('telegram', $form->channels))
-                    <x-hr class="my-2" />
-
-                    <x-config-row label="{{ __('Telegram Bot Token') }}">
-                        <x-slot:description>
-                            {{ __('Bot token from @BotFather for Telegram notifications.') }}
-                            @if ($form->has_telegram_bot_token)
-                                {{ __('Leave blank to keep the current value.') }}
-                            @endif
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.telegram_bot_token" type="password" placeholder="{{ $form->has_telegram_bot_token ? '********' : '' }}" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-
-                    <x-config-row label="{{ __('Telegram Chat ID') }}" description="{{ __('The chat or group ID where failure notifications are sent.') }}">
-                        <x-input wire:model.blur="form.telegram_chat_id" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-                @endif
-
-                @if (in_array('pushover', $form->channels))
-                    <x-hr class="my-2" />
-
-                    <x-config-row label="{{ __('Pushover App Token') }}">
-                        <x-slot:description>
-                            {{ __('Application API token from Pushover.') }}
-                            @if ($form->has_pushover_token)
-                                {{ __('Leave blank to keep the current value.') }}
-                            @endif
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.pushover_token" type="password" placeholder="{{ $form->has_pushover_token ? '********' : '' }}" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-
-                    <x-config-row label="{{ __('Pushover User Key') }}">
-                        <x-slot:description>
-                            {{ __('Your Pushover user or group key.') }}
-                            @if ($form->has_pushover_user_key)
-                                {{ __('Leave blank to keep the current value.') }}
-                            @endif
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.pushover_user_key" type="password" placeholder="{{ $form->has_pushover_user_key ? '********' : '' }}" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-                @endif
-
-                @if (in_array('gotify', $form->channels))
-                    <x-hr class="my-2" />
-
-                    <x-config-row label="{{ __('Gotify Server URL') }}" description="{{ __('Base URL of your Gotify server (e.g. https://gotify.example.com).') }}">
-                        <x-input wire:model.blur="form.gotify_url" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-
-                    <x-config-row label="{{ __('Gotify App Token') }}">
-                        <x-slot:description>
-                            {{ __('Application token from your Gotify server.') }}
-                            @if ($form->has_gotify_token)
-                                {{ __('Leave blank to keep the current value.') }}
-                            @endif
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.gotify_token" type="password" placeholder="{{ $form->has_gotify_token ? '********' : '' }}" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-                @endif
-
-                @if (in_array('webhook', $form->channels))
-                    <x-hr class="my-2" />
-
-                    <x-config-row label="{{ __('Webhook URL') }}" description="{{ __('URL that receives a JSON POST with notification details.') }}">
-                        <x-input wire:model.blur="form.webhook_url" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-
-                    <x-config-row label="{{ __('Webhook Secret') }}">
-                        <x-slot:description>
-                            {{ __('Optional secret. Sent as X-Webhook-Token header.') }}
-                            @if ($form->has_webhook_secret)
-                                {{ __('Leave blank to keep the current value.') }}
-                            @endif
-                        </x-slot:description>
-                        <x-input wire:model.blur="form.webhook_secret" type="password" placeholder="{{ $form->has_webhook_secret ? '********' : '' }}" :disabled="!$this->isAdmin" />
-                    </x-config-row>
-                @endif
-
-                @if ($this->isAdmin)
-                <div class="flex items-center justify-end gap-2 border-t border-base-200/60 pt-6">
-                    {{-- Send Test: disabled with popover when form is dirty or notifications are off --}}
-                    <div x-show="dirty || !$wire.form.notifications_enabled" x-cloak>
-                        <x-popover>
-                            <x-slot:trigger>
-                                <x-button
-                                    label="{{ __('Send Test') }}"
-                                    icon="o-paper-airplane"
-                                    class="btn-outline"
-                                    disabled
-                                />
-                            </x-slot:trigger>
-                            <x-slot:content>
-                                <span x-show="dirty">{{ __('Save before testing.') }}</span>
-                                <span x-show="!dirty">{{ __('Enable notifications to send a test.') }}</span>
-                            </x-slot:content>
-                        </x-popover>
-                    </div>
-
-                    {{-- Send Test: enabled when form is clean and notifications are on --}}
-                    <div x-show="!dirty && $wire.form.notifications_enabled" x-cloak>
-                        <x-button
-                            label="{{ __('Send Test') }}"
-                            icon="o-paper-airplane"
-                            wire:click="sendTestNotification"
-                            wire:loading.attr="disabled"
-                            spinner="sendTestNotification"
-                            class="btn-outline"
-                        />
-                    </div>
-
+            @if ($this->isAdmin)
+                <div class="flex items-center justify-end border-t border-base-200/60 pt-4 mt-4">
                     <x-button
-                        type="submit"
-                        class="btn-primary"
-                        label="{{ __('Save Notification Settings') }}"
-                        spinner="saveNotificationConfig"
+                        :label="__('Add Channel')"
+                        icon="o-plus"
+                        class="btn-primary btn-sm"
+                        wire:click="openChannelModal"
                     />
                 </div>
-                @endif
-            </form>
+            @endif
         </x-card>
 
         <!-- SSO Configuration (read-only) -->
@@ -455,16 +300,95 @@
     </x-modal>
 
     <!-- Delete Schedule Confirmation Modal -->
-    <x-modal wire:model="showDeleteScheduleModal" title="{{ __('Delete Schedule') }}">
+    <x-modal wire:model="showDeleteScheduleModal" :title="__('Delete Schedule')">
         <p>{{ __('Are you sure you want to delete this backup schedule? This action cannot be undone.') }}</p>
 
         <x-slot:actions>
-            <x-button label="{{ __('Cancel') }}" @click="$wire.showDeleteScheduleModal = false" />
+            <x-button :label="__('Cancel')" @click="$wire.showDeleteScheduleModal = false" />
             <x-button
                 class="btn-error"
-                label="{{ __('Delete') }}"
+                :label="__('Delete')"
                 wire:click="deleteSchedule"
                 spinner="deleteSchedule"
+            />
+        </x-slot:actions>
+    </x-modal>
+
+    <!-- Add/Edit Notification Channel Modal -->
+    <x-modal wire:model="showChannelModal" :title="$editingChannelId ? __('Edit Channel') : __('Add Channel')">
+        <div class="space-y-4">
+            <x-input
+                wire:model="channelForm.name"
+                :label="__('Name')"
+                :placeholder="__('e.g., DBA Team Alerts')"
+                required
+            />
+
+            @if (!$editingChannelId)
+                <x-select
+                    wire:model.live="channelForm.type"
+                    :label="__('Type')"
+                    :options="$channelTypeOptions"
+                />
+            @else
+                <x-input
+                    :value="$channelForm->channel?->type->label()"
+                    :label="__('Type')"
+                    disabled
+                />
+            @endif
+
+            {{-- Type-specific config fields --}}
+            @if ($channelForm->type === 'email')
+                <x-input wire:model="channelForm.config_to" :label="__('Recipient Email')" type="email" required />
+            @elseif ($channelForm->type === 'slack')
+                <x-input wire:model="channelForm.config_webhook_url" :label="__('Webhook URL')" type="password" :placeholder="$channelForm->has_config_webhook_url ? '********' : ''" />
+            @elseif ($channelForm->type === 'discord')
+                <x-input wire:model="channelForm.config_token" :label="__('Bot Token')" type="password" :placeholder="$channelForm->has_config_token ? '********' : ''" />
+                <x-input wire:model="channelForm.config_channel_id" :label="__('Channel ID')" required />
+            @elseif ($channelForm->type === 'discord_webhook')
+                <x-input wire:model="channelForm.config_url" :label="__('Webhook URL')" type="password" :placeholder="$channelForm->has_config_url ? '********' : ''" />
+            @elseif ($channelForm->type === 'telegram')
+                <x-input wire:model="channelForm.config_bot_token" :label="__('Bot Token')" type="password" :placeholder="$channelForm->has_config_bot_token ? '********' : ''" />
+                <x-input wire:model="channelForm.config_chat_id" :label="__('Chat ID')" required />
+            @elseif ($channelForm->type === 'pushover')
+                <x-input wire:model="channelForm.config_token" :label="__('App Token')" type="password" :placeholder="$channelForm->has_config_token ? '********' : ''" />
+                <x-input wire:model="channelForm.config_user_key" :label="__('User Key')" type="password" :placeholder="$channelForm->has_config_user_key ? '********' : ''" />
+            @elseif ($channelForm->type === 'gotify')
+                <x-input wire:model="channelForm.config_url" :label="__('Server URL')" :placeholder="__('https://gotify.example.com')" required />
+                <x-input wire:model="channelForm.config_token" :label="__('App Token')" type="password" :placeholder="$channelForm->has_config_token ? '********' : ''" />
+            @elseif ($channelForm->type === 'webhook')
+                <x-input wire:model="channelForm.config_url" :label="__('Webhook URL')" required />
+                <x-input wire:model="channelForm.config_secret" :label="__('Secret (optional)')" type="password" :placeholder="$channelForm->has_config_secret ? '********' : ''" />
+            @endif
+
+            @if ($editingChannelId)
+                <p class="text-xs text-base-content/50">{{ __('Leave password fields blank to keep existing values.') }}</p>
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-button :label="__('Cancel')" @click="$wire.showChannelModal = false" />
+            <x-button
+                class="btn-primary"
+                :label="__('Save')"
+                wire:click="saveChannel"
+                spinner="saveChannel"
+            />
+        </x-slot:actions>
+    </x-modal>
+
+    <!-- Delete Channel Confirmation Modal -->
+    <x-modal wire:model="showDeleteChannelModal" :title="__('Delete Channel')">
+        <p>{{ __('Are you sure you want to delete this notification channel? This action cannot be undone.') }}</p>
+
+        <x-slot:actions>
+            <x-button :label="__('Cancel')" @click="$wire.showDeleteChannelModal = false" />
+            <x-button
+                class="btn-error"
+                :label="__('Delete')"
+                wire:click="deleteChannel"
+                spinner="deleteChannel"
             />
         </x-slot:actions>
     </x-modal>

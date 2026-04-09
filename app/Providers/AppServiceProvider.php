@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Facades\AppConfig;
 use App\Services\AppConfigService;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
@@ -87,7 +86,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->warnDeprecatedEnvVars();
-        $this->registerNotificationServiceConfigs();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
 
@@ -114,9 +112,6 @@ class AppServiceProvider extends ServiceProvider
             Log::warning('Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.');
         }
 
-        if (config('app.has_deprecated_notification_env')) {
-            Log::warning('Deprecated NOTIFICATION_* environment variables detected. Notification settings are now configured in the UI. You can safely remove NOTIFICATION_* variables from your environment.');
-        }
     }
 
     /**
@@ -127,27 +122,6 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(function (SocialiteWasCalled $event) {
             $event->extendSocialite('oidc', \SocialiteProviders\OIDC\Provider::class);
         });
-    }
-
-    /**
-     * Register notification channel tokens in config/services.php format
-     * that the third-party notification packages expect at boot time.
-     */
-    private function registerNotificationServiceConfigs(): void
-    {
-        $tokenMap = [
-            'notifications.discord.token' => 'services.discord.token',
-            'notifications.telegram.bot_token' => 'services.telegram-bot-api.token',
-            'notifications.pushover.token' => 'services.pushover.token',
-        ];
-
-        foreach ($tokenMap as $appConfigKey => $servicesConfigKey) {
-            $token = AppConfig::get($appConfigKey);
-
-            if ($token) {
-                config([$servicesConfigKey => $token]);
-            }
-        }
     }
 
     /**

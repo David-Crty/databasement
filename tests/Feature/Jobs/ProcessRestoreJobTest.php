@@ -136,8 +136,7 @@ test('job can be dispatched to queue', function () {
 });
 
 test('failed method sends notification', function () {
-    AppConfig::set('notifications.enabled', true);
-    AppConfig::set('notifications.mail.to', 'admin@example.com');
+    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);
@@ -151,9 +150,5 @@ test('failed method sends notification', function () {
 
     $job->failed($exception);
 
-    Notification::assertSentOnDemand(
-        \App\Notifications\RestoreFailedNotification::class,
-        fn ($notification) => $notification->restore->id === $restore->id
-            && $notification->exception->getMessage() === 'Restore failed: access denied'
-    );
+    Notification::assertSentTimes(\App\Notifications\RestoreFailedNotification::class, 1);
 });

@@ -8,7 +8,7 @@ use App\Models\AgentJob;
 use App\Models\DatabaseServer;
 use App\Services\Agent\AgentJobPayloadBuilder;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\FailureNotificationService;
+use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -233,7 +233,7 @@ class AgentController extends Controller
             $exception = new RuntimeException($validated['error_message']);
             $backupJob->markFailed($exception);
 
-            app(FailureNotificationService::class)->notifyBackupFailed($snapshot, $exception);
+            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
         }
 
         return response()->json(['status' => 'ok']);
