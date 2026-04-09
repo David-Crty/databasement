@@ -191,6 +191,52 @@ test('sendTestNotification handles notification failure gracefully', function ()
         ->assertSuccessful();
 });
 
+test('admin can create notification channels of various types', function (string $type, array $formFields) {
+    $component = Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('openChannelModal')
+        ->set('channelForm.name', 'Test Channel')
+        ->set('channelForm.type', $type);
+
+    foreach ($formFields as $field => $value) {
+        $component->set("channelForm.{$field}", $value);
+    }
+
+    $component->call('saveChannel')
+        ->assertHasNoErrors()
+        ->assertSet('showChannelModal', false);
+
+    $this->assertDatabaseHas('notification_channels', ['name' => 'Test Channel', 'type' => $type]);
+})->with([
+    'slack' => ['slack', ['config_webhook_url' => 'https://hooks.slack.com/services/test']],
+    'discord' => ['discord', ['config_token' => 'bot-token', 'config_channel_id' => '123456']],
+    'discord_webhook' => ['discord_webhook', ['config_url' => 'https://discord.com/api/webhooks/123/abc']],
+    'telegram' => ['telegram', ['config_bot_token' => 'bot-token', 'config_chat_id' => '-123456']],
+    'pushover' => ['pushover', ['config_token' => 'app-token', 'config_user_key' => 'user-key']],
+    'gotify' => ['gotify', ['config_url' => 'https://gotify.example.com', 'config_token' => 'app-token']],
+    'webhook' => ['webhook', ['config_url' => 'https://webhook.example.com/notify']],
+]);
+
+test('editing a channel preserves sensitive fields when left blank', function () {
+    $channel = NotificationChannel::factory()->slack()->create([
+        'name' => 'Slack Alerts',
+        'config' => ['webhook_url' => \Illuminate\Support\Facades\Crypt::encryptString('https://hooks.slack.com/original')],
+    ]);
+
+    Livewire::actingAs(User::factory()->create(['role' => 'admin']))
+        ->test(Index::class)
+        ->call('openChannelModal', $channel->id)
+        ->assertSet('channelForm.has_config_webhook_url', true)
+        ->set('channelForm.name', 'Updated Slack')
+        ->set('channelForm.config_webhook_url', '') // Leave blank to keep existing
+        ->call('saveChannel')
+        ->assertHasNoErrors();
+
+    $updated = $channel->fresh();
+    expect($updated->name)->toBe('Updated Slack')
+        ->and($updated->config['webhook_url'])->not->toBeEmpty();
+});
+
 // Backup Schedule CRUD tests
 
 test('admin can create a backup schedule', function () {
