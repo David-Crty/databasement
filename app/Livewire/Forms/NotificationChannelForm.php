@@ -180,11 +180,12 @@ class NotificationChannelForm extends Form
             NotificationChannelType::Webhook => ['url' => $this->config_url, 'secret' => $this->config_secret],
         };
 
-        $persistedConfig = $this->channel->config ?? [];
+        $decryptedConfig = $this->channel?->getDecryptedConfig() ?? [];
+        $rawConfig = $this->channel->config ?? [];
 
         return $type->encryptSensitiveFields(
-            $type->mergeSensitiveFromPersisted($config, $persistedConfig),
-            $persistedConfig,
+            $type->mergeSensitiveFromPersisted($config, $decryptedConfig),
+            $rawConfig,
         );
     }
 
@@ -201,6 +202,9 @@ class NotificationChannelForm extends Form
 
     public function update(): void
     {
+        // Force persisted type to prevent client-side tampering
+        $this->type = $this->channel->type->value;
+
         $this->validate();
 
         $this->channel->update([

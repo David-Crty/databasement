@@ -302,6 +302,8 @@ class Index extends Component
 
     public function openChannelModal(?string $channelId = null): void
     {
+        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+
         $this->channelForm->resetFields();
         $this->editingChannelId = $channelId;
 
