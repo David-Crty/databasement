@@ -1,14 +1,16 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 return new class extends Migration
 {
     /**
-     * Channel definitions: type => [name, config_keys].
-     * Config keys map from NotificationChannel config key to AppConfig key.
+     * Channel definitions for migrating AppConfig entries to NotificationChannel records.
+     * Maps type => [name, config_keys (NotificationChannel key => AppConfig key)].
      *
      * @var array<string, array{name: string, keys: array<string, string>}>
      */
@@ -64,13 +66,43 @@ return new class extends Migration
 
     public function up(): void
     {
-        // Load all notification config values from app_configs (raw, preserving encryption)
+        // 1. Create notification_channels table
+        Schema::create('notification_channels', function (Blueprint $table) {
+            $table->char('id', 26)->primary();
+            $table->string('name');
+            $table->string('type');
+            $table->json('config');
+            $table->timestamps();
+        });
+
+        // 2. Add notification settings to database_servers
+        Schema::table('database_servers', function (Blueprint $table) {
+            $table->string('notification_trigger')->default('failure');
+            $table->string('notification_channel_selection')->default('all');
+        });
+
+        // 3. Create pivot table
+        Schema::create('database_server_notification_channel', function (Blueprint $table) {
+            $table->char('database_server_id', 26);
+            $table->char('notification_channel_id', 26);
+
+            $table->foreign('database_server_id', 'db_server_notif_ch_server_fk')
+                ->references('id')->on('database_servers')
+                ->cascadeOnDelete();
+
+            $table->foreign('notification_channel_id', 'db_server_notif_ch_channel_fk')
+                ->references('id')->on('notification_channels')
+                ->cascadeOnDelete();
+
+            $table->unique(['database_server_id', 'notification_channel_id'], 'db_server_notif_channel_unique');
+        });
+
+        // 4. Migrate existing AppConfig notification entries to NotificationChannel records
         $appConfigs = DB::table('app_configs')
             ->where('id', 'like', 'notifications.%')
             ->pluck('value', 'id')
             ->toArray();
 
-        // Create NotificationChannel records for each configured channel type
         $now = now();
 
         foreach (self::CHANNELS as $type => $definition) {
@@ -107,10 +139,20 @@ return new class extends Migration
             'notification_trigger' => $notificationsEnabled ? 'failure' : 'none',
             'notification_channel_selection' => 'all',
         ]);
+
+        // 5. Remove old notification AppConfig entries
+        DB::table('app_configs')
+            ->where('id', 'like', 'notifications.%')
+            ->delete();
     }
 
     public function down(): void
     {
-        // Data migration — no automatic rollback
+        Schema::dropIfExists('database_server_notification_channel');
+        Schema::dropIfExists('notification_channels');
+
+        Schema::table('database_servers', function (Blueprint $table) {
+            $table->dropColumn(['notification_trigger', 'notification_channel_selection']);
+        });
     }
 };
