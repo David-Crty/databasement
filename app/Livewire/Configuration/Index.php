@@ -365,7 +365,7 @@ class Index extends Component
 
             $this->success(__('Test notification sent to: :channel', ['channel' => $channel->name]), position: 'toast-bottom');
         } catch (\Throwable $e) {
-            $this->error(__('Failed to send test notification: :message', ['message' => $e->getMessage()]), position: 'toast-bottom');
+            $this->error(__('Failed to send test notification: :message', ['message' => $e->getMessage()]), position: 'toast-bottom', timeout: 0);
         }
     }
 

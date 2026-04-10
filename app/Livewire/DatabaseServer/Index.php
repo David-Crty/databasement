@@ -4,10 +4,12 @@ namespace App\Livewire\DatabaseServer;
 
 use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
+use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\View as ViewFacade;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -150,6 +152,9 @@ class Index extends Component
             sortColumn: $this->sortBy['column'],
             sortDirection: $this->sortBy['direction']
         )->paginate(10);
+
+        // Share total count globally so it's available inside Mary UI scoped slots
+        ViewFacade::share('totalNotificationChannels', NotificationChannel::count());
 
         return view('livewire.database-server.index', [
             'servers' => $servers,

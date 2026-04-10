@@ -86,6 +86,7 @@
                                     </x-slot:content>
                                 </x-popover>
                             @endif
+                            @include('livewire.database-server._notification-indicator', ['server' => $server])
                         </div>
                         @if($server->description)
                             <div class="text-sm text-base-content/50">{{ Str::limit($server->description, 50) }}</div>

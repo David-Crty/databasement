@@ -197,6 +197,7 @@
         </x-card>
 
         <!-- Notification Channels -->
+        <div id="notification-channels" class="scroll-mt-20">
         <x-card :title="__('Notification Channels')" :subtitle="__('Manage notification channels for backup and restore events. Assign channels per database server.')" shadow class="min-w-0">
             <x-slot:menu>
                 <x-button
@@ -249,6 +250,7 @@
                 </div>
             @endif
         </x-card>
+        </div>
 
         <!-- SSO Configuration (read-only) -->
         <x-card title="{{ __('SSO') }}" subtitle="{{ __('OAuth and Single Sign-On authentication settings (read-only).') }}" shadow class="min-w-0">

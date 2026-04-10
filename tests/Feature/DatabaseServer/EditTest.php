@@ -3,6 +3,7 @@
 use App\Livewire\DatabaseServer\Edit;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\NotificationChannel;
 use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
@@ -239,4 +240,49 @@ test('pattern mode filters available databases and auto-loads on switch', functi
 
     expect($component->instance()->form->getFilteredDatabases())
         ->toBe(['prod_users', 'prod_orders']);
+});
+
+test('admin can select notification channels for a database server', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $email = NotificationChannel::factory()->email()->create(['name' => 'Zebra Alerts']);
+    $slack = NotificationChannel::factory()->slack()->create(['name' => 'Alpha Slack']);
+    NotificationChannel::factory()->discord()->create(['name' => 'Mid Discord']);
+
+    $server = DatabaseServer::factory()->create(['name' => 'Prod DB', 'database_names' => ['myapp']]);
+
+    $component = Livewire::actingAs($admin)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.notification_channel_selection', 'selected');
+
+    // Verify the form exposes the expected ordered options
+    $options = $component->instance()->form->getNotificationChannelOptions();
+    expect(array_column($options, 'name'))->toBe([
+        'Alpha Slack (Slack)',
+        'Mid Discord (Discord (Bot))',
+        'Zebra Alerts (Email)',
+    ]);
+
+    // Select two channels and save
+    $component
+        ->set('form.notification_channel_ids', [$email->id, $slack->id])
+        ->call('save')
+        ->assertHasNoErrors();
+
+    // Verify the pivot table was synced
+    $synced = $server->fresh()->notificationChannels()->pluck('notification_channels.id')->sort()->values()->toArray();
+    expect($synced)->toBe(collect([$email->id, $slack->id])->sort()->values()->toArray());
+});
+
+test('selected notification channel selection requires at least one channel', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    NotificationChannel::factory()->email()->create();
+    $server = DatabaseServer::factory()->create();
+
+    Livewire::actingAs($admin)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.notification_channel_selection', 'selected')
+        ->set('form.notification_channel_ids', [])
+        ->call('save')
+        ->assertHasErrors('form.notification_channel_ids');
 });

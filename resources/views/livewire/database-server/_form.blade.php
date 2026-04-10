@@ -651,7 +651,16 @@ use App\Enums\DatabaseType;
                     <h3 class="card-title text-lg">{{ __('Notifications') }}</h3>
                 </div>
 
+                @php $channelOptions = $form->getNotificationChannelOptions(); @endphp
+
                 <div class="space-y-4">
+                    @if(empty($channelOptions) && $form->notification_trigger !== 'none')
+                        <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                            {{ __('No notification channels configured. Notifications will not be sent until you create at least one channel.') }}
+                            <a href="{{ route('configuration.index') }}#notification-channels" class="link link-primary underline-offset-2">{{ __('Create one in Configuration.') }}</a>
+                        </x-alert>
+                    @endif
+
                     <x-select
                         wire:model.live="form.notification_trigger"
                         :label="__('Notification Trigger')"
@@ -675,21 +684,13 @@ use App\Enums\DatabaseType;
                             :hint="__('Controls which notification channels are used.')"
                         />
 
-                        @if($form->notification_channel_selection === 'selected')
-                            @php $channelOptions = $form->getNotificationChannelOptions(); @endphp
-                            @if(empty($channelOptions))
-                                <x-alert class="alert-info" icon="o-information-circle">
-                                    {{ __('No notification channels configured.') }}
-                                    <a href="{{ route('configuration.index') }}" class="link link-primary underline-offset-2" wire:navigate>{{ __('Add channels in Configuration.') }}</a>
-                                </x-alert>
-                            @else
-                                <x-choices-offline
-                                    wire:model="form.notification_channel_ids"
-                                    :options="$channelOptions"
-                                    :label="__('Select Channels')"
-                                    searchable
-                                />
-                            @endif
+                        @if($form->notification_channel_selection === 'selected' && !empty($channelOptions))
+                            <x-choices-offline
+                                wire:model="form.notification_channel_ids"
+                                :options="$channelOptions"
+                                :label="__('Select Channels')"
+                                searchable
+                            />
                         @endif
                     @endif
                 </div>
