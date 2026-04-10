@@ -52,7 +52,7 @@
             @scope('cell_server', $job)
                 @if($job->snapshot && $job->snapshot->databaseServer)
                     <div class="flex items-center gap-2">
-                        <x-database-type-icon :type="$job->snapshot->database_type" />
+                        <x-icon :name="$job->snapshot->database_type->icon()" class="w-5 h-5" />
                         <div>
                             <div class="table-cell-primary">{{ $job->snapshot->databaseServer->name }}</div>
                             <div class="text-sm text-base-content/70">{{ $job->snapshot->database_name }}</div>
@@ -61,7 +61,7 @@
                 @elseif($job->restore && $job->restore->targetServer)
                     <div class="flex items-center gap-2">
                         @if($job->restore->snapshot)
-                            <x-database-type-icon :type="$job->restore->snapshot->database_type" />
+                            <x-icon :name="$job->restore->snapshot->database_type->icon()" class="w-5 h-5" />
                         @endif
                         <div>
                             <div class="table-cell-primary">{{ $job->restore->targetServer->name }} (Target)</div>

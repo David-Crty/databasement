@@ -113,24 +113,26 @@
                     <label class="label">
                         <span class="label-text font-medium">{{ __('Authentication Method') }}</span>
                     </label>
-                    <div class="flex flex-wrap gap-2">
-                        <label class="cursor-pointer">
-                            <input type="radio" name="ssh_auth_type" value="password"
-                                   wire:model.live="form.ssh_auth_type" class="peer hidden">
-                            <div class="btn btn-sm peer-checked:btn-primary peer-checked:btn-active btn-outline gap-2">
-                                <x-icon name="o-key" class="w-4 h-4" />
-                                {{ __('Password') }}
-                            </div>
-                        </label>
-                        <label class="cursor-pointer">
-                            <input type="radio" name="ssh_auth_type" value="key"
-                                   wire:model.live="form.ssh_auth_type" class="peer hidden">
-                            <div class="btn btn-sm peer-checked:btn-primary peer-checked:btn-active btn-outline gap-2">
-                                <x-icon name="o-finger-print" class="w-4 h-4" />
-                                {{ __('Private Key') }}
-                            </div>
-                        </label>
-                    </div>
+                    <x-radio-card-group class="grid-cols-1 sm:grid-cols-2" :label="__('Authentication Method')">
+                        <x-radio-card
+                            :active="$form->ssh_auth_type === 'password'"
+                            icon="o-key"
+                            :label="__('Password')"
+                            :hint="__('Authenticate with a password')"
+                            value="password"
+                            horizontal
+                            wire:model.live="form.ssh_auth_type"
+                        />
+                        <x-radio-card
+                            :active="$form->ssh_auth_type === 'key'"
+                            icon="o-finger-print"
+                            :label="__('Private Key')"
+                            :hint="__('Authenticate with an SSH key')"
+                            value="key"
+                            horizontal
+                            wire:model.live="form.ssh_auth_type"
+                        />
+                    </x-radio-card-group>
                 </div>
 
                 @if($form->ssh_auth_type === 'password')

@@ -21,28 +21,18 @@ use App\Enums\VolumeType;
         @php $typeDisabled = $readonly || $form->volume !== null; @endphp
         <div>
             <label class="label label-text font-semibold mb-2">{{ __('Storage Type') }}</label>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <x-radio-card-group class="grid-cols-2 sm:grid-cols-4" :label="__('Storage Type')">
                 @foreach(VolumeType::cases() as $volumeType)
-                    @php
-                        $isSelected = $form->type === $volumeType->value;
-                        $buttonClass = match(true) {
-                            $isSelected && $typeDisabled => 'btn-primary opacity-70 cursor-not-allowed border-2 border-primary',
-                            $isSelected => 'btn-primary',
-                            $typeDisabled => 'btn-outline opacity-40 cursor-not-allowed',
-                            default => 'btn-outline',
-                        };
-                    @endphp
-                    <button
-                        type="button"
-                        wire:click="$set('form.type', '{{ $volumeType->value }}')"
-                        @if($typeDisabled) disabled @endif
-                        class="btn justify-start gap-2 h-auto py-3 {{ $buttonClass }}"
-                    >
-                        <x-volume-type-icon :type="$volumeType" class="w-5 h-5" />
-                        <span>{{ $volumeType->label() }}</span>
-                    </button>
+                    <x-radio-card
+                        :active="$form->type === $volumeType->value"
+                        :icon="$volumeType->icon()"
+                        :label="$volumeType->label()"
+                        :value="$volumeType->value"
+                        :disabled="$typeDisabled"
+                        wire:model.live="form.type"
+                    />
                 @endforeach
-            </div>
+            </x-radio-card-group>
         </div>
     </div>
 

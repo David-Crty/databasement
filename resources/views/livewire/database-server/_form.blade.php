@@ -105,22 +105,17 @@ use App\Enums\DatabaseType;
                 <!-- Database Type Selection -->
                 <div>
                     <label class="label label-text font-semibold mb-2">{{ __('Database Type') }}</label>
-                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <x-radio-card-group class="grid-cols-2 sm:grid-cols-5" :label="__('Database Type')">
                         @foreach(DatabaseType::cases() as $dbType)
-                            @php
-                                $isSelected = $form->database_type === $dbType->value;
-                                $buttonClass = $isSelected ? 'btn-primary' : 'btn-outline';
-                            @endphp
-                            <button
-                                type="button"
-                                wire:click="$set('form.database_type', '{{ $dbType->value }}')"
-                                class="btn justify-start gap-2 h-auto py-3 {{ $buttonClass }}"
-                            >
-                                <x-database-type-icon :type="$dbType" class="w-5 h-5" />
-                                <span>{{ $dbType->label() }}</span>
-                            </button>
+                            <x-radio-card
+                                :active="$form->database_type === $dbType->value"
+                                :icon="$dbType->icon()"
+                                :label="$dbType->label()"
+                                :value="$dbType->value"
+                                wire:model.live="form.database_type"
+                            />
                         @endforeach
-                    </div>
+                    </x-radio-card-group>
                 </div>
 
                 @if($form->database_type)
@@ -340,31 +335,32 @@ use App\Enums\DatabaseType;
 
                 <div class="space-y-4">
                     <!-- Segmented Control -->
-                    @php
-                        $modes = [
-                            DatabaseSelectionMode::All->value => ['icon' => 'o-circle-stack', 'label' => __('All Databases'), 'hint' => __('Backup everything')],
-                            DatabaseSelectionMode::Selected->value => ['icon' => 'o-check-badge', 'label' => __('Selected'), 'hint' => __('Pick specific ones')],
-                            DatabaseSelectionMode::Pattern->value => ['icon' => null, 'label' => __('Pattern'), 'hint' => __('Match by regex')],
-                        ];
-                    @endphp
-                    <div class="grid grid-cols-3 gap-2 rounded-xl bg-base-200 p-2">
-                        @foreach($modes as $mode => $opt)
-                            @php $isActive = $form->database_selection_mode === $mode; @endphp
-                            <button
-                                type="button"
-                                wire:click="$set('form.database_selection_mode', '{{ $mode }}')"
-                                class="flex flex-col items-center gap-1 rounded-lg px-3 py-3 text-center transition-all cursor-pointer {{ $isActive ? 'bg-base-100 shadow-sm ring-1 ring-base-300' : 'hover:bg-base-100/50' }}"
-                            >
-                                @if($opt['icon'])
-                                    <x-icon :name="$opt['icon']" class="w-5 h-5 {{ $isActive ? 'text-base-content' : 'text-base-content/50' }}" />
-                                @else
-                                    <x-icon-regex class="w-5 h-5 {{ $isActive ? 'text-base-content' : 'text-base-content/50' }}" />
-                                @endif
-                                <span class="text-sm font-semibold {{ $isActive ? 'text-base-content' : 'text-base-content/70' }}">{{ $opt['label'] }}</span>
-                                <span class="text-xs {{ $isActive ? 'text-base-content/60' : 'text-base-content/40' }}">{{ $opt['hint'] }}</span>
-                            </button>
-                        @endforeach
-                    </div>
+                    <x-radio-card-group class="grid-cols-3" :label="__('Database selection mode')">
+                        <x-radio-card
+                            :active="$form->database_selection_mode === DatabaseSelectionMode::All->value"
+                            icon="o-circle-stack"
+                            :label="__('All Databases')"
+                            :hint="__('Backup everything')"
+                            :value="DatabaseSelectionMode::All->value"
+                            wire:model.live="form.database_selection_mode"
+                        />
+                        <x-radio-card
+                            :active="$form->database_selection_mode === DatabaseSelectionMode::Selected->value"
+                            icon="o-check-badge"
+                            :label="__('Selected')"
+                            :hint="__('Pick specific ones')"
+                            :value="DatabaseSelectionMode::Selected->value"
+                            wire:model.live="form.database_selection_mode"
+                        />
+                        <x-radio-card
+                            :active="$form->database_selection_mode === DatabaseSelectionMode::Pattern->value"
+                            icon="bi.regex"
+                            :label="__('Pattern')"
+                            :hint="__('Match by regex')"
+                            :value="DatabaseSelectionMode::Pattern->value"
+                            wire:model.live="form.database_selection_mode"
+                        />
+                    </x-radio-card-group>
 
                     <!-- All Databases Panel -->
                     @if($form->database_selection_mode === DatabaseSelectionMode::All->value)
@@ -659,7 +655,7 @@ use App\Enums\DatabaseType;
                         'all' => ['icon' => 'o-bell-alert', 'label' => __('All events'), 'hint' => __('Success & failure'), 'color' => 'info'],
                         'success' => ['icon' => 'o-check-circle', 'label' => __('Success only'), 'hint' => __('Completed backups'), 'color' => 'success'],
                         'failure' => ['icon' => 'o-exclamation-triangle', 'label' => __('Failure only'), 'hint' => __('Errors & timeouts'), 'color' => 'error'],
-                        'none' => ['icon' => 'o-bell-slash', 'label' => __('Disabled'), 'hint' => __('No notifications'), 'color' => 'muted'],
+                        'none' => ['icon' => 'o-bell-slash', 'label' => __('Disabled'), 'hint' => __('No notifications'), 'color' => 'default'],
                     ];
                 @endphp
 
@@ -670,49 +666,19 @@ use App\Enums\DatabaseType;
                             <p class="text-sm font-semibold">{{ __('Notify me on') }}</p>
                             <p class="text-xs text-base-content/60">{{ __('When should this server send a notification?') }}</p>
                         </div>
-                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" role="radiogroup" aria-label="{{ __('Notification trigger') }}">
+                        <x-radio-card-group class="grid-cols-2 sm:grid-cols-4" :label="__('Notification trigger')">
                             @foreach($triggerOptions as $value => $opt)
-                                @php
-                                    $isActive = $form->notification_trigger === $value;
-                                    $activeClasses = match ($opt['color']) {
-                                        'info' => 'border-info bg-info/5',
-                                        'success' => 'border-success bg-success/5',
-                                        'error' => 'border-error bg-error/5',
-                                        default => 'border-base-content/30 bg-base-200',
-                                    };
-                                    $iconClasses = $isActive ? match ($opt['color']) {
-                                        'info' => 'bg-info/10 text-info',
-                                        'success' => 'bg-success/10 text-success',
-                                        'error' => 'bg-error/10 text-error',
-                                        default => 'bg-base-300 text-base-content/60',
-                                    } : 'bg-base-200 text-base-content/60';
-                                    $checkClasses = match ($opt['color']) {
-                                        'info' => 'text-info',
-                                        'success' => 'text-success',
-                                        'error' => 'text-error',
-                                        default => 'text-base-content/60',
-                                    };
-                                @endphp
-                                <button
-                                    type="button"
-                                    role="radio"
-                                    aria-checked="{{ $isActive ? 'true' : 'false' }}"
-                                    wire:click="$set('form.notification_trigger', '{{ $value }}')"
-                                    class="relative flex flex-col items-start gap-2.5 rounded-lg border-2 p-4 text-left transition-all cursor-pointer {{ $isActive ? $activeClasses.' shadow-sm' : 'border-base-300 bg-base-100 hover:bg-base-200' }}"
-                                >
-                                    @if($isActive)
-                                        <x-icon name="s-check-circle" class="absolute top-2.5 right-2.5 w-4 h-4 {{ $checkClasses }}" />
-                                    @endif
-                                    <span class="rounded-md p-1.5 {{ $iconClasses }}">
-                                        <x-icon :name="$opt['icon']" class="w-5 h-5" />
-                                    </span>
-                                    <span class="block">
-                                        <span class="block text-sm font-semibold leading-tight">{{ $opt['label'] }}</span>
-                                        <span class="block text-xs text-base-content/60 leading-snug mt-0.5">{{ $opt['hint'] }}</span>
-                                    </span>
-                                </button>
+                                <x-radio-card
+                                    :active="$form->notification_trigger === $value"
+                                    :color="$opt['color']"
+                                    :icon="$opt['icon']"
+                                    :label="$opt['label']"
+                                    :hint="$opt['hint']"
+                                    :value="$value"
+                                    wire:model.live="form.notification_trigger"
+                                />
                             @endforeach
-                        </div>
+                        </x-radio-card-group>
                     </div>
 
                     <!-- Channel selection (hidden when disabled) -->
@@ -744,39 +710,33 @@ use App\Enums\DatabaseType;
                                     <p class="text-sm font-semibold">{{ __('Send to') }}</p>
                                     <p class="text-xs text-base-content/60">{{ __('Target one or all of your notification channels.') }}</p>
                                 </div>
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    @php
-                                        $modeOptions = [
-                                            'all' => [
-                                                'icon' => 'o-user-group',
-                                                'label' => __('All channels'),
-                                                'hint' => __(':count configured', ['count' => $notificationChannels->count()]),
-                                            ],
-                                            'selected' => [
-                                                'icon' => 'o-adjustments-horizontal',
-                                                'label' => __('Specific channels'),
-                                                'hint' => __('Pick individual channels'),
-                                            ],
-                                        ];
-                                    @endphp
+                                @php
+                                    $modeOptions = [
+                                        'all' => [
+                                            'icon' => 'o-user-group',
+                                            'label' => __('All channels'),
+                                            'hint' => __(':count configured', ['count' => $notificationChannels->count()]),
+                                        ],
+                                        'selected' => [
+                                            'icon' => 'o-adjustments-horizontal',
+                                            'label' => __('Specific channels'),
+                                            'hint' => __('Pick individual channels'),
+                                        ],
+                                    ];
+                                @endphp
+                                <x-radio-card-group class="grid-cols-1 sm:grid-cols-2" :label="__('Send to')">
                                     @foreach($modeOptions as $value => $opt)
-                                        @php $isActive = $form->notification_channel_selection === $value; @endphp
-                                        <button
-                                            type="button"
-                                            wire:click="$set('form.notification_channel_selection', '{{ $value }}')"
-                                            class="flex items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all cursor-pointer {{ $isActive ? 'border-primary bg-primary/5 shadow-sm' : 'border-base-300 bg-base-100 hover:bg-base-200' }}"
-                                        >
-                                            <x-icon :name="$opt['icon']" class="w-5 h-5 shrink-0 {{ $isActive ? 'text-primary' : 'text-base-content/60' }}" />
-                                            <span class="flex-1 min-w-0">
-                                                <span class="block text-sm font-semibold">{{ $opt['label'] }}</span>
-                                                <span class="block text-xs text-base-content/60 mt-0.5">{{ $opt['hint'] }}</span>
-                                            </span>
-                                            @if($isActive)
-                                                <x-icon name="s-check-circle" class="w-5 h-5 text-primary shrink-0" />
-                                            @endif
-                                        </button>
+                                        <x-radio-card
+                                            :active="$form->notification_channel_selection === $value"
+                                            :icon="$opt['icon']"
+                                            :label="$opt['label']"
+                                            :hint="$opt['hint']"
+                                            :value="$value"
+                                            horizontal
+                                            wire:model.live="form.notification_channel_selection"
+                                        />
                                     @endforeach
-                                </div>
+                                </x-radio-card-group>
                             </div>
 
                             <!-- Channel picker (when 'selected') -->

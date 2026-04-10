@@ -55,7 +55,7 @@
             @scope('cell_name', $server)
                 <div class="flex items-center gap-2">
                     <div class="relative inline-flex">
-                        <x-database-type-icon :type="$server->database_type" class="w-6 h-6" />
+                        <x-icon :name="$server->database_type->icon()" class="w-6 h-6" />
                         <div class="absolute -top-1 -right-1">
                             <livewire:database-server.connection-status :server="$server" lazy :key="'conn-'.$server->id" />
                         </div>

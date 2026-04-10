@@ -54,7 +54,7 @@
                         default => 'badge-ghost',
                     };
                 @endphp
-                <x-badge :value="ucfirst($user->role)" class="{{ $roleClass }}" />
+                <x-badge :value="ucfirst($user->role)" :icon="\App\Models\User::roleIcon($user->role)" class="{{ $roleClass }}" />
             @endscope
 
             @scope('cell_status', $user)

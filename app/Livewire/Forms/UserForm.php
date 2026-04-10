@@ -73,14 +73,14 @@ class UserForm extends Form
     }
 
     /**
-     * @return array<int, array<string, string>>
+     * @return array<int, array{id: string, name: string, description: string, icon: string}>
      */
     public function roleOptions(): array
     {
         return [
-            ['id' => User::ROLE_VIEWER, 'name' => __('Viewer'), 'description' => __('Read-only access to all resources')],
-            ['id' => User::ROLE_MEMBER, 'name' => __('Member'), 'description' => __('Full access except user management')],
-            ['id' => User::ROLE_ADMIN, 'name' => __('Admin'), 'description' => __('Full access including user management')],
+            ['id' => User::ROLE_VIEWER, 'name' => __('Viewer'), 'description' => __('Read-only access to all resources'), 'icon' => User::roleIcon(User::ROLE_VIEWER)],
+            ['id' => User::ROLE_MEMBER, 'name' => __('Member'), 'description' => __('Full access except user management'), 'icon' => User::roleIcon(User::ROLE_MEMBER)],
+            ['id' => User::ROLE_ADMIN, 'name' => __('Admin'), 'description' => __('Full access including user management'), 'icon' => User::roleIcon(User::ROLE_ADMIN)],
         ];
     }
 }

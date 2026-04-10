@@ -12,9 +12,9 @@
                     {{-- Left: Icon + Job info --}}
                     <div class="flex items-center gap-3">
                         @if($this->selectedJob->snapshot)
-                            <x-database-type-icon :type="$this->selectedJob->snapshot->database_type" class="w-6 h-6 shrink-0" />
+                            <x-icon :name="$this->selectedJob->snapshot->database_type->icon()" class="w-6 h-6 shrink-0" />
                         @elseif($this->selectedJob->restore?->snapshot)
-                            <x-database-type-icon :type="$this->selectedJob->restore->snapshot->database_type" class="w-6 h-6 shrink-0" />
+                            <x-icon :name="$this->selectedJob->restore->snapshot->database_type->icon()" class="w-6 h-6 shrink-0" />
                         @endif
                         <div class="min-w-0">
                             <div class="text-sm text-base-content/70">

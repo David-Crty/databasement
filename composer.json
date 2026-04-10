@@ -15,6 +15,7 @@
         "ext-pdo": "*",
         "blade-ui-kit/blade-icons": "^1.8",
         "codeat3/blade-devicons": "^1.8",
+        "davidhsianturi/blade-bootstrap-icons": "^2.2",
         "dedoc/scramble": "^0.13.8",
         "kovah/laravel-socialite-oidc": "^0.6.0",
         "laravel-notification-channels/discord": "^1.7",

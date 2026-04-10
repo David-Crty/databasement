@@ -24,21 +24,21 @@
                 required
             />
 
-            <x-select
-                wire:model="form.role"
-                label="{{ __('Role') }}"
-                :options="$roleOptions"
-                icon="o-shield-check"
-                required
-            />
-
-            <div class="bg-base-200 p-4 rounded-lg">
-                <h4 class="font-medium mb-2">{{ __('Role Permissions') }}</h4>
-                <ul class="text-sm space-y-1 text-base-content/70">
-                    <li><strong>{{ __('Viewer') }}:</strong> {{ __('Read-only access to all index pages and details. Cannot perform any actions.') }}</li>
-                    <li><strong>{{ __('Member') }}:</strong> {{ __('Full access to create, edit, and delete resources. Cannot manage users.') }}</li>
-                    <li><strong>{{ __('Admin') }}:</strong> {{ __('Full access to everything, including user management.') }}</li>
-                </ul>
+            <div>
+                <label class="label label-text font-semibold mb-2">{{ __('Role') }}</label>
+                <x-radio-card-group class="grid-cols-1 sm:grid-cols-3" :label="__('Role')">
+                    @foreach($roleOptions as $option)
+                        <x-radio-card
+                            :active="$form->role === $option['id']"
+                            :icon="$option['icon']"
+                            :label="$option['name']"
+                            :hint="$option['description']"
+                            :value="$option['id']"
+                            horizontal
+                            wire:model.live="form.role"
+                        />
+                    @endforeach
+                </x-radio-card-group>
             </div>
 
             <div class="flex justify-end gap-3">

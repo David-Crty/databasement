@@ -37,12 +37,12 @@
                                 {{-- Server Name (icon visible on desktop only in line 1) --}}
                                 <div class="flex items-center gap-2 flex-1 min-w-0">
                                     @if($job->snapshot && $job->snapshot->databaseServer)
-                                        <x-database-type-icon :type="$job->snapshot->database_type" class="w-4 h-4 shrink-0 hidden sm:block" />
+                                        <x-icon :name="$job->snapshot->database_type->icon()" class="w-4 h-4 shrink-0 hidden sm:block" />
                                         <span class="truncate text-sm font-medium">{{ $job->snapshot->databaseServer->name }}</span>
                                         <span class="text-xs text-base-content/50 truncate hidden sm:inline">{{ $job->snapshot->database_name }}</span>
                                     @elseif($job->restore && $job->restore->targetServer)
                                         @if($job->restore->snapshot)
-                                            <x-database-type-icon :type="$job->restore->snapshot->database_type" class="w-4 h-4 shrink-0 hidden sm:block" />
+                                            <x-icon :name="$job->restore->snapshot->database_type->icon()" class="w-4 h-4 shrink-0 hidden sm:block" />
                                         @endif
                                         <span class="truncate text-sm font-medium">{{ $job->restore->targetServer->name }}</span>
                                         <span class="text-xs text-base-content/50 truncate hidden sm:inline">{{ $job->restore->schema_name }}</span>
@@ -69,11 +69,11 @@
                             {{-- Line 2 on mobile: DB icon + name + time + logs --}}
                             <div class="flex items-center gap-2 sm:hidden text-base-content/70">
                                 @if($job->snapshot && $job->snapshot->databaseServer)
-                                    <x-database-type-icon :type="$job->snapshot->database_type" class="w-4 h-4 shrink-0" />
+                                    <x-icon :name="$job->snapshot->database_type->icon()" class="w-4 h-4 shrink-0" />
                                     <span class="text-xs truncate flex-1">{{ $job->snapshot->database_name }}</span>
                                 @elseif($job->restore && $job->restore->targetServer)
                                     @if($job->restore->snapshot)
-                                        <x-database-type-icon :type="$job->restore->snapshot->database_type" class="w-4 h-4 shrink-0" />
+                                        <x-icon :name="$job->restore->snapshot->database_type->icon()" class="w-4 h-4 shrink-0" />
                                     @endif
                                     <span class="text-xs truncate flex-1">{{ $job->restore->schema_name }}</span>
                                 @endif

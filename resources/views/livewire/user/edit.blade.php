@@ -30,15 +30,29 @@
                 required
             />
 
-            <x-select
-                wire:model="form.role"
-                label="{{ __('Role') }}"
-                :options="$roleOptions"
-                icon="o-shield-check"
-                required
-            />
+            @php
+                $isOnlyAdmin = $form->user->isAdmin() && \App\Models\User::where('role', 'admin')->count() === 1;
+            @endphp
 
-            @if($form->user->isAdmin() && \App\Models\User::where('role', 'admin')->count() === 1)
+            <div>
+                <label class="label label-text font-semibold mb-2">{{ __('Role') }}</label>
+                <x-radio-card-group class="grid-cols-1 sm:grid-cols-3" :label="__('Role')">
+                    @foreach($roleOptions as $option)
+                        <x-radio-card
+                            :active="$form->role === $option['id']"
+                            :icon="$option['icon']"
+                            :label="$option['name']"
+                            :hint="$option['description']"
+                            :value="$option['id']"
+                            :disabled="$isOnlyAdmin && $option['id'] !== \App\Models\User::ROLE_ADMIN"
+                            horizontal
+                            wire:model.live="form.role"
+                        />
+                    @endforeach
+                </x-radio-card-group>
+            </div>
+
+            @if($isOnlyAdmin)
                 <x-alert class="alert-warning" icon="o-exclamation-triangle">
                     {{ __('This is the only administrator. The role cannot be changed.') }}
                 </x-alert>
