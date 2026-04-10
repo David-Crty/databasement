@@ -781,11 +781,12 @@ use App\Enums\DatabaseType;
 
                             <!-- Channel picker (when 'selected') -->
                             @if($form->notification_channel_selection === 'selected')
+                                @php $hasChannelError = $errors->has('form.notification_channel_ids'); @endphp
                                 <div class="space-y-2">
                                     <div class="flex items-center justify-between gap-2">
                                         <div>
-                                            <p class="text-sm font-semibold">{{ __('Select channels') }}</p>
-                                            <p class="text-xs text-base-content/60">
+                                            <p class="text-sm font-semibold {{ $hasChannelError ? 'text-error' : '' }}">{{ __('Select channels') }}</p>
+                                            <p class="text-xs {{ $hasChannelError ? 'text-error/80' : 'text-base-content/60' }}">
                                                 {{ __(':selected of :total selected', ['selected' => count($form->notification_channel_ids), 'total' => $notificationChannels->count()]) }}
                                             </p>
                                         </div>
@@ -825,6 +826,11 @@ use App\Enums\DatabaseType;
                                             </button>
                                         @endforeach
                                     </div>
+                                    @if($hasChannelError)
+                                        <x-alert class="alert-error" icon="o-x-circle">
+                                            {{ __('Select at least one channel, or switch to “All channels”.') }}
+                                        </x-alert>
+                                    @endif
                                 </div>
                             @endif
                         @endif
