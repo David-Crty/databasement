@@ -9,7 +9,6 @@ use App\Notifications\BackupSuccessNotification;
 use App\Notifications\ChannelNotifiable;
 use App\Notifications\RestoreSuccessNotification;
 use App\Notifications\SuccessNotificationMessage;
-use App\Notifications\TestNotification;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\NotificationService;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -224,15 +223,4 @@ test('success message renders to all channel formats', function () {
         ->and($webhook['title'])->toBe('Test Title')
         ->and($webhook['action_url'])->toBe('https://example.com')
         ->and($webhook)->not->toHaveKey('error');
-});
-
-// --- TestNotification ---
-
-test('test notification renders correctly', function () {
-    $notification = new TestNotification('My Email Channel');
-    $message = $notification->getMessage();
-
-    expect($message)->toBeInstanceOf(SuccessNotificationMessage::class)
-        ->and($message->title)->toContain('Test Notification')
-        ->and($message->body)->toContain('My Email Channel');
 });

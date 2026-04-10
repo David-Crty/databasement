@@ -10,7 +10,7 @@ use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Snapshot;
 use App\Models\User;
-use App\Notifications\TestNotification;
+use App\Notifications\BackupFailedNotification;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
@@ -172,7 +172,7 @@ test('sendTestNotification sends notification for a channel', function () {
         ->test(Index::class)
         ->call('sendTestNotification', $channel->id);
 
-    Notification::assertSentTimes(TestNotification::class, 1);
+    Notification::assertSentTimes(BackupFailedNotification::class, 1);
 });
 
 test('sendTestNotification handles notification failure gracefully', function () {

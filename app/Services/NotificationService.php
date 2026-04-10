@@ -13,7 +13,6 @@ use App\Notifications\ChannelNotifiable;
 use App\Notifications\RestoreFailedNotification;
 use App\Notifications\RestoreSuccessNotification;
 use App\Notifications\SnapshotsMissingNotification;
-use App\Notifications\TestNotification;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
@@ -84,11 +83,20 @@ class NotificationService
     }
 
     /**
-     * Send a test notification to a specific channel.
+     * Send a fake "backup failed" notification to a specific channel for testing.
      */
     public function sendTestNotification(NotificationChannel $channel): void
     {
-        $this->sendToChannel(new TestNotification($channel->name), $channel);
+        $server = new DatabaseServer(['name' => '[TEST] Production Database']);
+        $snapshot = new Snapshot([
+            'database_name' => 'app_production',
+            'backup_job_id' => 'test-notification',
+        ]);
+        $snapshot->setRelation('databaseServer', $server);
+
+        $exception = new \Exception('SQLSTATE[HY000] [2002] Connection refused (This is a test notification)');
+
+        $this->sendToChannel(new BackupFailedNotification($snapshot, $exception), $channel);
     }
 
     /**
