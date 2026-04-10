@@ -1049,17 +1049,24 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * @return array<array{id: string, name: string}>
+     * @return \Illuminate\Database\Eloquent\Collection<int, NotificationChannel>
      */
-    public function getNotificationChannelOptions(): array
+    public function getNotificationChannels(): \Illuminate\Database\Eloquent\Collection
     {
-        return NotificationChannel::orderBy('name')
-            ->get()
-            ->map(fn (NotificationChannel $c) => [
-                'id' => $c->id,
-                'name' => $c->name.' ('.$c->type->label().')',
-            ])
-            ->toArray();
+        return NotificationChannel::orderBy('name')->get();
+    }
+
+    public function toggleNotificationChannel(string $channelId): void
+    {
+        if (in_array($channelId, $this->notification_channel_ids, true)) {
+            $this->notification_channel_ids = array_values(
+                array_filter($this->notification_channel_ids, fn (string $id): bool => $id !== $channelId)
+            );
+
+            return;
+        }
+
+        $this->notification_channel_ids[] = $channelId;
     }
 
     public function testConnection(): void

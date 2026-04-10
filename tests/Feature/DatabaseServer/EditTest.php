@@ -255,12 +255,12 @@ test('admin can select notification channels for a database server', function ()
         ->test(Edit::class, ['server' => $server])
         ->set('form.notification_channel_selection', 'selected');
 
-    // Verify the form exposes the expected ordered options
-    $options = $component->instance()->form->getNotificationChannelOptions();
-    expect(array_column($options, 'name'))->toBe([
-        'Alpha Slack (Slack)',
-        'Mid Discord (Discord (Bot))',
-        'Zebra Alerts (Email)',
+    // Verify the form exposes the channels ordered by name
+    $channels = $component->instance()->form->getNotificationChannels();
+    expect($channels->pluck('name')->toArray())->toBe([
+        'Alpha Slack',
+        'Mid Discord',
+        'Zebra Alerts',
     ]);
 
     // Select two channels and save

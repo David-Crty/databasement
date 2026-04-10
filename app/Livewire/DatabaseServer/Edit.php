@@ -79,6 +79,11 @@ class Edit extends Component
         }
     }
 
+    public function toggleNotificationChannel(string $channelId): void
+    {
+        $this->form->toggleNotificationChannel($channelId);
+    }
+
     public function render(): View
     {
         return view('livewire.database-server.edit');

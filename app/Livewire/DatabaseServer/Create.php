@@ -76,6 +76,11 @@ class Create extends Component
         $this->success(__('Schedule list refreshed.'), position: 'toast-bottom');
     }
 
+    public function toggleNotificationChannel(string $channelId): void
+    {
+        $this->form->toggleNotificationChannel($channelId);
+    }
+
     public function render(): View
     {
         return view('livewire.database-server.create');
