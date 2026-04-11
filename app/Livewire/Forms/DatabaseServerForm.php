@@ -427,21 +427,6 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Duplicate the backup config card at the given index, appending the
-     * copy to the end of the list with a cleared ID so it persists as a new row.
-     */
-    public function duplicateBackup(int $index): void
-    {
-        if (! isset($this->backups[$index])) {
-            return;
-        }
-
-        $copy = $this->backups[$index];
-        $copy['id'] = null;
-        $this->backups[] = $copy;
-    }
-
-    /**
      * Get existing SSH configurations for dropdown.
      *
      * @return array<array{id: string, name: string}>
