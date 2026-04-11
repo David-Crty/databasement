@@ -54,6 +54,11 @@ class Create extends Component
         $this->form->removeBackup($index);
     }
 
+    public function duplicateBackup(int $index): void
+    {
+        $this->form->duplicateBackup($index);
+    }
+
     public function addDatabasePath(int $backupIndex): void
     {
         $this->form->addDatabasePath($backupIndex);

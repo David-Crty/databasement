@@ -167,3 +167,41 @@ test('failed method sends notification', function () {
 
     Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
 });
+
+test('handle uses empty backupPath when the snapshot is orphaned (backup removed)', function () {
+    $server = createDatabaseServer([
+        'host' => 'db.example.com',
+        'port' => 3306,
+        'database_type' => 'mysql',
+        'username' => 'root',
+        'password' => 'secret',
+        'database_names' => ['myapp'],
+    ]);
+
+    $backup = $server->backups->first();
+    $backup->update(['path' => 'should/not/be/used/{year}']);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($backup, 'manual')[0];
+
+    // Delete the parent backup — FK is nullOnDelete so snapshot.backup_id → null
+    $backup->delete();
+    $snapshot->refresh();
+    expect($snapshot->backup_id)->toBeNull();
+
+    $capturedPath = null;
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->with(
+            Mockery::on(function (BackupConfig $config) use (&$capturedPath) {
+                $capturedPath = $config->backupPath;
+
+                return true;
+            }),
+            Mockery::type(BackupLogger::class),
+        )
+        ->andReturn(new BackupResult('myapp.sql.gz', 1024, 'sha'));
+
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    expect($capturedPath)->toBe('');
+});

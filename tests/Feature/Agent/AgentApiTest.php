@@ -406,6 +406,27 @@ describe('discovery jobs', function () {
         expect($dbNames)->toBe(['db1', 'db2', 'db3']);
     });
 
+    test('discovered-databases rejects a discovery job whose payload has no backup_id', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+
+        $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
+
+        // Legacy payload (pre-multi-backup) with no backup_id — a stuck job
+        // from before the upgrade. The controller must refuse to fabricate
+        // snapshots with an unknown parent.
+        $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
+            'database_server_id' => $server->id,
+            'payload' => ['type' => 'discover'],
+        ]);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/discovered-databases", [
+                'databases' => ['db1'],
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Backup configuration not found for this discovery job.');
+    });
+
     test('discovered-databases rejects non-discovery jobs', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
 

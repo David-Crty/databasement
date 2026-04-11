@@ -263,6 +263,46 @@ test('trigger backup rejects server without backup config', function () {
     $response->assertHasErrors();
 });
 
+test('trigger backup targets a specific backup id when provided', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $server = createDatabaseServer(['database_type' => 'mysql']);
+
+    // Add a second backup on a weekly schedule so there are two to choose from
+    $weekly = \App\Models\BackupSchedule::firstOrCreate(['name' => 'Weekly'], ['expression' => '0 3 * * 0']);
+    $secondBackup = \App\Models\Backup::factory()->for($server)->create([
+        'backup_schedule_id' => $weekly->id,
+        'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
+        'database_names' => ['mydb'],
+    ]);
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
+        'database_server_id' => $server->id,
+        'backup_id' => $secondBackup->id,
+    ]);
+
+    $response->assertOk();
+
+    $snapshot = Snapshot::first();
+    expect($snapshot?->backup_id)->toBe($secondBackup->id);
+});
+
+test('trigger backup rejects a backup id that does not belong to the server', function () {
+    $user = User::factory()->create();
+    $server = createDatabaseServer(['database_type' => 'mysql']);
+
+    // Create a Backup on a *different* server
+    $otherServer = createDatabaseServer(['database_type' => 'mysql']);
+    $otherBackup = $otherServer->backups->first();
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
+        'database_server_id' => $server->id,
+        'backup_id' => $otherBackup->id,
+    ]);
+
+    $response->assertHasErrors();
+});
+
 test('get job status shows restore job details', function () {
     $user = User::factory()->create();
     $server = createDatabaseServer(['name' => 'Restore Server', 'database_type' => 'mysql']);

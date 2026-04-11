@@ -457,3 +457,175 @@ test('test connection returns failure details', function () {
         ->assertJsonPath('success', false)
         ->assertJsonPath('message', 'Connection refused');
 });
+
+// ─── Backup entry validation ─────────────────────────────────────────────────
+
+test('store rejects sqlite server without file paths on the backup', function () {
+    $user = User::factory()->create();
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'SQLite Server',
+            'database_type' => 'sqlite',
+            'backups' => [[
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ]],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['backups.0.database_names']);
+});
+
+test('store rejects days retention without retention_days', function () {
+    $user = User::factory()->create();
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Test',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'backups' => [[
+                'database_selection_mode' => 'all',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+            ]],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['backups.0.retention_days']);
+});
+
+test('store rejects gfs retention with every tier at zero', function () {
+    $user = User::factory()->create();
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Test',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'backups' => [[
+                'database_selection_mode' => 'all',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'gfs',
+                'gfs_keep_daily' => 0,
+                'gfs_keep_weekly' => 0,
+                'gfs_keep_monthly' => 0,
+            ]],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['backups.0.gfs_keep_daily']);
+});
+
+test('store rejects selected mode without any database names', function () {
+    $user = User::factory()->create();
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Test',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'backups' => [[
+                'database_selection_mode' => 'selected',
+                'database_names' => [],
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ]],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['backups.0.database_names']);
+});
+
+test('store rejects pattern mode without a pattern', function () {
+    $user = User::factory()->create();
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Test',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'backups' => [[
+                'database_selection_mode' => 'pattern',
+                'database_include_pattern' => '',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ]],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['backups.0.database_include_pattern']);
+});
+
+test('store rejects pattern mode with an invalid regex', function () {
+    $user = User::factory()->create();
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Test',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'backups' => [[
+                'database_selection_mode' => 'pattern',
+                'database_include_pattern' => '(unclosed',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ]],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['backups.0.database_include_pattern']);
+});
+
+// ─── Trigger backup endpoint ─────────────────────────────────────────────────
+
+test('backup endpoint returns 422 when the requested backup id does not exist on the server', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/database-servers/{$server->id}/backup?backup_id=missing-id")
+        ->assertStatus(422)
+        ->assertJsonPath('message', 'No backup configuration found for this database server.');
+});
+
+test('backup endpoint uses the first backup when no backup_id is provided', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
+    $backup = $server->backups->first();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/database-servers/{$server->id}/backup")
+        ->assertStatus(202);
+
+    $snapshot = \App\Models\Snapshot::first();
+    expect($snapshot?->backup_id)->toBe($backup->id);
+});
