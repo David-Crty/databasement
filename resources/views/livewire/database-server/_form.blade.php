@@ -429,7 +429,7 @@ use App\Enums\DatabaseType;
                                         />
                                     @else
                                         <x-input
-                                            wire:model="form.database_names_input"
+                                            wire:model.live.debounce.400ms="form.database_names_input"
                                             :label="__('Database Names')"
                                             placeholder="{{ __('e.g., db1, db2, db3') }}"
                                             :hint="__('Enter database names separated by commas')"
@@ -447,7 +447,7 @@ use App\Enums\DatabaseType;
                                     <div>
                                         <div class="flex items-center justify-between mb-1.5">
                                             <label class="text-xs font-medium text-base-content/70">{{ __('Include Pattern') }}</label>
-                                            <span class="font-mono text-[10px] text-base-content/40">regex · case-insensitive</span>
+                                            <span class="font-mono text-[10px] text-base-content/40">{{ __('regex · case-insensitive') }}</span>
                                         </div>
                                         <div class="flex items-center gap-0">
                                             <span class="bg-base-200 border border-r-0 border-base-300 rounded-l-lg px-3 py-2 text-base-content/50 font-mono text-sm select-none">/</span>
@@ -691,7 +691,7 @@ use App\Enums\DatabaseType;
                                             type="number"
                                             wire:model.live.debounce.300ms="form.retention_days"
                                             min="1"
-                                            max="3650"
+                                            max="365"
                                             class="w-20 bg-transparent px-3 py-2 text-sm font-semibold text-base-content outline-none tabular-nums text-center"
                                         />
                                         <span class="border-l border-base-300 bg-base-200/60 px-2.5 py-2 text-xs text-base-content/60 select-none">{{ __('days') }}</span>

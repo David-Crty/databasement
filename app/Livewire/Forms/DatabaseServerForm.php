@@ -278,6 +278,15 @@ class DatabaseServerForm extends Form
         if ($this->database_selection_mode === DatabaseSelectionMode::Selected->value) {
             $count = count($this->database_names);
 
+            // Fallback path: database list couldn't be loaded and the user is
+            // typing comma-separated names into the text input — mirror the
+            // parsing used by normalizeDatabaseNamesInput() for the summary.
+            if ($count === 0 && empty($this->availableDatabases) && $this->database_names_input !== '') {
+                $count = count(array_filter(
+                    array_map('trim', explode(',', $this->database_names_input))
+                ));
+            }
+
             if ($count === 0) {
                 return null;
             }
@@ -314,15 +323,27 @@ class DatabaseServerForm extends Form
         $parts = [];
 
         if ($this->gfs_keep_daily) {
-            $parts[] = __(':count daily', ['count' => $this->gfs_keep_daily]);
+            $parts[] = trans_choice(
+                '{1} :count daily|[2,*] :count daily',
+                $this->gfs_keep_daily,
+                ['count' => $this->gfs_keep_daily],
+            );
         }
 
         if ($this->gfs_keep_weekly) {
-            $parts[] = __(':count weekly', ['count' => $this->gfs_keep_weekly]);
+            $parts[] = trans_choice(
+                '{1} :count weekly|[2,*] :count weekly',
+                $this->gfs_keep_weekly,
+                ['count' => $this->gfs_keep_weekly],
+            );
         }
 
         if ($this->gfs_keep_monthly) {
-            $parts[] = __(':count monthly', ['count' => $this->gfs_keep_monthly]);
+            $parts[] = trans_choice(
+                '{1} :count monthly|[2,*] :count monthly',
+                $this->gfs_keep_monthly,
+                ['count' => $this->gfs_keep_monthly],
+            );
         }
 
         if ($parts === []) {
@@ -334,10 +355,26 @@ class DatabaseServerForm extends Form
 
     /**
      * Whether the backup configuration has enough information to render a summary.
+     *
+     * Mirrors the retention-branch rules in getBackupValidationRules() and
+     * validateGfsPolicy() so the summary callout only flips to "complete"
+     * when the form would actually pass validation.
      */
     public function isBackupConfigComplete(): bool
     {
         if ($this->volume_id === '' || $this->backup_schedule_id === '') {
+            return false;
+        }
+
+        if ($this->retention_policy === Backup::RETENTION_DAYS && empty($this->retention_days)) {
+            return false;
+        }
+
+        if ($this->retention_policy === Backup::RETENTION_GFS
+            && empty($this->gfs_keep_daily)
+            && empty($this->gfs_keep_weekly)
+            && empty($this->gfs_keep_monthly)
+        ) {
             return false;
         }
 

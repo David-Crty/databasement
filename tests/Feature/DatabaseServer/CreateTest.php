@@ -355,6 +355,47 @@ test('retention summary text adapts to each retention policy', function () {
     expect($component->get('form')->getSummaryRetentionText())
         ->toBe('GFS (7 daily, 4 weekly, 12 monthly)');
 
+    // Singular count renders through trans_choice so locales can inflect
+    $component
+        ->set('form.gfs_keep_daily', 1)
+        ->set('form.gfs_keep_weekly', 0)
+        ->set('form.gfs_keep_monthly', 0);
+    expect($component->get('form')->getSummaryRetentionText())->toBe('GFS (1 daily)');
+
     $component->set('form.retention_policy', 'forever');
     expect($component->get('form')->getSummaryRetentionText())->toBe('indefinitely');
+});
+
+test('backup summary reports incomplete when retention settings are blank', function () {
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'Prod Backups',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.connectionTestSuccess', true)
+        ->set('form.volume_id', $volume->id)
+        ->set('form.backup_schedule_id', dailySchedule()->id);
+
+    // Days policy with blank retention_days → incomplete
+    $component
+        ->set('form.retention_policy', 'days')
+        ->set('form.retention_days', null);
+    expect($component->get('form')->isBackupConfigComplete())->toBeFalse();
+
+    // GFS policy with every tier at 0 → incomplete
+    $component
+        ->set('form.retention_policy', 'gfs')
+        ->set('form.gfs_keep_daily', 0)
+        ->set('form.gfs_keep_weekly', 0)
+        ->set('form.gfs_keep_monthly', 0);
+    expect($component->get('form')->isBackupConfigComplete())->toBeFalse();
+
+    // Filling a single tier is enough
+    $component->set('form.gfs_keep_daily', 7);
+    expect($component->get('form')->isBackupConfigComplete())->toBeTrue();
 });
