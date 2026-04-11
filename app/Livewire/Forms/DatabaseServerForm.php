@@ -429,6 +429,10 @@ class DatabaseServerForm extends Form
 
     /**
      * Remove the backup config card at the given index.
+     *
+     * Intentionally does NOT reindex the array: stable keys keep Livewire /
+     * Alpine children (e.g. x-choices-offline) bound to their original
+     * `form.backups.{index}.*` paths across re-renders.
      */
     public function removeBackup(int $index): void
     {
@@ -437,7 +441,6 @@ class DatabaseServerForm extends Form
         }
 
         unset($this->backups[$index]);
-        $this->backups = array_values($this->backups);
     }
 
     /**

@@ -41,7 +41,7 @@
             <div class="min-w-0">
                 <p class="text-sm font-semibold truncate">{{ $cardLabel }}</p>
                 <p class="text-xs text-base-content/60">
-                    {{ __('Backup #:num', ['num' => $index + 1]) }}
+                    {{ __('Backup #:num', ['num' => $position]) }}
                 </p>
             </div>
         </div>

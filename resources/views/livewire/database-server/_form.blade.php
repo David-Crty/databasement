@@ -320,6 +320,7 @@ use App\Enums\DatabaseType;
                         @include('livewire.database-server._backup-form', [
                             'form' => $form,
                             'index' => $index,
+                            'position' => $loop->iteration,
                             'backup' => $backup,
                             'volumes' => $volumes,
                             'schedules' => $schedules,
