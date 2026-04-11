@@ -335,7 +335,7 @@ use App\Enums\DatabaseType;
 
                 <div class="space-y-4">
                     <!-- Segmented Control -->
-                    <x-radio-card-group class="grid-cols-3" :label="__('Database selection mode')">
+                    <x-radio-card-group class="grid-cols-1 sm:grid-cols-3" :label="__('Database selection mode')">
                         <x-radio-card
                             :active="$form->database_selection_mode === DatabaseSelectionMode::All->value"
                             icon="o-circle-stack"
