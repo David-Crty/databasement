@@ -274,24 +274,28 @@ test('admin can select notification channels for a database server', function ()
     expect($synced)->toBe(collect([$email->id, $slack->id])->sort()->values()->toArray());
 });
 
-test('selected notification channel selection requires at least one channel', function () {
+test('selected notification channel selection requires at least one channel', function (string $trigger) {
     $admin = User::factory()->create(['role' => 'admin']);
     NotificationChannel::factory()->email()->create();
-    $server = DatabaseServer::factory()->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['myapp']]);
 
     Livewire::actingAs($admin)
         ->test(Edit::class, ['server' => $server])
-        ->set('form.notification_trigger', 'failure')
+        ->set('form.notification_trigger', $trigger)
         ->set('form.notification_channel_selection', 'selected')
         ->set('form.notification_channel_ids', [])
         ->call('save')
         ->assertHasErrors('form.notification_channel_ids');
-});
+})->with([
+    'all events' => 'all',
+    'success only' => 'success',
+    'failure only' => 'failure',
+]);
 
 test('notification channel selection is not required when trigger is disabled', function () {
     $admin = User::factory()->create(['role' => 'admin']);
     NotificationChannel::factory()->email()->create();
-    $server = DatabaseServer::factory()->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['myapp']]);
 
     // Previously: switching to "selected" then to "none" (disabled) left an
     // invisible `notification_channel_ids` required error that blocked saving.
