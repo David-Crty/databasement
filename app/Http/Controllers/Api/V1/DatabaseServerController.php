@@ -9,12 +9,12 @@ use App\Http\Resources\DatabaseServerResource;
 use App\Http\Resources\RestoreResource;
 use App\Http\Resources\SnapshotResource;
 use App\Jobs\ProcessRestoreJob;
-use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -46,7 +46,7 @@ class DatabaseServerController extends Controller
      */
     public function show(DatabaseServer $databaseServer): DatabaseServerResource
     {
-        $databaseServer->load(['backup.volume', 'backup.backupSchedule']);
+        $databaseServer->load(['backups.volume', 'backups.backupSchedule']);
 
         return new DatabaseServerResource($databaseServer);
     }
@@ -61,21 +61,20 @@ class DatabaseServerController extends Controller
         $this->authorize('create', DatabaseServer::class);
 
         $validated = $request->validated();
-        $backupData = $validated['backup'] ?? [];
-        unset($validated['backup']);
+        $backupsPayload = $validated['backups'] ?? [];
+        unset($validated['backups']);
 
         // Default backups_enabled to true if not provided (matches DB column default)
         if (! array_key_exists('backups_enabled', $validated)) {
             $validated['backups_enabled'] = true;
         }
 
-        DatabaseServer::normalizeSelectionMode($validated);
         DatabaseServer::buildExtraConfig($validated);
 
         $server = DatabaseServer::create($validated);
-        $this->syncBackupConfiguration($server, $backupData);
+        $this->syncBackupConfigurations($server, $backupsPayload);
 
-        $server->load(['backup.volume', 'backup.backupSchedule']);
+        $server->load(['backups.volume', 'backups.backupSchedule']);
 
         return (new DatabaseServerResource($server))
             ->response()
@@ -90,8 +89,8 @@ class DatabaseServerController extends Controller
         $this->authorize('update', $databaseServer);
 
         $validated = $request->validated();
-        $backupData = $validated['backup'] ?? [];
-        unset($validated['backup']);
+        $backupsPayload = $validated['backups'] ?? [];
+        unset($validated['backups']);
 
         // Skip password update if blank/missing
         if (array_key_exists('password', $validated) && ($validated['password'] === '' || $validated['password'] === null)) {
@@ -103,13 +102,12 @@ class DatabaseServerController extends Controller
             $validated['backups_enabled'] = $databaseServer->backups_enabled;
         }
 
-        DatabaseServer::normalizeSelectionMode($validated);
         DatabaseServer::buildExtraConfig($validated, $databaseServer->extra_config, $databaseServer->database_type->value);
 
         $databaseServer->update($validated);
-        $this->syncBackupConfiguration($databaseServer, $backupData);
+        $this->syncBackupConfigurations($databaseServer, $backupsPayload);
 
-        $databaseServer->load(['backup.volume', 'backup.backupSchedule']);
+        $databaseServer->load(['backups.volume', 'backups.backupSchedule']);
 
         return new DatabaseServerResource($databaseServer);
     }
@@ -147,19 +145,33 @@ class DatabaseServerController extends Controller
     /**
      * Trigger a backup.
      *
-     * Queues a backup job for the specified database server.
+     * Queues a backup job for the first backup configuration on the specified
+     * database server. Use the `backup_id` query parameter to target a
+     * specific configuration when the server has multiple.
      *
      * @response 202
      */
-    public function backup(DatabaseServer $databaseServer, TriggerBackupAction $action): JsonResponse
+    public function backup(Request $request, DatabaseServer $databaseServer, TriggerBackupAction $action): JsonResponse
     {
-        $databaseServer->load(['backup.volume', 'backup.backupSchedule']);
-
         $this->authorize('backup', $databaseServer);
+
+        $databaseServer->load(['backups.volume', 'backups.backupSchedule']);
+
+        $backupId = $request->query('backup_id');
+
+        $backup = $backupId !== null
+            ? $databaseServer->backups->firstWhere('id', $backupId)
+            : $databaseServer->backups->first();
+
+        if ($backup === null) {
+            return response()->json([
+                'message' => 'No backup configuration found for this database server.',
+            ], 422);
+        }
 
         /** @var int|null $userId */
         $userId = auth()->id();
-        $result = $action->execute($databaseServer, $userId);
+        $result = $action->execute($backup, $userId);
 
         return response()->json([
             'message' => $result['message'],
@@ -203,38 +215,14 @@ class DatabaseServerController extends Controller
     }
 
     /**
-     * @param  array<string, mixed>  $backupData
+     * @param  array<int, array<string, mixed>>  $backupsPayload
      */
-    private function syncBackupConfiguration(DatabaseServer $server, array $backupData): void
+    private function syncBackupConfigurations(DatabaseServer $server, array $backupsPayload): void
     {
-        if (! $server->backups_enabled || empty($backupData)) {
+        if ($backupsPayload === []) {
             return;
         }
 
-        $retentionPolicy = $backupData['retention_policy'] ?? Backup::RETENTION_DAYS;
-
-        $normalized = [
-            'volume_id' => $backupData['volume_id'],
-            'path' => ! empty($backupData['path']) ? $backupData['path'] : null,
-            'backup_schedule_id' => $backupData['backup_schedule_id'],
-            'retention_policy' => $retentionPolicy,
-            'retention_days' => null,
-            'gfs_keep_daily' => null,
-            'gfs_keep_weekly' => null,
-            'gfs_keep_monthly' => null,
-        ];
-
-        if ($retentionPolicy === Backup::RETENTION_DAYS) {
-            $normalized['retention_days'] = $backupData['retention_days'] ?? null;
-        } elseif ($retentionPolicy === Backup::RETENTION_GFS) {
-            $normalized['gfs_keep_daily'] = ! empty($backupData['gfs_keep_daily']) ? $backupData['gfs_keep_daily'] : null;
-            $normalized['gfs_keep_weekly'] = ! empty($backupData['gfs_keep_weekly']) ? $backupData['gfs_keep_weekly'] : null;
-            $normalized['gfs_keep_monthly'] = ! empty($backupData['gfs_keep_monthly']) ? $backupData['gfs_keep_monthly'] : null;
-        }
-
-        $server->backup()->updateOrCreate(
-            ['database_server_id' => $server->id],
-            $normalized
-        );
+        app(SyncBackupConfigurationsAction::class)->execute($server, $backupsPayload);
     }
 }

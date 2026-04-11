@@ -57,44 +57,27 @@ class SaveDatabaseServerRequest extends FormRequest
             $rules['auth_source'] = 'nullable|string|max:255';
         }
 
-        if ($type === 'sqlite') {
-            $rules['database_names'] = 'required|array|min:1';
-            $rules['database_names.*'] = 'required|string|max:1000';
-        }
-
-        if (in_array($type, ['mysql', 'postgres', 'mongodb'])) {
-            $rules['database_selection_mode'] = ['required', 'string', Rule::in(array_map(fn (DatabaseSelectionMode $m) => $m->value, DatabaseSelectionMode::cases()))];
-            $rules['database_names'] = 'nullable|array';
-            $rules['database_names.*'] = 'string|max:255';
-            $rules['database_include_pattern'] = 'nullable|string|max:500';
-
-            $backupsEnabled = $this->boolean('backups_enabled', true);
-            $selectionMode = $this->input('database_selection_mode');
-
-            if ($backupsEnabled && $selectionMode === 'selected') {
-                $rules['database_names'] = 'required|array|min:1';
-            }
-
-            if ($backupsEnabled && $selectionMode === 'pattern') {
-                $rules['database_include_pattern'] = 'required|string|max:500';
-            }
-        }
-
         $backupsEnabled = $this->boolean('backups_enabled', true);
+
         if ($backupsEnabled) {
-            $rules['backup.volume_id'] = 'required|exists:volumes,id';
-            $rules['backup.path'] = ['nullable', 'string', 'max:255', new SafePath];
-            $rules['backup.backup_schedule_id'] = 'required|exists:backup_schedules,id';
-            $rules['backup.retention_policy'] = 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES);
+            $rules['backups'] = 'required|array|min:1';
+            $rules['backups.*.volume_id'] = 'required|exists:volumes,id';
+            $rules['backups.*.path'] = ['nullable', 'string', 'max:255', new SafePath];
+            $rules['backups.*.backup_schedule_id'] = 'required|exists:backup_schedules,id';
+            $rules['backups.*.retention_policy'] = 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES);
+            $rules['backups.*.retention_days'] = 'nullable|integer|min:1|max:365';
+            $rules['backups.*.gfs_keep_daily'] = 'nullable|integer|min:0|max:90';
+            $rules['backups.*.gfs_keep_weekly'] = 'nullable|integer|min:0|max:52';
+            $rules['backups.*.gfs_keep_monthly'] = 'nullable|integer|min:0|max:24';
 
-            $retentionPolicy = $this->input('backup.retention_policy');
-
-            if ($retentionPolicy === Backup::RETENTION_DAYS) {
-                $rules['backup.retention_days'] = 'required|integer|min:1|max:365';
-            } elseif ($retentionPolicy === Backup::RETENTION_GFS) {
-                $rules['backup.gfs_keep_daily'] = 'nullable|integer|min:0|max:90';
-                $rules['backup.gfs_keep_weekly'] = 'nullable|integer|min:0|max:52';
-                $rules['backup.gfs_keep_monthly'] = 'nullable|integer|min:0|max:24';
+            if ($type === 'sqlite') {
+                $rules['backups.*.database_names'] = 'required|array|min:1';
+                $rules['backups.*.database_names.*'] = 'required|string|max:1000';
+            } elseif (in_array($type, ['mysql', 'postgres', 'mongodb'])) {
+                $rules['backups.*.database_selection_mode'] = ['required', 'string', Rule::in(array_map(fn (DatabaseSelectionMode $m) => $m->value, DatabaseSelectionMode::cases()))];
+                $rules['backups.*.database_names'] = 'nullable|array';
+                $rules['backups.*.database_names.*'] = 'string|max:255';
+                $rules['backups.*.database_include_pattern'] = 'nullable|string|max:500';
             }
         }
 
@@ -104,33 +87,61 @@ class SaveDatabaseServerRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            $this->validatePatternMode($validator);
-            $this->validateGfsPolicy($validator);
+            if (! $this->boolean('backups_enabled', true)) {
+                return;
+            }
+
+            $backups = $this->input('backups', []);
+
+            if (! is_array($backups)) {
+                return;
+            }
+
+            foreach ($backups as $index => $backup) {
+                $this->validateBackupEntry($validator, $index, is_array($backup) ? $backup : []);
+            }
         });
     }
 
-    private function validatePatternMode(Validator $validator): void
+    /**
+     * Per-entry cross-field validation.
+     *
+     * @param  array<string, mixed>  $backup
+     */
+    private function validateBackupEntry(Validator $validator, int $index, array $backup): void
     {
-        $pattern = $this->input('database_include_pattern');
+        $retentionPolicy = $backup['retention_policy'] ?? null;
 
-        if ($this->input('database_selection_mode') !== 'pattern' || ! $this->filled('database_include_pattern')) {
-            return;
+        if ($retentionPolicy === Backup::RETENTION_DAYS && empty($backup['retention_days'])) {
+            $validator->errors()->add("backups.{$index}.retention_days", 'The retention days field is required when using days-based retention.');
         }
 
-        if (! is_string($pattern) || ! DatabaseServer::isValidDatabasePattern($pattern)) {
-            $validator->errors()->add('database_include_pattern', 'The pattern is not a valid regular expression.');
-        }
-    }
-
-    private function validateGfsPolicy(Validator $validator): void
-    {
-        if ($this->boolean('backups_enabled', true)
-            && $this->input('backup.retention_policy') === Backup::RETENTION_GFS
-            && empty($this->input('backup.gfs_keep_daily'))
-            && empty($this->input('backup.gfs_keep_weekly'))
-            && empty($this->input('backup.gfs_keep_monthly'))
+        if ($retentionPolicy === Backup::RETENTION_GFS
+            && empty($backup['gfs_keep_daily'])
+            && empty($backup['gfs_keep_weekly'])
+            && empty($backup['gfs_keep_monthly'])
         ) {
-            $validator->errors()->add('backup.gfs_keep_daily', 'At least one retention tier must be configured.');
+            $validator->errors()->add("backups.{$index}.gfs_keep_daily", 'At least one retention tier must be configured.');
+        }
+
+        $mode = $backup['database_selection_mode'] ?? null;
+
+        if ($mode === DatabaseSelectionMode::Selected->value && empty($backup['database_names'])) {
+            $validator->errors()->add("backups.{$index}.database_names", 'At least one database must be selected.');
+        }
+
+        if ($mode === DatabaseSelectionMode::Pattern->value) {
+            $pattern = $backup['database_include_pattern'] ?? '';
+
+            if (! is_string($pattern) || $pattern === '') {
+                $validator->errors()->add("backups.{$index}.database_include_pattern", 'The include pattern is required in pattern selection mode.');
+
+                return;
+            }
+
+            if (! DatabaseServer::isValidDatabasePattern($pattern)) {
+                $validator->errors()->add("backups.{$index}.database_include_pattern", 'The pattern is not a valid regular expression.');
+            }
         }
     }
 }

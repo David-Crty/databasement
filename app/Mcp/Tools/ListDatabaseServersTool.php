@@ -17,7 +17,7 @@ class ListDatabaseServersTool extends Tool
 {
     public function handle(Request $request): Response
     {
-        $query = DatabaseServer::query()->with(['backup.volume', 'backup.backupSchedule']);
+        $query = DatabaseServer::query()->with(['backups.volume', 'backups.backupSchedule']);
 
         $type = $request->get('database_type');
         if ($type !== null) {
@@ -37,12 +37,13 @@ class ListDatabaseServersTool extends Tool
                 "  Connection: {$server->getConnectionLabel()}",
             ];
 
-            $backup = $server->backup;
-            if ($backup !== null) {
-                $parts[] = "  Backup: configured (volume: {$backup->volume->name})";
-                $parts[] = "  Schedule: {$backup->backupSchedule->expression}";
+            if ($server->backups->isNotEmpty()) {
+                $parts[] = '  Backups: '.$server->backups->count();
+                foreach ($server->backups as $backup) {
+                    $parts[] = "    - {$backup->getDisplayLabel()} (cron: {$backup->backupSchedule->expression})";
+                }
             } else {
-                $parts[] = '  Backup: not configured';
+                $parts[] = '  Backups: not configured';
             }
 
             $parts[] = '  Backups enabled: '.($server->backups_enabled ? 'yes' : 'no');

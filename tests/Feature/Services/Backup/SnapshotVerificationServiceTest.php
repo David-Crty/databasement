@@ -77,7 +77,7 @@ test('verifies all completed snapshots', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['db1', 'db2']]);
-    $snapshots = $factory->createSnapshots($server, 'manual');
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
 
     // Set filenames and mark completed
     foreach ($snapshots as $snapshot) {
@@ -86,7 +86,7 @@ test('verifies all completed snapshots', function () {
     }
 
     // Create a snapshot with no filename — should be skipped
-    $skippedSnapshots = $factory->createSnapshots($server, 'manual');
+    $skippedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $skippedSnapshots[0]->job->markCompleted();
 
     $mockFilesystem = Mockery::mock(Filesystem::class);
@@ -114,7 +114,7 @@ test('sends notification when newly missing files are detected in bulk mode', fu
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['prod_db']]);
-    $snapshots = $factory->createSnapshots($server, 'manual');
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $snapshot = $snapshots[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'file_exists' => true]);
     $snapshot->job->markCompleted();
@@ -136,7 +136,7 @@ test('does not send notification when no new files are missing', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['prod_db']]);
-    $snapshots = $factory->createSnapshots($server, 'manual');
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $snapshot = $snapshots[0];
     // Already marked as missing — not newly missing
     $snapshot->update(['filename' => 'backup.sql.gz', 'file_exists' => false]);

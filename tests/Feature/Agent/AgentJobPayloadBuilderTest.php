@@ -8,7 +8,7 @@ test('resolveBackupPath returns empty string when path is empty', function () {
     $server = DatabaseServer::factory()->create([
         'database_names' => ['testdb'],
     ]);
-    $server->backup->update(['path' => '']);
+    $server->backups->first()->update(['path' => '']);
 
     $snapshot = Snapshot::factory()->forServer($server)->create([
         'database_name' => 'testdb',

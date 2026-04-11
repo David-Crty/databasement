@@ -52,8 +52,9 @@ test('forConnectionTest uses default port when not specified', function () {
 test('getConnectionLabel returns basename for SQLite', function () {
     $server = DatabaseServer::factory()->make([
         'database_type' => 'sqlite',
-        'database_names' => ['/var/data/myapp.sqlite'],
     ]);
+    // Simulate the form's connection test state where paths aren't yet persisted
+    $server->pendingDatabaseNames = ['/var/data/myapp.sqlite'];
 
     expect($server->getConnectionLabel())->toBe('myapp.sqlite')
         ->and($server->getConnectionDetails())->toBe('/var/data/myapp.sqlite');

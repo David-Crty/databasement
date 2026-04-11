@@ -177,8 +177,8 @@ test('list database servers includes backup configuration', function () {
 
     $response->assertOk()
         ->assertSee('Configured Server')
-        ->assertSee('Backup: configured')
-        ->assertSee('Schedule:')
+        ->assertSee('Backups: 1')
+        ->assertSee('cron:')
         ->assertSee('Backups enabled: yes');
 });
 
@@ -192,15 +192,13 @@ test('list database servers shows unconfigured backup', function () {
         'database_type' => 'mysql',
         'username' => 'root',
         'password' => 'secret',
-        'database_names' => ['testdb'],
-        'database_selection_mode' => 'selected',
     ]);
 
     $response = DatabasementServer::actingAs($user)->tool(ListDatabaseServersTool::class);
 
     $response->assertOk()
         ->assertSee('No Backup Server')
-        ->assertSee('Backup: not configured');
+        ->assertSee('Backups: not configured');
 });
 
 test('list snapshots returns empty message when none exist', function () {

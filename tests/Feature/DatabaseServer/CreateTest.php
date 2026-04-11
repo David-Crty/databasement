@@ -21,14 +21,14 @@ test('can create database server', function (array $config) {
         ->set('form.name', $config['name'])
         ->set('form.database_type', $config['type'])
         ->set('form.description', 'Test database')
-        ->set('form.volume_id', $volume->id)
-        ->set('form.backup_schedule_id', dailySchedule()->id)
-        ->set('form.retention_days', 14);
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14);
 
     // Set type-specific fields
     if ($config['type'] === 'sqlite') {
         foreach ($config['database_names'] as $i => $name) {
-            $component->set("form.database_names.{$i}", $name);
+            $component->set("form.backups.0.database_names.{$i}", $name);
         }
     } elseif ($config['type'] === 'redis') {
         $component
@@ -40,7 +40,7 @@ test('can create database server', function (array $config) {
             ->set('form.port', $config['port'])
             ->set('form.username', 'dbuser')
             ->set('form.password', 'secret123')
-            ->set('form.database_names.0', 'myapp_production');
+            ->set('form.backups.0.database_names.0', 'myapp_production');
     }
 
     $component->call('save')
@@ -54,7 +54,7 @@ test('can create database server', function (array $config) {
     $server = DatabaseServer::where('name', $config['name'])->first();
 
     if ($config['type'] === 'sqlite') {
-        expect($server->database_names)->toBe(['/data/app.sqlite']);
+        expect($server->backups->first()->database_names)->toBe(['/data/app.sqlite']);
         expect($server->host)->toBeNull();
         expect($server->username)->toBeNull();
     } else {
@@ -116,10 +116,10 @@ test('can create database server with retention policy', function (array $config
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
-        ->set('form.database_names.0', 'myapp_production')
-        ->set('form.volume_id', $volume->id)
-        ->set('form.backup_schedule_id', dailySchedule()->id)
-        ->set('form.retention_policy', $config['policy']);
+        ->set('form.backups.0.database_names.0', 'myapp_production')
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_policy', $config['policy']);
 
     // Set policy-specific fields
     foreach ($config['form_fields'] as $field => $value) {
@@ -154,15 +154,15 @@ test('cannot create database server with GFS retention when all tiers are empty'
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
-        ->set('form.database_names.0', 'myapp_production')
-        ->set('form.volume_id', $volume->id)
-        ->set('form.backup_schedule_id', dailySchedule()->id)
-        ->set('form.retention_policy', 'gfs')
-        ->set('form.gfs_keep_daily', null)
-        ->set('form.gfs_keep_weekly', null)
-        ->set('form.gfs_keep_monthly', null)
+        ->set('form.backups.0.database_names.0', 'myapp_production')
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_policy', 'gfs')
+        ->set('form.backups.0.gfs_keep_daily', null)
+        ->set('form.backups.0.gfs_keep_weekly', null)
+        ->set('form.backups.0.gfs_keep_monthly', null)
         ->call('save')
-        ->assertHasErrors(['form.gfs_keep_daily']);
+        ->assertHasErrors(['form.backups.0.gfs_keep_daily']);
 
     $this->assertDatabaseMissing('database_servers', [
         'name' => 'GFS Empty Tiers Server',
@@ -199,14 +199,14 @@ test('can add and remove SQLite database paths', function () {
     Livewire::actingAs($user)
         ->test(Create::class)
         ->set('form.database_type', 'sqlite')
-        ->assertSet('form.database_names', [''])
-        ->set('form.database_names.0', '/data/app.sqlite')
-        ->call('addDatabasePath')
-        ->assertCount('form.database_names', 2)
-        ->set('form.database_names.1', '/data/other.sqlite')
-        ->call('removeDatabasePath', 0)
-        ->assertCount('form.database_names', 1)
-        ->assertSet('form.database_names.0', '/data/other.sqlite');
+        ->assertSet('form.backups.0.database_names', [''])
+        ->set('form.backups.0.database_names.0', '/data/app.sqlite')
+        ->call('addDatabasePath', 0)
+        ->assertCount('form.backups.0.database_names', 2)
+        ->set('form.backups.0.database_names.1', '/data/other.sqlite')
+        ->call('removeDatabasePath', 0, 0)
+        ->assertCount('form.backups.0.database_names', 1)
+        ->assertSet('form.backups.0.database_names.0', '/data/other.sqlite');
 });
 
 test('can create database server with dump flags', function () {
@@ -226,10 +226,10 @@ test('can create database server with dump flags', function () {
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
         ->set('form.dump_flags', '--no-tablespaces --column-statistics=0')
-        ->set('form.database_names.0', 'myapp')
-        ->set('form.volume_id', $volume->id)
-        ->set('form.backup_schedule_id', dailySchedule()->id)
-        ->set('form.retention_days', 14)
+        ->set('form.backups.0.database_names.0', 'myapp')
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
         ->call('save')
         ->assertHasNoErrors()
         ->assertRedirect(route('database-servers.index'));
@@ -265,9 +265,9 @@ test('toggling use_agent clears local volume but keeps remote volume', function 
 
     Livewire::actingAs($user)
         ->test(Create::class)
-        ->set('form.volume_id', $volume->id)
+        ->set('form.backups.0.volume_id', $volume->id)
         ->set('form.use_agent', true)
-        ->assertSet('form.volume_id', $expected);
+        ->assertSet('form.backups.0.volume_id', $expected);
 })->with([
     'clears local volume' => ['local', ['path' => '/backups'], 'clear'],
     'keeps s3 volume' => ['s3', ['bucket' => 'test'], 'keep'],
@@ -288,10 +288,10 @@ test('cannot create agent-backed server with local volume', function () {
         ->set('form.password', 'secret123')
         ->set('form.use_agent', true)
         ->set('form.agent_id', $agent->id)
-        ->set('form.volume_id', $localVolume->id)
-        ->set('form.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.volume_id', $localVolume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->call('save')
-        ->assertHasErrors(['form.volume_id']);
+        ->assertHasErrors(['form.backups.0.volume_id']);
 
     $this->assertDatabaseMissing('database_servers', ['name' => 'Agent Server']);
 });
@@ -309,19 +309,24 @@ test('backup summary is incomplete until volume and schedule are set, then rende
         ->set('form.database_type', 'mysql')
         ->set('form.connectionTestSuccess', true);
 
+    $isComplete = fn () => \App\Livewire\Forms\BackupForm::isComplete(
+        $component->get('form')->backups[0],
+        \App\Enums\DatabaseType::MYSQL,
+    );
+
     // No volume, no schedule → incomplete warning
-    expect($component->get('form')->isBackupConfigComplete())->toBeFalse();
+    expect($isComplete())->toBeFalse();
     $component->assertSee('Configuration incomplete');
 
     // Fill everything required for the summary
     $component
-        ->set('form.volume_id', $volume->id)
-        ->set('form.backup_schedule_id', dailySchedule()->id)
-        ->set('form.database_selection_mode', 'all')
-        ->set('form.retention_policy', 'days')
-        ->set('form.retention_days', 30);
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.database_selection_mode', 'all')
+        ->set('form.backups.0.retention_policy', 'days')
+        ->set('form.backups.0.retention_days', 30);
 
-    expect($component->get('form')->isBackupConfigComplete())->toBeTrue();
+    expect($isComplete())->toBeTrue();
 
     $component
         ->assertDontSee('Configuration incomplete')
@@ -339,31 +344,32 @@ test('retention summary text adapts to each retention policy', function () {
         ->test(Create::class)
         ->set('form.database_type', 'mysql');
 
-    $form = $component->get('form');
+    $summary = fn () => \App\Livewire\Forms\BackupForm::retentionSummary(
+        $component->get('form')->backups[0],
+    );
 
-    $component->set('form.retention_policy', 'days')->set('form.retention_days', 1);
-    expect($component->get('form')->getSummaryRetentionText())->toBe('the last 1 day');
+    $component->set('form.backups.0.retention_policy', 'days')->set('form.backups.0.retention_days', 1);
+    expect($summary())->toBe('the last 1 day');
 
-    $component->set('form.retention_days', 90);
-    expect($component->get('form')->getSummaryRetentionText())->toBe('the last 90 days');
+    $component->set('form.backups.0.retention_days', 90);
+    expect($summary())->toBe('the last 90 days');
 
     $component
-        ->set('form.retention_policy', 'gfs')
-        ->set('form.gfs_keep_daily', 7)
-        ->set('form.gfs_keep_weekly', 4)
-        ->set('form.gfs_keep_monthly', 12);
-    expect($component->get('form')->getSummaryRetentionText())
-        ->toBe('GFS (7 daily, 4 weekly, 12 monthly)');
+        ->set('form.backups.0.retention_policy', 'gfs')
+        ->set('form.backups.0.gfs_keep_daily', 7)
+        ->set('form.backups.0.gfs_keep_weekly', 4)
+        ->set('form.backups.0.gfs_keep_monthly', 12);
+    expect($summary())->toBe('GFS (7 daily, 4 weekly, 12 monthly)');
 
     // Singular count renders through trans_choice so locales can inflect
     $component
-        ->set('form.gfs_keep_daily', 1)
-        ->set('form.gfs_keep_weekly', 0)
-        ->set('form.gfs_keep_monthly', 0);
-    expect($component->get('form')->getSummaryRetentionText())->toBe('GFS (1 daily)');
+        ->set('form.backups.0.gfs_keep_daily', 1)
+        ->set('form.backups.0.gfs_keep_weekly', 0)
+        ->set('form.backups.0.gfs_keep_monthly', 0);
+    expect($summary())->toBe('GFS (1 daily)');
 
-    $component->set('form.retention_policy', 'forever');
-    expect($component->get('form')->getSummaryRetentionText())->toBe('indefinitely');
+    $component->set('form.backups.0.retention_policy', 'forever');
+    expect($summary())->toBe('indefinitely');
 });
 
 test('backup summary reports incomplete when retention settings are blank', function () {
@@ -378,24 +384,102 @@ test('backup summary reports incomplete when retention settings are blank', func
         ->test(Create::class)
         ->set('form.database_type', 'mysql')
         ->set('form.connectionTestSuccess', true)
-        ->set('form.volume_id', $volume->id)
-        ->set('form.backup_schedule_id', dailySchedule()->id);
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.database_selection_mode', 'all');
+
+    $isComplete = fn () => \App\Livewire\Forms\BackupForm::isComplete(
+        $component->get('form')->backups[0],
+        \App\Enums\DatabaseType::MYSQL,
+    );
 
     // Days policy with blank retention_days → incomplete
     $component
-        ->set('form.retention_policy', 'days')
-        ->set('form.retention_days', null);
-    expect($component->get('form')->isBackupConfigComplete())->toBeFalse();
+        ->set('form.backups.0.retention_policy', 'days')
+        ->set('form.backups.0.retention_days', null);
+    expect($isComplete())->toBeFalse();
 
     // GFS policy with every tier at 0 → incomplete
     $component
-        ->set('form.retention_policy', 'gfs')
-        ->set('form.gfs_keep_daily', 0)
-        ->set('form.gfs_keep_weekly', 0)
-        ->set('form.gfs_keep_monthly', 0);
-    expect($component->get('form')->isBackupConfigComplete())->toBeFalse();
+        ->set('form.backups.0.retention_policy', 'gfs')
+        ->set('form.backups.0.gfs_keep_daily', 0)
+        ->set('form.backups.0.gfs_keep_weekly', 0)
+        ->set('form.backups.0.gfs_keep_monthly', 0);
+    expect($isComplete())->toBeFalse();
 
     // Filling a single tier is enough
-    $component->set('form.gfs_keep_daily', 7);
-    expect($component->get('form')->isBackupConfigComplete())->toBeTrue();
+    $component->set('form.backups.0.gfs_keep_daily', 7);
+    expect($isComplete())->toBeTrue();
+});
+
+test('can create a server with multiple backup configurations', function () {
+    $user = User::factory()->create();
+    $volume1 = Volume::create([
+        'name' => 'Primary Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups/primary'],
+    ]);
+    $volume2 = Volume::create([
+        'name' => 'Secondary Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups/secondary'],
+    ]);
+    $daily = dailySchedule();
+    $weekly = weeklySchedule();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Multi-Backup Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret')
+        ->set('form.backups.0.volume_id', $volume1->id)
+        ->set('form.backups.0.backup_schedule_id', $daily->id)
+        ->set('form.backups.0.retention_policy', 'days')
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_selection_mode', 'selected')
+        ->set('form.backups.0.database_names', ['critical_db'])
+        ->call('addBackup')
+        ->assertCount('form.backups', 2)
+        ->set('form.backups.1.volume_id', $volume2->id)
+        ->set('form.backups.1.backup_schedule_id', $weekly->id)
+        ->set('form.backups.1.retention_policy', 'gfs')
+        ->set('form.backups.1.gfs_keep_daily', 7)
+        ->set('form.backups.1.gfs_keep_weekly', 4)
+        ->set('form.backups.1.gfs_keep_monthly', 12)
+        ->set('form.backups.1.database_selection_mode', 'all')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'Multi-Backup Server')->first();
+    expect($server)->not->toBeNull()
+        ->and($server->backups()->count())->toBe(2);
+
+    /** @var \App\Models\Backup $daily */
+    $dailyBackup = $server->backups->firstWhere('backup_schedule_id', $daily->id);
+    expect($dailyBackup->volume_id)->toBe($volume1->id)
+        ->and($dailyBackup->retention_policy)->toBe('days')
+        ->and($dailyBackup->retention_days)->toBe(14)
+        ->and($dailyBackup->database_names)->toBe(['critical_db']);
+
+    $weeklyBackup = $server->backups->firstWhere('backup_schedule_id', $weekly->id);
+    expect($weeklyBackup->volume_id)->toBe($volume2->id)
+        ->and($weeklyBackup->retention_policy)->toBe('gfs')
+        ->and($weeklyBackup->gfs_keep_daily)->toBe(7)
+        ->and($weeklyBackup->gfs_keep_weekly)->toBe(4)
+        ->and($weeklyBackup->gfs_keep_monthly)->toBe(12);
+});
+
+test('cannot remove the last remaining backup card', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->assertCount('form.backups', 1)
+        ->call('removeBackup', 0)
+        ->assertCount('form.backups', 1);
 });

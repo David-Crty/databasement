@@ -3,6 +3,7 @@
 namespace App\Livewire\DatabaseServer;
 
 use App\Enums\DatabaseType;
+use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
@@ -130,15 +131,15 @@ class Index extends Component
         $this->dispatch('open-restore-modal', targetServerId: $id);
     }
 
-    public function runBackup(string $id, TriggerBackupAction $action): void
+    public function runBackup(string $backupId, TriggerBackupAction $action): void
     {
-        $server = DatabaseServer::with(['backup.volume'])->findOrFail($id);
+        $backup = Backup::with(['volume', 'databaseServer', 'backupSchedule'])->findOrFail($backupId);
 
-        $this->authorize('backup', $server);
+        $this->authorize('backup', $backup->databaseServer);
 
         try {
             $userId = auth()->id();
-            $result = $action->execute($server, is_int($userId) ? $userId : null);
+            $result = $action->execute($backup, is_int($userId) ? $userId : null);
             $this->success($result['message'], position: 'toast-bottom');
         } catch (\Throwable $e) {
             $this->error($e->getMessage(), position: 'toast-bottom');

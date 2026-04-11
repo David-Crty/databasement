@@ -24,10 +24,8 @@ class Create extends Component
     {
         $this->authorize('viewForm', DatabaseServer::class);
 
-        $dailySchedule = BackupSchedule::where('name', 'Daily')->first();
-        if ($dailySchedule) {
-            $this->form->backup_schedule_id = $dailySchedule->id;
-        }
+        $dailyScheduleId = BackupSchedule::where('name', 'Daily')->value('id');
+        $this->form->addBackup($dailyScheduleId);
     }
 
     public function save(): void
@@ -46,14 +44,24 @@ class Create extends Component
         }
     }
 
-    public function addDatabasePath(): void
+    public function addBackup(?string $defaultScheduleId = null): void
     {
-        $this->form->addDatabasePath();
+        $this->form->addBackup($defaultScheduleId);
     }
 
-    public function removeDatabasePath(int $index): void
+    public function removeBackup(int $index): void
     {
-        $this->form->removeDatabasePath($index);
+        $this->form->removeBackup($index);
+    }
+
+    public function addDatabasePath(int $backupIndex): void
+    {
+        $this->form->addDatabasePath($backupIndex);
+    }
+
+    public function removeDatabasePath(int $backupIndex, int $pathIndex): void
+    {
+        $this->form->removeDatabasePath($backupIndex, $pathIndex);
     }
 
     public function testConnection(): void

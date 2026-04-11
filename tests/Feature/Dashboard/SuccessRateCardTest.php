@@ -14,12 +14,12 @@ test('success rate card calculates correct rate', function () {
 
     // Create 3 completed jobs
     for ($i = 0; $i < 3; $i++) {
-        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
         $snapshots[0]->job->markCompleted();
     }
 
     // Create 1 failed job
-    $failedSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $failedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $failedSnapshots[0]->job->markFailed(new Exception('Test error'));
 
     Livewire::withoutLazyLoading()
@@ -36,7 +36,7 @@ test('success rate card shows running jobs count', function () {
 
     // Create 2 running jobs
     for ($i = 0; $i < 2; $i++) {
-        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
         $snapshots[0]->job->markRunning();
     }
 

@@ -6,6 +6,7 @@ use App\Enums\CompressionType;
 use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;
 use App\Facades\AppConfig;
+use App\Models\Backup;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
@@ -21,83 +22,83 @@ class BackupJobFactory
     ) {}
 
     /**
-     * Create backup job(s) for a database server.
+     * Create backup job(s) for one backup configuration.
      *
      * For selected mode: Returns array with one Snapshot per selected database
      * For all mode: Returns array with Snapshot per database on server
      * For pattern mode: Returns array with Snapshot per matching database
-     * For SQLite: Returns array with one Snapshot per configured path
+     * For SQLite: Returns array with one Snapshot per configured path on the server
      *
      * @param  'manual'|'scheduled'  $method
      * @return Snapshot[]
      */
     public function createSnapshots(
-        DatabaseServer $server,
+        Backup $backup,
         string $method,
         ?int $triggeredByUserId = null
     ): array {
+        $server = $backup->databaseServer;
         $snapshots = [];
 
-        // SQLite: one snapshot per database file path
         if ($server->database_type === DatabaseType::SQLITE) {
-            foreach ($server->database_names ?? [] as $databasePath) {
-                $snapshots[] = $this->createSnapshot($server, $databasePath, $method, $triggeredByUserId);
+            foreach ($backup->database_names ?? [] as $databasePath) {
+                $snapshots[] = $this->createSnapshot($backup, $databasePath, $method, $triggeredByUserId);
             }
 
             return $snapshots;
         }
 
-        // Redis: single snapshot, dumps entire instance
         if ($server->database_type === DatabaseType::REDIS) {
-            $snapshots[] = $this->createSnapshot($server, 'all', $method, $triggeredByUserId);
+            $snapshots[] = $this->createSnapshot($backup, 'all', $method, $triggeredByUserId);
 
             return $snapshots;
         }
 
         // Agent-backed servers with all/pattern mode need a discovery phase —
         // the web app can't reach the database, only the agent can list databases.
-        if ($server->agent_id && in_array($server->database_selection_mode, [DatabaseSelectionMode::All, DatabaseSelectionMode::Pattern], true)) {
+        if ($server->agent_id && in_array($backup->database_selection_mode, [DatabaseSelectionMode::All, DatabaseSelectionMode::Pattern], true)) {
             return [];
         }
 
-        $databases = match ($server->database_selection_mode) {
+        $databases = match ($backup->database_selection_mode) {
             DatabaseSelectionMode::All => $this->databaseProvider->listDatabasesForServer($server),
             DatabaseSelectionMode::Pattern => DatabaseServer::filterDatabasesByPattern(
                 $this->databaseProvider->listDatabasesForServer($server),
-                $server->database_include_pattern ?? ''
+                $backup->database_include_pattern ?? ''
             ),
-            default => $server->database_names ?? [],
+            default => $backup->database_names ?? [],
         };
 
         if (empty($databases)) {
-            Log::warning("No databases found on server [{$server->name}] to backup.");
+            Log::warning("No databases found on server [{$server->name}] for backup [{$backup->id}].");
         }
 
         foreach ($databases as $databaseName) {
-            $snapshots[] = $this->createSnapshot($server, $databaseName, $method, $triggeredByUserId);
+            $snapshots[] = $this->createSnapshot($backup, $databaseName, $method, $triggeredByUserId);
         }
 
         return $snapshots;
     }
 
     /**
-     * Create a single snapshot for one database.
+     * Create a single snapshot for one database within a specific backup config.
      *
      * @param  'manual'|'scheduled'  $method
      */
     public function createSnapshot(
-        DatabaseServer $server,
+        Backup $backup,
         string $databaseName,
         string $method,
         ?int $triggeredByUserId = null
     ): Snapshot {
+        $server = $backup->databaseServer;
         $job = BackupJob::create(['status' => 'pending']);
-        $volume = $server->backup->volume;
+        $volume = $backup->volume;
 
         $snapshot = Snapshot::create([
             'backup_job_id' => $job->id,
             'database_server_id' => $server->id,
-            'backup_id' => $server->backup->id,
+            'backup_id' => $backup->id,
             'volume_id' => $volume->id,
             'filename' => '',
             'file_size' => 0,

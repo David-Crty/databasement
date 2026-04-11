@@ -18,7 +18,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $id
  * @property string $database_server_id
- * @property string $backup_id
+ * @property string|null $backup_id
  * @property string $volume_id
  * @property string $filename
  * @property int $file_size
@@ -35,7 +35,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property string $backup_job_id
- * @property-read Backup $backup
+ * @property-read Backup|null $backup
  * @property-read DatabaseServer $databaseServer
  * @property-read BackupJob $job
  * @property-read User|null $triggeredBy

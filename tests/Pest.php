@@ -112,7 +112,7 @@ function createDatabaseServer(array $attributes = []): \App\Models\DatabaseServe
 {
     return \App\Models\DatabaseServer::factory()
         ->create($attributes)
-        ->load('backup.volume');
+        ->load('backups.volume');
 }
 
 /*
@@ -161,7 +161,7 @@ dataset('database server configs', [
 dataset('retention policies', [
     'days' => [[
         'policy' => 'days',
-        'form_fields' => ['form.retention_days' => 30],
+        'form_fields' => ['form.backups.0.retention_days' => 30],
         'expected_backup' => [
             'retention_policy' => 'days',
             'retention_days' => 30,
@@ -173,9 +173,9 @@ dataset('retention policies', [
     'gfs' => [[
         'policy' => 'gfs',
         'form_fields' => [
-            'form.gfs_keep_daily' => 7,
-            'form.gfs_keep_weekly' => 4,
-            'form.gfs_keep_monthly' => 12,
+            'form.backups.0.gfs_keep_daily' => 7,
+            'form.backups.0.gfs_keep_weekly' => 4,
+            'form.backups.0.gfs_keep_monthly' => 12,
         ],
         'expected_backup' => [
             'retention_policy' => 'gfs',

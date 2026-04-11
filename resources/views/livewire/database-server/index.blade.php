@@ -96,56 +96,53 @@
             @endscope
 
             @scope('cell_database_names', $server)
-                @if($server->database_type === 'sqlite')
-                    <span class="text-base-content/50 italic">{{ __('Single file') }}</span>
-                @elseif($server->database_selection_mode === \App\Enums\DatabaseSelectionMode::All)
-                    <x-badge :value="__('All')" class="badge-info badge-soft" />
-                @elseif($server->database_selection_mode === \App\Enums\DatabaseSelectionMode::Pattern)
-                    <x-popover>
-                        <x-slot:trigger>
-                            <x-badge :value="__('Pattern')" class="badge-warning badge-soft cursor-pointer" />
-                        </x-slot:trigger>
-                        <x-slot:content class="text-sm font-mono">
-                            /{{ $server->database_include_pattern }}/i
-                        </x-slot:content>
-                    </x-popover>
-                @elseif($server->database_names && count($server->database_names) > 0)
-                    @if(count($server->database_names) === 1)
-                        {{ $server->database_names[0] }}
+                @php
+                    $sqlitePaths = $server->database_type === \App\Enums\DatabaseType::SQLITE
+                        ? ($server->backups->first()?->database_names ?? [])
+                        : [];
+                @endphp
+                @if(count($sqlitePaths) > 0)
+                    @if(count($sqlitePaths) === 1)
+                        <span class="font-mono text-xs">{{ basename($sqlitePaths[0]) }}</span>
                     @else
-                        <span title="{{ implode(', ', $server->database_names) }}">
-                            {{ $server->database_names[0] }}
-                            <span class="text-base-content/50">+{{ count($server->database_names) - 1 }}</span>
+                        <span class="font-mono text-xs" title="{{ implode(', ', $sqlitePaths) }}">
+                            {{ basename($sqlitePaths[0]) }}
+                            <span class="text-base-content/50">+{{ count($sqlitePaths) - 1 }}</span>
                         </span>
                     @endif
                 @else
-                    -
+                    <span class="text-base-content/50">-</span>
                 @endif
             @endscope
 
             @scope('cell_backup', $server)
-                @if(!$server->backups_enabled)
+                @if(! $server->backups_enabled)
                     <span class="badge badge-warning badge-soft badge-xs gap-1">
                         <x-icon name="o-no-symbol" class="w-3 h-3" />
                         {{ __('Disabled') }}
                     </span>
-                @elseif($server->backup)
-                    <div class="table-cell-primary flex items-center gap-1.5">
-                        <x-volume-type-icon :type="$server->backup->volume->type" class="w-4 h-4 text-base-content/70" />
-                        {{ $server->backup->volume->name }}
-                    </div>
-                    <div class="text-sm text-base-content/70">
-                        {{ $server->backup->backupSchedule->name }}
-                        @if($server->backup->retention_policy === 'gfs')
-                            <span class="text-info">(GFS: {{ $server->backup->gfs_keep_daily ?? 0 }}d/{{ $server->backup->gfs_keep_weekly ?? 0 }}w/{{ $server->backup->gfs_keep_monthly ?? 0 }}m)</span>
-                        @elseif($server->backup->retention_policy === 'forever')
-                            <span class="text-warning">({{ __('Forever') }})</span>
-                        @elseif($server->backup->retention_days)
-                            <span>({{ $server->backup->retention_days }}d)</span>
-                        @endif
-                    </div>
-                @else
+                @elseif($server->backups->isEmpty())
                     <span class="text-base-content/50">-</span>
+                @else
+                    <div class="space-y-1">
+                        @foreach($server->backups as $backup)
+                            <div class="flex flex-col">
+                                <div class="flex items-center gap-1.5 text-sm">
+                                    <x-volume-type-icon :type="$backup->volume->type" class="w-3.5 h-3.5 text-base-content/70" />
+                                    <span class="font-medium">{{ $backup->volume->name }}</span>
+                                    <span class="text-base-content/40">·</span>
+                                    <span class="text-base-content/70">{{ $backup->backupSchedule->name }}</span>
+                                    @if($backup->retention_policy === 'gfs')
+                                        <span class="text-xs text-info">(GFS: {{ $backup->gfs_keep_daily ?? 0 }}d/{{ $backup->gfs_keep_weekly ?? 0 }}w/{{ $backup->gfs_keep_monthly ?? 0 }}m)</span>
+                                    @elseif($backup->retention_policy === 'forever')
+                                        <span class="text-xs text-warning">({{ __('Forever') }})</span>
+                                    @elseif($backup->retention_days)
+                                        <span class="text-xs text-base-content/50">({{ $backup->retention_days }}d)</span>
+                                    @endif
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
                 @endif
             @endscope
 
@@ -186,15 +183,16 @@
             @scope('actions', $server)
                 <div class="flex gap-2 justify-end">
                     @can('backup', $server)
-                        @if($server->backup)
+                        @foreach($server->backups as $backup)
                             <x-button
                                 icon="o-arrow-down-tray"
-                                wire:click="runBackup('{{ $server->id }}')"
+                                wire:click="runBackup('{{ $backup->id }}')"
+                                wire:key="run-backup-{{ $backup->id }}"
                                 spinner
-                                tooltip="{{ __('Backup Now') }}"
+                                tooltip="{{ __('Backup now') }} · {{ $backup->getDisplayLabel() }}"
                                 class="btn-ghost btn-sm text-info"
                             />
-                        @endif
+                        @endforeach
                     @endcan
                     @can('restore', $server)
                         <x-button

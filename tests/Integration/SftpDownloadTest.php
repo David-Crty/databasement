@@ -25,13 +25,12 @@ test('can download snapshot stored on SFTP volume via streamed route', function 
 
     // Create database server and load test data
     $this->directServer = IntegrationTestHelpers::createDatabaseServer('mysql');
-    IntegrationTestHelpers::createBackup($this->directServer, $volume);
-    $this->directServer->load('backup.volume');
+    $this->directBackup = IntegrationTestHelpers::createBackup($this->directServer, $volume);
+    $this->directServer->load('backups.volume');
     IntegrationTestHelpers::loadTestData('mysql', $this->directServer);
 
     // Run a real backup that stores the snapshot on SFTP
-    $snapshots = $backupJobFactory->createSnapshots(
-        server: $this->directServer,
+    $snapshots = $backupJobFactory->createSnapshots(backup: $this->directBackup,
         method: 'manual',
         triggeredByUserId: $user->id,
     );

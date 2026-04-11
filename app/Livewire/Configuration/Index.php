@@ -270,7 +270,7 @@ class Index extends Component
 
         $backups = $schedule->backups()
             ->whereRelation('databaseServer', 'backups_enabled', true)
-            ->with('databaseServer.backup.volume')
+            ->with(['databaseServer', 'volume'])
             ->get();
 
         $totalSnapshots = 0;
@@ -279,7 +279,7 @@ class Index extends Component
         foreach ($backups as $backup) {
             try {
                 $userId = auth()->id();
-                $result = $action->execute($backup->databaseServer, is_int($userId) ? $userId : null);
+                $result = $action->execute($backup, is_int($userId) ? $userId : null);
                 $totalSnapshots += count($result['snapshots']);
             } catch (\Throwable $e) {
                 $errors[] = $backup->databaseServer->name.': '.$e->getMessage();

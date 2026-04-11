@@ -8,11 +8,11 @@ test('can search snapshots by database name', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['production_db']]);
-    $snapshots = $factory->createSnapshots($server, 'manual');
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $snapshots[0]->update(['database_name' => 'production_db']);
 
     $server2 = DatabaseServer::factory()->create(['database_names' => ['staging_db']]);
-    $snapshots2 = $factory->createSnapshots($server2, 'manual');
+    $snapshots2 = $factory->createSnapshots($server2->backups->first(), 'manual');
     $snapshots2[0]->update(['database_name' => 'staging_db']);
 
     $results = SnapshotQuery::buildFromParams(search: 'production')->get();
@@ -25,10 +25,10 @@ test('can search snapshots by server name', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['name' => 'MySQL Production', 'database_names' => ['db1']]);
-    $factory->createSnapshots($server, 'manual');
+    $factory->createSnapshots($server->backups->first(), 'manual');
 
     $server2 = DatabaseServer::factory()->create(['name' => 'PostgreSQL Dev', 'database_names' => ['db2']]);
-    $factory->createSnapshots($server2, 'manual');
+    $factory->createSnapshots($server2->backups->first(), 'manual');
 
     $results = SnapshotQuery::buildFromParams(search: 'MySQL')->get();
 
@@ -41,10 +41,10 @@ test('can filter snapshots by status', function () {
 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
 
-    $completedSnapshots = $factory->createSnapshots($server, 'manual');
+    $completedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $completedSnapshots[0]->job->update(['status' => 'completed']);
 
-    $failedSnapshots = $factory->createSnapshots($server, 'manual');
+    $failedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $failedSnapshots[0]->job->update(['status' => 'failed']);
 
     $results = SnapshotQuery::buildFromParams(statusFilter: 'completed')->get();
@@ -58,10 +58,10 @@ test('can sort snapshots by column', function () {
 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
 
-    $snapshot1 = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot1 = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot1->update(['file_size' => 1000]);
 
-    $snapshot2 = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot2 = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot2->update(['file_size' => 5000]);
 
     $results = SnapshotQuery::buildFromParams(

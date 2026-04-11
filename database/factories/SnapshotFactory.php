@@ -36,12 +36,13 @@ class SnapshotFactory extends Factory
     public function configure(): static
     {
         return $this->afterMaking(function (Snapshot $snapshot) {
-            // If no database_server_id, create one
+            // If no database_server_id, create one (with its default backup)
             if (! $snapshot->database_server_id) {
                 $server = DatabaseServer::factory()->create();
+                $backup = $server->backups()->first();
                 $snapshot->database_server_id = $server->id;
-                $snapshot->backup_id = $server->backup->id;
-                $snapshot->volume_id = $server->backup->volume_id;
+                $snapshot->backup_id = $backup?->id;
+                $snapshot->volume_id = $backup?->volume_id;
                 $snapshot->database_type = $server->database_type;
             }
 
@@ -54,16 +55,19 @@ class SnapshotFactory extends Factory
     }
 
     /**
-     * Set the snapshot to be for a specific server.
+     * Set the snapshot to be for a specific server (using its first backup).
      */
     public function forServer(DatabaseServer $server): static
     {
+        $backup = $server->backups()->first();
+        $databaseName = $backup?->database_names[0] ?? 'testdb';
+
         return $this->state(fn () => [
             'database_server_id' => $server->id,
-            'backup_id' => $server->backup->id,
-            'volume_id' => $server->backup->volume_id,
+            'backup_id' => $backup?->id,
+            'volume_id' => $backup?->volume_id,
             'database_type' => $server->database_type,
-            'database_name' => $server->database_names[0] ?? 'testdb',
+            'database_name' => $databaseName,
         ]);
     }
 

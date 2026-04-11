@@ -2,10 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Enums\DatabaseSelectionMode;
 use App\Models\Backup;
-use App\Models\BackupSchedule;
 use App\Models\DatabaseServerSshConfig;
-use App\Models\Volume;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -27,8 +26,9 @@ class DatabaseServerFactory extends Factory
             'database_type' => fake()->randomElement(['mysql', 'postgres']),
             'username' => fake()->userName(),
             'password' => fake()->password(),
-            'database_names' => fake()->optional()->randomElements(['app', 'users', 'orders', 'products', 'analytics'], fake()->numberBetween(1, 3)),
-            'database_selection_mode' => 'selected',
+            // SQLite uses this for file paths; other types leave it null so the
+            // selection ends up on the Backup row instead.
+            'database_names' => null,
             'description' => fake()->optional()->sentence(),
             'notification_trigger' => 'failure',
             'notification_channel_selection' => 'all',
@@ -36,7 +36,8 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
-     * Configure the factory for SQLite database type.
+     * Configure the factory for SQLite database type. The generated file path
+     * is propagated to the default Backup by {@see configure()}.
      */
     public function sqlite(): static
     {
@@ -47,7 +48,6 @@ class DatabaseServerFactory extends Factory
             'port' => 0,
             'username' => '',
             'password' => '',
-            'database_names' => ['/data/'.fake()->slug().'.sqlite'],
         ]);
     }
 
@@ -86,20 +86,25 @@ class DatabaseServerFactory extends Factory
             'username' => '',
             'password' => '',
             'database_names' => null,
-            'database_selection_mode' => 'all',
         ]);
     }
 
     /**
-     * Configure the factory for pattern-based database selection.
+     * Configure the factory for pattern-based database selection on the first
+     * Backup row attached to this server.
      */
     public function pattern(string $pattern = '^prod_'): static
     {
-        return $this->state(fn () => [
-            'database_selection_mode' => 'pattern',
-            'database_include_pattern' => $pattern,
-            'database_names' => null,
-        ]);
+        return $this->afterCreating(function ($databaseServer) use ($pattern) {
+            $backup = $databaseServer->backups()->first();
+            if ($backup !== null) {
+                $backup->update([
+                    'database_selection_mode' => DatabaseSelectionMode::Pattern->value,
+                    'database_names' => null,
+                    'database_include_pattern' => $pattern,
+                ]);
+            }
+        });
     }
 
     /**
@@ -114,7 +119,7 @@ class DatabaseServerFactory extends Factory
             'port' => 27017,
             'username' => 'root',
             'password' => 'root',
-            'database_names' => ['app'],
+            'database_names' => null,
             'extra_config' => ['auth_source' => 'admin'],
         ]);
     }
@@ -164,24 +169,75 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
-     * Configure the model factory.
+     * Strip the default Backup created by {@see configure()} — useful for tests
+     * that need to build backups explicitly via `Backup::factory()`.
+     */
+    public function withoutBackups(): static
+    {
+        return $this->afterCreating(function ($databaseServer) {
+            $databaseServer->backups()->delete();
+        });
+    }
+
+    /**
+     * Attach N backup configurations (each on a distinct schedule) to this
+     * server. {@see configure()} creates the first backup; this hook tops it
+     * up with (N - 1) more.
+     */
+    public function withBackups(int $count = 2): static
+    {
+        return $this->afterCreating(function ($databaseServer) use ($count) {
+            for ($i = 1; $i < $count; $i++) {
+                Backup::factory()->for($databaseServer)->create();
+            }
+        });
+    }
+
+    /**
+     * Configure the model factory — by default every server gets one
+     * "sensible" Backup attached so existing tests keep working. If legacy
+     * backup-related state (database_names for non-SQLite, pattern, etc.)
+     * was set on the server via ->create([...]), propagate it to the backup
+     * and clear it from the server.
      */
     public function configure(): static
     {
-        return $this->afterCreating(function ($databaseServer) {
-            // Create a local volume with a real temp directory for testing
-            $volume = Volume::factory()->local()->create();
-            $schedule = BackupSchedule::firstOrCreate(
-                ['name' => 'Daily'],
-                ['expression' => '0 2 * * *'],
-            );
+        return $this
+            ->afterMaking(function ($databaseServer) {
+                // Strip legacy backup-related attributes off the server model
+                // before it hits the DB — they live on Backup now — and stash
+                // them on a transient property for the afterCreating hook.
+                foreach (['database_selection_mode', 'database_include_pattern', 'database_names'] as $field) {
+                    if (array_key_exists($field, $databaseServer->getAttributes())) {
+                        $databaseServer->pendingBackupState[$field] = $databaseServer->getAttributes()[$field];
+                        unset($databaseServer->{$field});
+                    }
+                }
+            })
+            ->afterCreating(function ($databaseServer) {
+                $legacy = $databaseServer->pendingBackupState;
+                $databaseServer->pendingBackupState = [];
 
-            Backup::create([
-                'database_server_id' => $databaseServer->id,
-                'volume_id' => $volume->id,
-                'backup_schedule_id' => $schedule->id,
-                'retention_days' => fake()->randomElement([7, 14, 30]),
-            ]);
-        });
+                $backupState = [];
+                $isSqlite = $databaseServer->database_type->value === 'sqlite';
+
+                if ($isSqlite) {
+                    $backupState['database_selection_mode'] = DatabaseSelectionMode::Selected->value;
+                    $backupState['database_names'] = $legacy['database_names']
+                        ?? ['/data/'.fake()->slug().'.sqlite'];
+                    unset($legacy['database_names']);
+                } elseif (! empty($legacy['database_names'])) {
+                    $backupState['database_selection_mode'] = DatabaseSelectionMode::Selected->value;
+                    $backupState['database_names'] = $legacy['database_names'];
+                    unset($legacy['database_names']);
+                }
+
+                // Merge any remaining legacy state (e.g. include_pattern, mode override)
+                foreach ($legacy as $key => $value) {
+                    $backupState[$key] = $value;
+                }
+
+                Backup::factory()->for($databaseServer)->state($backupState)->create();
+            });
     }
 }

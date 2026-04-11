@@ -370,10 +370,12 @@ describe('discovery jobs', function () {
             'agent_id' => $agent->id,
             'database_selection_mode' => 'all',
         ]);
-        $server->load('backup.volume');
+        $server->load('backups.volume');
+        $backup = $server->backups->first();
 
         $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
             'database_server_id' => $server->id,
+            'payload' => ['type' => 'discover', 'backup_id' => $backup->id],
         ]);
 
         $response = $this->withToken($token)

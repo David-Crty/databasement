@@ -20,7 +20,7 @@ use NotificationChannels\Telegram\TelegramMessage;
 
 function createSuccessSnapshot(DatabaseServer $server): Snapshot
 {
-    return app(BackupJobFactory::class)->createSnapshots($server, 'manual')[0];
+    return app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
 }
 
 function createSuccessRestore(Snapshot $snapshot, DatabaseServer $server): Restore

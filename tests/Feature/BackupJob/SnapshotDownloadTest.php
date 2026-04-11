@@ -19,10 +19,10 @@ test('can download snapshot from local storage', function () {
     $server = DatabaseServer::factory()->create([
         'database_names' => ['test_db'],
     ]);
-    $server->backup->update(['volume_id' => $volume->id]);
+    $server->backups->first()->update(['volume_id' => $volume->id]);
 
     $factory = app(BackupJobFactory::class);
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshot = $snapshots[0];
     $snapshot->update([
         'filename' => $backupFilename,
@@ -45,10 +45,10 @@ test('download returns 404 when local file is missing', function () {
     $server = DatabaseServer::factory()->create([
         'database_names' => ['test_db'],
     ]);
-    $server->backup->update(['volume_id' => $volume->id]);
+    $server->backups->first()->update(['volume_id' => $volume->id]);
 
     $factory = app(BackupJobFactory::class);
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshot = $snapshots[0];
     $snapshot->update([
         'filename' => 'nonexistent-backup.sql.gz',
@@ -70,10 +70,10 @@ test('can download snapshot from s3 storage redirects to presigned url', functio
     $server = DatabaseServer::factory()->create([
         'database_names' => ['test_db'],
     ]);
-    $server->backup->update(['volume_id' => $volume->id]);
+    $server->backups->first()->update(['volume_id' => $volume->id]);
 
     $factory = app(BackupJobFactory::class);
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshot = $snapshots[0];
     $snapshot->update([
         'filename' => 'test-backup.sql.gz',
@@ -119,10 +119,10 @@ test('s3 download presigned url includes volume prefix in key path', function ()
     $server = DatabaseServer::factory()->create([
         'database_names' => ['myapp_db'],
     ]);
-    $server->backup->update(['volume_id' => $volume->id]);
+    $server->backups->first()->update(['volume_id' => $volume->id]);
 
     $factory = app(BackupJobFactory::class);
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshot = $snapshots[0];
     $snapshot->update([
         'filename' => 'myapp-backup-2024-01-13.sql.gz',
@@ -139,10 +139,10 @@ test('s3 download presigned url includes volume prefix in key path', function ()
 test('guests cannot download snapshots', function () {
     $volume = Volume::factory()->local()->create();
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-    $server->backup->update(['volume_id' => $volume->id]);
+    $server->backups->first()->update(['volume_id' => $volume->id]);
 
     $factory = app(BackupJobFactory::class);
-    $snapshots = $factory->createSnapshots($server, 'manual');
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $snapshot = $snapshots[0];
     $snapshot->job->markCompleted();
 

@@ -25,9 +25,6 @@ test('authenticated users can list database servers via api', function () {
                     'host',
                     'port',
                     'database_type',
-                    'database_names',
-                    'database_selection_mode',
-                    'database_include_pattern',
                     'description',
                     'created_at',
                     'updated_at',
@@ -110,8 +107,8 @@ test('show endpoint includes backup schedule details', function () {
         ->getJson("/api/v1/database-servers/{$server->id}");
 
     $response->assertOk()
-        ->assertJsonPath('data.backup.backup_schedule.name', 'Daily')
-        ->assertJsonPath('data.backup.backup_schedule.expression', '0 2 * * *');
+        ->assertJsonPath('data.backups.0.backup_schedule.name', 'Daily')
+        ->assertJsonPath('data.backups.0.backup_schedule.expression', '0 2 * * *');
 });
 
 test('password is not exposed in database server api response', function () {

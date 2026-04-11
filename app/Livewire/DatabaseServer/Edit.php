@@ -42,14 +42,24 @@ class Edit extends Component
         }
     }
 
-    public function addDatabasePath(): void
+    public function addBackup(?string $defaultScheduleId = null): void
     {
-        $this->form->addDatabasePath();
+        $this->form->addBackup($defaultScheduleId);
     }
 
-    public function removeDatabasePath(int $index): void
+    public function removeBackup(int $index): void
     {
-        $this->form->removeDatabasePath($index);
+        $this->form->removeBackup($index);
+    }
+
+    public function addDatabasePath(int $backupIndex): void
+    {
+        $this->form->addDatabasePath($backupIndex);
+    }
+
+    public function removeDatabasePath(int $backupIndex, int $pathIndex): void
+    {
+        $this->form->removeDatabasePath($backupIndex, $pathIndex);
     }
 
     public function testConnection(): void

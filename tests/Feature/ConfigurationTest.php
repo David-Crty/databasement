@@ -300,7 +300,7 @@ test('admin can delete an unused backup schedule', function () {
 
 test('cannot delete a backup schedule that is in use', function () {
     $server = DatabaseServer::factory()->create();
-    $schedule = $server->backup->backupSchedule;
+    $schedule = $server->backups->first()->backupSchedule;
 
     Livewire::actingAs(User::factory()->create(['role' => 'admin']))
         ->test(Index::class)
@@ -349,7 +349,7 @@ test('admin can run a schedule to trigger backups for all its servers', function
 
     $schedule = BackupSchedule::factory()->create();
     $server = DatabaseServer::factory()->create(['database_names' => ['app']]);
-    $server->backup->update(['backup_schedule_id' => $schedule->id]);
+    $server->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     Livewire::actingAs(User::factory()->create(['role' => 'admin']))
         ->test(Index::class)
@@ -364,8 +364,8 @@ test('running a schedule skips servers with backups disabled', function () {
     $schedule = BackupSchedule::factory()->create();
     $enabledServer = DatabaseServer::factory()->create(['database_names' => ['app'], 'backups_enabled' => true]);
     $disabledServer = DatabaseServer::factory()->create(['database_names' => ['app'], 'backups_enabled' => false]);
-    $enabledServer->backup->update(['backup_schedule_id' => $schedule->id]);
-    $disabledServer->backup->update(['backup_schedule_id' => $schedule->id]);
+    $enabledServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
+    $disabledServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     Livewire::actingAs(User::factory()->create(['role' => 'admin']))
         ->test(Index::class)

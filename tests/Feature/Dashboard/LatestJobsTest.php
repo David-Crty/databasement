@@ -15,7 +15,7 @@ test('latest jobs displays recent jobs', function () {
         'database_names' => ['test_db'],
     ]);
 
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshots[0]->job->markCompleted();
 
     Livewire::withoutLazyLoading()
@@ -37,10 +37,10 @@ test('latest jobs can filter by status', function () {
         'database_names' => ['failed_db'],
     ]);
 
-    $completedSnapshots = $factory->createSnapshots($completedServer, 'manual', $user->id);
+    $completedSnapshots = $factory->createSnapshots($completedServer->backups->first(), 'manual', $user->id);
     $completedSnapshots[0]->job->markCompleted();
 
-    $failedSnapshots = $factory->createSnapshots($failedServer, 'manual', $user->id);
+    $failedSnapshots = $factory->createSnapshots($failedServer->backups->first(), 'manual', $user->id);
     $failedSnapshots[0]->job->markFailed(new Exception('Test error'));
 
     Livewire::withoutLazyLoading()
@@ -62,7 +62,7 @@ test('latest jobs can open and close logs modal', function () {
         'database_names' => ['test_db'],
     ]);
 
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $job = $snapshots[0]->job;
 
     Livewire::withoutLazyLoading()

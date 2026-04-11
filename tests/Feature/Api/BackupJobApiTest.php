@@ -13,7 +13,7 @@ test('authenticated users can list jobs via api', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $factory->createSnapshots($server, 'manual');
+    $factory->createSnapshots($server->backups->first(), 'manual');
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson('/api/v1/jobs');
@@ -42,10 +42,10 @@ test('authenticated users can filter jobs by status', function () {
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
 
-    $completedSnapshots = $factory->createSnapshots($server, 'manual');
+    $completedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $completedSnapshots[0]->job->update(['status' => 'completed']);
 
-    $failedSnapshots = $factory->createSnapshots($server, 'manual');
+    $failedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $failedSnapshots[0]->job->update(['status' => 'failed']);
 
     $response = $this->actingAs($user, 'sanctum')
@@ -61,7 +61,7 @@ test('authenticated users can filter jobs by type', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshots = $factory->createSnapshots($server, 'manual');
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson('/api/v1/jobs?filter[type]=backup');
@@ -77,10 +77,10 @@ test('authenticated users can sort jobs', function () {
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
 
-    $snapshot1 = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot1 = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot1->job->update(['status' => 'completed', 'created_at' => now()->subDay()]);
 
-    $snapshot2 = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot2 = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot2->job->update(['status' => 'pending', 'created_at' => now()]);
 
     $response = $this->actingAs($user, 'sanctum')
@@ -95,7 +95,7 @@ test('authenticated users can get a specific job', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshots = $factory->createSnapshots($server, 'manual');
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $job = $snapshots[0]->job;
 
     $response = $this->actingAs($user, 'sanctum')

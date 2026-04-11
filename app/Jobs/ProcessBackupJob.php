@@ -44,7 +44,7 @@ class ProcessBackupJob implements ShouldQueue
      */
     public function handle(BackupTask $backupTask): void
     {
-        $snapshot = Snapshot::with(['job', 'volume', 'databaseServer.backup', 'databaseServer.sshConfig'])->findOrFail($this->snapshotId);
+        $snapshot = Snapshot::with(['job', 'volume', 'backup', 'databaseServer.sshConfig'])->findOrFail($this->snapshotId);
         $databaseServer = $snapshot->databaseServer;
         $job = $snapshot->job;
 
@@ -59,16 +59,18 @@ class ProcessBackupJob implements ShouldQueue
             $attemptInfo = $this->job ? " (attempt {$this->attempts()}/{$this->tries})" : '';
             $job->log("Starting backup for database: {$snapshot->database_name}{$attemptInfo}", 'info');
 
-            if (! $databaseServer->backup) {
-                throw new \RuntimeException("Backup not configured for server: {$databaseServer->name}");
-            }
+            // Snapshot::$backup may be null for orphaned snapshots (their
+            // backup config was removed after the snapshot was taken).
+            $backupPath = $snapshot->backup instanceof \App\Models\Backup
+                ? ($snapshot->backup->path ?? '')
+                : '';
 
             $config = new BackupConfig(
                 database: DatabaseConnectionConfig::fromServer($databaseServer),
                 volume: VolumeConfig::fromVolume($snapshot->volume),
                 databaseName: $snapshot->database_name,
                 workingDirectory: FilesystemSupport::createWorkingDirectory('backup', $snapshot->id),
-                backupPath: $databaseServer->backup->path ?? '',
+                backupPath: $backupPath,
             );
 
             $result = $backupTask->execute($config, $job);

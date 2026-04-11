@@ -29,7 +29,7 @@ function createTestSnapshot(DatabaseServer $server): Snapshot
 {
     $factory = app(BackupJobFactory::class);
 
-    return $factory->createSnapshots($server, 'manual')[0];
+    return $factory->createSnapshots($server->backups->first(), 'manual')[0];
 }
 
 function createTestRestore(Snapshot $snapshot, DatabaseServer $server): Restore

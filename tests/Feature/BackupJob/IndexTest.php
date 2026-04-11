@@ -14,7 +14,7 @@ test('mount opens logs modal when valid job ID provided in URL', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $job = $snapshots[0]->job;
 
     Livewire::actingAs($user)
@@ -42,10 +42,10 @@ test('can search backup jobs by server name', function () {
     $server1 = DatabaseServer::factory()->create(['name' => 'Production MySQL', 'database_names' => ['production_db']]);
     $server2 = DatabaseServer::factory()->create(['name' => 'Development PostgreSQL', 'database_names' => ['development_db']]);
 
-    $snapshots1 = $factory->createSnapshots($server1, 'manual', $user->id);
+    $snapshots1 = $factory->createSnapshots($server1->backups->first(), 'manual', $user->id);
     $snapshots1[0]->job->update(['status' => 'completed']);
 
-    $snapshots2 = $factory->createSnapshots($server2, 'manual', $user->id);
+    $snapshots2 = $factory->createSnapshots($server2->backups->first(), 'manual', $user->id);
     $snapshots2[0]->job->update(['status' => 'completed']);
 
     // Search by server name - check database names to verify filtering
@@ -63,17 +63,17 @@ test('can filter backup jobs by status', function () {
 
     $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['test_db']]);
 
-    $completedSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $completedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $completedSnapshot = $completedSnapshots[0];
     $completedSnapshot->job->update(['status' => 'completed']);
     $completedSnapshot->update(['database_name' => 'completed_db']);
 
-    $failedSnapshots = $factory->createSnapshots($server, 'scheduled', $user->id);
+    $failedSnapshots = $factory->createSnapshots($server->backups->first(), 'scheduled', $user->id);
     $failedSnapshot = $failedSnapshots[0];
     $failedSnapshot->job->update(['status' => 'failed']);
     $failedSnapshot->update(['database_name' => 'failed_db']);
 
-    $runningSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $runningSnapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $runningSnapshot = $runningSnapshots[0];
     $runningSnapshot->job->update(['status' => 'running']);
     $runningSnapshot->update(['database_name' => 'running_db']);
@@ -101,7 +101,7 @@ test('can filter backup jobs by type', function () {
 
     $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['test_db']]);
 
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshots[0]->job->update(['status' => 'completed']);
 
     Livewire::actingAs($user)
@@ -122,10 +122,10 @@ test('can filter backup jobs by server', function () {
     $server1 = DatabaseServer::factory()->create(['name' => 'Production Server', 'database_names' => ['production_db']]);
     $server2 = DatabaseServer::factory()->create(['name' => 'Development Server', 'database_names' => ['development_db']]);
 
-    $snapshots1 = $factory->createSnapshots($server1, 'manual', $user->id);
+    $snapshots1 = $factory->createSnapshots($server1->backups->first(), 'manual', $user->id);
     $snapshots1[0]->job->update(['status' => 'completed']);
 
-    $snapshots2 = $factory->createSnapshots($server2, 'manual', $user->id);
+    $snapshots2 = $factory->createSnapshots($server2->backups->first(), 'manual', $user->id);
     $snapshots2[0]->job->update(['status' => 'completed']);
 
     // Filter by server1 - should see only production_db
@@ -157,12 +157,12 @@ test('can filter jobs by file missing status', function () {
     $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['test_db']]);
 
     // Create a snapshot with missing file
-    $missingSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $missingSnapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $missingSnapshots[0]->update(['database_name' => 'missing_db', 'file_exists' => false, 'file_verified_at' => now()]);
     $missingSnapshots[0]->job->update(['status' => 'completed']);
 
     // Create a normal snapshot
-    $normalSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $normalSnapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $normalSnapshots[0]->update(['database_name' => 'normal_db']);
     $normalSnapshots[0]->job->update(['status' => 'completed']);
 
@@ -195,7 +195,7 @@ test('can cancel a pending backup job', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshot = $snapshots[0];
     $job = $snapshot->job;
 
@@ -217,7 +217,7 @@ test('cannot cancel a non-pending backup job', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshot = $snapshots[0];
     $job = $snapshot->job;
 
@@ -247,7 +247,7 @@ test('deleting database server cleans up cross-server restore jobs', function ()
     ]);
 
     // Create a backup on source server
-    $snapshots = $factory->createSnapshots($sourceServer, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($sourceServer->backups->first(), 'manual', $user->id);
     $snapshot = $snapshots[0];
     $snapshot->update(['filename' => 'test.sql.gz', 'file_size' => 100]);
     $snapshot->job->markCompleted();
@@ -278,11 +278,11 @@ test('can delete snapshot with file and cascades restores and jobs', function ()
 
     // Create server with backup using our volume
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-    $server->backup->update(['volume_id' => $volume->id]);
+    $server->backups->first()->update(['volume_id' => $volume->id]);
 
     // Create snapshot with real file
     $factory = app(BackupJobFactory::class);
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshot = $snapshots[0];
     $snapshot->update([
         'filename' => $backupFilename,

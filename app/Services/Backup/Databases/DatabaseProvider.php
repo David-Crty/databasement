@@ -142,7 +142,7 @@ class DatabaseProvider
     public function testConnectionForServer(DatabaseServer $server): array
     {
         if ($server->database_type === DatabaseType::SQLITE) {
-            $config = ['sqlite_paths' => $server->database_names ?? []];
+            $config = ['sqlite_paths' => $server->resolveDatabaseNames()];
             if ($server->sshConfig !== null) {
                 $config['ssh_config'] = $server->sshConfig;
             }
@@ -218,7 +218,9 @@ class DatabaseProvider
     private function getConnectionDatabaseName(DatabaseServer $server): string
     {
         if ($server->database_type === DatabaseType::SQLITE) {
-            return $server->database_names[0] ?? '';
+            $paths = $server->resolveDatabaseNames();
+
+            return $paths[0] ?? '';
         }
 
         return $server->database_type === DatabaseType::POSTGRESQL ? 'postgres' : '';

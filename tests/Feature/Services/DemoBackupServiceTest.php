@@ -16,12 +16,12 @@ test('creates demo backup for sqlite database', function () {
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
         ->and($databaseServer->database_type)->toBe(DatabaseType::SQLITE)
-        ->and($databaseServer->database_names)->toBe(['/data/database.sqlite'])
         ->and($databaseServer->host)->toBeNull()
         ->and($databaseServer->username)->toBeNull()
         ->and(Volume::count())->toBe(1)
         ->and(Backup::count())->toBe(1)
-        ->and($databaseServer->backup)->not->toBeNull();
+        ->and($databaseServer->backups->first())->not->toBeNull()
+        ->and($databaseServer->backups->first()->database_names)->toBe(['/data/database.sqlite']);
 
 });
 
@@ -46,7 +46,7 @@ test('creates demo backup for mysql database', function () {
         ->and($databaseServer->username)->toBe('dbuser')
         ->and(Volume::count())->toBe(1)
         ->and(Backup::count())->toBe(1)
-        ->and($databaseServer->backup)->not->toBeNull();
+        ->and($databaseServer->backups->first())->not->toBeNull();
 });
 
 test('creates demo backup for postgresql database', function () {
@@ -70,7 +70,7 @@ test('creates demo backup for postgresql database', function () {
         ->and($databaseServer->username)->toBe('pguser')
         ->and(Volume::count())->toBe(1)
         ->and(Backup::count())->toBe(1)
-        ->and($databaseServer->backup)->not->toBeNull();
+        ->and($databaseServer->backups->first())->not->toBeNull();
 });
 
 test('throws exception for unsupported database type', function () {

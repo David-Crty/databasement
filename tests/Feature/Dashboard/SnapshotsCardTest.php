@@ -17,12 +17,12 @@ test('snapshots card calculates correct total', function () {
 
     // Create 3 completed jobs
     for ($i = 0; $i < 3; $i++) {
-        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
         $snapshots[0]->job->markCompleted();
     }
 
     // Create 1 failed job (should not be counted)
-    $failedSnapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $failedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $failedSnapshots[0]->job->markFailed(new Exception('Test error'));
 
     Livewire::withoutLazyLoading()
@@ -39,13 +39,13 @@ test('snapshots card shows missing snapshots count', function () {
 
     // Create 2 snapshots with missing files
     for ($i = 0; $i < 2; $i++) {
-        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
         $snapshots[0]->update(['file_exists' => false, 'file_verified_at' => now()]);
         $snapshots[0]->job->markCompleted();
     }
 
     // Create 1 normal snapshot
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshots[0]->job->markCompleted();
 
     Livewire::withoutLazyLoading()
@@ -63,7 +63,7 @@ test('snapshots card shows all verified when no snapshots are missing', function
 
     // Create 2 verified snapshots (file exists)
     for ($i = 0; $i < 2; $i++) {
-        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
         $snapshots[0]->update(['file_exists' => true, 'file_verified_at' => now()]);
         $snapshots[0]->job->markCompleted();
     }

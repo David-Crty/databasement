@@ -67,15 +67,14 @@ test('MySQL backup and restore through SSH tunnel', function () {
     // Create a tunneled server (for backup and restore operations) pointing at the same database
     $tunneledServer = IntegrationTestHelpers::createDatabaseServerWithSshTunnel('mysql');
     $volume = IntegrationTestHelpers::createVolume('mysql');
-    IntegrationTestHelpers::createBackup($tunneledServer, $volume);
-    $tunneledServer->load('backup.volume');
+    $tunneledBackup = IntegrationTestHelpers::createBackup($tunneledServer, $volume);
+    $tunneledServer->load('backups.volume');
 
     // Load test data via direct connection
     IntegrationTestHelpers::loadTestData('mysql', $this->directServer);
 
     // Run backup through SSH tunnel
-    $snapshots = $backupJobFactory->createSnapshots(
-        server: $tunneledServer,
+    $snapshots = $backupJobFactory->createSnapshots(backup: $tunneledBackup,
         method: 'manual',
     );
     $snapshot = $snapshots[0];

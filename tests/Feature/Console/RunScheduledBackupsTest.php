@@ -26,7 +26,7 @@ test('dispatches backup jobs for a schedule', function () {
     Queue::fake();
 
     $server = DatabaseServer::factory()->create(['database_names' => ['production_db']]);
-    $schedule = $server->backup->backupSchedule;
+    $schedule = $server->backups->first()->backupSchedule;
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain("Dispatching 1 backup(s) for schedule: {$schedule->name}")
@@ -47,10 +47,10 @@ test('dispatches multiple backup jobs for multiple servers on same schedule', fu
     $schedule = dailySchedule();
 
     $server1 = DatabaseServer::factory()->create(['name' => 'Server 1', 'database_names' => ['db1']]);
-    $server1->backup->update(['backup_schedule_id' => $schedule->id]);
+    $server1->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     $server2 = DatabaseServer::factory()->create(['name' => 'Server 2', 'database_names' => ['db2']]);
-    $server2->backup->update(['backup_schedule_id' => $schedule->id]);
+    $server2->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain('Dispatching 2 backup(s)')
@@ -66,10 +66,10 @@ test('only runs backups matching the given schedule', function () {
     $weeklySchedule = weeklySchedule();
 
     $dailyServer = DatabaseServer::factory()->create(['database_names' => ['daily_db']]);
-    $dailyServer->backup->update(['backup_schedule_id' => $dailySchedule->id]);
+    $dailyServer->backups->first()->update(['backup_schedule_id' => $dailySchedule->id]);
 
     $weeklyServer = DatabaseServer::factory()->create(['database_names' => ['weekly_db']]);
-    $weeklyServer->backup->update(['backup_schedule_id' => $weeklySchedule->id]);
+    $weeklyServer->backups->first()->update(['backup_schedule_id' => $weeklySchedule->id]);
 
     $this->artisan('backups:run', ['schedule' => $dailySchedule->id])
         ->expectsOutputToContain('Dispatching 1 backup(s)')
@@ -84,7 +84,7 @@ test('dispatches multiple jobs for server with multiple databases', function () 
     $server = DatabaseServer::factory()->create([
         'database_names' => ['db1', 'db2', 'db3'],
     ]);
-    $schedule = $server->backup->backupSchedule;
+    $schedule = $server->backups->first()->backupSchedule;
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain('3 databases')
@@ -104,7 +104,7 @@ test('server with no databases does not prevent other backups from running', fun
         'database_selection_mode' => 'all',
         'database_names' => null,
     ]);
-    $emptyServer->backup->update(['backup_schedule_id' => $schedule->id]);
+    $emptyServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     $this->mock(DatabaseProvider::class, function ($mock) {
         $mock->shouldReceive('listDatabasesForServer')->andReturn([]);
@@ -115,11 +115,11 @@ test('server with no databases does not prevent other backups from running', fun
         'name' => 'Normal Server',
         'database_names' => ['production_db'],
     ]);
-    $normalServer->backup->update(['backup_schedule_id' => $schedule->id]);
+    $normalServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     Log::shouldReceive('warning')
         ->once()
-        ->with('No databases found on server [Empty PostgreSQL] to backup.');
+        ->with(\Mockery::pattern('/No databases found on server \[Empty PostgreSQL\] for backup \[.+\]\./'));
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain('Dispatching 2 backup(s)')
@@ -143,7 +143,7 @@ test('server throwing exception when listing databases does not prevent other ba
         'database_selection_mode' => 'all',
         'database_names' => null,
     ]);
-    $failingServer->backup->update(['backup_schedule_id' => $schedule->id]);
+    $failingServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     // Server with selection_mode=all that should still work (databases from mock provider)
     $normalServer = DatabaseServer::factory()->create([
@@ -151,7 +151,7 @@ test('server throwing exception when listing databases does not prevent other ba
         'database_selection_mode' => 'all',
         'database_names' => null,
     ]);
-    $normalServer->backup->update(['backup_schedule_id' => $schedule->id]);
+    $normalServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     $this->mock(DatabaseProvider::class, function ($mock) use ($normalServer, $failingServer) {
         $mock->shouldReceive('listDatabasesForServer')
@@ -190,7 +190,7 @@ test('dispatches agent jobs when server has agent', function () {
         'agent_id' => $agent->id,
         'database_names' => ['prod_db'],
     ]);
-    $schedule = $server->backup->backupSchedule;
+    $schedule = $server->backups->first()->backupSchedule;
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain('via agent')
@@ -209,7 +209,7 @@ test('dispatches discovery job for agent server with all mode', function () {
         'database_selection_mode' => 'all',
         'database_names' => null,
     ]);
-    $schedule = $server->backup->backupSchedule;
+    $schedule = $server->backups->first()->backupSchedule;
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain('Dispatched discovery for')
@@ -233,13 +233,15 @@ test('skips duplicate discovery job when one is already in-flight', function () 
         'database_selection_mode' => 'all',
         'database_names' => null,
     ]);
-    $schedule = $server->backup->backupSchedule;
+    $backup = $server->backups->first();
+    $schedule = $backup->backupSchedule;
 
-    // Create an existing in-flight discovery job
+    // Create an existing in-flight discovery job for THIS backup config
     \App\Models\AgentJob::factory()->create([
         'type' => \App\Models\AgentJob::TYPE_DISCOVER,
         'database_server_id' => $server->id,
         'status' => \App\Models\AgentJob::STATUS_PENDING,
+        'payload' => ['type' => 'discover', 'backup_id' => $backup->id],
     ]);
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
@@ -258,7 +260,7 @@ test('dispatches discovery job when previous one completed', function () {
         'database_selection_mode' => 'all',
         'database_names' => null,
     ]);
-    $schedule = $server->backup->backupSchedule;
+    $schedule = $server->backups->first()->backupSchedule;
 
     // Create a completed discovery job (terminal state — should not block)
     \App\Models\AgentJob::factory()->create([
@@ -280,12 +282,62 @@ test('skips disabled backups', function () {
     $schedule = dailySchedule();
 
     $enabledServer = DatabaseServer::factory()->create(['name' => 'Enabled Server', 'database_names' => ['db1'], 'backups_enabled' => true]);
-    $enabledServer->backup->update(['backup_schedule_id' => $schedule->id]);
+    $enabledServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     $disabledServer = DatabaseServer::factory()->create(['name' => 'Disabled Server', 'database_names' => ['db2'], 'backups_enabled' => false]);
-    $disabledServer->backup->update(['backup_schedule_id' => $schedule->id]);
+    $disabledServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
+        ->expectsOutputToContain('Dispatching 1 backup(s)')
+        ->assertExitCode(0);
+
+    Queue::assertPushed(ProcessBackupJob::class, 1);
+});
+
+test('runs both backup configs when a server has two on the same schedule', function () {
+    Queue::fake();
+
+    $schedule = dailySchedule();
+    $server = DatabaseServer::factory()->create(['database_names' => ['shared_db']]);
+    $server->backups->first()->update(['backup_schedule_id' => $schedule->id]);
+
+    // Attach a second backup config on the same schedule (different volume)
+    $volume2 = \App\Models\Volume::factory()->local()->create();
+    \App\Models\Backup::factory()->for($server)->create([
+        'backup_schedule_id' => $schedule->id,
+        'volume_id' => $volume2->id,
+        'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
+        'database_names' => ['shared_db'],
+    ]);
+
+    $this->artisan('backups:run', ['schedule' => $schedule->id])
+        ->expectsOutputToContain('Dispatching 2 backup(s)')
+        ->assertExitCode(0);
+
+    // Two distinct snapshots created (one per backup config)
+    Queue::assertPushed(ProcessBackupJob::class, 2);
+    expect(Snapshot::count())->toBe(2);
+});
+
+test('runs only backups matching the given schedule when the server has multiple', function () {
+    Queue::fake();
+
+    $dailySchedule = dailySchedule();
+    $weeklySchedule = weeklySchedule();
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['prod_db']]);
+    $server->backups->first()->update(['backup_schedule_id' => $dailySchedule->id]);
+
+    $volume2 = \App\Models\Volume::factory()->local()->create();
+    \App\Models\Backup::factory()->for($server)->create([
+        'backup_schedule_id' => $weeklySchedule->id,
+        'volume_id' => $volume2->id,
+        'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
+        'database_names' => ['prod_db'],
+    ]);
+
+    // Run only the daily schedule
+    $this->artisan('backups:run', ['schedule' => $dailySchedule->id])
         ->expectsOutputToContain('Dispatching 1 backup(s)')
         ->assertExitCode(0);
 

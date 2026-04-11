@@ -4,6 +4,7 @@ namespace App\Services\Backup;
 
 use App\Jobs\ProcessBackupJob;
 use App\Models\AgentJob;
+use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\Agent\AgentJobPayloadBuilder;
@@ -18,30 +19,26 @@ class TriggerBackupAction
     ) {}
 
     /**
-     * Trigger a backup for the given database server.
+     * Trigger one backup configuration.
      *
      * @return array{snapshots: Snapshot[], message: string}
      *
      * @throws ValidationException
      */
-    public function execute(DatabaseServer $server, ?int $triggeredByUserId = null): array
+    public function execute(Backup $backup, ?int $triggeredByUserId = null): array
     {
-        if (! $server->backup) {
-            throw ValidationException::withMessages([
-                'server' => 'No backup configuration found for this database server.',
-            ]);
-        }
+        $server = $backup->databaseServer;
 
         $snapshots = $this->backupJobFactory->createSnapshots(
-            server: $server,
+            backup: $backup,
             method: 'manual',
-            triggeredByUserId: $triggeredByUserId
+            triggeredByUserId: $triggeredByUserId,
         );
 
         // Agent-backed servers with all/pattern mode return empty snapshots —
         // dispatch a discovery job so the agent can list databases first.
         if (empty($snapshots) && $server->agent_id) {
-            $this->dispatchDiscoveryJob($server, 'manual', $triggeredByUserId);
+            $this->dispatchDiscoveryJob($backup, 'manual', $triggeredByUserId);
 
             return [
                 'snapshots' => [],
@@ -99,18 +96,19 @@ class TriggerBackupAction
     }
 
     /**
-     * Dispatch a discovery job for an agent-backed server.
+     * Dispatch a discovery job for a specific backup config on an
+     * agent-backed server.
      *
      * @param  'manual'|'scheduled'  $method
      */
-    private function dispatchDiscoveryJob(DatabaseServer $server, string $method, ?int $triggeredByUserId): void
+    private function dispatchDiscoveryJob(Backup $backup, string $method, ?int $triggeredByUserId): void
     {
         AgentJob::create([
             'type' => AgentJob::TYPE_DISCOVER,
-            'database_server_id' => $server->id,
+            'database_server_id' => $backup->database_server_id,
             'snapshot_id' => null,
             'status' => AgentJob::STATUS_PENDING,
-            'payload' => $this->payloadBuilder->buildDiscovery($server, $method, $triggeredByUserId),
+            'payload' => $this->payloadBuilder->buildDiscovery($backup, $method, $triggeredByUserId),
         ]);
     }
 }

@@ -91,10 +91,15 @@ enum DatabaseType: string
 
         $host = $server->host;
         if ($this === self::SQLITE) {
-            if (empty($server->database_names) || empty($server->database_names[0])) {
-                throw new \InvalidArgumentException('SQLite database server requires at least one path in database_names');
+            $paths = $server->resolveDatabaseNames();
+            if ($database !== null) {
+                $host = $database;
+            } elseif (! empty($paths)) {
+                $host = $paths[0];
+            } else {
+                throw new \InvalidArgumentException('SQLite database server requires at least one file path');
             }
-            $host = $server->database_names[0];
+            $database = null;
         }
 
         $dsn = $this->buildDsn($host, $server->port, $database);

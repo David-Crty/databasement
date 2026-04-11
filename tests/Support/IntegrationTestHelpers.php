@@ -2,6 +2,7 @@
 
 namespace Tests\Support;
 
+use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;
 use App\Facades\AppConfig;
 use App\Models\Backup;
@@ -122,7 +123,9 @@ class IntegrationTestHelpers
     }
 
     /**
-     * Create a database server for integration tests.
+     * Create a database server for integration tests. The database name /
+     * SQLite file path is stashed on the server via a transient property so
+     * {@see createBackup()} can inline it into the backup config below.
      */
     public static function createDatabaseServer(string $type): DatabaseServer
     {
@@ -135,7 +138,6 @@ class IntegrationTestHelpers
             'database_type' => $config['database_type'],
             'username' => $config['username'],
             'password' => $config['password'],
-            'database_names' => [$config['database']],
             'description' => "Integration test {$type} database server",
         ];
 
@@ -143,21 +145,38 @@ class IntegrationTestHelpers
             $serverData['extra_config'] = ['auth_source' => $config['auth_source']];
         }
 
-        return DatabaseServer::create($serverData);
+        $server = DatabaseServer::create($serverData);
+        $server->pendingBackupState['database_names'] = [$config['database']];
+
+        return $server;
     }
 
     /**
-     * Create a backup configuration.
+     * Create a backup configuration for the given server, picking a sensible
+     * default selection mode based on the server's database type.
      */
     public static function createBackup(DatabaseServer $server, Volume $volume): Backup
     {
         $schedule = dailySchedule();
 
-        return Backup::create([
+        $data = [
             'database_server_id' => $server->id,
             'volume_id' => $volume->id,
             'backup_schedule_id' => $schedule->id,
-        ]);
+        ];
+
+        $type = $server->database_type;
+        $paths = $server->pendingBackupState['database_names'] ?? null;
+
+        if ($type === DatabaseType::REDIS) {
+            $data['database_selection_mode'] = DatabaseSelectionMode::All;
+            $data['database_names'] = null;
+        } else {
+            $data['database_selection_mode'] = DatabaseSelectionMode::Selected;
+            $data['database_names'] = $paths;
+        }
+
+        return Backup::create($data);
     }
 
     /**
@@ -177,11 +196,29 @@ class IntegrationTestHelpers
     }
 
     /**
+     * Resolve the primary database name/path for a test server. Checks the
+     * pending backup state (for servers created via `createDatabaseServer`
+     * that haven't materialised a Backup yet), then falls back to the first
+     * persisted Backup row.
+     */
+    public static function resolveTestDatabaseName(DatabaseServer $server): string
+    {
+        $fromPending = $server->pendingBackupState['database_names'][0] ?? null;
+        if ($fromPending !== null) {
+            return $fromPending;
+        }
+
+        $backup = $server->backups()->first();
+
+        return $backup?->database_names[0] ?? '';
+    }
+
+    /**
      * Load test data into a MongoDB database.
      */
     public static function loadMongodbTestData(DatabaseServer $server): void
     {
-        $databaseName = $server->database_names[0];
+        $databaseName = self::resolveTestDatabaseName($server);
         $client = self::createMongoClient($server);
         $db = $client->selectDatabase($databaseName);
 
@@ -240,7 +277,6 @@ class IntegrationTestHelpers
             'database_type' => 'redis',
             'username' => $config['username'],
             'password' => $config['password'],
-            'database_selection_mode' => 'all',
             'description' => 'Integration test Redis server',
         ]);
     }
@@ -262,16 +298,20 @@ class IntegrationTestHelpers
     }
 
     /**
-     * Create a SQLite database server.
+     * Create a SQLite database server. The file path is stashed on
+     * `pendingBackupState` so `createBackup()` can inline it.
      */
     public static function createSqliteDatabaseServer(string $sqlitePath): DatabaseServer
     {
-        return DatabaseServer::create([
+        $server = DatabaseServer::create([
             'name' => 'Integration Test SQLite Server',
             'database_type' => 'sqlite',
-            'database_names' => [$sqlitePath],
             'description' => 'Integration test SQLite database',
         ]);
+
+        $server->pendingBackupState['database_names'] = [$sqlitePath];
+
+        return $server;
     }
 
     /**
@@ -352,17 +392,19 @@ class IntegrationTestHelpers
             default => throw new InvalidArgumentException("SSH tunnel tests not configured for database type: {$type}"),
         };
 
-        return DatabaseServer::create([
+        $server = DatabaseServer::create([
             'name' => "Integration Test {$type} SSH Tunnel Server",
             'host' => $remoteHost,
             'port' => $dbConfig['port'],
             'database_type' => $dbConfig['database_type'],
             'username' => $dbConfig['username'],
             'password' => $dbConfig['password'],
-            'database_names' => [$dbConfig['database']],
             'description' => "Integration test {$type} database server via SSH tunnel",
             'ssh_config_id' => $sshConfig->id,
         ]);
+        $server->pendingBackupState['database_names'] = [$dbConfig['database']];
+
+        return $server;
     }
 
     /**
@@ -405,7 +447,7 @@ class IntegrationTestHelpers
             return;
         }
 
-        $databaseName = $server->database_names[0];
+        $databaseName = self::resolveTestDatabaseName($server);
 
         $pdo = DatabaseType::from($type)->createPdo($server);
 

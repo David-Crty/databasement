@@ -34,7 +34,7 @@ test('demo user can view create database server page but cannot save', function 
         ->set('form.database_type', 'mysql')
         ->set('form.username', 'root')
         ->set('form.password', 'password')
-        ->set('form.database_names', ['testdb'])
+        ->set('form.backups.0.database_names', ['testdb'])
         ->call('save')
         ->assertRedirect(route('database-servers.index'))
         ->assertSessionHas('demo_notice');
@@ -112,7 +112,7 @@ test('demo user cannot delete volume', function () {
 test('demo user cannot delete snapshot', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
 
     Livewire::actingAs($this->demoUser)
         ->test(BackupJobIndex::class)

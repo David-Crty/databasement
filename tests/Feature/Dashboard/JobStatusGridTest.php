@@ -15,7 +15,7 @@ test('grid displays jobs', function () {
         'database_names' => ['db1', 'db2'],
     ]);
 
-    $factory->createSnapshots($server, 'manual', $user->id);
+    $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
@@ -34,7 +34,7 @@ test('grid orders jobs newest-first', function () {
         'database_names' => ['old_db'],
     ]);
 
-    $oldSnapshots = $factory->createSnapshots($oldServer, 'manual', $user->id);
+    $oldSnapshots = $factory->createSnapshots($oldServer->backups->first(), 'manual', $user->id);
     $oldSnapshots[0]->job->forceFill(['created_at' => now()->subDay()])->save();
 
     $newServer = DatabaseServer::factory()->create([
@@ -42,7 +42,7 @@ test('grid orders jobs newest-first', function () {
         'database_names' => ['new_db'],
     ]);
 
-    $factory->createSnapshots($newServer, 'manual', $user->id);
+    $factory->createSnapshots($newServer->backups->first(), 'manual', $user->id);
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
@@ -58,7 +58,7 @@ test('viewLogs sets selectedJobId and opens modal', function () {
         'database_names' => ['test_db'],
     ]);
 
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $job = $snapshots[0]->job;
 
     Livewire::withoutLazyLoading()
@@ -79,7 +79,7 @@ test('closeLogs resets state', function () {
         'database_names' => ['test_db'],
     ]);
 
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $job = $snapshots[0]->job;
 
     Livewire::withoutLazyLoading()

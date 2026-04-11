@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\DatabaseSelectionMode;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
@@ -43,9 +44,9 @@ class DemoBackupService
             $databaseServer = DatabaseServer::create([
                 'name' => 'Databasement Database',
                 'database_type' => 'sqlite',
-                'database_names' => [$dbConfig['database']],
                 'description' => 'Demo database',
             ]);
+            $backupDatabaseNames = [$dbConfig['database']];
         } else {
             $databaseServer = DatabaseServer::create([
                 'name' => 'Databasement Database',
@@ -54,9 +55,9 @@ class DemoBackupService
                 'database_type' => $databaseType,
                 'username' => $dbConfig['username'] ?? '',
                 'password' => $dbConfig['password'] ?? '',
-                'database_names' => [$dbConfig['database'] ?? 'databasement'],
                 'description' => 'Demo database',
             ]);
+            $backupDatabaseNames = [$dbConfig['database'] ?? 'databasement'];
         }
 
         // Create backup configuration
@@ -70,8 +71,10 @@ class DemoBackupService
             'volume_id' => $volume->id,
             'backup_schedule_id' => $dailySchedule->id,
             'retention_days' => 14,
+            'database_selection_mode' => DatabaseSelectionMode::Selected->value,
+            'database_names' => $backupDatabaseNames,
         ]);
 
-        return $databaseServer->load('backup.volume');
+        return $databaseServer->load('backups.volume');
     }
 }

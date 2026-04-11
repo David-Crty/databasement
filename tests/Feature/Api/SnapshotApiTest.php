@@ -13,7 +13,7 @@ test('authenticated users can list snapshots via api', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $factory->createSnapshots($server, 'manual');
+    $factory->createSnapshots($server->backups->first(), 'manual');
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson('/api/v1/snapshots');
@@ -41,10 +41,10 @@ test('authenticated users can filter snapshots by database name', function () {
     $factory = app(BackupJobFactory::class);
 
     $server1 = DatabaseServer::factory()->create(['database_names' => ['production_db']]);
-    $factory->createSnapshots($server1, 'manual');
+    $factory->createSnapshots($server1->backups->first(), 'manual');
 
     $server2 = DatabaseServer::factory()->create(['database_names' => ['staging_db']]);
-    $factory->createSnapshots($server2, 'manual');
+    $factory->createSnapshots($server2->backups->first(), 'manual');
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson('/api/v1/snapshots?filter[database_name]=production');
@@ -62,13 +62,13 @@ test('authenticated users can filter snapshots by database type', function () {
         'database_type' => 'mysql',
         'database_names' => ['mysql_db'],
     ]);
-    $factory->createSnapshots($mysqlServer, 'manual');
+    $factory->createSnapshots($mysqlServer->backups->first(), 'manual');
 
     $pgServer = DatabaseServer::factory()->create([
         'database_type' => 'postgres',
         'database_names' => ['pg_db'],
     ]);
-    $factory->createSnapshots($pgServer, 'manual');
+    $factory->createSnapshots($pgServer->backups->first(), 'manual');
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson('/api/v1/snapshots?filter[database_type]=mysql');
@@ -83,7 +83,7 @@ test('authenticated users can get a specific snapshot', function () {
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshots = $factory->createSnapshots($server, 'manual');
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $snapshot = $snapshots[0];
 
     $response = $this->actingAs($user, 'sanctum')

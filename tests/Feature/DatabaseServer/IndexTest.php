@@ -81,3 +81,22 @@ test('can delete database server', function () {
         'id' => $server->id,
     ]);
 });
+
+test('runBackup dispatches a backup job for the given backup id', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
+    $backup = $server->backups->first();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('runBackup', $backup->id);
+
+    \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\ProcessBackupJob::class, 1);
+
+    // Snapshot should be tied to the correct backup config
+    $snapshot = \App\Models\Snapshot::first();
+    expect($snapshot)->not->toBeNull()
+        ->and($snapshot->backup_id)->toBe($backup->id);
+});

@@ -25,7 +25,7 @@ function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $
 
 test('days retention deletes expired snapshots and files, skips pending and recent', function () {
     $server = DatabaseServer::factory()->create();
-    $server->backup->update(['retention_days' => 7]);
+    $server->backups->first()->update(['retention_days' => 7]);
 
     $expiredCompleted = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
     $volumePath = $expiredCompleted->volume->config['path'];
@@ -48,7 +48,7 @@ test('days retention deletes expired snapshots and files, skips pending and rece
 
 test('dry-run mode does not delete snapshots', function () {
     $server = DatabaseServer::factory()->create();
-    $server->backup->update(['retention_days' => 7]);
+    $server->backups->first()->update(['retention_days' => 7]);
 
     $expiredSnapshot = createSnapshot($server, 'completed', now()->subDays(10));
     $volumePath = $expiredSnapshot->volume->config['path'];
@@ -68,7 +68,7 @@ test('GFS retention combines daily, weekly, and monthly tiers', function () {
     $this->travelTo(\Carbon\Carbon::create(2026, 6, 20, 12, 0));
 
     $server = DatabaseServer::factory()->create();
-    $server->backup->update([
+    $server->backups->first()->update([
         'retention_policy' => 'gfs',
         'retention_days' => null,
         'gfs_keep_daily' => 2,
@@ -95,7 +95,7 @@ test('GFS retention combines daily, weekly, and monthly tiers', function () {
 
 test('GFS retention applies per database_name', function () {
     $server = DatabaseServer::factory()->create();
-    $server->backup->update([
+    $server->backups->first()->update([
         'retention_policy' => 'gfs',
         'retention_days' => null,
         'gfs_keep_daily' => 2,
@@ -123,7 +123,7 @@ test('GFS retention applies per database_name', function () {
 
 test('GFS with no tiers configured skips cleanup', function () {
     $server = DatabaseServer::factory()->create();
-    $server->backup->update([
+    $server->backups->first()->update([
         'retention_policy' => 'gfs',
         'retention_days' => null,
         'gfs_keep_daily' => null,
@@ -140,7 +140,7 @@ test('GFS with no tiers configured skips cleanup', function () {
 
 test('forever policy keeps all snapshots indefinitely', function () {
     $server = DatabaseServer::factory()->create();
-    $server->backup->update([
+    $server->backups->first()->update([
         'retention_policy' => 'forever',
         'retention_days' => null,
     ]);

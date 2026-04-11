@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Queue;
 test('job is configured with correct queue and settings', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
@@ -51,7 +51,7 @@ test('handle builds config from models and marks job completed', function () {
     ]);
 
     $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($sourceServer, 'manual')[0];
+    $snapshot = $factory->createSnapshots($sourceServer->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'file_size' => 2048, 'compression_type' => CompressionType::GZIP]);
     $snapshot->job->markCompleted();
 
@@ -98,7 +98,7 @@ test('handle marks job as failed and re-throws on execute failure', function () 
     ]);
 
     $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($sourceServer, 'manual')[0];
+    $snapshot = $factory->createSnapshots($sourceServer->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
     $snapshot->job->markCompleted();
 
@@ -123,7 +123,7 @@ test('job can be dispatched to queue', function () {
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
@@ -140,7 +140,7 @@ test('failed method sends notification', function () {
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($server, 'manual')[0];
+    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');

@@ -4,7 +4,7 @@ namespace App\Services\Agent;
 
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
-use App\Models\DatabaseServer;
+use App\Models\Backup;
 use App\Models\Snapshot;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
@@ -27,7 +27,7 @@ class AgentJobPayloadBuilder
             volume: VolumeConfig::fromVolume($snapshot->volume),
             databaseName: $snapshot->database_name,
             workingDirectory: '',
-            backupPath: $this->resolveBackupPath($server),
+            backupPath: $this->resolveBackupPath($snapshot->backup?->path),
             compressionType: CompressionType::tryFrom(AppConfig::get('backup.compression') ?? ''),
             compressionLevel: AppConfig::get('backup.compression_level'),
         );
@@ -36,29 +36,30 @@ class AgentJobPayloadBuilder
     }
 
     /**
-     * Build a payload for a discovery agent job.
+     * Build a payload for a discovery agent job targeting one backup config.
      *
      * @param  'manual'|'scheduled'  $method
      * @return array<string, mixed>
      */
-    public function buildDiscovery(DatabaseServer $server, string $method, ?int $triggeredByUserId): array
+    public function buildDiscovery(Backup $backup, string $method, ?int $triggeredByUserId): array
     {
+        $server = $backup->databaseServer;
+
         return [
             'type' => 'discover',
+            'backup_id' => $backup->id,
             'database' => DatabaseConnectionConfig::fromServer($server)->toPayload(),
-            'selection_mode' => $server->database_selection_mode->value,
-            'pattern' => $server->database_include_pattern,
+            'selection_mode' => $backup->database_selection_mode->value,
+            'pattern' => $backup->database_include_pattern,
             'server_name' => $server->name,
             'method' => $method,
             'triggered_by_user_id' => $triggeredByUserId,
         ];
     }
 
-    private function resolveBackupPath(DatabaseServer $server): string
+    private function resolveBackupPath(?string $path): string
     {
-        $path = $server->backup->path ?? '';
-
-        if (empty($path)) {
+        if ($path === null || $path === '') {
             return '';
         }
 

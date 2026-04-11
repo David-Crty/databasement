@@ -13,7 +13,7 @@ test('jobs activity chart builds chart data', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
 
     // Create some jobs
-    $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshots[0]->job->markCompleted();
 
     $component = Livewire::withoutLazyLoading()

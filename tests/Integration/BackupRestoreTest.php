@@ -61,14 +61,14 @@ test('client-server database backup and restore workflow', function (string $typ
     $this->volume = IntegrationTestHelpers::createVolume($type);
     $this->databaseServer = IntegrationTestHelpers::createDatabaseServer($type);
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backup.volume');
+    $this->databaseServer->load('backups.volume');
 
     // Load test data
     IntegrationTestHelpers::loadTestData($type, $this->databaseServer);
 
     // Run backup
     $snapshots = $this->backupJobFactory->createSnapshots(
-        server: $this->databaseServer,
+        backup: $this->backup,
         method: 'manual',
     );
     $this->snapshot = $snapshots[0];
@@ -121,14 +121,14 @@ test('backup with extra dump flags succeeds', function (string $type, string $fl
         ),
     ]);
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backup.volume');
+    $this->databaseServer->load('backups.volume');
 
     // Load test data
     IntegrationTestHelpers::loadTestData($type, $this->databaseServer);
 
     // Run backup — this would fail if flags are mispositioned (e.g., after the database name)
     $snapshots = $this->backupJobFactory->createSnapshots(
-        server: $this->databaseServer,
+        backup: $this->backup,
         method: 'manual',
     );
     $this->snapshot = $snapshots[0];
@@ -156,11 +156,11 @@ test('sqlite backup and restore workflow', function () {
     $this->volume = IntegrationTestHelpers::createVolume('sqlite');
     $this->databaseServer = IntegrationTestHelpers::createSqliteDatabaseServer($sourceSqlitePath);
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backup.volume');
+    $this->databaseServer->load('backups.volume');
 
     // Run backup
     $snapshots = $this->backupJobFactory->createSnapshots(
-        server: $this->databaseServer,
+        backup: $this->backup,
         method: 'manual',
         triggeredByUserId: null
     );
@@ -207,14 +207,14 @@ test('mongodb backup and restore workflow', function () {
     $this->volume = IntegrationTestHelpers::createVolume('mongodb');
     $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('mongodb');
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backup.volume');
+    $this->databaseServer->load('backups.volume');
 
     // Load test data
     IntegrationTestHelpers::loadMongodbTestData($this->databaseServer);
 
     // Run backup
     $snapshots = $this->backupJobFactory->createSnapshots(
-        server: $this->databaseServer,
+        backup: $this->backup,
         method: 'manual',
     );
     $this->snapshot = $snapshots[0];
@@ -249,14 +249,14 @@ test('redis backup workflow', function () {
     $this->volume = IntegrationTestHelpers::createVolume('redis');
     $this->databaseServer = IntegrationTestHelpers::createRedisDatabaseServer();
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backup.volume');
+    $this->databaseServer->load('backups.volume');
 
     // Load test data
     IntegrationTestHelpers::loadRedisTestData($this->databaseServer);
 
     // Run backup
     $snapshots = $this->backupJobFactory->createSnapshots(
-        server: $this->databaseServer,
+        backup: $this->backup,
         method: 'manual',
     );
     $this->snapshot = $snapshots[0];

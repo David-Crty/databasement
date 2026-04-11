@@ -275,11 +275,11 @@ describe('volume deletion', function () {
 
         // Create server with backup using our volume
         $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-        $server->backup->update(['volume_id' => $volume->id]);
+        $server->backups->first()->update(['volume_id' => $volume->id]);
 
         // Create snapshot with real file
         $factory = app(BackupJobFactory::class);
-        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
         $snapshot = $snapshots[0];
         $snapshot->update([
             'filename' => $backupFilename,
@@ -332,11 +332,11 @@ describe('volume deletion', function () {
 
         // Create server with backup using our volume
         $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-        $server->backup->update(['volume_id' => $volume->id]);
+        $server->backups->first()->update(['volume_id' => $volume->id]);
 
         // Create snapshot with real file
         $factory = app(BackupJobFactory::class);
-        $snapshots = $factory->createSnapshots($server, 'manual', $user->id);
+        $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
         $snapshot = $snapshots[0];
         $snapshot->update([
             'filename' => $backupFilename,
@@ -367,10 +367,10 @@ describe('volume immutability', function () {
 
         // Create a volume with a snapshot
         $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-        $volume = $server->backup->volume;
+        $volume = $server->backups->first()->volume;
 
         $factory = app(BackupJobFactory::class);
-        $factory->createSnapshots($server, 'manual');
+        $factory->createSnapshots($server->backups->first(), 'manual');
 
         // Verify volume now has snapshots
         expect($volume->hasSnapshots())->toBeTrue();
