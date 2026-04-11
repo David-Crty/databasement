@@ -666,7 +666,10 @@ class DatabaseServerForm extends Form
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
             'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
             'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],
-            'notification_channel_ids' => ['array', Rule::requiredIf($this->notification_channel_selection === NotificationChannelSelection::Selected->value)],
+            'notification_channel_ids' => ['array', Rule::requiredIf(
+                $this->notification_trigger !== NotificationTrigger::None->value
+                && $this->notification_channel_selection === NotificationChannelSelection::Selected->value
+            )],
             'notification_channel_ids.*' => ['string', 'exists:notification_channels,id'],
         ];
     }

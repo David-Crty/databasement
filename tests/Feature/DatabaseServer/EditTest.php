@@ -281,8 +281,26 @@ test('selected notification channel selection requires at least one channel', fu
 
     Livewire::actingAs($admin)
         ->test(Edit::class, ['server' => $server])
+        ->set('form.notification_trigger', 'failure')
         ->set('form.notification_channel_selection', 'selected')
         ->set('form.notification_channel_ids', [])
         ->call('save')
         ->assertHasErrors('form.notification_channel_ids');
+});
+
+test('notification channel selection is not required when trigger is disabled', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    NotificationChannel::factory()->email()->create();
+    $server = DatabaseServer::factory()->create();
+
+    // Previously: switching to "selected" then to "none" (disabled) left an
+    // invisible `notification_channel_ids` required error that blocked saving.
+    Livewire::actingAs($admin)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.notification_channel_selection', 'selected')
+        ->set('form.notification_channel_ids', [])
+        ->set('form.notification_trigger', 'none')
+        ->call('save')
+        ->assertHasNoErrors('form.notification_channel_ids')
+        ->assertRedirect(route('database-servers.index'));
 });
