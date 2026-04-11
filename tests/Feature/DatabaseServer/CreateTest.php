@@ -295,3 +295,66 @@ test('cannot create agent-backed server with local volume', function () {
 
     $this->assertDatabaseMissing('database_servers', ['name' => 'Agent Server']);
 });
+
+test('backup summary is incomplete until volume and schedule are set, then renders the full plan', function () {
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'Prod Backups',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.connectionTestSuccess', true);
+
+    // No volume, no schedule → incomplete warning
+    expect($component->get('form')->isBackupConfigComplete())->toBeFalse();
+    $component->assertSee('Configuration incomplete');
+
+    // Fill everything required for the summary
+    $component
+        ->set('form.volume_id', $volume->id)
+        ->set('form.backup_schedule_id', dailySchedule()->id)
+        ->set('form.database_selection_mode', 'all')
+        ->set('form.retention_policy', 'days')
+        ->set('form.retention_days', 30);
+
+    expect($component->get('form')->isBackupConfigComplete())->toBeTrue();
+
+    $component
+        ->assertDontSee('Configuration incomplete')
+        ->assertSee('Summary')
+        ->assertSee('all databases')
+        ->assertSee('Prod Backups')
+        ->assertSee('Every day at 2:00am (Daily)')
+        ->assertSee('the last 30 days');
+});
+
+test('retention summary text adapts to each retention policy', function () {
+    $user = User::factory()->create();
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql');
+
+    $form = $component->get('form');
+
+    $component->set('form.retention_policy', 'days')->set('form.retention_days', 1);
+    expect($component->get('form')->getSummaryRetentionText())->toBe('the last 1 day');
+
+    $component->set('form.retention_days', 90);
+    expect($component->get('form')->getSummaryRetentionText())->toBe('the last 90 days');
+
+    $component
+        ->set('form.retention_policy', 'gfs')
+        ->set('form.gfs_keep_daily', 7)
+        ->set('form.gfs_keep_weekly', 4)
+        ->set('form.gfs_keep_monthly', 12);
+    expect($component->get('form')->getSummaryRetentionText())
+        ->toBe('GFS (7 daily, 4 weekly, 12 monthly)');
+
+    $component->set('form.retention_policy', 'forever');
+    expect($component->get('form')->getSummaryRetentionText())->toBe('indefinitely');
+});

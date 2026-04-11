@@ -216,6 +216,145 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Resolve {year}/{month}/{day} placeholders in the subfolder path to show a preview.
+     */
+    public function getResolvedPathPreview(): ?string
+    {
+        $path = trim($this->path);
+
+        if ($path === '') {
+            return null;
+        }
+
+        $now = now();
+
+        return str_replace(
+            ['{year}', '{month}', '{day}'],
+            [$now->format('Y'), $now->format('m'), $now->format('d')],
+            $path,
+        );
+    }
+
+    /**
+     * Get the display name of the currently selected volume, if any.
+     */
+    public function getSelectedVolumeLabel(): ?string
+    {
+        if ($this->volume_id === '') {
+            return null;
+        }
+
+        $volume = \App\Models\Volume::find($this->volume_id);
+
+        return $volume?->name;
+    }
+
+    /**
+     * Get the display label of the currently selected backup schedule, if any.
+     * Formats as "<human cron translation> (<schedule name>)", e.g. "At 02:00 (Nightly)".
+     */
+    public function getSelectedScheduleLabel(): ?string
+    {
+        if ($this->backup_schedule_id === '') {
+            return null;
+        }
+
+        $schedule = BackupSchedule::find($this->backup_schedule_id);
+
+        if (! $schedule) {
+            return null;
+        }
+
+        return Formatters::cronTranslation($schedule->expression).' ('.$schedule->name.')';
+    }
+
+    /**
+     * Short description of what will be backed up, for the live summary.
+     */
+    public function getSummarySelectionText(): ?string
+    {
+        if ($this->isSqlite() || $this->isRedis()) {
+            return null;
+        }
+
+        if ($this->database_selection_mode === DatabaseSelectionMode::All->value) {
+            return __('all databases');
+        }
+
+        if ($this->database_selection_mode === DatabaseSelectionMode::Selected->value) {
+            $count = count($this->database_names);
+
+            if ($count === 0) {
+                return null;
+            }
+
+            return trans_choice('{1} :count database|[2,*] :count databases', $count, ['count' => $count]);
+        }
+
+        if ($this->database_selection_mode === DatabaseSelectionMode::Pattern->value) {
+            if ($this->database_include_pattern === '') {
+                return null;
+            }
+
+            return __('databases matching /:pattern/i', ['pattern' => $this->database_include_pattern]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Short description of the retention policy, for the live summary.
+     */
+    public function getSummaryRetentionText(): string
+    {
+        if ($this->retention_policy === Backup::RETENTION_FOREVER) {
+            return __('indefinitely');
+        }
+
+        if ($this->retention_policy === Backup::RETENTION_DAYS) {
+            $days = $this->retention_days ?? 14;
+
+            return trans_choice('{1} the last :count day|[2,*] the last :count days', $days, ['count' => $days]);
+        }
+
+        $parts = [];
+
+        if ($this->gfs_keep_daily) {
+            $parts[] = __(':count daily', ['count' => $this->gfs_keep_daily]);
+        }
+
+        if ($this->gfs_keep_weekly) {
+            $parts[] = __(':count weekly', ['count' => $this->gfs_keep_weekly]);
+        }
+
+        if ($this->gfs_keep_monthly) {
+            $parts[] = __(':count monthly', ['count' => $this->gfs_keep_monthly]);
+        }
+
+        if ($parts === []) {
+            return __('GFS (not configured)');
+        }
+
+        return __('GFS (:tiers)', ['tiers' => implode(', ', $parts)]);
+    }
+
+    /**
+     * Whether the backup configuration has enough information to render a summary.
+     */
+    public function isBackupConfigComplete(): bool
+    {
+        if ($this->volume_id === '' || $this->backup_schedule_id === '') {
+            return false;
+        }
+
+        if ($this->isSqlite() || $this->isRedis()) {
+            return true;
+        }
+
+        return $this->getSummarySelectionText() !== null;
+    }
+
+    /**
      * Called when use_agent changes - clear agent_id when toggled off.
      */
     public function updatedUseAgent(): void
