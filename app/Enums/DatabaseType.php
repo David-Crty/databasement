@@ -92,7 +92,7 @@ enum DatabaseType: string
         $host = $server->host;
         if ($this === self::SQLITE) {
             $paths = $server->resolveDatabaseNames();
-            if ($database !== null) {
+            if ($database !== null && trim($database) !== '') {
                 $host = $database;
             } elseif (! empty($paths)) {
                 $host = $paths[0];

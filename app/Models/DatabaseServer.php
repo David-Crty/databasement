@@ -245,7 +245,8 @@ class DatabaseServer extends Model
     /**
      * Collect the list of database names/paths this server is currently
      * configured to target: the transient pending list (during connection
-     * testing), otherwise the first backup's selection.
+     * testing), otherwise the flattened, de-duplicated union of every related
+     * Backup's `database_names`.
      *
      * @return array<int, string>
      */
@@ -255,15 +256,21 @@ class DatabaseServer extends Model
             return $this->pendingDatabaseNames;
         }
 
-        $backup = $this->relationLoaded('backups')
-            ? $this->backups->first()
-            : $this->backups()->first();
+        $backups = $this->relationLoaded('backups')
+            ? $this->backups
+            : $this->backups()->get();
 
-        if ($backup === null) {
-            return [];
+        $names = [];
+
+        foreach ($backups as $backup) {
+            foreach ($backup->database_names ?? [] as $name) {
+                if ($name !== '') {
+                    $names[] = $name;
+                }
+            }
         }
 
-        return $backup->database_names ?? [];
+        return array_values(array_unique($names));
     }
 
     /**

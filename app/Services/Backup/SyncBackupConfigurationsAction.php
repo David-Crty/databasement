@@ -5,6 +5,7 @@ namespace App\Services\Backup;
 use App\Livewire\Forms\BackupForm;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Sync a collection of backup configurations to a server: upserts rows
@@ -29,15 +30,22 @@ class SyncBackupConfigurationsAction
         $existing = $server->backups()->get()->keyBy('id');
         $submittedIds = [];
 
-        foreach ($entries as $entry) {
+        foreach ($entries as $index => $entry) {
             BackupForm::normalizeSelection($entry, $serverType);
             $data = BackupForm::toPersistedData($entry);
             $data['database_server_id'] = $server->id;
 
             $existingId = $entry['id'] ?? null;
-            $existingBackup = $existingId !== null ? $existing->get($existingId) : null;
 
-            if ($existingBackup instanceof Backup) {
+            if ($existingId !== null) {
+                $existingBackup = $existing->get($existingId);
+
+                if (! $existingBackup instanceof Backup) {
+                    throw ValidationException::withMessages([
+                        "backups.{$index}.id" => "Backup configuration [{$existingId}] does not belong to this database server.",
+                    ]);
+                }
+
                 $existingBackup->update($data);
                 $submittedIds[] = $existingBackup->id;
             } else {

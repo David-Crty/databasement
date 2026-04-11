@@ -281,7 +281,10 @@ class AgentController extends Controller
 
         /** @var Backup|null $backup */
         $backup = $backupId !== null
-            ? Backup::with(['databaseServer', 'volume'])->find($backupId)
+            ? Backup::with(['databaseServer', 'volume'])
+                ->where('id', $backupId)
+                ->where('database_server_id', $server->id)
+                ->first()
             : null;
 
         if ($backup === null) {

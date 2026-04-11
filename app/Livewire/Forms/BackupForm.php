@@ -221,6 +221,12 @@ final class BackupForm
             $rules[$prefix.'gfs_keep_monthly'] = 'nullable|integer|min:0|max:24';
         }
 
+        // SQLite stores file paths in `database_names`; require at least one.
+        if ($serverType === DatabaseType::SQLITE) {
+            $rules[$prefix.'database_names'] = 'required|array|min:1';
+            $rules[$prefix.'database_names.*'] = 'required|string|max:1000';
+        }
+
         // Database selection only applies to client-server types (not SQLite
         // or Redis).
         if (! in_array($serverType, [DatabaseType::SQLITE, DatabaseType::REDIS], true)) {

@@ -120,6 +120,19 @@ return new class extends Migration
             $table->dropForeign(['database_server_id']);
         });
 
+        // Collapse any duplicate backups per server before restoring the
+        // UNIQUE(database_server_id) constraint. The earliest row (min id)
+        // wins; the rest are deleted so the unique index can be created.
+        $keepIds = DB::table('backups')
+            ->selectRaw('MIN(id) as id')
+            ->groupBy('database_server_id')
+            ->pluck('id')
+            ->all();
+
+        if ($keepIds !== []) {
+            DB::table('backups')->whereNotIn('id', $keepIds)->delete();
+        }
+
         Schema::table('backups', function (Blueprint $table) {
             $table->unique('database_server_id');
             $table->foreign('database_server_id')

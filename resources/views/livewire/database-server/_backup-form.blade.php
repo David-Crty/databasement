@@ -24,8 +24,12 @@
     $sqlitePaths = $isSqlite ? ($backup['database_names'] ?? ['']) : [];
 @endphp
 
+@php
+    $cardKey = ! empty($backup['id']) ? $backup['id'] : 'new-'.$index;
+@endphp
+
 <div
-    wire:key="backup-card-{{ $index }}"
+    wire:key="backup-card-{{ $cardKey }}"
     class="relative rounded-xl border border-base-300 bg-base-200/40 p-4 sm:p-6"
 >
     {{-- Card header: display label + remove button --}}

@@ -123,6 +123,20 @@ class DatabaseServerForm extends Form
 
         if (preg_match('/^backups\.(\d+)\.database_selection_mode$/', $property)) {
             $this->onBackupSelectionModeChanged();
+
+            return;
+        }
+
+        // Clearing the comma-separated text input should clear the backing
+        // array so stale values can't survive the save. Live-binding means
+        // this fires while typing, so we only act on a full clear.
+        if (preg_match('/^backups\.(\d+)\.database_names_input$/', $property, $matches)
+            && (string) $value === ''
+        ) {
+            $index = (int) $matches[1];
+            if (isset($this->backups[$index])) {
+                $this->backups[$index]['database_names'] = [];
+            }
         }
     }
 
@@ -457,6 +471,28 @@ class DatabaseServerForm extends Form
                 array_map('trim', $names),
             ));
         }
+    }
+
+    /**
+     * Flatten, de-duplicate and return every SQLite file path across the
+     * backup cards. Used for connection testing so any populated backup can
+     * exercise the connection — not only the first one.
+     *
+     * @return array<int, string>
+     */
+    private function collectSqlitePaths(): array
+    {
+        $paths = [];
+
+        foreach ($this->backups as $backup) {
+            foreach ($backup['database_names'] ?? [] as $path) {
+                if (is_string($path) && trim($path) !== '') {
+                    $paths[] = trim($path);
+                }
+            }
+        }
+
+        return array_values(array_unique($paths));
     }
 
     /**
@@ -1000,11 +1036,11 @@ class DatabaseServerForm extends Form
         try {
             if ($this->isSqlite()) {
                 $this->normalizeDatabaseNames();
-                $paths = $this->backups[0]['database_names'] ?? [];
-                $rules = [
-                    'backups.0.database_names' => 'required|array|min:1',
-                    'backups.0.database_names.*' => 'required|string|max:1000',
-                ];
+                $rules = [];
+                foreach (array_keys($this->backups) as $backupIndex) {
+                    $rules["backups.{$backupIndex}.database_names"] = 'required|array|min:1';
+                    $rules["backups.{$backupIndex}.database_names.*"] = 'required|string|max:1000';
+                }
                 if ($this->ssh_enabled) {
                     $rules = array_merge($rules, $this->getSshValidationRules());
                 }
@@ -1052,7 +1088,7 @@ class DatabaseServerForm extends Form
             'port' => $this->port,
             'username' => $this->username,
             'password' => $password,
-            'database_names' => $this->isSqlite() ? ($this->backups[0]['database_names'] ?? []) : null,
+            'database_names' => $this->isSqlite() ? $this->collectSqlitePaths() : null,
             'extra_config' => $this->isMongodb() ? ['auth_source' => $this->auth_source] : null,
         ], $sshConfig);
 
