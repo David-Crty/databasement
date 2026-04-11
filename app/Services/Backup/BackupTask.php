@@ -140,21 +140,10 @@ class BackupTask
         $filename = sprintf('%s-%s-%s.%s.%s', $sanitizedServerName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
 
         if (! empty($backupPath)) {
-            $path = $this->resolveDateVariables(trim($backupPath, '/'));
+            $path = Formatters::resolveDatePlaceholders(trim($backupPath, '/'));
             $filename = $path.'/'.$filename;
         }
 
         return $filename;
-    }
-
-    private function resolveDateVariables(string $path): string
-    {
-        $date = now();
-
-        return str_replace(
-            ['{year}', '{month}', '{day}'],
-            [$date->format('Y'), $date->format('m'), $date->format('d')],
-            $path
-        );
     }
 }

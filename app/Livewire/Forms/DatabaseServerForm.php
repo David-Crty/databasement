@@ -226,13 +226,7 @@ class DatabaseServerForm extends Form
             return null;
         }
 
-        $now = now();
-
-        return str_replace(
-            ['{year}', '{month}', '{day}'],
-            [$now->format('Y'), $now->format('m'), $now->format('d')],
-            $path,
-        );
+        return Formatters::resolveDatePlaceholders($path);
     }
 
     /**

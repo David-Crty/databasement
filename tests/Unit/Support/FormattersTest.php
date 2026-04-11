@@ -73,3 +73,33 @@ test('humanDate handles single digit days correctly', function () {
     $date = \Carbon\Carbon::create(2025, 1, 5, 9, 5, 0);
     expect(Formatters::humanDate($date))->toBe('Jan 5, 2025, 09:05');
 });
+
+test('resolveDatePlaceholders replaces year, month and day tokens zero-padded', function () {
+    $date = \Carbon\Carbon::create(2026, 3, 5);
+
+    expect(Formatters::resolveDatePlaceholders('backups/{year}/{month}/{day}', $date))
+        ->toBe('backups/2026/03/05');
+});
+
+test('resolveDatePlaceholders leaves paths without placeholders untouched', function () {
+    $date = \Carbon\Carbon::create(2026, 3, 5);
+
+    expect(Formatters::resolveDatePlaceholders('backups/static', $date))
+        ->toBe('backups/static');
+});
+
+test('resolveDatePlaceholders replaces each placeholder globally', function () {
+    $date = \Carbon\Carbon::create(2026, 12, 31);
+
+    expect(Formatters::resolveDatePlaceholders('{year}/{year}-{month}-{day}/{day}', $date))
+        ->toBe('2026/2026-12-31/31');
+});
+
+test('resolveDatePlaceholders defaults to the current date when none is provided', function () {
+    \Carbon\Carbon::setTestNow(\Carbon\Carbon::create(2026, 7, 8));
+
+    expect(Formatters::resolveDatePlaceholders('archive/{year}/{month}/{day}'))
+        ->toBe('archive/2026/07/08');
+
+    \Carbon\Carbon::setTestNow();
+});

@@ -78,4 +78,20 @@ class Formatters
             return $fallback;
         }
     }
+
+    /**
+     * Replace {year}, {month} and {day} placeholders in a backup path with
+     * zero-padded date parts. Used both to resolve the actual destination
+     * folder at backup time and to show a live preview in the UI.
+     */
+    public static function resolveDatePlaceholders(string $path, ?\DateTimeInterface $date = null): string
+    {
+        $date ??= Carbon::now();
+
+        return str_replace(
+            ['{year}', '{month}', '{day}'],
+            [$date->format('Y'), $date->format('m'), $date->format('d')],
+            $path,
+        );
+    }
 }
