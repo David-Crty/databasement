@@ -55,7 +55,6 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'mysql',
             'username' => 'root',
             'password' => 'root',
-            'database_selection_mode' => 'all',
         ]);
 
         // PostgreSQL server (from docker-compose)
@@ -66,7 +65,6 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'postgres',
             'username' => 'root',
             'password' => 'root',
-            'database_selection_mode' => 'all',
         ]);
 
         // SQLite server
@@ -76,7 +74,6 @@ class DatabaseSeeder extends Seeder
         $sqlite = DatabaseServer::create([
             'name' => 'Local SQLite',
             'database_type' => 'sqlite',
-            'database_names' => [$sqlitePath],
             'host' => '',
             'port' => 0,
             'username' => '',
@@ -91,7 +88,6 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'redis',
             'username' => '',
             'password' => '',
-            'database_selection_mode' => 'all',
         ]);
 
         // MongoDB server (from docker-compose)
@@ -102,20 +98,30 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'mongodb',
             'username' => 'root',
             'password' => 'root',
-            'database_selection_mode' => 'all',
             'extra_config' => ['auth_source' => 'admin'],
         ]);
 
-        // Backup configurations
-        foreach ([$mysql, $postgres, $sqlite, $redis, $mongodb] as $server) {
-            Backup::create([
+        // Backup configurations (database_selection_mode lives on Backup now)
+        $backupDefaults = [
+            'volume_id' => $volume->id,
+            'backup_schedule_id' => $dailySchedule->id,
+            'retention_policy' => Backup::RETENTION_DAYS,
+            'retention_days' => 30,
+            'database_selection_mode' => 'all',
+        ];
+
+        foreach ([$mysql, $postgres, $redis, $mongodb] as $server) {
+            Backup::create(array_merge($backupDefaults, [
                 'database_server_id' => $server->id,
-                'volume_id' => $volume->id,
-                'backup_schedule_id' => $dailySchedule->id,
-                'retention_policy' => Backup::RETENTION_DAYS,
-                'retention_days' => 30,
-            ]);
+            ]));
         }
+
+        // SQLite backup uses 'selected' mode with explicit file paths
+        Backup::create(array_merge($backupDefaults, [
+            'database_server_id' => $sqlite->id,
+            'database_selection_mode' => 'selected',
+            'database_names' => [$sqlitePath],
+        ]));
     }
 
     /**
