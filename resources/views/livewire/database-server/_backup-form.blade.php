@@ -76,7 +76,7 @@
                         <div wire:key="backup-{{ $index }}-path-{{ $pathIndex }}" class="flex gap-2 items-center">
                             <div class="flex-1">
                                 <x-input
-                                    wire:model="form.backups.{{ $index }}.database_names.{{ $pathIndex }}"
+                                    wire:model.live.debounce.400ms="form.backups.{{ $index }}.database_names.{{ $pathIndex }}"
                                     placeholder="{{ __('e.g., /var/data/database.sqlite') }}"
                                     type="text"
                                 />
@@ -176,7 +176,7 @@
                             </div>
                         @elseif(count($form->availableDatabases) > 0)
                             <x-choices-offline
-                                wire:model="form.backups.{{ $index }}.database_names"
+                                wire:model.live="form.backups.{{ $index }}.database_names"
                                 :label="__('Select Databases')"
                                 :options="$form->availableDatabases"
                                 :hint="__('Select one or more databases to backup')"
