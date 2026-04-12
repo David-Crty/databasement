@@ -183,16 +183,13 @@
             @scope('actions', $server)
                 <div class="flex gap-2 justify-end">
                     @can('backup', $server)
-                        @foreach($server->backups as $backup)
-                            <x-button
-                                icon="o-arrow-down-tray"
-                                wire:click="runBackup('{{ $backup->id }}')"
-                                wire:key="run-backup-{{ $backup->id }}"
-                                spinner
-                                tooltip="{{ __('Backup now') }} · {{ $backup->getDisplayLabel() }}"
-                                class="btn-ghost btn-sm text-info"
-                            />
-                        @endforeach
+                        <x-button
+                            icon="o-arrow-down-tray"
+                            wire:click="runBackupAll('{{ $server->id }}')"
+                            spinner
+                            tooltip="{{ __('Backup now') }}"
+                            class="btn-ghost btn-sm text-info"
+                        />
                     @endcan
                     @can('restore', $server)
                         <x-button

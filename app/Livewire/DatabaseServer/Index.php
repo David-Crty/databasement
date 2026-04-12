@@ -3,7 +3,6 @@
 namespace App\Livewire\DatabaseServer;
 
 use App\Enums\DatabaseType;
-use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
@@ -131,16 +130,26 @@ class Index extends Component
         $this->dispatch('open-restore-modal', targetServerId: $id);
     }
 
-    public function runBackup(string $backupId, TriggerBackupAction $action): void
+    public function runBackupAll(string $serverId, TriggerBackupAction $action): void
     {
-        $backup = Backup::with(['volume', 'databaseServer', 'backupSchedule'])->findOrFail($backupId);
+        $server = DatabaseServer::with(['backups.volume', 'backups.backupSchedule'])->findOrFail($serverId);
 
-        $this->authorize('backup', $backup->databaseServer);
+        $this->authorize('backup', $server);
 
         try {
             $userId = auth()->id();
-            $result = $action->execute($backup, is_int($userId) ? $userId : null);
-            $this->success($result['message'], position: 'toast-bottom');
+            $totalSnapshots = 0;
+
+            foreach ($server->backups as $backup) {
+                $result = $action->execute($backup, is_int($userId) ? $userId : null);
+                $totalSnapshots += count($result['snapshots']);
+            }
+
+            $message = $totalSnapshots === 1
+                ? __('Backup started successfully!')
+                : __(':count database backups started successfully!', ['count' => $totalSnapshots]);
+
+            $this->success($message, position: 'toast-bottom');
         } catch (\Throwable $e) {
             $this->error($e->getMessage(), position: 'toast-bottom');
         }
