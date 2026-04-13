@@ -61,6 +61,7 @@ class DatabaseServerController extends Controller
         $this->authorize('create', DatabaseServer::class);
 
         $validated = $request->validated();
+        $hasBackupsPayload = array_key_exists('backups', $validated);
         $backupsPayload = $validated['backups'] ?? [];
         unset($validated['backups']);
 
@@ -72,7 +73,7 @@ class DatabaseServerController extends Controller
         DatabaseServer::buildExtraConfig($validated);
 
         $server = DatabaseServer::create($validated);
-        $this->syncBackupConfigurations($server, $backupsPayload);
+        $this->syncBackupConfigurations($server, $backupsPayload, $hasBackupsPayload);
 
         $server->load(['backups.volume', 'backups.backupSchedule']);
 
@@ -89,6 +90,7 @@ class DatabaseServerController extends Controller
         $this->authorize('update', $databaseServer);
 
         $validated = $request->validated();
+        $hasBackupsPayload = array_key_exists('backups', $validated);
         $backupsPayload = $validated['backups'] ?? [];
         unset($validated['backups']);
 
@@ -105,7 +107,7 @@ class DatabaseServerController extends Controller
         DatabaseServer::buildExtraConfig($validated, $databaseServer->extra_config, $databaseServer->database_type->value);
 
         $databaseServer->update($validated);
-        $this->syncBackupConfigurations($databaseServer, $backupsPayload);
+        $this->syncBackupConfigurations($databaseServer, $backupsPayload, $hasBackupsPayload);
 
         $databaseServer->load(['backups.volume', 'backups.backupSchedule']);
 
@@ -217,9 +219,9 @@ class DatabaseServerController extends Controller
     /**
      * @param  array<int, array<string, mixed>>  $backupsPayload
      */
-    private function syncBackupConfigurations(DatabaseServer $server, array $backupsPayload): void
+    private function syncBackupConfigurations(DatabaseServer $server, array $backupsPayload, bool $hasBackupsPayload): void
     {
-        if ($backupsPayload === []) {
+        if (! $hasBackupsPayload) {
             return;
         }
 

@@ -171,11 +171,11 @@ final class BackupForm
 
         $input = $entry['database_names_input'] ?? '';
 
-        if ($input !== '') {
-            $entry['database_names'] = array_values(array_filter(
+        $entry['database_names'] = $input === ''
+            ? []
+            : array_values(array_filter(
                 array_map('trim', explode(',', (string) $input))
             ));
-        }
     }
 
     /**

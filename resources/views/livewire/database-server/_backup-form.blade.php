@@ -21,7 +21,9 @@
         ? ($summarySchedule.' → '.$summaryVolume)
         : __('New backup configuration');
 
-    $sqlitePaths = $isSqlite ? ($backup['database_names'] ?? ['']) : [];
+    $sqlitePaths = $isSqlite
+        ? (! empty($backup['database_names']) ? $backup['database_names'] : [''])
+        : [];
 @endphp
 
 @php

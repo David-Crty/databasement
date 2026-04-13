@@ -441,6 +441,7 @@ test('can create a server with multiple backup configurations', function () {
         ->set('form.backups.0.retention_days', 14)
         ->set('form.backups.0.database_selection_mode', 'selected')
         ->set('form.backups.0.database_names', ['critical_db'])
+        ->set('form.backups.0.database_names_input', 'critical_db')
         ->call('addBackup')
         ->assertCount('form.backups', 2)
         ->set('form.backups.1.volume_id', $volume2->id)

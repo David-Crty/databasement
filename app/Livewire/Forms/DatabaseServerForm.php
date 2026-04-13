@@ -1039,11 +1039,12 @@ class DatabaseServerForm extends Form
         try {
             if ($this->isSqlite()) {
                 $this->normalizeDatabaseNames();
-                $rules = [];
-                foreach (array_keys($this->backups) as $backupIndex) {
-                    $rules["backups.{$backupIndex}.database_names"] = 'required|array|min:1';
-                    $rules["backups.{$backupIndex}.database_names.*"] = 'required|string|max:1000';
+                if ($this->collectSqlitePaths() === []) {
+                    throw ValidationException::withMessages([
+                        'form.backups' => __('Add at least one SQLite database path before testing the connection.'),
+                    ]);
                 }
+                $rules = [];
                 if ($this->ssh_enabled) {
                     $rules = array_merge($rules, $this->getSshValidationRules());
                 }
