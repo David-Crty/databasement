@@ -137,34 +137,23 @@ class Index extends Component
         $this->authorize('backup', $server);
 
         $userId = auth()->id();
-        $totalSnapshots = 0;
-        $processedCount = 0;
         $failures = [];
+        $success = [];
 
         foreach ($server->backups as $backup) {
             try {
                 $result = $action->execute($backup, is_int($userId) ? $userId : null);
-                $totalSnapshots += count($result['snapshots']);
-                $processedCount++;
+                $success[] = $result['message'];
             } catch (\Throwable $e) {
                 $failures[] = $e->getMessage();
             }
         }
-
-        if ($totalSnapshots > 0) {
-            $message = $totalSnapshots === 1
-                ? __('Backup started successfully!')
-                : __(':count database backups started successfully!', ['count' => $totalSnapshots]);
-        } elseif ($processedCount > 0) {
-            $message = __('Backup started successfully!');
-        }
-
-        if (isset($message)) {
+        foreach ($success as $message) {
             $this->success($message, position: 'toast-bottom');
         }
 
-        if (! empty($failures)) {
-            $this->error(implode(' ', $failures), position: 'toast-bottom');
+        foreach ($failures as $message) {
+            $this->error($message, position: 'toast-bottom');
         }
     }
 
