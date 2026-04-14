@@ -17,7 +17,11 @@ class ListDatabaseServersTool extends Tool
 {
     public function handle(Request $request): Response
     {
-        $query = DatabaseServer::query()->with(['backups.volume', 'backups.backupSchedule']);
+        $query = DatabaseServer::query()->with([
+            'backups' => fn ($q) => $q->orderBy('id'),
+            'backups.volume',
+            'backups.backupSchedule',
+        ]);
 
         $type = $request->get('database_type');
         if ($type !== null) {

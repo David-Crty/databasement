@@ -29,7 +29,7 @@ class RunScheduledBackups extends Command
             return self::FAILURE;
         }
 
-        $backups = Backup::with(['databaseServer', 'volume'])
+        $backups = Backup::with(['databaseServer', 'volume', 'backupSchedule'])
             ->whereRelation('databaseServer', 'backups_enabled', true)
             ->where('backup_schedule_id', $schedule->id)
             ->get();
@@ -49,7 +49,7 @@ class RunScheduledBackups extends Command
                 $this->dispatch($backup, $backupJobFactory, $payloadBuilder);
             } catch (\Throwable $e) {
                 $failedCount++;
-                Log::error("Failed to dispatch backup job for server [{$backup->databaseServer->name}]", [
+                Log::error("Failed to dispatch backup job for server [{$backup->databaseServer->name} / {$backup->getDisplayLabel()}]", [
                     'error' => $e->getMessage(),
                 ]);
             }

@@ -67,6 +67,10 @@ class DatabaseServerPolicy
      */
     public function backup(User $user, DatabaseServer $databaseServer): bool
     {
+        if ($databaseServer->backups->isEmpty()) {
+            return false;
+        }
+
         return $user->isDemo() || $user->canPerformActions();
     }
 

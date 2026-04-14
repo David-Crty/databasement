@@ -4,8 +4,10 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;
+use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\Volume;
 use App\Rules\SafePath;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -107,8 +109,10 @@ class SaveDatabaseServerRequest extends FormRequest
                 return;
             }
 
+            $isAgent = $this->filled('agent_id');
+
             foreach ($backups as $index => $backup) {
-                $this->validateBackupEntry($validator, $index, is_array($backup) ? $backup : []);
+                $this->validateBackupEntry($validator, $index, is_array($backup) ? $backup : [], $isAgent);
             }
         });
     }
@@ -118,8 +122,15 @@ class SaveDatabaseServerRequest extends FormRequest
      *
      * @param  array<string, mixed>  $backup
      */
-    private function validateBackupEntry(Validator $validator, int $index, array $backup): void
+    private function validateBackupEntry(Validator $validator, int $index, array $backup, bool $isAgent): void
     {
+        if ($isAgent) {
+            $volumeId = $backup['volume_id'] ?? null;
+            if ($volumeId !== null && Volume::whereKey($volumeId)->where('type', VolumeType::LOCAL->value)->exists()) {
+                $validator->errors()->add("backups.{$index}.volume_id", 'Local volumes cannot be used with remote agents.');
+            }
+        }
+
         $retentionPolicy = $backup['retention_policy'] ?? null;
 
         if ($retentionPolicy === Backup::RETENTION_DAYS && empty($backup['retention_days'])) {

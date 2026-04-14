@@ -168,7 +168,8 @@ test('server throwing exception when listing databases does not prevent other ba
 
     Log::shouldReceive('error')
         ->once()
-        ->with('Failed to dispatch backup job for server [Failing Server]', ['error' => 'Connection refused']);
+        ->withArgs(fn (string $msg, array $ctx) => str_starts_with($msg, 'Failed to dispatch backup job for server [Failing Server / ')
+            && $ctx === ['error' => 'Connection refused']);
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain('Dispatching 2 backup(s)')
@@ -299,11 +300,12 @@ test('runs both backup configs when a server has two on the same schedule', func
 
     $schedule = dailySchedule();
     $server = DatabaseServer::factory()->create(['database_names' => ['shared_db']]);
-    $server->backups->first()->update(['backup_schedule_id' => $schedule->id]);
+    $backup1 = $server->backups()->firstOrFail();
+    $backup1->update(['backup_schedule_id' => $schedule->id]);
 
     // Attach a second backup config on the same schedule (different volume)
     $volume2 = \App\Models\Volume::factory()->local()->create();
-    \App\Models\Backup::factory()->for($server)->create([
+    $backup2 = \App\Models\Backup::factory()->for($server)->create([
         'backup_schedule_id' => $schedule->id,
         'volume_id' => $volume2->id,
         'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
@@ -314,9 +316,9 @@ test('runs both backup configs when a server has two on the same schedule', func
         ->expectsOutputToContain('Dispatching 2 backup(s)')
         ->assertExitCode(0);
 
-    // Two distinct snapshots created (one per backup config)
     Queue::assertPushed(ProcessBackupJob::class, 2);
-    expect(Snapshot::count())->toBe(2);
+    $backupIds = Snapshot::pluck('backup_id')->sort()->values()->all();
+    expect($backupIds)->toBe(collect([$backup1->id, $backup2->id])->sort()->values()->all());
 });
 
 test('runs only backups matching the given schedule when the server has multiple', function () {
@@ -326,7 +328,8 @@ test('runs only backups matching the given schedule when the server has multiple
     $weeklySchedule = weeklySchedule();
 
     $server = DatabaseServer::factory()->create(['database_names' => ['prod_db']]);
-    $server->backups->first()->update(['backup_schedule_id' => $dailySchedule->id]);
+    $dailyBackup = $server->backups()->firstOrFail();
+    $dailyBackup->update(['backup_schedule_id' => $dailySchedule->id]);
 
     $volume2 = \App\Models\Volume::factory()->local()->create();
     \App\Models\Backup::factory()->for($server)->create([
@@ -342,4 +345,5 @@ test('runs only backups matching the given schedule when the server has multiple
         ->assertExitCode(0);
 
     Queue::assertPushed(ProcessBackupJob::class, 1);
+    expect(Snapshot::pluck('backup_id')->all())->toBe([$dailyBackup->id]);
 });
