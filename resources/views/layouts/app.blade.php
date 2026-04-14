@@ -95,11 +95,8 @@
 
         {{-- FOOTER --}}
         @php
-            $versionLabel = \App\Support\GitInfo::getVersionLabel();
-            $commitUrl = \App\Support\GitInfo::getCommitUrl();
-            $githubRepo = \App\Support\GitInfo::getGitHubRepo();
-            $githubRepoShort = \App\Support\GitInfo::getGitHubRepoShort();
-            $newIssueUrl = \App\Support\GitInfo::getNewIssueUrl();
+            $githubRepo = config('app.github_repo');
+            $githubRepoShort = trim(str_replace('https://', '', $githubRepo), '/');
         @endphp
         <footer class="mt-12 py-6 border-t border-base-300">
             <div class="flex flex-col items-center gap-4 text-sm text-base-content/60">
@@ -119,17 +116,15 @@
                     <a href="https://david-crty.github.io/databasement/" target="_blank" rel="noopener" class="link link-hover">
                         Documentation
                     </a>
-                    <a href="{{ $newIssueUrl }}" target="_blank" rel="noopener" class="link link-hover">
+                    <a href="{{ $githubRepo }}/issues/new" target="_blank" rel="noopener" class="link link-hover">
                         Report an issue
                     </a>
                     <a href="{{ $githubRepo }}/blob/main/LICENSE" target="_blank" rel="noopener" class="link link-hover">
                         MIT License
                     </a>
-                    @if($versionLabel)
-                        <a href="{{ $commitUrl }}" target="_blank" rel="noopener" class="link link-hover font-mono text-xs">
-                            {{ $versionLabel }}
-                        </a>
-                    @endif
+                    @persist('version-status')
+                        <livewire:version-status />
+                    @endpersist
                 </div>
             </div>
         </footer>
