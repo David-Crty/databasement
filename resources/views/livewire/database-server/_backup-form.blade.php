@@ -18,7 +18,7 @@
     $summaryComplete = $serverType !== null && BackupForm::isComplete($backup, $serverType);
 
     $cardLabel = $summaryVolume && $summarySchedule
-        ? ($summarySchedule.' → '.$summaryVolume)
+        ? implode(' · ', array_filter([$summarySchedule.' → '.$summaryVolume, $summaryWhat, $summaryHowLong]))
         : __('New backup configuration');
 
     $sqlitePaths = $isSqlite

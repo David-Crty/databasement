@@ -104,45 +104,11 @@
                 @elseif($server->backups->isEmpty())
                     <span class="text-base-content/50">-</span>
                 @else
-                    <div class="space-y-2">
+                    <div class="space-y-1">
                         @foreach($server->backups as $backup)
-                            <div>
-                                <div class="flex items-center gap-1.5 text-sm">
-                                    <x-volume-type-icon :type="$backup->volume->type" class="w-3.5 h-3.5 text-base-content/70" />
-                                    <span class="font-medium">{{ $backup->volume->name }}</span>
-                                    <span class="text-base-content/40">·</span>
-                                    <span class="text-base-content/70">{{ $backup->backupSchedule->name }}</span>
-                                    @if($backup->retention_policy === 'gfs')
-                                        <span class="text-xs text-info">(GFS: {{ $backup->gfs_keep_daily ?? 0 }}d/{{ $backup->gfs_keep_weekly ?? 0 }}w/{{ $backup->gfs_keep_monthly ?? 0 }}m)</span>
-                                    @elseif($backup->retention_policy === 'forever')
-                                        <span class="text-xs text-warning">({{ __('Forever') }})</span>
-                                    @elseif($backup->retention_days)
-                                        <span class="text-xs text-base-content/50">({{ $backup->retention_days }}d)</span>
-                                    @endif
-                                </div>
-                                @if($server->database_type === \App\Enums\DatabaseType::SQLITE)
-                                    @php $paths = $backup->database_names ?? []; @endphp
-                                    @if(count($paths) > 0)
-                                        <div class="ml-5 text-xs text-base-content/60 font-mono truncate max-w-xs" title="{{ implode(', ', $paths) }}">
-                                            └ {{ collect($paths)->map(fn ($p) => basename($p))->implode(', ') }}
-                                        </div>
-                                    @endif
-                                @elseif($backup->database_selection_mode === \App\Enums\DatabaseSelectionMode::All)
-                                    <div class="ml-5 text-xs text-base-content/60">
-                                        └ {{ __('All databases') }}
-                                    </div>
-                                @elseif($backup->database_selection_mode === \App\Enums\DatabaseSelectionMode::Selected)
-                                    @php $names = $backup->database_names ?? []; @endphp
-                                    @if(count($names) > 0)
-                                        <div class="ml-5 text-xs text-base-content/60 font-mono truncate max-w-xs" title="{{ implode(', ', $names) }}">
-                                            └ {{ implode(', ', $names) }}
-                                        </div>
-                                    @endif
-                                @elseif($backup->database_selection_mode === \App\Enums\DatabaseSelectionMode::Pattern)
-                                    <div class="ml-5 text-xs text-base-content/60 font-mono truncate max-w-xs" title="{{ $backup->database_include_pattern }}">
-                                        └ /{{ $backup->database_include_pattern }}/
-                                    </div>
-                                @endif
+                            <div class="flex items-center gap-1.5 text-sm">
+                                <x-volume-type-icon :type="$backup->volume->type" class="w-3.5 h-3.5 text-base-content/70 shrink-0" />
+                                <span class="truncate max-w-md" title="{{ $backup->getDisplayLabel() }}">{{ $backup->getDisplayLabel() }}</span>
                             </div>
                         @endforeach
                     </div>

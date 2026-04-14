@@ -89,12 +89,68 @@ class Backup extends Model
     }
 
     /**
-     * Human-readable label summarising the backup config for logs, tooltips
-     * and the Index action column. Format: "Schedule → Volume".
+     * One-line summary of the backup config for the index table, logs, and tooltips.
+     * Format: "Daily → S3 Prod · All databases · 30d"
      */
     public function getDisplayLabel(): string
     {
-        return $this->backupSchedule->name.' → '.$this->volume->name;
+        $parts = [
+            $this->backupSchedule->name.' → '.$this->volume->name,
+            $this->getDatabaseSummary(),
+            $this->getRetentionSummary(),
+        ];
+
+        return implode(' · ', array_filter($parts));
+    }
+
+    /**
+     * Short description of which databases this config backs up.
+     */
+    public function getDatabaseSummary(): string
+    {
+        $isSqlite = $this->databaseServer->database_type->value === 'sqlite';
+
+        if ($isSqlite) {
+            $paths = $this->database_names ?? [];
+            if ($paths === []) {
+                return '';
+            }
+            $basenames = array_map('basename', $paths);
+
+            return count($basenames) <= 2
+                ? implode(', ', $basenames)
+                : $basenames[0].', +'.(count($basenames) - 1);
+        }
+
+        return match ($this->database_selection_mode) {
+            DatabaseSelectionMode::All => __('All databases'),
+            DatabaseSelectionMode::Selected => $this->formatSelectedDatabases(),
+            DatabaseSelectionMode::Pattern => '/'.$this->database_include_pattern.'/',
+        };
+    }
+
+    private function formatSelectedDatabases(): string
+    {
+        $names = $this->database_names ?? [];
+        if ($names === []) {
+            return '';
+        }
+
+        return count($names) <= 2
+            ? implode(', ', $names)
+            : $names[0].', +'.(count($names) - 1);
+    }
+
+    /**
+     * Short retention label: "30d", "GFS 7d/4w/3m", or "Forever".
+     */
+    public function getRetentionSummary(): string
+    {
+        return match ($this->retention_policy) {
+            self::RETENTION_GFS => 'GFS '.($this->gfs_keep_daily ?? 0).'d/'.($this->gfs_keep_weekly ?? 0).'w/'.($this->gfs_keep_monthly ?? 0).'m',
+            self::RETENTION_FOREVER => __('Forever'),
+            default => $this->retention_days ? $this->retention_days.'d' : '',
+        };
     }
 
     /**
