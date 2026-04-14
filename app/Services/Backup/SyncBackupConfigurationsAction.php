@@ -5,6 +5,7 @@ namespace App\Services\Backup;
 use App\Livewire\Forms\BackupForm;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -28,35 +29,41 @@ class SyncBackupConfigurationsAction
 
         $serverType = $server->database_type;
         $existing = $server->backups()->get()->keyBy('id');
-        $submittedIds = [];
 
+        // Pre-validate all submitted IDs before any writes
         foreach ($entries as $index => $entry) {
-            BackupForm::normalizeSelection($entry, $serverType);
-            $data = BackupForm::toPersistedData($entry);
-            $data['database_server_id'] = $server->id;
-
             $existingId = $entry['id'] ?? null;
 
-            if ($existingId !== null) {
-                $existingBackup = $existing->get($existingId);
-
-                if (! $existingBackup instanceof Backup) {
-                    throw ValidationException::withMessages([
-                        "backups.{$index}.id" => "Backup configuration [{$existingId}] does not belong to this database server.",
-                    ]);
-                }
-
-                $existingBackup->update($data);
-                $submittedIds[] = $existingBackup->id;
-            } else {
-                $submittedIds[] = Backup::create($data)->id;
+            if ($existingId !== null && ! $existing->has($existingId)) {
+                throw ValidationException::withMessages([
+                    "backups.{$index}.id" => "Backup configuration [{$existingId}] does not belong to this database server.",
+                ]);
             }
         }
 
-        $toDelete = array_diff($existing->keys()->all(), $submittedIds);
+        DB::transaction(function () use ($entries, $serverType, $existing, $server) {
+            $submittedIds = [];
 
-        if ($toDelete !== []) {
-            Backup::whereIn('id', $toDelete)->delete();
-        }
+            foreach ($entries as $entry) {
+                BackupForm::normalizeSelection($entry, $serverType);
+                $data = BackupForm::toPersistedData($entry);
+                $data['database_server_id'] = $server->id;
+
+                $existingId = $entry['id'] ?? null;
+
+                if ($existingId !== null) {
+                    $existing->get($existingId)->update($data);
+                    $submittedIds[] = $existingId;
+                } else {
+                    $submittedIds[] = Backup::create($data)->id;
+                }
+            }
+
+            $toDelete = array_diff($existing->keys()->all(), $submittedIds);
+
+            if ($toDelete !== []) {
+                Backup::whereIn('id', $toDelete)->delete();
+            }
+        });
     }
 }

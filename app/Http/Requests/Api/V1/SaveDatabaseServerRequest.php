@@ -57,7 +57,11 @@ class SaveDatabaseServerRequest extends FormRequest
             $rules['auth_source'] = 'nullable|string|max:255';
         }
 
-        $backupsEnabled = $this->boolean('backups_enabled', true);
+        /** @var DatabaseServer|null $existing */
+        $existing = $this->route('database_server');
+        $backupsEnabled = $this->has('backups_enabled')
+            ? $this->boolean('backups_enabled')
+            : ($existing !== null ? $existing->backups_enabled : true);
 
         if ($backupsEnabled) {
             $rules['backups'] = 'required|array|min:1';
@@ -87,7 +91,13 @@ class SaveDatabaseServerRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if (! $this->boolean('backups_enabled', true)) {
+            /** @var DatabaseServer|null $existing */
+            $existing = $this->route('database_server');
+            $backupsEnabled = $this->has('backups_enabled')
+                ? $this->boolean('backups_enabled')
+                : ($existing !== null ? $existing->backups_enabled : true);
+
+            if (! $backupsEnabled) {
                 return;
             }
 

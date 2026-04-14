@@ -98,7 +98,7 @@
             @scope('cell_database_names', $server)
                 @php
                     $sqlitePaths = $server->database_type === \App\Enums\DatabaseType::SQLITE
-                        ? ($server->backups->first()?->database_names ?? [])
+                        ? $server->backups->flatMap(fn ($b) => $b->database_names ?? [])->unique()->values()->all()
                         : [];
                 @endphp
                 @if(count($sqlitePaths) > 0)

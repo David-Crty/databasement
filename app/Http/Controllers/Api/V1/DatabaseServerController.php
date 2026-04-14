@@ -163,7 +163,7 @@ class DatabaseServerController extends Controller
 
         $backup = $backupId !== null
             ? $databaseServer->backups->firstWhere('id', $backupId)
-            : $databaseServer->backups->first();
+            : $databaseServer->backups->sortBy('id')->first();
 
         if ($backup === null) {
             return response()->json([

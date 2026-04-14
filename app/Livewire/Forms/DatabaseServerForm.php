@@ -726,6 +726,8 @@ class DatabaseServerForm extends Form
         $rules = $this->getBaseValidationRules();
 
         if ($this->backups_enabled && $serverType !== null) {
+            $rules['backups'] = 'required|array|min:1';
+
             foreach ($this->backups as $index => $entry) {
                 $rules = array_merge(
                     $rules,
@@ -1065,7 +1067,10 @@ class DatabaseServerForm extends Form
         } catch (ValidationException $e) {
             $this->testingConnection = false;
             $this->connectionTestSuccess = false;
-            $this->connectionTestMessage = 'Please fill in all required connection fields.';
+            /** @var string $message */
+            $message = collect($e->errors())->flatten()->first()
+                ?? __('Please fill in all required connection fields.');
+            $this->connectionTestMessage = $message;
 
             return;
         }
