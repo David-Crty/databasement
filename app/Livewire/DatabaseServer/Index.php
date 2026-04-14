@@ -71,7 +71,6 @@ class Index extends Component
     {
         return [
             ['key' => 'name', 'label' => __('Name'), 'class' => 'w-80'],
-            ['key' => 'database_names', 'label' => __('Databases'), 'sortable' => false],
             ['key' => 'backup', 'label' => __('Backup'), 'sortable' => false],
             ['key' => 'jobs', 'label' => __('Jobs'), 'sortable' => false, 'class' => 'w-32'],
         ];

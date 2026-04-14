@@ -1046,11 +1046,9 @@ class DatabaseServerForm extends Form
                         'form.backups' => __('Add at least one SQLite database path before testing the connection.'),
                     ]);
                 }
-                $rules = [];
                 if ($this->ssh_enabled) {
-                    $rules = array_merge($rules, $this->getSshValidationRules());
+                    $this->validate($this->getSshValidationRules());
                 }
-                $this->validate($rules);
             } elseif ($this->hasOptionalCredentials()) {
                 $this->validate([
                     'host' => 'required|string|max:255',

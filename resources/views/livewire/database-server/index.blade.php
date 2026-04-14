@@ -95,26 +95,6 @@
                 </div>
             @endscope
 
-            @scope('cell_database_names', $server)
-                @php
-                    $sqlitePaths = $server->database_type === \App\Enums\DatabaseType::SQLITE
-                        ? $server->backups->flatMap(fn ($b) => $b->database_names ?? [])->unique()->values()->all()
-                        : [];
-                @endphp
-                @if(count($sqlitePaths) > 0)
-                    @if(count($sqlitePaths) === 1)
-                        <span class="font-mono text-xs">{{ basename($sqlitePaths[0]) }}</span>
-                    @else
-                        <span class="font-mono text-xs" title="{{ implode(', ', $sqlitePaths) }}">
-                            {{ basename($sqlitePaths[0]) }}
-                            <span class="text-base-content/50">+{{ count($sqlitePaths) - 1 }}</span>
-                        </span>
-                    @endif
-                @else
-                    <span class="text-base-content/50">-</span>
-                @endif
-            @endscope
-
             @scope('cell_backup', $server)
                 @if(! $server->backups_enabled)
                     <span class="badge badge-warning badge-soft badge-xs gap-1">
@@ -124,9 +104,9 @@
                 @elseif($server->backups->isEmpty())
                     <span class="text-base-content/50">-</span>
                 @else
-                    <div class="space-y-1">
+                    <div class="space-y-2">
                         @foreach($server->backups as $backup)
-                            <div class="flex flex-col">
+                            <div>
                                 <div class="flex items-center gap-1.5 text-sm">
                                     <x-volume-type-icon :type="$backup->volume->type" class="w-3.5 h-3.5 text-base-content/70" />
                                     <span class="font-medium">{{ $backup->volume->name }}</span>
@@ -140,6 +120,29 @@
                                         <span class="text-xs text-base-content/50">({{ $backup->retention_days }}d)</span>
                                     @endif
                                 </div>
+                                @if($server->database_type === \App\Enums\DatabaseType::SQLITE)
+                                    @php $paths = $backup->database_names ?? []; @endphp
+                                    @if(count($paths) > 0)
+                                        <div class="ml-5 text-xs text-base-content/60 font-mono truncate max-w-xs" title="{{ implode(', ', $paths) }}">
+                                            └ {{ collect($paths)->map(fn ($p) => basename($p))->implode(', ') }}
+                                        </div>
+                                    @endif
+                                @elseif($backup->database_selection_mode === \App\Enums\DatabaseSelectionMode::All)
+                                    <div class="ml-5 text-xs text-base-content/60">
+                                        └ {{ __('All databases') }}
+                                    </div>
+                                @elseif($backup->database_selection_mode === \App\Enums\DatabaseSelectionMode::Selected)
+                                    @php $names = $backup->database_names ?? []; @endphp
+                                    @if(count($names) > 0)
+                                        <div class="ml-5 text-xs text-base-content/60 font-mono truncate max-w-xs" title="{{ implode(', ', $names) }}">
+                                            └ {{ implode(', ', $names) }}
+                                        </div>
+                                    @endif
+                                @elseif($backup->database_selection_mode === \App\Enums\DatabaseSelectionMode::Pattern)
+                                    <div class="ml-5 text-xs text-base-content/60 font-mono truncate max-w-xs" title="{{ $backup->database_include_pattern }}">
+                                        └ /{{ $backup->database_include_pattern }}/
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     </div>

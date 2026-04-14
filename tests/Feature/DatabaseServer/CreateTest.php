@@ -193,6 +193,53 @@ test('can test database connection', function (bool $success, string $message) {
     'failure' => [false, 'Connection refused'],
 ]);
 
+test('sqlite test connection fails when no paths provided', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'sqlite')
+        ->call('testConnection')
+        ->assertSet('form.connectionTestSuccess', false)
+        ->assertSet('form.connectionTestMessage', 'Add at least one SQLite database path before testing the connection.');
+});
+
+test('sqlite test connection succeeds with valid paths', function () {
+    $user = User::factory()->create();
+
+    $mock = Mockery::mock(DatabaseProvider::class);
+    $mock->shouldReceive('testConnectionForServer')
+        ->once()
+        ->andReturn(['success' => true, 'message' => 'Connection successful', 'details' => []]);
+    app()->instance(DatabaseProvider::class, $mock);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'sqlite')
+        ->set('form.backups.0.database_names.0', '/data/app.sqlite')
+        ->call('testConnection')
+        ->assertSet('form.connectionTestSuccess', true)
+        ->assertSet('form.connectionTestMessage', 'Connection successful');
+});
+
+test('sqlite test connection reports failure', function () {
+    $user = User::factory()->create();
+
+    $mock = Mockery::mock(DatabaseProvider::class);
+    $mock->shouldReceive('testConnectionForServer')
+        ->once()
+        ->andReturn(['success' => false, 'message' => 'File not found: /data/app.sqlite', 'details' => []]);
+    app()->instance(DatabaseProvider::class, $mock);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'sqlite')
+        ->set('form.backups.0.database_names.0', '/data/app.sqlite')
+        ->call('testConnection')
+        ->assertSet('form.connectionTestSuccess', false)
+        ->assertSet('form.connectionTestMessage', 'File not found: /data/app.sqlite');
+});
+
 test('can add and remove SQLite database paths', function () {
     $user = User::factory()->create();
 
