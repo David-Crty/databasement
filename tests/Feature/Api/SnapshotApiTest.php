@@ -54,6 +54,24 @@ test('authenticated users can filter snapshots by database name', function () {
         ->assertJsonPath('data.0.database_name', 'production_db');
 });
 
+test('authenticated users can filter snapshots by database server id', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $server1 = DatabaseServer::factory()->create(['database_names' => ['db_one']]);
+    $factory->createSnapshots($server1, 'manual');
+
+    $server2 = DatabaseServer::factory()->create(['database_names' => ['db_two']]);
+    $factory->createSnapshots($server2, 'manual');
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->getJson("/api/v1/snapshots?filter[database_server_id]={$server1->id}");
+
+    $response->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.server.id', $server1->id);
+});
+
 test('authenticated users can filter snapshots by database type', function () {
     $user = User::factory()->create();
     $factory = app(BackupJobFactory::class);

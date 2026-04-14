@@ -26,6 +26,7 @@ class SnapshotQuery
         return QueryBuilder::for(Snapshot::class)
             ->with(self::RELATIONSHIPS)
             ->allowedFilters([
+                AllowedFilter::exact('database_server_id'),
                 AllowedFilter::partial('database_name'),
                 AllowedFilter::exact('database_type'),
                 AllowedFilter::exact('method'),
