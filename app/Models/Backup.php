@@ -90,17 +90,28 @@ class Backup extends Model
 
     /**
      * One-line summary of the backup config for the index table, logs, and tooltips.
-     * Format: "Daily → S3 Prod · All databases · 30d"
+     *
+     * @param  bool  $toString  When false, returns an associative array of parts.
+     * @return ($toString is false ? array{schedule: string, volume: string, databases: string, retention: string} : string)
      */
-    public function getDisplayLabel(): string
+    public function getDisplayLabel(bool $toString = true): string|array
     {
         $parts = [
-            $this->backupSchedule->name.' → '.$this->volume->name,
-            $this->getDatabaseSummary(),
-            $this->getRetentionSummary(),
+            'schedule' => $this->backupSchedule->name,
+            'volume' => $this->volume->name,
+            'databases' => $this->getDatabaseSummary(),
+            'retention' => $this->getRetentionSummary(),
         ];
 
-        return implode(' · ', array_filter($parts));
+        if (! $toString) {
+            return $parts;
+        }
+
+        return implode(' · ', array_filter([
+            $parts['schedule'].' → '.$parts['volume'],
+            $parts['databases'],
+            $parts['retention'],
+        ]));
     }
 
     /**
