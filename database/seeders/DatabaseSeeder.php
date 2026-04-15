@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
 
         // Shared volume and schedule
         $volume = Volume::create([
-            'name' => 'Local Backups',
+            'name' => 'Local',
             'type' => 'local',
             'config' => ['path' => '/data/backups'],
         ]);

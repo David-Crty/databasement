@@ -15,6 +15,7 @@ use App\Models\NotificationChannel;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\SshTunnelService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Form;
@@ -880,9 +881,11 @@ class DatabaseServerForm extends Form
         $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
         DatabaseServer::buildExtraConfig($serverData);
 
-        $server = DatabaseServer::create($serverData);
-        $this->syncBackupConfigurations($server);
-        $this->syncNotificationChannels($server);
+        DB::transaction(function () use ($serverData): void {
+            $server = DatabaseServer::create($serverData);
+            $this->syncBackupConfigurations($server);
+            $this->syncNotificationChannels($server);
+        });
 
         return true;
     }
@@ -909,9 +912,11 @@ class DatabaseServerForm extends Form
         $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
         DatabaseServer::buildExtraConfig($serverData, $this->server->extra_config, $this->server->database_type->value);
 
-        $this->server->update($serverData);
-        $this->syncBackupConfigurations($this->server);
-        $this->syncNotificationChannels($this->server);
+        DB::transaction(function () use ($serverData): void {
+            $this->server->update($serverData);
+            $this->syncBackupConfigurations($this->server);
+            $this->syncNotificationChannels($this->server);
+        });
 
         return true;
     }

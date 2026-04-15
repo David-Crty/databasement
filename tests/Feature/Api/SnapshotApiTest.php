@@ -59,10 +59,10 @@ test('authenticated users can filter snapshots by database server id', function 
     $factory = app(BackupJobFactory::class);
 
     $server1 = DatabaseServer::factory()->create(['database_names' => ['db_one']]);
-    $factory->createSnapshots($server1, 'manual');
+    $factory->createSnapshots($server1->backups->first(), 'manual');
 
     $server2 = DatabaseServer::factory()->create(['database_names' => ['db_two']]);
-    $factory->createSnapshots($server2, 'manual');
+    $factory->createSnapshots($server2->backups->first(), 'manual');
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson("/api/v1/snapshots?filter[database_server_id]={$server1->id}");

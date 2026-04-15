@@ -109,7 +109,9 @@ class SaveDatabaseServerRequest extends FormRequest
                 return;
             }
 
-            $isAgent = $this->filled('agent_id');
+            $isAgent = $this->has('agent_id')
+                ? $this->filled('agent_id')
+                : ($existing?->agent_id !== null);
 
             foreach ($backups as $index => $backup) {
                 $this->validateBackupEntry($validator, $index, is_array($backup) ? $backup : [], $isAgent);
