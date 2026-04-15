@@ -183,7 +183,11 @@ should render deployment with default values:
               volumeMounts:
                 - mountPath: /data
                   name: data
-          securityContext: {}
+          securityContext:
+            fsGroup: 1000
+            fsGroupChangePolicy: OnRootMismatch
+            runAsGroup: 1000
+            runAsUser: 1000
           serviceAccountName: default
           volumes:
             - name: data
@@ -407,7 +411,11 @@ should render deployment with mysql database:
               volumeMounts:
                 - mountPath: /data
                   name: data
-          securityContext: {}
+          securityContext:
+            fsGroup: 1000
+            fsGroupChangePolicy: OnRootMismatch
+            runAsGroup: 1000
+            runAsUser: 1000
           serviceAccountName: default
           volumes:
             - name: data

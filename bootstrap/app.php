@@ -55,5 +55,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->renderable(function (\Illuminate\Contracts\Encryption\DecryptException $e, $request) {
+            if ($request->is('two-factor-challenge')) {
+                return redirect()->route('login')->withErrors([
+                    'email' => __('Your session or encryption key has changed. Please log in again. If this persists, your APP_KEY may have changed since two-factor authentication was set up.'),
+                ]);
+            }
+        });
     })->create();
