@@ -32,19 +32,30 @@ class VersionStatus extends Component
     #[Locked]
     public ?string $currentVersion = null;
 
-    #[Locked]
-    public ?string $currentReleaseUrl = null;
-
     public function mount(): void
     {
-        $version = config('app.version');
-        $this->currentVersion = $version ? 'v'.$version : null;
-        $this->currentReleaseUrl = $this->currentVersion ? $this->releaseUrl($this->currentVersion) : null;
-        $this->loadLatestRelease();
+        $this->getCurrentVersion();
+
+        if (config('app.version')) {
+            $this->loadLatestRelease();
+        }
+    }
+
+    private function getCurrentVersion(): void
+    {
+        if ($version = config('app.version')) {
+            $this->currentVersion = str_starts_with($version, 'v') ? $version : 'v'.$version;
+        } elseif (config('app.commit_hash')) {
+            $this->currentVersion = config('app.commit_hash');
+        } elseif ($gitHash = $this->getGitShortHash()) {
+            $this->currentVersion = $gitHash;
+        }
     }
 
     public function placeholder(): View
     {
+        $this->getCurrentVersion();
+
         return view('livewire.version-status-placeholder');
     }
 
@@ -97,5 +108,16 @@ class VersionStatus extends Component
         $path = trim(str_replace('https://github.com/', '', $repo), '/');
 
         return "https://api.github.com/repos/{$path}/releases/latest";
+    }
+
+    private function getGitShortHash(): ?string
+    {
+        $command = 'rev-parse --short HEAD';
+
+        $output = [];
+        $exitCode = 0;
+        exec('git -C '.escapeshellarg(base_path())." {$command} 2>/dev/null", $output, $exitCode);
+
+        return $exitCode === 0 && ! empty($output[0]) ? trim($output[0]) : null;
     }
 }

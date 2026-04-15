@@ -18,7 +18,6 @@
         <button
             wire:click="open"
             class="inline-flex items-center gap-1.5 text-sm text-base-content/60 hover:text-base-content transition-colors cursor-pointer"
-            title="{{ __('Up to date') }}"
         >
             @if($latestVersion === $currentVersion)
                 <span class="flex h-1.5 w-1.5 shrink-0">
