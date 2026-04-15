@@ -1,6 +1,6 @@
 <div class="inline-flex">
     {{-- Footer trigger --}}
-    @if($latestVersion && $currentVersion && $latestVersion !== $currentVersion)
+    @if($latestVersion && $currentVersion && $latestVersion !== $currentVersion && $isAppVersion)
         {{-- Update available — eye-catching pill --}}
         <button
             wire:click="open"
@@ -47,11 +47,18 @@
             </x-alert>
         @elseif($latestVersion && $currentVersion)
             <x-alert icon="o-arrow-path" class="alert-warning mb-4">
-                {{ __('Update available:') }}
-                <span class="font-mono">{{ $currentVersion }}</span>
-                <x-icon name="o-arrow-right" class="w-3.5 h-3.5 inline" />
-                <a href="{{ $releaseUrl }}" target="_blank" rel="noopener" class="font-mono font-bold link">{{ $latestVersion }}</a>
+                <span class="inline-flex items-center gap-1.5 flex-wrap">
+                    {{ __('Update available:') }}
+                    <span class="font-mono">{{ $currentVersion }}</span>
+                    <x-icon name="o-arrow-right" class="w-3.5 h-3.5" />
+                    <a href="{{ $releaseUrl }}" target="_blank" rel="noopener" class="font-mono font-bold link">{{ $latestVersion }}</a>
+                </span>
             </x-alert>
+            @unless($isAppVersion)
+                <x-alert icon="o-information-circle" class="alert-info mb-4">
+                    {{ __('You are not using a version tag. Consider using docker tag "1" instead of "latest" for reliable update detection.') }}
+                </x-alert>
+            @endunless
         @elseif($latestVersion && !$currentVersion)
             <x-alert icon="o-exclamation-triangle" class="alert-warning mb-4">
                 {{ __('Could not determine current version.') }}

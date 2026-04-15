@@ -32,11 +32,14 @@ class VersionStatus extends Component
     #[Locked]
     public ?string $currentVersion = null;
 
+    #[Locked]
+    public bool $isAppVersion = false;
+
     public function mount(): void
     {
         $this->getCurrentVersion();
 
-        if (config('app.version')) {
+        if ($this->currentVersion) {
             $this->loadLatestRelease();
         }
     }
@@ -45,6 +48,7 @@ class VersionStatus extends Component
     {
         if ($version = config('app.version')) {
             $this->currentVersion = str_starts_with($version, 'v') ? $version : 'v'.$version;
+            $this->isAppVersion = true;
         } elseif (config('app.commit_hash')) {
             $this->currentVersion = substr(config('app.commit_hash'), 0, 7);
         } elseif ($gitHash = $this->getGitShortHash()) {
@@ -110,7 +114,7 @@ class VersionStatus extends Component
         return "https://api.github.com/repos/{$path}/releases/latest";
     }
 
-    private function getGitShortHash(): ?string
+    protected function getGitShortHash(): ?string
     {
         $command = 'rev-parse --short HEAD';
 

@@ -6,6 +6,14 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
+class VersionStatusWithoutGit extends VersionStatus
+{
+    protected function getGitShortHash(): ?string
+    {
+        return null;
+    }
+}
+
 beforeEach(function () {
     config(['app.version' => null, 'app.commit_hash' => null]);
     Cache::forget('github_latest_release');
@@ -48,7 +56,7 @@ test('no version set: shows plain link and does not fetch github api', function 
     Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.2.0'])]);
 
     Livewire::actingAs(User::factory()->create())
-        ->test(VersionStatus::class)
+        ->test(VersionStatusWithoutGit::class)
         ->assertSee(__('How to update?'))
         ->assertSet('latestVersion', null);
 
