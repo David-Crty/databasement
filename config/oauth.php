@@ -81,14 +81,14 @@ return [
             'enabled' => env('OAUTH_GOOGLE_ENABLED', false),
             'client_id' => env('OAUTH_GOOGLE_CLIENT_ID'),
             'client_secret' => env('OAUTH_GOOGLE_CLIENT_SECRET'),
-            'icon' => 'fab-google',
+            'icon' => 'bi.google',
             'label' => 'Google',
         ],
         'github' => [
             'enabled' => env('OAUTH_GITHUB_ENABLED', false),
             'client_id' => env('OAUTH_GITHUB_CLIENT_ID'),
             'client_secret' => env('OAUTH_GITHUB_CLIENT_SECRET'),
-            'icon' => 'fab-github',
+            'icon' => 'bi.github',
             'label' => 'GitHub',
         ],
         'gitlab' => [
@@ -96,7 +96,7 @@ return [
             'client_id' => env('OAUTH_GITLAB_CLIENT_ID'),
             'client_secret' => env('OAUTH_GITLAB_CLIENT_SECRET'),
             'host' => env('OAUTH_GITLAB_HOST', 'https://gitlab.com'),
-            'icon' => 'fab-gitlab',
+            'icon' => 'bi.gitlab',
             'label' => 'GitLab',
         ],
         'oidc' => [

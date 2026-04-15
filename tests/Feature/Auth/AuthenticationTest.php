@@ -92,6 +92,28 @@ test('users with two factor enabled are redirected to two factor challenge', fun
     $this->assertGuest();
 });
 
+test('login screen renders oauth provider button when enabled', function (string $provider, string $label) {
+    User::factory()->create();
+
+    config()->set("oauth.providers.{$provider}.enabled", true);
+    config()->set("oauth.providers.{$provider}.client_id", 'test');
+    config()->set("oauth.providers.{$provider}.client_secret", 'test');
+
+    if ($provider === 'oidc') {
+        config()->set('oauth.providers.oidc.base_url', 'https://idp.example.com');
+    }
+
+    $response = $this->get(route('login'));
+
+    $response->assertStatus(200);
+    $response->assertSeeText("Continue with {$label}");
+})->with([
+    'google' => ['google', 'Google'],
+    'github' => ['github', 'GitHub'],
+    'gitlab' => ['gitlab', 'GitLab'],
+    'oidc' => ['oidc', 'SSO'],
+]);
+
 test('users can logout', function () {
     $user = User::factory()->create();
 

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "a71d1158c3c2a6a197bd13af03f954e4",
+    "content-hash": "ce0db25f07a344522125bb77c747a253",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -4803,66 +4803,6 @@
                 }
             ],
             "time": "2026-02-16T23:10:27+00:00"
-        },
-        {
-            "name": "owenvoke/blade-fontawesome",
-            "version": "v2.9.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/owenvoke/blade-fontawesome.git",
-                "reference": "94dcd0c78f43f8234b0d9c76c903ecd288b8b0d1"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/owenvoke/blade-fontawesome/zipball/94dcd0c78f43f8234b0d9c76c903ecd288b8b0d1",
-                "reference": "94dcd0c78f43f8234b0d9c76c903ecd288b8b0d1",
-                "shasum": ""
-            },
-            "require": {
-                "blade-ui-kit/blade-icons": "^1.5",
-                "illuminate/support": "^10.34|^11.0|^12.0",
-                "php": "^8.1"
-            },
-            "require-dev": {
-                "laravel/pint": "^1.13",
-                "orchestra/testbench": "^8.12|^9.0|^10.0",
-                "pestphp/pest": "^2.26|^3.7",
-                "phpstan/phpstan": "^1.10|^2.1",
-                "symfony/var-dumper": "^6.3|^7.2"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "OwenVoke\\BladeFontAwesome\\BladeFontAwesomeServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "OwenVoke\\BladeFontAwesome\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "description": "A package to easily make use of Font Awesome in your Laravel Blade views",
-            "support": {
-                "issues": "https://github.com/owenvoke/blade-fontawesome/issues",
-                "source": "https://github.com/owenvoke/blade-fontawesome/tree/v2.9.1"
-            },
-            "funding": [
-                {
-                    "url": "https://ecologi.com/owenvoke?gift-trees",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/owenvoke",
-                    "type": "github"
-                }
-            ],
-            "time": "2025-03-28T16:03:42+00:00"
         },
         {
             "name": "paragonie/constant_time_encoding",

@@ -35,7 +35,6 @@
         "livewire/livewire": "^4.0",
         "lorisleiva/cron-translator": "^0.5.0",
         "mongodb/mongodb": "^2.2",
-        "owenvoke/blade-fontawesome": "^2.7",
         "robsontenorio/mary": "^2.4",
         "spatie/laravel-query-builder": "^6.3"
     },

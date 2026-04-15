@@ -107,7 +107,7 @@
                         <a href="https://crty.dev" target="_blank" rel="noopener" class="link link-hover">David-Crty</a>
                     </span>
                     <a href="{{ $githubRepo }}" target="_blank" rel="noopener" class="link link-hover flex items-center gap-1">
-                        <x-fab-github class="w-4 h-4" />
+                        <x-bi-github class="w-4 h-4" />
                         {{ $githubRepoShort }}
                     </a>
                 </div>
