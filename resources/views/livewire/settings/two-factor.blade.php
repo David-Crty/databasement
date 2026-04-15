@@ -123,43 +123,25 @@
                 <div class="space-y-4">
                     <div class="divider text-sm">{{ __('or, enter the code manually') }}</div>
 
-                    <div
-                        class="flex items-center space-x-2"
-                        x-data="{
-                            copied: false,
-                            async copy() {
-                                try {
-                                    await navigator.clipboard.writeText('{{ $manualSetupKey }}');
-                                    this.copied = true;
-                                    setTimeout(() => this.copied = false, 1500);
-                                } catch (e) {
-                                    console.warn('Could not copy to clipboard');
-                                }
-                            }
-                        }"
-                    >
-                        <div class="flex items-stretch w-full border rounded-xl border-base-300">
-                            @empty($manualSetupKey)
-                                <div class="flex items-center justify-center w-full p-3 bg-base-200">
-                                    <span class="loading loading-spinner loading-sm"></span>
-                                </div>
-                            @else
-                                <input
-                                    type="text"
-                                    readonly
-                                    value="{{ $manualSetupKey }}"
-                                    class="input input-bordered w-full border-0"
-                                />
+                    <div class="flex items-stretch w-full border rounded-xl border-base-300">
+                        @empty($manualSetupKey)
+                            <div class="flex items-center justify-center w-full p-3 bg-base-200">
+                                <span class="loading loading-spinner loading-sm"></span>
+                            </div>
+                        @else
+                            <input
+                                type="text"
+                                readonly
+                                value="{{ $manualSetupKey }}"
+                                class="input input-bordered w-full border-0"
+                            />
 
-                                <button
-                                    @click="copy()"
-                                    class="btn btn-ghost px-3"
-                                >
-                                    <x-icon x-show="!copied" name="o-document-duplicate" class="w-5 h-5" />
-                                    <x-icon x-show="copied" name="o-check" class="w-5 h-5 text-success" />
-                                </button>
-                            @endempty
-                        </div>
+                            <x-button
+                                icon="o-clipboard-document"
+                                class="btn-ghost px-3"
+                                x-clipboard="$wire.manualSetupKey"
+                            />
+                        @endempty
                     </div>
                 </div>
             @endif

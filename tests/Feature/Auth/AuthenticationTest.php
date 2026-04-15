@@ -92,6 +92,35 @@ test('users with two factor enabled are redirected to two factor challenge', fun
     $this->assertGuest();
 });
 
+test('two factor challenge with invalid encryption key redirects to login', function () {
+    if (! Features::canManageTwoFactorAuthentication()) {
+        $this->markTestSkipped('Two-factor authentication is not enabled.');
+    }
+
+    Features::twoFactorAuthentication([
+        'confirm' => true,
+        'confirmPassword' => true,
+    ]);
+
+    $user = User::factory()->create();
+
+    // Login to trigger 2FA challenge
+    $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    // Corrupt the two_factor_secret to simulate an APP_KEY change
+    $user->update(['two_factor_secret' => 'corrupted-encrypted-value']);
+
+    $response = $this->post(route('two-factor.login.store'), [
+        'code' => '123456',
+    ]);
+
+    $response->assertRedirect(route('login'));
+    $response->assertSessionHasErrors('email');
+});
+
 test('login screen renders oauth provider button when enabled', function (string $provider, string $label) {
     User::factory()->create();
 
