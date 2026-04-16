@@ -3,6 +3,7 @@
 namespace App\Livewire\User;
 
 use App\Models\User;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
@@ -10,7 +11,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Mary\Traits\Toast;
 
 #[Title('Users')]
 class Index extends Component
@@ -57,7 +57,7 @@ class Index extends Component
     {
         $this->reset(['search', 'roleFilter', 'statusFilter']);
         $this->resetPage();
-        $this->success('Filters cleared.', position: 'toast-bottom');
+        $this->success(__('Filters cleared.'));
     }
 
     /**
@@ -131,7 +131,7 @@ class Index extends Component
         $this->deleteId = null;
         $this->showDeleteModal = false;
 
-        $this->success('User deleted successfully.', position: 'toast-bottom');
+        $this->success(__('User deleted successfully.'));
     }
 
     public function render(): View

@@ -5,11 +5,6 @@
         </x-slot:actions>
     </x-header>
 
-    @if (session('status'))
-        <x-alert class="alert-success mb-6" icon="o-check-circle" dismissible>
-            {{ session('status') }}
-        </x-alert>
-    @endif
 
     <x-card class="space-y-6">
         <form wire:submit="save" class="space-y-6">

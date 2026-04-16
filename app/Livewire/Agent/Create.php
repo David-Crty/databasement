@@ -5,18 +5,16 @@ namespace App\Livewire\Agent;
 use App\Livewire\Concerns\HasAgentToken;
 use App\Livewire\Forms\AgentForm;
 use App\Models\Agent;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Mary\Traits\Toast;
 
 #[Title('Create Agent')]
 class Create extends Component
 {
-    use AuthorizesRequests;
-    use HasAgentToken;
-    use Toast;
+    use AuthorizesRequests, HasAgentToken, Toast;
 
     public AgentForm $form;
 
@@ -39,8 +37,10 @@ class Create extends Component
     {
         $this->resetTokenModal();
 
-        session()->flash('status', 'Agent created successfully!');
-        $this->redirect(route('agents.index'), navigate: true);
+        $this->success(
+            title: __('Agent created successfully!'),
+            redirectTo: route('agents.index')
+        );
     }
 
     public function render(): View

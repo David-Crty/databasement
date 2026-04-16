@@ -4,18 +4,17 @@ namespace App\Livewire\DatabaseServer;
 
 use App\Livewire\Forms\DatabaseServerForm;
 use App\Models\DatabaseServer;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Mary\Traits\Toast;
 
 #[Title('Edit Database Server')]
 class Edit extends Component
 {
-    use AuthorizesRequests;
-    use Toast;
+    use AuthorizesRequests, Toast;
 
     public DatabaseServerForm $form;
 
@@ -29,16 +28,19 @@ class Edit extends Component
     public function save(): void
     {
         if (Gate::denies('update', $this->form->server)) {
-            session()->flash('demo_notice', __('Demo mode is enabled. Changes cannot be saved.'));
-            $this->redirect(route('database-servers.index'), navigate: true);
+            $this->warning(
+                title: __('Demo mode is enabled. Changes cannot be saved.'),
+                redirectTo: route('database-servers.index'),
+            );
 
             return;
         }
 
         if ($this->form->update()) {
-            session()->flash('status', 'Database server updated successfully!');
-
-            $this->redirect(route('database-servers.index'), navigate: true);
+            $this->success(
+                title: __('Database server updated successfully!'),
+                redirectTo: route('database-servers.index'),
+            );
         }
     }
 
@@ -74,12 +76,12 @@ class Edit extends Component
 
     public function refreshVolumes(): void
     {
-        $this->success(__('Volume list refreshed.'), position: 'toast-bottom');
+        $this->success(__('Volume list refreshed.'));
     }
 
     public function refreshSchedules(): void
     {
-        $this->success(__('Schedule list refreshed.'), position: 'toast-bottom');
+        $this->success(__('Schedule list refreshed.'));
     }
 
     public function loadDatabases(): void

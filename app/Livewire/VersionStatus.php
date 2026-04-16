@@ -8,13 +8,10 @@ use Illuminate\Support\Facades\Http;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
-use Mary\Traits\Toast;
 
 #[Lazy]
 class VersionStatus extends Component
 {
-    use Toast;
-
     public bool $showModal = false;
 
     public string $dockerComposeCommand = "docker compose pull\ndocker compose up -d";

@@ -7,6 +7,7 @@ use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\TriggerBackupAction;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\View as ViewFacade;
@@ -15,7 +16,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Mary\Traits\Toast;
 
 #[Title('Database Servers')]
 class Index extends Component
@@ -61,7 +61,7 @@ class Index extends Component
     {
         $this->reset('search');
         $this->resetPage();
-        $this->success('Filters cleared.', position: 'toast-bottom');
+        $this->success(__('Filters cleared.'));
     }
 
     /**
@@ -103,7 +103,7 @@ class Index extends Component
         $this->deleteId = null;
         $this->showDeleteModal = false;
 
-        $this->success('Database server deleted successfully!', position: 'toast-bottom');
+        $this->success(__('Database server deleted successfully!'));
     }
 
     public function confirmRestore(string $id): void
@@ -115,7 +115,7 @@ class Index extends Component
         $this->restoreId = $id;
 
         if ($server->agent_id) {
-            $this->error(__('Restore is not yet supported for agent-backed servers.'), position: 'toast-bottom');
+            $this->error(__('Restore is not yet supported for agent-backed servers.'));
 
             return;
         }
@@ -148,11 +148,11 @@ class Index extends Component
             }
         }
         foreach ($success as $message) {
-            $this->success($message, position: 'toast-bottom');
+            $this->success($message);
         }
 
         foreach ($failures as $message) {
-            $this->error($message, position: 'toast-bottom');
+            $this->error($message);
         }
     }
 

@@ -1,4 +1,8 @@
 <div wire:poll.5s>
+    @if($errorMessage)
+        <x-alert title="{{ $errorMessage }}" class="alert-error mb-4" icon="o-x-circle" />
+    @endif
+
     <!-- HEADER with filters (Desktop) -->
     <x-header title="{{ __('Jobs') }}" separator progress-indicator>
         <x-slot:actions>
@@ -8,11 +12,6 @@
         </x-slot:actions>
     </x-header>
 
-    @if (session('error'))
-        <x-alert class="alert-error mb-4" icon="o-exclamation-circle" dismissible>
-            {{ session('error') }}
-        </x-alert>
-    @endif
 
     <!-- FILTERS (Tablet & Mobile) -->
     <div class="lg:hidden mb-4" x-data="{ showFilters: false }">

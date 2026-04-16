@@ -9,6 +9,7 @@ use App\Models\Snapshot;
 use App\Queries\SnapshotQuery;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Traits\Toast;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,7 +19,6 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Mary\Traits\Toast;
 
 class RestoreModal extends Component
 {
@@ -188,13 +188,14 @@ class RestoreModal extends Component
 
             ProcessRestoreJob::dispatch($restore->id);
 
-            $this->success('Restore started successfully!');
+            $this->success(__('Restore started successfully!'));
 
             $this->showModal = false;
 
             $this->dispatch('restore-completed');
         } catch (\Exception $e) {
-            $this->error('Failed to queue restore: '.$e->getMessage());
+            report($e);
+            $this->error(__('Failed to queue restore. Please try again.'));
         }
     }
 

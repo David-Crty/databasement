@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -9,6 +10,8 @@ use Livewire\Component;
 #[Title('Appearance & Language')]
 class Preferences extends Component
 {
+    use Toast;
+
     public string $locale = '';
 
     public string $theme = 'dark';
@@ -33,7 +36,10 @@ class Preferences extends Component
 
         cookie()->queue('locale', $locale, 60 * 24 * 365);
 
-        $this->redirect(route('preferences.edit'), navigate: true);
+        $this->success(
+            title: __('Preference saved successfully!'),
+            redirectTo: route('preferences.edit')
+        );
     }
 
     public function setTheme(string $theme): void

@@ -1,11 +1,6 @@
 <div>
     <x-header title="{{ __('Edit Volume') }}" subtitle="{{ __('Update storage volume configuration') }}" size="text-2xl" separator class="mb-6" />
 
-    @if (session('status'))
-        <x-alert class="alert-success mb-6" icon="o-check-circle" dismissible>
-            {{ session('status') }}
-        </x-alert>
-    @endif
 
     @if($hasSnapshots)
         <x-alert class="alert-warning mb-6" icon="o-lock-closed">

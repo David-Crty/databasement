@@ -3,6 +3,7 @@
 namespace App\Livewire\Settings;
 
 use App\Livewire\Actions\Logout;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Validate;
@@ -10,6 +11,8 @@ use Livewire\Component;
 
 class DeleteUserForm extends Component
 {
+    use Toast;
+
     #[Validate('required|string|current_password')]
     public string $password = '';
 
@@ -21,7 +24,10 @@ class DeleteUserForm extends Component
 
         tap(Auth::user(), $logout(...))->delete();
 
-        $this->redirect('/', navigate: true);
+        $this->success(
+            title: __('Your account has been deleted.'),
+            redirectTo: '/'
+        );
     }
 
     public function render(): View

@@ -2,9 +2,9 @@
 
 namespace App\Livewire\Settings;
 
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Title;
@@ -13,6 +13,8 @@ use Livewire\Component;
 #[Title('Password')]
 class Password extends Component
 {
+    use Toast;
+
     public string $current_password = '';
 
     public string $password = '';
@@ -46,7 +48,7 @@ class Password extends Component
 
         $this->reset('current_password', 'password', 'password_confirmation');
 
-        Session::flash('success', __('Password updated successfully.'));
+        $this->success(__('Password updated successfully.'));
     }
 
     public function render(): View

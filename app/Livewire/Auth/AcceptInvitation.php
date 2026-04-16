@@ -3,6 +3,7 @@
 namespace App\Livewire\Auth;
 
 use App\Models\User;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
@@ -11,6 +12,8 @@ use Livewire\Component;
 
 class AcceptInvitation extends Component
 {
+    use Toast;
+
     public User $user;
 
     public string $token;
@@ -47,7 +50,10 @@ class AcceptInvitation extends Component
 
         Auth::login($this->user);
 
-        $this->redirect(route('dashboard'), navigate: true);
+        $this->success(
+            title: __('Welcome! Your account is ready.'),
+            redirectTo: route('dashboard')
+        );
     }
 
     #[Layout('layouts::auth')]

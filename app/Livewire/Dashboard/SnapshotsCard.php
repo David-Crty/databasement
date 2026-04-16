@@ -4,12 +4,12 @@ namespace App\Livewire\Dashboard;
 
 use App\Jobs\VerifySnapshotFileJob;
 use App\Models\Snapshot;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\On;
 use Livewire\Component;
-use Mary\Traits\Toast;
 use Symfony\Component\HttpFoundation\Response;
 
 #[Lazy]
@@ -55,14 +55,14 @@ class SnapshotsCard extends Component
         $lock = Cache::lock('verify-snapshot-files', 300);
 
         if (! $lock->get()) {
-            $this->warning(__('File verification is already running.'), position: 'toast-bottom');
+            $this->warning(__('File verification is already running.'));
 
             return;
         }
 
         VerifySnapshotFileJob::dispatch();
 
-        $this->success(__('File verification job dispatched.'), position: 'toast-bottom');
+        $this->success(__('File verification job dispatched.'));
     }
 
     public function render(): View

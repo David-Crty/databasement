@@ -79,18 +79,6 @@
             <x-alert :title="__('You\'re in demo mode. Some data modifications are disabled.')" class="alert-warning mb-4" icon="o-eye" />
         @endif
 
-        @if (session('status'))
-            <x-alert class="alert-success mb-4" icon="o-check-circle" dismissible>
-                {{ session('status') }}
-            </x-alert>
-        @endif
-
-        @if (session('demo_notice'))
-            <x-alert class="alert-warning mb-4" icon="o-exclamation-triangle" dismissible>
-                {{ session('demo_notice') }}
-            </x-alert>
-        @endif
-
         {{ $slot }}
 
         {{-- FOOTER --}}

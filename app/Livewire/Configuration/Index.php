@@ -11,6 +11,7 @@ use App\Models\BackupSchedule;
 use App\Models\NotificationChannel;
 use App\Services\Backup\TriggerBackupAction;
 use App\Services\NotificationService;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Log;
@@ -19,7 +20,6 @@ use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Mary\Traits\Toast;
 use Symfony\Component\HttpFoundation\Response;
 
 #[Title('Configuration')]
@@ -157,7 +157,7 @@ class Index extends Component
         $this->form->saveBackup();
 
         if ($this->restartScheduler()) {
-            $this->success(__('Backup configuration saved.'), position: 'toast-bottom');
+            $this->success(__('Backup configuration saved.'));
         }
     }
 
@@ -167,7 +167,7 @@ class Index extends Component
 
         CleanupExpiredSnapshotsJob::dispatch();
 
-        $this->success(__('Snapshot cleanup job dispatched.'), position: 'toast-bottom');
+        $this->success(__('Snapshot cleanup job dispatched.'));
     }
 
     public function runVerifyFiles(): void
@@ -176,7 +176,7 @@ class Index extends Component
 
         VerifySnapshotFileJob::dispatch();
 
-        $this->success(__('Snapshot file verification job dispatched.'), position: 'toast-bottom');
+        $this->success(__('Snapshot file verification job dispatched.'));
     }
 
     // --- Backup Schedules ---
@@ -225,7 +225,7 @@ class Index extends Component
         $this->form->resetScheduleFields();
 
         if ($this->restartScheduler()) {
-            $this->success(__('Backup schedule saved.'), position: 'toast-bottom');
+            $this->success(__('Backup schedule saved.'));
         }
     }
 
@@ -246,7 +246,7 @@ class Index extends Component
         $schedule = BackupSchedule::withCount('backups')->findOrFail($this->deleteScheduleId);
 
         if ($schedule->backups_count > 0) {
-            $this->error(__('Cannot delete a schedule that is in use by database servers.'), position: 'toast-bottom');
+            $this->error(__('Cannot delete a schedule that is in use by database servers.'));
             $this->showDeleteScheduleModal = false;
             $this->deleteScheduleId = null;
 
@@ -258,7 +258,7 @@ class Index extends Component
         $this->deleteScheduleId = null;
 
         if ($this->restartScheduler()) {
-            $this->success(__('Backup schedule deleted.'), position: 'toast-bottom');
+            $this->success(__('Backup schedule deleted.'));
         }
     }
 
@@ -288,13 +288,12 @@ class Index extends Component
 
         if ($totalSnapshots > 0) {
             $this->success(
-                trans_choice(':count backup started successfully!|:count backups started successfully!', $totalSnapshots),
-                position: 'toast-bottom'
+                trans_choice(':count backup started successfully!|:count backups started successfully!', $totalSnapshots)
             );
         }
 
         if (! empty($errors)) {
-            $this->error(implode('; ', $errors), position: 'toast-bottom');
+            $this->error(implode('; ', $errors));
         }
     }
 
@@ -330,7 +329,7 @@ class Index extends Component
         $this->editingChannelId = null;
         $this->channelForm->resetFields();
 
-        $this->success(__('Notification channel saved.'), position: 'toast-bottom');
+        $this->success(__('Notification channel saved.'));
     }
 
     public function confirmDeleteChannel(string $channelId): void
@@ -351,7 +350,7 @@ class Index extends Component
         $this->showDeleteChannelModal = false;
         $this->deleteChannelId = null;
 
-        $this->success(__('Notification channel deleted.'), position: 'toast-bottom');
+        $this->success(__('Notification channel deleted.'));
     }
 
     public function sendTestNotification(string $channelId): void
@@ -363,9 +362,12 @@ class Index extends Component
         try {
             app(NotificationService::class)->sendTestNotification($channel);
 
-            $this->success(__('Test notification sent to: :channel', ['channel' => $channel->name]), position: 'toast-bottom');
+            $this->success(__('Test notification sent to: :channel', ['channel' => $channel->name]));
         } catch (\Throwable $e) {
-            $this->error(__('Failed to send test notification: :message', ['message' => $e->getMessage()]), position: 'toast-bottom', timeout: 0);
+            $this->error(
+                title: __('Failed to send test notification: :message', ['message' => $e->getMessage()]),
+                timeout: 0
+            );
         }
     }
 
@@ -431,7 +433,10 @@ class Index extends Component
                 'exit_code' => $result->exitCode(),
                 'error' => $result->errorOutput(),
             ]);
-            $this->warning(__('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'), position: 'toast-bottom', timeout: 6000);
+            $this->warning(
+                title: __('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'),
+                timeout: 6000
+            );
 
             return false;
         }

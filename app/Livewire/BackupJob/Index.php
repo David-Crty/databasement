@@ -6,6 +6,7 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\BackupJobQuery;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
@@ -13,7 +14,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Mary\Traits\Toast;
 
 #[Title('Jobs')]
 class Index extends Component
@@ -43,6 +43,8 @@ class Index extends Component
     #[Url(as: 'job')]
     public ?string $selectedJobId = null;
 
+    public ?string $errorMessage = null;
+
     #[Locked]
     public ?string $deleteSnapshotId = null;
 
@@ -60,7 +62,7 @@ class Index extends Component
             $job = BackupJob::find($this->selectedJobId);
 
             if (! $job) {
-                session()->flash('error', __('Job not found: ').$this->selectedJobId);
+                $this->errorMessage = __('Job not found: ').$this->selectedJobId;
                 $this->selectedJobId = null;
 
                 return;
@@ -111,7 +113,7 @@ class Index extends Component
     {
         $this->reset('search', 'statusFilter', 'typeFilter', 'serverFilter', 'fileMissing');
         $this->resetPage();
-        $this->success('Filters cleared.', position: 'toast-bottom');
+        $this->success(__('Filters cleared.'));
     }
 
     /**
@@ -228,7 +230,7 @@ class Index extends Component
         $this->deleteSnapshotId = null;
         $this->showDeleteModal = false;
 
-        $this->success(__('Snapshot deleted successfully!'), position: 'toast-bottom');
+        $this->success(__('Snapshot deleted successfully!'));
     }
 
     public function deletePendingJob(): void
@@ -240,7 +242,7 @@ class Index extends Component
         $job = BackupJob::findOrFail($this->cancelJobId);
 
         if ($job->status !== 'pending') {
-            $this->error(__('Job is no longer pending and cannot be deleted.'), position: 'toast-bottom');
+            $this->error(__('Job is no longer pending and cannot be deleted.'));
             $this->showDeleteModal = false;
 
             return;
@@ -252,7 +254,7 @@ class Index extends Component
         $this->cancelJobId = null;
         $this->showDeleteModal = false;
 
-        $this->success(__('Job deleted successfully!'), position: 'toast-bottom');
+        $this->success(__('Job deleted successfully!'));
     }
 
     public function render(): View

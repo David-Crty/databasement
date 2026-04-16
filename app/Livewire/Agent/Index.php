@@ -4,6 +4,7 @@ namespace App\Livewire\Agent;
 
 use App\Models\Agent;
 use App\Queries\AgentQuery;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
@@ -11,7 +12,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Mary\Traits\Toast;
 
 #[Title('Agents')]
 class Index extends Component
@@ -50,7 +50,7 @@ class Index extends Component
     {
         $this->reset('search');
         $this->resetPage();
-        $this->success('Filters cleared.', position: 'toast-bottom');
+        $this->success(__('Filters cleared.'));
     }
 
     /**
@@ -92,7 +92,7 @@ class Index extends Component
         $this->deleteId = null;
         $this->showDeleteModal = false;
 
-        $this->success('Agent deleted successfully!', position: 'toast-bottom');
+        $this->success(__('Agent deleted successfully!'));
     }
 
     public function render(): View

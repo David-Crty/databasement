@@ -3,9 +3,9 @@
 namespace App\Livewire\Settings;
 
 use App\Models\User;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -13,6 +13,8 @@ use Livewire\Component;
 #[Title('Profile')]
 class Profile extends Component
 {
+    use Toast;
+
     public string $name = '';
 
     public string $email = '';
@@ -43,7 +45,7 @@ class Profile extends Component
 
         $user->save();
 
-        Session::flash('success', __('Profile updated successfully.'));
+        $this->success(__('Profile updated successfully.'));
     }
 
     public function render(): View

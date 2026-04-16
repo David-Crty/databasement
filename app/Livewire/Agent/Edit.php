@@ -5,18 +5,16 @@ namespace App\Livewire\Agent;
 use App\Livewire\Concerns\HasAgentToken;
 use App\Livewire\Forms\AgentForm;
 use App\Models\Agent;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Mary\Traits\Toast;
 
 #[Title('Edit Agent')]
 class Edit extends Component
 {
-    use AuthorizesRequests;
-    use HasAgentToken;
-    use Toast;
+    use AuthorizesRequests, HasAgentToken, Toast;
 
     public AgentForm $form;
 
@@ -35,9 +33,10 @@ class Edit extends Component
 
         $this->form->update();
 
-        session()->flash('status', 'Agent updated successfully!');
-
-        $this->redirect(route('agents.index'), navigate: true);
+        $this->success(
+            title: __('Agent updated successfully!'),
+            redirectTo: route('agents.index')
+        );
     }
 
     public function confirmRegenerate(): void

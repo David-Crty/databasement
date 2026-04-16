@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ApiToken;
 
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -9,7 +10,6 @@ use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
-use Mary\Traits\Toast;
 
 #[Title('API Tokens')]
 class Index extends Component
@@ -77,7 +77,7 @@ class Index extends Component
         $token = PersonalAccessToken::findOrFail($this->deleteTokenId);
 
         if (! $this->canDelete($token)) {
-            $this->error(__('You are not authorized to revoke this token.'), position: 'toast-bottom');
+            $this->error(__('You are not authorized to revoke this token.'));
             $this->deleteTokenId = null;
             $this->showDeleteModal = false;
 
@@ -88,7 +88,7 @@ class Index extends Component
 
         $this->deleteTokenId = null;
         $this->showDeleteModal = false;
-        $this->success(__('API token revoked successfully.'), position: 'toast-bottom');
+        $this->success(__('API token revoked successfully.'));
     }
 
     public function canDelete(PersonalAccessToken $token): bool

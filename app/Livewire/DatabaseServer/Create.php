@@ -5,18 +5,17 @@ namespace App\Livewire\DatabaseServer;
 use App\Livewire\Forms\DatabaseServerForm;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Mary\Traits\Toast;
 
 #[Title('Create Database Server')]
 class Create extends Component
 {
-    use AuthorizesRequests;
-    use Toast;
+    use AuthorizesRequests, Toast;
 
     public DatabaseServerForm $form;
 
@@ -31,16 +30,19 @@ class Create extends Component
     public function save(): void
     {
         if (Gate::denies('create', DatabaseServer::class)) {
-            session()->flash('demo_notice', __('Demo mode is enabled. Changes cannot be saved.'));
-            $this->redirect(route('database-servers.index'), navigate: true);
+            $this->warning(
+                title: __('Demo mode is enabled. Changes cannot be saved.'),
+                redirectTo: route('database-servers.index'),
+            );
 
             return;
         }
 
         if ($this->form->store()) {
-            session()->flash('status', 'Database server created successfully!');
-
-            $this->redirect(route('database-servers.index'), navigate: true);
+            $this->success(
+                title: __('Database server created successfully!'),
+                redirectTo: route('database-servers.index'),
+            );
         }
     }
 
@@ -76,12 +78,12 @@ class Create extends Component
 
     public function refreshVolumes(): void
     {
-        $this->success(__('Volume list refreshed.'), position: 'toast-bottom');
+        $this->success(__('Volume list refreshed.'));
     }
 
     public function refreshSchedules(): void
     {
-        $this->success(__('Schedule list refreshed.'), position: 'toast-bottom');
+        $this->success(__('Schedule list refreshed.'));
     }
 
     public function toggleNotificationChannel(string $channelId): void

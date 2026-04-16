@@ -4,11 +4,11 @@ namespace App\Livewire\User;
 
 use App\Livewire\Forms\UserForm;
 use App\Models\User;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Mary\Traits\Toast;
 
 #[Title('Create User')]
 class Create extends Component
@@ -38,7 +38,10 @@ class Create extends Component
 
     public function closeAndRedirect(): void
     {
-        $this->redirect(route('users.index'), navigate: true);
+        $this->success(
+            title: __('User created successfully!'),
+            redirectTo: route('users.index')
+        );
     }
 
     public function render(): View
