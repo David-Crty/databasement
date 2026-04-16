@@ -3,6 +3,7 @@
 namespace App\Livewire\DatabaseServer;
 
 use App\Enums\DatabaseType;
+use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
@@ -70,7 +71,7 @@ class Index extends Component
     public function headers(): array
     {
         return [
-            ['key' => 'name', 'label' => __('Name'), 'class' => 'w-80'],
+            ['key' => 'name', 'label' => __('Name'), 'class' => 'w-64'],
             ['key' => 'backup', 'label' => __('Backup'), 'sortable' => false],
             ['key' => 'jobs', 'label' => __('Jobs'), 'sortable' => false, 'class' => 'w-32'],
         ];
@@ -127,6 +128,24 @@ class Index extends Component
         }
 
         $this->dispatch('open-restore-modal', targetServerId: $id);
+    }
+
+    public function runBackup(string $backupId, TriggerBackupAction $action): void
+    {
+        $backup = Backup::with(['databaseServer', 'volume', 'backupSchedule'])->findOrFail($backupId);
+
+        $this->authorize('backup', $backup->databaseServer);
+
+        try {
+            $userId = auth()->id();
+            $action->execute($backup, is_int($userId) ? $userId : null);
+            $this->success(
+                title: __('Backup started successfully!'),
+                description: $backup->getDisplayLabel(),
+            );
+        } catch (\Throwable $e) {
+            $this->error($e->getMessage(), timeout: 0);
+        }
     }
 
     public function runBackupAll(string $serverId, TriggerBackupAction $action): void

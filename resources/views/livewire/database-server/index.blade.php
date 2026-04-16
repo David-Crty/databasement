@@ -104,31 +104,38 @@
                 @elseif($server->backups->isEmpty())
                     <span class="text-base-content/50">—</span>
                 @else
-                    <div class="flex flex-col gap-1 min-w-[200px] max-w-[400px]">
+                    <div class="flex flex-col gap-1">
                         @foreach($server->backups as $backup)
                             @php $label = $backup->getDisplayLabel(false); @endphp
-                            <div class="rounded-md bg-base-200/60 border border-base-300 px-2 py-1.5" title="{{ $backup->getDisplayLabel() }}">
-                                <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
-                                    {{-- Primary: schedule → volume --}}
-                                    <x-icon name="o-clock" class="w-3 h-3 shrink-0 text-primary/80" />
-                                    <span class="text-xs font-semibold text-base-content truncate">{{ $label['schedule'] }}</span>
-                                    <span class="text-base-content/30 text-[0.625rem] shrink-0">→</span>
-                                    <x-volume-type-icon :type="$backup->volume->type" class="w-3 h-3 shrink-0 text-primary/80" />
-                                    <span class="text-xs font-semibold text-base-content truncate">{{ $label['volume'] }}</span>
-                                    {{-- Secondary: databases + retention badges (wrap to next line if needed) --}}
-                                    @if($label['databases'])
-                                        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.625rem] font-medium leading-none bg-base-300/60 text-base-content/60">
-                                            <x-icon name="o-circle-stack" class="w-2.5 h-2.5 shrink-0" />
-                                            <span class="max-w-[120px] truncate">{{ $label['databases'] }}</span>
-                                        </span>
-                                    @endif
-                                    @if($label['retention'])
-                                        <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.625rem] font-medium leading-none bg-info/10 text-info">
-                                            <x-icon name="o-archive-box" class="w-2.5 h-2.5 shrink-0" />
-                                            <span>{{ $label['retention'] }}</span>
-                                        </span>
-                                    @endif
-                                </div>
+                            <div class="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-base-200/60 border border-base-300 px-2 py-1.5" title="{{ $backup->getDisplayLabel() }}">
+                                <x-icon name="o-clock" class="w-3 h-3 shrink-0 text-primary/80" />
+                                <span class="text-xs font-semibold text-base-content">{{ $label['schedule'] }}</span>
+                                <span class="text-base-content/30 text-[0.625rem]">→</span>
+                                <x-volume-type-icon :type="$backup->volume->type" class="w-3 h-3 shrink-0 text-primary/80" />
+                                <span class="text-xs font-semibold text-base-content">{{ $label['volume'] }}</span>
+                                @if($label['databases'])
+                                    <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.625rem] font-medium leading-none bg-base-300/60 text-base-content/60">
+                                        <x-icon name="o-circle-stack" class="w-2.5 h-2.5" />
+                                        {{ $label['databases'] }}
+                                    </span>
+                                @endif
+                                @if($label['retention'])
+                                    <span class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.625rem] font-medium leading-none bg-info/10 text-info">
+                                        <x-icon name="o-archive-box" class="w-2.5 h-2.5" />
+                                        {{ $label['retention'] }}
+                                    </span>
+                                @endif
+                                @if($server->backups->count() > 1)
+                                    @can('backup', $server)
+                                        <x-button
+                                            icon="o-arrow-down-tray"
+                                            wire:click="runBackup('{{ $backup->id }}')"
+                                            spinner
+                                            tooltip="{{ __('Backup now') }}"
+                                            class="btn-ghost btn-xs text-info ml-auto -mr-1"
+                                        />
+                                    @endcan
+                                @endif
                             </div>
                         @endforeach
                     </div>
