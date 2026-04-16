@@ -136,23 +136,48 @@ class Index extends Component
         $this->authorize('backup', $server);
 
         $userId = auth()->id();
-        $failures = [];
-        $success = [];
+        $results = [];
 
         foreach ($server->backups as $backup) {
             try {
-                $result = $action->execute($backup, is_int($userId) ? $userId : null);
-                $success[] = $result['message'];
+                $action->execute($backup, is_int($userId) ? $userId : null);
+                $results[$backup->getDisplayLabel()] = 'success';
             } catch (\Throwable $e) {
-                $failures[] = $e->getMessage();
+                $results[$backup->getDisplayLabel()] = $e->getMessage();
             }
         }
-        foreach ($success as $message) {
-            $this->success($message);
-        }
 
-        foreach ($failures as $message) {
-            $this->error($message);
+        // Determine overall status
+        $successCount = count(array_filter($results, fn ($v) => $v === 'success'));
+        $failureCount = count(array_filter($results, fn ($v) => $v !== 'success'));
+
+        // Build description with one line per backup config
+        $description = implode("\n", array_map(function ($label, $status) {
+            $icon = $status === 'success' ? '✓' : '✗';
+
+            return "{$icon} {$label}";
+        }, array_keys($results), array_values($results)));
+
+        // Determine toast type based on results
+        if ($failureCount === 0) {
+            $this->success(
+                title: __('All backups started successfully!'),
+                description: $description,
+            );
+        } elseif ($successCount === 0) {
+            $this->error(
+                title: __('All backups failed!'),
+                description: $description,
+                timeout: 0
+            );
+        } else {
+            $this->warning(
+                title: __(':count backups started, :failures failed', [
+                    'count' => $successCount,
+                    'failures' => $failureCount,
+                ]),
+                description: $description,
+            );
         }
     }
 

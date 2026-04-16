@@ -34,6 +34,7 @@ class Edit extends Component
             $this->warning(
                 title: __('Demo mode is enabled. Changes cannot be saved.'),
                 redirectTo: route('volumes.index'),
+                flashAs: 'demo_notice',
             );
 
             return;

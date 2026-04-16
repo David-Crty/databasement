@@ -33,6 +33,7 @@ class Create extends Component
             $this->warning(
                 title: __('Demo mode is enabled. Changes cannot be saved.'),
                 redirectTo: route('database-servers.index'),
+                flashAs: 'demo_notice',
             );
 
             return;

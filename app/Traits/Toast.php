@@ -18,6 +18,7 @@ trait Toast
         ?string $redirectTo = null,
         bool $noProgress = false,
         ?string $progressClass = null,
+        ?string $flashAs = null,
     ): ?Redirector {
         $toast = [
             'type' => $type,
@@ -36,6 +37,10 @@ trait Toast
         session()->flash('mary.toast.title', $title);
         session()->flash('mary.toast.description', $description);
 
+        if ($flashAs) {
+            session()->flash($flashAs, true);
+        }
+
         if ($redirectTo) {
             return $this->redirect($redirectTo, navigate: true);
         }
@@ -49,12 +54,13 @@ trait Toast
         ?string $position = 'toast-bottom',
         string $icon = 'o-check-circle',
         string $css = 'alert-success',
-        int $timeout = 3000,
+        int $timeout = 6000,
         ?string $redirectTo = null,
         bool $noProgress = false,
         ?string $progressClass = null,
+        ?string $flashAs = null,
     ): ?Redirector {
-        return $this->toast('success', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass);
+        return $this->toast('success', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass, $flashAs);
     }
 
     public function warning(
@@ -63,12 +69,13 @@ trait Toast
         ?string $position = 'toast-bottom',
         string $icon = 'o-exclamation-triangle',
         string $css = 'alert-warning',
-        int $timeout = 3000,
+        int $timeout = 9000,
         ?string $redirectTo = null,
         bool $noProgress = false,
         ?string $progressClass = null,
+        ?string $flashAs = null,
     ): ?Redirector {
-        return $this->toast('warning', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass);
+        return $this->toast('warning', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass, $flashAs);
     }
 
     public function error(
@@ -77,12 +84,13 @@ trait Toast
         ?string $position = 'toast-bottom',
         string $icon = 'o-x-circle',
         string $css = 'alert-error',
-        int $timeout = 3000,
+        int $timeout = 9000,
         ?string $redirectTo = null,
         bool $noProgress = false,
         ?string $progressClass = null,
+        ?string $flashAs = null,
     ): ?Redirector {
-        return $this->toast('error', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass);
+        return $this->toast('error', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass, $flashAs);
     }
 
     public function info(
@@ -91,11 +99,12 @@ trait Toast
         ?string $position = 'toast-bottom',
         string $icon = 'o-information-circle',
         string $css = 'alert-info',
-        int $timeout = 3000,
+        int $timeout = 6000,
         ?string $redirectTo = null,
         bool $noProgress = false,
         ?string $progressClass = null,
+        ?string $flashAs = null,
     ): ?Redirector {
-        return $this->toast('info', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass);
+        return $this->toast('info', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass, $flashAs);
     }
 }

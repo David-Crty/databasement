@@ -28,7 +28,8 @@ class Create extends Component
         if (Gate::denies('create', Volume::class)) {
             $this->warning(
                 title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: route('volumes.index')
+                redirectTo: route('volumes.index'),
+                flashAs: 'demo_notice'
             );
 
             return;
