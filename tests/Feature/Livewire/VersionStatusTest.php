@@ -26,13 +26,26 @@ test('component is rendered in the layout', function () {
         ->assertSeeLivewire(VersionStatus::class);
 });
 
-test('up to date: shows version and success alert in modal', function () {
+test('up to date: shows version with green dot and success alert', function () {
     Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.0.0'])]);
     config(['app.version' => 'v1.0.0']);
 
     Livewire::actingAs(User::factory()->create())
         ->test(VersionStatus::class)
+        ->assertSet('appVersion', 'v1.0.0')
         ->assertSee('v1.0.0')
+        ->assertDontSee(__('available'))
+        ->call('open')
+        ->assertSee(__('You are running the latest version'));
+});
+
+test('current version ahead of latest: treated as up to date', function () {
+    Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.0.0'])]);
+    config(['app.version' => 'v1.2.0']);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(VersionStatus::class)
+        ->assertSee('v1.2.0')
         ->assertDontSee(__('available'))
         ->call('open')
         ->assertSee(__('You are running the latest version'));
@@ -52,29 +65,40 @@ test('update available: shows pill and warning alert in modal', function () {
         ->assertSee('v1.2.0');
 });
 
-test('no version set: shows plain link and does not fetch github api', function () {
+test('no version or commit hash: shows plain link', function () {
     Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.2.0'])]);
 
     Livewire::actingAs(User::factory()->create())
         ->test(VersionStatusWithoutGit::class)
-        ->assertSee(__('How to update?'))
-        ->assertSet('latestVersion', null);
-
-    Http::assertNothingSent();
+        ->assertSet('appVersion', null)
+        ->assertSet('appCommitHash', null)
+        ->assertSee(__('How to update?'));
 });
 
-test('falls back to commit hash when version is not set', function () {
-    config(['app.commit_hash' => 'abc1234']);
+test('commit hash shown when version is not set', function () {
+    Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.2.0'])]);
+    config(['app.commit_hash' => 'abc1234def']);
 
     Livewire::actingAs(User::factory()->create())
         ->test(VersionStatus::class)
-        ->assertSet('currentVersion', 'abc1234')
+        ->assertSet('appVersion', null)
+        ->assertSet('appCommitHash', 'abc1234')
         ->assertSee('abc1234');
 });
 
+test('both version and commit hash are set independently', function () {
+    Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.0.0'])]);
+    config(['app.version' => 'v1.0.0', 'app.commit_hash' => 'abc1234def']);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(VersionStatus::class)
+        ->assertSet('appVersion', 'v1.0.0')
+        ->assertSet('appCommitHash', 'abc1234');
+});
+
 test('modal contains update instructions for all deployment methods', function () {
-    config(['app.version' => 'v1.0.0']);
     Http::fake(['api.github.com/*' => Http::response([], 404)]);
+    config(['app.version' => 'v1.0.0']);
 
     Livewire::actingAs(User::factory()->create())
         ->test(VersionStatus::class)
@@ -85,8 +109,8 @@ test('modal contains update instructions for all deployment methods', function (
 });
 
 test('github response is cached and reused on subsequent mounts', function () {
-    config(['app.version' => 'v1.0.0']);
     Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.2.3'])]);
+    config(['app.version' => 'v1.0.0']);
 
     $user = User::factory()->create();
     Livewire::actingAs($user)->test(VersionStatus::class);
@@ -103,8 +127,8 @@ test('github response is cached and reused on subsequent mounts', function () {
 });
 
 test('github api failure is cached to avoid retries', function () {
-    config(['app.version' => 'v1.0.0']);
     Http::fake(['api.github.com/*' => Http::response([], 500)]);
+    config(['app.version' => 'v1.0.0']);
 
     Livewire::actingAs(User::factory()->create())
         ->test(VersionStatus::class)

@@ -27,29 +27,26 @@ class VersionStatus extends Component
     public ?string $releaseUrl = null;
 
     #[Locked]
-    public ?string $currentVersion = null;
+    public ?string $appVersion = null;
 
     #[Locked]
-    public bool $isAppVersion = false;
+    public ?string $appCommitHash = null;
 
     public function mount(): void
     {
         $this->getCurrentVersion();
-
-        if ($this->currentVersion) {
-            $this->loadLatestRelease();
-        }
+        $this->loadLatestRelease();
     }
 
     private function getCurrentVersion(): void
     {
         if ($version = config('app.version')) {
-            $this->currentVersion = str_starts_with($version, 'v') ? $version : 'v'.$version;
-            $this->isAppVersion = true;
-        } elseif (config('app.commit_hash')) {
-            $this->currentVersion = substr(config('app.commit_hash'), 0, 7);
+            $this->appVersion = str_starts_with($version, 'v') ? $version : 'v'.$version;
+        }
+        if (config('app.commit_hash')) {
+            $this->appCommitHash = substr(config('app.commit_hash'), 0, 7);
         } elseif ($gitHash = $this->getGitShortHash()) {
-            $this->currentVersion = $gitHash;
+            $this->appCommitHash = $gitHash;
         }
     }
 
@@ -109,6 +106,19 @@ class VersionStatus extends Component
         $path = trim(str_replace('https://github.com/', '', $repo), '/');
 
         return "https://api.github.com/repos/{$path}/releases/latest";
+    }
+
+    public function isUpToDate(): bool
+    {
+        if (! $this->appVersion || ! $this->latestVersion) {
+            return false;
+        }
+
+        return version_compare(
+            ltrim($this->appVersion, 'v'),
+            ltrim($this->latestVersion, 'v'),
+            '>='
+        );
     }
 
     protected function getGitShortHash(): ?string

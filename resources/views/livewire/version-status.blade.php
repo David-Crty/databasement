@@ -1,6 +1,6 @@
 <div class="inline-flex">
     {{-- Footer trigger --}}
-    @if($latestVersion && $currentVersion && $latestVersion !== $currentVersion && $isAppVersion)
+    @if($latestVersion && $appVersion && ! $this->isUpToDate())
         {{-- Update available — eye-catching pill --}}
         <button
             wire:click="open"
@@ -13,18 +13,20 @@
             </span>
             {{ $latestVersion }} {{ __('available') }}
         </button>
-    @elseif($currentVersion)
+    @elseif($appVersion || $appCommitHash)
         {{-- Up to date or no latest info — subtle version with green dot --}}
         <button
             wire:click="open"
             class="inline-flex items-center gap-1.5 text-sm text-base-content/60 hover:text-base-content transition-colors cursor-pointer"
         >
-            @if($latestVersion === $currentVersion)
+            @if($this->isUpToDate())
                 <span class="flex h-1.5 w-1.5 shrink-0">
                     <span class="block h-full w-full rounded-full bg-success opacity-70"></span>
                 </span>
             @endif
-            <span class="font-mono">{{ $currentVersion }}</span>
+            <span class="font-mono">
+                {{ $appVersion ?: $appCommitHash }}
+            </span>
         </button>
     @else
         {{-- No version info — plain link --}}
@@ -38,42 +40,52 @@
 
     {{-- Modal --}}
     <x-modal wire:model="showModal" :title="__('How to update?')" class="backdrop-blur" box-class="max-w-2xl">
-
         {{-- Version status --}}
-        @if($latestVersion && $currentVersion && $latestVersion === $currentVersion)
+        @if($latestVersion && $appVersion && $this->isUpToDate())
             <x-alert icon="o-check-circle" class="alert-success mb-4">
                 {{ __('You are running the latest version') }}
                 <a href="{{ $releaseUrl }}" target="_blank" rel="noopener" class="font-mono font-semibold link">{{ $latestVersion }}</a>
             </x-alert>
-        @elseif($latestVersion && $currentVersion)
+        @elseif($latestVersion && $appVersion)
             <x-alert icon="o-arrow-path" class="alert-warning mb-4">
                 <span class="inline-flex items-center gap-1.5 flex-wrap">
                     {{ __('Update available:') }}
-                    <span class="font-mono">{{ $currentVersion }}</span>
+                    <span class="font-mono">
+                        {{ $appVersion }}
+                    </span>
                     <x-icon name="o-arrow-right" class="w-3.5 h-3.5" />
                     <a href="{{ $releaseUrl }}" target="_blank" rel="noopener" class="font-mono font-bold link">{{ $latestVersion }}</a>
                 </span>
             </x-alert>
-            @unless($isAppVersion)
-                <x-alert icon="o-information-circle" class="alert-info mb-4">
-                    {{ __('You are not using a version tag. Consider using docker tag "1" instead of "latest" for reliable update detection.') }}
-                </x-alert>
-            @endunless
-        @elseif($latestVersion && !$currentVersion)
+        @elseif($latestVersion && !$appVersion)
             <x-alert icon="o-exclamation-triangle" class="alert-warning mb-4">
                 {{ __('Could not determine current version.') }}
                 {{ __('Latest available:') }}
                 <a href="{{ $releaseUrl }}" target="_blank" rel="noopener" class="font-mono font-semibold link">{{ $latestVersion }}</a>
             </x-alert>
-        @elseif($currentVersion && !$latestVersion)
+            <x-alert icon="o-information-circle" class="alert-info mb-4">
+                {{ __('You are not using a version tag. Consider using docker tag "1" instead of "latest" for reliable update detection.') }}
+            </x-alert>
+        @elseif($appVersion && !$latestVersion)
             <x-alert icon="o-exclamation-triangle" class="alert-warning mb-4">
-                {{ __('Could not determine latest version.') }}
+                {{ __('Could not determine latest version, check your self on GitHub.') }}
                 {{ __('Current version:') }}
-                <span class="font-mono font-semibold">{{ $currentVersion }}</span>
+                <span class="font-mono font-semibold">{{ $appVersion }}</span>
             </x-alert>
         @else
             <x-alert icon="o-exclamation-triangle" class="alert-warning mb-4">
                 {{ __('Could not determine version information.') }}
+            </x-alert>
+        @endif
+
+        @if($appCommitHash)
+            <x-alert class="alert-info mb-4">
+                {{ __('Current commit hash:') }}
+                <span class="font-mono font-semibold">
+                    <a href="https://github.com/David-Crty/databasement/commit/{{ $appCommitHash }}" target="_blank" rel="noopener" class="link">
+                        {{ $appCommitHash }}
+                    </a>
+                </span>
             </x-alert>
         @endif
 
