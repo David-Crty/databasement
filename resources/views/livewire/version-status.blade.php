@@ -68,7 +68,7 @@
             </x-alert>
         @elseif($appVersion && !$latestVersion)
             <x-alert icon="o-exclamation-triangle" class="alert-warning mb-4">
-                {{ __('Could not determine latest version, check your self on GitHub.') }}
+                {{ __('Could not determine latest version, check yourself on GitHub.') }}
                 {{ __('Current version:') }}
                 <span class="font-mono font-semibold">{{ $appVersion }}</span>
             </x-alert>
@@ -82,7 +82,7 @@
             <x-alert class="alert-info mb-4">
                 {{ __('Current commit hash:') }}
                 <span class="font-mono font-semibold">
-                    <a href="https://github.com/David-Crty/databasement/commit/{{ $appCommitHash }}" target="_blank" rel="noopener" class="link">
+                    <a href="{{ config('app.github_repo') }}/commit/{{ $appCommitHash }}" target="_blank" rel="noopener" class="link">
                         {{ $appCommitHash }}
                     </a>
                 </span>

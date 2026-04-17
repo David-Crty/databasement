@@ -96,6 +96,16 @@ test('both version and commit hash are set independently', function () {
         ->assertSet('appCommitHash', 'abc1234');
 });
 
+test('malformed version: renders without error', function () {
+    Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.0.0'])]);
+    config(['app.version' => 'not-a-version']);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(VersionStatus::class)
+        ->assertSet('appVersion', 'vnot-a-version')
+        ->assertOk();
+});
+
 test('modal contains update instructions for all deployment methods', function () {
     Http::fake(['api.github.com/*' => Http::response([], 404)]);
     config(['app.version' => 'v1.0.0']);
