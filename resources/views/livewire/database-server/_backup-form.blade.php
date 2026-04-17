@@ -40,8 +40,8 @@
             <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <x-icon name="o-archive-box-arrow-down" class="w-4 h-4" />
             </span>
-            <div class="min-w-0">
-                <p class="text-sm font-semibold truncate">{{ $cardLabel }}</p>
+            <div>
+                <p class="text-sm font-semibold">{{ $cardLabel }}</p>
                 <p class="text-xs text-base-content/60">
                     {{ __('Backup #:num', ['num' => $position]) }}
                 </p>
