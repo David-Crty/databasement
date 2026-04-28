@@ -21,18 +21,20 @@
         </span>
     @endif
     @if($label['retention'])
-    <span class="max-md:hidden inline-flex items-center gap-1 rounded px-1.5 py-0.5 te5xt-[0.625rem] font-medium leading-none bg-info/10 text-info shrink-0">
+    <span class="max-md:hidden inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.625rem] font-medium leading-none bg-info/10 text-info shrink-0">
             <x-icon name="o-archive-box" class="w-2.5 h-2.5" />
             {{ \Illuminate\Support\Str::limit($label['retention'], 15) }}
         </span>
     @endif
-    @can('backup', $server)
-        <x-button
-            icon="o-arrow-down-tray"
-            wire:click="runBackup('{{ $backup->id }}')"
-            spinner
-            tooltip="{{ __('Backup now') }}"
-            class="btn-ghost btn-xs text-info ml-auto shrink-0 -mr-1"
-        />
-    @endcan
+    @if($server->backups->count() > 1)
+        @can('backup', $server)
+            <x-button
+                icon="o-arrow-down-tray"
+                wire:click="runBackup('{{ $backup->id }}')"
+                spinner
+                tooltip="{{ __('Backup now') }}"
+                class="btn-ghost btn-xs text-info ml-auto shrink-0 -mr-1"
+            />
+        @endcan
+    @endif
 </div>
