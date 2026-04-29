@@ -26,10 +26,7 @@ class ShellProcessor
         $startTime = microtime(true);
 
         // Start the command log entry before execution
-        $logIndex = null;
-        if ($this->logger) {
-            $logIndex = $this->logger->startCommandLog($sanitizedCommand);
-        }
+        $logIndex = $this->logger?->startCommandLog($sanitizedCommand);
 
         // Run with output callback for incremental updates
         $incrementalOutput = '';
