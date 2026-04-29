@@ -84,7 +84,7 @@ jobs:
           php-version: 8.5
           tools: composer:v2
           coverage: pcov
-          extensions: pdo, pdo_mysql, pdo_pgsql, mongodb, sockets
+          extensions: pdo, pdo_mysql, pdo_pgsql, mongodb-2.3.0, sockets
 
       - name: Install System Dependencies
         run: |
