@@ -55,15 +55,15 @@ class WaitForDatabase extends Command
                     return 0;
                 }
 
-                $this->warn("Not ready yet. Retrying in {$retryDelay} seconds... ({$i}/{$maxRetries})");
-                $this->warn($e->getMessage());
-            } finally {
-                // Always release the connection to avoid holding SQLite file locks between retries
+                // Release the connection to avoid holding SQLite file locks between retries
                 try {
                     DB::purge();
                 } catch (\Exception) {
                     // Ignore purge errors
                 }
+
+                $this->warn("Not ready yet. Retrying in {$retryDelay} seconds... ({$i}/{$maxRetries})");
+                $this->warn($e->getMessage());
             }
         }
 
