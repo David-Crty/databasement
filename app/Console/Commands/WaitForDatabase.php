@@ -3,9 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Database\Migrations\Migrator;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 class WaitForDatabase extends Command
 {
@@ -28,49 +26,45 @@ class WaitForDatabase extends Command
     /**
      * Execute the console command.
      */
-    public function handle(Migrator $migrator): int
+    public function handle(): int
     {
         $this->info('Waiting for database connection...');
 
         $maxRetries = 60;
         $retryDelay = 1; // seconds
+        $driverName = config('database.default');
+        $isSqlite = config("database.connections.{$driverName}.driver") === 'sqlite';
 
         for ($i = 0; $i < $maxRetries; $i++) {
+            if ($i > 0) {
+                sleep($retryDelay);
+            }
+
             try {
                 DB::connection()->getPdo();
                 $this->info('Database connection established!');
 
                 if ($this->option('check-migrations')) {
-                    $this->checkMigrations($migrator);
+                    $this->checkMigrations();
                 }
 
                 return 0;
             } catch (\Exception $e) {
-                if ($this->option('allow-missing-db')) {
-                    // if driver is sqlite, then the database does not exist yet
-                    if (DB::connection()->getDriverName() === 'sqlite' && str_contains($e->getMessage(), 'Database file at path')) {
-                        $this->info('Sqlite database file not found. (Database not created yet).');
+                if ($this->option('allow-missing-db') && $this->isMissingDatabaseError($e, $isSqlite)) {
+                    $this->info('Database connection works. (Database not created yet).');
 
-                        return 0;
-                    }
-                    if (str_contains($e->getMessage(), 'Unknown database') || preg_match('/database\s+"[^"]+"\s+does not exist/i', $e->getMessage())) {
-                        $this->info('Database connection established! (Database not created yet).');
-
-                        return 0;
-                    }
+                    return 0;
                 }
 
                 $this->warn("Not ready yet. Retrying in {$retryDelay} seconds... ({$i}/{$maxRetries})");
                 $this->warn($e->getMessage());
-
-                // Force a fresh connection attempt on the next iteration
+            } finally {
+                // Always release the connection to avoid holding SQLite file locks between retries
                 try {
                     DB::purge();
-                } catch (\Exception $purgeException) {
+                } catch (\Exception) {
                     // Ignore purge errors
                 }
-
-                sleep($retryDelay);
             }
         }
 
@@ -80,27 +74,50 @@ class WaitForDatabase extends Command
     }
 
     /**
-     * @throws RuntimeException
+     * Check if all migrations have been run.
      */
-    private function checkMigrations(Migrator $migrator): void
+    private function checkMigrations(): void
     {
         $this->info('Checking migrations...');
 
-        $migrator->setConnection(DB::getDefaultConnection());
-        $migrationPath = database_path('migrations');
-
-        if (! $migrator->repositoryExists()) {
-            throw new RuntimeException('Migrations table does not exist.');
+        if (! DB::connection()->getSchemaBuilder()->hasTable('migrations')) {
+            throw new \RuntimeException('Migrations table does not exist.');
         }
 
-        $ranMigrations = $migrator->getRepository()->getRan();
-        $allMigrations = array_keys($migrator->getMigrationFiles($migrationPath));
+        $ranMigrations = DB::table('migrations')->orderBy('batch')->pluck('migration')->all();
+
+        $migrationPath = database_path('migrations');
+        $allMigrations = [];
+        if (is_dir($migrationPath)) {
+            foreach (scandir($migrationPath) as $file) {
+                if (str_ends_with($file, '.php')) {
+                    $allMigrations[] = str_replace('.php', '', $file);
+                }
+            }
+            sort($allMigrations);
+        }
+
         $pendingMigrations = array_diff($allMigrations, $ranMigrations);
 
         if (count($pendingMigrations) > 0) {
-            throw new RuntimeException('Pending migrations: '.implode(', ', $pendingMigrations));
+            throw new \RuntimeException('Pending migrations: '.implode(', ', $pendingMigrations));
         }
 
         $this->info('All migrations have been run!');
+    }
+
+    /**
+     * Determine if the exception indicates a missing database (not a connection failure).
+     */
+    private function isMissingDatabaseError(\Exception $e, bool $isSqlite): bool
+    {
+        $message = $e->getMessage();
+
+        if ($isSqlite && str_contains($message, 'Database file at path')) {
+            return true;
+        }
+
+        return str_contains($message, 'Unknown database')
+            || (bool) preg_match('/database\s+"[^"]+"\s+does not exist/i', $message);
     }
 }

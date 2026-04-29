@@ -44,7 +44,8 @@ return [
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             'busy_timeout' => env('DB_BUSY_TIMEOUT', 5000),
-            'journal_mode' => env('DB_JOURNAL_MODE', 'wal'),
+            'journal_mode' => null,
+            'transaction_mode' => env('DB_TRANSACTION_MODE', 'IMMEDIATE'),
             'synchronous' => null,
         ],
 
