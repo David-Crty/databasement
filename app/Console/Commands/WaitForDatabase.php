@@ -44,10 +44,17 @@ class WaitForDatabase extends Command
 
             try {
                 DB::connection()->getPdo();
-                $this->info('Database connection established!');
-                $connected = true;
 
-                break;
+                if (! $connected) {
+                    $this->info('Database connection established!');
+                    $connected = true;
+                }
+
+                if ($this->option('check-migrations')) {
+                    $this->checkMigrations();
+                }
+
+                return 0;
             } catch (\Exception $e) {
                 if ($this->option('allow-missing-db') && $this->isMissingDatabaseError($e, $isSqlite)) {
                     $this->info('Database connection works. (Database not created yet).');
@@ -67,17 +74,9 @@ class WaitForDatabase extends Command
             }
         }
 
-        if (! $connected) {
-            $this->error('Database not ready after multiple attempts.');
+        $this->error('Database not ready after multiple attempts.');
 
-            return 1;
-        }
-
-        if ($this->option('check-migrations')) {
-            $this->checkMigrations();
-        }
-
-        return 0;
+        return 1;
     }
 
     /**
