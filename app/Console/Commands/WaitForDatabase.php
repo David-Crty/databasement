@@ -35,6 +35,8 @@ class WaitForDatabase extends Command
         $driverName = config('database.default');
         $isSqlite = config("database.connections.{$driverName}.driver") === 'sqlite';
 
+        $connected = false;
+
         for ($i = 0; $i < $maxRetries; $i++) {
             if ($i > 0) {
                 sleep($retryDelay);
@@ -43,12 +45,9 @@ class WaitForDatabase extends Command
             try {
                 DB::connection()->getPdo();
                 $this->info('Database connection established!');
+                $connected = true;
 
-                if ($this->option('check-migrations')) {
-                    $this->checkMigrations();
-                }
-
-                return 0;
+                break;
             } catch (\Exception $e) {
                 if ($this->option('allow-missing-db') && $this->isMissingDatabaseError($e, $isSqlite)) {
                     $this->info('Database connection works. (Database not created yet).');
@@ -68,9 +67,17 @@ class WaitForDatabase extends Command
             }
         }
 
-        $this->error('Database not ready after multiple attempts.');
+        if (! $connected) {
+            $this->error('Database not ready after multiple attempts.');
 
-        return 1;
+            return 1;
+        }
+
+        if ($this->option('check-migrations')) {
+            $this->checkMigrations();
+        }
+
+        return 0;
     }
 
     /**
