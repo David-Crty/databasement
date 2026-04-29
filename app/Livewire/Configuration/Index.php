@@ -93,16 +93,6 @@ class Index extends Component
                 'value' => config('app.trusted_proxies') ?: '-',
                 'description' => __('IP addresses or CIDR ranges of trusted reverse proxies. Use "*" to trust all.'),
             ],
-            [
-                'env' => 'OCTANE_ENABLED',
-                'value' => config('octane.enabled') ? 'true' : 'false',
-                'description' => __('Enable Laravel Octane for improved performance. Enabled by default in Docker.'),
-            ],
-            [
-                'env' => 'OCTANE_WORKERS',
-                'value' => (string) config('octane.workers'),
-                'description' => __('Number of Octane worker processes. Each worker holds a database connection. Use "auto" for 2x CPU cores.'),
-            ],
         ];
     }
 

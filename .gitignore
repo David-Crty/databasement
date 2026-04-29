@@ -29,7 +29,6 @@ docker/*/data
 
 **/caddy
 frankenphp
-frankenphp-worker.php
 
 .scribe
 

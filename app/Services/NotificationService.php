@@ -131,7 +131,6 @@ class NotificationService
 
     /**
      * Refresh third-party service configs before sending.
-     * Critical for Octane where boot-time config may be stale.
      *
      * @param  array<string, mixed>  $config
      */

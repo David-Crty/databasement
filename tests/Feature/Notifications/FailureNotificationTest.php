@@ -161,7 +161,7 @@ test('send refreshes service configs from channel config before dispatching', fu
         'config' => ['bot_token' => 'telegram-token-fresh', 'chat_id' => '999'],
     ]);
 
-    // Simulate Octane stale config: services.* keys are empty
+    // Simulate stale config: services.* keys are empty
     config([
         'services.pushover.token' => null,
         'services.discord.token' => null,

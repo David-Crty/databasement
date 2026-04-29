@@ -112,40 +112,6 @@ with proxy configuration.
 Checks the [Troubleshooting section](#troubleshooting) for help with proxy configuration.
 :::
 
-## Performance (Octane)
-
-Databasement uses [Laravel Octane](https://laravel.com/docs/octane) with FrankenPHP in production Docker images for improved performance. Octane keeps the application in memory between requests, avoiding the overhead of bootstrapping on every request.
-
-| Variable             | Description                                    | Default |
-| -------------------- | ---------------------------------------------- | ------- |
-| `OCTANE_ENABLED`     | Enable Octane worker mode                      | `true`  |
-| `OCTANE_WORKERS`     | Number of Octane worker processes. Use `auto` for 2x CPU cores. | `2`     |
-| `OCTANE_MAX_REQUESTS` | Requests before a worker restarts (prevents memory leaks) | `500`   |
-
-### Database Connection Usage
-
-Each long-lived process maintains its own database connection. The expected number of connections is:
-
-```
-Total connections = 1 (Octane main) + OCTANE_WORKERS + 1 (queue worker) + 1 (scheduler)
-```
-
-**Default:** `1 + 2 + 1 + 1 = 5 connections`
-
-### Disabling Octane
-
-To disable Octane and use classic FrankenPHP mode (ephemeral processes, lower memory):
-
-```bash
-OCTANE_ENABLED=false
-```
-
-With Octane disabled, only background processes maintain persistent connections:
-
-```
-Total connections = 1 (queue worker) + 1 (scheduler) = 2 connections
-```
-
 ## Logging
 
 | Variable      | Description       | Default  |
