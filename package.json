@@ -7,15 +7,14 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.16",
+    "@tailwindcss/vite": "4.2.2",
     "autoprefixer": "^10.4.20",
     "axios": "^1.15.0",
     "chart.js": "^4.5.1",
     "concurrently": "^9.0.1",
     "copy-to-clipboard": "^4.0.2",
-    "laravel-vite-plugin": "^2.0",
-    "tailwindcss": "^4.1.16",
-    "vite": "^7.3.2"
+    "laravel-vite-plugin": "^3.1",
+    "vite": "^8.0.10"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "4.60.2",
