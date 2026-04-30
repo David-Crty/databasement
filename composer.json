@@ -23,7 +23,7 @@
         "laravel-notification-channels/telegram": "^7.0",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^13.0",
-        "laravel/mcp": "^0.6.2",
+        "laravel/mcp": "^0.7.0",
         "laravel/sanctum": "^4.2",
         "laravel/slack-notification-channel": "^3.7",
         "laravel/socialite": "^5.24",
