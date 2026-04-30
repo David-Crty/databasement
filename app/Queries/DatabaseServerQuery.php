@@ -18,19 +18,19 @@ class DatabaseServerQuery
     {
         return QueryBuilder::for(DatabaseServer::class)
             ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
-            ->allowedFilters([
+            ->allowedFilters(
                 AllowedFilter::partial('name'),
                 AllowedFilter::partial('host'),
                 AllowedFilter::exact('database_type'),
                 AllowedFilter::partial('description'),
                 AllowedFilter::exact('managed_by'),
-            ])
-            ->allowedSorts([
+            )
+            ->allowedSorts(
                 AllowedSort::field('name'),
                 AllowedSort::field('host'),
                 AllowedSort::field('database_type'),
                 AllowedSort::field('created_at'),
-            ])
+            )
             ->defaultSort('-created_at');
     }
 

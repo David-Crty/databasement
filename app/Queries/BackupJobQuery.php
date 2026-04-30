@@ -26,7 +26,7 @@ class BackupJobQuery
     {
         return QueryBuilder::for(BackupJob::class)
             ->with(self::RELATIONSHIPS)
-            ->allowedFilters([
+            ->allowedFilters(
                 AllowedFilter::exact('status'),
                 AllowedFilter::callback('type', function (Builder $query, $value) {
                     if ($value === 'backup') {
@@ -38,13 +38,13 @@ class BackupJobQuery
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     self::applySearch($query, $value);
                 }),
-            ])
-            ->allowedSorts([
+            )
+            ->allowedSorts(
                 AllowedSort::field('created_at'),
                 AllowedSort::field('started_at'),
                 AllowedSort::field('completed_at'),
                 AllowedSort::field('status'),
-            ])
+            )
             ->defaultSort('-created_at');
     }
 

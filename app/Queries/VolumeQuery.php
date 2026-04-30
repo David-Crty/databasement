@@ -16,18 +16,18 @@ class VolumeQuery
     public static function make(): QueryBuilder
     {
         return QueryBuilder::for(Volume::class)
-            ->allowedFilters([
+            ->allowedFilters(
                 AllowedFilter::partial('name'),
                 AllowedFilter::exact('type'),
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     self::applySearch($query, $value);
                 }),
-            ])
-            ->allowedSorts([
+            )
+            ->allowedSorts(
                 AllowedSort::field('name'),
                 AllowedSort::field('type'),
                 AllowedSort::field('created_at'),
-            ])
+            )
             ->defaultSort('-created_at');
     }
 

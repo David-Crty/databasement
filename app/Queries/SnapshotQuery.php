@@ -25,7 +25,7 @@ class SnapshotQuery
     {
         return QueryBuilder::for(Snapshot::class)
             ->with(self::RELATIONSHIPS)
-            ->allowedFilters([
+            ->allowedFilters(
                 AllowedFilter::exact('database_server_id'),
                 AllowedFilter::partial('database_name'),
                 AllowedFilter::exact('database_type'),
@@ -36,13 +36,13 @@ class SnapshotQuery
                 AllowedFilter::callback('search', function (Builder $query, $value) {
                     self::applySearch($query, $value);
                 }),
-            ])
-            ->allowedSorts([
+            )
+            ->allowedSorts(
                 AllowedSort::field('started_at'),
                 AllowedSort::field('created_at'),
                 AllowedSort::field('file_size'),
                 AllowedSort::field('database_name'),
-            ])
+            )
             ->defaultSort('-started_at');
     }
 
