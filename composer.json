@@ -35,7 +35,7 @@
         "lorisleiva/cron-translator": "^0.5.0",
         "mongodb/mongodb": "^2.2",
         "robsontenorio/mary": "^2.4",
-        "spatie/laravel-query-builder": "^6.3"
+        "spatie/laravel-query-builder": "^7.2"
     },
     "require-dev": {
         "ext-zlib": "*",
