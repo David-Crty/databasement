@@ -67,13 +67,21 @@
                         </div>
 
                         @can('update', $user)
-                            <x-button
-                                icon="o-trash"
-                                wire:click="revokeAccess({{ $access->id }})"
-                                tooltip="{{ __('Revoke Access') }}"
-                                class="btn-ghost btn-sm text-error"
-                                wire:confirm="{{ __('Revoke access to this server?') }}"
-                            />
+                            <div class="flex gap-1">
+                                <x-button
+                                    icon="o-pencil"
+                                    wire:click="openGrantModal({{ $access->id }})"
+                                    :tooltip="__('Edit Access')"
+                                    class="btn-ghost btn-sm"
+                                />
+                                <x-button
+                                    icon="o-trash"
+                                    wire:click="revokeAccess({{ $access->id }})"
+                                    :tooltip="__('Revoke Access')"
+                                    class="btn-ghost btn-sm text-error"
+                                    wire:confirm="{{ __('Revoke access to this server?') }}"
+                                />
+                            </div>
                         @endcan
                     </div>
                 @endforeach

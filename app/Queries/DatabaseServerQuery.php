@@ -48,14 +48,43 @@ class DatabaseServerQuery
     ): Builder {
         return DatabaseServer::query()
             ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
-            ->withCount('snapshots')
-            ->addSelect([
-                'restores_count' => Restore::selectRaw('count(*)')
-                    ->whereColumn('target_server_id', 'database_servers.id'),
-            ])
-            ->when($scopedUser, function (Builder $query) use ($scopedUser) {
-                $query->whereIn('id', $scopedUser->getAccessibleServerIds());
-            })
+            ->when(
+                $scopedUser !== null,
+                function (Builder $query) use ($scopedUser) {
+                    $query->whereIn('id', $scopedUser->getAccessibleServerIds());
+
+                    // Collect all allowed databases across grants; null means unrestricted on that server
+                    $allAllowedDbs = $scopedUser->serverAccesses()->get()
+                        ->filter(fn ($a) => $a->allowed_databases !== null)
+                        ->flatMap(fn ($a) => (array) $a->allowed_databases)
+                        ->unique()
+                        ->values()
+                        ->all();
+
+                    if (! empty($allAllowedDbs)) {
+                        $query
+                            ->withCount(['snapshots' => fn (Builder $q) => $q->whereIn('database_name', $allAllowedDbs)])
+                            ->addSelect([
+                                'restores_count' => Restore::selectRaw('count(*)')
+                                    ->whereColumn('target_server_id', 'database_servers.id')
+                                    ->whereIn('schema_name', $allAllowedDbs),
+                            ]);
+                    } else {
+                        $query
+                            ->withCount('snapshots')
+                            ->addSelect([
+                                'restores_count' => Restore::selectRaw('count(*)')
+                                    ->whereColumn('target_server_id', 'database_servers.id'),
+                            ]);
+                    }
+                },
+                fn (Builder $query) => $query
+                    ->withCount('snapshots')
+                    ->addSelect([
+                        'restores_count' => Restore::selectRaw('count(*)')
+                            ->whereColumn('target_server_id', 'database_servers.id'),
+                    ])
+            )
             ->when($search, function (Builder $query) use ($search) {
                 $query->where(function (Builder $q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")

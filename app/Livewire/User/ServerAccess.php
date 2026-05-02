@@ -40,12 +40,25 @@ class ServerAccess extends Component
         $this->user = $user;
     }
 
-    public function openGrantModal(): void
+    public function openGrantModal(?string $accessId = null): void
     {
         $this->authorize('update', $this->user);
 
         $this->reset(['selectedServerId', 'allowedDatabases', 'databaseSearch', 'canDownload', 'canBackup', 'canRestore']);
         $this->canDownload = true;
+
+        if ($accessId !== null) {
+            $access = UserServerAccess::where('id', $accessId)
+                ->where('user_id', $this->user->id)
+                ->firstOrFail();
+
+            $this->selectedServerId = $access->database_server_id;
+            $this->allowedDatabases = $access->allowed_databases ?? [];
+            $this->canDownload = $access->can_download;
+            $this->canBackup = $access->can_backup;
+            $this->canRestore = $access->can_restore;
+        }
+
         $this->showGrantModal = true;
     }
 
@@ -142,7 +155,8 @@ class ServerAccess extends Component
     }
 
     /**
-     * Servers that can still be granted (exclude already-granted ones).
+     * Servers available for selection: excludes already-granted servers
+     * except the one currently selected (so editing a grant keeps it visible).
      *
      * @return array<int, array<string, string>>
      */
@@ -150,8 +164,13 @@ class ServerAccess extends Component
     {
         $grantedIds = $this->user->serverAccesses()->pluck('database_server_id')->all();
 
+        // When editing an existing grant, keep its server selectable
+        if ($this->selectedServerId !== '') {
+            $grantedIds = array_filter($grantedIds, fn ($id) => $id !== $this->selectedServerId);
+        }
+
         return DatabaseServer::query()
-            ->whereNotIn('id', $grantedIds)
+            ->whereNotIn('id', array_values($grantedIds))
             ->orderBy('name')
             ->get()
             ->map(fn (DatabaseServer $server) => [

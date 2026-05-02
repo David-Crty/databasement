@@ -146,7 +146,7 @@
                                 <x-button
                                     icon="o-arrow-path"
                                     wire:click="confirmRestoreFromJob('{{ $job->snapshot->databaseServer->id }}', '{{ $job->snapshot->id }}')"
-                                    tooltip="{{ __('Restore') }}"
+                                    :tooltip="__('Restore')"
                                     class="btn-ghost btn-sm text-success"
                                 />
                             @endcan

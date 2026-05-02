@@ -104,7 +104,12 @@ class BackupJobQuery
                                 $sq->whereIn('database_name', $access->allowed_databases);
                             }
                         });
-                        $q->orWhereHas('restore', fn (Builder $rq) => $rq->whereRaw('target_server_id = ?', [$access->database_server_id]));
+                        $q->orWhereHas('restore', function (Builder $rq) use ($access) {
+                            $rq->whereRaw('target_server_id = ?', [$access->database_server_id]);
+                            if ($access->allowed_databases !== null) {
+                                $rq->whereIn('schema_name', $access->allowed_databases);
+                            }
+                        });
                     }
                 });
             });

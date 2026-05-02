@@ -101,12 +101,23 @@ class RestoreModal extends Component
     {
         $this->reset(['selectedSnapshotId', 'schemaName', 'forceDatabase', 'ownerUser', 'currentStep', 'existingDatabases', 'snapshotSearch', 'serverFilter']);
         $this->resetPage('snapshots');
-        $this->targetServer = DatabaseServer::find($targetServerId);
+        $this->targetServer = DatabaseServer::findOrFail($targetServerId);
 
         $this->authorize('restore', $this->targetServer);
 
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+
+        $snapshot = SnapshotQuery::buildFromParams(
+            statusFilter: 'completed',
+            scopedUser: $user->isScopedUser() ? $user : null,
+        )
+            ->whereKey($snapshotId)
+            ->whereHas('databaseServer', fn (Builder $q) => $q->whereRaw('database_type = ?', [$this->targetServer->database_type->value]))
+            ->firstOrFail();
+
         $this->showModal = true;
-        $this->selectSnapshot($snapshotId);
+        $this->selectSnapshot($snapshot->id);
     }
 
     public function selectSnapshot(string $snapshotId): void
