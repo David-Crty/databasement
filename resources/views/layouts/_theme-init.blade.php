@@ -1,29 +1,26 @@
 <script>
 (function () {
-    function getCookie(name) {
-        var match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.*+?^=!:${}()|[\]/\\])/g, '\\$1') + '=([^;]*)'));
-        return match ? decodeURIComponent(match[1]) : null;
+    function applyTheme() {
+        var meta = document.querySelector('meta[name="theme-config"]');
+        if (!meta) { return; }
+        var mode = meta.getAttribute('data-mode') || 'manual';
+        var theme;
+        if (mode === 'auto') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? (meta.getAttribute('data-dark') || 'dark')
+                : (meta.getAttribute('data-light') || 'light');
+        } else {
+            theme = meta.getAttribute('data-theme') || 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', theme);
     }
 
-    var mode = getCookie('theme_mode') || 'manual';
-    var theme;
+    applyTheme();
 
-    if (mode === 'auto') {
-        var mq = window.matchMedia('(prefers-color-scheme: dark)');
-        theme = mq.matches
-            ? (getCookie('dark_theme') || 'dark')
-            : (getCookie('light_theme') || 'light');
+    // Re-apply after wire:navigate updates the <head> meta tag from the new page response
+    document.addEventListener('livewire:navigated', applyTheme);
 
-        mq.addEventListener('change', function (e) {
-            document.documentElement.setAttribute(
-                'data-theme',
-                e.matches ? (getCookie('dark_theme') || 'dark') : (getCookie('light_theme') || 'light')
-            );
-        });
-    } else {
-        theme = getCookie('theme') || 'dark';
-    }
-
-    document.documentElement.setAttribute('data-theme', theme);
+    // Re-apply when OS light/dark preference changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 }());
 </script>

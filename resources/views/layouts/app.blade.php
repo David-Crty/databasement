@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 @php
-    $themeMode = request()->cookie('theme_mode', 'manual');
-    $initialTheme = $themeMode === 'auto'
-        ? request()->cookie('dark_theme', 'dark')
-        : request()->cookie('theme', 'dark');
+    $themeMode = request()->cookie('theme_mode', 'manual') === 'auto' ? 'auto' : 'manual';
+    $theme = request()->cookie('theme', 'dark') ?: 'dark';
+    $lightTheme = request()->cookie('light_theme', 'light') ?: 'light';
+    $darkTheme = request()->cookie('dark_theme', 'dark') ?: 'dark';
+    $initialTheme = $themeMode === 'auto' ? $darkTheme : $theme;
 @endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="{{ $initialTheme }}">
 <head>
@@ -13,6 +14,7 @@
     <title>{{ isset($title) ? $title.' - '.config('app.name') : config('app.name') }}</title>
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}/">
+    <meta name="theme-config" data-mode="{{ $themeMode }}" data-theme="{{ $theme }}" data-light="{{ $lightTheme }}" data-dark="{{ $darkTheme }}">
     @include('layouts._theme-init')
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
