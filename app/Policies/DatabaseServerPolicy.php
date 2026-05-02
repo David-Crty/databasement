@@ -86,10 +86,15 @@ class DatabaseServerPolicy
 
     /**
      * Determine whether the user can restore to a server.
+     * Agent-backed servers do not support restore in any form.
      * Scoped users may restore only when their grant includes can_restore.
      */
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
+        if ($databaseServer->agent_id !== null) {
+            return false;
+        }
+
         if ($user->isScopedUser()) {
             $access = $user->getServerAccess($databaseServer);
 

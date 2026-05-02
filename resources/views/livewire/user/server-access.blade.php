@@ -14,7 +14,7 @@
             @if(!$user->isAdmin() && !$user->isMember())
                 @can('update', $user)
                     <x-button
-                        label="{{ __('Grant Access') }}"
+                        :label="__('Grant Access')"
                         icon="o-plus"
                         class="btn-primary btn-sm"
                         wire:click="openGrantModal"
@@ -94,9 +94,9 @@
         <div class="space-y-4">
             <x-select
                 wire:model.live="selectedServerId"
-                label="{{ __('Database Server') }}"
+                :label="__('Database Server')"
                 :options="$availableServers"
-                placeholder="{{ __('Select a server…') }}"
+                :placeholder="__('Select a server…')"
                 required
             />
 
@@ -122,13 +122,13 @@
                 <div class="flex gap-2">
                     <x-input
                         wire:model.live="databaseSearch"
-                        placeholder="{{ __('Search or type a database name…') }}"
+                        :placeholder="__('Search or type a database name…')"
                         class="flex-1"
                         wire:keydown.enter.prevent="addSearchedDatabase"
                         :disabled="$selectedServerId === ''"
                     />
                     <x-button
-                        label="{{ __('Add') }}"
+                        :label="__('Add')"
                         wire:click="addSearchedDatabase"
                         class="btn-ghost btn-sm"
                         :disabled="$databaseSearch === ''"
@@ -160,15 +160,15 @@
 
             <div class="space-y-2">
                 <label class="label label-text font-semibold">{{ __('Permissions') }}</label>
-                <x-checkbox wire:model="canDownload" label="{{ __('Allow downloading snapshots') }}" />
-                <x-checkbox wire:model="canBackup" label="{{ __('Allow triggering manual backups') }}" />
-                <x-checkbox wire:model="canRestore" label="{{ __('Allow restoring snapshots') }}" />
+                <x-checkbox wire:model="canDownload" :label="__('Allow downloading snapshots')" />
+                <x-checkbox wire:model="canBackup" :label="__('Allow triggering manual backups')" />
+                <x-checkbox wire:model="canRestore" :label="__('Allow restoring snapshots')" />
             </div>
         </div>
 
         <x-slot:actions>
-            <x-button label="{{ __('Cancel') }}" wire:click="$set('showGrantModal', false)" />
-            <x-button label="{{ __('Grant Access') }}" class="btn-primary" wire:click="grantAccess" spinner="grantAccess" />
+            <x-button :label="__('Cancel')" wire:click="$set('showGrantModal', false)" />
+            <x-button :label="__('Grant Access')" class="btn-primary" wire:click="grantAccess" spinner="grantAccess" />
         </x-slot:actions>
     </x-modal>
 </div>

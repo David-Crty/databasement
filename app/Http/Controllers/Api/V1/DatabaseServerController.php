@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\DatabaseType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestoreRequest;
 use App\Http\Requests\Api\V1\SaveDatabaseServerRequest;
@@ -194,6 +195,14 @@ class DatabaseServerController extends Controller
         BackupJobFactory $backupJobFactory
     ): JsonResponse {
         $this->authorize('restore', $databaseServer);
+
+        if ($databaseServer->agent_id !== null) {
+            return response()->json(['message' => 'Restore is not supported for agent-backed servers.'], 422);
+        }
+
+        if ($databaseServer->database_type === DatabaseType::REDIS) {
+            return response()->json(['message' => 'Automated restore is not supported for Redis/Valkey servers.'], 422);
+        }
 
         /** @var Snapshot $snapshot */
         $snapshot = Snapshot::findOrFail($request->validated('snapshot_id'));

@@ -49,34 +49,41 @@ class DatabaseServerQuery
         return DatabaseServer::query()
             ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
             ->when(
-                $scopedUser !== null,
+                $scopedUser !== null && $scopedUser->isScopedUser(),
                 function (Builder $query) use ($scopedUser) {
                     $query->whereIn('id', $scopedUser->getAccessibleServerIds());
 
-                    // Collect all allowed databases across grants; null means unrestricted on that server
-                    $allAllowedDbs = $scopedUser->serverAccesses()->get()
-                        ->filter(fn ($a) => $a->allowed_databases !== null)
-                        ->flatMap(fn ($a) => (array) $a->allowed_databases)
-                        ->unique()
-                        ->values()
-                        ->all();
+                    // Build per-server correlated filters so each database_server row
+                    // counts only snapshots/restores permitted by its specific grant.
+                    $accesses = $scopedUser->serverAccesses()->get();
 
-                    if (! empty($allAllowedDbs)) {
-                        $query
-                            ->withCount(['snapshots' => fn (Builder $q) => $q->whereIn('database_name', $allAllowedDbs)])
-                            ->addSelect([
-                                'restores_count' => Restore::selectRaw('count(*)')
-                                    ->whereColumn('target_server_id', 'database_servers.id')
-                                    ->whereIn('schema_name', $allAllowedDbs),
-                            ]);
-                    } else {
-                        $query
-                            ->withCount('snapshots')
-                            ->addSelect([
-                                'restores_count' => Restore::selectRaw('count(*)')
-                                    ->whereColumn('target_server_id', 'database_servers.id'),
-                            ]);
-                    }
+                    $query
+                        ->withCount(['snapshots' => function (Builder $q) use ($accesses) {
+                            $q->where(function (Builder $inner) use ($accesses) {
+                                foreach ($accesses as $access) {
+                                    $inner->orWhere(function (Builder $s) use ($access) {
+                                        $s->whereRaw('snapshots.database_server_id = ?', [$access->database_server_id]);
+                                        if ($access->allowed_databases !== null) {
+                                            $s->whereIn('database_name', $access->allowed_databases);
+                                        }
+                                    });
+                                }
+                            });
+                        }])
+                        ->addSelect([
+                            'restores_count' => Restore::selectRaw('count(*)')
+                                ->whereColumn('target_server_id', 'database_servers.id')
+                                ->where(function (Builder $q) use ($accesses) {
+                                    foreach ($accesses as $access) {
+                                        $q->orWhere(function (Builder $s) use ($access) {
+                                            $s->whereRaw('target_server_id = ?', [$access->database_server_id]);
+                                            if ($access->allowed_databases !== null) {
+                                                $s->whereIn('schema_name', $access->allowed_databases);
+                                            }
+                                        });
+                                    }
+                                }),
+                        ]);
                 },
                 fn (Builder $query) => $query
                     ->withCount('snapshots')
