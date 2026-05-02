@@ -4,6 +4,7 @@ namespace App\Queries;
 
 use App\Models\DatabaseServer;
 use App\Models\Restore;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
@@ -42,7 +43,8 @@ class DatabaseServerQuery
     public static function buildFromParams(
         ?string $search = null,
         string $sortColumn = 'created_at',
-        string $sortDirection = 'desc'
+        string $sortDirection = 'desc',
+        ?User $scopedUser = null,
     ): Builder {
         return DatabaseServer::query()
             ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
@@ -51,6 +53,9 @@ class DatabaseServerQuery
                 'restores_count' => Restore::selectRaw('count(*)')
                     ->whereColumn('target_server_id', 'database_servers.id'),
             ])
+            ->when($scopedUser, function (Builder $query) use ($scopedUser) {
+                $query->whereIn('id', $scopedUser->getAccessibleServerIds());
+            })
             ->when($search, function (Builder $query) use ($search) {
                 $query->where(function (Builder $q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")

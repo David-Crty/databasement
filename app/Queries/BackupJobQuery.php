@@ -4,6 +4,7 @@ namespace App\Queries;
 
 use App\Models\BackupJob;
 use App\Models\Snapshot;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
@@ -61,7 +62,8 @@ class BackupJobQuery
         string $serverFilter = '',
         bool $fileMissing = false,
         string $sortColumn = 'created_at',
-        string $sortDirection = 'desc'
+        string $sortDirection = 'desc',
+        ?User $scopedUser = null,
     ): Builder {
         $query = BackupJob::query()
             ->with(self::RELATIONSHIPS)
@@ -91,6 +93,20 @@ class BackupJobQuery
             })
             ->when($fileMissing, function (Builder $query) {
                 $query->whereHas('snapshot', fn (Builder $q) => $q->whereRaw('file_exists = ?', [false]));
+            })
+            ->when($scopedUser, function (Builder $query) use ($scopedUser) {
+                $accesses = $scopedUser->serverAccesses()->get();
+                $query->where(function (Builder $q) use ($accesses) {
+                    foreach ($accesses as $access) {
+                        $q->orWhereHas('snapshot', function (Builder $sq) use ($access) {
+                            $sq->whereRaw('database_server_id = ?', [$access->database_server_id]);
+                            if ($access->allowed_databases !== null) {
+                                $sq->whereIn('database_name', $access->allowed_databases);
+                            }
+                        });
+                        $q->orWhereHas('restore', fn (Builder $rq) => $rq->whereRaw('target_server_id = ?', [$access->database_server_id]));
+                    }
+                });
             });
 
         // Handle sorting

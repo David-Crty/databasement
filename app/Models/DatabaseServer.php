@@ -44,6 +44,8 @@ use Illuminate\Support\Carbon;
  * @property-read int|null $snapshots_count
  * @property-read Collection<int, NotificationChannel> $notificationChannels
  * @property-read int|null $notification_channels_count
+ * @property-read Collection<int, UserServerAccess> $userAccesses
+ * @property-read int|null $user_accesses_count
  *
  * @method static DatabaseServerFactory factory($count = null, $state = [])
  * @method static Builder<static>|DatabaseServer newModelQuery()
@@ -178,6 +180,14 @@ class DatabaseServer extends Model
     public function sshConfig(): BelongsTo
     {
         return $this->belongsTo(DatabaseServerSshConfig::class, 'ssh_config_id');
+    }
+
+    /**
+     * @return HasMany<UserServerAccess, DatabaseServer>
+     */
+    public function userAccesses(): HasMany
+    {
+        return $this->hasMany(UserServerAccess::class);
     }
 
     /**

@@ -28,6 +28,7 @@ services:
       - .:/app
       - app-data:/data
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
+    user: "1000:1000"
     restart: unless-stopped
     environment:
       TZ: UTC

@@ -18,10 +18,14 @@ class DatabaseServerPolicy
 
     /**
      * Determine whether the user can view the model.
-     * All authenticated users can view details.
+     * Scoped users may only see servers they have been granted access to.
      */
     public function view(User $user, DatabaseServer $databaseServer): bool
     {
+        if ($user->isScopedUser()) {
+            return $user->getServerAccess($databaseServer) !== null;
+        }
+
         return true;
     }
 
@@ -63,7 +67,7 @@ class DatabaseServerPolicy
 
     /**
      * Determine whether the user can run a backup.
-     * Demo users can trigger backups.
+     * Scoped users may trigger backups when their grant includes can_backup.
      */
     public function backup(User $user, DatabaseServer $databaseServer): bool
     {
@@ -71,15 +75,27 @@ class DatabaseServerPolicy
             return false;
         }
 
+        if ($user->isScopedUser()) {
+            $access = $user->getServerAccess($databaseServer);
+
+            return $access !== null && $access->can_backup;
+        }
+
         return $user->isDemo() || $user->canPerformActions();
     }
 
     /**
      * Determine whether the user can restore to a server.
-     * Demo users can trigger restores.
+     * Scoped users may restore only when their grant includes can_restore.
      */
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
+        if ($user->isScopedUser()) {
+            $access = $user->getServerAccess($databaseServer);
+
+            return $access !== null && $access->can_restore;
+        }
+
         return $user->isDemo() || $user->canPerformActions();
     }
 }

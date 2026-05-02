@@ -2,6 +2,7 @@
 
 namespace App\Livewire\BackupJob;
 
+use App\Enums\DatabaseType;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -182,7 +183,13 @@ class Index extends Component
      */
     public function serverOptions(): array
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+
         return DatabaseServer::query()
+            ->when($user->isScopedUser(), function ($query) use ($user) {
+                $query->whereIn('id', $user->getAccessibleServerIds());
+            })
             ->orderBy('name')
             ->get()
             ->map(fn (DatabaseServer $server) => [
@@ -190,6 +197,27 @@ class Index extends Component
                 'name' => $server->name,
             ])
             ->toArray();
+    }
+
+    public function confirmRestoreFromJob(string $serverId, string $snapshotId): void
+    {
+        $server = DatabaseServer::findOrFail($serverId);
+
+        $this->authorize('restore', $server);
+
+        if ($server->agent_id) {
+            $this->error(__('Restore is not yet supported for agent-backed servers.'));
+
+            return;
+        }
+
+        if ($server->database_type === DatabaseType::REDIS) {
+            $this->error(__('Automated restore is not supported for Redis/Valkey.'));
+
+            return;
+        }
+
+        $this->dispatch('open-restore-from-snapshot', targetServerId: $serverId, snapshotId: $snapshotId);
     }
 
     public function confirmDeleteSnapshot(string $snapshotId): void
@@ -259,6 +287,9 @@ class Index extends Component
 
     public function render(): View
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+
         $jobs = BackupJobQuery::buildFromParams(
             search: $this->search,
             statusFilter: $this->statusFilter !== '' ? [$this->statusFilter] : [],
@@ -266,7 +297,8 @@ class Index extends Component
             serverFilter: $this->serverFilter,
             fileMissing: $this->fileMissing !== '',
             sortColumn: $this->sortBy['column'],
-            sortDirection: $this->sortBy['direction']
+            sortDirection: $this->sortBy['direction'],
+            scopedUser: $user->isScopedUser() ? $user : null,
         )->paginate(15);
 
         return view('livewire.backup-job.index', [

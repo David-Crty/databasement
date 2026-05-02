@@ -38,6 +38,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read int|null $triggered_snapshots_count
  * @property-read Collection<int, OAuthIdentity> $oauthIdentities
  * @property-read int|null $oauth_identities_count
+ * @property-read Collection<int, UserServerAccess> $serverAccesses
+ * @property-read int|null $server_accesses_count
  *
  * @method static Builder<static>|User active()
  * @method static UserFactory factory($count = null, $state = [])
@@ -164,6 +166,14 @@ class User extends Authenticatable
         return $this->hasMany(OAuthIdentity::class);
     }
 
+    /**
+     * @return HasMany<UserServerAccess, User>
+     */
+    public function serverAccesses(): HasMany
+    {
+        return $this->hasMany(UserServerAccess::class);
+    }
+
     public function isDemo(): bool
     {
         return $this->role === self::ROLE_DEMO;
@@ -192,6 +202,59 @@ class User extends Authenticatable
     public function canPerformActions(): bool
     {
         return ! $this->isViewer() && ! $this->isDemo();
+    }
+
+    /**
+     * Returns true when this user's visibility is restricted by server access grants.
+     * Admins and members always see everything regardless of any grants.
+     */
+    public function isScopedUser(): bool
+    {
+        if ($this->isAdmin() || $this->isMember()) {
+            return false;
+        }
+
+        return $this->serverAccesses()->exists();
+    }
+
+    /**
+     * Returns the IDs of database servers this user is explicitly granted access to.
+     *
+     * @return array<int, string>
+     */
+    public function getAccessibleServerIds(): array
+    {
+        return $this->serverAccesses()->pluck('database_server_id')->all();
+    }
+
+    public function getServerAccess(DatabaseServer $server): ?UserServerAccess
+    {
+        return $this->serverAccesses()
+            ->where('database_server_id', $server->id)
+            ->first();
+    }
+
+    /**
+     * Applies per-server and per-database visibility constraints to a Snapshot query.
+     * Each grant contributes one OR branch: server match + optional database filter.
+     *
+     * @param  Builder<\App\Models\Snapshot>  $query
+     */
+    public function applyScopedSnapshotFilter(Builder $query): void
+    {
+        $accesses = $this->serverAccesses()->get();
+
+        $query->where(function (Builder $q) use ($accesses) {
+            foreach ($accesses as $access) {
+                $q->orWhere(function (Builder $sq) use ($access) {
+                    $sq->where('database_server_id', $access->database_server_id);
+
+                    if ($access->allowed_databases !== null) {
+                        $sq->whereIn('database_name', $access->allowed_databases);
+                    }
+                });
+            }
+        });
     }
 
     public function isPending(): bool

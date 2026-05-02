@@ -203,10 +203,14 @@ class Index extends Component
 
     public function render(): View
     {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+
         $servers = DatabaseServerQuery::buildFromParams(
             search: $this->search,
             sortColumn: $this->sortBy['column'],
-            sortDirection: $this->sortBy['direction']
+            sortDirection: $this->sortBy['direction'],
+            scopedUser: $user->isScopedUser() ? $user : null,
         )->paginate(10);
 
         // Share total count globally so it's available inside Mary UI scoped slots

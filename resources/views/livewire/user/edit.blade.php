@@ -72,4 +72,6 @@
             </div>
         </form>
     </x-card>
+
+    <livewire:user.server-access :user="$form->user" />
 </div>

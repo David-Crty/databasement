@@ -141,6 +141,16 @@
                                 class="btn-ghost btn-sm text-info"
                             />
                         @endcan
+                        @if($job->snapshot->databaseServer)
+                            @can('restore', $job->snapshot->databaseServer)
+                                <x-button
+                                    icon="o-arrow-path"
+                                    wire:click="confirmRestoreFromJob('{{ $job->snapshot->databaseServer->id }}', '{{ $job->snapshot->id }}')"
+                                    tooltip="{{ __('Restore') }}"
+                                    class="btn-ghost btn-sm text-success"
+                                />
+                            @endcan
+                        @endif
                     @endif
                     <x-button
                         icon="o-document-text"
@@ -174,6 +184,9 @@
             @endscope
         </x-table>
     </x-card>
+
+    <!-- RESTORE MODAL -->
+    <livewire:database-server.restore-modal />
 
     <!-- LOGS MODAL -->
     @include('livewire.backup-job._logs-modal')

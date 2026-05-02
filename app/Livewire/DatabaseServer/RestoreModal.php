@@ -96,6 +96,19 @@ class RestoreModal extends Component
         $this->showModal = true;
     }
 
+    #[On('open-restore-from-snapshot')]
+    public function openFromSnapshot(string $targetServerId, string $snapshotId): void
+    {
+        $this->reset(['selectedSnapshotId', 'schemaName', 'forceDatabase', 'ownerUser', 'currentStep', 'existingDatabases', 'snapshotSearch', 'serverFilter']);
+        $this->resetPage('snapshots');
+        $this->targetServer = DatabaseServer::find($targetServerId);
+
+        $this->authorize('restore', $this->targetServer);
+
+        $this->showModal = true;
+        $this->selectSnapshot($snapshotId);
+    }
+
     public function selectSnapshot(string $snapshotId): void
     {
         $this->selectedSnapshotId = $snapshotId;
@@ -210,10 +223,16 @@ class RestoreModal extends Component
             return collect();
         }
 
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+
         return DatabaseServer::query()
             ->where('database_type', $this->targetServer->database_type)
             ->whereHas('snapshots', function ($query) {
                 $query->whereHas('job', fn ($q) => $q->whereRaw("status = 'completed'"));
+            })
+            ->when($user->isScopedUser(), function ($query) use ($user) {
+                $query->whereIn('id', $user->getAccessibleServerIds());
             })
             ->orderBy('name')
             ->get(['id', 'name']);
@@ -239,11 +258,15 @@ class RestoreModal extends Component
             return null;
         }
 
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+
         return SnapshotQuery::buildFromParams(
             search: $this->snapshotSearch ?: null,
             statusFilter: 'completed',
             sortColumn: 'created_at',
-            sortDirection: 'desc'
+            sortDirection: 'desc',
+            scopedUser: $user->isScopedUser() ? $user : null,
         )
             ->whereHas('databaseServer', fn (Builder $q) => $q->whereRaw('database_type = ?', [$this->targetServer->database_type]))
             ->when($this->serverFilter, fn ($q) => $q->where('database_server_id', $this->serverFilter))

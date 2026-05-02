@@ -3,6 +3,7 @@
 namespace App\Queries;
 
 use App\Models\Snapshot;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
@@ -55,10 +56,12 @@ class SnapshotQuery
         ?string $search = null,
         string $statusFilter = 'all',
         string $sortColumn = 'started_at',
-        string $sortDirection = 'desc'
+        string $sortDirection = 'desc',
+        ?User $scopedUser = null,
     ): Builder {
         return Snapshot::query()
             ->with(self::RELATIONSHIPS)
+            ->when($scopedUser, fn (Builder $q) => $scopedUser->applyScopedSnapshotFilter($q))
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })
