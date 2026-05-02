@@ -125,10 +125,15 @@
                     <x-button icon="o-arrow-down-tray" wire:click="runBackupAll('{{ $server->id }}')" spinner
                               tooltip="{{ __('Backup now') }}" class="btn-ghost btn-sm text-info" />
                 @endcan
-                @can('restore', $server)
+                @if($server->database_type === \App\Enums\DatabaseType::REDIS)
                     <x-button icon="o-arrow-up-tray" wire:click="confirmRestore('{{ $server->id }}')" spinner
-                              tooltip="{{ __('Restore') }}" class="btn-ghost btn-sm text-success" />
-                @endcan
+                              :tooltip="__('View Restore Instructions')" class="btn-ghost btn-sm text-success" />
+                @else
+                    @can('restore', $server)
+                        <x-button icon="o-arrow-up-tray" wire:click="confirmRestore('{{ $server->id }}')" spinner
+                                  :tooltip="__('Restore')" class="btn-ghost btn-sm text-success" />
+                    @endcan
+                @endif
             </div>
             <div>
                 @can('viewForm', $server)

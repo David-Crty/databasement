@@ -112,21 +112,18 @@ class Index extends Component
     {
         $server = DatabaseServer::findOrFail($id);
 
-        $this->authorize('restore', $server);
-
-        $this->restoreId = $id;
-
-        if ($server->agent_id) {
-            $this->error(__('Restore is not yet supported for agent-backed servers.'));
-
-            return;
-        }
-
+        // Redis/Valkey: show manual instructions without a policy check since
+        // no automated restore job is dispatched — just documentation.
         if ($server->database_type === DatabaseType::REDIS) {
             $this->showRedisRestoreModal = true;
 
             return;
         }
+
+        // Policy blocks agent-backed servers and unathorized users (403).
+        $this->authorize('restore', $server);
+
+        $this->restoreId = $id;
 
         $this->dispatch('open-restore-modal', targetServerId: $id);
     }

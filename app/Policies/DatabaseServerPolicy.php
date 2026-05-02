@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
 use App\Models\User;
 
@@ -86,12 +87,12 @@ class DatabaseServerPolicy
 
     /**
      * Determine whether the user can restore to a server.
-     * Agent-backed servers do not support restore in any form.
+     * Agent-backed and Redis/Valkey servers do not support automated restore.
      * Scoped users may restore only when their grant includes can_restore.
      */
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
-        if ($databaseServer->agent_id !== null) {
+        if ($databaseServer->agent_id !== null || $databaseServer->database_type === DatabaseType::REDIS) {
             return false;
         }
 
