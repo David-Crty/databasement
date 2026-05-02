@@ -3,26 +3,42 @@
     currentTheme: @js($theme),
     lightTheme: @js($lightTheme),
     darkTheme: @js($darkTheme),
+    _mq: null,
+    _mqHandler: null,
 
     init() {
+        this._mq = window.matchMedia('(prefers-color-scheme: dark)');
         if (this.themeMode === 'auto') {
+            this._attachMqListener();
             this.applyAutoTheme();
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => this.applyAutoTheme());
+        }
+    },
+
+    _attachMqListener() {
+        if (this._mqHandler) { this._mq.removeEventListener('change', this._mqHandler); }
+        this._mqHandler = () => this.applyAutoTheme();
+        this._mq.addEventListener('change', this._mqHandler);
+    },
+
+    _detachMqListener() {
+        if (this._mqHandler) {
+            this._mq.removeEventListener('change', this._mqHandler);
+            this._mqHandler = null;
         }
     },
 
     applyAutoTheme() {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        document.documentElement.setAttribute('data-theme', isDark ? this.darkTheme : this.lightTheme);
+        document.documentElement.setAttribute('data-theme', this._mq.matches ? this.darkTheme : this.lightTheme);
     },
 
     setThemeMode(mode) {
         this.themeMode = mode;
         $wire.setThemeMode(mode);
         if (mode === 'auto') {
+            this._attachMqListener();
             this.applyAutoTheme();
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => this.applyAutoTheme());
         } else {
+            this._detachMqListener();
             document.documentElement.setAttribute('data-theme', this.currentTheme);
         }
     },
@@ -72,6 +88,7 @@
         <x-card :title="__('Theme Mode')" :subtitle="__('Choose how the theme is determined')" class="mb-6">
             <div class="flex flex-wrap gap-3">
                 <button
+                    type="button"
                     @click="setThemeMode('manual')"
                     :class="themeMode === 'manual' ? 'btn-primary' : 'btn-outline'"
                     class="btn gap-2"
@@ -80,6 +97,7 @@
                     {{ __('Manual') }}
                 </button>
                 <button
+                    type="button"
                     @click="setThemeMode('auto')"
                     :class="themeMode === 'auto' ? 'btn-primary' : 'btn-outline'"
                     class="btn gap-2"
@@ -93,25 +111,19 @@
             </p>
         </x-card>
 
-        @php
-        $themes = [
-            'dark', 'light', 'cupcake', 'bumblebee', 'emerald', 'corporate', 'synthwave', 'retro',
-            'cyberpunk', 'valentine', 'halloween', 'garden', 'forest', 'aqua', 'lofi', 'pastel',
-            'fantasy', 'wireframe', 'black', 'luxury', 'dracula', 'cmyk', 'autumn', 'business',
-            'acid', 'lemonade', 'night', 'coffee', 'winter', 'dim', 'nord', 'sunset',
-        ];
-        @endphp
-
         {{-- MANUAL: single theme picker --}}
         <div x-show="themeMode === 'manual'">
             <x-card :title="__('Theme')" :subtitle="__('Choose your preferred theme')" class="mb-6">
                 <div class="rounded-box grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     @foreach($themes as $themeName)
-                        <div class="border-base-content/20 hover:border-base-content/40 overflow-hidden rounded-lg border outline-2 outline-offset-2 transition-all"
-                             :class="isActive('{{ $themeName }}') ? 'outline outline-base-content' : 'outline-transparent'"
-                             @click="setTheme('{{ $themeName }}')">
+                        <button
+                            type="button"
+                            class="border-base-content/20 hover:border-base-content/40 overflow-hidden rounded-lg border outline-2 outline-offset-2 transition-all"
+                            :class="isActive('{{ $themeName }}') ? 'outline outline-base-content' : 'outline-transparent'"
+                            :aria-pressed="isActive('{{ $themeName }}')"
+                            @click="setTheme('{{ $themeName }}')">
                             @include('livewire.settings._theme-swatch', ['themeName' => $themeName])
-                        </div>
+                        </button>
                     @endforeach
                 </div>
             </x-card>
@@ -122,11 +134,14 @@
             <x-card :title="__('Light Mode Theme')" :subtitle="__('Used when your system is in light mode')">
                 <div class="rounded-box grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     @foreach($themes as $themeName)
-                        <div class="border-base-content/20 hover:border-base-content/40 overflow-hidden rounded-lg border outline-2 outline-offset-2 transition-all"
-                             :class="isActiveLightTheme('{{ $themeName }}') ? 'outline outline-base-content' : 'outline-transparent'"
-                             @click="setLightTheme('{{ $themeName }}')">
+                        <button
+                            type="button"
+                            class="border-base-content/20 hover:border-base-content/40 overflow-hidden rounded-lg border outline-2 outline-offset-2 transition-all"
+                            :class="isActiveLightTheme('{{ $themeName }}') ? 'outline outline-base-content' : 'outline-transparent'"
+                            :aria-pressed="isActiveLightTheme('{{ $themeName }}')"
+                            @click="setLightTheme('{{ $themeName }}')">
                             @include('livewire.settings._theme-swatch', ['themeName' => $themeName])
-                        </div>
+                        </button>
                     @endforeach
                 </div>
             </x-card>
@@ -134,11 +149,14 @@
             <x-card :title="__('Dark Mode Theme')" :subtitle="__('Used when your system is in dark mode')">
                 <div class="rounded-box grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
                     @foreach($themes as $themeName)
-                        <div class="border-base-content/20 hover:border-base-content/40 overflow-hidden rounded-lg border outline-2 outline-offset-2 transition-all"
-                             :class="isActiveDarkTheme('{{ $themeName }}') ? 'outline outline-base-content' : 'outline-transparent'"
-                             @click="setDarkTheme('{{ $themeName }}')">
+                        <button
+                            type="button"
+                            class="border-base-content/20 hover:border-base-content/40 overflow-hidden rounded-lg border outline-2 outline-offset-2 transition-all"
+                            :class="isActiveDarkTheme('{{ $themeName }}') ? 'outline outline-base-content' : 'outline-transparent'"
+                            :aria-pressed="isActiveDarkTheme('{{ $themeName }}')"
+                            @click="setDarkTheme('{{ $themeName }}')">
                             @include('livewire.settings._theme-swatch', ['themeName' => $themeName])
-                        </div>
+                        </button>
                     @endforeach
                 </div>
             </x-card>

@@ -12,6 +12,14 @@ class Preferences extends Component
 {
     use Toast;
 
+    /** @var string[] */
+    private const ALLOWED_THEMES = [
+        'dark', 'light', 'cupcake', 'bumblebee', 'emerald', 'corporate', 'synthwave', 'retro',
+        'cyberpunk', 'valentine', 'halloween', 'garden', 'forest', 'aqua', 'lofi', 'pastel',
+        'fantasy', 'wireframe', 'black', 'luxury', 'dracula', 'cmyk', 'autumn', 'business',
+        'acid', 'lemonade', 'night', 'coffee', 'winter', 'dim', 'nord', 'sunset',
+    ];
+
     public string $locale = '';
 
     /** @var 'manual'|'auto' */
@@ -31,13 +39,13 @@ class Preferences extends Component
         $this->themeMode = $themeMode === 'auto' ? 'auto' : 'manual';
 
         $theme = request()->cookie('theme');
-        $this->theme = is_string($theme) ? $theme : 'dark';
+        $this->theme = (is_string($theme) && in_array($theme, self::ALLOWED_THEMES, true)) ? $theme : 'dark';
 
         $lightTheme = request()->cookie('light_theme');
-        $this->lightTheme = is_string($lightTheme) ? $lightTheme : 'light';
+        $this->lightTheme = (is_string($lightTheme) && in_array($lightTheme, self::ALLOWED_THEMES, true)) ? $lightTheme : 'light';
 
         $darkTheme = request()->cookie('dark_theme');
-        $this->darkTheme = is_string($darkTheme) ? $darkTheme : 'dark';
+        $this->darkTheme = (is_string($darkTheme) && in_array($darkTheme, self::ALLOWED_THEMES, true)) ? $darkTheme : 'dark';
     }
 
     public function setLocale(string $locale): void
@@ -74,6 +82,10 @@ class Preferences extends Component
 
     public function setTheme(string $theme): void
     {
+        if (! in_array($theme, self::ALLOWED_THEMES, true)) {
+            return;
+        }
+
         $this->theme = $theme;
 
         cookie()->queue('theme', $theme, 60 * 24 * 365);
@@ -83,6 +95,10 @@ class Preferences extends Component
 
     public function setLightTheme(string $theme): void
     {
+        if (! in_array($theme, self::ALLOWED_THEMES, true)) {
+            return;
+        }
+
         $this->lightTheme = $theme;
 
         cookie()->queue('light_theme', $theme, 60 * 24 * 365);
@@ -92,6 +108,10 @@ class Preferences extends Component
 
     public function setDarkTheme(string $theme): void
     {
+        if (! in_array($theme, self::ALLOWED_THEMES, true)) {
+            return;
+        }
+
         $this->darkTheme = $theme;
 
         cookie()->queue('dark_theme', $theme, 60 * 24 * 365);
@@ -103,6 +123,7 @@ class Preferences extends Component
     {
         return view('livewire.settings.preferences', [
             'availableLocales' => config('app.available_locales', []),
+            'themes' => self::ALLOWED_THEMES,
         ]);
     }
 }
