@@ -82,29 +82,6 @@ test('preferences page shows language selector', function () {
         ->assertSee('Français');
 });
 
-test('setting theme via component sets cookie', function () {
-    $user = User::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test(Preferences::class)
-        ->call('setTheme', 'cyberpunk')
-        ->assertSet('theme', 'cyberpunk');
-
-    $cookie = Cookie::queued('theme');
-    expect($cookie)->not->toBeNull()
-        ->and($cookie->getValue())->toBe('cyberpunk');
-});
-
-test('theme cookie is applied to layout', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->withCookie('theme', 'cyberpunk')
-        ->get(route('preferences.edit'))
-        ->assertOk()
-        ->assertSee('data-theme="cyberpunk"', false);
-});
-
 test('french translations are applied when locale is fr', function () {
     $user = User::factory()->create();
 

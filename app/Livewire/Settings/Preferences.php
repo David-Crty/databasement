@@ -14,13 +14,9 @@ class Preferences extends Component
 
     public string $locale = '';
 
-    public string $theme = 'dark';
-
     public function mount(): void
     {
         $this->locale = app()->getLocale();
-        $theme = request()->cookie('theme');
-        $this->theme = is_string($theme) ? $theme : 'dark';
     }
 
     public function setLocale(string $locale): void
@@ -40,15 +36,6 @@ class Preferences extends Component
             title: __('Preference saved successfully!'),
             redirectTo: route('preferences.edit')
         );
-    }
-
-    public function setTheme(string $theme): void
-    {
-        $this->theme = $theme;
-
-        cookie()->queue('theme', $theme, 60 * 24 * 365);
-
-        $this->skipRender();
     }
 
     public function render(): View

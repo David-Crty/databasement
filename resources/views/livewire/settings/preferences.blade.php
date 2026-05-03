@@ -1,9 +1,10 @@
 <div x-data="{
-    currentTheme: @js($theme),
+    currentTheme: localStorage.getItem('theme') ||
+        (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'),
     setTheme(theme) {
         this.currentTheme = theme;
+        localStorage.setItem('theme', theme);
         document.documentElement.setAttribute('data-theme', theme);
-        $wire.setTheme(theme);
     },
     isActive(theme) {
         return this.currentTheme === theme;
