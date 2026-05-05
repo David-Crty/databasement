@@ -390,7 +390,7 @@
                         spinner
                     />
                     <x-button
-                        link="{{ route('configuration.index') }}"
+                        link="{{ route('configuration.backup') }}"
                         icon="o-cog-6-tooth"
                         class="btn-ghost join-item"
                         tooltip-bottom="{{ __('Manage schedules') }}"

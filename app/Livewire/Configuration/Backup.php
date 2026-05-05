@@ -2,15 +2,11 @@
 
 namespace App\Livewire\Configuration;
 
-use App\Enums\NotificationChannelType;
 use App\Jobs\CleanupExpiredSnapshotsJob;
 use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Forms\ConfigurationForm;
-use App\Livewire\Forms\NotificationChannelForm;
 use App\Models\BackupSchedule;
-use App\Models\NotificationChannel;
 use App\Services\Backup\TriggerBackupAction;
-use App\Services\NotificationService;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -23,13 +19,11 @@ use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
 
 #[Title('Configuration')]
-class Index extends Component
+class Backup extends Component
 {
     use Toast;
 
     public ConfigurationForm $form;
-
-    public NotificationChannelForm $channelForm;
 
     // Schedule modal state
     public bool $showScheduleModal = false;
@@ -40,15 +34,6 @@ class Index extends Component
 
     public bool $showDeleteScheduleModal = false;
 
-    // Notification channel modal state
-    public bool $showChannelModal = false;
-
-    public ?string $editingChannelId = null;
-
-    public ?string $deleteChannelId = null;
-
-    public bool $showDeleteChannelModal = false;
-
     public function mount(): void
     {
         $this->form->loadFromConfig();
@@ -58,86 +43,6 @@ class Index extends Component
     public function isAdmin(): bool
     {
         return auth()->user()->isAdmin();
-    }
-
-    /**
-     * @return array<int, array{key: string, label: string, class?: string}>
-     */
-    public function getHeaders(): array
-    {
-        return [
-            ['key' => 'env', 'label' => __('Environment Variable'), 'class' => 'w-56'],
-            ['key' => 'value', 'label' => __('Value'), 'class' => 'w-64'],
-            ['key' => 'description', 'label' => __('Description')],
-        ];
-    }
-
-    /**
-     * @return array<int, array{value: mixed, env: string, description: string}>
-     */
-    public function getAppConfig(): array
-    {
-        return [
-            [
-                'env' => 'APP_DEBUG',
-                'value' => config('app.debug') ? 'true' : 'false',
-                'description' => __('Enable debug mode. Should be false in production.'),
-            ],
-            [
-                'env' => 'TZ',
-                'value' => config('app.timezone') ?: '-',
-                'description' => __('Application timezone for dates and scheduled tasks.'),
-            ],
-            [
-                'env' => 'TRUSTED_PROXIES',
-                'value' => config('app.trusted_proxies') ?: '-',
-                'description' => __('IP addresses or CIDR ranges of trusted reverse proxies. Use "*" to trust all.'),
-            ],
-        ];
-    }
-
-    /**
-     * @return array<int, array{value: mixed, env: string, description: string}>
-     */
-    public function getSsoConfig(): array
-    {
-        return [
-            [
-                'env' => 'OAUTH_GOOGLE_ENABLED',
-                'value' => config('oauth.providers.google.enabled') ? 'true' : 'false',
-                'description' => __('Enable Google OAuth authentication.'),
-            ],
-            [
-                'env' => 'OAUTH_GITHUB_ENABLED',
-                'value' => config('oauth.providers.github.enabled') ? 'true' : 'false',
-                'description' => __('Enable GitHub OAuth authentication.'),
-            ],
-            [
-                'env' => 'OAUTH_GITLAB_ENABLED',
-                'value' => config('oauth.providers.gitlab.enabled') ? 'true' : 'false',
-                'description' => __('Enable GitLab OAuth authentication.'),
-            ],
-            [
-                'env' => 'OAUTH_OIDC_ENABLED',
-                'value' => config('oauth.providers.oidc.enabled') ? 'true' : 'false',
-                'description' => __('Enable generic OIDC authentication (Keycloak, Authentik, etc.).'),
-            ],
-            [
-                'env' => 'OAUTH_AUTO_CREATE_USERS',
-                'value' => config('oauth.auto_create_users') ? 'true' : 'false',
-                'description' => __('Automatically create users on first OAuth login.'),
-            ],
-            [
-                'env' => 'OAUTH_DEFAULT_ROLE',
-                'value' => config('oauth.default_role') ?: '-',
-                'description' => __('Default role for new OAuth users: viewer, member, or admin.'),
-            ],
-            [
-                'env' => 'OAUTH_AUTO_LINK_BY_EMAIL',
-                'value' => config('oauth.auto_link_by_email') ? 'true' : 'false',
-                'description' => __('Link OAuth logins to existing users with matching email.'),
-            ],
-        ];
     }
 
     public function saveBackupConfig(): void
@@ -287,80 +192,6 @@ class Index extends Component
         }
     }
 
-    // --- Notification Channels ---
-
-    public function openChannelModal(?string $channelId = null): void
-    {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
-        $this->channelForm->resetFields();
-        $this->editingChannelId = $channelId;
-
-        if ($channelId) {
-            $channel = NotificationChannel::findOrFail($channelId);
-            $this->channelForm->setChannel($channel);
-        }
-
-        $this->showChannelModal = true;
-    }
-
-    public function saveChannel(): void
-    {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
-        if ($this->editingChannelId) {
-            $this->channelForm->channel = NotificationChannel::findOrFail($this->editingChannelId);
-            $this->channelForm->update();
-        } else {
-            $this->channelForm->store();
-        }
-
-        $this->showChannelModal = false;
-        $this->editingChannelId = null;
-        $this->channelForm->resetFields();
-
-        $this->success(__('Notification channel saved.'));
-    }
-
-    public function confirmDeleteChannel(string $channelId): void
-    {
-        $this->deleteChannelId = $channelId;
-        $this->showDeleteChannelModal = true;
-    }
-
-    public function deleteChannel(): void
-    {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
-        if (! $this->deleteChannelId) {
-            return;
-        }
-
-        NotificationChannel::findOrFail($this->deleteChannelId)->delete();
-        $this->showDeleteChannelModal = false;
-        $this->deleteChannelId = null;
-
-        $this->success(__('Notification channel deleted.'));
-    }
-
-    public function sendTestNotification(string $channelId): void
-    {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
-        $channel = NotificationChannel::findOrFail($channelId);
-
-        try {
-            app(NotificationService::class)->sendTestNotification($channel);
-
-            $this->success(__('Test notification sent to: :channel', ['channel' => $channel->name]));
-        } catch (\Throwable $e) {
-            $this->error(
-                title: __('Failed to send test notification: :message', ['message' => $e->getMessage()]),
-                timeout: 0
-            );
-        }
-    }
-
     // --- Computed Properties ---
 
     /**
@@ -383,15 +214,6 @@ class Index extends Component
     }
 
     /**
-     * @return Collection<int, NotificationChannel>
-     */
-    #[Computed]
-    public function notificationChannels(): Collection
-    {
-        return NotificationChannel::orderBy('name')->get();
-    }
-
-    /**
      * @return array<int, array{id: string, name: string}>
      */
     public function getCompressionOptions(): array
@@ -401,17 +223,6 @@ class Index extends Component
             ['id' => 'zstd', 'name' => 'zstd'],
             ['id' => 'encrypted', 'name' => 'encrypted'],
         ];
-    }
-
-    /**
-     * @return array<int, array{id: string, name: string}>
-     */
-    public function getChannelTypeOptions(): array
-    {
-        return array_map(
-            fn (NotificationChannelType $type) => ['id' => $type->value, 'name' => $type->label()],
-            NotificationChannelType::cases(),
-        );
     }
 
     private function restartScheduler(): bool
@@ -438,14 +249,9 @@ class Index extends Component
 
     public function render(): View
     {
-        return view('livewire.configuration.index', [
-            'headers' => $this->getHeaders(),
-            'appConfig' => $this->getAppConfig(),
-            'ssoConfig' => $this->getSsoConfig(),
+        return view('livewire.configuration.backup', [
             'compressionOptions' => $this->getCompressionOptions(),
-            'channelTypeOptions' => $this->getChannelTypeOptions(),
             'backupSchedules' => $this->backupSchedules(),
-            'notificationChannels' => $this->notificationChannels(),
             'showDeprecatedBackupEnv' => config('app.has_deprecated_backup_env'),
         ]);
     }

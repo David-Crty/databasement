@@ -51,9 +51,16 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('users', \App\Livewire\User\Index::class)
         ->name('users.index');
 
-    // Configuration - read-only view of app configuration
-    Route::livewire('configuration', \App\Livewire\Configuration\Index::class)
-        ->name('configuration.index');
+    // Configuration
+    Route::get('configuration', fn () => redirect()->route('configuration.application'));
+    Route::livewire('configuration/application', \App\Livewire\Configuration\Application::class)
+        ->name('configuration.application');
+    Route::livewire('configuration/backup', \App\Livewire\Configuration\Backup::class)
+        ->name('configuration.backup');
+    Route::livewire('configuration/notification', \App\Livewire\Configuration\Notification::class)
+        ->name('configuration.notification');
+    Route::livewire('configuration/authentication', \App\Livewire\Configuration\Authentication::class)
+        ->name('configuration.authentication');
 
     // Agents
     Route::livewire('agents', \App\Livewire\Agent\Index::class)

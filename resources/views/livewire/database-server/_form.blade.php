@@ -403,7 +403,7 @@ use App\Enums\DatabaseType;
                                 <x-button
                                     icon="o-plus"
                                     class="btn-primary btn-sm"
-                                    link="{{ route('configuration.index') }}#notification-channels"
+                                    link="{{ route('configuration.notification') }}"
                                     external
                                     :label="__('Create your first channel')"
                                 />
