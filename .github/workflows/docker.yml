@@ -19,7 +19,7 @@ jobs:
       tags: ${{ steps.tags.outputs.tags }}
       base_image_tag: ${{ steps.base_image_tag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check for base image changes
         uses: dorny/paths-filter@v4
@@ -78,7 +78,7 @@ jobs:
     needs: build-base-image
     if: always() && !failure() && !cancelled()
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
