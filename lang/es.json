@@ -484,7 +484,7 @@
   "Restore Database Snapshot": "Restaurar snapshot de base de datos",
   "Restore Redis / Valkey Snapshot": "Restaurar snapshot de Redis / Valkey",
   "Restore started successfully!": "¡Restauración iniciada exitosamente!",
-  "Restore Summary": "Resumen de restauración",
+  "Restore Summary": "Resumen del Restore",
   "Restore to:": "Restaurar en:",
   "Retention period": "Periodo de retención",
   "Retention Period (days)": "Período de retención (días)",
