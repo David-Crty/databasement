@@ -36,9 +36,9 @@
                         </span>
                         @if ($this->isAdmin)
                             <div class="flex items-center gap-0.5 shrink-0 ml-auto">
-                                <x-button icon="o-paper-airplane" class="btn-ghost btn-sm" wire:click="sendTestNotification('{{ $channel->id }}')" spinner="sendTestNotification('{{ $channel->id }}')" tooltip-left="{{ __('Test') }}" />
-                                <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openChannelModal('{{ $channel->id }}')" tooltip-left="{{ __('Edit') }}" />
-                                <x-button icon="o-trash" class="btn-ghost btn-sm text-error hover:bg-error/10" wire:click="confirmDeleteChannel('{{ $channel->id }}')" tooltip-left="{{ __('Delete') }}" />
+                                <x-button icon="o-paper-airplane" class="btn-ghost btn-sm" wire:click="sendTestNotification('{{ $channel->id }}')" spinner="sendTestNotification('{{ $channel->id }}')" :tooltip-left="__('Test')" />
+                                <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openChannelModal('{{ $channel->id }}')" :tooltip-left="__('Edit')" />
+                                <x-button icon="o-trash" class="btn-ghost btn-sm text-error hover:bg-error/10" wire:click="confirmDeleteChannel('{{ $channel->id }}')" :tooltip-left="__('Delete')" />
                             </div>
                         @endif
                     </div>

@@ -1,4 +1,4 @@
-<div role="tablist" class="tabs tabs-box mb-6">
+<div role="tablist" class="tabs tabs-border mb-6">
     <a href="{{ route('configuration.application') }}" wire:navigate
        role="tab" @class(['tab', 'tab-active' => $active === 'application'])>
         {{ __('Application') }}

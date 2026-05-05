@@ -46,9 +46,9 @@
                             @if ($this->isAdmin)
                                 <div class="flex items-center gap-0.5 shrink-0 ml-auto">
                                     @if ($schedule->backups_count > 0)
-                                        <x-button icon="o-play" class="btn-ghost btn-sm" wire:click="runSchedule('{{ $schedule->id }}')" spinner="runSchedule('{{ $schedule->id }}')" tooltip-left="{{ __('Run now') }}" />
+                                        <x-button icon="o-play" class="btn-ghost btn-sm" wire:click="runSchedule('{{ $schedule->id }}')" spinner="runSchedule('{{ $schedule->id }}')" :tooltip-left="__('Run now')" />
                                     @endif
-                                    <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openScheduleModal('{{ $schedule->id }}')" tooltip-left="{{ __('Edit') }}" />
+                                    <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openScheduleModal('{{ $schedule->id }}')" :tooltip-left="__('Edit')" />
                                     @if ($schedule->total_backups_count > 0)
                                         <x-popover>
                                             <x-slot:trigger>
@@ -57,7 +57,7 @@
                                             <x-slot:content>{{ __('In use by servers') }}</x-slot:content>
                                         </x-popover>
                                     @else
-                                        <x-button icon="o-trash" class="btn-ghost btn-sm text-error hover:bg-error/10" wire:click="confirmDeleteSchedule('{{ $schedule->id }}')" tooltip-left="{{ __('Delete') }}" />
+                                        <x-button icon="o-trash" class="btn-ghost btn-sm text-error hover:bg-error/10" wire:click="confirmDeleteSchedule('{{ $schedule->id }}')" :tooltip-left="__('Delete')" />
                                     @endif
                                 </div>
                             @endif
@@ -132,7 +132,7 @@
                                 <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->cleanup_cron) }}</div>
                             </div>
                             @if ($this->isAdmin)
-                                <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runCleanup" spinner="runCleanup" tooltip-left="{{ __('Run now') }}" />
+                                <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runCleanup" spinner="runCleanup" :tooltip-left="__('Run now')" />
                             @endif
                         </div>
                     </x-config-row>
@@ -149,7 +149,7 @@
                                     <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->verify_files_cron) }}</div>
                                 </div>
                                 @if ($this->isAdmin)
-                                    <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runVerifyFiles" spinner="runVerifyFiles" tooltip-left="{{ __('Run now') }}" />
+                                    <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runVerifyFiles" spinner="runVerifyFiles" :tooltip-left="__('Run now')" />
                                 @endif
                             </div>
                         </x-config-row>
