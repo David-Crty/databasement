@@ -666,5 +666,11 @@
   "{1} :count monthly|[2,*] :count monthly": "{1} :count mensual|[2,*] :count mensuales",
   "{1} :count weekly|[2,*] :count weekly": "{1} :count semanal|[2,*] :count semanales",
   "{1} Snapshots older than :count day will be deleted automatically during the next cleanup run.|[2,*] Snapshots older than :count days will be deleted automatically during the next cleanup run.": "{1} Los snapshots con más de :count día se eliminarán automáticamente en la próxima limpieza.|[2,*] Los snapshots con más de :count días se eliminarán automáticamente en la próxima limpieza.",
-  "{1} the last :count day|[2,*] the last :count days": "{1} el último :count día|[2,*] los últimos :count días"
+  "{1} the last :count day|[2,*] the last :count days": "{1} el último :count día|[2,*] los últimos :count días",
+  "Go to page :page": "Ir a la página :page",
+  "of": "de",
+  "Pagination Navigation": "Navegación de paginación",
+  "results": "resultados",
+  "Showing": "Mostrando",
+  "to": "a"
 }
