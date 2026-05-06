@@ -18,3 +18,9 @@
         padding: 0.75rem;
     }
 }
+
+/* Mary UI's pagination wrapper uses overflow-y-auto, which causes a brief
+   scrollbar flash during Livewire's DOM morph on page changes. */
+.mary-table-pagination > div:last-child {
+    overflow-y: visible;
+}
