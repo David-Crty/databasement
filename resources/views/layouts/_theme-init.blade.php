@@ -1,11 +1,18 @@
 <meta name="theme-legacy" content="{{ request()->cookie('theme', '') }}">
 <script>
+    function safeGetItem(key) {
+        try { return localStorage.getItem(key); } catch (e) { return null; }
+    }
+    function safeSetItem(key, value) {
+        try { localStorage.setItem(key, value); } catch (e) {}
+    }
+
     function getTheme() {
         var legacy = document.querySelector('meta[name="theme-legacy"]');
-        if (legacy && legacy.content && !localStorage.getItem('theme')) {
-            localStorage.setItem('theme', legacy.content);
+        if (legacy && legacy.content && !safeGetItem('theme')) {
+            safeSetItem('theme', legacy.content);
         }
-        return localStorage.getItem('theme') ||
+        return safeGetItem('theme') ||
             (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     }
 
