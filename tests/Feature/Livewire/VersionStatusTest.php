@@ -136,6 +136,23 @@ test('github response is cached and reused on subsequent mounts', function () {
         ->assertSet('latestVersion', 'v1.2.3');
 });
 
+test('stale cache is invalidated when app version is newer than cached latest', function () {
+    // Simulate cache from before upgrade (old latest was v1.1.7)
+    Cache::put('github_latest_release', 'v1.1.7', now()->addDay());
+    config(['app.version' => 'v1.2.0']);
+
+    Http::fake(['api.github.com/*' => Http::response(['tag_name' => 'v1.2.0'])]);
+
+    Livewire::actingAs(User::factory()->create())
+        ->test(VersionStatus::class)
+        ->assertSet('latestVersion', 'v1.2.0')
+        ->call('open')
+        ->assertSee(__('You are running the latest version'));
+
+    // Cache should now hold the fresh value
+    expect(Cache::get('github_latest_release'))->toBe('v1.2.0');
+});
+
 test('github api failure is cached to avoid retries', function () {
     Http::fake(['api.github.com/*' => Http::response([], 500)]);
     config(['app.version' => 'v1.0.0']);
