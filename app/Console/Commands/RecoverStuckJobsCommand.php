@@ -10,6 +10,9 @@ use RuntimeException;
 
 class RecoverStuckJobsCommand extends Command
 {
+    /** Grace period added to the configured timeout before a job is considered stuck. */
+    private const GRACE_PERIOD_SECONDS = 300;
+
     protected $signature = 'jobs:recover-stuck';
 
     protected $description = 'Recover stuck jobs (expired agent leases and timed-out backup jobs)';
@@ -70,22 +73,24 @@ class RecoverStuckJobsCommand extends Command
 
     /**
      * Recover backup jobs stuck in running/pending state beyond their timeout.
+     *
+     * Running jobs are compared against started_at, while pending jobs (which
+     * were never picked up) are compared against created_at. A grace period is
+     * added on top of the configured timeout to avoid killing jobs that are
+     * still legitimately processing.
      */
     private function recoverBackupJobs(): bool
     {
-        $gracePeriod = 300; // 5 minutes grace period
-        $timeout = AppConfig::get('backup.job_timeout') + $gracePeriod;
+        $timeout = AppConfig::get('backup.job_timeout') + self::GRACE_PERIOD_SECONDS;
         $cutoff = now()->subSeconds($timeout);
 
         $stuckJobs = BackupJob::query()
             ->whereIn('status', ['running', 'pending'])
             ->where(function ($query) use ($cutoff) {
                 $query->where(function ($q) use ($cutoff) {
-                    // Running jobs: check started_at
                     $q->where('status', 'running')
                         ->where('started_at', '<', $cutoff);
                 })->orWhere(function ($q) use ($cutoff) {
-                    // Pending jobs: check created_at
                     $q->where('status', 'pending')
                         ->where('created_at', '<', $cutoff);
                 });
