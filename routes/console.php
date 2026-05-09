@@ -29,5 +29,5 @@ Schedule::command('snapshots:verify-files')
     ->cron(AppConfig::get('backup.verify_files_cron'))
     ->when(fn () => AppConfig::get('backup.verify_files'));
 
-// Recover expired agent job leases
-Schedule::command('agent:recover-leases')->everyMinute();
+// Recover stuck jobs (expired agent leases and timed-out backup jobs)
+Schedule::command('jobs:recover-stuck')->everyFiveMinutes();
