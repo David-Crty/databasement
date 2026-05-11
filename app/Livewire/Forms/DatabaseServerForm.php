@@ -555,6 +555,14 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Check if current database type is Microsoft SQL Server
+     */
+    public function isMssql(): bool
+    {
+        return $this->database_type === 'mssql';
+    }
+
+    /**
      * Check if current database type has optional credentials (username/password not required).
      */
     public function hasOptionalCredentials(): bool

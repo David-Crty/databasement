@@ -99,6 +99,23 @@ services:
       timeout: 5s
       retries: 5
 
+  mssql:
+    # azure-sql-edge is multi-arch (works on Apple Silicon); same TDS protocol as SQL Server
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: databasement-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Databasement!Strong1"
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 1433 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   ssh:
     image: linuxserver/openssh-server:latest
     container_name: databasement-ssh
@@ -196,4 +213,5 @@ volumes:
   sftp-data:
   mongodb-data:
   redis-data:
+  mssql-data:
   ftp-data:

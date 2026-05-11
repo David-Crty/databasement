@@ -127,6 +127,22 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
+     * Configure the factory for Microsoft SQL Server database type.
+     */
+    public function mssql(): static
+    {
+        return $this->state(fn () => [
+            'name' => fake()->company().' SQL Server',
+            'database_type' => 'mssql',
+            'host' => fake()->randomElement(['localhost', '127.0.0.1']),
+            'port' => 1433,
+            'username' => 'sa',
+            'password' => 'Databasement!Strong1',
+            'database_names' => null,
+        ]);
+    }
+
+    /**
      * Configure the factory with SSH tunnel using password authentication.
      *
      * Note: Uses afterCreating() hook, so only works with create(), not make().

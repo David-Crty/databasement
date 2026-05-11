@@ -11,6 +11,7 @@ enum DatabaseType: string
     case SQLITE = 'sqlite';
     case REDIS = 'redis';
     case MONGODB = 'mongodb';
+    case MSSQL = 'mssql';
 
     public function label(): string
     {
@@ -20,6 +21,7 @@ enum DatabaseType: string
             self::SQLITE => 'SQLite',
             self::REDIS => 'Redis / Valkey',
             self::MONGODB => 'MongoDB',
+            self::MSSQL => 'Microsoft SQL Server',
         };
     }
 
@@ -31,6 +33,7 @@ enum DatabaseType: string
             self::SQLITE => 'devicon.sqlite',
             self::REDIS => 'devicon.redis',
             self::MONGODB => 'devicon.mongodb',
+            self::MSSQL => 'devicon.microsoftsqlserver',
         };
     }
 
@@ -42,6 +45,7 @@ enum DatabaseType: string
             self::SQLITE => 0,
             self::REDIS => 6379,
             self::MONGODB => 27017,
+            self::MSSQL => 1433,
         };
     }
 
@@ -73,6 +77,9 @@ enum DatabaseType: string
             self::SQLITE => "sqlite:{$host}",
             self::REDIS => throw new \RuntimeException('Redis does not support PDO connections'),
             self::MONGODB => throw new \RuntimeException('MongoDB does not support PDO connections'),
+            self::MSSQL => $database
+                ? sprintf('sqlsrv:Server=%s,%d;Database=%s;TrustServerCertificate=true;Encrypt=true', $host, $port, $database)
+                : sprintf('sqlsrv:Server=%s,%d;TrustServerCertificate=true;Encrypt=true', $host, $port),
         };
     }
 
@@ -103,10 +110,18 @@ enum DatabaseType: string
         }
 
         $dsn = $this->buildDsn($host, $server->port, $database);
-        $options = [
-            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-            \PDO::ATTR_TIMEOUT => $timeout,
-        ];
+
+        // sqlsrv encodes the connection timeout in the DSN itself (LoginTimeout)
+        // and rejects PDO::ATTR_TIMEOUT as an unsupported attribute.
+        if ($this === self::MSSQL) {
+            $dsn .= ';LoginTimeout='.$timeout;
+            $options = [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION];
+        } else {
+            $options = [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_TIMEOUT => $timeout,
+            ];
+        }
 
         return new \PDO($dsn, $server->username, $server->getDecryptedPassword(), $options);
     }
@@ -120,6 +135,7 @@ enum DatabaseType: string
             self::SQLITE => 'db',
             self::REDIS => 'rdb',
             self::MONGODB => 'archive',
+            self::MSSQL => 'bacpac',
             default => 'sql',
         };
     }

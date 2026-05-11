@@ -188,4 +188,5 @@
             <x-button label="{{ __('Close') }}" @click="$wire.showRedisRestoreModal = false" />
         </x-slot:actions>
     </x-modal>
+
 </div>

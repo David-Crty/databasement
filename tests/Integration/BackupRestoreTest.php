@@ -244,6 +244,50 @@ test('mongodb backup and restore workflow', function () {
     expect($collectionCount)->toBeGreaterThanOrEqual(2);
 });
 
+test('mssql backup and restore workflow', function () {
+    // Create models
+    $this->volume = IntegrationTestHelpers::createVolume('mssql');
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('mssql');
+    $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
+    $this->databaseServer->load('backups.volume');
+
+    // Load test data (resets the target database and runs the fixture script)
+    IntegrationTestHelpers::loadTestData('mssql', $this->databaseServer);
+
+    // Run backup
+    $snapshots = $this->backupJobFactory->createSnapshots(
+        backup: $this->backup,
+        method: 'manual',
+    );
+    $this->snapshot = $snapshots[0];
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
+    $this->snapshot->refresh();
+    $this->snapshot->load('job');
+
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+
+    expect($this->snapshot->job->status)->toBe('completed')
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->filename)->toEndWith('.bacpac.gz')
+        ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
+
+    // Run restore (use unique name with parallel token and microseconds to avoid collisions)
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $this->restoredDatabaseName = 'testdb_restored_'.hrtime(true).$suffix;
+    $restore = $this->backupJobFactory->createRestore(
+        snapshot: $this->snapshot,
+        targetServer: $this->databaseServer,
+        schemaName: $this->restoredDatabaseName,
+    );
+    ProcessRestoreJob::dispatchSync($restore->id);
+
+    // Verify restore — the fixture inserts 2 users; sqlpackage Import recreates schema + data.
+    $pdo = IntegrationTestHelpers::connectToDatabase('mssql', $this->databaseServer, $this->restoredDatabaseName);
+    $stmt = $pdo->query('SELECT COUNT(*) FROM dbo.users');
+    expect($stmt)->not->toBeFalse()
+        ->and((int) $stmt->fetchColumn())->toBe(2);
+});
+
 test('redis backup workflow', function () {
     // Create models
     $this->volume = IntegrationTestHelpers::createVolume('redis');

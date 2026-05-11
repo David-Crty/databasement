@@ -45,6 +45,14 @@ return [
             'database' => env('TEST_MONGODB_DATABASE', 'databasement_test'),
             'auth_source' => env('TEST_MONGODB_AUTH_SOURCE', 'admin'),
         ],
+
+        'mssql' => [
+            'host' => env('TEST_MSSQL_HOST', 'mssql'),
+            'port' => env('TEST_MSSQL_PORT', 1433),
+            'username' => env('TEST_MSSQL_USERNAME', 'sa'),
+            'password' => env('TEST_MSSQL_PASSWORD', 'Databasement!Strong1'),
+            'database' => env('TEST_MSSQL_DATABASE', 'databasement_test'),
+        ],
     ],
 
     /*

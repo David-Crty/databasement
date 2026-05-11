@@ -10,6 +10,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\Volume;
 use App\Services\Backup\Databases\MongodbDatabase;
+use App\Services\Backup\Databases\MssqlDatabase;
 use Illuminate\Support\Facades\ParallelTesting;
 use InvalidArgumentException;
 use MongoDB\Client as MongoClient;
@@ -79,6 +80,14 @@ class IntegrationTestHelpers
                 'database' => config('testing.databases.mongodb.database').$suffix,
                 'database_type' => 'mongodb',
                 'auth_source' => config('testing.databases.mongodb.auth_source'),
+            ],
+            'mssql' => [
+                'host' => config('testing.databases.mssql.host'),
+                'port' => (int) config('testing.databases.mssql.port'),
+                'username' => config('testing.databases.mssql.username'),
+                'password' => config('testing.databases.mssql.password'),
+                'database' => config('testing.databases.mssql.database').$suffix,
+                'database_type' => 'mssql',
             ],
             default => throw new InvalidArgumentException("Unsupported database type: {$type}"),
         };
@@ -432,6 +441,8 @@ class IntegrationTestHelpers
         } elseif ($type === 'postgres') {
             $pdo->exec("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{$databaseName}' AND pid <> pg_backend_pid()");
             $pdo->exec("DROP DATABASE IF EXISTS \"{$databaseName}\"");
+        } elseif ($type === 'mssql') {
+            $pdo->exec(MssqlDatabase::dropDatabaseIfExistsSql($databaseName));
         }
     }
 
@@ -450,6 +461,14 @@ class IntegrationTestHelpers
         // MongoDB uses its own data loading mechanism
         if ($type === 'mongodb') {
             self::loadMongodbTestData($server);
+
+            return;
+        }
+
+        // MSSQL fixture loading needs T-SQL `GO` batch splitting (PDO can't run a
+        // raw script with batch separators in one exec).
+        if ($type === 'mssql') {
+            self::loadMssqlTestData($server);
 
             return;
         }
@@ -475,5 +494,43 @@ class IntegrationTestHelpers
 
         $pdo = self::connectToDatabase($type, $server, $databaseName);
         $pdo->exec(file_get_contents($fixtureFile));
+    }
+
+    /**
+     * Drop+recreate the target MSSQL database, then run the fixture script.
+     * The script uses `GO` batch separators which PDO cannot execute in one
+     * call, so they're split client-side.
+     */
+    public static function loadMssqlTestData(DatabaseServer $server): void
+    {
+        $databaseName = self::resolveTestDatabaseName($server);
+        $bracketedName = '['.str_replace(']', ']]', $databaseName).']';
+
+        $adminPdo = DatabaseType::MSSQL->createPdo($server);
+        $adminPdo->exec(MssqlDatabase::dropDatabaseIfExistsSql($databaseName));
+        $adminPdo->exec("CREATE DATABASE {$bracketedName}");
+
+        $pdo = DatabaseType::MSSQL->createPdo($server, $databaseName);
+
+        $sql = file_get_contents(__DIR__.'/../Integration/fixtures/mssql-init.sql');
+        foreach (self::splitTsqlBatches($sql) as $batch) {
+            $pdo->exec($batch);
+        }
+    }
+
+    /**
+     * Split a T-SQL script on `GO` batch separators (case-insensitive, lines
+     * containing only `GO` plus optional whitespace).
+     *
+     * @return array<int, string>
+     */
+    private static function splitTsqlBatches(string $sql): array
+    {
+        $batches = preg_split('/^\s*GO\s*$/im', $sql) ?: [];
+
+        return array_values(array_filter(
+            array_map('trim', $batches),
+            fn (string $batch): bool => $batch !== '',
+        ));
     }
 }

@@ -26,6 +26,7 @@ class DatabaseProvider
             DatabaseType::SQLITE => new SqliteDatabase($this->sftpFilesystem),
             DatabaseType::REDIS => new RedisDatabase,
             DatabaseType::MONGODB => new MongodbDatabase,
+            DatabaseType::MSSQL => new MssqlDatabase,
         };
     }
 
@@ -223,6 +224,10 @@ class DatabaseProvider
             return $paths[0] ?? '';
         }
 
-        return $server->database_type === DatabaseType::POSTGRESQL ? 'postgres' : '';
+        return match ($server->database_type) {
+            DatabaseType::POSTGRESQL => 'postgres',
+            DatabaseType::MSSQL => 'master',
+            default => '',
+        };
     }
 }

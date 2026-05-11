@@ -111,6 +111,17 @@ class DatabaseSeeder extends Seeder
             'organization_id' => $defaultOrg->id,
         ]);
 
+        // Microsoft SQL Server (from docker-compose)
+        $mssql = DatabaseServer::create([
+            'name' => 'Local SQL Server',
+            'host' => 'mssql',
+            'port' => 1433,
+            'database_type' => 'mssql',
+            'username' => 'sa',
+            'password' => 'Databasement!Strong1',
+            'organization_id' => $defaultOrg->id,
+        ]);
+
         // Backup configurations (database_selection_mode lives on Backup now)
         $backupDefaults = [
             'volume_id' => $volume->id,
@@ -120,7 +131,7 @@ class DatabaseSeeder extends Seeder
             'database_selection_mode' => 'all',
         ];
 
-        foreach ([$mysql, $postgres, $redis, $mongodb] as $server) {
+        foreach ([$mysql, $postgres, $redis, $mongodb, $mssql] as $server) {
             Backup::create(array_merge($backupDefaults, [
                 'database_server_id' => $server->id,
             ]));
