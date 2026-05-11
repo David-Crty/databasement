@@ -59,12 +59,6 @@ test('restore produces sqlpackage import command when input is already a .bacpac
         );
 });
 
-test('restore renames extensionless input to .bacpac before invoking sqlpackage', function () {
-    $result = $this->db->restore('/tmp/snapshot');
-
-    expect($result->command)->toStartWith("mv '/tmp/snapshot' '/tmp/snapshot.bacpac' && sqlpackage /Action:Import /SourceFile:'/tmp/snapshot.bacpac'");
-});
-
 test('listDatabases filters out system databases', function () {
     $statement = Mockery::mock(\PDOStatement::class);
     $statement->shouldReceive('fetchAll')

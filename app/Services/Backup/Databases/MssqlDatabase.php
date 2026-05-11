@@ -58,15 +58,10 @@ class MssqlDatabase implements DatabaseInterface
 
     public function restore(string $inputPath): DatabaseOperationResult
     {
-        // sqlpackage Import refuses any SourceFile that doesn't end in `.bacpac`.
-        // RestoreTask hands us the decompressed file as `<workdir>/snapshot`, so
-        // we rename it in place before invoking sqlpackage.
-        $bacpacPath = str_ends_with($inputPath, '.bacpac') ? $inputPath : $inputPath.'.bacpac';
-
         $sqlpackage = implode(' ', [
             'sqlpackage',
             '/Action:Import',
-            '/SourceFile:'.escapeshellarg($bacpacPath),
+            '/SourceFile:'.escapeshellarg($inputPath),
             '/TargetServerName:'.escapeshellarg($this->buildServerName()),
             '/TargetDatabaseName:'.escapeshellarg($this->config['database']),
             '/TargetUser:'.escapeshellarg($this->config['user']),
@@ -75,16 +70,7 @@ class MssqlDatabase implements DatabaseInterface
             '/TargetEncryptConnection:True',
         ]);
 
-        if ($bacpacPath === $inputPath) {
-            return new DatabaseOperationResult(command: $sqlpackage);
-        }
-
-        return new DatabaseOperationResult(command: sprintf(
-            'mv %s %s && %s',
-            escapeshellarg($inputPath),
-            escapeshellarg($bacpacPath),
-            $sqlpackage,
-        ));
+        return new DatabaseOperationResult(command: $sqlpackage);
     }
 
     /**
