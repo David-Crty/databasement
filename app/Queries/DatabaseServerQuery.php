@@ -4,6 +4,7 @@ namespace App\Queries;
 
 use App\Models\DatabaseServer;
 use App\Models\Restore;
+use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
@@ -59,6 +60,6 @@ class DatabaseServerQuery
                         ->orWhere('description', 'like', "%{$search}%");
                 });
             })
-            ->orderBy($sortColumn, $sortDirection);
+            ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
     }
 }

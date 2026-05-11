@@ -80,6 +80,17 @@ class Formatters
     }
 
     /**
+     * Normalize a free-form direction string to a value accepted by Eloquent's
+     * orderBy(), which since Laravel 13.8 requires the literal 'asc'|'desc'.
+     *
+     * @return 'asc'|'desc'
+     */
+    public static function sortDirection(string $direction): string
+    {
+        return strtolower($direction) === 'asc' ? 'asc' : 'desc';
+    }
+
+    /**
      * Replace {year}, {month} and {day} placeholders in a backup path with
      * zero-padded date parts. Used both to resolve the actual destination
      * folder at backup time and to show a live preview in the UI.

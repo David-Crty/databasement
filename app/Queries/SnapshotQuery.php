@@ -3,6 +3,7 @@
 namespace App\Queries;
 
 use App\Models\Snapshot;
+use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
@@ -69,7 +70,7 @@ class SnapshotQuery
             ->when($statusFilter !== 'all', function (Builder $query) use ($statusFilter) {
                 $query->whereHas('job', fn (Builder $q) => $q->whereRaw('status = ?', [$statusFilter]));
             })
-            ->orderBy($sortColumn, $sortDirection);
+            ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
     }
 
     /**

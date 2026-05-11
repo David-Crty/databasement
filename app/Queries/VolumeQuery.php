@@ -3,6 +3,7 @@
 namespace App\Queries;
 
 use App\Models\Volume;
+use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
@@ -45,7 +46,7 @@ class VolumeQuery
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })
-            ->orderBy($sortColumn, $sortDirection);
+            ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
     }
 
     /**

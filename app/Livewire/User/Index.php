@@ -5,6 +5,7 @@ namespace App\Livewire\User;
 use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\CurrentOrganization;
+use App\Support\Formatters;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -236,7 +237,7 @@ class Index extends Component
                     $query->whereNull('invitation_accepted_at');
                 }
             })
-            ->orderBy($this->sortBy['column'], $this->sortBy['direction'])
+            ->orderBy($this->sortBy['column'], Formatters::sortDirection((string) $this->sortBy['direction']))
             ->paginate(15);
 
         return view('livewire.user.index', [

@@ -4,6 +4,7 @@ namespace App\Queries;
 
 use App\Models\BackupJob;
 use App\Models\Snapshot;
+use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
 use Spatie\QueryBuilder\AllowedSort;
@@ -97,15 +98,17 @@ class BackupJobQuery
                 $query->whereHas('snapshot', fn (Builder $q) => $q->whereRaw('file_exists = ?', [false]));
             });
 
+        $direction = Formatters::sortDirection($sortDirection);
+
         // Handle sorting
         if ($sortColumn === 'snapshot_size') {
-            $query->orderBy('snapshot_size', $sortDirection);
+            $query->orderBy('snapshot_size', $direction);
         } elseif ($sortColumn === 'duration_ms') {
-            $query->orderBy('duration_ms', $sortDirection);
+            $query->orderBy('duration_ms', $direction);
         } elseif ($sortColumn === 'type') {
-            $query->orderBy('is_backup', $sortDirection);
+            $query->orderBy('is_backup', $direction);
         } else {
-            $query->orderBy($sortColumn, $sortDirection);
+            $query->orderBy($sortColumn, $direction);
         }
 
         return $query;
