@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Database Servers
 
-Database servers are the source of your backups. Databasement can connect to and backup MySQL, PostgreSQL, MariaDB, MongoDB, SQLite, and Redis/Valkey servers.
+Database servers are the source of your backups. Databasement can connect to and backup MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, and Redis/Valkey servers.
 
 ## Supported Versions
 
@@ -15,6 +15,7 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 | MySQL      | 5.6, 5.7, 8.x, 9.x           | `mariadb-dump`               | Yes     |
 | MariaDB    | 10.x, 11.x, 12.x             | `mariadb-dump`               | Yes     |
 | PostgreSQL | 12, 13, 14, 15, 16, 17, 18   | `pg_dump` v18                | Yes     |
+| SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.bacpac`)     | Yes     |
 | MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes     |
 | SQLite     | 3.x                          | File copy                    | Yes     |
 | Redis      | 2.8+                         | `redis-cli --rdb`            | No      |
@@ -23,6 +24,7 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 :::info How this works
 - **MySQL / MariaDB**: Databasement ships the MariaDB 11.4 client (`mariadb-dump`), which is wire-protocol compatible with MySQL servers.
 - **PostgreSQL**: The `pg_dump` v18 client can dump from any server version back to 9.2. Versions below 12 have reached end-of-life and are not recommended.
+- **SQL Server**: Backups are exported as `.bacpac` files using Microsoft's `sqlpackage` CLI (`/Action:Export`) and re-imported with `/Action:Import`. Works against on-prem SQL Server 2017+ and Azure SQL Database. Connections use the `pdo_sqlsrv` PHP extension.
 - **MongoDB**: The MongoDB Database Tools (`mongodump` / `mongorestore`) officially support server versions 4.2 through 8.0.
 - **SQLite**: Backups are performed by copying the database file over SFTP. The SQLite 3.x file format has been backwards-compatible since 3.0.0 (2004).
 - **Redis / Valkey**: `redis-cli --rdb` creates a point-in-time RDB snapshot via the replication protocol. Valkey 7.2+ is supported as a drop-in replacement for Redis. Restore is not supported.
@@ -107,6 +109,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO databasement;
 
 :::note[Single database only]
 For single-database access without `CREATEDB`, the target database must already exist. Grant `ALL PRIVILEGES` on that specific database and its schema. The user won't be able to drop/recreate the database during restore - Databasement will drop and recreate tables instead.
+:::
+
+### Microsoft SQL Server
+
+SQL Server uses `sqlpackage` to export and import `.bacpac` files. Supports on-prem SQL Server 2017+ and Azure SQL Database (default port: 1433).
+
+The login needs `db_owner` on each target database, plus permission to drop and create databases (restore drops the target first). `sysadmin` works; on Azure SQL, use a server admin or grant `dbmanager` on `master`.
+
+:::info Cross-edition restore
+Restoring across editions (e.g. Azure SQL → on-prem) may fail if the source uses features the target doesn't support — a `sqlpackage` limitation.
 :::
 
 ### MongoDB

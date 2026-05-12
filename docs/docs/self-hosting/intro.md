@@ -6,7 +6,7 @@ sidebar_position: 1
 
 Welcome to the **Self-Hosting** section of the **Databasement documentation**!
 
-Databasement is a web application for managing database server backups. It allows you to register database servers (MySQL, PostgreSQL, MariaDB, MongoDB, SQLite, Redis/Valkey), test connections, schedule automated backups, and restore snapshots to any registered server.
+Databasement is a web application for managing database server backups. It allows you to register database servers (MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Redis/Valkey), test connections, schedule automated backups, and restore snapshots to any registered server.
 
 ## Getting Started
 

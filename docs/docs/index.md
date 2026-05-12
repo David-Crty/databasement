@@ -11,11 +11,11 @@ Welcome to the **Databasement** documentation!
 
 > **Try it out!** Explore the [live demo](https://databasement-demo.crty.dev/) to see Databasement in action.
 
-Databasement is a web application for managing database server backups. It allows you to register database servers (MySQL, PostgreSQL, MariaDB, MongoDB, SQLite, Redis/Valkey), test connections, schedule automated backups, and restore snapshots to any registered server.
+Databasement is a web application for managing database server backups. It allows you to register database servers (MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Redis/Valkey), test connections, schedule automated backups, and restore snapshots to any registered server.
 
 ## Features
 
-- **Multi-database support**: Manage MySQL, PostgreSQL, MariaDB, MongoDB, SQLite, and Redis/Valkey servers
+- **Multi-database support**: Manage MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, and Redis/Valkey servers
 - **SSH tunnel support**: Connect to databases in private networks through a bastion/jump server
 - **Automated backups**: Schedule recurring backups with customizable retention
 - **Storage volumes**: Store backups locally, on S3-compatible storage, or via SFTP/FTP

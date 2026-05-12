@@ -201,7 +201,7 @@ Ensure tests pass before committing.
 **Backup Process:**
 1. Connect to database server
 2. Establish SSH tunnel if configured
-3. Execute database-specific dump (mysqldump/pg_dump/mongodump/redis-cli/cp)
+3. Execute database-specific dump (mariadb-dump/pg_dump/sqlpackage/mongodump/redis-cli/cp)
 4. Compress with gzip
 5. Upload to configured volume (local/S3)
 6. Record snapshot metadata

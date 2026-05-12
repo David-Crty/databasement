@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  A modern, self-hosted database backup management application for MySQL, PostgreSQL, MariaDB, MongoDB, SQLite, and Redis.
+  A modern, self-hosted database backup management application for MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, and Redis.
 </p>
 
 <p align="center">
@@ -36,7 +36,7 @@
 
 ## Features
 
-- **Multi-database support** - Manage MySQL, PostgreSQL, MariaDB, MongoDB, SQLite, and Redis/Valkey servers from a single interface
+- **Multi-database support** - Manage MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, and Redis/Valkey servers from a single interface
 - **SSH tunnel support** - Connect to databases in private networks through a bastion/jump server with password or key-based authentication
 - **Automated backups** - Schedule recurring backups on daily or weekly intervals. Flexible retention policies: simple time-based (days) or GFS (grandfather-father-son)
 - **Multiple compression options** - gzip, zstd (20-40% better compression), or encrypted (AES-256 for sensitive data)
@@ -88,6 +88,7 @@ For production deployments, see our [configuration guide](https://david-crty.git
 | MySQL      | 5.6, 5.7, 8.x, 9.x           | `mariadb-dump`               | Yes     |
 | MariaDB    | 10.x, 11.x, 12.x             | `mariadb-dump`               | Yes     |
 | PostgreSQL | 12, 13, 14, 15, 16, 17, 18   | `pg_dump` v18                | Yes     |
+| SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.bacpac`)     | Yes     |
 | MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes     |
 | SQLite     | 3.x                          | `sqlite3 .backup`            | Yes     |
 | Redis      | 2.8+                         | `redis-cli --rdb`            | No      |
