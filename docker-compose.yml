@@ -1,3 +1,6 @@
+# Local development compose. DB ports are bound to 127.0.0.1 only.
+# For production self-hosting: https://david-crty.github.io/databasement/self-hosting/docker-compose
+
 services:
   app:
     image: davidcrty/databasement-php
@@ -44,7 +47,7 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: databasement
     ports:
-      - "3307:3306"
+      - "127.0.0.1:3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -61,7 +64,7 @@ services:
       POSTGRES_PASSWORD: root
       POSTGRES_DB: databasement
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -77,7 +80,7 @@ services:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: root
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongodb-data:/data/db
     healthcheck:
@@ -90,7 +93,7 @@ services:
     image: redis:7
     container_name: databasement-redis
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -107,7 +110,7 @@ services:
       ACCEPT_EULA: "Y"
       MSSQL_SA_PASSWORD: "Databasement!Strong1"
     ports:
-      - "1433:1433"
+      - "127.0.0.1:1433:1433"
     volumes:
       - mssql-data:/var/opt/mssql
     healthcheck:
@@ -128,7 +131,7 @@ services:
       PASSWORD_ACCESS: "true"
       DOCKER_MODS: linuxserver/mods:openssh-server-ssh-tunnel
     ports:
-      - "2222:2222"
+      - "127.0.0.1:2222:2222"
     healthcheck:
       test: [ "CMD-SHELL", "netstat -tlnp | grep -q ':2222'" ]
       interval: 10s
@@ -139,8 +142,8 @@ services:
     image: rustfs/rustfs:latest
     container_name: databasement-rustfs
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       RUSTFS_ACCESS_KEY: rustfsadmin
       RUSTFS_SECRET_KEY: rustfsadmin
@@ -197,7 +200,7 @@ services:
     volumes:
       - ./docker/dex/config.yaml:/etc/dex/config.yaml:ro
     ports:
-      - "5556:5556"
+      - "127.0.0.1:5556:5556"
     command: ["dex", "serve", "/etc/dex/config.yaml"]
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:5556/dex/.well-known/openid-configuration"]
