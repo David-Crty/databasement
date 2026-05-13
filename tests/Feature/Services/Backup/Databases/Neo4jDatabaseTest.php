@@ -99,3 +99,60 @@ test('listDatabases returns user databases excluding system', function () {
 
     expect($databases)->toBe(['neo4j', 'movies']);
 });
+
+test('dump calls APOC export and writes cypherStatements to output file', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $tsx = Mockery::mock(\Laudis\Neo4j\Contracts\TransactionInterface::class);
+
+    $tsx->shouldReceive('run')
+        ->once()
+        ->with(Mockery::pattern('/apoc\.export\.cypher\.all/'))
+        ->andReturn(fakeNeo4jResult([
+            ['cypherStatements' => 'CREATE (:Person {name: "Alice"});'],
+        ]));
+
+    $client->shouldReceive('readTransaction')
+        ->once()
+        ->andReturnUsing(function (callable $callback) use ($tsx) {
+            return $callback($tsx);
+        });
+
+    $db = mockNeo4jWithClient($client);
+    $outputPath = sys_get_temp_dir().'/neo4j_dump_test_'.uniqid().'.cypher';
+
+    $result = $db->dump($outputPath);
+
+    expect($result->command)->toBeNull()
+        ->and($result->log->message)->toContain('export completed')
+        ->and(file_get_contents($outputPath))->toBe('CREATE (:Person {name: "Alice"});');
+
+    @unlink($outputPath);
+});
+
+test('dump uses UNWIND_BATCH optimisation in APOC call', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $tsx = Mockery::mock(\Laudis\Neo4j\Contracts\TransactionInterface::class);
+
+    $capturedQuery = '';
+    $tsx->shouldReceive('run')
+        ->once()
+        ->andReturnUsing(function (string $query) use (&$capturedQuery) {
+            $capturedQuery = $query;
+
+            return fakeNeo4jResult([['cypherStatements' => '']]);
+        });
+
+    $client->shouldReceive('readTransaction')
+        ->once()
+        ->andReturnUsing(fn (callable $cb) => $cb($tsx));
+
+    $db = mockNeo4jWithClient($client);
+    $outputPath = sys_get_temp_dir().'/neo4j_dump_opt_'.uniqid().'.cypher';
+
+    $db->dump($outputPath);
+
+    expect($capturedQuery)->toContain('UNWIND_BATCH')
+        ->and($capturedQuery)->toContain('cypherStatements');
+
+    @unlink($outputPath);
+});

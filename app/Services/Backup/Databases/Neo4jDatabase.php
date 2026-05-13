@@ -3,6 +3,7 @@
 namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
+use App\Services\Backup\DTO\DatabaseOperationLog;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Laudis\Neo4j\Authentication\Authenticate;
@@ -25,7 +26,33 @@ class Neo4jDatabase implements DatabaseInterface
 
     public function dump(string $outputPath): DatabaseOperationResult
     {
-        throw new \RuntimeException('Not implemented yet');
+        $client = $this->createClient();
+
+        $file = fopen($outputPath, 'w');
+        if ($file === false) {
+            throw new \RuntimeException("Failed to open output file for writing: {$outputPath}");
+        }
+
+        try {
+            $result = $client->readTransaction(
+                function ($tsx) {
+                    return $tsx->run(
+                        'CALL apoc.export.cypher.all(null, {stream: true, format: "cypher-shell", useOptimizations: {type: "UNWIND_BATCH", unwindBatchSize: 50}}) YIELD cypherStatements RETURN cypherStatements'
+                    );
+                }
+            );
+
+            foreach ($result as $record) {
+                fwrite($file, $record->get('cypherStatements'));
+            }
+        } finally {
+            fclose($file);
+        }
+
+        return new DatabaseOperationResult(
+            command: null,
+            log: new DatabaseOperationLog('Neo4j APOC export completed', 'info'),
+        );
     }
 
     public function restore(string $inputPath): DatabaseOperationResult
