@@ -263,6 +263,27 @@ test('from-restore-index mode: dbTypeFilter narrows the snapshot list', function
         ->assertDontSee('pg_db');
 });
 
+test('changing dbTypeFilter clears the stale serverFilter so results are not over-filtered', function () {
+    $mysqlServer = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    Snapshot::factory()->forServer($mysqlServer)->withFile()->create(['database_name' => 'mysql_db']);
+
+    $postgresServer = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    Snapshot::factory()->forServer($postgresServer)->withFile()->create(['database_name' => 'pg_db']);
+
+    // User picks a MySQL server in the source-server filter, then switches the
+    // db-type filter to Postgres. The Postgres snapshot should appear (i.e.
+    // the now-incompatible serverFilter must have been cleared).
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-restore-index')
+        ->set('serverFilter', $mysqlServer->id)
+        ->assertSee('mysql_db')
+        ->assertDontSee('pg_db')
+        ->set('dbTypeFilter', 'postgres')
+        ->assertSet('serverFilter', null)
+        ->assertSee('pg_db')
+        ->assertDontSee('mysql_db');
+});
+
 test('from-restore-index mode: previousStep from step 3 clears target then step 2 clears snapshot', function () {
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();

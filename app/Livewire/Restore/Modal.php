@@ -66,6 +66,10 @@ class Modal extends Component
 
     public function updatedDbTypeFilter(): void
     {
+        // The previously chosen source server may not match the new type; if
+        // we left it in place the query would filter by an incompatible server
+        // and the list would collapse to empty.
+        $this->serverFilter = null;
         $this->resetPage('snapshots');
     }
 
