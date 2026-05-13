@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5623614aa2794f29c964972497726d87",
+    "content-hash": "2c4ae249bcbcb5fc4f07742c8a9b2c43",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -490,6 +490,72 @@
                 }
             ],
             "time": "2024-02-09T16:56:22+00:00"
+        },
+        {
+            "name": "clue/stream-filter",
+            "version": "v1.7.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/clue/stream-filter.git",
+                "reference": "049509fef80032cb3f051595029ab75b49a3c2f7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/clue/stream-filter/zipball/049509fef80032cb3f051595029ab75b49a3c2f7",
+                "reference": "049509fef80032cb3f051595029ab75b49a3c2f7",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=5.3"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9.6 || ^5.7 || ^4.8.36"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "src/functions_include.php"
+                ],
+                "psr-4": {
+                    "Clue\\StreamFilter\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Christian Lück",
+                    "email": "christian@clue.engineering"
+                }
+            ],
+            "description": "A simple and modern approach to stream filtering in PHP",
+            "homepage": "https://github.com/clue/stream-filter",
+            "keywords": [
+                "bucket brigade",
+                "callback",
+                "filter",
+                "php_user_filter",
+                "stream",
+                "stream_filter_append",
+                "stream_filter_register"
+            ],
+            "support": {
+                "issues": "https://github.com/clue/stream-filter/issues",
+                "source": "https://github.com/clue/stream-filter/tree/v1.7.0"
+            },
+            "funding": [
+                {
+                    "url": "https://clue.engineering/support",
+                    "type": "custom"
+                },
+                {
+                    "url": "https://github.com/clue",
+                    "type": "github"
+                }
+            ],
+            "time": "2023-12-20T15:40:13+00:00"
         },
         {
             "name": "codeat3/blade-devicons",
@@ -3115,6 +3181,140 @@
             "time": "2026-03-17T14:54:13+00:00"
         },
         {
+            "name": "laudis/neo4j-php-client",
+            "version": "3.4.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/neo4j-php/neo4j-php-client.git",
+                "reference": "f97858445e322b37424c52b3636069ec20c2df16"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/neo4j-php/neo4j-php-client/zipball/f97858445e322b37424c52b3636069ec20c2df16",
+                "reference": "f97858445e322b37424c52b3636069ec20c2df16",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-mbstring": "*",
+                "laudis/typed-enum": "^1.3.2",
+                "php": "^8.1",
+                "php-http/discovery": "^1.13",
+                "php-http/message": "^1.0",
+                "psr/http-client": "^1.0",
+                "psr/http-factory": "^1.0",
+                "psr/http-message": "^1.0|^2.0",
+                "psr/simple-cache": ">=2.0",
+                "stefanak-michal/bolt": "^7.1.4",
+                "symfony/polyfill-php80": "^1.2"
+            },
+            "provide": {
+                "psr/simple-cache-implementation": "2.0|3.0"
+            },
+            "require-dev": {
+                "cache/integration-tests": "dev-master",
+                "friendsofphp/php-cs-fixer": "3.68.5",
+                "kriswallsmith/buzz": "^1.2",
+                "kubawerlos/php-cs-fixer-custom-fixers": "3.13.*",
+                "monolog/monolog": "^2.2",
+                "nyholm/psr7": "^1.3",
+                "nyholm/psr7-server": "^1.0",
+                "php-di/php-di": "^6.3",
+                "phpunit/phpunit": "^10.0",
+                "psalm/plugin-phpunit": "^0.19",
+                "psr/log": "^3.0",
+                "rector/rector": "^1.0",
+                "symfony/uid": "^5.0",
+                "symfony/var-dumper": "^5.0",
+                "vimeo/psalm": "^6.5"
+            },
+            "suggest": {
+                "composer-runtime-api": "Install composer 2 for auto detection of version in user agent",
+                "ext-bcmath": "Needed to implement bolt protocol",
+                "ext-sysvsem": "Needed for enabling connection pooling between processes",
+                "psr/log": "Needed to enable logging"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Laudis\\Neo4j\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ghlen Nagels",
+                    "email": "ghlen@pm.me"
+                }
+            ],
+            "description": "Neo4j-PHP-Client is the most advanced PHP Client for Neo4j",
+            "keywords": [
+                "bolt",
+                "client",
+                "cluster",
+                "database",
+                "driver",
+                "graph",
+                "high-availability",
+                "http",
+                "neo4j"
+            ],
+            "support": {
+                "issues": "https://github.com/neo4j-php/neo4j-php-client/issues",
+                "source": "https://github.com/neo4j-php/neo4j-php-client/tree/3.4.3"
+            },
+            "time": "2026-03-20T09:53:10+00:00"
+        },
+        {
+            "name": "laudis/typed-enum",
+            "version": "1.3.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/transistive/typed-enum.git",
+                "reference": "65cddd2ed0eedd1ff642d1ef632745ab2522c976"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/transistive/typed-enum/zipball/65cddd2ed0eedd1ff642d1ef632745ab2522c976",
+                "reference": "65cddd2ed0eedd1ff642d1ef632745ab2522c976",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^7.4 || ^8.0"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.3",
+                "phpunit/phpunit": "9.*",
+                "psalm/plugin-phpunit": "^0.16",
+                "vimeo/psalm": "^4.12"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Laudis\\TypedEnum\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Ghlen Nagels",
+                    "email": "ghlen@pm.me"
+                }
+            ],
+            "description": "A small class allowing for typed enumerations.",
+            "support": {
+                "issues": "https://github.com/transistive/typed-enum/issues",
+                "source": "https://github.com/transistive/typed-enum/tree/1.3.2"
+            },
+            "time": "2022-01-04T23:33:30+00:00"
+        },
+        {
             "name": "league/commonmark",
             "version": "2.8.2",
             "source": {
@@ -4865,6 +5065,154 @@
             "time": "2020-10-15T08:29:30+00:00"
         },
         {
+            "name": "php-http/discovery",
+            "version": "1.20.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-http/discovery.git",
+                "reference": "82fe4c73ef3363caed49ff8dd1539ba06044910d"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-http/discovery/zipball/82fe4c73ef3363caed49ff8dd1539ba06044910d",
+                "reference": "82fe4c73ef3363caed49ff8dd1539ba06044910d",
+                "shasum": ""
+            },
+            "require": {
+                "composer-plugin-api": "^1.0|^2.0",
+                "php": "^7.1 || ^8.0"
+            },
+            "conflict": {
+                "nyholm/psr7": "<1.0",
+                "zendframework/zend-diactoros": "*"
+            },
+            "provide": {
+                "php-http/async-client-implementation": "*",
+                "php-http/client-implementation": "*",
+                "psr/http-client-implementation": "*",
+                "psr/http-factory-implementation": "*",
+                "psr/http-message-implementation": "*"
+            },
+            "require-dev": {
+                "composer/composer": "^1.0.2|^2.0",
+                "graham-campbell/phpspec-skip-example-extension": "^5.0",
+                "php-http/httplug": "^1.0 || ^2.0",
+                "php-http/message-factory": "^1.0",
+                "phpspec/phpspec": "^5.1 || ^6.1 || ^7.3",
+                "sebastian/comparator": "^3.0.5 || ^4.0.8",
+                "symfony/phpunit-bridge": "^6.4.4 || ^7.0.1"
+            },
+            "type": "composer-plugin",
+            "extra": {
+                "class": "Http\\Discovery\\Composer\\Plugin",
+                "plugin-optional": true
+            },
+            "autoload": {
+                "psr-4": {
+                    "Http\\Discovery\\": "src/"
+                },
+                "exclude-from-classmap": [
+                    "src/Composer/Plugin.php"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Márk Sági-Kazár",
+                    "email": "mark.sagikazar@gmail.com"
+                }
+            ],
+            "description": "Finds and installs PSR-7, PSR-17, PSR-18 and HTTPlug implementations",
+            "homepage": "http://php-http.org",
+            "keywords": [
+                "adapter",
+                "client",
+                "discovery",
+                "factory",
+                "http",
+                "message",
+                "psr17",
+                "psr7"
+            ],
+            "support": {
+                "issues": "https://github.com/php-http/discovery/issues",
+                "source": "https://github.com/php-http/discovery/tree/1.20.0"
+            },
+            "time": "2024-10-02T11:20:13+00:00"
+        },
+        {
+            "name": "php-http/message",
+            "version": "1.16.2",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/php-http/message.git",
+                "reference": "06dd5e8562f84e641bf929bfe699ee0f5ce8080a"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/php-http/message/zipball/06dd5e8562f84e641bf929bfe699ee0f5ce8080a",
+                "reference": "06dd5e8562f84e641bf929bfe699ee0f5ce8080a",
+                "shasum": ""
+            },
+            "require": {
+                "clue/stream-filter": "^1.5",
+                "php": "^7.2 || ^8.0",
+                "psr/http-message": "^1.1 || ^2.0"
+            },
+            "provide": {
+                "php-http/message-factory-implementation": "1.0"
+            },
+            "require-dev": {
+                "ergebnis/composer-normalize": "^2.6",
+                "ext-zlib": "*",
+                "guzzlehttp/psr7": "^1.0 || ^2.0",
+                "laminas/laminas-diactoros": "^2.0 || ^3.0",
+                "php-http/message-factory": "^1.0.2",
+                "phpspec/phpspec": "^5.1 || ^6.3 || ^7.1",
+                "slim/slim": "^3.0"
+            },
+            "suggest": {
+                "ext-zlib": "Used with compressor/decompressor streams",
+                "guzzlehttp/psr7": "Used with Guzzle PSR-7 Factories",
+                "laminas/laminas-diactoros": "Used with Diactoros Factories",
+                "slim/slim": "Used with Slim Framework PSR-7 implementation"
+            },
+            "type": "library",
+            "autoload": {
+                "files": [
+                    "src/filters.php"
+                ],
+                "psr-4": {
+                    "Http\\Message\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Márk Sági-Kazár",
+                    "email": "mark.sagikazar@gmail.com"
+                }
+            ],
+            "description": "HTTP Message related tools",
+            "homepage": "http://php-http.org",
+            "keywords": [
+                "http",
+                "message",
+                "psr-7"
+            ],
+            "support": {
+                "issues": "https://github.com/php-http/message/issues",
+                "source": "https://github.com/php-http/message/tree/1.16.2"
+            },
+            "time": "2024-10-02T11:34:13+00:00"
+        },
+        {
             "name": "phpdocumentor/reflection-common",
             "version": "2.2.0",
             "source": {
@@ -6487,6 +6835,75 @@
                 }
             ],
             "time": "2026-03-23T22:56:56+00:00"
+        },
+        {
+            "name": "stefanak-michal/bolt",
+            "version": "v7.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/stefanak-michal/php-bolt-driver.git",
+                "reference": "17eb21312bad0a1d006d5e428acc01bdf4b6ed65"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/stefanak-michal/php-bolt-driver/zipball/17eb21312bad0a1d006d5e428acc01bdf4b6ed65",
+                "reference": "17eb21312bad0a1d006d5e428acc01bdf4b6ed65",
+                "shasum": ""
+            },
+            "require": {
+                "ext-curl": "*",
+                "ext-mbstring": "*",
+                "php": "^8.1",
+                "psr/simple-cache": "^3.0"
+            },
+            "require-dev": {
+                "phpunit/phpunit": "^9"
+            },
+            "suggest": {
+                "ext-openssl": "Needed when using StreamSocket connection class with SSL",
+                "ext-sockets": "Needed when using Socket connection class"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Bolt\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michal Stefanak",
+                    "homepage": "https://www.linkedin.com/in/michalstefanak/",
+                    "role": "Developer"
+                }
+            ],
+            "description": "PHP library to provide connectivity to graph database over TCP socket with Bolt specification",
+            "homepage": "https://github.com/stefanak-michal/php-bolt-driver",
+            "keywords": [
+                "Socket",
+                "bolt",
+                "database",
+                "driver",
+                "graph",
+                "memgraph",
+                "neo4j",
+                "tcp"
+            ],
+            "support": {
+                "docs": "https://www.neo4j.com/docs/bolt/current/",
+                "issues": "https://github.com/stefanak-michal/php-bolt-driver/issues",
+                "source": "https://github.com/stefanak-michal/php-bolt-driver"
+            },
+            "funding": [
+                {
+                    "url": "https://ko-fi.com/michalstefanak",
+                    "type": "ko-fi"
+                }
+            ],
+            "time": "2026-03-16T11:23:29+00:00"
         },
         {
             "name": "symfony/clock",

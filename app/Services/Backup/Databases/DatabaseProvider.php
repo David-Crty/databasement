@@ -27,6 +27,7 @@ class DatabaseProvider
             DatabaseType::REDIS => new RedisDatabase,
             DatabaseType::MONGODB => new MongodbDatabase,
             DatabaseType::MSSQL => new MssqlDatabase,
+            DatabaseType::NEO4J => new Neo4jDatabase,
         };
     }
 
