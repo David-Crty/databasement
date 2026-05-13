@@ -8,6 +8,7 @@ use App\Support\Formatters;
 use Laudis\Neo4j\Authentication\Authenticate;
 use Laudis\Neo4j\ClientBuilder;
 use Laudis\Neo4j\Contracts\ClientInterface;
+use Laudis\Neo4j\Databags\DriverConfiguration;
 
 class Neo4jDatabase implements DatabaseInterface
 {
@@ -79,7 +80,7 @@ class Neo4jDatabase implements DatabaseInterface
                     'output' => json_encode(['dbms' => "Neo4j {$version}"], JSON_PRETTY_PRINT),
                 ],
             ];
-        } catch (\Exception $e) {
+        } catch (\RuntimeException $e) {
             $durationMs = (int) round((microtime(true) - $startTime) * 1000);
 
             if ($durationMs >= 9500) {
@@ -105,6 +106,9 @@ class Neo4jDatabase implements DatabaseInterface
                 'default',
                 sprintf('bolt://%s:%d', $this->config['host'], $this->config['port']),
                 Authenticate::basic($this->config['user'], $this->config['pass'])
+            )
+            ->withDefaultDriverConfiguration(
+                DriverConfiguration::default()->withAcquireConnectionTimeout(10.0)
             )
             ->build();
     }
