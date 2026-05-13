@@ -5,28 +5,28 @@
 
 @if($isDesktop)
     <x-input
-        placeholder="{{ __('Search...') }}"
+        :placeholder="__('Search...')"
         wire:model.live.debounce="search"
         clearable
         icon="o-magnifying-glass"
         class="!input-sm w-48"
     />
     <x-select
-        placeholder="{{ __('All Types') }}"
+        :placeholder="__('All Types')"
         placeholder-value=""
         wire:model.live="dbTypeFilter"
         :options="$dbTypeOptions"
         class="!select-sm w-40"
     />
     <x-select
-        placeholder="{{ __('All Servers') }}"
+        :placeholder="__('All Servers')"
         placeholder-value=""
         wire:model.live="serverFilter"
         :options="$serverOptions"
         class="!select-sm w-36"
     />
     <x-select
-        placeholder="{{ __('All Status') }}"
+        :placeholder="__('All Status')"
         placeholder-value=""
         wire:model.live="statusFilter"
         :options="$statusOptions"
@@ -43,20 +43,20 @@
             wire:click="clear"
             spinner
             class="btn-ghost btn-sm"
-            tooltip="{{ __('Clear filters') }}"
+            :tooltip="__('Clear filters')"
         />
     @endif
 @else
     <div class="flex flex-wrap items-center gap-2">
         <x-input
-            placeholder="{{ __('Search...') }}"
+            :placeholder="__('Search...')"
             wire:model.live.debounce="search"
             clearable
             icon="o-magnifying-glass"
             class="w-full sm:!input-sm"
         />
         <x-button
-            label="{{ __('Filters') }}"
+            :label="__('Filters')"
             icon="o-funnel"
             @click="showFilters = !showFilters"
             class="btn-ghost btn-sm w-full justify-start sm:hidden"
@@ -64,21 +64,21 @@
         />
         <div class="hidden sm:flex flex-wrap items-center gap-2">
             <x-select
-                placeholder="{{ __('All Types') }}"
+                :placeholder="__('All Types')"
                 placeholder-value=""
                 wire:model.live="dbTypeFilter"
                 :options="$dbTypeOptions"
                 class="!select-sm w-40"
             />
             <x-select
-                placeholder="{{ __('All Servers') }}"
+                :placeholder="__('All Servers')"
                 placeholder-value=""
                 wire:model.live="serverFilter"
                 :options="$serverOptions"
                 class="!select-sm w-36"
             />
             <x-select
-                placeholder="{{ __('All Status') }}"
+                :placeholder="__('All Status')"
                 placeholder-value=""
                 wire:model.live="statusFilter"
                 :options="$statusOptions"
@@ -95,29 +95,29 @@
                     wire:click="clear"
                     spinner
                     class="btn-ghost btn-sm"
-                    tooltip="{{ __('Clear filters') }}"
+                    :tooltip="__('Clear filters')"
                 />
             @endif
         </div>
     </div>
     <div x-show="showFilters" x-collapse class="mt-3 space-y-3 sm:hidden">
         <x-select
-            label="{{ __('Type') }}"
-            placeholder="{{ __('All Types') }}"
+            :label="__('Type')"
+            :placeholder="__('All Types')"
             placeholder-value=""
             wire:model.live="dbTypeFilter"
             :options="$dbTypeOptions"
         />
         <x-select
-            label="{{ __('Server') }}"
-            placeholder="{{ __('All Servers') }}"
+            :label="__('Server')"
+            :placeholder="__('All Servers')"
             placeholder-value=""
             wire:model.live="serverFilter"
             :options="$serverOptions"
         />
         <x-select
-            label="{{ __('Status') }}"
-            placeholder="{{ __('All Status') }}"
+            :label="__('Status')"
+            :placeholder="__('All Status')"
             placeholder-value=""
             wire:model.live="statusFilter"
             :options="$statusOptions"
@@ -129,7 +129,7 @@
         </label>
         @if($hasFilters)
             <x-button
-                label="{{ __('Clear filters') }}"
+                :label="__('Clear filters')"
                 icon="o-x-mark"
                 wire:click="clear"
                 spinner

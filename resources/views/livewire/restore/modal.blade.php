@@ -211,7 +211,7 @@
 
                     @if(in_array($schemaName, $existingDatabases))
                         <x-alert class="alert-warning" icon="o-exclamation-triangle">
-                            The database <x-badge class="badge-error badge-dash" :value="$schemaName" /> already exists.<br>
+                            {{ __('The database') }} <x-badge class="badge-error badge-dash" :value="$schemaName" /> {{ __('already exists.') }}<br>
                             {{ __('It will be overwritten if you continue.') }}
                         </x-alert>
                     @endif

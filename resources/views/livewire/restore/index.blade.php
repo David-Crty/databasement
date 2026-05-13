@@ -3,14 +3,14 @@
         <x-alert title="{{ $errorMessage }}" class="alert-error mb-4" icon="o-x-circle" />
     @endif
 
-    <x-header title="{{ __('Restores') }}" separator progress-indicator>
+    <x-header :title="__('Restores')" separator progress-indicator>
         <x-slot:actions>
             <div class="hidden lg:flex items-center gap-2">
                 @include('livewire.restore._filters', ['variant' => 'desktop'])
             </div>
             @can('create', \App\Models\Restore::class)
                 <x-button
-                    label="{{ __('New Restore') }}"
+                    :label="__('New Restore')"
                     icon="o-plus"
                     wire:click="openNewRestore"
                     class="btn-primary btn-sm"
@@ -106,7 +106,7 @@
                     <x-button
                         icon="o-document-text"
                         wire:click="viewLogs('{{ $restore->job?->id }}')"
-                        tooltip="{{ __('View Logs') }}"
+                        :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
                         :class="empty($restore->job?->logs) ? 'opacity-30' : ''"
                         :disabled="empty($restore->job?->logs)"
@@ -115,7 +115,7 @@
                         <x-button
                             icon="o-trash"
                             wire:click="confirmDeleteRestore('{{ $restore->id }}')"
-                            tooltip="{{ __('Delete') }}"
+                            :tooltip="__('Delete')"
                             class="btn-ghost btn-sm text-error"
                         />
                     @endcan

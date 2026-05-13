@@ -9,11 +9,15 @@ use Livewire\Attributes\Url;
  * Shared plumbing for index pages that show a "view logs" modal for a
  * {@see BackupJob}. The consuming component must:
  *
- * - extend Livewire\Component
- * - use Illuminate\Foundation\Auth\Access\AuthorizesRequests
- * - use App\Traits\Toast (for the trait's `error` method when mount fails)
+ * - extend {@see \Livewire\Component}
+ * - use {@see \Illuminate\Foundation\Auth\Access\AuthorizesRequests}
  * - define a `getSelectedJobProperty()` returning the eager-loaded BackupJob
  *   (each consumer chooses which relations to load).
+ *
+ * When the `?job=ID` URL parameter resolves to an unknown job, the trait
+ * exposes the message via `$errorMessage` (the host's blade is expected to
+ * render it) rather than throwing — this preserves a usable index page when
+ * a stale notification link is followed.
  */
 trait HandlesJobLogsModal
 {

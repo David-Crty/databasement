@@ -203,14 +203,14 @@ class Index extends Component
 
         $job = BackupJob::findOrFail($this->cancelJobId);
 
+        $this->authorize('delete', $job);
+
         if ($job->status !== 'pending') {
             $this->error(__('Job is no longer pending and cannot be deleted.'));
             $this->showDeleteModal = false;
 
             return;
         }
-
-        $this->authorize('delete', $job);
 
         $job->delete();
         $this->cancelJobId = null;

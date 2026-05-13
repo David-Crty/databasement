@@ -106,14 +106,14 @@
                 <a href="{{ route('snapshots.index', ['serverFilter' => $server->id]) }}"
                    class="flex items-center gap-1 hover:text-info transition-colors tooltip @if ($server->snapshots_count === 0) pointer-events-none opacity-50 cursor-not-allowed @endif"
                    data-tip="{{ __('View snapshots') }}" wire:navigate>
-                    <x-icon name="o-arrow-down-tray" class="w-4 h-4" />
+                    <x-icon name="o-archive-box" class="w-4 h-4" />
                     <span>{{ $server->snapshots_count }}</span>
                 </a>
 
                 <a href="{{ route('restores.index', ['targetServerFilter' => $server->id]) }}"
                    class="flex items-center gap-1 hover:text-success transition-colors tooltip @if ($server->restores_count === 0) pointer-events-none opacity-50 cursor-not-allowed @endif"
                    data-tip="{{ __('View restores') }}" wire:navigate>
-                    <x-icon name="o-arrow-up-tray" class="w-4 h-4" />
+                    <x-icon name="o-arrow-uturn-left" class="w-4 h-4" />
                     <span>{{ $server->restores_count }}</span>
                 </a>
             </div>
@@ -122,11 +122,11 @@
             @scope('cell_actions', $server)
             <div>
                 @can('backup', $server)
-                    <x-button icon="o-arrow-down-tray" wire:click="runBackupAll('{{ $server->id }}')" spinner
+                    <x-button icon="o-archive-box" wire:click="runBackupAll('{{ $server->id }}')" spinner
                               tooltip="{{ __('Backup now') }}" class="btn-ghost btn-sm text-info" />
                 @endcan
                 @can('restore', $server)
-                    <x-button icon="o-arrow-up-tray" wire:click="confirmRestore('{{ $server->id }}')" spinner
+                    <x-button icon="o-arrow-uturn-left" wire:click="confirmRestore('{{ $server->id }}')" spinner
                               tooltip="{{ __('Restore') }}" class="btn-ghost btn-sm text-success" />
                 @endcan
             </div>

@@ -3,7 +3,7 @@
         <x-alert title="{{ $errorMessage }}" class="alert-error mb-4" icon="o-x-circle" />
     @endif
 
-    <x-header title="{{ __('Snapshots') }}" separator progress-indicator>
+    <x-header :title="__('Snapshots')" separator progress-indicator>
         <x-slot:actions>
             <div class="hidden lg:flex items-center gap-2">
                 @include('livewire.snapshot._filters', ['variant' => 'desktop'])
@@ -117,7 +117,7 @@
                             <x-button
                                 icon="o-arrow-uturn-left"
                                 wire:click="triggerRestore('{{ $snapshot->id }}')"
-                                tooltip="{{ __('Restore') }}"
+                                :tooltip="__('Restore')"
                                 class="btn-ghost btn-sm text-primary"
                             />
                         @endcan
@@ -128,7 +128,7 @@
                                 icon="o-arrow-down-tray"
                                 :link="route('snapshots.download', $snapshot)"
                                 external
-                                tooltip="{{ __('Download') }}"
+                                :tooltip="__('Download')"
                                 class="btn-ghost btn-sm text-info"
                             />
                         @endcan
@@ -136,7 +136,7 @@
                     <x-button
                         icon="o-document-text"
                         wire:click="viewLogs('{{ $snapshot->job?->id }}')"
-                        tooltip="{{ __('View Logs') }}"
+                        :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
                         :class="empty($snapshot->job?->logs) ? 'opacity-30' : ''"
                         :disabled="empty($snapshot->job?->logs)"
@@ -146,7 +146,7 @@
                             <x-button
                                 icon="o-trash"
                                 wire:click="confirmDeleteSnapshot('{{ $snapshot->id }}')"
-                                tooltip="{{ __('Delete') }}"
+                                :tooltip="__('Delete')"
                                 class="btn-ghost btn-sm text-error"
                             />
                         @endcan
@@ -156,7 +156,7 @@
                             <x-button
                                 icon="o-x-mark"
                                 wire:click="confirmCancelJob('{{ $snapshot->job->id }}')"
-                                tooltip="{{ __('Cancel') }}"
+                                :tooltip="__('Cancel')"
                                 class="btn-ghost btn-sm text-error"
                             />
                         @endcan
