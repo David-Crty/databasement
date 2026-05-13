@@ -288,6 +288,48 @@ test('mssql backup and restore workflow', function () {
         ->and((int) $stmt->fetchColumn())->toBe(2);
 });
 
+test('neo4j backup and restore workflow', function () {
+    // Create models
+    $this->volume = IntegrationTestHelpers::createVolume('neo4j');
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('neo4j');
+    $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
+    $this->databaseServer->load('backups.volume');
+
+    // Load test data
+    IntegrationTestHelpers::loadTestData('neo4j', $this->databaseServer);
+
+    // Run backup
+    $snapshots = $this->backupJobFactory->createSnapshots(
+        backup: $this->backup,
+        method: 'manual',
+    );
+    $this->snapshot = $snapshots[0];
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
+    $this->snapshot->refresh();
+    $this->snapshot->load('job');
+
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+
+    expect($this->snapshot->job->status)->toBe('completed')
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->filename)->toEndWith('.cypher.gz')
+        ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
+
+    // Neo4j Community Edition cannot create new databases — restore back into the same database.
+    // Use the same database name as the source for the restore target.
+    $this->restoredDatabaseName = config('testing.databases.neo4j.database', 'neo4j');
+    $restore = $this->backupJobFactory->createRestore(
+        snapshot: $this->snapshot,
+        targetServer: $this->databaseServer,
+        schemaName: $this->restoredDatabaseName,
+    );
+    ProcessRestoreJob::dispatchSync($restore->id);
+
+    // Verify restore — check that nodes exist in the database
+    $nodeCount = IntegrationTestHelpers::verifyNeo4jRestore($this->databaseServer, $this->restoredDatabaseName);
+    expect($nodeCount)->toBeGreaterThanOrEqual(3);
+});
+
 test('redis backup workflow', function () {
     // Create models
     $this->volume = IntegrationTestHelpers::createVolume('redis');

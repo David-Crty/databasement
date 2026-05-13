@@ -89,6 +89,14 @@ class IntegrationTestHelpers
                 'database' => config('testing.databases.mssql.database').$suffix,
                 'database_type' => 'mssql',
             ],
+            'neo4j' => [
+                'host' => config('testing.databases.neo4j.host'),
+                'port' => (int) config('testing.databases.neo4j.port'),
+                'username' => config('testing.databases.neo4j.username'),
+                'password' => config('testing.databases.neo4j.password'),
+                'database' => config('testing.databases.neo4j.database'),
+                'database_type' => 'neo4j',
+            ],
             default => throw new InvalidArgumentException("Unsupported database type: {$type}"),
         };
     }
@@ -424,12 +432,91 @@ class IntegrationTestHelpers
     }
 
     /**
+     * Load test graph data into the Neo4j database.
+     */
+    public static function loadNeo4jTestData(DatabaseServer $server): void
+    {
+        $client = self::createNeo4jClient($server);
+
+        // Clear the database first
+        $client->writeTransaction(function ($tsx): void {
+            $tsx->run('CALL apoc.schema.assert({}, {})');
+            $tsx->run('MATCH (n) DETACH DELETE n');
+        });
+
+        // Load fixture using apoc.cypher.runMany
+        $fixture = file_get_contents(__DIR__.'/../Integration/fixtures/neo4j-init.cypher');
+        $client->writeTransaction(
+            fn ($tsx) => $tsx->run('CALL apoc.cypher.runMany($cypher, {})', ['cypher' => $fixture]),
+        );
+    }
+
+    /**
+     * Drop (clear) a Neo4j database — Community Edition cannot DROP DATABASE.
+     */
+    public static function dropNeo4jDatabase(DatabaseServer $server, string $databaseName): void
+    {
+        $client = self::createNeo4jClient($server);
+
+        $client->writeTransaction(function ($tsx): void {
+            $tsx->run('CALL apoc.schema.assert({}, {})');
+            $tsx->run('MATCH (n) DETACH DELETE n');
+        });
+    }
+
+    /**
+     * Count nodes in Neo4j database to verify restore.
+     */
+    public static function verifyNeo4jRestore(DatabaseServer $server, string $databaseName): int
+    {
+        $client = self::createNeo4jClient($server);
+
+        $result = $client->readTransaction(
+            fn ($tsx) => $tsx->run('MATCH (n) RETURN count(n) AS nodeCount'),
+        );
+
+        foreach ($result as $record) {
+            return (int) $record->get('nodeCount');
+        }
+
+        return 0;
+    }
+
+    /**
+     * Build a Neo4j client for integration tests.
+     */
+    private static function createNeo4jClient(DatabaseServer $server): \Laudis\Neo4j\Contracts\ClientInterface
+    {
+        return \Laudis\Neo4j\ClientBuilder::create()
+            ->withDriver(
+                'default',
+                sprintf('bolt://%s:%d', $server->host, $server->port),
+                \Laudis\Neo4j\Authentication\Authenticate::basic(
+                    $server->username,
+                    $server->getDecryptedPassword(),
+                )
+            )
+            ->withDefaultSessionConfiguration(
+                \Laudis\Neo4j\Databags\SessionConfiguration::default()->withDatabase(
+                    config('testing.databases.neo4j.database', 'neo4j')
+                )
+            )
+            ->build();
+    }
+
+    /**
      * Drop a database.
      */
     public static function dropDatabase(string $type, DatabaseServer $server, string $databaseName): void
     {
         if ($type === 'mongodb') {
             self::dropMongodbDatabase($server, $databaseName);
+
+            return;
+        }
+
+        if ($type === 'neo4j') {
+            self::dropNeo4jDatabase($server, $databaseName);
 
             return;
         }
@@ -461,6 +548,13 @@ class IntegrationTestHelpers
         // MongoDB uses its own data loading mechanism
         if ($type === 'mongodb') {
             self::loadMongodbTestData($server);
+
+            return;
+        }
+
+        // Neo4j uses its own data loading mechanism
+        if ($type === 'neo4j') {
+            self::loadNeo4jTestData($server);
 
             return;
         }
