@@ -12,6 +12,7 @@ enum DatabaseType: string
     case REDIS = 'redis';
     case MONGODB = 'mongodb';
     case MSSQL = 'mssql';
+    case NEO4J = 'neo4j';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum DatabaseType: string
             self::REDIS => 'Redis / Valkey',
             self::MONGODB => 'MongoDB',
             self::MSSQL => 'Microsoft SQL Server',
+            self::NEO4J => 'Neo4j',
         };
     }
 
@@ -34,6 +36,7 @@ enum DatabaseType: string
             self::REDIS => 'devicon.redis',
             self::MONGODB => 'devicon.mongodb',
             self::MSSQL => 'devicon.microsoftsqlserver',
+            self::NEO4J => 'devicon.neo4j',
         };
     }
 
@@ -46,6 +49,7 @@ enum DatabaseType: string
             self::REDIS => 6379,
             self::MONGODB => 27017,
             self::MSSQL => 1433,
+            self::NEO4J => 7687,
         };
     }
 
@@ -77,6 +81,7 @@ enum DatabaseType: string
             self::SQLITE => "sqlite:{$host}",
             self::REDIS => throw new \RuntimeException('Redis does not support PDO connections'),
             self::MONGODB => throw new \RuntimeException('MongoDB does not support PDO connections'),
+            self::NEO4J => throw new \RuntimeException('Neo4j does not support PDO connections'),
             self::MSSQL => $database
                 ? sprintf('sqlsrv:Server=%s,%d;Database=%s;TrustServerCertificate=true;Encrypt=true', $host, $port, $database)
                 : sprintf('sqlsrv:Server=%s,%d;TrustServerCertificate=true;Encrypt=true', $host, $port),
@@ -92,7 +97,7 @@ enum DatabaseType: string
      */
     public function createPdo(DatabaseServer $server, ?string $database = null, int $timeout = 30): \PDO
     {
-        if (in_array($this, [self::REDIS, self::MONGODB], true)) {
+        if (in_array($this, [self::REDIS, self::MONGODB, self::NEO4J], true)) {
             throw new \RuntimeException("{$this->label()} does not support PDO connections");
         }
 
@@ -136,6 +141,7 @@ enum DatabaseType: string
             self::REDIS => 'rdb',
             self::MONGODB => 'archive',
             self::MSSQL => 'bacpac',
+            self::NEO4J => 'cypher',
             default => 'sql',
         };
     }
