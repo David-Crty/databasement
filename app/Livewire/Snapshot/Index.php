@@ -102,8 +102,15 @@ class Index extends Component
             return null;
         }
 
-        return BackupJob::with(['snapshot.databaseServer', 'snapshot.triggeredBy', 'snapshot.volume'])
-            ->find($this->selectedJobId);
+        // Bypass the OrganizationScope on DatabaseServer/Volume so cross-org
+        // deeplinks (e.g. a notification opened while the user is in another
+        // org) can still render the snapshot/server context in the logs modal.
+        // The job-view policy already gates access to this data.
+        return BackupJob::with([
+            'snapshot.databaseServer' => fn ($q) => $q->withoutGlobalScopes(),
+            'snapshot.volume' => fn ($q) => $q->withoutGlobalScopes(),
+            'snapshot.triggeredBy',
+        ])->find($this->selectedJobId);
     }
 
     public function triggerRestore(string $snapshotId): void

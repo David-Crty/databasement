@@ -3,17 +3,32 @@
 namespace App\Policies;
 
 use App\Models\BackupJob;
+use App\Models\DatabaseServer;
 use App\Models\User;
 
 class BackupJobPolicy
 {
     /**
      * Determine whether the user can view the model.
-     * All authenticated users can view job logs.
+     * Members of the job's owning organization (resolved via the related
+     * snapshot's server or the restore's target server) may view its logs.
+     * Super admins can view any job.
      */
     public function view(User $user, BackupJob $backupJob): bool
     {
-        return true;
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        $orgId = $this->resolveOrganizationId($backupJob);
+
+        if (! $orgId) {
+            return false;
+        }
+
+        return $user->organizations()
+            ->wherePivot('organization_id', $orgId)
+            ->exists();
     }
 
     /**
@@ -23,5 +38,29 @@ class BackupJobPolicy
     public function delete(User $user, BackupJob $backupJob): bool
     {
         return $user->canPerformActions() && $backupJob->status === 'pending';
+    }
+
+    /**
+     * Resolve the org that owns the job by walking either side of the
+     * snapshot / restore relation and reading the related server's
+     * organization_id. The OrganizationScope on DatabaseServer is bypassed
+     * since the caller may be in a different org.
+     */
+    private function resolveOrganizationId(BackupJob $backupJob): ?string
+    {
+        $snapshot = $backupJob->snapshot;
+        $restore = $backupJob->restore;
+
+        $serverId = $snapshot
+            ? $snapshot->database_server_id
+            : ($restore ? $restore->target_server_id : null);
+
+        if (! $serverId) {
+            return null;
+        }
+
+        return DatabaseServer::withoutGlobalScopes()
+            ->find($serverId)
+            ?->organization_id;
     }
 }

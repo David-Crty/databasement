@@ -1,11 +1,30 @@
 <x-modal wire:model="showLogsModal" @close="$wire.closeLogs()" :title="__('Job Logs')" class="backdrop-blur" box-class="w-full sm:w-11/12 max-w-6xl max-h-[90vh]">
     @if($this->selectedJob)
         <div class="space-y-4" x-data="{ showMetadata: false }">
-            <!-- Job Info Header -->
             @php
                 $triggeredBy = $this->selectedJob->snapshot?->triggeredBy ?? $this->selectedJob->restore?->triggeredBy;
                 $snapshot = $this->selectedJob->snapshot ?? $this->selectedJob->restore?->snapshot;
+
+                // Detect cross-org context: the related server's organization
+                // differs from the user's current organization. The relations
+                // were loaded with withoutGlobalScopes so the data is present
+                // even when scoped queries would normally exclude it.
+                $jobOrgId = $snapshot?->databaseServer?->organization_id
+                    ?? $this->selectedJob->restore?->targetServer?->organization_id;
+                $currentOrgId = app(\App\Services\CurrentOrganization::class)->id();
+                $crossOrg = ($jobOrgId && $jobOrgId !== $currentOrgId)
+                    ? \App\Models\Organization::find($jobOrgId)
+                    : null;
             @endphp
+
+            @if($crossOrg)
+                <x-alert class="alert-warning" icon="o-information-circle">
+                    {{ __('This job belongs to a different organization:') }}
+                    <span class="font-semibold">{{ $crossOrg->name }}</span>
+                </x-alert>
+            @endif
+
+            <!-- Job Info Header -->
             <div class="p-4 bg-base-200 rounded-lg space-y-2">
                 {{-- Mobile: stacked layout, Desktop: horizontal --}}
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

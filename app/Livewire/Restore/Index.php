@@ -109,10 +109,14 @@ class Index extends Component
             return null;
         }
 
+        // Bypass the OrganizationScope on DatabaseServer/Volume so cross-org
+        // deeplinks (e.g. a notification opened while the user is in another
+        // org) can still render source/target server context in the logs modal.
+        // The job-view policy already gates access to this data.
         return BackupJob::with([
-            'restore.snapshot.databaseServer',
-            'restore.snapshot.volume',
-            'restore.targetServer',
+            'restore.snapshot.databaseServer' => fn ($q) => $q->withoutGlobalScopes(),
+            'restore.snapshot.volume' => fn ($q) => $q->withoutGlobalScopes(),
+            'restore.targetServer' => fn ($q) => $q->withoutGlobalScopes(),
             'restore.triggeredBy',
         ])->find($this->selectedJobId);
     }

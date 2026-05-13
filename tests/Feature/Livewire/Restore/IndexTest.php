@@ -117,6 +117,54 @@ test('mount opens logs modal when valid job ID is in URL', function () {
         ->assertSet('selectedJobId', $restore->job->id);
 });
 
+test('?job= from another org renders the logs modal with source/target server context when user is a member', function () {
+    // The user is a member of OtherOrg but currently active in the default org.
+    // Following a notification deeplink to OtherOrg's job should still render
+    // the source/target server context in the logs modal, plus a warning that
+    // the job belongs to a different org.
+    $otherOrg = \App\Models\Organization::factory()->create(['name' => 'OtherOrg']);
+    $this->user->organizations()->attach($otherOrg->id, ['role' => UserRole::Member]);
+
+    $current = app(\App\Services\CurrentOrganization::class);
+    $current->set($otherOrg);
+    $otherOrgServer = DatabaseServer::factory()->create([
+        'name' => 'CrossOrgServer',
+        'organization_id' => $otherOrg->id,
+    ]);
+    $snapshot = Snapshot::factory()->forServer($otherOrgServer)->withFile()->create();
+    $restore = makeRestore([
+        'snapshot' => $snapshot,
+        'target' => $otherOrgServer,
+        'schema_name' => 'cross_org_schema',
+    ]);
+
+    $current->set(\App\Models\Organization::default());
+
+    Livewire::withQueryParams(['job' => $restore->job->id])
+        ->test(Index::class)
+        ->assertSet('showLogsModal', true)
+        ->assertSee('CrossOrgServer')
+        ->assertSee('cross_org_schema')
+        ->assertSee('OtherOrg');
+});
+
+test('?job= from another org is forbidden when the user is not a member of that org', function () {
+    $otherOrg = \App\Models\Organization::factory()->create(['name' => 'OtherOrg']);
+
+    $current = app(\App\Services\CurrentOrganization::class);
+    $current->set($otherOrg);
+    $otherOrgServer = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
+    $snapshot = Snapshot::factory()->forServer($otherOrgServer)->withFile()->create();
+    $restore = makeRestore(['snapshot' => $snapshot, 'target' => $otherOrgServer]);
+
+    // Return to the default org. The user is NOT a member of OtherOrg.
+    $current->set(\App\Models\Organization::default());
+
+    Livewire::withQueryParams(['job' => $restore->job->id])
+        ->test(Index::class)
+        ->assertForbidden();
+});
+
 test('viewer cannot open the new restore modal', function () {
     $viewer = User::factory()->create(['role' => UserRole::Viewer]);
     actingAs($viewer);
