@@ -49,7 +49,8 @@
                 <x-menu-separator />
                 <x-menu-item title="{{ __('Dashboard') }}" icon="o-home" link="{{ route('dashboard') }}" wire:navigate />
                 <x-menu-item title="{{ __('Database Servers') }}" icon="o-server-stack" link="{{ route('database-servers.index') }}" wire:navigate />
-                <livewire:menu.jobs-menu-item />
+                <livewire:menu.snapshots-menu-item />
+                <livewire:menu.restores-menu-item />
                 <x-menu-item title="{{ __('Volumes') }}" icon="o-circle-stack" link="{{ route('volumes.index') }}" wire:navigate />
                 @can('viewAny', \App\Models\User::class)
                     <x-menu-item title="{{ __('Users') }}" icon="o-users" link="{{ route('users.index') }}" wire:navigate />

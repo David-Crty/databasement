@@ -128,7 +128,7 @@ class Index extends Component
             return;
         }
 
-        $this->dispatch('open-restore-modal', targetServerId: $id);
+        $this->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $id);
     }
 
     public function runBackup(string $backupId, TriggerBackupAction $action): void

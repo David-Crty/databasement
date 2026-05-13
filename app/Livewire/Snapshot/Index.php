@@ -1,11 +1,13 @@
 <?php
 
-namespace App\Livewire\BackupJob;
+namespace App\Livewire\Snapshot;
 
+use App\Enums\DatabaseType;
+use App\Livewire\Concerns\HandlesJobLogsModal;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
-use App\Queries\BackupJobQuery;
+use App\Queries\SnapshotQuery;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -15,10 +17,10 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-#[Title('Jobs')]
+#[Title('Snapshots')]
 class Index extends Component
 {
-    use AuthorizesRequests, Toast, WithPagination;
+    use AuthorizesRequests, HandlesJobLogsModal, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -27,23 +29,16 @@ class Index extends Component
     public string $statusFilter = '';
 
     #[Url]
-    public string $typeFilter = '';
+    public string $serverFilter = '';
 
     #[Url]
-    public string $serverFilter = '';
+    public string $dbTypeFilter = '';
 
     #[Url]
     public string $fileMissing = '';
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
-
-    public bool $showLogsModal = false;
-
-    #[Url(as: 'job')]
-    public ?string $selectedJobId = null;
-
-    public ?string $errorMessage = null;
 
     #[Locked]
     public ?string $deleteSnapshotId = null;
@@ -55,25 +50,6 @@ class Index extends Component
 
     public bool $keepFiles = false;
 
-    public function mount(): void
-    {
-        // If a job ID is in the URL, validate and authorize before opening modal
-        if ($this->selectedJobId) {
-            $job = BackupJob::find($this->selectedJobId);
-
-            if (! $job) {
-                $this->errorMessage = __('Job not found: ').$this->selectedJobId;
-                $this->selectedJobId = null;
-
-                return;
-            }
-
-            $this->authorize('view', $job);
-
-            $this->showLogsModal = true;
-        }
-    }
-
     public function updatingSearch(): void
     {
         $this->resetPage();
@@ -84,12 +60,12 @@ class Index extends Component
         $this->resetPage();
     }
 
-    public function updatingTypeFilter(): void
+    public function updatingServerFilter(): void
     {
         $this->resetPage();
     }
 
-    public function updatingServerFilter(): void
+    public function updatingDbTypeFilter(): void
     {
         $this->resetPage();
     }
@@ -99,19 +75,9 @@ class Index extends Component
         $this->resetPage();
     }
 
-    /**
-     * @param  string|array<string, mixed>  $property
-     */
-    public function updated(string|array $property): void
-    {
-        if (! is_array($property) && $property != '') {
-            $this->resetPage();
-        }
-    }
-
     public function clear(): void
     {
-        $this->reset('search', 'statusFilter', 'typeFilter', 'serverFilter', 'fileMissing');
+        $this->reset('search', 'statusFilter', 'serverFilter', 'dbTypeFilter', 'fileMissing');
         $this->resetPage();
         $this->success(__('Filters cleared.'));
     }
@@ -122,25 +88,12 @@ class Index extends Component
     public function headers(): array
     {
         return [
-            ['key' => 'type', 'label' => __('Type'), 'class' => 'w-32'],
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-48'],
             ['key' => 'server', 'label' => __('Server / Database'), 'sortable' => false],
             ['key' => 'status', 'label' => __('Status'), 'class' => 'w-32'],
-            ['key' => 'duration_ms', 'label' => __('Duration'), 'class' => 'w-28'],
-            ['key' => 'snapshot_size', 'label' => __('Size'), 'class' => 'w-28'],
+            ['key' => 'duration_ms', 'label' => __('Duration'), 'class' => 'w-28', 'sortable' => false],
+            ['key' => 'file_size', 'label' => __('Size'), 'class' => 'w-28'],
         ];
-    }
-
-    public function viewLogs(string $id): void
-    {
-        $this->selectedJobId = $id;
-        $this->showLogsModal = true;
-    }
-
-    public function closeLogs(): void
-    {
-        $this->showLogsModal = false;
-        $this->selectedJobId = null;
     }
 
     public function getSelectedJobProperty(): ?BackupJob
@@ -149,8 +102,17 @@ class Index extends Component
             return null;
         }
 
-        return BackupJob::with(['snapshot.databaseServer', 'snapshot.triggeredBy', 'restore.snapshot.databaseServer', 'restore.targetServer', 'restore.triggeredBy'])
+        return BackupJob::with(['snapshot.databaseServer', 'snapshot.triggeredBy', 'snapshot.volume'])
             ->find($this->selectedJobId);
+    }
+
+    public function triggerRestore(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('restoreFrom', $snapshot);
+
+        $this->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshotId);
     }
 
     /**
@@ -169,17 +131,6 @@ class Index extends Component
     /**
      * @return array<int, array<string, mixed>>
      */
-    public function typeOptions(): array
-    {
-        return [
-            ['id' => 'backup', 'name' => __('Backup')],
-            ['id' => 'restore', 'name' => __('Restore')],
-        ];
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
     public function serverOptions(): array
     {
         return DatabaseServer::query()
@@ -190,6 +141,17 @@ class Index extends Component
                 'name' => $server->name,
             ])
             ->toArray();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function dbTypeOptions(): array
+    {
+        return collect(DatabaseType::cases())
+            ->map(fn (DatabaseType $t) => ['id' => $t->value, 'name' => $t->label()])
+            ->values()
+            ->all();
     }
 
     public function confirmDeleteSnapshot(string $snapshotId): void
@@ -259,22 +221,22 @@ class Index extends Component
 
     public function render(): View
     {
-        $jobs = BackupJobQuery::buildFromParams(
-            search: $this->search,
-            statusFilter: $this->statusFilter !== '' ? [$this->statusFilter] : [],
-            typeFilter: $this->typeFilter,
-            serverFilter: $this->serverFilter,
+        $snapshots = SnapshotQuery::buildFromParams(
+            search: $this->search ?: null,
+            statusFilter: $this->statusFilter ?: 'all',
+            serverFilter: $this->serverFilter ?: null,
+            dbTypeFilter: $this->dbTypeFilter ?: null,
             fileMissing: $this->fileMissing !== '',
             sortColumn: $this->sortBy['column'],
             sortDirection: $this->sortBy['direction']
         )->paginate(15);
 
-        return view('livewire.backup-job.index', [
-            'jobs' => $jobs,
+        return view('livewire.snapshot.index', [
+            'snapshots' => $snapshots,
             'headers' => $this->headers(),
             'statusOptions' => $this->statusOptions(),
-            'typeOptions' => $this->typeOptions(),
             'serverOptions' => $this->serverOptions(),
+            'dbTypeOptions' => $this->dbTypeOptions(),
         ]);
     }
 }

@@ -55,6 +55,9 @@ class SnapshotQuery
     public static function buildFromParams(
         ?string $search = null,
         string $statusFilter = 'all',
+        ?string $serverFilter = null,
+        ?string $dbTypeFilter = null,
+        bool $fileMissing = false,
         string $sortColumn = 'started_at',
         string $sortDirection = 'desc'
     ): Builder {
@@ -67,8 +70,17 @@ class SnapshotQuery
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })
-            ->when($statusFilter !== 'all', function (Builder $query) use ($statusFilter) {
+            ->when($statusFilter !== 'all' && $statusFilter !== '', function (Builder $query) use ($statusFilter) {
                 $query->whereHas('job', fn (Builder $q) => $q->whereRaw('status = ?', [$statusFilter]));
+            })
+            ->when($serverFilter, function (Builder $query) use ($serverFilter) {
+                $query->whereRaw('database_server_id = ?', [$serverFilter]);
+            })
+            ->when($dbTypeFilter, function (Builder $query) use ($dbTypeFilter) {
+                $query->whereRaw('database_type = ?', [$dbTypeFilter]);
+            })
+            ->when($fileMissing, function (Builder $query) {
+                $query->whereRaw('file_exists = ?', [false]);
             })
             ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
     }

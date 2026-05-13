@@ -16,7 +16,7 @@ class BackupSuccessNotification extends BaseSuccessNotification
             title: '✅ Backup Succeeded: '.($this->snapshot->databaseServer->name ?? 'Unknown'),
             body: 'A backup job completed successfully.',
             actionText: '🔗 View Job Details',
-            actionUrl: route('jobs.index', ['job' => $this->snapshot->backup_job_id]),
+            actionUrl: route('snapshots.index', ['job' => $this->snapshot->backup_job_id]),
             footerText: '🕐 '.now()->toDateTimeString(),
             fields: [
                 'Server' => $this->snapshot->databaseServer->name ?? 'Unknown',

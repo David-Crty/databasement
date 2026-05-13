@@ -1,0 +1,421 @@
+<?php
+
+namespace App\Livewire\Restore;
+
+use App\Enums\DatabaseType;
+use App\Enums\RestoreModalMode;
+use App\Jobs\ProcessRestoreJob;
+use App\Models\DatabaseServer;
+use App\Models\Restore;
+use App\Models\Snapshot;
+use App\Queries\SnapshotQuery;
+use App\Services\Backup\BackupJobFactory;
+use App\Services\Backup\Databases\DatabaseProvider;
+use App\Traits\Toast;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
+use Livewire\Component;
+use Livewire\WithPagination;
+
+class Modal extends Component
+{
+    use AuthorizesRequests, Toast, WithPagination;
+
+    public RestoreModalMode $mode = RestoreModalMode::FromServer;
+
+    #[Locked]
+    public ?DatabaseServer $targetServer = null;
+
+    #[Locked]
+    public ?string $selectedSnapshotId = null;
+
+    public string $schemaName = '';
+
+    public int $currentStep = 1;
+
+    /** @var array<int, string> */
+    public array $existingDatabases = [];
+
+    public bool $showModal = false;
+
+    public bool $forceDatabase = false;
+
+    public string $ownerUser = '';
+
+    public string $snapshotSearch = '';
+
+    public ?string $serverFilter = null;
+
+    public ?string $dbTypeFilter = null;
+
+    public function updatedSnapshotSearch(): void
+    {
+        $this->resetPage('snapshots');
+    }
+
+    public function updatedServerFilter(): void
+    {
+        $this->resetPage('snapshots');
+    }
+
+    public function updatedDbTypeFilter(): void
+    {
+        $this->resetPage('snapshots');
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function getFilteredDatabasesProperty(): array
+    {
+        if (empty($this->schemaName)) {
+            return $this->existingDatabases;
+        }
+
+        return collect($this->existingDatabases)
+            ->filter(fn ($db) => str_contains(strtolower($db), strtolower($this->schemaName)))
+            ->values()
+            ->all();
+    }
+
+    public function selectDatabase(string $database): void
+    {
+        $this->schemaName = $database;
+    }
+
+    #[On('open-restore-modal')]
+    public function openModal(string $mode = 'from-server', ?string $targetServerId = null, ?string $snapshotId = null): void
+    {
+        $this->reset([
+            'targetServer', 'selectedSnapshotId', 'schemaName', 'forceDatabase',
+            'ownerUser', 'currentStep', 'existingDatabases', 'snapshotSearch',
+            'serverFilter', 'dbTypeFilter',
+        ]);
+        $this->resetPage('snapshots');
+
+        $this->mode = RestoreModalMode::from($mode);
+
+        match ($this->mode) {
+            RestoreModalMode::FromServer => $this->initFromServer($targetServerId),
+            RestoreModalMode::FromSnapshot => $this->initFromSnapshot($snapshotId),
+            RestoreModalMode::FromRestoreIndex => $this->initFromRestoreIndex(),
+        };
+
+        $this->showModal = true;
+    }
+
+    protected function initFromServer(?string $targetServerId): void
+    {
+        if (! $targetServerId) {
+            abort(422, 'targetServerId is required for from-server mode.');
+        }
+
+        $this->targetServer = DatabaseServer::findOrFail($targetServerId);
+        $this->authorize('restore', $this->targetServer);
+    }
+
+    protected function initFromSnapshot(?string $snapshotId): void
+    {
+        if (! $snapshotId) {
+            abort(422, 'snapshotId is required for from-snapshot mode.');
+        }
+
+        $snapshot = Snapshot::findOrFail($snapshotId);
+        $this->authorize('restoreFrom', $snapshot);
+
+        $this->selectedSnapshotId = $snapshotId;
+        $this->dbTypeFilter = $snapshot->database_type->value;
+    }
+
+    protected function initFromRestoreIndex(): void
+    {
+        $this->authorize('create', Restore::class);
+    }
+
+    public function selectSnapshot(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+        $this->selectedSnapshotId = $snapshotId;
+
+        if ($this->mode === RestoreModalMode::FromRestoreIndex) {
+            // Need to pick target server next.
+            $this->dbTypeFilter = $snapshot->database_type->value;
+            $this->currentStep = 2;
+
+            return;
+        }
+
+        // from-server: target already set, advance to configure step.
+        $this->prefillSchemaNameAndDatabases($snapshot);
+        $this->currentStep = 2;
+    }
+
+    public function selectTargetServer(string $targetServerId): void
+    {
+        $server = DatabaseServer::findOrFail($targetServerId);
+        $this->authorize('restore', $server);
+
+        $this->targetServer = $server;
+
+        $snapshot = $this->selectedSnapshotId
+            ? Snapshot::findOrFail($this->selectedSnapshotId)
+            : null;
+
+        if ($snapshot) {
+            $this->prefillSchemaNameAndDatabases($snapshot);
+        }
+
+        $this->currentStep = $this->mode === RestoreModalMode::FromRestoreIndex ? 3 : 2;
+    }
+
+    protected function prefillSchemaNameAndDatabases(Snapshot $snapshot): void
+    {
+        if ($this->targetServer?->database_type === DatabaseType::SQLITE) {
+            $paths = $this->targetServer->resolveDatabaseNames();
+            $this->schemaName = $paths[0] ?? $snapshot->database_name;
+        } else {
+            $this->schemaName = $snapshot->database_name;
+        }
+
+        $this->loadExistingDatabases();
+    }
+
+    public function previousStep(): void
+    {
+        if ($this->currentStep <= 1) {
+            return;
+        }
+
+        // When stepping back, clear the selection that was made on the step we're leaving.
+        if ($this->mode === RestoreModalMode::FromRestoreIndex) {
+            if ($this->currentStep === 3) {
+                $this->targetServer = null;
+                $this->existingDatabases = [];
+            } elseif ($this->currentStep === 2) {
+                // Returning to the snapshot picker: also clear the auto-applied
+                // dbTypeFilter (which selectSnapshot pinned to the previous
+                // snapshot's type) and reset paging so the user starts fresh.
+                $this->selectedSnapshotId = null;
+                $this->dbTypeFilter = null;
+                $this->serverFilter = null;
+                $this->snapshotSearch = '';
+                $this->resetPage('snapshots');
+            }
+        } elseif ($this->mode === RestoreModalMode::FromSnapshot) {
+            // step 2 -> step 1: clear chosen target
+            $this->targetServer = null;
+            $this->existingDatabases = [];
+        } else {
+            // from-server: step 2 -> step 1: clear chosen snapshot
+            $this->selectedSnapshotId = null;
+        }
+
+        $this->currentStep--;
+    }
+
+    /**
+     * Validate schema name based on database type.
+     */
+    protected function validateSchemaName(): void
+    {
+        $isSqlite = $this->targetServer?->database_type === DatabaseType::SQLITE;
+
+        if ($isSqlite) {
+            $rules = ['schemaName' => 'required|string|max:255'];
+            $messages = ['schemaName.required' => __('Please enter a database path.')];
+        } else {
+            $rules = ['schemaName' => 'required|string|max:64|regex:/^[a-zA-Z0-9_]+$/'];
+            $messages = [
+                'schemaName.required' => __('Please enter a database name.'),
+                'schemaName.regex' => __('Database name can only contain letters, numbers, and underscores.'),
+            ];
+        }
+
+        $this->validate($rules, $messages);
+    }
+
+    public function loadExistingDatabases(): void
+    {
+        if (! $this->targetServer) {
+            return;
+        }
+
+        try {
+            $this->existingDatabases = app(DatabaseProvider::class)->listDatabasesForServer($this->targetServer);
+        } catch (\Exception $e) {
+            $this->existingDatabases = [];
+        }
+    }
+
+    public function restore(BackupJobFactory $backupJobFactory): void
+    {
+        if (! $this->targetServer) {
+            $this->error(__('Please select a target server before restoring.'));
+
+            return;
+        }
+
+        $this->authorize('restore', $this->targetServer);
+
+        if (! $this->selectedSnapshotId) {
+            $this->error(__('Please select a snapshot before restoring.'));
+
+            return;
+        }
+
+        $this->validateSchemaName();
+
+        try {
+            $snapshot = Snapshot::findOrFail($this->selectedSnapshotId);
+
+            $userId = auth()->id();
+            $restore = $backupJobFactory->createRestore(
+                snapshot: $snapshot,
+                targetServer: $this->targetServer,
+                schemaName: $this->schemaName,
+                triggeredByUserId: is_int($userId) ? $userId : null,
+                options: array_filter([
+                    'force_database' => $this->forceDatabase ?: null,
+                    'owner_user' => ($trimmedOwner = trim($this->ownerUser)) !== '' ? $trimmedOwner : null,
+                ]),
+            );
+
+            ProcessRestoreJob::dispatch($restore->id);
+
+            $this->success(__('Restore started successfully!'));
+
+            $this->showModal = false;
+
+            $this->dispatch('restore-created');
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            report($e);
+            $this->error(__('Failed to queue restore. Please try again.'));
+        }
+    }
+
+    public function getSelectedSnapshotProperty(): ?Snapshot
+    {
+        if (! $this->selectedSnapshotId) {
+            return null;
+        }
+
+        return Snapshot::with('databaseServer')->find($this->selectedSnapshotId);
+    }
+
+    /**
+     * Servers available as snapshot-source filter on step 1 (only used in
+     * from-server and from-restore-index modes).
+     *
+     * @return Collection<int, DatabaseServer>
+     */
+    public function getCompatibleServersProperty(): Collection
+    {
+        $query = DatabaseServer::query()
+            ->whereHas('snapshots', function ($q) {
+                $q->whereHas('job', fn ($jq) => $jq->whereRaw("status = 'completed'"));
+            });
+
+        if ($this->mode === RestoreModalMode::FromServer && $this->targetServer) {
+            $query->whereRaw('database_type = ?', [$this->targetServer->database_type->value]);
+        } elseif ($this->dbTypeFilter) {
+            $query->whereRaw('database_type = ?', [$this->dbTypeFilter]);
+        }
+
+        return $query->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, Snapshot>|null
+     */
+    public function getPaginatedSnapshotsProperty(): ?LengthAwarePaginator
+    {
+        $dbType = $this->mode === RestoreModalMode::FromServer
+            ? $this->targetServer?->database_type?->value
+            : $this->dbTypeFilter;
+
+        // from-server requires a target before we can list compatible snapshots.
+        if ($this->mode === RestoreModalMode::FromServer && ! $this->targetServer) {
+            return null;
+        }
+
+        return SnapshotQuery::buildFromParams(
+            search: $this->snapshotSearch ?: null,
+            statusFilter: 'completed',
+            sortColumn: 'created_at',
+            sortDirection: 'desc',
+        )
+            ->when($dbType, fn (Builder $q) => $q->whereRaw('database_type = ?', [$dbType]))
+            ->when($this->serverFilter, fn ($q) => $q->where('database_server_id', $this->serverFilter))
+            ->whereHas('job', fn (Builder $q) => $q->whereRaw("status = 'completed'"))
+            ->whereRaw('file_exists = ?', [true])
+            ->paginate(20, pageName: 'snapshots');
+    }
+
+    /**
+     * Target servers available for selection when the user has already picked
+     * a snapshot (from-snapshot and from-restore-index modes).
+     *
+     * @return Collection<int, DatabaseServer>
+     */
+    public function getCompatibleTargetServersProperty(): Collection
+    {
+        if (! $this->selectedSnapshotId) {
+            return collect();
+        }
+
+        $snapshot = Snapshot::find($this->selectedSnapshotId);
+
+        if (! $snapshot) {
+            return collect();
+        }
+
+        return DatabaseServer::query()
+            ->whereRaw('database_type = ?', [$snapshot->database_type->value])
+            ->whereNull('agent_id')
+            ->where('database_type', '!=', DatabaseType::REDIS->value)
+            ->orderBy('name')
+            ->get(['id', 'name', 'database_type', 'host', 'port']);
+    }
+
+    /**
+     * @return array<int, array{id: string, name: string}>
+     */
+    public function dbTypeOptions(): array
+    {
+        return collect(DatabaseType::cases())
+            ->reject(fn (DatabaseType $t) => $t === DatabaseType::REDIS)
+            ->map(fn (DatabaseType $t) => ['id' => $t->value, 'name' => $t->label()])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function stepLabels(): array
+    {
+        return match ($this->mode) {
+            RestoreModalMode::FromServer => [__('Select Snapshot'), __('Destination')],
+            RestoreModalMode::FromSnapshot => [__('Select Target Server'), __('Destination')],
+            RestoreModalMode::FromRestoreIndex => [__('Select Snapshot'), __('Select Target Server'), __('Destination')],
+        };
+    }
+
+    public function isConfigureStep(): bool
+    {
+        return $this->currentStep === $this->mode->totalSteps();
+    }
+
+    public function render(): View
+    {
+        return view('livewire.restore.modal');
+    }
+}

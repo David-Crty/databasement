@@ -1,10 +1,9 @@
 @php
     $isDesktop = $variant === 'desktop';
-    $hasFilters = $search || $statusFilter !== '' || $typeFilter !== '' || $serverFilter !== '' || $fileMissing !== '';
+    $hasFilters = $search || $statusFilter !== '' || $serverFilter !== '' || $dbTypeFilter !== '' || $fileMissing !== '';
 @endphp
 
 @if($isDesktop)
-    {{-- Desktop: compact inline filters --}}
     <x-input
         placeholder="{{ __('Search...') }}"
         wire:model.live.debounce="search"
@@ -15,9 +14,9 @@
     <x-select
         placeholder="{{ __('All Types') }}"
         placeholder-value=""
-        wire:model.live="typeFilter"
-        :options="$typeOptions"
-        class="!select-sm w-32"
+        wire:model.live="dbTypeFilter"
+        :options="$dbTypeOptions"
+        class="!select-sm w-40"
     />
     <x-select
         placeholder="{{ __('All Servers') }}"
@@ -48,7 +47,6 @@
         />
     @endif
 @else
-    {{-- Tablet & Mobile: responsive filters --}}
     <div class="flex flex-wrap items-center gap-2">
         <x-input
             placeholder="{{ __('Search...') }}"
@@ -57,7 +55,6 @@
             icon="o-magnifying-glass"
             class="w-full sm:!input-sm"
         />
-        {{-- Mobile: filter toggle --}}
         <x-button
             label="{{ __('Filters') }}"
             icon="o-funnel"
@@ -65,14 +62,13 @@
             class="btn-ghost btn-sm w-full justify-start sm:hidden"
             ::class="showFilters && 'btn-active'"
         />
-        {{-- Tablet: inline filters (always visible) --}}
         <div class="hidden sm:flex flex-wrap items-center gap-2">
             <x-select
                 placeholder="{{ __('All Types') }}"
                 placeholder-value=""
-                wire:model.live="typeFilter"
-                :options="$typeOptions"
-                class="!select-sm w-32"
+                wire:model.live="dbTypeFilter"
+                :options="$dbTypeOptions"
+                class="!select-sm w-40"
             />
             <x-select
                 placeholder="{{ __('All Servers') }}"
@@ -104,14 +100,13 @@
             @endif
         </div>
     </div>
-    {{-- Mobile: collapsible filters --}}
     <div x-show="showFilters" x-collapse class="mt-3 space-y-3 sm:hidden">
         <x-select
             label="{{ __('Type') }}"
             placeholder="{{ __('All Types') }}"
             placeholder-value=""
-            wire:model.live="typeFilter"
-            :options="$typeOptions"
+            wire:model.live="dbTypeFilter"
+            :options="$dbTypeOptions"
         />
         <x-select
             label="{{ __('Server') }}"

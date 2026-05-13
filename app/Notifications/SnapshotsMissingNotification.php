@@ -25,7 +25,7 @@ class SnapshotsMissingNotification extends BaseFailedNotification
             title: "⚠️ {$count} backup ".str('file')->plural($count).' missing',
             body: "{$count} backup ".str('file')->plural($count).' could not be found on their storage volumes.',
             actionText: '🔗 View Missing Files',
-            actionUrl: route('jobs.index', ['fileMissing' => '1']),
+            actionUrl: route('snapshots.index', ['fileMissing' => '1']),
             footerText: '🕐 '.now()->toDateTimeString(),
             errorLabel: '📁 Missing Files',
         );

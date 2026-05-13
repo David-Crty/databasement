@@ -44,8 +44,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('database-servers.index');
     Route::livewire('volumes', \App\Livewire\Volume\Index::class)
         ->name('volumes.index');
-    Route::livewire('jobs', \App\Livewire\BackupJob\Index::class)
-        ->name('jobs.index');
+    Route::livewire('snapshots', \App\Livewire\Snapshot\Index::class)
+        ->name('snapshots.index');
+    Route::livewire('restores', \App\Livewire\Restore\Index::class)
+        ->name('restores.index');
 
     // Users index - viewable by all (actions restricted in component)
     Route::livewire('users', \App\Livewire\User\Index::class)

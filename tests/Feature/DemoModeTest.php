@@ -1,10 +1,10 @@
 <?php
 
 use App\Enums\UserRole;
-use App\Livewire\BackupJob\Index as BackupJobIndex;
 use App\Livewire\DatabaseServer\Create as DatabaseServerCreate;
 use App\Livewire\DatabaseServer\Edit as DatabaseServerEdit;
 use App\Livewire\DatabaseServer\Index as DatabaseServerIndex;
+use App\Livewire\Snapshot\Index as SnapshotIndex;
 use App\Livewire\Volume\Create as VolumeCreate;
 use App\Livewire\Volume\Edit as VolumeEdit;
 use App\Livewire\Volume\Index as VolumeIndex;
@@ -116,7 +116,7 @@ test('demo user cannot delete snapshot', function () {
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
 
     Livewire::actingAs($this->demoUser)
-        ->test(BackupJobIndex::class)
+        ->test(SnapshotIndex::class)
         ->call('confirmDeleteSnapshot', $snapshot->id)
         ->assertForbidden();
 });

@@ -1,20 +1,54 @@
 <div>
-    <x-modal wire:model="showModal" :title="__('Restore Database Snapshot')" :subtitle="__('Restore to:') . ' ' . $targetServer?->name" box-class="max-w-3xl w-11/12" class="backdrop-blur">
+    <x-modal wire:model="showModal" :title="__('Restore Database Snapshot')" box-class="max-w-3xl w-11/12" class="backdrop-blur">
         <div class="space-y-4">
-            <!-- Step Indicator -->
+            {{-- Locked context badges --}}
+            @if($mode->targetServerLocked() && $targetServer)
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs opacity-60">{{ __('Restoring to:') }}</span>
+                    <x-badge :value="$targetServer->name . ' (' . $targetServer->database_type->label() . ')'" class="badge-primary" />
+                </div>
+            @endif
+
+            @if($mode->snapshotLocked() && $this->selectedSnapshot)
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs opacity-60">{{ __('Snapshot:') }}</span>
+                    <x-badge
+                        :value="($this->selectedSnapshot->databaseServer?->name ?? '?') . ' · ' . $this->selectedSnapshot->database_name . ' (' . $this->selectedSnapshot->database_type->label() . ')'"
+                        class="badge-secondary"
+                    />
+                </div>
+            @endif
+
+            {{-- Step indicator --}}
             <ul class="steps steps-horizontal w-full">
-                <li class="step {{ $currentStep >= 1 ? 'step-primary' : '' }}">{{ __('Select Snapshot') }}</li>
-                <li class="step {{ $currentStep >= 2 ? 'step-primary' : '' }}">{{ __('Destination') }}</li>
+                @foreach($this->stepLabels() as $i => $label)
+                    <li class="step {{ $currentStep >= ($i + 1) ? 'step-primary' : '' }}">{{ $label }}</li>
+                @endforeach
             </ul>
 
-            <!-- Step 1: Select Snapshot -->
-            @if($currentStep === 1)
+            {{-- Step body: snapshot picker --}}
+            @if(
+                ($mode === \App\Enums\RestoreModalMode::FromServer && $currentStep === 1) ||
+                ($mode === \App\Enums\RestoreModalMode::FromRestoreIndex && $currentStep === 1)
+            )
                 <div class="space-y-4">
                     <p class="text-sm opacity-70">
-                        {{ __('Select a snapshot to restore. Only snapshots from :type servers are shown.', ['type' => $targetServer?->database_type?->label()]) }}
+                        @if($mode === \App\Enums\RestoreModalMode::FromServer)
+                            {{ __('Select a snapshot to restore. Only snapshots from :type servers are shown.', ['type' => $targetServer?->database_type?->label()]) }}
+                        @else
+                            {{ __('Select a snapshot to restore.') }}
+                        @endif
                     </p>
 
-                    <div class="flex items-center gap-4">
+                    <div class="flex flex-wrap items-center gap-4">
+                        @if($mode === \App\Enums\RestoreModalMode::FromRestoreIndex)
+                            <x-select
+                                wire:model.live="dbTypeFilter"
+                                :options="collect($this->dbTypeOptions())->prepend(['id' => '', 'name' => __('All types')])->all()"
+                                class="w-44"
+                            />
+                        @endif
+
                         <x-select
                             wire:model.live="serverFilter"
                             :options="$this->compatibleServers->map(fn ($s) => ['id' => $s->id, 'name' => $s->name])->prepend(['id' => '', 'name' => __('All servers')])->all()"
@@ -35,7 +69,7 @@
                         @if(!$this->paginatedSnapshots || $this->paginatedSnapshots->isEmpty())
                             <div class="p-4 text-center border rounded-lg border-base-300">
                                 <p class="opacity-70">
-                                    @if($snapshotSearch || $serverFilter)
+                                    @if($snapshotSearch || $serverFilter || $dbTypeFilter)
                                         {{ __('No snapshots found matching your filters.') }}
                                     @else
                                         {{ __('No compatible snapshots found.') }}
@@ -54,6 +88,7 @@
                                                 <div class="text-sm">
                                                     <span class="opacity-50">{{ __('Database:') }}</span>
                                                     <span class="font-medium">{{ $snapshot->database_name }}</span>
+                                                    <x-badge :value="$snapshot->database_type->label()" class="badge-ghost badge-xs ml-1" />
                                                 </div>
                                                 <div class="text-xs">
                                                     <span class="opacity-50">{{ __('Server:') }}</span>
@@ -91,8 +126,51 @@
                 </div>
             @endif
 
-            <!-- Step 2: Enter Destination Schema -->
-            @if($currentStep === 2)
+            {{-- Step body: target server picker --}}
+            @if(
+                ($mode === \App\Enums\RestoreModalMode::FromSnapshot && $currentStep === 1) ||
+                ($mode === \App\Enums\RestoreModalMode::FromRestoreIndex && $currentStep === 2)
+            )
+                <div class="space-y-4">
+                    <p class="text-sm opacity-70">
+                        {{ __('Select a target server to restore to. Only :type servers are shown.', ['type' => $this->selectedSnapshot?->database_type?->label()]) }}
+                    </p>
+
+                    @if($this->compatibleTargetServers->isEmpty())
+                        <div class="p-4 text-center border rounded-lg border-base-300">
+                            <p class="opacity-70">{{ __('No compatible target servers found.') }}</p>
+                        </div>
+                    @else
+                        <div class="space-y-1 max-h-80 overflow-y-auto">
+                            @foreach($this->compatibleTargetServers as $server)
+                                <div
+                                    wire:click="selectTargetServer('{{ $server->id }}')"
+                                    class="px-3 py-2 border rounded-lg cursor-pointer hover:bg-base-200 border-base-300 {{ $targetServer?->id === $server->id ? 'border-primary bg-primary/10' : '' }}"
+                                >
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="text-sm font-medium">{{ $server->name }}</div>
+                                            <div class="text-xs opacity-60">{{ $server->host }}@if($server->port):{{ $server->port }}@endif</div>
+                                        </div>
+                                        <x-loading wire:loading wire:target="selectTargetServer('{{ $server->id }}')" class="loading-xs" />
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <div class="flex gap-2 mt-6">
+                        @if($mode === \App\Enums\RestoreModalMode::FromRestoreIndex)
+                            <x-button class="btn-ghost" wire:click="previousStep">{{ __('Back') }}</x-button>
+                        @endif
+                        <div class="flex-1"></div>
+                        <x-button class="btn-ghost" @click="$wire.showModal = false">{{ __('Cancel') }}</x-button>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Step body: configure (final step) --}}
+            @if($this->isConfigureStep() && $currentStep > 1)
                 <div class="space-y-4">
                     <div x-data="{ open: false }" @click.outside="open = false" class="relative">
                         <x-input
@@ -107,7 +185,6 @@
                             <p class="text-error text-sm mt-1">{{ $message }}</p>
                         @enderror
 
-                        <!-- Dropdown suggestions -->
                         @if(count($this->filteredDatabases) > 0)
                             <div
                                 x-show="open"
@@ -169,13 +246,9 @@
                     @endif
 
                     <div class="flex gap-2 mt-6">
-                        <x-button class="btn-ghost" wire:click="previousStep">
-                            {{ __('Back') }}
-                        </x-button>
+                        <x-button class="btn-ghost" wire:click="previousStep">{{ __('Back') }}</x-button>
                         <div class="flex-1"></div>
-                        <x-button class="btn-ghost" @click="$wire.showModal = false">
-                            {{ __('Cancel') }}
-                        </x-button>
+                        <x-button class="btn-ghost" @click="$wire.showModal = false">{{ __('Cancel') }}</x-button>
                         <x-button class="btn-primary" wire:click="restore" spinner="restore">
                             {{ __('Restore Database') }}
                         </x-button>

@@ -19,7 +19,7 @@ class BackupFailedNotification extends BaseFailedNotification
             title: '🚨 Backup Failed: '.($this->snapshot->databaseServer->name ?? 'Unknown'),
             body: 'A backup job has failed and requires your attention.',
             actionText: '🔗 View Job Details',
-            actionUrl: route('jobs.index', ['job' => $this->snapshot->backup_job_id]),
+            actionUrl: route('snapshots.index', ['job' => $this->snapshot->backup_job_id]),
             footerText: '🕐 '.now()->toDateTimeString(),
             errorLabel: '❌ Error Details',
             fields: [

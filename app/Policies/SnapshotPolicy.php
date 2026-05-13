@@ -42,4 +42,14 @@ class SnapshotPolicy
     {
         return $user->isDemo() || $user->canPerformActions();
     }
+
+    /**
+     * Determine whether the user can use this snapshot as the source of a restore.
+     * Demo users can trigger restores. Final authorization on the target server
+     * is still checked separately via DatabaseServerPolicy@restore.
+     */
+    public function restoreFrom(User $user, Snapshot $snapshot): bool
+    {
+        return $user->isDemo() || $user->canPerformActions();
+    }
 }

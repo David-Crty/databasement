@@ -22,9 +22,9 @@
                             </div>
                             <div class="font-semibold truncate">
                                 @if($this->selectedJob->snapshot)
-                                    {{ $this->selectedJob->snapshot->databaseServer->name }} / {{ $this->selectedJob->snapshot->database_name }}
+                                    {{ $this->selectedJob->snapshot->databaseServer?->name ?? '?' }} / {{ $this->selectedJob->snapshot->database_name }}
                                 @elseif($this->selectedJob->restore)
-                                    {{ $this->selectedJob->restore->targetServer->name }} / {{ $this->selectedJob->restore->schema_name }}
+                                    {{ $this->selectedJob->restore->targetServer?->name ?? '?' }} / {{ $this->selectedJob->restore->schema_name }}
                                 @endif
                             </div>
                         </div>

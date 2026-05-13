@@ -81,5 +81,5 @@
         </x-slot:actions>
     @endif
 
-    @include('livewire.backup-job._logs-modal')
+    @include('partials.job-logs-modal')
 </x-card>

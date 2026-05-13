@@ -21,7 +21,7 @@
             </div>
 
             @if($missingSnapshots > 0)
-                <a href="{{ route('jobs.index', ['fileMissing' => '1']) }}"
+                <a href="{{ route('snapshots.index', ['fileMissing' => '1']) }}"
                    class="badge badge-warning badge-sm gap-1 py-2.5 hover:brightness-95 transition-all" wire:navigate>
                     <x-icon name="o-exclamation-triangle" class="w-3.5 h-3.5"/>
                     {{ $missingSnapshots }} {{ __('missing') }}
