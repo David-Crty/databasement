@@ -563,6 +563,14 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Check if current database type is Neo4j
+     */
+    public function isNeo4j(): bool
+    {
+        return $this->database_type === 'neo4j';
+    }
+
+    /**
      * Check if current database type has optional credentials (username/password not required).
      */
     public function hasOptionalCredentials(): bool
