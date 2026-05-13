@@ -70,6 +70,8 @@ class DatabaseProvider
                 'pass' => $server->getDecryptedPassword(),
             ];
 
+            // Redis is instance-level (no named databases). All others, including
+            // Neo4j, back up individual named databases and require this key.
             if ($server->database_type !== DatabaseType::REDIS) {
                 $config['database'] = $databaseName;
             }
@@ -116,6 +118,8 @@ class DatabaseProvider
                 'pass' => $config->password,
             ];
 
+            // Redis is instance-level (no named databases). All others, including
+            // Neo4j, back up individual named databases and require this key.
             if ($config->databaseType !== DatabaseType::REDIS) {
                 $dbConfig['database'] = $databaseName;
             }

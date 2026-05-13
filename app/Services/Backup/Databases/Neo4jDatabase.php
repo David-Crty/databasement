@@ -10,7 +10,7 @@ class Neo4jDatabase implements DatabaseInterface
     /**
      * @var array<string, mixed>
      *
-     * @phpstan-ignore property.onlyWritten
+     * @phpstan-ignore property.onlyWritten (stub — remove this annotation once methods are implemented)
      */
     private array $config;
 
