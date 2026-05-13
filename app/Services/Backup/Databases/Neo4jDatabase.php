@@ -10,6 +10,7 @@ use Laudis\Neo4j\Authentication\Authenticate;
 use Laudis\Neo4j\ClientBuilder;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Databags\DriverConfiguration;
+use Laudis\Neo4j\Databags\SessionConfiguration;
 
 class Neo4jDatabase implements DatabaseInterface
 {
@@ -144,6 +145,9 @@ class Neo4jDatabase implements DatabaseInterface
             )
             ->withDefaultDriverConfiguration(
                 DriverConfiguration::default()->withAcquireConnectionTimeout(10.0)
+            )
+            ->withDefaultSessionConfiguration(
+                SessionConfiguration::default()->withDatabase($this->config['database'])
             )
             ->build();
     }
