@@ -58,12 +58,35 @@ class Neo4jDatabase implements DatabaseInterface
 
     public function restore(string $inputPath): DatabaseOperationResult
     {
-        throw new \RuntimeException('Not implemented yet');
+        $cypher = file_get_contents($inputPath);
+        if ($cypher === false) {
+            throw new \RuntimeException("Failed to read restore file: {$inputPath}");
+        }
+
+        $client = $this->createClient();
+
+        $client->writeTransaction(
+            function ($tsx) use ($cypher): void {
+                $tsx->run('CALL apoc.cypher.runMany($cypher, {})', ['cypher' => $cypher]);
+            }
+        );
+
+        return new DatabaseOperationResult(
+            command: null,
+            log: new DatabaseOperationLog('Neo4j APOC restore completed', 'info'),
+        );
     }
 
     public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
-        throw new \RuntimeException('Not implemented yet');
+        $client = $this->createClient();
+
+        $client->writeTransaction(
+            function ($tsx): void {
+                $tsx->run('CALL apoc.schema.assert({}, {})');
+                $tsx->run('MATCH (n) DETACH DELETE n');
+            }
+        );
     }
 
     /**

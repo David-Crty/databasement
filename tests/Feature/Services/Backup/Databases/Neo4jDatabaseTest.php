@@ -156,3 +156,70 @@ test('dump uses UNWIND_BATCH optimisation in APOC call', function () {
 
     @unlink($outputPath);
 });
+
+test('prepareForRestore drops schema and deletes all nodes', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $tsx = Mockery::mock(\Laudis\Neo4j\Contracts\TransactionInterface::class);
+
+    $schemaQuery = '';
+    $deleteQuery = '';
+
+    $tsx->shouldReceive('run')
+        ->twice()
+        ->andReturnUsing(function (string $query) use (&$schemaQuery, &$deleteQuery) {
+            if (str_contains($query, 'apoc.schema.assert')) {
+                $schemaQuery = $query;
+            } else {
+                $deleteQuery = $query;
+            }
+
+            return fakeNeo4jResult([]);
+        });
+
+    $client->shouldReceive('writeTransaction')
+        ->once()
+        ->andReturnUsing(function (callable $callback) use ($tsx) {
+            $callback($tsx);
+        });
+
+    $db = mockNeo4jWithClient($client);
+    $logger = Mockery::mock(\App\Contracts\BackupLogger::class);
+
+    $db->prepareForRestore('movies', $logger);
+
+    expect($schemaQuery)->toContain('apoc.schema.assert')
+        ->and($deleteQuery)->toContain('DETACH DELETE');
+});
+
+test('restore runs apoc.cypher.runMany with dump file contents', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $tsx = Mockery::mock(\Laudis\Neo4j\Contracts\TransactionInterface::class);
+
+    $cypher = 'CREATE (:Person {name: "Alice"});';
+    $inputPath = sys_get_temp_dir().'/neo4j_restore_'.uniqid().'.cypher';
+    file_put_contents($inputPath, $cypher);
+
+    $capturedParams = [];
+    $tsx->shouldReceive('run')
+        ->once()
+        ->andReturnUsing(function (string $query, array $params) use (&$capturedParams) {
+            $capturedParams = $params;
+
+            return fakeNeo4jResult([]);
+        });
+
+    $client->shouldReceive('writeTransaction')
+        ->once()
+        ->andReturnUsing(function (callable $callback) use ($tsx) {
+            $callback($tsx);
+        });
+
+    $db = mockNeo4jWithClient($client);
+    $result = $db->restore($inputPath);
+
+    expect($result->command)->toBeNull()
+        ->and($result->log->message)->toContain('restore completed')
+        ->and($capturedParams['cypher'])->toBe($cypher);
+
+    @unlink($inputPath);
+});
