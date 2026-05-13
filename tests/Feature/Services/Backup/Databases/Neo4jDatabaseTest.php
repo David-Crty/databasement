@@ -223,3 +223,20 @@ test('restore runs apoc.cypher.runMany with dump file contents', function () {
 
     @unlink($inputPath);
 });
+
+test('DatabaseProvider::make returns Neo4jDatabase for NEO4J type', function () {
+    $provider = new \App\Services\Backup\Databases\DatabaseProvider;
+    $db = $provider->make(\App\Enums\DatabaseType::NEO4J);
+
+    expect($db)->toBeInstanceOf(\App\Services\Backup\Databases\Neo4jDatabase::class);
+});
+
+test('DatabaseProvider resolves connection database name as neo4j for Neo4j servers', function () {
+    $server = \Database\Factories\DatabaseServerFactory::new()->neo4j()->make();
+
+    $provider = new \App\Services\Backup\Databases\DatabaseProvider;
+    $method = new \ReflectionMethod($provider, 'getConnectionDatabaseName');
+    $method->setAccessible(true);
+
+    expect($method->invoke($provider, $server))->toBe('neo4j');
+});

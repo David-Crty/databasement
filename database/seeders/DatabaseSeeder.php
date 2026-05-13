@@ -122,6 +122,17 @@ class DatabaseSeeder extends Seeder
             'organization_id' => $defaultOrg->id,
         ]);
 
+        // Neo4j server (from docker-compose)
+        $neo4j = DatabaseServer::create([
+            'name' => 'Local Neo4j',
+            'host' => 'neo4j',
+            'port' => 7687,
+            'database_type' => 'neo4j',
+            'username' => 'neo4j',
+            'password' => 'neo4j',
+            'organization_id' => $defaultOrg->id,
+        ]);
+
         // Backup configurations (database_selection_mode lives on Backup now)
         $backupDefaults = [
             'volume_id' => $volume->id,
@@ -131,7 +142,7 @@ class DatabaseSeeder extends Seeder
             'database_selection_mode' => 'all',
         ];
 
-        foreach ([$mysql, $postgres, $redis, $mongodb, $mssql] as $server) {
+        foreach ([$mysql, $postgres, $redis, $mongodb, $mssql, $neo4j] as $server) {
             Backup::create(array_merge($backupDefaults, [
                 'database_server_id' => $server->id,
             ]));

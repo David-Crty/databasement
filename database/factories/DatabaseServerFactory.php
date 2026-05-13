@@ -143,6 +143,21 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
+     * Configure the factory for Neo4j database type.
+     */
+    public function neo4j(): static
+    {
+        return $this->state(fn () => [
+            'name' => fake()->company().' Neo4j Database',
+            'database_type' => 'neo4j',
+            'host' => 'neo4j',
+            'port' => 7687,
+            'username' => 'neo4j',
+            'password' => fake()->password(),
+        ]);
+    }
+
+    /**
      * Configure the factory with SSH tunnel using password authentication.
      *
      * Note: Uses afterCreating() hook, so only works with create(), not make().

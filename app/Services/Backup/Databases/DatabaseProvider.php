@@ -232,6 +232,7 @@ class DatabaseProvider
         return match ($server->database_type) {
             DatabaseType::POSTGRESQL => 'postgres',
             DatabaseType::MSSQL => 'master',
+            DatabaseType::NEO4J => 'neo4j',
             default => '',
         };
     }
