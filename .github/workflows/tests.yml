@@ -77,6 +77,20 @@ jobs:
           --health-timeout=5s
           --health-retries=20
 
+      neo4j:
+        image: neo4j:5
+        env:
+          NEO4J_AUTH: neo4j/testpassword
+          NEO4J_PLUGINS: '["apoc"]'
+        ports:
+          - 7474:7474
+          - 7687:7687
+        options: >-
+          --health-cmd "wget -q --spider http://localhost:7474 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 15
+
       ssh:
         image: linuxserver/openssh-server:latest
         env:

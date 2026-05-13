@@ -119,6 +119,23 @@ services:
       timeout: 5s
       retries: 10
 
+  neo4j:
+    image: neo4j:5
+    container_name: databasement-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/testpassword
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
   ssh:
     image: linuxserver/openssh-server:latest
     container_name: databasement-ssh
@@ -217,4 +234,5 @@ volumes:
   mongodb-data:
   redis-data:
   mssql-data:
+  neo4j-data:
   ftp-data:

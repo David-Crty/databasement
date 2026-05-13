@@ -53,6 +53,14 @@ return [
             'password' => env('TEST_MSSQL_PASSWORD', 'Databasement!Strong1'),
             'database' => env('TEST_MSSQL_DATABASE', 'databasement_test'),
         ],
+
+        'neo4j' => [
+            'host' => env('TEST_NEO4J_HOST', 'neo4j'),
+            'port' => env('TEST_NEO4J_PORT', 7687),
+            'username' => env('TEST_NEO4J_USERNAME', 'neo4j'),
+            'password' => env('TEST_NEO4J_PASSWORD', 'testpassword'),
+            'database' => env('TEST_NEO4J_DATABASE', 'neo4j'),
+        ],
     ],
 
     /*
