@@ -43,7 +43,15 @@ class Neo4jDatabase implements DatabaseInterface
      */
     public function listDatabases(): array
     {
-        throw new \RuntimeException('Not implemented yet');
+        $client = $this->createClient();
+        $results = $client->run('SHOW DATABASES YIELD name WHERE name <> "system" RETURN name');
+
+        $databases = [];
+        foreach ($results as $record) {
+            $databases[] = $record->get('name');
+        }
+
+        return $databases;
     }
 
     /**

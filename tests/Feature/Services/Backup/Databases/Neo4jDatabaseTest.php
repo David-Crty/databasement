@@ -82,3 +82,20 @@ test('testConnection returns failure on connection error', function () {
         ->and($result['message'])->toBe('Connection refused')
         ->and($result['details'])->toBeEmpty();
 });
+
+test('listDatabases returns user databases excluding system', function () {
+    $client = Mockery::mock(ClientInterface::class);
+
+    $client->shouldReceive('run')
+        ->with('SHOW DATABASES YIELD name WHERE name <> "system" RETURN name')
+        ->once()
+        ->andReturn(fakeNeo4jResult([
+            ['name' => 'neo4j'],
+            ['name' => 'movies'],
+        ]));
+
+    $db = mockNeo4jWithClient($client);
+    $databases = $db->listDatabases();
+
+    expect($databases)->toBe(['neo4j', 'movies']);
+});
