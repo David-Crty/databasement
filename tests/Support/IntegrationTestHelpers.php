@@ -496,6 +496,10 @@ class IntegrationTestHelpers
                     $server->getDecryptedPassword(),
                 )
             )
+            ->withDefaultDriverConfiguration(
+                \Laudis\Neo4j\Databags\DriverConfiguration::default()
+                    ->withSocketType(\Laudis\Neo4j\Enum\SocketType::STREAM())
+            )
             ->withDefaultSessionConfiguration(
                 \Laudis\Neo4j\Databags\SessionConfiguration::default()->withDatabase(
                     config('testing.databases.neo4j.database', 'neo4j')

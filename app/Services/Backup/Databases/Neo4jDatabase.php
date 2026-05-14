@@ -11,6 +11,7 @@ use Laudis\Neo4j\ClientBuilder;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Databags\DriverConfiguration;
 use Laudis\Neo4j\Databags\SessionConfiguration;
+use Laudis\Neo4j\Enum\SocketType;
 
 class Neo4jDatabase implements DatabaseInterface
 {
@@ -167,7 +168,9 @@ class Neo4jDatabase implements DatabaseInterface
                 Authenticate::basic($this->config['user'], $this->config['pass'])
             )
             ->withDefaultDriverConfiguration(
-                DriverConfiguration::default()->withAcquireConnectionTimeout(10.0)
+                DriverConfiguration::default()
+                    ->withSocketType(SocketType::STREAM())
+                    ->withAcquireConnectionTimeout(10.0)
             )
             ->withDefaultSessionConfiguration(
                 SessionConfiguration::default()->withDatabase($this->config['database'])
