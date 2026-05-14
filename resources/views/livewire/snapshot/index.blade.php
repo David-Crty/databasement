@@ -135,7 +135,7 @@
                             <x-button
                                 icon="bi.database-fill-down"
                                 wire:click="triggerRestore('{{ $snapshot->id }}')"
-                                tooltip="{{ __('Restore') }}"
+                                :tooltip="__('Restore')"
                                 class="btn-ghost btn-sm text-success"
                             />
                         @endcan
@@ -147,7 +147,7 @@
                                 icon="o-arrow-down-tray"
                                 :link="route('snapshots.download', $snapshot)"
                                 external
-                                tooltip="{{ __('Download') }}"
+                                :tooltip="__('Download')"
                                 class="btn-ghost btn-sm text-primary"
                             />
                         @endcan
@@ -156,7 +156,7 @@
                     <x-button
                         icon="o-document-text"
                         wire:click="viewLogs('{{ $job?->id }}')"
-                        tooltip="{{ __('View Logs') }}"
+                        :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
                         :class="$hasLogs ? '' : 'opacity-30'"
                         :disabled="! $hasLogs"
@@ -167,7 +167,7 @@
                             <x-button
                                 icon="o-trash"
                                 wire:click="confirmDeleteSnapshot('{{ $snapshot->id }}')"
-                                tooltip="{{ __('Delete') }}"
+                                :tooltip="__('Delete')"
                                 class="btn-ghost btn-sm text-error"
                             />
                         @endcan
@@ -178,7 +178,7 @@
                             <x-button
                                 icon="o-x-mark"
                                 wire:click="confirmCancelJob('{{ $job->id }}')"
-                                tooltip="{{ __('Cancel') }}"
+                                :tooltip="__('Cancel')"
                                 class="btn-ghost btn-sm text-error"
                             />
                         @endcan

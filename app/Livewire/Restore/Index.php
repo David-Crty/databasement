@@ -127,6 +127,9 @@ class Index extends Component
 
     public function rerunRestore(string $restoreId): void
     {
+        $restore = Restore::findOrFail($restoreId);
+
+        $this->authorize('view', $restore);
         $this->authorize('create', Restore::class);
 
         $this->dispatch('open-restore-modal', mode: 'from-restore-index', restoreId: $restoreId);

@@ -145,7 +145,7 @@
                                 icon="o-arrow-path"
                                 wire:click="rerunRestore('{{ $restore->id }}')"
                                 spinner
-                                tooltip="{{ __('Re-run') }}"
+                                :tooltip="__('Re-run')"
                                 class="btn-ghost btn-sm text-success"
                             />
                         @endcan
@@ -154,7 +154,7 @@
                     <x-button
                         icon="o-document-text"
                         wire:click="viewLogs('{{ $job?->id }}')"
-                        tooltip="{{ __('View Logs') }}"
+                        :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
                         :class="$hasLogs ? '' : 'opacity-30'"
                         :disabled="! $hasLogs"
@@ -164,7 +164,7 @@
                         <x-button
                             icon="o-trash"
                             wire:click="confirmDeleteRestore('{{ $restore->id }}')"
-                            tooltip="{{ __('Delete') }}"
+                            :tooltip="__('Delete')"
                             class="btn-ghost btn-sm text-error"
                         />
                     @endcan
