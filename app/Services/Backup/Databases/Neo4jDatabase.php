@@ -32,7 +32,7 @@ class Neo4jDatabase implements DatabaseInterface
     {
         $client = $this->createClient();
 
-        $file = fopen($outputPath, 'w');
+        $file = @fopen($outputPath, 'w');
         if ($file === false) {
             throw new \RuntimeException("Failed to open output file for writing: {$outputPath}");
         }
@@ -190,7 +190,7 @@ class Neo4jDatabase implements DatabaseInterface
         $writtenBytes = 0;
 
         while ($writtenBytes < $expectedBytes) {
-            $written = fwrite($file, substr($contents, $writtenBytes));
+            $written = @fwrite($file, substr($contents, $writtenBytes));
             if ($written === false || $written === 0) {
                 throw new \RuntimeException(
                     "Failed to write Neo4j dump to {$outputPath}: wrote {$writtenBytes} of {$expectedBytes} bytes"
@@ -203,7 +203,7 @@ class Neo4jDatabase implements DatabaseInterface
 
     private function restoreCypherFile(ClientInterface $client, string $inputPath): void
     {
-        $file = fopen($inputPath, 'r');
+        $file = @fopen($inputPath, 'r');
         if ($file === false) {
             throw new \RuntimeException("Failed to read restore file: {$inputPath}");
         }

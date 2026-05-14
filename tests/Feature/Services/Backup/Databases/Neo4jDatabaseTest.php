@@ -83,6 +83,27 @@ test('testConnection returns failure on connection error', function () {
         ->and($result['details'])->toBeEmpty();
 });
 
+test('testConnection keeps success response when version lookup fails', function () {
+    $client = Mockery::mock(ClientInterface::class);
+
+    $client->shouldReceive('run')
+        ->with('RETURN 1 AS ping')
+        ->once()
+        ->andReturn(fakeNeo4jResult([['ping' => 1]]));
+
+    $client->shouldReceive('run')
+        ->with('CALL dbms.components() YIELD name, versions')
+        ->once()
+        ->andThrow(new \RuntimeException('Procedure not available'));
+
+    $db = mockNeo4jWithClient($client);
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeTrue()
+        ->and($result['message'])->toBe('Connection successful')
+        ->and($result['details']['output'])->toContain('Neo4j unknown');
+});
+
 test('listDatabases returns user databases excluding system', function () {
     $client = Mockery::mock(ClientInterface::class);
 
@@ -157,6 +178,28 @@ test('dump uses UNWIND_BATCH optimisation in APOC call', function () {
     @unlink($outputPath);
 });
 
+test('dump throws when output file cannot be opened', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $client->shouldNotReceive('readTransaction');
+
+    $db = mockNeo4jWithClient($client);
+
+    $db->dump(sys_get_temp_dir().'/missing-directory-'.uniqid().'/dump.cypher');
+})->throws(\RuntimeException::class, 'Failed to open output file for writing');
+
+test('dump throws when writing to output stream fails', function () {
+    $db = new Neo4jDatabase;
+    $method = new ReflectionMethod($db, 'writeAll');
+    $method->setAccessible(true);
+    $readOnlyStream = fopen('php://memory', 'r');
+
+    try {
+        $method->invoke($db, $readOnlyStream, 'CREATE (:Person);', '/tmp/neo4j-readonly.cypher');
+    } finally {
+        fclose($readOnlyStream);
+    }
+})->throws(\RuntimeException::class, 'Failed to write Neo4j dump');
+
 test('prepareForRestore drops schema and deletes all nodes', function () {
     $client = Mockery::mock(ClientInterface::class);
     $tsx = Mockery::mock(\Laudis\Neo4j\Contracts\TransactionInterface::class);
@@ -208,6 +251,13 @@ test('createClient validates required configuration keys', function () {
     $db->listDatabases();
 })->throws(\InvalidArgumentException::class, 'Missing required Neo4j configuration keys: host');
 
+test('createClient builds a Neo4j client from validated config', function () {
+    $method = new ReflectionMethod($this->db, 'createClient');
+    $method->setAccessible(true);
+
+    expect($method->invoke($this->db))->toBeInstanceOf(ClientInterface::class);
+});
+
 test('restore runs apoc.cypher.runMany with dump file contents', function () {
     $client = Mockery::mock(ClientInterface::class);
     $tsx = Mockery::mock(\Laudis\Neo4j\Contracts\TransactionInterface::class);
@@ -240,6 +290,15 @@ test('restore runs apoc.cypher.runMany with dump file contents', function () {
 
     @unlink($inputPath);
 });
+
+test('restore throws when input file cannot be opened', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $client->shouldNotReceive('writeTransaction');
+
+    $db = mockNeo4jWithClient($client);
+
+    $db->restore(sys_get_temp_dir().'/missing_neo4j_restore_'.uniqid().'.cypher');
+})->throws(\RuntimeException::class, 'Failed to read restore file');
 
 test('restore batches large cypher files without splitting quoted semicolons', function () {
     $client = Mockery::mock(ClientInterface::class);
@@ -274,6 +333,40 @@ CYPHER;
     expect($batches)->toHaveCount(2)
         ->and($batches[0])->toContain(';one"});')
         ->and($batches[1])->toContain(';two"});');
+
+    @unlink($inputPath);
+});
+
+test('restore preserves escaped quotes and trailing statements without semicolons', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $tsx = Mockery::mock(\Laudis\Neo4j\Contracts\TransactionInterface::class);
+
+    $cypher = <<<'CYPHER'
+CREATE (:Person {name: "Alice \"The Ace\""});
+CREATE (:Person {name: `Bob; Builder`})
+CYPHER;
+    $inputPath = sys_get_temp_dir().'/neo4j_restore_escaped_'.uniqid().'.cypher';
+    file_put_contents($inputPath, $cypher);
+
+    $batches = [];
+    $tsx->shouldReceive('run')
+        ->once()
+        ->andReturnUsing(function (string $query, array $params) use (&$batches) {
+            $batches[] = $params['cypher'];
+
+            return fakeNeo4jResult([]);
+        });
+
+    $client->shouldReceive('writeTransaction')
+        ->once()
+        ->andReturnUsing(fn (callable $callback) => $callback($tsx));
+
+    $db = mockNeo4jWithClient($client);
+    $db->restore($inputPath);
+
+    expect($batches)->toHaveCount(1)
+        ->and($batches[0])->toContain('Alice \"The Ace\"')
+        ->and($batches[0])->toContain('`Bob; Builder`');
 
     @unlink($inputPath);
 });

@@ -7,6 +7,7 @@ use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\Databases\MongodbDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
+use App\Services\Backup\Databases\Neo4jDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Databases\RedisDatabase;
 use App\Services\Backup\Databases\SqliteDatabase;
@@ -23,6 +24,7 @@ test('make returns correct handler for database type', function (DatabaseType $t
     'sqlite' => [DatabaseType::SQLITE, SqliteDatabase::class],
     'redis' => [DatabaseType::REDIS, RedisDatabase::class],
     'mongodb' => [DatabaseType::MONGODB, MongodbDatabase::class],
+    'neo4j' => [DatabaseType::NEO4J, Neo4jDatabase::class],
 ]);
 
 test('makeForServer uses explicit host and port parameters', function () {
@@ -135,6 +137,7 @@ test('testConnectionForServer delegates to handler testConnection', function (st
     'postgresql uses postgres database' => ['postgres', 'postgres'],
     'redis uses empty database name' => ['redis', ''],
     'mongodb uses empty database name' => ['mongodb', ''],
+    'neo4j uses neo4j database' => ['neo4j', 'neo4j'],
 ]);
 
 test('makeFromConfig builds correct config for SQLite with SSH array', function () {
@@ -172,6 +175,26 @@ test('makeFromConfig builds correct config for MongoDB with source database', fu
     expect($result->command)->toContain("--nsFrom='sourcedb.*'")
         ->toContain("--nsTo='targetdb.*'")
         ->toContain("--authenticationDatabase='myauth'");
+});
+
+test('makeFromConfig builds Neo4j handler with named database config', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::NEO4J,
+        serverName: 'Neo4j Server',
+        host: 'neo4j.local',
+        port: 7687,
+        username: 'neo4j',
+        password: 'secret',
+    );
+
+    $provider = new DatabaseProvider;
+    $database = $provider->makeFromConfig($config, 'movies', 'neo4j.local', 7687);
+
+    $method = new ReflectionMethod($database, 'createClient');
+    $method->setAccessible(true);
+
+    expect($database)->toBeInstanceOf(Neo4jDatabase::class)
+        ->and($method->invoke($database))->toBeInstanceOf(\Laudis\Neo4j\Contracts\ClientInterface::class);
 });
 
 test('testConnectionForServer returns SSH failure', function () {
