@@ -129,7 +129,7 @@ class DatabaseSeeder extends Seeder
             'port' => 7687,
             'database_type' => 'neo4j',
             'username' => 'neo4j',
-            'password' => 'neo4j',
+            'password' => 'testpassword',
             'organization_id' => $defaultOrg->id,
         ]);
 

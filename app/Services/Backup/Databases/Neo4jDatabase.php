@@ -38,7 +38,7 @@ class Neo4jDatabase implements DatabaseInterface
             $result = $client->readTransaction(
                 function ($tsx) {
                     return $tsx->run(
-                        'CALL apoc.export.cypher.all(null, {stream: true, format: "cypher-shell", useOptimizations: {type: "UNWIND_BATCH", unwindBatchSize: 50}}) YIELD cypherStatements RETURN cypherStatements'
+                        'CALL apoc.export.cypher.all(null, {stream: true, format: "plain", useOptimizations: {type: "UNWIND_BATCH", unwindBatchSize: 50}}) YIELD cypherStatements RETURN cypherStatements'
                     );
                 }
             );
