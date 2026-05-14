@@ -90,11 +90,11 @@ class IntegrationTestHelpers
                 'database_type' => 'mssql',
             ],
             'neo4j' => [
-                'host' => config('testing.databases.neo4j.host'),
-                'port' => (int) config('testing.databases.neo4j.port'),
-                'username' => config('testing.databases.neo4j.username'),
-                'password' => config('testing.databases.neo4j.password'),
-                'database' => config('testing.databases.neo4j.database'),
+                'host' => self::testingConfigString('testing.databases.neo4j.host', 'neo4j'),
+                'port' => self::testingConfigInt('testing.databases.neo4j.port', 7687),
+                'username' => self::testingConfigString('testing.databases.neo4j.username', 'neo4j'),
+                'password' => self::testingConfigString('testing.databases.neo4j.password', 'testpassword'),
+                'database' => self::testingConfigString('testing.databases.neo4j.database', 'neo4j'),
                 'database_type' => 'neo4j',
             ],
             default => throw new InvalidArgumentException("Unsupported database type: {$type}"),
@@ -436,11 +436,11 @@ class IntegrationTestHelpers
      */
     public static function loadNeo4jTestData(DatabaseServer $server): void
     {
-        $client = self::createNeo4jClient($server);
-
         // Neo4j with APOC can take extra time to stabilize in CI. Retry the
         // initial connection up to 6 times (50 s total) before failing.
-        self::withNeo4jRetry(function () use ($client): void {
+        self::withNeo4jRetry(function () use ($server): void {
+            $client = self::createNeo4jClient($server);
+
             $client->writeTransaction(function ($tsx): void {
                 $tsx->run('CALL apoc.schema.assert({}, {})');
                 $tsx->run('MATCH (n) DETACH DELETE n');
@@ -449,9 +449,13 @@ class IntegrationTestHelpers
 
         // Load fixture using apoc.cypher.runMany
         $fixture = file_get_contents(__DIR__.'/../Integration/fixtures/neo4j-init.cypher');
-        $client->writeTransaction(
-            fn ($tsx) => $tsx->run('CALL apoc.cypher.runMany($cypher, {})', ['cypher' => $fixture]),
-        );
+        self::withNeo4jRetry(function () use ($server, $fixture): void {
+            $client = self::createNeo4jClient($server);
+
+            $client->writeTransaction(
+                fn ($tsx) => $tsx->run('CALL apoc.cypher.runMany($cypher, {})', ['cypher' => $fixture]),
+            );
+        });
     }
 
     /**
@@ -517,10 +521,23 @@ class IntegrationTestHelpers
      */
     private static function createNeo4jClient(DatabaseServer $server): \Laudis\Neo4j\Contracts\ClientInterface
     {
+        $host = trim((string) $server->getAttribute('host'));
+        $port = (int) $server->getAttribute('port');
+
+        if ($host === '' || $port < 1) {
+            throw new \RuntimeException(sprintf(
+                'Invalid Neo4j test connection target: host=%s port=%d',
+                var_export($host, true),
+                $port,
+            ));
+        }
+
+        $uri = sprintf('bolt://%s:%d', $host, $port);
+
         return \Laudis\Neo4j\ClientBuilder::create()
             ->withDriver(
                 'default',
-                sprintf('bolt://%s:%d', $server->host, $server->port),
+                $uri,
                 \Laudis\Neo4j\Authentication\Authenticate::basic(
                     $server->username,
                     $server->getDecryptedPassword(),
@@ -536,6 +553,24 @@ class IntegrationTestHelpers
                 )
             )
             ->build();
+    }
+
+    private static function testingConfigString(string $key, string $default): string
+    {
+        $value = config($key);
+
+        if (is_string($value) && trim($value) !== '') {
+            return $value;
+        }
+
+        return $default;
+    }
+
+    private static function testingConfigInt(string $key, int $default): int
+    {
+        $value = (int) config($key);
+
+        return $value > 0 ? $value : $default;
     }
 
     /**
