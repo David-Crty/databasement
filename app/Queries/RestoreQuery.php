@@ -36,7 +36,7 @@ class RestoreQuery
             ->with(self::RELATIONSHIPS)
             ->whereHas('targetServer');
 
-        return $query
+        $query
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })
@@ -51,15 +51,18 @@ class RestoreQuery
             })
             ->when($dbTypeFilter, function (Builder $query) use ($dbTypeFilter) {
                 $query->whereHas('snapshot', fn (Builder $q) => $q->whereRaw('database_type = ?', [$dbTypeFilter]));
-            })
-            ->when($sortColumn === 'status', function (Builder $query) use ($sortDirection) {
-                $query->orderBy(
-                    BackupJob::select('status')->whereColumn('backup_jobs.id', 'restores.backup_job_id'),
-                    Formatters::sortDirection($sortDirection),
-                );
-            }, function (Builder $query) use ($sortColumn, $sortDirection) {
-                $query->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
             });
+
+        $direction = Formatters::sortDirection($sortDirection);
+
+        if ($sortColumn === 'status') {
+            return $query->orderBy(
+                BackupJob::select('status')->whereColumn('backup_jobs.id', 'restores.backup_job_id'),
+                $direction,
+            );
+        }
+
+        return $query->orderBy($sortColumn, $direction);
     }
 
     /**

@@ -67,7 +67,7 @@ class SnapshotQuery
 
         $query->forCurrentOrg();
 
-        return $query
+        $query
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })
@@ -82,15 +82,18 @@ class SnapshotQuery
             })
             ->when($fileMissing, function (Builder $query) {
                 $query->whereRaw('file_exists = ?', [false]);
-            })
-            ->when($sortColumn === 'status', function (Builder $query) use ($sortDirection) {
-                $query->orderBy(
-                    BackupJob::select('status')->whereColumn('backup_jobs.id', 'snapshots.backup_job_id'),
-                    Formatters::sortDirection($sortDirection),
-                );
-            }, function (Builder $query) use ($sortColumn, $sortDirection) {
-                $query->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
             });
+
+        $direction = Formatters::sortDirection($sortDirection);
+
+        if ($sortColumn === 'status') {
+            return $query->orderBy(
+                BackupJob::select('status')->whereColumn('backup_jobs.id', 'snapshots.backup_job_id'),
+                $direction,
+            );
+        }
+
+        return $query->orderBy($sortColumn, $direction);
     }
 
     /**
