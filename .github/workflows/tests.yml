@@ -86,10 +86,10 @@ jobs:
           - 7474:7474
           - 7687:7687
         options: >-
-          --health-cmd "wget -q --spider http://localhost:7474 || exit 1"
+          --health-cmd "wget -q --spider http://localhost:7474 && nc -z localhost 7687 || exit 1"
           --health-interval 10s
           --health-timeout 5s
-          --health-retries 15
+          --health-retries 20
 
       ssh:
         image: linuxserver/openssh-server:latest
