@@ -2,6 +2,7 @@
 
 namespace App\Queries;
 
+use App\Models\BackupJob;
 use App\Models\Restore;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
@@ -51,7 +52,14 @@ class RestoreQuery
             ->when($dbTypeFilter, function (Builder $query) use ($dbTypeFilter) {
                 $query->whereHas('snapshot', fn (Builder $q) => $q->whereRaw('database_type = ?', [$dbTypeFilter]));
             })
-            ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
+            ->when($sortColumn === 'status', function (Builder $query) use ($sortDirection) {
+                $query->orderBy(
+                    BackupJob::select('status')->whereColumn('backup_jobs.id', 'restores.backup_job_id'),
+                    Formatters::sortDirection($sortDirection),
+                );
+            }, function (Builder $query) use ($sortColumn, $sortDirection) {
+                $query->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
+            });
     }
 
     /**

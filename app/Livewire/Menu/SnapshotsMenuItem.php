@@ -7,6 +7,13 @@ use Livewire\Component;
 
 class SnapshotsMenuItem extends Component
 {
+    public bool $isActive = false;
+
+    public function mount(): void
+    {
+        $this->isActive = request()->routeIs('snapshots.*');
+    }
+
     public function getActiveSnapshotsCountProperty(): int
     {
         return BackupJob::forCurrentOrg()
@@ -24,6 +31,7 @@ class SnapshotsMenuItem extends Component
                 icon="o-archive-box"
                 link="{{ route('snapshots.index') }}"
                 wire:navigate
+                :active="$isActive"
                 :badge="$this->activeSnapshotsCount > 0 ? $this->activeSnapshotsCount : null"
                 badge-classes="badge-warning badge-soft"
             />

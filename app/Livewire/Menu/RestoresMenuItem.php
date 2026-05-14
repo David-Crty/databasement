@@ -7,6 +7,13 @@ use Livewire\Component;
 
 class RestoresMenuItem extends Component
 {
+    public bool $isActive = false;
+
+    public function mount(): void
+    {
+        $this->isActive = request()->routeIs('restores.*');
+    }
+
     public function getActiveRestoresCountProperty(): int
     {
         return BackupJob::forCurrentOrg()
@@ -24,6 +31,7 @@ class RestoresMenuItem extends Component
                 icon="o-arrow-uturn-left"
                 link="{{ route('restores.index') }}"
                 wire:navigate
+                :active="$isActive"
                 :badge="$this->activeRestoresCount > 0 ? $this->activeRestoresCount : null"
                 badge-classes="badge-warning badge-soft"
             />

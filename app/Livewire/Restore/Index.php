@@ -94,13 +94,9 @@ class Index extends Component
     public function headers(): array
     {
         return [
-            ['key' => 'id', 'label' => __('ID'), 'class' => 'w-28', 'sortable' => false],
-            ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-48'],
-            ['key' => 'source', 'label' => __('Source'), 'sortable' => false],
-            ['key' => 'target', 'label' => __('Target'), 'sortable' => false],
-            ['key' => 'status', 'label' => __('Status'), 'class' => 'w-32', 'sortable' => false],
-            ['key' => 'duration_ms', 'label' => __('Duration'), 'class' => 'w-28', 'sortable' => false],
-            ['key' => 'triggered_by', 'label' => __('By'), 'class' => 'w-32', 'sortable' => false],
+            ['key' => 'flow', 'label' => __('Source → Target'), 'sortable' => false],
+            ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-52'],
+            ['key' => 'status', 'label' => __('Status'), 'class' => 'w-44'],
         ];
     }
 

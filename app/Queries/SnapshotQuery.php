@@ -2,6 +2,7 @@
 
 namespace App\Queries;
 
+use App\Models\BackupJob;
 use App\Models\Snapshot;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
@@ -82,7 +83,14 @@ class SnapshotQuery
             ->when($fileMissing, function (Builder $query) {
                 $query->whereRaw('file_exists = ?', [false]);
             })
-            ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
+            ->when($sortColumn === 'status', function (Builder $query) use ($sortDirection) {
+                $query->orderBy(
+                    BackupJob::select('status')->whereColumn('backup_jobs.id', 'snapshots.backup_job_id'),
+                    Formatters::sortDirection($sortDirection),
+                );
+            }, function (Builder $query) use ($sortColumn, $sortDirection) {
+                $query->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
+            });
     }
 
     /**
