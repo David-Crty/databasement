@@ -48,13 +48,10 @@ Databasement requires database CLI tools to perform backup and restore operation
 ```bash
 # Install MariaDB client (includes mariadb-dump and mariadb commands)
 sudo apt install -y mariadb-client
-
-# Or install MySQL client (includes mysqldump and mysql commands)
-# sudo apt install -y mysql-client
 ```
 
 :::note
-By default, Databasement uses MariaDB CLI tools (`mariadb-dump`, `mariadb`). If you prefer MySQL tools (`mysqldump`, `mysql`), set the environment variable `MYSQL_CLI_TYPE=mysql`.
+Databasement uses the MariaDB CLI tools (`mariadb-dump`, `mariadb`) to back up and restore both MariaDB and MySQL servers.
 :::
 
 ### For PostgreSQL backups

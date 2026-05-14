@@ -84,6 +84,10 @@ class DatabaseProvider
             if ($dumpFlags !== '') {
                 $config['dump_flags'] = $dumpFlags;
             }
+
+            if ($server->database_type === DatabaseType::MYSQL && $server->getExtraConfig('ssl_enabled', false)) {
+                $config['ssl_enabled'] = true;
+            }
         }
 
         return $this->makeConfigured($server->database_type, $config);
@@ -129,6 +133,10 @@ class DatabaseProvider
             $dumpFlags = $config->extraConfig['dump_flags'] ?? '';
             if ($dumpFlags !== '') {
                 $dbConfig['dump_flags'] = $dumpFlags;
+            }
+
+            if ($config->databaseType === DatabaseType::MYSQL && ! empty($config->extraConfig['ssl_enabled'])) {
+                $dbConfig['ssl_enabled'] = true;
             }
         }
 

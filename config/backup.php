@@ -15,16 +15,4 @@ return [
     */
 
     'encryption_key' => env('BACKUP_ENCRYPTION_KEY', env('APP_KEY')),
-
-    /*
-    |--------------------------------------------------------------------------
-    | MySQL CLI Type
-    |--------------------------------------------------------------------------
-    |
-    | The type of MySQL CLI to use for backup and restore operations.
-    | Options: 'mariadb' (default) or 'mysql'
-    |
-    */
-
-    'mysql_cli_type' => env('MYSQL_CLI_TYPE', 'mariadb'),
 ];

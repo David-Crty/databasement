@@ -382,7 +382,7 @@ class DatabaseServer extends Model
     }
 
     /**
-     * Move type-specific fields (auth_source, dump_flags) into extra_config.
+     * Move type-specific fields (auth_source, dump_flags, ssl_enabled) into extra_config.
      * Clears stale keys when database type has changed.
      *
      * @param  array<string, mixed>  $data
@@ -411,6 +411,15 @@ class DatabaseServer extends Model
                 unset($extraConfig['dump_flags']);
             }
             unset($data['dump_flags']);
+        }
+
+        if (array_key_exists('ssl_enabled', $data)) {
+            if ($type === DatabaseType::MYSQL->value && $data['ssl_enabled']) {
+                $extraConfig['ssl_enabled'] = true;
+            } else {
+                unset($extraConfig['ssl_enabled']);
+            }
+            unset($data['ssl_enabled']);
         }
 
         $data['extra_config'] = $extraConfig ?: null;

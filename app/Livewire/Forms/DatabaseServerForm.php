@@ -41,6 +41,8 @@ class DatabaseServerForm extends Form
 
     public string $dump_flags = '';
 
+    public bool $ssl_enabled = false;
+
     // SSH Tunnel Configuration
     public bool $ssh_enabled = false;
 
@@ -381,6 +383,7 @@ class DatabaseServerForm extends Form
         $this->database_type = $server->database_type->value;
         $this->auth_source = $server->getExtraConfig('auth_source', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
+        $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $this->username = $server->username ?? '';
         $this->description = $server->description;
         $this->agent_id = $server->agent_id;
@@ -563,6 +566,14 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Check if current database type is MySQL/MariaDB (the only type with the SSL toggle).
+     */
+    public function isMysql(): bool
+    {
+        return $this->database_type === 'mysql';
+    }
+
+    /**
      * Check if current database type has optional credentials (username/password not required).
      */
     public function hasOptionalCredentials(): bool
@@ -599,6 +610,10 @@ class DatabaseServerForm extends Form
 
         if ($type === DatabaseType::MONGODB) {
             $config['auth_source'] = $this->auth_source ?: 'admin';
+        }
+
+        if ($type === DatabaseType::MYSQL) {
+            $config['ssl_enabled'] = $this->ssl_enabled;
         }
 
         try {
@@ -785,6 +800,7 @@ class DatabaseServerForm extends Form
             'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
+            'ssl_enabled' => 'boolean',
             'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
             'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],
             'notification_channel_ids' => ['array', Rule::requiredIf(
@@ -1113,7 +1129,7 @@ class DatabaseServerForm extends Form
             'username' => $this->username,
             'password' => $password,
             'database_names' => $this->isSqlite() ? $this->collectSqlitePaths() : null,
-            'extra_config' => $this->isMongodb() ? ['auth_source' => $this->auth_source] : null,
+            'extra_config' => $this->buildExtraConfigForTest(),
         ], $sshConfig);
 
         $result = app(DatabaseProvider::class)->testConnectionForServer($server);
@@ -1183,6 +1199,26 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Build the extra_config payload used for in-memory connection tests.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function buildExtraConfigForTest(): ?array
+    {
+        $extra = [];
+
+        if ($this->isMongodb()) {
+            $extra['auth_source'] = $this->auth_source;
+        }
+
+        if ($this->isMysql() && $this->ssl_enabled) {
+            $extra['ssl_enabled'] = true;
+        }
+
+        return $extra === [] ? null : $extra;
+    }
+
+    /**
      * Build SSH config model for connection testing.
      * Creates an unsaved model instance with form values.
      */
@@ -1223,7 +1259,7 @@ class DatabaseServerForm extends Form
                 'database_type' => $this->database_type,
                 'username' => $this->username,
                 'password' => $password,
-                'extra_config' => $this->isMongodb() ? ['auth_source' => $this->auth_source] : null,
+                'extra_config' => $this->buildExtraConfigForTest(),
             ], $sshConfig);
 
             $databases = app(DatabaseProvider::class)->listDatabasesForServer($tempServer);
