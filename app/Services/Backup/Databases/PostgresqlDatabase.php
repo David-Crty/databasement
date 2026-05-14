@@ -23,7 +23,6 @@ class PostgresqlDatabase implements DatabaseInterface
     ];
 
     private const array EXCLUDED_DATABASES = [
-        'postgres',          // Default administrative database
         'rdsadmin',          // AWS RDS internal database
         'azure_maintenance', // Azure Database for PostgreSQL internal database
         'azure_sys',         // Azure Database for PostgreSQL internal database
