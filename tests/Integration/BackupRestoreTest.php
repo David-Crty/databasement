@@ -286,7 +286,7 @@ test('mssql backup and restore workflow', function () {
     $stmt = $pdo->query('SELECT COUNT(*) FROM dbo.users');
     expect($stmt)->not->toBeFalse()
         ->and((int) $stmt->fetchColumn())->toBe(2);
-});
+})->skip(fn () => ! IntegrationTestHelpers::isSqlpackageAvailable(), 'sqlpackage unavailable in this environment')->flaky(3);
 
 test('neo4j backup and restore workflow', function () {
     // Create models

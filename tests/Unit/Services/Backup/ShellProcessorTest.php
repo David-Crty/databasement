@@ -1,6 +1,14 @@
 <?php
 
+use App\Exceptions\ShellProcessFailed;
 use App\Services\Backup\ShellProcessor;
+
+test('process throws ShellProcessFailed when process is killed by signal', function () {
+    $processor = new ShellProcessor;
+
+    // 'kill $$' sends SIGTERM to the shell itself — triggers ProcessSignaledException
+    $processor->process('kill $$');
+})->throws(ShellProcessFailed::class);
 
 test('sanitizes sensitive patterns', function (string $input, string $expectedToContain, string $secretToRedact) {
     $processor = new ShellProcessor;

@@ -5,6 +5,7 @@ namespace App\Services\Backup;
 use App\Contracts\BackupLogger;
 use App\Exceptions\ShellProcessFailed;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Exception\ProcessSignaledException;
 use Symfony\Component\Process\Process;
 
 class ShellProcessor
@@ -30,17 +31,21 @@ class ShellProcessor
 
         // Run with output callback for incremental updates
         $incrementalOutput = '';
-        $process->run(function ($type, $data) use (&$incrementalOutput, $logIndex, $startTime) {
-            $incrementalOutput .= $data;
+        try {
+            $process->run(function ($type, $data) use (&$incrementalOutput, $logIndex, $startTime) {
+                $incrementalOutput .= $data;
 
-            // Update the log entry with incremental output (sanitized)
-            if ($this->logger && $logIndex !== null) {
-                $this->logger->updateCommandLog($logIndex, [
-                    'output' => $this->sanitize(trim($incrementalOutput)),
-                    'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
-                ]);
-            }
-        });
+                // Update the log entry with incremental output (sanitized)
+                if ($this->logger && $logIndex !== null) {
+                    $this->logger->updateCommandLog($logIndex, [
+                        'output' => $this->sanitize(trim($incrementalOutput)),
+                        'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                    ]);
+                }
+            });
+        } catch (ProcessSignaledException $e) {
+            throw new ShellProcessFailed("Process terminated by signal {$e->getProcess()->getTermSignal()}");
+        }
 
         $output = $process->getOutput();
         $errorOutput = $process->getErrorOutput();

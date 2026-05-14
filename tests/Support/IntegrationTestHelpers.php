@@ -613,6 +613,26 @@ class IntegrationTestHelpers
     }
 
     /**
+     * Check if sqlpackage can be executed in this environment.
+     *
+     * sqlpackage is an x86-64 binary that cannot run on ARM-based Docker
+     * containers (e.g., Apple Silicon Macs). Returns false when the binary
+     * crashes on startup so callers can skip MSSQL tests gracefully.
+     */
+    public static function isSqlpackageAvailable(): bool
+    {
+        try {
+            $process = new \Symfony\Component\Process\Process(['sqlpackage', '/?']);
+            $process->setTimeout(15);
+            $process->run();
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
      * Split a T-SQL script on `GO` batch separators (case-insensitive, lines
      * containing only `GO` plus optional whitespace).
      *
