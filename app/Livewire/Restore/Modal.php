@@ -94,7 +94,7 @@ class Modal extends Component
     }
 
     #[On('open-restore-modal')]
-    public function openModal(string $mode = 'from-server', ?string $targetServerId = null, ?string $snapshotId = null): void
+    public function openModal(string $mode = 'from-server', ?string $targetServerId = null, ?string $snapshotId = null, ?string $restoreId = null): void
     {
         $this->reset([
             'targetServer', 'selectedSnapshotId', 'schemaName', 'forceDatabase',
@@ -108,7 +108,7 @@ class Modal extends Component
         match ($this->mode) {
             RestoreModalMode::FromServer => $this->initFromServer($targetServerId),
             RestoreModalMode::FromSnapshot => $this->initFromSnapshot($snapshotId),
-            RestoreModalMode::FromRestoreIndex => $this->initFromRestoreIndex(),
+            RestoreModalMode::FromRestoreIndex => $this->initFromRestoreIndex($restoreId),
         };
 
         $this->showModal = true;
@@ -137,9 +137,37 @@ class Modal extends Component
         $this->dbTypeFilter = $snapshot->database_type->value;
     }
 
-    protected function initFromRestoreIndex(): void
+    protected function initFromRestoreIndex(?string $restoreId = null): void
     {
         $this->authorize('create', Restore::class);
+
+        if (! $restoreId) {
+            return;
+        }
+
+        $restore = Restore::with(['snapshot', 'targetServer'])->findOrFail($restoreId);
+
+        $snapshot = $restore->snapshot;
+        $target = $restore->targetServer;
+
+        if (! $snapshot || ! $target) {
+            $this->error(__('Cannot re-run: the original snapshot or target server no longer exists.'));
+            $this->showModal = false;
+
+            return;
+        }
+
+        $this->authorize('restoreFrom', $snapshot);
+        $this->authorize('restore', $target);
+
+        $this->selectedSnapshotId = $snapshot->id;
+        $this->dbTypeFilter = $snapshot->database_type->value;
+        $this->targetServer = $target;
+        $this->schemaName = $restore->schema_name;
+        $this->forceDatabase = (bool) ($restore->options['force_database'] ?? false);
+        $this->ownerUser = (string) ($restore->options['owner_user'] ?? '');
+        $this->loadExistingDatabases();
+        $this->currentStep = 3;
     }
 
     public function selectSnapshot(string $snapshotId): void

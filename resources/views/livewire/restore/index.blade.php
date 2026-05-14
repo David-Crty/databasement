@@ -111,6 +111,17 @@
                         :class="empty($restore->job?->logs) ? 'opacity-30' : ''"
                         :disabled="empty($restore->job?->logs)"
                     />
+                    @if($restore->snapshot && $restore->targetServer)
+                        @can('create', \App\Models\Restore::class)
+                            <x-button
+                                icon="o-arrow-path"
+                                wire:click="rerunRestore('{{ $restore->id }}')"
+                                spinner
+                                :tooltip="__('Re-run')"
+                                class="btn-ghost btn-sm text-success"
+                            />
+                        @endcan
+                    @endif
                     @can('delete', $restore)
                         <x-button
                             icon="o-trash"

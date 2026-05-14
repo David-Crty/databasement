@@ -46,6 +46,14 @@ test('openNewRestore dispatches the modal in from-restore-index mode', function 
         ->assertDispatched('open-restore-modal', mode: 'from-restore-index');
 });
 
+test('rerunRestore dispatches the modal pre-filled with the original restore id', function () {
+    $restore = makeRestore();
+
+    Livewire::test(Index::class)
+        ->call('rerunRestore', $restore->id)
+        ->assertDispatched('open-restore-modal', mode: 'from-restore-index', restoreId: $restore->id);
+});
+
 test('search filters by schema name', function () {
     makeRestore(['schema_name' => 'alpha_schema']);
     makeRestore(['schema_name' => 'beta_schema']);

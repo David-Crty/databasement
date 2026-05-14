@@ -128,6 +128,13 @@ class Index extends Component
         $this->dispatch('open-restore-modal', mode: 'from-restore-index');
     }
 
+    public function rerunRestore(string $restoreId): void
+    {
+        $this->authorize('create', Restore::class);
+
+        $this->dispatch('open-restore-modal', mode: 'from-restore-index', restoreId: $restoreId);
+    }
+
     public function confirmDeleteRestore(string $restoreId): void
     {
         $restore = Restore::findOrFail($restoreId);
