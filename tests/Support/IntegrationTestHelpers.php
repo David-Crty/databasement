@@ -90,7 +90,7 @@ class IntegrationTestHelpers
                 'database_type' => 'mssql',
             ],
             'neo4j' => [
-                'host' => self::testingConfigString('testing.databases.neo4j.host', 'neo4j'),
+                'host' => self::resolveNeo4jHost(self::testingConfigString('testing.databases.neo4j.host', 'neo4j')),
                 'port' => self::testingConfigInt('testing.databases.neo4j.port', 7687),
                 'username' => self::testingConfigString('testing.databases.neo4j.username', 'neo4j'),
                 'password' => self::testingConfigString('testing.databases.neo4j.password', 'testpassword'),
@@ -592,6 +592,28 @@ class IntegrationTestHelpers
         $value = (int) config($key);
 
         return $value > 0 ? $value : $default;
+    }
+
+    private static function resolveNeo4jHost(string $configuredHost): string
+    {
+        $candidates = array_unique(array_filter([$configuredHost, 'neo4j', '127.0.0.1', 'localhost']));
+
+        foreach ($candidates as $host) {
+            if (self::canResolveHost($host)) {
+                return $host;
+            }
+        }
+
+        return $configuredHost;
+    }
+
+    private static function canResolveHost(string $host): bool
+    {
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false || $host === 'localhost') {
+            return true;
+        }
+
+        return gethostbyname($host) !== $host;
     }
 
     /**
