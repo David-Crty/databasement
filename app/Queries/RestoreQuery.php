@@ -69,7 +69,9 @@ class RestoreQuery
                 ->orWhereHas('snapshot', function (Builder $sq) use ($search) {
                     $sq->whereRaw('database_name LIKE ?', ["%{$search}%"]);
                 })
-                ->orWhereRaw('schema_name LIKE ?', ["%{$search}%"]);
+                ->orWhereRaw('schema_name LIKE ?', ["%{$search}%"])
+                ->orWhereRaw('id LIKE ?', ["%{$search}%"])
+                ->orWhereRaw('snapshot_id LIKE ?', ["%{$search}%"]);
         });
     }
 }

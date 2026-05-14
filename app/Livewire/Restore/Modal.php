@@ -150,6 +150,10 @@ class Modal extends Component
         $snapshot = $restore->snapshot;
         $target = $restore->targetServer;
 
+        // OrganizationScope on DatabaseServer returns null for cross-org rows
+        // even though the FK is cascade-deleted — PHPDoc on the relation
+        // doesn't model that. This null check is the cross-org guard.
+        // @phpstan-ignore booleanNot.alwaysFalse, booleanNot.alwaysFalse, booleanOr.alwaysFalse
         if (! $snapshot || ! $target) {
             $this->error(__('Cannot re-run: the original snapshot or target server no longer exists.'));
             $this->showModal = false;

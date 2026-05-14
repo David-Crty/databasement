@@ -95,7 +95,8 @@ class SnapshotQuery
                 $sq->whereRaw('name LIKE ?', ["%{$search}%"])
                     ->orWhereRaw('host LIKE ?', ["%{$search}%"]);
             })
-                ->orWhere('database_name', 'like', "%{$search}%");
+                ->orWhere('database_name', 'like', "%{$search}%")
+                ->orWhereRaw('id LIKE ?', ["%{$search}%"]);
         });
     }
 }

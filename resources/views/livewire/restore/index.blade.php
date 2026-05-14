@@ -35,6 +35,12 @@
                 </div>
             </x-slot:empty>
 
+            @scope('cell_id', $restore)
+                <div class="tooltip tooltip-right" data-tip="{{ $restore->id }}">
+                    <span class="font-mono text-xs text-base-content/70">{{ \Illuminate\Support\Str::substr($restore->id, -7) }}</span>
+                </div>
+            @endscope
+
             @scope('cell_created_at', $restore)
                 <div class="table-cell-primary">{{ \App\Support\Formatters::humanDate($restore->created_at) }}</div>
                 <div class="text-sm text-base-content/70">{{ $restore->created_at->diffForHumans() }}</div>
@@ -45,7 +51,17 @@
                     <div class="flex items-center gap-2">
                         <x-icon :name="$restore->snapshot->database_type->icon()" class="w-5 h-5" />
                         <div>
-                            <div class="table-cell-primary">{{ $restore->snapshot->databaseServer?->name ?? '?' }}</div>
+                            <div class="flex items-center gap-1">
+                                <span class="table-cell-primary">{{ $restore->snapshot->databaseServer?->name ?? '?' }}</span>
+                                <a
+                                    href="{{ route('snapshots.index', ['search' => $restore->snapshot->id]) }}"
+                                    wire:navigate
+                                    class="text-base-content/50 hover:text-primary"
+                                    title="{{ __('View snapshot') }}"
+                                >
+                                    <x-icon name="o-arrow-top-right-on-square" class="w-3.5 h-3.5" />
+                                </a>
+                            </div>
                             <div class="text-sm text-base-content/70">{{ $restore->snapshot->database_name }}</div>
                             <div class="text-xs text-base-content/50">{{ \App\Support\Formatters::humanDate($restore->snapshot->created_at) }}</div>
                         </div>

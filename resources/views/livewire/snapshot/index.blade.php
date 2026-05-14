@@ -29,6 +29,12 @@
                 </div>
             </x-slot:empty>
 
+            @scope('cell_id', $snapshot)
+                <div class="tooltip tooltip-right" data-tip="{{ $snapshot->id }}">
+                    <span class="font-mono text-xs text-base-content/70">{{ \Illuminate\Support\Str::substr($snapshot->id, -7) }}</span>
+                </div>
+            @endscope
+
             @scope('cell_created_at', $snapshot)
                 <div class="table-cell-primary">{{ \App\Support\Formatters::humanDate($snapshot->created_at) }}</div>
                 <div class="text-sm text-base-content/70">{{ $snapshot->created_at->diffForHumans() }}</div>

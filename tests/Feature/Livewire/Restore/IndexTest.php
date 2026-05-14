@@ -64,6 +64,35 @@ test('search filters by schema name', function () {
         ->assertDontSee('beta_schema');
 });
 
+test('search filters by restore id', function () {
+    $needle = makeRestore(['schema_name' => 'needle_schema']);
+    makeRestore(['schema_name' => 'haystack_schema']);
+
+    Livewire::test(Index::class)
+        ->set('search', $needle->id)
+        ->assertSee('needle_schema')
+        ->assertDontSee('haystack_schema');
+});
+
+test('search filters by source snapshot id', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+    makeRestore(['snapshot' => $snapshot, 'schema_name' => 'needle_schema']);
+    makeRestore(['schema_name' => 'haystack_schema']);
+
+    Livewire::test(Index::class)
+        ->set('search', $snapshot->id)
+        ->assertSee('needle_schema')
+        ->assertDontSee('haystack_schema');
+});
+
+test('source cell links to snapshot index pre-filtered by snapshot id', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+    makeRestore(['snapshot' => $snapshot]);
+
+    Livewire::test(Index::class)
+        ->assertSee(route('snapshots.index', ['search' => $snapshot->id]), escape: false);
+});
+
 test('target server filter narrows the list', function () {
     $a = DatabaseServer::factory()->create(['name' => 'AlphaTarget']);
     $b = DatabaseServer::factory()->create(['name' => 'BetaTarget']);
