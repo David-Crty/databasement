@@ -14,6 +14,10 @@ class MysqlDatabase implements DatabaseInterface
     /** @var array<string, mixed> */
     private array $config;
 
+    private const string DUMP_BINARY = 'mariadb-dump';
+
+    private const string CLIENT_BINARY = 'mariadb';
+
     private const array DUMP_OPTIONS = [
         '--single-transaction', // Consistent snapshot for InnoDB without locking
         '--routines',           // Include stored procedures and functions
@@ -23,18 +27,6 @@ class MysqlDatabase implements DatabaseInterface
         '--quote-names',        // Quote identifiers with backticks
     ];
 
-    /** @var array<string, array<string, string>> */
-    private const array CLI_BINARIES = [
-        'mariadb' => [
-            'dump' => 'mariadb-dump',
-            'restore' => 'mariadb',
-        ],
-        'mysql' => [
-            'dump' => 'mysqldump',
-            'restore' => 'mysql',
-        ],
-    ];
-
     private const array EXCLUDED_DATABASES = [
         'information_schema',
         'performance_schema',
@@ -42,9 +34,20 @@ class MysqlDatabase implements DatabaseInterface
         'sys',
     ];
 
-    private function getMysqlCliType(): string
+    /**
+     * Resolve the SSL-related CLI flag.
+     *
+     * - ssl_enabled = true  → '--ssl --ssl-verify-server-cert=0' (encrypted, no cert verification).
+     *                          `--ssl-verify-server-cert=0` alone already triggers TLS, but the
+     *                          explicit `--ssl` makes the intent clear in the dump-command preview.
+     * - ssl_enabled = false → '--skip_ssl' (plaintext — mariadb client defaults to TLS,
+     *                                       which fails against MySQL's self-signed certs)
+     */
+    private function getSslFlag(): string
     {
-        return config('backup.mysql_cli_type', 'mariadb');
+        return ! empty($this->config['ssl_enabled'])
+            ? '--ssl --ssl-verify-server-cert=0'
+            : '--skip_ssl';
     }
 
     /**
@@ -58,20 +61,17 @@ class MysqlDatabase implements DatabaseInterface
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $options = self::DUMP_OPTIONS;
-
-        if ($this->getMysqlCliType() === 'mariadb') {
-            $options[] = '--skip_ssl';
-        }
+        $options[] = $this->getSslFlag();
 
         $extraFlags = '';
         if (! empty($this->config['dump_flags'])) {
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
         }
 
-        // Flags must come before the database name; mysqldump treats anything after it as table names
+        // Flags must come before the database name; mariadb-dump treats anything after it as table names
         $command = sprintf(
             '%s %s --host=%s --port=%s --user=%s --password=%s%s %s',
-            self::CLI_BINARIES[$this->getMysqlCliType()]['dump'],
+            self::DUMP_BINARY,
             implode(' ', $options),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
@@ -88,16 +88,14 @@ class MysqlDatabase implements DatabaseInterface
 
     public function restore(string $inputPath): DatabaseOperationResult
     {
-        $sslFlag = $this->getMysqlCliType() === 'mariadb' ? '--skip_ssl ' : '';
-
         return new DatabaseOperationResult(command: sprintf(
-            '%s --host=%s --port=%s --user=%s --password=%s %s%s -e %s',
-            self::CLI_BINARIES[$this->getMysqlCliType()]['restore'],
+            '%s --host=%s --port=%s --user=%s --password=%s %s %s -e %s',
+            self::CLIENT_BINARY,
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
-            $sslFlag,
+            $this->getSslFlag(),
             escapeshellarg($this->config['database']),
             escapeshellarg('source '.$inputPath)
         ));
@@ -180,25 +178,31 @@ class MysqlDatabase implements DatabaseInterface
     {
         $dsn = sprintf('mysql:host=%s;port=%d', $this->config['host'], $this->config['port']);
 
-        return new \PDO($dsn, $this->config['user'], $this->config['pass'], [
+        $options = [
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
             \PDO::ATTR_TIMEOUT => 30,
-        ]);
+        ];
+
+        if (! empty($this->config['ssl_enabled'])) {
+            // Force TLS without verifying the server certificate. The empty CA path is
+            // required to trigger TLS negotiation; without it PDO silently stays plaintext.
+            $options[\PDO::MYSQL_ATTR_SSL_CA] = '';
+            $options[\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+        }
+
+        return new \PDO($dsn, $this->config['user'], $this->config['pass'], $options);
     }
 
     private function getStatusCommand(): string
     {
-        $cli = self::CLI_BINARIES[$this->getMysqlCliType()]['restore'];
-        $skipSsl = $this->getMysqlCliType() === 'mariadb' ? '--skip_ssl' : '';
-
         return sprintf(
             '%s --host=%s --port=%s --user=%s --password=%s %s -e %s',
-            $cli,
+            self::CLIENT_BINARY,
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
-            $skipSsl,
+            $this->getSslFlag(),
             escapeshellarg('STATUS;')
         );
     }

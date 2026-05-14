@@ -2,6 +2,7 @@
 
 namespace App\Queries;
 
+use App\Models\BackupJob;
 use App\Models\Restore;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,6 +14,11 @@ class RestoreQuery
         'targetServer',
         'triggeredBy',
         'job',
+    ];
+
+    private const ALLOWED_SORT_COLUMNS = [
+        'created_at',
+        'status',
     ];
 
     /**
@@ -35,7 +41,7 @@ class RestoreQuery
             ->with(self::RELATIONSHIPS)
             ->whereHas('targetServer');
 
-        return $query
+        $query
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })
@@ -50,8 +56,19 @@ class RestoreQuery
             })
             ->when($dbTypeFilter, function (Builder $query) use ($dbTypeFilter) {
                 $query->whereHas('snapshot', fn (Builder $q) => $q->whereRaw('database_type = ?', [$dbTypeFilter]));
-            })
-            ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
+            });
+
+        $direction = Formatters::sortDirection($sortDirection);
+        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+
+        if ($sortColumn === 'status') {
+            return $query->orderBy(
+                BackupJob::select('status')->whereColumn('backup_jobs.id', 'restores.backup_job_id'),
+                $direction,
+            );
+        }
+
+        return $query->orderBy($sortColumn, $direction);
     }
 
     /**
@@ -69,7 +86,9 @@ class RestoreQuery
                 ->orWhereHas('snapshot', function (Builder $sq) use ($search) {
                     $sq->whereRaw('database_name LIKE ?', ["%{$search}%"]);
                 })
-                ->orWhereRaw('schema_name LIKE ?', ["%{$search}%"]);
+                ->orWhereRaw('schema_name LIKE ?', ["%{$search}%"])
+                ->orWhereRaw('id LIKE ?', ["%{$search}%"])
+                ->orWhereRaw('snapshot_id LIKE ?', ["%{$search}%"]);
         });
     }
 }

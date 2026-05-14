@@ -12,6 +12,13 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class DatabaseServerQuery
 {
+    private const ALLOWED_SORT_COLUMNS = [
+        'name',
+        'host',
+        'database_type',
+        'created_at',
+    ];
+
     /**
      * @return QueryBuilder<DatabaseServer>
      */
@@ -45,6 +52,8 @@ class DatabaseServerQuery
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
+        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+
         return DatabaseServer::query()
             ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
             ->withCount('snapshots')

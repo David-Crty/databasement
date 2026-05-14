@@ -1,12 +1,15 @@
+@php use App\Enums\RestoreModalMode; @endphp
 <div>
     <x-modal wire:model="showModal" box-class="max-w-3xl w-11/12" class="backdrop-blur">
-        <x-header :title="__('Restore Database Snapshot')" icon="bi.database-fill-down" icon-classes="text-success w-6 h-6" size="text-xl" class="!mb-5" />
+        <x-header :title="__('Restore Database Snapshot')" icon="bi.database-fill-down"
+                  icon-classes="text-success w-6 h-6" size="text-xl" class="!mb-5"/>
         <div class="space-y-4">
             {{-- Locked context badges --}}
             @if($mode->targetServerLocked() && $targetServer)
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="text-xs opacity-60">{{ __('Restoring to:') }}</span>
-                    <x-badge :value="$targetServer->name . ' (' . $targetServer->database_type->label() . ')'" class="badge-primary" />
+                    <x-badge :value="$targetServer->name . ' (' . $targetServer->database_type->label() . ')'"
+                             class="badge-primary"/>
                 </div>
             @endif
 
@@ -29,12 +32,12 @@
 
             {{-- Step body: snapshot picker --}}
             @if(
-                ($mode === \App\Enums\RestoreModalMode::FromServer && $currentStep === 1) ||
-                ($mode === \App\Enums\RestoreModalMode::FromRestoreIndex && $currentStep === 1)
+                ($mode === RestoreModalMode::FromServer && $currentStep === 1) ||
+                ($mode === RestoreModalMode::FromRestoreIndex && $currentStep === 1)
             )
                 <div class="space-y-4">
                     <p class="text-sm opacity-70">
-                        @if($mode === \App\Enums\RestoreModalMode::FromServer)
+                        @if($mode === RestoreModalMode::FromServer)
                             {{ __('Select a snapshot to restore. Only snapshots from :type servers are shown.', ['type' => $targetServer?->database_type?->label()]) }}
                         @else
                             {{ __('Select a snapshot to restore.') }}
@@ -42,7 +45,7 @@
                     </p>
 
                     <div class="flex flex-wrap items-center gap-4">
-                        @if($mode === \App\Enums\RestoreModalMode::FromRestoreIndex)
+                        @if($mode === RestoreModalMode::FromRestoreIndex)
                             <x-select
                                 wire:model.live="dbTypeFilter"
                                 :options="collect($this->dbTypeOptions())->prepend(['id' => '', 'name' => __('All types')])->all()"
@@ -64,7 +67,7 @@
                         />
                     </div>
 
-                    <x-hr class="my-2" />
+                    <x-hr class="my-2"/>
 
                     <div wire:loading.class="opacity-60 pointer-events-none" class="transition-opacity duration-200">
                         @if(!$this->paginatedSnapshots || $this->paginatedSnapshots->isEmpty())
@@ -89,16 +92,21 @@
                                                 <div class="text-sm">
                                                     <span class="opacity-50">{{ __('Database:') }}</span>
                                                     <span class="font-medium">{{ $snapshot->database_name }}</span>
-                                                    <x-badge :value="$snapshot->database_type->label()" class="badge-ghost badge-xs ml-1" />
+                                                    <x-badge :value="$snapshot->database_type->label()"
+                                                             class="badge-ghost badge-xs ml-1"/>
                                                 </div>
                                                 <div class="text-xs">
                                                     <span class="opacity-50">{{ __('Server:') }}</span>
-                                                    <span class="opacity-70">{{ $snapshot->databaseServer?->name }}</span>
+                                                    <span
+                                                        class="opacity-70">{{ $snapshot->databaseServer?->name }}</span>
                                                 </div>
                                             </div>
                                             <div class="text-right space-y-0.5">
-                                                <div class="text-xs opacity-60 whitespace-nowrap flex items-center justify-end gap-2">
-                                                    <x-loading wire:loading wire:target="selectSnapshot('{{ $snapshot->id }}')" class="loading-xs" />
+                                                <div
+                                                    class="text-xs opacity-60 whitespace-nowrap flex items-center justify-end gap-2">
+                                                    <x-loading wire:loading
+                                                               wire:target="selectSnapshot('{{ $snapshot->id }}')"
+                                                               class="loading-xs"/>
                                                     {{ \App\Support\Formatters::humanDate($snapshot->created_at) }}
                                                     <span class="opacity-50">({{ $snapshot->created_at->diffForHumans() }})</span>
                                                     &bull;
@@ -129,8 +137,8 @@
 
             {{-- Step body: target server picker --}}
             @if(
-                ($mode === \App\Enums\RestoreModalMode::FromSnapshot && $currentStep === 1) ||
-                ($mode === \App\Enums\RestoreModalMode::FromRestoreIndex && $currentStep === 2)
+                ($mode === RestoreModalMode::FromSnapshot && $currentStep === 1) ||
+                ($mode === RestoreModalMode::FromRestoreIndex && $currentStep === 2)
             )
                 <div class="space-y-4">
                     <p class="text-sm opacity-70">
@@ -151,9 +159,12 @@
                                     <div class="flex items-center justify-between gap-4">
                                         <div class="flex-1 min-w-0">
                                             <div class="text-sm font-medium">{{ $server->name }}</div>
-                                            <div class="text-xs opacity-60">{{ $server->host }}@if($server->port):{{ $server->port }}@endif</div>
+                                            <div class="text-xs opacity-60">{{ $server->host }}@if($server->port)
+                                                    :{{ $server->port }}
+                                                @endif</div>
                                         </div>
-                                        <x-loading wire:loading wire:target="selectTargetServer('{{ $server->id }}')" class="loading-xs" />
+                                        <x-loading wire:loading wire:target="selectTargetServer('{{ $server->id }}')"
+                                                   class="loading-xs"/>
                                     </div>
                                 </div>
                             @endforeach
@@ -161,7 +172,7 @@
                     @endif
 
                     <div class="flex gap-2 mt-6">
-                        @if($mode === \App\Enums\RestoreModalMode::FromRestoreIndex)
+                        @if($mode === RestoreModalMode::FromRestoreIndex)
                             <x-button class="btn-ghost" wire:click="previousStep">{{ __('Back') }}</x-button>
                         @endif
                         <div class="flex-1"></div>
@@ -183,7 +194,7 @@
                             autocomplete="off"
                         />
                         @error('schemaName')
-                            <p class="text-error text-sm mt-1">{{ $message }}</p>
+                        <p class="text-error text-sm mt-1">{{ $message }}</p>
                         @enderror
 
                         @if(count($this->filteredDatabases) > 0)
@@ -212,7 +223,9 @@
 
                     @if(in_array($schemaName, $existingDatabases))
                         <x-alert class="alert-warning" icon="o-exclamation-triangle">
-                            {{ __('The database') }} <x-badge class="badge-error badge-dash" :value="$schemaName" /> {{ __('already exists.') }}<br>
+                            {{ __('The database') }}
+                            <x-badge class="badge-error badge-dash" :value="$schemaName"/> {{ __('already exists.') }}
+                            <br>
                             {{ __('It will be overwritten if you continue.') }}
                         </x-alert>
                     @endif
@@ -238,10 +251,17 @@
                         <div class="p-4 border rounded-lg bg-base-200 border-base-300">
                             <div class="text-sm font-semibold mb-2">{{ __('Restore Summary') }}</div>
                             <div class="text-sm opacity-70 space-y-1">
-                                <div><strong>{{ __('Source:') }}</strong> {{ $this->selectedSnapshot->databaseServer?->name }} &bull; {{ $this->selectedSnapshot->database_name }}</div>
-                                <div><strong>{{ __('Snapshot:') }}</strong> {{ \App\Support\Formatters::humanDate($this->selectedSnapshot->created_at) }}</div>
-                                <div><strong>{{ __('Target:') }}</strong> {{ $targetServer?->name }} &bull; {{ $schemaName ?: __('(enter name)') }}</div>
-                                <div><strong>{{ __('Size:') }}</strong> {{ $this->selectedSnapshot->getHumanFileSize() }}</div>
+                                <div><strong>{{ __('Source:') }}</strong>
+                                    {{ $this->selectedSnapshot->databaseServer?->name }} &bull; {{ $this->selectedSnapshot->database_name }}
+                                </div>
+                                <div>
+                                    <strong>{{ __('Snapshot:') }}</strong> {{ \App\Support\Formatters::humanDate($this->selectedSnapshot->created_at) }}
+                                </div>
+                                <div><strong>{{ __('Target:') }}</strong>
+                                    {{ $targetServer?->name }} &bull; {{ $schemaName ?: __('(enter name)') }}</div>
+                                <div>
+                                    <strong>{{ __('Size:') }}</strong> {{ $this->selectedSnapshot->getHumanFileSize() }}
+                                </div>
                             </div>
                         </div>
                     @endif

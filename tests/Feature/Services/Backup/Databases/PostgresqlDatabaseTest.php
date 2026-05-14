@@ -47,7 +47,7 @@ test('restore builds correct psql command', function () {
         ->and($result->command)->toBe("PGPASSWORD='pg_secret' psql --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/restore.sql'");
 });
 
-test('listDatabases returns databases excluding system databases', function () {
+test('listDatabases returns databases excluding managed-service internals but keeps postgres', function () {
     $pdoStatement = Mockery::mock(\PDOStatement::class);
     $pdoStatement->shouldReceive('fetchAll')
         ->once()
@@ -66,7 +66,7 @@ test('listDatabases returns databases excluding system databases', function () {
 
     $databases = $db->listDatabases();
 
-    expect($databases)->toBe(['app_database', 'analytics_db']);
+    expect($databases)->toBe(['postgres', 'app_database', 'analytics_db']);
 });
 
 test('testConnection returns success with version and SSL info', function () {

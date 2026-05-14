@@ -15,21 +15,32 @@ beforeEach(function () {
     ]);
 });
 
-test('dump builds correct command', function (string $cliType, string $expectedCommand) {
-    config(['backup.mysql_cli_type' => $cliType]);
-
+test('dump builds correct command with skip_ssl by default', function () {
     $result = $this->db->dump('/tmp/dump.sql');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe($expectedCommand);
-})->with([
-    'mariadb' => ['mariadb', "mariadb-dump --single-transaction --routines --add-drop-table --complete-insert --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' > '/tmp/dump.sql'"],
-    'mysql' => ['mysql', "mysqldump --single-transaction --routines --add-drop-table --complete-insert --hex-blob --quote-names --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' > '/tmp/dump.sql'"],
-]);
+        ->and($result->command)->toBe("mariadb-dump --single-transaction --routines --add-drop-table --complete-insert --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' > '/tmp/dump.sql'");
+});
+
+test('dump uses ssl-verify-server-cert=0 when ssl_enabled is true', function () {
+    $db = new MysqlDatabase;
+    $db->setConfig([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+        'ssl_enabled' => true,
+    ]);
+
+    $result = $db->dump('/tmp/dump.sql');
+
+    expect($result->command)
+        ->toContain('--ssl --ssl-verify-server-cert=0')
+        ->not->toContain('--skip_ssl');
+});
 
 test('dump includes extra dump flags', function () {
-    config(['backup.mysql_cli_type' => 'mariadb']);
-
     $db = new MysqlDatabase;
     $db->setConfig([
         'host' => 'db.local',
@@ -42,26 +53,37 @@ test('dump includes extra dump flags', function () {
 
     $result = $db->dump('/tmp/dump.sql');
 
-    // Flags must appear before the database name (mysqldump treats post-db args as table names)
+    // Flags must appear before the database name (mariadb-dump treats post-db args as table names)
     expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0' 'myapp'")
         ->and($result->command)->toEndWith("> '/tmp/dump.sql'");
 });
 
-test('restore builds correct command', function (string $cliType, string $expectedCommand) {
-    config(['backup.mysql_cli_type' => $cliType]);
-
+test('restore builds correct command with skip_ssl by default', function () {
     $result = $this->db->restore('/tmp/restore.sql');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe($expectedCommand);
-})->with([
-    'mariadb' => ['mariadb', "mariadb --host='db.local' --port='3306' --user='root' --password='secret' --skip_ssl 'myapp' -e 'source /tmp/restore.sql'"],
-    'mysql' => ['mysql', "mysql --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' -e 'source /tmp/restore.sql'"],
-]);
+        ->and($result->command)->toBe("mariadb --host='db.local' --port='3306' --user='root' --password='secret' --skip_ssl 'myapp' -e 'source /tmp/restore.sql'");
+});
+
+test('restore uses ssl-verify-server-cert=0 when ssl_enabled is true', function () {
+    $db = new MysqlDatabase;
+    $db->setConfig([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+        'ssl_enabled' => true,
+    ]);
+
+    $result = $db->restore('/tmp/restore.sql');
+
+    expect($result->command)
+        ->toContain('--ssl --ssl-verify-server-cert=0')
+        ->not->toContain('--skip_ssl');
+});
 
 test('testConnection returns success when process succeeds', function () {
-    config(['backup.mysql_cli_type' => 'mariadb']);
-
     Process::fake([
         '*' => Process::result(output: 'Uptime: 12345'),
     ]);
@@ -97,8 +119,6 @@ test('listDatabases returns databases excluding system databases', function () {
 });
 
 test('testConnection returns failure when process fails', function () {
-    config(['backup.mysql_cli_type' => 'mariadb']);
-
     Process::fake([
         '*' => Process::result(exitCode: 1, errorOutput: 'Access denied for user'),
     ]);

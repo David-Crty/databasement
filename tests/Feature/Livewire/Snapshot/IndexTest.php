@@ -45,6 +45,35 @@ test('search filters by database name', function () {
         ->assertDontSee('orders_db');
 });
 
+test('can sort by job status', function () {
+    Snapshot::factory()->withFile()->create(['database_name' => 'completed_db']);
+    $failedJob = BackupJob::create(['status' => 'failed']);
+    Snapshot::factory()->withFile()->create([
+        'database_name' => 'failed_db',
+        'backup_job_id' => $failedJob->id,
+    ]);
+
+    $component = Livewire::test(Index::class)
+        ->set('sortBy', ['column' => 'status', 'direction' => 'asc']);
+
+    $names = $component->viewData('snapshots')->pluck('database_name')->all();
+    expect($names)->toBe(['completed_db', 'failed_db']);
+
+    $component->set('sortBy', ['column' => 'status', 'direction' => 'desc']);
+    $names = $component->viewData('snapshots')->pluck('database_name')->all();
+    expect($names)->toBe(['failed_db', 'completed_db']);
+});
+
+test('search filters by snapshot id', function () {
+    $needle = Snapshot::factory()->withFile()->create(['database_name' => 'needle_db']);
+    Snapshot::factory()->withFile()->create(['database_name' => 'haystack_db']);
+
+    Livewire::test(Index::class)
+        ->set('search', $needle->id)
+        ->assertSee('needle_db')
+        ->assertDontSee('haystack_db');
+});
+
 test('server filter narrows the list', function () {
     $a = DatabaseServer::factory()->create(['name' => 'AlphaServer']);
     $b = DatabaseServer::factory()->create(['name' => 'BetaServer']);

@@ -46,6 +46,14 @@ test('openNewRestore dispatches the modal in from-restore-index mode', function 
         ->assertDispatched('open-restore-modal', mode: 'from-restore-index');
 });
 
+test('rerunRestore dispatches the modal pre-filled with the original restore id', function () {
+    $restore = makeRestore();
+
+    Livewire::test(Index::class)
+        ->call('rerunRestore', $restore->id)
+        ->assertDispatched('open-restore-modal', mode: 'from-restore-index', restoreId: $restore->id);
+});
+
 test('search filters by schema name', function () {
     makeRestore(['schema_name' => 'alpha_schema']);
     makeRestore(['schema_name' => 'beta_schema']);
@@ -54,6 +62,35 @@ test('search filters by schema name', function () {
         ->set('search', 'alpha')
         ->assertSee('alpha_schema')
         ->assertDontSee('beta_schema');
+});
+
+test('search filters by restore id', function () {
+    $needle = makeRestore(['schema_name' => 'needle_schema']);
+    makeRestore(['schema_name' => 'haystack_schema']);
+
+    Livewire::test(Index::class)
+        ->set('search', $needle->id)
+        ->assertSee('needle_schema')
+        ->assertDontSee('haystack_schema');
+});
+
+test('search filters by source snapshot id', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+    makeRestore(['snapshot' => $snapshot, 'schema_name' => 'needle_schema']);
+    makeRestore(['schema_name' => 'haystack_schema']);
+
+    Livewire::test(Index::class)
+        ->set('search', $snapshot->id)
+        ->assertSee('needle_schema')
+        ->assertDontSee('haystack_schema');
+});
+
+test('source cell links to snapshot index pre-filtered by snapshot id', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+    makeRestore(['snapshot' => $snapshot]);
+
+    Livewire::test(Index::class)
+        ->assertSee(route('snapshots.index', ['search' => $snapshot->id]), escape: false);
 });
 
 test('target server filter narrows the list', function () {

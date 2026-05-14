@@ -2,6 +2,7 @@
 
 namespace App\Queries;
 
+use App\Models\BackupJob;
 use App\Models\Snapshot;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +18,14 @@ class SnapshotQuery
         'volume',
         'triggeredBy',
         'job',
+    ];
+
+    private const ALLOWED_SORT_COLUMNS = [
+        'started_at',
+        'created_at',
+        'file_size',
+        'database_name',
+        'status',
     ];
 
     /**
@@ -66,7 +75,7 @@ class SnapshotQuery
 
         $query->forCurrentOrg();
 
-        return $query
+        $query
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })
@@ -81,8 +90,19 @@ class SnapshotQuery
             })
             ->when($fileMissing, function (Builder $query) {
                 $query->whereRaw('file_exists = ?', [false]);
-            })
-            ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
+            });
+
+        $direction = Formatters::sortDirection($sortDirection);
+        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+
+        if ($sortColumn === 'status') {
+            return $query->orderBy(
+                BackupJob::select('status')->whereColumn('backup_jobs.id', 'snapshots.backup_job_id'),
+                $direction,
+            );
+        }
+
+        return $query->orderBy($sortColumn, $direction);
     }
 
     /**
@@ -95,7 +115,8 @@ class SnapshotQuery
                 $sq->whereRaw('name LIKE ?', ["%{$search}%"])
                     ->orWhereRaw('host LIKE ?', ["%{$search}%"]);
             })
-                ->orWhere('database_name', 'like', "%{$search}%");
+                ->orWhere('database_name', 'like', "%{$search}%")
+                ->orWhereRaw('id LIKE ?', ["%{$search}%"]);
         });
     }
 }

@@ -3,7 +3,9 @@
 use App\Enums\UserRole;
 use App\Jobs\ProcessRestoreJob;
 use App\Livewire\Restore\Modal;
+use App\Models\BackupJob;
 use App\Models\DatabaseServer;
+use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
 use App\Services\Backup\Databases\DatabaseProvider;
@@ -282,6 +284,29 @@ test('changing dbTypeFilter clears the stale serverFilter so results are not ove
         ->assertSet('serverFilter', null)
         ->assertSee('pg_db')
         ->assertDontSee('mysql_db');
+});
+
+test('from-restore-index mode: passing restoreId pre-fills snapshot, target, and jumps to step 3', function () {
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create(['database_name' => 'app_db']);
+    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $job = BackupJob::create(['status' => 'completed']);
+    $restore = Restore::create([
+        'backup_job_id' => $job->id,
+        'snapshot_id' => $snapshot->id,
+        'target_server_id' => $target->id,
+        'schema_name' => 'previous_schema',
+        'options' => ['force_database' => true, 'owner_user' => 'postgres'],
+    ]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-restore-index', restoreId: $restore->id)
+        ->assertSet('currentStep', 3)
+        ->assertSet('selectedSnapshotId', $snapshot->id)
+        ->assertSet('targetServer.id', $target->id)
+        ->assertSet('schemaName', 'previous_schema')
+        ->assertSet('forceDatabase', true)
+        ->assertSet('ownerUser', 'postgres');
 });
 
 test('from-restore-index mode: previousStep from step 3 clears target then step 2 clears snapshot', function () {

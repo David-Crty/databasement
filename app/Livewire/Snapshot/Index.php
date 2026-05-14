@@ -88,11 +88,9 @@ class Index extends Component
     public function headers(): array
     {
         return [
+            ['key' => 'subject', 'label' => __('Database'), 'sortable' => false],
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-48'],
-            ['key' => 'server', 'label' => __('Server / Database'), 'sortable' => false],
-            ['key' => 'status', 'label' => __('Status'), 'class' => 'w-32'],
-            ['key' => 'duration_ms', 'label' => __('Duration'), 'class' => 'w-28', 'sortable' => false],
-            ['key' => 'file_size', 'label' => __('Size'), 'class' => 'w-28'],
+            ['key' => 'status', 'label' => __('Status'), 'class' => 'w-44'],
         ];
     }
 

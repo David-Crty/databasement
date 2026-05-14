@@ -1,4 +1,4 @@
-<div wire:poll.5s>
+<div wire:poll.30s>
     @if($errorMessage)
         <x-alert title="{{ $errorMessage }}" class="alert-error mb-4" icon="o-x-circle" />
     @endif
@@ -24,93 +24,140 @@
     </div>
 
     <x-card shadow>
-        <x-table :headers="$headers" :rows="$restores" :sort-by="$sortBy" with-pagination>
+        <x-table
+            :headers="$headers"
+            :rows="$restores"
+            :sort-by="$sortBy"
+            with-pagination
+            :row-decoration="[
+                'bg-error/5' => fn ($restore) => $restore->job?->status === 'failed',
+                'bg-warning/5' => fn ($restore) => $restore->job?->status === 'running',
+            ]"
+        >
             <x-slot:empty>
-                <div class="text-center text-base-content/50 py-8">
+                <div class="flex flex-col items-center justify-center py-12 text-center">
+                    <x-icon name="o-arrow-path" class="w-10 h-10 text-base-content/30 mb-3" />
                     @if($search || $statusFilter !== '' || $sourceServerFilter !== '' || $targetServerFilter !== '' || $dbTypeFilter !== '')
-                        {{ __('No restores found matching your filters.') }}
+                        <p class="font-medium">{{ __('No restores match your filters') }}</p>
+                        <p class="text-sm text-base-content/60 mt-1">{{ __('Try clearing some filters to see more results.') }}</p>
                     @else
-                        {{ __('No restores yet. Trigger one from a snapshot or from the "New Restore" button.') }}
+                        <p class="font-medium">{{ __('No restores yet') }}</p>
+                        <p class="text-sm text-base-content/60 mt-1">{{ __('Trigger one from a snapshot or via the “New Restore” button.') }}</p>
                     @endif
                 </div>
             </x-slot:empty>
 
+            @scope('cell_flow', $restore)
+                @php $snapshot = $restore->snapshot; $target = $restore->targetServer; @endphp
+                <div class="flex items-center gap-3 min-w-0">
+                    {{-- Source --}}
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        @if($snapshot)
+                            <x-icon :name="$snapshot->database_type->icon()" class="w-5 h-5 shrink-0" />
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="table-cell-primary truncate">{{ $snapshot->database_name }}</span>
+                                    <a
+                                        href="{{ route('snapshots.index', ['search' => $snapshot->id]) }}"
+                                        wire:navigate
+                                        class="text-base-content/40 hover:text-primary tooltip shrink-0"
+                                        data-tip="{{ __('View snapshot') }}"
+                                    >
+                                        <x-icon name="o-arrow-top-right-on-square" class="w-3.5 h-3.5" />
+                                    </a>
+                                </div>
+                                <div class="text-xs text-base-content/60 truncate">{{ $snapshot->databaseServer?->name ?? '?' }}</div>
+                            </div>
+                        @else
+                            <span class="text-sm text-base-content/50 italic">{{ __('(snapshot deleted)') }}</span>
+                        @endif
+                    </div>
+
+                    <x-icon name="o-arrow-right" class="w-4 h-4 text-base-content/40 shrink-0" />
+
+                    {{-- Target --}}
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        @if($target)
+                            <x-icon :name="$snapshot?->database_type?->icon() ?? 'o-server'" class="w-5 h-5 shrink-0" />
+                            <div class="min-w-0">
+                                <div class="table-cell-primary truncate">{{ $restore->schema_name }}</div>
+                                <div class="text-xs text-base-content/60 truncate">{{ $target->name }}</div>
+                            </div>
+                        @else
+                            <span class="text-sm text-base-content/50 italic">{{ __('(target deleted)') }}</span>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="mt-1.5">
+                    <x-id-popover :id="$restore->id" />
+                </div>
+            @endscope
+
             @scope('cell_created_at', $restore)
-                <div class="table-cell-primary">{{ \App\Support\Formatters::humanDate($restore->created_at) }}</div>
-                <div class="text-sm text-base-content/70">{{ $restore->created_at->diffForHumans() }}</div>
-            @endscope
-
-            @scope('cell_source', $restore)
-                @if($restore->snapshot)
-                    <div class="flex items-center gap-2">
-                        <x-icon :name="$restore->snapshot->database_type->icon()" class="w-5 h-5" />
-                        <div>
-                            <div class="table-cell-primary">{{ $restore->snapshot->databaseServer?->name ?? '?' }}</div>
-                            <div class="text-sm text-base-content/70">{{ $restore->snapshot->database_name }}</div>
-                            <div class="text-xs text-base-content/50">{{ \App\Support\Formatters::humanDate($restore->snapshot->created_at) }}</div>
-                        </div>
-                    </div>
-                @else
-                    <span class="text-base-content/50">{{ __('(snapshot deleted)') }}</span>
-                @endif
-            @endscope
-
-            @scope('cell_target', $restore)
-                @if($restore->targetServer)
-                    <div>
-                        <div class="table-cell-primary">{{ $restore->targetServer->name }}</div>
-                        <div class="text-sm text-base-content/70">{{ $restore->schema_name }}</div>
-                    </div>
-                @else
-                    <span class="text-base-content/50">-</span>
-                @endif
+                <div class="table-cell-primary">{{ $restore->created_at->diffForHumans() }}</div>
+                <div class="text-sm text-base-content/60">{{ \App\Support\Formatters::humanDate($restore->created_at) }}</div>
+                <div class="flex items-center gap-1 text-xs text-base-content/60 mt-1">
+                    <x-icon name="o-user" class="w-3 h-3" />
+                    <span>{{ $restore->triggeredBy?->name ?? __('system') }}</span>
+                </div>
             @endscope
 
             @scope('cell_status', $restore)
-                @php $status = $restore->job?->status ?? 'unknown'; @endphp
+                @php $status = $restore->job?->status ?? 'pending'; $job = $restore->job; @endphp
                 @if($status === 'completed')
-                    <x-badge value="{{ __('Completed') }}" class="badge-success" />
+                    <x-badge :value="__('Completed')" class="badge-success badge-soft badge-sm" />
                 @elseif($status === 'failed')
-                    <x-badge value="{{ __('Failed') }}" class="badge-error" />
+                    <x-badge :value="__('Failed')" class="badge-error badge-soft badge-sm" />
                 @elseif($status === 'running')
-                    <div class="badge badge-warning gap-1">
+                    <span class="badge badge-warning badge-soft badge-sm gap-1">
                         <x-loading class="loading-spinner loading-xs" />
                         {{ __('Running') }}
-                    </div>
+                    </span>
                 @else
-                    <x-badge value="{{ __('Pending') }}" class="badge-info" />
+                    <x-badge :value="__('Pending')" class="badge-info badge-soft badge-sm" />
                 @endif
-            @endscope
 
-            @scope('cell_duration_ms', $restore)
-                @php $job = $restore->job; @endphp
-                @if($job?->status === 'running' && $job->started_at)
-                    <span class="font-mono text-sm text-warning">{{ $job->started_at->diffForHumans(null, true) }}</span>
+                @if($status === 'running' && $job?->started_at)
+                    <div class="text-xs text-warning font-mono mt-1">{{ $job->started_at->diffForHumans(null, true) }}</div>
                 @elseif($job?->getHumanDuration())
-                    <span class="font-mono text-sm">{{ $job->getHumanDuration() }}</span>
-                @else
-                    <span class="text-base-content/50">-</span>
-                @endif
-            @endscope
-
-            @scope('cell_triggered_by', $restore)
-                @if($restore->triggeredBy)
-                    <span class="text-sm">{{ $restore->triggeredBy->name }}</span>
-                @else
-                    <span class="text-base-content/50">-</span>
+                    <div class="flex items-center gap-1 text-xs text-base-content/60 mt-1">
+                        <x-icon name="o-clock" class="w-3 h-3" />
+                        <span class="font-mono">{{ $job->getHumanDuration() }}</span>
+                    </div>
                 @endif
             @endscope
 
             @scope('actions', $restore)
-                <div class="flex gap-2 justify-end">
+                @php
+                    $snapshot = $restore->snapshot;
+                    $target = $restore->targetServer;
+                    $canRerun = $snapshot && $target;
+                    $job = $restore->job;
+                    $hasLogs = ! empty($job?->logs);
+                @endphp
+                <div class="flex items-center gap-1 justify-end">
+                    @if($canRerun)
+                        @can('create', \App\Models\Restore::class)
+                            <x-button
+                                icon="o-arrow-path"
+                                wire:click="rerunRestore('{{ $restore->id }}')"
+                                spinner
+                                :tooltip="__('Re-run')"
+                                class="btn-ghost btn-sm text-success"
+                            />
+                        @endcan
+                    @endif
+
                     <x-button
                         icon="o-document-text"
-                        wire:click="viewLogs('{{ $restore->job?->id }}')"
+                        wire:click="viewLogs('{{ $job?->id }}')"
                         :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
-                        :class="empty($restore->job?->logs) ? 'opacity-30' : ''"
-                        :disabled="empty($restore->job?->logs)"
+                        :class="$hasLogs ? '' : 'opacity-30'"
+                        :disabled="! $hasLogs"
                     />
+
                     @can('delete', $restore)
                         <x-button
                             icon="o-trash"

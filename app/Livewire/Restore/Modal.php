@@ -94,7 +94,7 @@ class Modal extends Component
     }
 
     #[On('open-restore-modal')]
-    public function openModal(string $mode = 'from-server', ?string $targetServerId = null, ?string $snapshotId = null): void
+    public function openModal(string $mode = 'from-server', ?string $targetServerId = null, ?string $snapshotId = null, ?string $restoreId = null): void
     {
         $this->reset([
             'targetServer', 'selectedSnapshotId', 'schemaName', 'forceDatabase',
@@ -105,16 +105,18 @@ class Modal extends Component
 
         $this->mode = RestoreModalMode::from($mode);
 
-        match ($this->mode) {
+        $shouldOpen = match ($this->mode) {
             RestoreModalMode::FromServer => $this->initFromServer($targetServerId),
             RestoreModalMode::FromSnapshot => $this->initFromSnapshot($snapshotId),
-            RestoreModalMode::FromRestoreIndex => $this->initFromRestoreIndex(),
+            RestoreModalMode::FromRestoreIndex => $this->initFromRestoreIndex($restoreId),
         };
 
-        $this->showModal = true;
+        if ($shouldOpen) {
+            $this->showModal = true;
+        }
     }
 
-    protected function initFromServer(?string $targetServerId): void
+    protected function initFromServer(?string $targetServerId): bool
     {
         if (! $targetServerId) {
             abort(422, 'targetServerId is required for from-server mode.');
@@ -122,9 +124,11 @@ class Modal extends Component
 
         $this->targetServer = DatabaseServer::findOrFail($targetServerId);
         $this->authorize('restore', $this->targetServer);
+
+        return true;
     }
 
-    protected function initFromSnapshot(?string $snapshotId): void
+    protected function initFromSnapshot(?string $snapshotId): bool
     {
         if (! $snapshotId) {
             abort(422, 'snapshotId is required for from-snapshot mode.');
@@ -135,11 +139,46 @@ class Modal extends Component
 
         $this->selectedSnapshotId = $snapshotId;
         $this->dbTypeFilter = $snapshot->database_type->value;
+
+        return true;
     }
 
-    protected function initFromRestoreIndex(): void
+    protected function initFromRestoreIndex(?string $restoreId = null): bool
     {
         $this->authorize('create', Restore::class);
+
+        if (! $restoreId) {
+            return true;
+        }
+
+        $restore = Restore::with(['snapshot', 'targetServer'])->findOrFail($restoreId);
+
+        $snapshot = $restore->snapshot;
+        $target = $restore->targetServer;
+
+        // OrganizationScope on DatabaseServer returns null for cross-org rows
+        // even though the FK is cascade-deleted — PHPDoc on the relation
+        // doesn't model that. This null check is the cross-org guard.
+        // @phpstan-ignore booleanNot.alwaysFalse, booleanNot.alwaysFalse, booleanOr.alwaysFalse
+        if (! $snapshot || ! $target) {
+            $this->error(__('Cannot re-run: the original snapshot or target server no longer exists.'));
+
+            return false;
+        }
+
+        $this->authorize('restoreFrom', $snapshot);
+        $this->authorize('restore', $target);
+
+        $this->selectedSnapshotId = $snapshot->id;
+        $this->dbTypeFilter = $snapshot->database_type->value;
+        $this->targetServer = $target;
+        $this->schemaName = $restore->schema_name;
+        $this->forceDatabase = (bool) ($restore->options['force_database'] ?? false);
+        $this->ownerUser = (string) ($restore->options['owner_user'] ?? '');
+        $this->loadExistingDatabases();
+        $this->currentStep = 3;
+
+        return true;
     }
 
     public function selectSnapshot(string $snapshotId): void
