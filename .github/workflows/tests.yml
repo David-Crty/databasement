@@ -121,6 +121,24 @@ jobs:
       - name: Generate Application Key
         run: php artisan key:generate
 
+      - name: Wait for Neo4j Bolt
+        run: |
+          php -r '
+          $deadline = time() + 180;
+          do {
+              $socket = @fsockopen("neo4j", 7687, $errno, $errstr, 5);
+              if ($socket) {
+                  fclose($socket);
+                  echo "Neo4j Bolt is reachable\n";
+                  exit(0);
+              }
+              echo "Waiting for Neo4j Bolt: {$errstr} ({$errno})\n";
+              sleep(5);
+          } while (time() < $deadline);
+          fwrite(STDERR, "Neo4j Bolt did not become reachable within 180 seconds\n");
+          exit(1);
+          '
+
       - name: Run Pint
         run: vendor/bin/pint
 

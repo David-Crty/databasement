@@ -10,6 +10,28 @@ test('process throws ShellProcessFailed when process is killed by signal', funct
     $processor->process('kill $$');
 })->throws(ShellProcessFailed::class);
 
+test('process finalizes command log when process is killed by signal', function () {
+    $processor = new ShellProcessor;
+    $logger = \Mockery::mock(\App\Contracts\BackupLogger::class);
+
+    $logger->shouldReceive('startCommandLog')
+        ->once()
+        ->with('kill $$')
+        ->andReturn(0);
+
+    $logger->shouldReceive('updateCommandLog')
+        ->once()
+        ->with(0, \Mockery::on(
+            fn (array $data): bool => ($data['status'] ?? null) === 'failed'
+                && array_key_exists('duration_ms', $data)
+                && array_key_exists('exit_code', $data)
+        ));
+
+    $processor->setLogger($logger);
+
+    $processor->process('kill $$');
+})->throws(ShellProcessFailed::class);
+
 test('sanitizes sensitive patterns', function (string $input, string $expectedToContain, string $secretToRedact) {
     $processor = new ShellProcessor;
 

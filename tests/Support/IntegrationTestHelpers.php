@@ -436,8 +436,8 @@ class IntegrationTestHelpers
      */
     public static function loadNeo4jTestData(DatabaseServer $server): void
     {
-        // Neo4j with APOC can take extra time to stabilize in CI. Retry the
-        // initial connection up to 6 times (50 s total) before failing.
+        self::waitForNeo4jBolt($server);
+
         self::withNeo4jRetry(function () use ($server): void {
             $client = self::createNeo4jClient($server);
 
@@ -490,13 +490,12 @@ class IntegrationTestHelpers
     }
 
     /**
-     * Retry a Neo4j callback up to $maxAttempts times, sleeping $delaySecs
-     * between attempts. Addresses CI timing races where Neo4j APOC loads
-     * and briefly restarts the Bolt connector after the health check passes.
+     * Retry a Neo4j callback while Neo4j finishes opening Bolt sessions and
+     * loading APOC procedures in CI.
      *
      * @param  callable(): void  $callback
      */
-    private static function withNeo4jRetry(callable $callback, int $maxAttempts = 6, int $delaySecs = 10): void
+    private static function withNeo4jRetry(callable $callback, int $maxAttempts = 18, int $delaySecs = 10): void
     {
         $lastException = null;
 
@@ -514,6 +513,28 @@ class IntegrationTestHelpers
         }
 
         throw $lastException;
+    }
+
+    private static function waitForNeo4jBolt(DatabaseServer $server, int $timeoutSecs = 180): void
+    {
+        $host = trim((string) $server->getAttribute('host'));
+        $port = (int) $server->getAttribute('port');
+        $deadline = time() + $timeoutSecs;
+        $lastError = 'unknown error';
+
+        do {
+            $socket = @fsockopen($host, $port, $errno, $errstr, 5);
+            if ($socket !== false) {
+                fclose($socket);
+
+                return;
+            }
+
+            $lastError = trim($errstr) !== '' ? "{$errstr} ({$errno})" : "error {$errno}";
+            sleep(5);
+        } while (time() < $deadline);
+
+        throw new \RuntimeException("Neo4j Bolt endpoint {$host}:{$port} was not reachable within {$timeoutSecs} seconds: {$lastError}");
     }
 
     /**

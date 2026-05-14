@@ -44,7 +44,18 @@ class ShellProcessor
                 }
             });
         } catch (ProcessSignaledException $e) {
-            throw new ShellProcessFailed("Process terminated by signal {$e->getProcess()->getTermSignal()}");
+            $message = "Process terminated by signal {$e->getProcess()->getTermSignal()}";
+
+            if ($this->logger && $logIndex !== null) {
+                $this->logger->updateCommandLog($logIndex, [
+                    'output' => $this->sanitize(trim($incrementalOutput)),
+                    'exit_code' => $e->getProcess()->getExitCode(),
+                    'status' => 'failed',
+                    'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                ]);
+            }
+
+            throw new ShellProcessFailed($message);
         }
 
         $output = $process->getOutput();

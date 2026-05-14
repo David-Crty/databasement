@@ -15,6 +15,8 @@ use Laudis\Neo4j\Enum\SocketType;
 
 class Neo4jDatabase implements DatabaseInterface
 {
+    private const int RESTORE_BATCH_BYTES = 1024 * 1024;
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -45,7 +47,7 @@ class Neo4jDatabase implements DatabaseInterface
             );
 
             foreach ($result as $record) {
-                fwrite($file, $record->get('cypherStatements'));
+                $this->writeAll($file, $record->get('cypherStatements'), $outputPath);
             }
         } finally {
             fclose($file);
@@ -59,18 +61,8 @@ class Neo4jDatabase implements DatabaseInterface
 
     public function restore(string $inputPath): DatabaseOperationResult
     {
-        $cypher = file_get_contents($inputPath);
-        if ($cypher === false) {
-            throw new \RuntimeException("Failed to read restore file: {$inputPath}");
-        }
-
         $client = $this->createClient();
-
-        $client->writeTransaction(
-            function ($tsx) use ($cypher): void {
-                $tsx->run('CALL apoc.cypher.runMany($cypher, {})', ['cypher' => $cypher]);
-            }
-        );
+        $this->restoreCypherFile($client, $inputPath);
 
         return new DatabaseOperationResult(
             command: null,
@@ -80,6 +72,11 @@ class Neo4jDatabase implements DatabaseInterface
 
     public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
+        $logger->log('Preparing Neo4j database for restore', 'info', [
+            'database' => $schemaName,
+            'force_database' => $forceDatabase,
+        ]);
+
         $client = $this->createClient();
 
         $client->writeTransaction(
@@ -88,6 +85,10 @@ class Neo4jDatabase implements DatabaseInterface
                 $tsx->run('MATCH (n) DETACH DELETE n');
             }
         );
+
+        $logger->log('Neo4j database cleared for restore', 'info', [
+            'database' => $schemaName,
+        ]);
     }
 
     /**
@@ -161,11 +162,13 @@ class Neo4jDatabase implements DatabaseInterface
 
     protected function createClient(): ClientInterface
     {
+        $config = $this->validatedConfig();
+
         return ClientBuilder::create()
             ->withDriver(
                 'default',
-                sprintf('bolt://%s:%d', $this->config['host'], $this->config['port']),
-                Authenticate::basic($this->config['user'], $this->config['pass'])
+                sprintf('bolt://%s:%d', $config['host'], $config['port']),
+                Authenticate::basic($config['user'], $config['pass'])
             )
             ->withDefaultDriverConfiguration(
                 DriverConfiguration::default()
@@ -173,8 +176,145 @@ class Neo4jDatabase implements DatabaseInterface
                     ->withAcquireConnectionTimeout(10.0)
             )
             ->withDefaultSessionConfiguration(
-                SessionConfiguration::default()->withDatabase($this->config['database'])
+                SessionConfiguration::default()->withDatabase($config['database'])
             )
             ->build();
+    }
+
+    /**
+     * @param  resource  $file
+     */
+    private function writeAll($file, string $contents, string $outputPath): void
+    {
+        $expectedBytes = strlen($contents);
+        $writtenBytes = 0;
+
+        while ($writtenBytes < $expectedBytes) {
+            $written = fwrite($file, substr($contents, $writtenBytes));
+            if ($written === false || $written === 0) {
+                throw new \RuntimeException(
+                    "Failed to write Neo4j dump to {$outputPath}: wrote {$writtenBytes} of {$expectedBytes} bytes"
+                );
+            }
+
+            $writtenBytes += $written;
+        }
+    }
+
+    private function restoreCypherFile(ClientInterface $client, string $inputPath): void
+    {
+        $file = fopen($inputPath, 'r');
+        if ($file === false) {
+            throw new \RuntimeException("Failed to read restore file: {$inputPath}");
+        }
+
+        try {
+            $batch = '';
+            foreach ($this->readCypherStatements($file) as $statement) {
+                if (strlen($batch) + strlen($statement) > self::RESTORE_BATCH_BYTES && $batch !== '') {
+                    $this->runCypherBatch($client, $batch);
+                    $batch = '';
+                }
+
+                $batch .= $statement;
+            }
+
+            if ($batch !== '') {
+                $this->runCypherBatch($client, $batch);
+            }
+        } finally {
+            fclose($file);
+        }
+    }
+
+    /**
+     * @param  resource  $file
+     * @return \Generator<int, string>
+     */
+    private function readCypherStatements($file): \Generator
+    {
+        $statement = '';
+        $quote = null;
+        $escaped = false;
+
+        while (($chunk = fread($file, 8192)) !== false && $chunk !== '') {
+            $length = strlen($chunk);
+            for ($i = 0; $i < $length; $i++) {
+                $char = $chunk[$i];
+                $statement .= $char;
+
+                if ($escaped) {
+                    $escaped = false;
+
+                    continue;
+                }
+
+                if ($char === '\\' && ($quote === '\'' || $quote === '"')) {
+                    $escaped = true;
+
+                    continue;
+                }
+
+                if ($quote !== null) {
+                    if ($char === $quote) {
+                        $quote = null;
+                    }
+
+                    continue;
+                }
+
+                if ($char === '\'' || $char === '"' || $char === '`') {
+                    $quote = $char;
+
+                    continue;
+                }
+
+                if ($char === ';') {
+                    yield $statement;
+                    $statement = '';
+                }
+            }
+        }
+
+        if ($chunk === false) {
+            throw new \RuntimeException('Failed while reading Neo4j restore file');
+        }
+
+        if (trim($statement) !== '') {
+            yield $statement;
+        }
+    }
+
+    private function runCypherBatch(ClientInterface $client, string $cypher): void
+    {
+        $client->writeTransaction(
+            function ($tsx) use ($cypher): void {
+                $tsx->run('CALL apoc.cypher.runMany($cypher, {})', ['cypher' => $cypher]);
+            }
+        );
+    }
+
+    /**
+     * @return array{host: string, port: int, user: string, pass: string, database: string}
+     */
+    private function validatedConfig(): array
+    {
+        $required = ['host', 'port', 'user', 'pass', 'database'];
+        $missing = array_values(array_filter(
+            $required,
+            fn (string $key): bool => ! array_key_exists($key, $this->config) || $this->config[$key] === null || $this->config[$key] === ''
+        ));
+
+        if ($missing !== []) {
+            throw new \InvalidArgumentException('Missing required Neo4j configuration keys: '.implode(', ', $missing));
+        }
+
+        return [
+            'host' => (string) $this->config['host'],
+            'port' => (int) $this->config['port'],
+            'user' => (string) $this->config['user'],
+            'pass' => (string) $this->config['pass'],
+            'database' => (string) $this->config['database'],
+        ];
     }
 }

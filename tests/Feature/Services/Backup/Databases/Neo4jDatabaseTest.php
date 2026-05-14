@@ -184,12 +184,29 @@ test('prepareForRestore drops schema and deletes all nodes', function () {
 
     $db = mockNeo4jWithClient($client);
     $logger = Mockery::mock(\App\Contracts\BackupLogger::class);
+    $logger->shouldReceive('log')
+        ->twice()
+        ->with(Mockery::type('string'), 'info', Mockery::on(
+            fn (array $context): bool => ($context['database'] ?? null) === 'movies'
+        ));
 
     $db->prepareForRestore('movies', $logger);
 
     expect($schemaQuery)->toContain('apoc.schema.assert')
         ->and($deleteQuery)->toContain('DETACH DELETE');
 });
+
+test('createClient validates required configuration keys', function () {
+    $db = new Neo4jDatabase;
+    $db->setConfig([
+        'port' => 7687,
+        'user' => 'neo4j',
+        'pass' => 'secret',
+        'database' => 'movies',
+    ]);
+
+    $db->listDatabases();
+})->throws(\InvalidArgumentException::class, 'Missing required Neo4j configuration keys: host');
 
 test('restore runs apoc.cypher.runMany with dump file contents', function () {
     $client = Mockery::mock(ClientInterface::class);
@@ -220,6 +237,43 @@ test('restore runs apoc.cypher.runMany with dump file contents', function () {
     expect($result->command)->toBeNull()
         ->and($result->log->message)->toContain('restore completed')
         ->and($capturedParams['cypher'])->toBe($cypher);
+
+    @unlink($inputPath);
+});
+
+test('restore batches large cypher files without splitting quoted semicolons', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $tsx = Mockery::mock(\Laudis\Neo4j\Contracts\TransactionInterface::class);
+
+    $largeName = str_repeat('a', 600_000);
+    $cypher = <<<CYPHER
+CREATE (:Person {name: "{$largeName};one"});
+CREATE (:Person {name: "{$largeName};two"});
+CYPHER;
+    $inputPath = sys_get_temp_dir().'/neo4j_restore_large_'.uniqid().'.cypher';
+    file_put_contents($inputPath, $cypher);
+
+    $batches = [];
+    $tsx->shouldReceive('run')
+        ->twice()
+        ->andReturnUsing(function (string $query, array $params) use (&$batches) {
+            $batches[] = $params['cypher'];
+
+            return fakeNeo4jResult([]);
+        });
+
+    $client->shouldReceive('writeTransaction')
+        ->twice()
+        ->andReturnUsing(function (callable $callback) use ($tsx) {
+            $callback($tsx);
+        });
+
+    $db = mockNeo4jWithClient($client);
+    $db->restore($inputPath);
+
+    expect($batches)->toHaveCount(2)
+        ->and($batches[0])->toContain(';one"});')
+        ->and($batches[1])->toContain(';two"});');
 
     @unlink($inputPath);
 });
