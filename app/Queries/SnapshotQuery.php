@@ -20,6 +20,14 @@ class SnapshotQuery
         'job',
     ];
 
+    private const ALLOWED_SORT_COLUMNS = [
+        'started_at',
+        'created_at',
+        'file_size',
+        'database_name',
+        'status',
+    ];
+
     /**
      * @return QueryBuilder<Snapshot>
      */
@@ -85,6 +93,7 @@ class SnapshotQuery
             });
 
         $direction = Formatters::sortDirection($sortDirection);
+        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
 
         if ($sortColumn === 'status') {
             return $query->orderBy(

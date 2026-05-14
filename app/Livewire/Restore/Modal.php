@@ -105,16 +105,18 @@ class Modal extends Component
 
         $this->mode = RestoreModalMode::from($mode);
 
-        match ($this->mode) {
+        $shouldOpen = match ($this->mode) {
             RestoreModalMode::FromServer => $this->initFromServer($targetServerId),
             RestoreModalMode::FromSnapshot => $this->initFromSnapshot($snapshotId),
             RestoreModalMode::FromRestoreIndex => $this->initFromRestoreIndex($restoreId),
         };
 
-        $this->showModal = true;
+        if ($shouldOpen) {
+            $this->showModal = true;
+        }
     }
 
-    protected function initFromServer(?string $targetServerId): void
+    protected function initFromServer(?string $targetServerId): bool
     {
         if (! $targetServerId) {
             abort(422, 'targetServerId is required for from-server mode.');
@@ -122,9 +124,11 @@ class Modal extends Component
 
         $this->targetServer = DatabaseServer::findOrFail($targetServerId);
         $this->authorize('restore', $this->targetServer);
+
+        return true;
     }
 
-    protected function initFromSnapshot(?string $snapshotId): void
+    protected function initFromSnapshot(?string $snapshotId): bool
     {
         if (! $snapshotId) {
             abort(422, 'snapshotId is required for from-snapshot mode.');
@@ -135,14 +139,16 @@ class Modal extends Component
 
         $this->selectedSnapshotId = $snapshotId;
         $this->dbTypeFilter = $snapshot->database_type->value;
+
+        return true;
     }
 
-    protected function initFromRestoreIndex(?string $restoreId = null): void
+    protected function initFromRestoreIndex(?string $restoreId = null): bool
     {
         $this->authorize('create', Restore::class);
 
         if (! $restoreId) {
-            return;
+            return true;
         }
 
         $restore = Restore::with(['snapshot', 'targetServer'])->findOrFail($restoreId);
@@ -156,9 +162,8 @@ class Modal extends Component
         // @phpstan-ignore booleanNot.alwaysFalse, booleanNot.alwaysFalse, booleanOr.alwaysFalse
         if (! $snapshot || ! $target) {
             $this->error(__('Cannot re-run: the original snapshot or target server no longer exists.'));
-            $this->showModal = false;
 
-            return;
+            return false;
         }
 
         $this->authorize('restoreFrom', $snapshot);
@@ -172,6 +177,8 @@ class Modal extends Component
         $this->ownerUser = (string) ($restore->options['owner_user'] ?? '');
         $this->loadExistingDatabases();
         $this->currentStep = 3;
+
+        return true;
     }
 
     public function selectSnapshot(string $snapshotId): void

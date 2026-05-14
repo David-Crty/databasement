@@ -11,6 +11,12 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class VolumeQuery
 {
+    private const ALLOWED_SORT_COLUMNS = [
+        'name',
+        'type',
+        'created_at',
+    ];
+
     /**
      * @return QueryBuilder<Volume>
      */
@@ -42,6 +48,8 @@ class VolumeQuery
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
+        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+
         return Volume::query()
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);

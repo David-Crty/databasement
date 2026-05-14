@@ -20,6 +20,16 @@ class BackupJobQuery
         'restore.triggeredBy',
     ];
 
+    private const ALLOWED_SORT_COLUMNS = [
+        'created_at',
+        'started_at',
+        'completed_at',
+        'status',
+        'snapshot_size',
+        'duration_ms',
+        'type',
+    ];
+
     /**
      * @return QueryBuilder<BackupJob>
      */
@@ -99,6 +109,7 @@ class BackupJobQuery
             });
 
         $direction = Formatters::sortDirection($sortDirection);
+        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
 
         // Handle sorting
         if ($sortColumn === 'snapshot_size') {

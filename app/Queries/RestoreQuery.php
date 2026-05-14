@@ -16,6 +16,11 @@ class RestoreQuery
         'job',
     ];
 
+    private const ALLOWED_SORT_COLUMNS = [
+        'created_at',
+        'status',
+    ];
+
     /**
      * Build query from manual parameters (for Livewire).
      *
@@ -54,6 +59,7 @@ class RestoreQuery
             });
 
         $direction = Formatters::sortDirection($sortDirection);
+        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
 
         if ($sortColumn === 'status') {
             return $query->orderBy(
