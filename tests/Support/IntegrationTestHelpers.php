@@ -438,10 +438,13 @@ class IntegrationTestHelpers
     {
         $client = self::createNeo4jClient($server);
 
-        // Clear the database first
-        $client->writeTransaction(function ($tsx): void {
-            $tsx->run('CALL apoc.schema.assert({}, {})');
-            $tsx->run('MATCH (n) DETACH DELETE n');
+        // Neo4j with APOC can take extra time to stabilize in CI. Retry the
+        // initial connection up to 6 times (50 s total) before failing.
+        self::withNeo4jRetry(function () use ($client): void {
+            $client->writeTransaction(function ($tsx): void {
+                $tsx->run('CALL apoc.schema.assert({}, {})');
+                $tsx->run('MATCH (n) DETACH DELETE n');
+            });
         });
 
         // Load fixture using apoc.cypher.runMany
@@ -480,6 +483,33 @@ class IntegrationTestHelpers
         }
 
         return 0;
+    }
+
+    /**
+     * Retry a Neo4j callback up to $maxAttempts times, sleeping $delaySecs
+     * between attempts. Addresses CI timing races where Neo4j APOC loads
+     * and briefly restarts the Bolt connector after the health check passes.
+     *
+     * @param  callable(): void  $callback
+     */
+    private static function withNeo4jRetry(callable $callback, int $maxAttempts = 6, int $delaySecs = 10): void
+    {
+        $lastException = null;
+
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            try {
+                $callback();
+
+                return;
+            } catch (\RuntimeException $e) {
+                $lastException = $e;
+                if ($attempt < $maxAttempts) {
+                    sleep($delaySecs);
+                }
+            }
+        }
+
+        throw $lastException;
     }
 
     /**
