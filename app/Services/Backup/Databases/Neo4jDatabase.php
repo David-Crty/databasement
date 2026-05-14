@@ -117,7 +117,7 @@ class Neo4jDatabase implements DatabaseInterface
         try {
             $client = $this->createClient();
             $client->run('RETURN 1 AS ping');
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            $durationMs = $this->elapsedMillisecondsSince($startTime);
 
             $version = 'unknown';
             try {
@@ -142,7 +142,7 @@ class Neo4jDatabase implements DatabaseInterface
                 ],
             ];
         } catch (\RuntimeException $e) {
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            $durationMs = $this->elapsedMillisecondsSince($startTime);
 
             if ($durationMs >= 9500) {
                 return [
@@ -179,6 +179,11 @@ class Neo4jDatabase implements DatabaseInterface
                 SessionConfiguration::default()->withDatabase($config['database'])
             )
             ->build();
+    }
+
+    protected function elapsedMillisecondsSince(float $startTime): int
+    {
+        return (int) round((microtime(true) - $startTime) * 1000);
     }
 
     /**

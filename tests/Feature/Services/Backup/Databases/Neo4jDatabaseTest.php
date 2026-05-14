@@ -83,6 +83,26 @@ test('testConnection returns failure on connection error', function () {
         ->and($result['details'])->toBeEmpty();
 });
 
+test('testConnection returns timeout message after slow runtime error', function () {
+    $client = Mockery::mock(ClientInterface::class);
+    $client->shouldReceive('run')
+        ->with('RETURN 1 AS ping')
+        ->once()
+        ->andThrow(new \RuntimeException('Connection timed out'));
+
+    $db = mockNeo4jWithClient($client);
+    $db->shouldReceive('elapsedMillisecondsSince')
+        ->once()
+        ->andReturn(9500);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeFalse()
+        ->and($result['message'])->toContain('Connection timed out after')
+        ->and($result['message'])->toContain('Please check the host and port')
+        ->and($result['details'])->toBeEmpty();
+});
+
 test('testConnection keeps success response when version lookup fails', function () {
     $client = Mockery::mock(ClientInterface::class);
 
