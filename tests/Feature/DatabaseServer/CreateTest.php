@@ -291,6 +291,36 @@ test('can create database server with dump flags', function () {
         ->toBe('--no-tablespaces --column-statistics=0');
 });
 
+test('can create mysql database server with ssl_enabled', function () {
+    $user = User::factory()->create();
+    $volume = Volume::create([
+        'name' => 'Test Volume',
+        'type' => 'local',
+        'config' => ['path' => '/var/backups'],
+        'organization_id' => \App\Models\Organization::first()->id,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'MySQL With SSL')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.ssl_enabled', true)
+        ->set('form.backups.0.database_names.0', 'myapp')
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $server = DatabaseServer::where('name', 'MySQL With SSL')->first();
+
+    expect($server->getExtraConfig('ssl_enabled'))->toBeTrue();
+});
+
 test('local volume options reflect use_agent state', function (bool $useAgent, bool $expectedDisabled) {
     $user = User::factory()->create();
     $localVolume = Volume::create(['name' => 'Local Vol', 'type' => 'local', 'config' => ['path' => '/backups'], 'organization_id' => \App\Models\Organization::first()->id]);

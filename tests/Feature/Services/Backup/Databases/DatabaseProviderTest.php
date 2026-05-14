@@ -86,6 +86,41 @@ test('makeForServer passes auth_source from extra_config for mongodb', function 
         ->toContain("--db='mydb'");
 });
 
+test('makeForServer passes ssl_enabled from extra_config for mysql', function () {
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+        'host' => 'db.example.com',
+        'port' => 3306,
+        'username' => 'root',
+        'password' => 'secret',
+        'extra_config' => ['ssl_enabled' => true],
+    ]);
+
+    $database = (new DatabaseProvider)->makeForServer($server, 'myapp', 'db.example.com', 3306);
+
+    expect($database->dump('/tmp/test.sql')->command)
+        ->toContain('--ssl --ssl-verify-server-cert=0')
+        ->not->toContain('--skip_ssl');
+});
+
+test('makeFromConfig passes ssl_enabled from extra_config for mysql', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::MYSQL,
+        serverName: 'MySQL Server',
+        host: 'db.example.com',
+        port: 3306,
+        username: 'root',
+        password: 'secret',
+        extraConfig: ['ssl_enabled' => true],
+    );
+
+    $database = (new DatabaseProvider)->makeFromConfig($config, 'myapp', 'db.example.com', 3306);
+
+    expect($database->dump('/tmp/test.sql')->command)
+        ->toContain('--ssl --ssl-verify-server-cert=0')
+        ->not->toContain('--skip_ssl');
+});
+
 test('makeForServer passes sourceDatabaseName for mongodb restore', function () {
     $server = DatabaseServer::factory()->mongodb()->create();
 
