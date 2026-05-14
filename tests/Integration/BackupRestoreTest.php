@@ -328,7 +328,7 @@ test('neo4j backup and restore workflow', function () {
     // Verify restore — check that nodes exist in the database
     $nodeCount = IntegrationTestHelpers::verifyNeo4jRestore($this->databaseServer, $this->restoredDatabaseName);
     expect($nodeCount)->toBe(3);
-});
+})->skip(fn () => ! IntegrationTestHelpers::isNeo4jAvailable(), 'Neo4j service unavailable in this environment');
 
 test('redis backup workflow', function () {
     // Create models

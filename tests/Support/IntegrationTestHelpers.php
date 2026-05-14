@@ -538,6 +538,30 @@ class IntegrationTestHelpers
     }
 
     /**
+     * Check whether the Neo4j Bolt endpoint is reachable in this environment.
+     */
+    public static function isNeo4jAvailable(int $timeoutSecs = 5): bool
+    {
+        $config = self::getDatabaseConfig('neo4j');
+        $host = trim($config['host']);
+        $port = (int) $config['port'];
+        $deadline = microtime(true) + $timeoutSecs;
+
+        do {
+            $socket = @fsockopen($host, $port, $errno, $errstr, 1);
+            if ($socket !== false) {
+                fclose($socket);
+
+                return true;
+            }
+
+            usleep(250_000);
+        } while (microtime(true) < $deadline);
+
+        return false;
+    }
+
+    /**
      * Build a Neo4j client for integration tests.
      */
     private static function createNeo4jClient(DatabaseServer $server): \Laudis\Neo4j\Contracts\ClientInterface
