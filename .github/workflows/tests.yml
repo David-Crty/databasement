@@ -86,9 +86,9 @@ jobs:
           - 7474:7474
           - 7687:7687
         options: >-
-          --health-cmd "wget -q --spider http://localhost:7474 && nc -z localhost 7687 || exit 1"
+          --health-cmd "cypher-shell -u neo4j -p testpassword 'RETURN 1'"
           --health-interval 10s
-          --health-timeout 5s
+          --health-timeout 10s
           --health-retries 20
 
       ssh:
