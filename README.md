@@ -88,7 +88,7 @@ For production deployments, see our [configuration guide](https://david-crty.git
 | MySQL      | 5.6, 5.7, 8.x, 9.x           | `mariadb-dump`               | Yes     |
 | MariaDB    | 10.x, 11.x, 12.x             | `mariadb-dump`               | Yes     |
 | PostgreSQL | 12, 13, 14, 15, 16, 17, 18   | `pg_dump` v18                | Yes     |
-| SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.bacpac`)     | Yes     |
+| SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.dacpac`)     | Yes     |
 | MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes     |
 | SQLite     | 3.x                          | `sqlite3 .backup`            | Yes     |
 | Redis      | 2.8+                         | `redis-cli --rdb`            | No      |

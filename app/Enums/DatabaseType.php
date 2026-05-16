@@ -135,7 +135,7 @@ enum DatabaseType: string
             self::SQLITE => 'db',
             self::REDIS => 'rdb',
             self::MONGODB => 'archive',
-            self::MSSQL => 'bacpac',
+            self::MSSQL => 'dacpac',
             default => 'sql',
         };
     }

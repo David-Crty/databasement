@@ -268,7 +268,7 @@ test('mssql backup and restore workflow', function () {
 
     expect($this->snapshot->job->status)->toBe('completed')
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
-        ->and($this->snapshot->filename)->toEndWith('.bacpac.gz')
+        ->and($this->snapshot->filename)->toEndWith('.dacpac.gz')
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
 
     // Run restore (use unique name with parallel token and microseconds to avoid collisions)
@@ -281,7 +281,7 @@ test('mssql backup and restore workflow', function () {
     );
     ProcessRestoreJob::dispatchSync($restore->id);
 
-    // Verify restore — the fixture inserts 2 users; sqlpackage Import recreates schema + data.
+    // Verify restore — the fixture inserts 2 users; sqlpackage Publish recreates schema + data.
     $pdo = IntegrationTestHelpers::connectToDatabase('mssql', $this->databaseServer, $this->restoredDatabaseName);
     $stmt = $pdo->query('SELECT COUNT(*) FROM dbo.users');
     expect($stmt)->not->toBeFalse()
