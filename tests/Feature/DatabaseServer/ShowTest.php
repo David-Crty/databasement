@@ -45,3 +45,24 @@ test('show page lists backup configurations', function () {
         ->test(Show::class, ['server' => $server])
         ->assertSee('my_app_db');
 });
+
+test('delete removes the database server', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create();
+
+    Livewire::actingAs($user)
+        ->test(Show::class, ['server' => $server])
+        ->call('delete');
+
+    $this->assertDatabaseMissing('database_servers', ['id' => $server->id]);
+});
+
+test('confirmRestore on a Redis server opens the redis info modal', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->redis()->create();
+
+    Livewire::actingAs($user)
+        ->test(Show::class, ['server' => $server])
+        ->call('confirmRestore')
+        ->assertSet('showRedisRestoreModal', true);
+});

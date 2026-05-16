@@ -77,3 +77,26 @@ test('latest jobs can open and close logs modal', function () {
         ->assertSet('showLogsModal', false)
         ->assertSet('selectedJobId', null);
 });
+
+test('latest jobs scopes to a single server when serverId is set', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $serverA = DatabaseServer::factory()->create([
+        'name' => 'Server Alpha',
+        'database_names' => ['alpha_db'],
+    ]);
+    $serverB = DatabaseServer::factory()->create([
+        'name' => 'Server Bravo',
+        'database_names' => ['bravo_db'],
+    ]);
+
+    $factory->createSnapshots($serverA->backups->first(), 'manual', $user->id)[0]->job->markCompleted();
+    $factory->createSnapshots($serverB->backups->first(), 'manual', $user->id)[0]->job->markCompleted();
+
+    Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(LatestJobs::class, ['serverId' => $serverA->id])
+        ->assertSee('Server Alpha')
+        ->assertDontSee('Server Bravo');
+});
