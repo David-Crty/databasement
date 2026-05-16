@@ -152,7 +152,7 @@ class BackupJobQuery
      *
      * @param  Builder<BackupJob>  $query
      */
-    private static function applyServerFilter(Builder $query, string $serverId): void
+    public static function applyServerFilter(Builder $query, string $serverId): void
     {
         $query->where(function (Builder $q) use ($serverId) {
             $q->whereHas('snapshot', function ($sq) use ($serverId) {

@@ -86,6 +86,8 @@ Route::middleware(['auth'])->group(function () {
     // Database Servers
     Route::livewire('database-servers/create', \App\Livewire\DatabaseServer\Create::class)
         ->name('database-servers.create');
+    Route::livewire('database-servers/{server}', \App\Livewire\DatabaseServer\Show::class)
+        ->name('database-servers.show');
     Route::livewire('database-servers/{server}/edit', \App\Livewire\DatabaseServer\Edit::class)
         ->name('database-servers.edit');
 

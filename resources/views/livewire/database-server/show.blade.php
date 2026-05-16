@@ -1,0 +1,506 @@
+<div>
+    @php
+        use App\Enums\DatabaseType;
+        use App\Enums\NotificationChannelSelection;
+        use App\Enums\NotificationTrigger;
+
+        $sshConfig = $server->sshConfig;
+        $agent = $server->agent;
+        $isSqlite = $server->database_type === DatabaseType::SQLITE;
+        $sslEnabled = (bool) $server->getExtraConfig('ssl_enabled', false);
+        $authSource = $server->getExtraConfig('auth_source');
+        $dumpFlags = $server->getExtraConfig('dump_flags');
+
+        $trigger = $server->notification_trigger;
+        $selection = $server->notification_channel_selection;
+        $channelCount = $activeChannels->count();
+        $notifDisabled = $trigger === NotificationTrigger::None;
+        $notifNoChannels = ! $notifDisabled && $channelCount === 0;
+
+        $triggerMeta = [
+            'all' => [
+                'icon' => 'o-bell-alert',
+                'figure' => 'text-success',
+                'status' => 'status-success',
+                'alert' => 'alert-success',
+                'summary' => __('all events'),
+            ],
+            'success' => [
+                'icon' => 'o-check-circle',
+                'figure' => 'text-info',
+                'status' => 'status-info',
+                'alert' => 'alert-info',
+                'summary' => __('successful backups'),
+            ],
+            'failure' => [
+                'icon' => 'o-exclamation-triangle',
+                'figure' => 'text-warning',
+                'status' => 'status-warning',
+                'alert' => 'alert-warning',
+                'summary' => __('failures'),
+            ],
+            'none' => [
+                'icon' => 'o-bell-slash',
+                'figure' => 'text-base-content/40',
+                'status' => '',
+                'alert' => '',
+                'summary' => __('no events'),
+            ],
+        ][$trigger->value];
+    @endphp
+
+    {{-- ── Hero header ── --}}
+    <div class="card card-border bg-base-100 shadow-sm mb-6">
+        <div class="card-body p-5 sm:p-6">
+            <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex items-start gap-4 min-w-0">
+                    <div class="avatar avatar-placeholder shrink-0">
+                        <div class="bg-base-200 rounded-box w-14 h-14">
+                            <x-icon :name="$server->database_type->icon()" class="w-9 h-9 text-base-content" />
+                        </div>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h1 class="text-xl font-semibold leading-tight">{{ $server->name }}</h1>
+                        @if($server->description)
+                            <p class="mt-1 line-clamp-2 text-sm opacity-60 leading-relaxed">{{ $server->description }}</p>
+                        @endif
+
+                        <div class="mt-3 flex flex-wrap items-center gap-2">
+                            <span class="badge badge-ghost gap-1.5">
+                                <x-icon name="o-circle-stack" class="w-3.5 h-3.5" />
+                                {{ $server->database_type->label() }}
+                            </span>
+
+                            <span class="badge badge-outline gap-1.5">
+                                <x-icon name="o-wifi" class="w-3.5 h-3.5 opacity-60" />
+                                <code class="font-mono">{{ $server->getConnectionLabel() }}</code>
+                            </span>
+
+                            @if($sshConfig)
+                                <span class="badge badge-warning badge-soft gap-1.5">
+                                    <x-icon name="o-shield-check" class="w-3.5 h-3.5" />
+                                    {{ __('SSH tunnel via') }}
+                                    <code class="font-mono">{{ $sshConfig->host }}</code>
+                                </span>
+                            @endif
+
+                            @if($agent)
+                                @php $online = $agent->isOnline(); @endphp
+                                <span class="badge {{ $online ? 'badge-success' : 'badge-error' }} badge-soft gap-1.5">
+                                    <x-icon :name="$online ? 'o-signal' : 'o-signal-slash'" class="w-3.5 h-3.5" />
+                                    {{ __('Agent') }}: {{ $agent->name }}
+                                    <span class="status {{ $online ? 'status-success animate-pulse' : 'status-error' }}"></span>
+                                </span>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex shrink-0 flex-wrap items-center gap-2">
+                    <x-button :label="__('Back')" icon="o-arrow-left" link="{{ route('database-servers.index') }}"
+                              class="btn-ghost btn-sm" wire:navigate />
+                    @can('backup', $server)
+                        <x-button :label="__('Backup now')" icon="bi.database-fill-up" wire:click="runBackupAll" spinner
+                                  class="btn-outline btn-info btn-sm" />
+                    @endcan
+                    @can('restore', $server)
+                        <x-button :label="__('Restore')" icon="bi.database-fill-down" wire:click="confirmRestore" spinner
+                                  class="btn-outline btn-success btn-sm" />
+                    @endcan
+                    @can('viewForm', $server)
+                        <x-button :label="__('Edit')" icon="o-pencil" link="{{ route('database-servers.edit', $server) }}"
+                                  class="btn-primary btn-sm" wire:navigate />
+                    @endcan
+                    @can('delete', $server)
+                        <x-button icon="o-trash" wire:click="confirmDelete" tooltip-left="{{ __('Delete') }}"
+                                  class="btn-ghost btn-sm text-error" />
+                    @endcan
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ── Stat strip ── --}}
+    <div class="stats stats-vertical lg:stats-horizontal shadow-sm border border-base-200 w-full mb-6">
+        <a href="{{ route('snapshots.index', ['serverFilter' => $server->id]) }}" wire:navigate
+           class="stat group cursor-pointer transition-colors hover:bg-base-200">
+            <div class="stat-figure text-info transition-transform group-hover:scale-110">
+                <x-icon name="o-archive-box" class="w-8 h-8" />
+            </div>
+            <div class="stat-title group-hover:text-base-content">{{ __('Snapshots') }}</div>
+            <div class="stat-value font-mono transition-colors group-hover:text-info">{{ $snapshotsCount }}</div>
+            <div class="stat-desc inline-flex items-center gap-1 group-hover:text-info">
+                {{ __('Click to view all') }}
+                <x-icon name="o-arrow-right" class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </div>
+        </a>
+
+        <a href="{{ route('restores.index', ['targetServerFilter' => $server->id]) }}" wire:navigate
+           class="stat group cursor-pointer transition-colors hover:bg-base-200">
+            <div class="stat-figure text-warning transition-transform group-hover:scale-110">
+                <x-icon name="o-arrow-uturn-left" class="w-8 h-8" />
+            </div>
+            <div class="stat-title group-hover:text-base-content">{{ __('Restores') }}</div>
+            <div class="stat-value font-mono transition-colors group-hover:text-warning">{{ $restoresCount }}</div>
+            <div class="stat-desc inline-flex items-center gap-1 group-hover:text-warning">
+                {{ __('Click to view all') }}
+                <x-icon name="o-arrow-right" class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </div>
+        </a>
+
+        <div class="stat">
+            <div class="stat-figure {{ $server->backups_enabled ? 'text-success' : 'text-base-content/40' }}">
+                <x-icon name="o-server-stack" class="w-8 h-8" />
+            </div>
+            <div class="stat-title">{{ __('Backup configs') }}</div>
+            <div class="stat-value font-mono">{{ $server->backups->count() }}</div>
+            <div class="stat-desc {{ $server->backups_enabled ? 'text-success' : '' }}">
+                {{ $server->backups_enabled ? __('Enabled') : __('Disabled') }}
+            </div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-figure {{ $triggerMeta['figure'] }}">
+                <x-icon :name="$triggerMeta['icon']" class="w-8 h-8" />
+            </div>
+            <div class="stat-title">{{ __('Notifications') }}</div>
+            <div class="stat-value text-lg! flex items-center gap-2">
+                @if($triggerMeta['status'])
+                    <span class="status {{ $triggerMeta['status'] }}"></span>
+                @endif
+                {{ $trigger->label() }}
+            </div>
+            <div class="stat-desc {{ $notifNoChannels ? 'text-warning' : '' }}">
+                @if($notifDisabled)
+                    {{ __('No alerts') }}
+                @else
+                    {{ trans_choice('{0} no channels|{1} :count channel|[2,*] :count channels', $channelCount, ['count' => $channelCount]) }}
+                @endif
+            </div>
+        </div>
+    </div>
+
+    {{-- ── Two-column body ── --}}
+    <div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+        {{-- Main: Backup Configurations --}}
+        <div class="min-w-0 flex-1 lg:basis-2/3">
+            <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
+                <div class="flex items-center justify-between border-b border-base-200 px-4 py-3">
+                    <div class="flex items-center gap-2.5">
+                        <x-icon name="o-server-stack" class="w-4 h-4 opacity-60" />
+                        <h2 class="text-sm font-semibold">{{ __('Backup Configurations') }}</h2>
+                        <span class="badge badge-ghost badge-sm">{{ $server->backups->count() }}</span>
+                    </div>
+                    @if(! $server->backups_enabled)
+                        <span class="badge badge-warning badge-soft badge-sm">{{ __('Disabled') }}</span>
+                    @endif
+                </div>
+
+                <div class="p-4">
+                    @if($server->backups->isEmpty())
+                        <div class="flex flex-col items-center gap-3 py-10 text-center">
+                            <div class="avatar avatar-placeholder">
+                                <div class="bg-base-200 rounded-full w-12 h-12">
+                                    <x-icon name="o-server-stack" class="w-6 h-6 opacity-50" />
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium">{{ __('No backup configurations') }}</p>
+                                <p class="mt-1 text-xs opacity-60">
+                                    {{ __('Add a backup configuration to start protecting this server.') }}
+                                </p>
+                            </div>
+                            @can('viewForm', $server)
+                                <x-button :label="__('Add a backup configuration')" icon="o-plus"
+                                          link="{{ route('database-servers.edit', $server) }}"
+                                          class="btn-primary btn-sm" wire:navigate />
+                            @endcan
+                        </div>
+                    @else
+                        <div class="flex flex-col gap-3">
+                            @foreach($server->backups as $backup)
+                                @php $label = $backup->getDisplayLabel(false); @endphp
+                                <div class="rounded-box border border-base-200 bg-base-200/40 p-3 sm:p-4 space-y-3">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="badge badge-primary badge-soft gap-1.5">
+                                            <x-icon name="o-clock" class="w-3.5 h-3.5" />
+                                            {{ $label['schedule'] }}
+                                        </span>
+                                        <x-icon name="o-arrow-right" class="w-3.5 h-3.5 shrink-0 opacity-40" />
+                                        <span class="badge badge-ghost gap-1.5">
+                                            <x-volume-type-icon :type="$backup->volume->type" class="w-3.5 h-3.5" />
+                                            {{ $label['volume'] }}
+                                        </span>
+                                    </div>
+
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        @if($label['databases'])
+                                            <span class="badge badge-ghost badge-sm gap-1">
+                                                <x-icon name="o-circle-stack" class="w-3 h-3" />
+                                                <span class="opacity-60">{{ __('Databases') }}:</span>
+                                                <span class="font-medium">{{ $label['databases'] }}</span>
+                                            </span>
+                                        @endif
+                                        @if($label['retention'])
+                                            <span class="badge badge-info badge-soft badge-sm gap-1">
+                                                <x-icon name="o-archive-box" class="w-3 h-3" />
+                                                <span class="opacity-70">{{ __('Retention') }}:</span>
+                                                <span class="font-medium">{{ $label['retention'] }}</span>
+                                            </span>
+                                        @endif
+                                        @if($backup->path)
+                                            <span class="badge badge-ghost badge-sm gap-1">
+                                                <x-icon name="o-folder" class="w-3 h-3" />
+                                                <span class="opacity-60">{{ __('Path') }}:</span>
+                                                <span class="font-mono font-medium">{{ $backup->path }}</span>
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- Side: Connection / SSH / Agent --}}
+        <div class="flex flex-col gap-4 lg:basis-1/3 lg:w-1/3">
+            {{-- Connection --}}
+            <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
+                <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
+                    <x-icon :name="$server->database_type->icon()" class="w-4 h-4" />
+                    <h2 class="text-sm font-semibold">{{ __('Connection') }}</h2>
+                </div>
+                <ul class="list">
+                    @if($isSqlite)
+                        <li class="list-row">
+                            <x-icon name="o-document" class="w-4 h-4 opacity-60" />
+                            <div>
+                                <div class="text-xs uppercase font-semibold opacity-60">{{ __('Database files') }}</div>
+                                <div class="text-sm font-mono break-all">
+                                    @foreach($server->resolveDatabaseNames() as $path)
+                                        <div>{{ $path }}</div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        </li>
+                    @else
+                        <li class="list-row">
+                            <x-icon name="o-wifi" class="w-4 h-4 opacity-60" />
+                            <div>
+                                <div class="text-xs uppercase font-semibold opacity-60">{{ __('Host / Port') }}</div>
+                                <div class="text-sm font-mono">{{ $server->host }}<span class="opacity-50">:{{ $server->port }}</span></div>
+                            </div>
+                        </li>
+                        @if($server->username)
+                            <li class="list-row">
+                                <x-icon name="o-key" class="w-4 h-4 opacity-60" />
+                                <div>
+                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Username') }}</div>
+                                    <div class="text-sm font-mono">{{ $server->username }}</div>
+                                </div>
+                            </li>
+                        @endif
+                        <li class="list-row">
+                            <x-icon name="o-lock-closed" class="w-4 h-4 opacity-60" />
+                            <div>
+                                <div class="text-xs uppercase font-semibold opacity-60">{{ __('Password') }}</div>
+                                <div class="text-sm font-mono tracking-widest opacity-60">{{ $server->password ? '••••••••' : '—' }}</div>
+                            </div>
+                        </li>
+                        @if($server->database_type === DatabaseType::MYSQL)
+                            <li class="list-row">
+                                <x-icon name="o-shield-check" class="w-4 h-4 opacity-60" />
+                                <div>
+                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('SSL') }}</div>
+                                    <div class="text-xs font-medium {{ $sslEnabled ? 'text-success' : 'opacity-60' }}">
+                                        {{ $sslEnabled ? __('Enabled') : __('Disabled') }}
+                                    </div>
+                                </div>
+                            </li>
+                        @endif
+                        @if($authSource)
+                            <li class="list-row">
+                                <x-icon name="o-identification" class="w-4 h-4 opacity-60" />
+                                <div>
+                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Authentication DB') }}</div>
+                                    <div class="text-sm font-mono">{{ $authSource }}</div>
+                                </div>
+                            </li>
+                        @endif
+                        @if($dumpFlags)
+                            <li class="list-row">
+                                <x-icon name="o-command-line" class="w-4 h-4 opacity-60" />
+                                <div>
+                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Dump flags') }}</div>
+                                    <div class="text-xs font-mono break-all">{{ $dumpFlags }}</div>
+                                </div>
+                            </li>
+                        @endif
+                    @endif
+                </ul>
+            </div>
+
+            {{-- SSH --}}
+            @if($sshConfig)
+                <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
+                    <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
+                        <x-icon name="o-shield-check" class="w-4 h-4 text-warning" />
+                        <h2 class="text-sm font-semibold">{{ __('SSH Tunnel') }}</h2>
+                    </div>
+                    <div class="p-4">
+                        <div role="alert" class="alert alert-warning alert-soft">
+                            <x-icon name="o-server" class="w-4 h-4" />
+                            <code class="font-mono text-sm break-all">{{ $sshConfig->username }}@{{ $sshConfig->host }}:{{ $sshConfig->port }}</code>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Agent --}}
+            @if($agent)
+                @php
+                    $online = $agent->isOnline();
+                    $neverConnected = $agent->last_heartbeat_at === null;
+                @endphp
+                <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
+                    <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
+                        <x-icon name="o-cpu-chip" class="w-4 h-4 opacity-60" />
+                        <h2 class="text-sm font-semibold">{{ __('Agent') }}</h2>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-sm font-medium truncate">{{ $agent->name }}</span>
+                            <span class="badge {{ $neverConnected ? 'badge-ghost' : ($online ? 'badge-success' : 'badge-error') }} badge-soft gap-1.5">
+                                @if(! $neverConnected)
+                                    <span class="status {{ $online ? 'status-success animate-pulse' : 'status-error' }}"></span>
+                                @endif
+                                {{ $neverConnected ? __('Never connected') : ($online ? __('Online') : __('Offline')) }}
+                            </span>
+                        </div>
+                        @if($agent->last_heartbeat_at)
+                            <p class="text-xs opacity-60">
+                                {{ __('Last heartbeat :time', ['time' => $agent->last_heartbeat_at->diffForHumans()]) }}
+                            </p>
+                        @endif
+                    </div>
+                </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- ── Notifications ── --}}
+    <div class="card card-border bg-base-100 shadow-sm overflow-hidden mt-6">
+        <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
+            <x-icon name="o-bell" class="w-4 h-4 opacity-60" />
+            <h2 class="text-sm font-semibold">{{ __('Notifications') }}</h2>
+        </div>
+        <div class="p-4">
+            @php
+                $alertClass = $notifNoChannels ? 'alert-warning' : ($triggerMeta['alert'] ?: '');
+                $alertIcon = $notifNoChannels ? 'o-exclamation-triangle' : $triggerMeta['icon'];
+            @endphp
+            <div role="alert" class="alert {{ $alertClass }} alert-soft">
+                <x-icon :name="$alertIcon" class="w-4 h-4 shrink-0" />
+                <span class="text-sm">
+                    @if($notifDisabled)
+                        {{ __('Notifications are disabled for this server.') }}
+                    @elseif($notifNoChannels)
+                        @if($selection === NotificationChannelSelection::All)
+                            {{ __('Trigger is set to') }}
+                            <strong>{{ $trigger->label() }}</strong>
+                            {{ __('but no notification channels are configured.') }}
+                        @else
+                            {{ __('Trigger is set to') }}
+                            <strong>{{ $trigger->label() }}</strong>
+                            {{ __('but no channels are selected.') }}
+                        @endif
+                    @else
+                        {{ __('Sends notifications on') }}
+                        <strong>{{ $triggerMeta['summary'] }}</strong>
+                        {{ __('to') }}
+                        <strong>
+                            @if($selection === NotificationChannelSelection::All)
+                                {{ trans_choice('{1} all :count channel|[2,*] all :count channels', $channelCount, ['count' => $channelCount]) }}
+                            @else
+                                {{ trans_choice('{1} :count channel|[2,*] :count channels', $channelCount, ['count' => $channelCount]) }}
+                            @endif
+                        </strong>.
+                    @endif
+                </span>
+            </div>
+
+            @if(! $notifDisabled && $activeChannels->isNotEmpty())
+                <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    @foreach($activeChannels as $channel)
+                        <div class="card card-border bg-base-100">
+                            <div class="card-body p-3 flex-row items-center gap-3">
+                                <div class="avatar avatar-placeholder shrink-0">
+                                    <div class="bg-info/10 text-info rounded-box w-8 h-8">
+                                        <x-icon :name="$channel->type->icon()" class="w-4 h-4" />
+                                    </div>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-medium">{{ $channel->name }}</p>
+                                    <p class="text-xs opacity-60">{{ $channel->type->label() }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    </div>
+
+    {{-- ── Latest Jobs ── --}}
+    <div class="mt-6">
+        <livewire:dashboard.latest-jobs :serverId="$server->id" :key="'jobs-' . $server->id" />
+    </div>
+
+    {{-- DELETE CONFIRMATION MODAL --}}
+    <x-delete-confirmation-modal :title="__('Delete Database Server')"
+                                 :message="__('Are you sure you want to delete this database server? This action cannot be undone.')"
+                                 onConfirm="delete"
+                                 :showKeepFiles="$deleteSnapshotCount > 0"
+                                 :snapshotCount="$deleteSnapshotCount" />
+
+    {{-- RESTORE MODAL --}}
+    <livewire:restore.modal />
+
+    {{-- REDIS RESTORE INFO MODAL --}}
+    <x-modal wire:model="showRedisRestoreModal" :title="__('Restore Redis / Valkey Snapshot')" class="backdrop-blur">
+        <div class="space-y-4">
+            <x-alert class="alert-info" icon="o-information-circle">
+                <div>
+                    <span class="font-bold">{{ __('Manual Restore Required') }}</span>
+                    <p class="text-sm mt-1">
+                        {{ __('Automated restore is not supported for Redis/Valkey. RDB snapshots must be restored manually.') }}
+                    </p>
+                </div>
+            </x-alert>
+
+            <div class="p-4 border rounded-lg bg-base-200 border-base-300 space-y-3">
+                <div class="text-sm font-semibold">{{ __('How to Restore an RDB Snapshot') }}</div>
+                <ol class="list-decimal list-inside text-sm space-y-2 opacity-80">
+                    <li>{{ __('Download the snapshot archive (.rdb.gz) from your storage volume.') }}</li>
+                    <li>{{ __('Extract the RDB file from the archive (e.g., gunzip snapshot.rdb.gz).') }}</li>
+                    <li>{{ __('Stop the Redis/Valkey server.') }}</li>
+                    <li>{{ __('Copy the RDB file to the Redis data directory, replacing dump.rdb.') }}</li>
+                    <li>{{ __('Set correct file permissions (e.g., chown redis:redis dump.rdb).') }}</li>
+                    <li>{{ __('Restart the Redis/Valkey server.') }}</li>
+                </ol>
+            </div>
+
+            <a href="{{ route('snapshots.index', ['serverFilter' => $server->id]) }}"
+               class="btn btn-sm btn-outline gap-2" wire:navigate>
+                <x-icon name="o-arrow-down-tray" class="w-4 h-4" />
+                {{ __('View Backup Snapshots') }}
+            </a>
+        </div>
+
+        <x-slot:actions>
+            <x-button label="{{ __('Close') }}" @click="$wire.showRedisRestoreModal = false" />
+        </x-slot:actions>
+    </x-modal>
+</div>

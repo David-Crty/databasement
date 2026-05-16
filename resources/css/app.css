@@ -24,3 +24,7 @@
 .mary-table-pagination > div:last-child {
     overflow-y: visible;
 }
+
+[x-cloak] {
+    display: none !important;
+}

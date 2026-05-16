@@ -74,7 +74,7 @@ class Index extends Component
             ['key' => 'name', 'label' => __('Name'), 'class' => 'w-48'],
             ['key' => 'backup', 'label' => __('Backup'), 'sortable' => false, 'class' => 'overflow-hidden hidden sm:table-cell'],
             ['key' => 'jobs', 'label' => __('Jobs'), 'sortable' => false, 'class' => 'w-16 hidden sm:table-cell'],
-            ['key' => 'actions', 'label' => null, 'sortable' => false, 'class' => 'w-32'],
+            ['key' => 'actions', 'label' => null, 'sortable' => false, 'class' => 'w-12'],
         ];
     }
 

@@ -106,11 +106,11 @@
             {{-- View All Link --}}
             <div class="mt-4 pt-3 border-t border-base-200">
                 <div class="flex flex-wrap items-center gap-3">
-                    <a href="{{ route('snapshots.index') }}" wire:navigate class="text-sm text-primary hover:underline flex items-center gap-1">
+                    <a href="{{ route('snapshots.index', $serverId ? ['serverFilter' => $serverId] : []) }}" wire:navigate class="text-sm text-primary hover:underline flex items-center gap-1">
                         {{ __('View all snapshots') }}
                         <x-icon name="o-arrow-right" class="w-4 h-4" />
                     </a>
-                    <a href="{{ route('restores.index') }}" wire:navigate class="text-sm text-primary hover:underline flex items-center gap-1">
+                    <a href="{{ route('restores.index', $serverId ? ['targetServerFilter' => $serverId] : []) }}" wire:navigate class="text-sm text-primary hover:underline flex items-center gap-1">
                         {{ __('View all restores') }}
                         <x-icon name="o-arrow-right" class="w-4 h-4" />
                     </a>

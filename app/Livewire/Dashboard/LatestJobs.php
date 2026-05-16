@@ -3,6 +3,7 @@
 namespace App\Livewire\Dashboard;
 
 use App\Models\BackupJob;
+use App\Queries\BackupJobQuery;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Lazy;
@@ -23,8 +24,12 @@ class LatestJobs extends Component
     #[Locked]
     public ?string $selectedJobId = null;
 
-    public function mount(): void
+    #[Locked]
+    public ?string $serverId = null;
+
+    public function mount(?string $serverId = null): void
     {
+        $this->serverId = $serverId;
         $this->jobs = new Collection;
         $this->fetchJobs();
     }
@@ -86,6 +91,10 @@ class LatestJobs extends Component
 
         if ($this->statusFilter !== 'all') {
             $query->where('status', $this->statusFilter);
+        }
+
+        if ($this->serverId !== null) {
+            BackupJobQuery::applyServerFilter($query, $this->serverId);
         }
 
         $this->jobs = $query->get();

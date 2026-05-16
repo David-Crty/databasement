@@ -120,25 +120,37 @@
             @endscope
 
             @scope('cell_actions', $server)
-            <div>
-                @can('backup', $server)
-                    <x-button icon="bi.database-fill-up" wire:click="runBackupAll('{{ $server->id }}')" spinner
-                              tooltip="{{ __('Backup now') }}" class="btn-ghost btn-sm text-info" />
-                @endcan
-                @can('restore', $server)
-                    <x-button icon="bi.database-fill-down" wire:click="confirmRestore('{{ $server->id }}')" spinner
-                              tooltip="{{ __('Restore') }}" class="btn-ghost btn-sm text-success" />
-                @endcan
-            </div>
-            <div>
-                @can('viewForm', $server)
-                    <x-button icon="o-pencil" link="{{ route('database-servers.edit', $server) }}" wire:navigate
-                              tooltip="{{ __('Edit') }}" class="btn-ghost btn-sm" />
-                @endcan
-                @can('delete', $server)
-                    <x-button icon="o-trash" wire:click="confirmDelete('{{ $server->id }}')"
-                              tooltip="{{ __('Delete') }}" class="btn-ghost btn-sm text-error" />
-                @endcan
+            <div class="flex justify-end">
+                <x-floating-dropdown right>
+                    <x-slot:trigger>
+                        <x-button icon="o-ellipsis-vertical" class="btn-ghost btn-sm" tooltip-left="{{ __('Actions') }}" />
+                    </x-slot:trigger>
+
+                    @can('view', $server)
+                        <x-menu-item :title="__('View')" icon="o-eye"
+                                     link="{{ route('database-servers.show', $server) }}" wire:navigate />
+                    @endcan
+                    @can('backup', $server)
+                        <x-menu-item :title="__('Backup now')" icon="bi.database-fill-up"
+                                     wire:click="runBackupAll('{{ $server->id }}')" spinner
+                                     class="text-info" />
+                    @endcan
+                    @can('restore', $server)
+                        <x-menu-item :title="__('Restore')" icon="bi.database-fill-down"
+                                     wire:click="confirmRestore('{{ $server->id }}')" spinner
+                                     class="text-success" />
+                    @endcan
+                    @can('viewForm', $server)
+                        <x-menu-item :title="__('Edit')" icon="o-pencil"
+                                     link="{{ route('database-servers.edit', $server) }}" wire:navigate />
+                    @endcan
+                    @can('delete', $server)
+                        <x-menu-separator />
+                        <x-menu-item :title="__('Delete')" icon="o-trash"
+                                     wire:click="confirmDelete('{{ $server->id }}')"
+                                     class="text-error" />
+                    @endcan
+                </x-floating-dropdown>
             </div>
             @endscope
         </x-table>
