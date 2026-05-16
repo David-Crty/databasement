@@ -9,6 +9,7 @@ use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Restore;
 use App\Services\Backup\TriggerBackupAction;
+use App\Traits\RunsServerBackups;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -19,7 +20,7 @@ use Livewire\Component;
 #[Title('Database Server')]
 class Show extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, RunsServerBackups, Toast;
 
     public DatabaseServer $server;
 
@@ -58,47 +59,7 @@ class Show extends Component
 
         $this->server->load(['backups.volume', 'backups.backupSchedule']);
 
-        $userId = auth()->id();
-        $results = [];
-
-        foreach ($this->server->backups as $backup) {
-            try {
-                $action->execute($backup, is_int($userId) ? $userId : null);
-                $results[$backup->getDisplayLabel()] = 'success';
-            } catch (\Throwable $e) {
-                $results[$backup->getDisplayLabel()] = $e->getMessage();
-            }
-        }
-
-        $successCount = count(array_filter($results, fn ($v) => $v === 'success'));
-        $failureCount = count(array_filter($results, fn ($v) => $v !== 'success'));
-
-        $description = implode("\n", array_map(function ($label, $status) {
-            $icon = $status === 'success' ? '✓' : '✗';
-
-            return "{$icon} {$label}";
-        }, array_keys($results), array_values($results)));
-
-        if ($failureCount === 0) {
-            $this->success(
-                title: __('All backups started successfully!'),
-                description: $description,
-            );
-        } elseif ($successCount === 0) {
-            $this->error(
-                title: __('All backups failed!'),
-                description: $description,
-                timeout: 0
-            );
-        } else {
-            $this->warning(
-                title: __(':count backups started, :failures failed', [
-                    'count' => $successCount,
-                    'failures' => $failureCount,
-                ]),
-                description: $description,
-            );
-        }
+        $this->triggerAllBackups($this->server, $action);
     }
 
     public function confirmRestore(): void

@@ -8,6 +8,7 @@ use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\TriggerBackupAction;
+use App\Traits\RunsServerBackups;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -21,7 +22,7 @@ use Livewire\WithPagination;
 #[Title('Database Servers')]
 class Index extends Component
 {
-    use AuthorizesRequests, Toast, WithPagination;
+    use AuthorizesRequests, RunsServerBackups, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -155,50 +156,7 @@ class Index extends Component
 
         $this->authorize('backup', $server);
 
-        $userId = auth()->id();
-        $results = [];
-
-        foreach ($server->backups as $backup) {
-            try {
-                $action->execute($backup, is_int($userId) ? $userId : null);
-                $results[$backup->getDisplayLabel()] = 'success';
-            } catch (\Throwable $e) {
-                $results[$backup->getDisplayLabel()] = $e->getMessage();
-            }
-        }
-
-        // Determine overall status
-        $successCount = count(array_filter($results, fn ($v) => $v === 'success'));
-        $failureCount = count(array_filter($results, fn ($v) => $v !== 'success'));
-
-        // Build description with one line per backup config
-        $description = implode("\n", array_map(function ($label, $status) {
-            $icon = $status === 'success' ? '✓' : '✗';
-
-            return "{$icon} {$label}";
-        }, array_keys($results), array_values($results)));
-
-        // Determine toast type based on results
-        if ($failureCount === 0) {
-            $this->success(
-                title: __('All backups started successfully!'),
-                description: $description,
-            );
-        } elseif ($successCount === 0) {
-            $this->error(
-                title: __('All backups failed!'),
-                description: $description,
-                timeout: 0
-            );
-        } else {
-            $this->warning(
-                title: __(':count backups started, :failures failed', [
-                    'count' => $successCount,
-                    'failures' => $failureCount,
-                ]),
-                description: $description,
-            );
-        }
+        $this->triggerAllBackups($server, $action);
     }
 
     public function render(): View
