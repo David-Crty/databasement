@@ -66,7 +66,10 @@
                                         <x-icon name="o-arrow-top-right-on-square" class="w-3.5 h-3.5" />
                                     </a>
                                 </div>
-                                <div class="text-xs text-base-content/60 truncate">{{ $snapshot->databaseServer?->name ?? '?' }}</div>
+                                <a href="{{ route('database-servers.show', $snapshot->databaseServer) }}" wire:navigate
+                                   class="text-xs text-base-content/60 hover:text-primary hover:underline truncate block">
+                                    {{ $snapshot->databaseServer->name }}
+                                </a>
                             </div>
                         @else
                             <span class="text-sm text-base-content/50 italic">{{ __('(snapshot deleted)') }}</span>
@@ -81,7 +84,10 @@
                             <x-icon :name="$snapshot?->database_type?->icon() ?? 'o-server'" class="w-5 h-5 shrink-0" />
                             <div class="min-w-0">
                                 <div class="table-cell-primary truncate">{{ $restore->schema_name }}</div>
-                                <div class="text-xs text-base-content/60 truncate">{{ $target->name }}</div>
+                                <a href="{{ route('database-servers.show', $target) }}" wire:navigate
+                                   class="text-xs text-base-content/60 hover:text-primary hover:underline truncate block">
+                                    {{ $target->name }}
+                                </a>
                             </div>
                         @else
                             <span class="text-sm text-base-content/50 italic">{{ __('(target deleted)') }}</span>

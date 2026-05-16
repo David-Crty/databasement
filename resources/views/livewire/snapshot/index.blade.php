@@ -47,7 +47,10 @@
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="table-cell-primary truncate">{{ $snapshot->database_name }}</span>
-                            <span class="text-sm text-base-content/60 truncate">{{ $snapshot->databaseServer?->name ?? __('(unknown)') }}</span>
+                            <a href="{{ route('database-servers.show', $snapshot->databaseServer) }}" wire:navigate
+                               class="text-sm text-base-content/60 hover:text-primary hover:underline truncate">
+                                {{ $snapshot->databaseServer->name }}
+                            </a>
                         </div>
                         <div class="flex items-center gap-2 mt-1 flex-wrap">
                             <x-id-popover :id="$snapshot->id" />

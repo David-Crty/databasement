@@ -38,13 +38,27 @@
                                 <div class="flex items-center gap-2 flex-1 min-w-0">
                                     @if($job->snapshot && $job->snapshot->databaseServer)
                                         <x-icon :name="$job->snapshot->database_type->icon()" class="w-4 h-4 shrink-0 hidden sm:block" />
-                                        <span class="truncate text-sm font-medium">{{ $job->snapshot->databaseServer->name }}</span>
+                                        @if($serverId)
+                                            <span class="truncate text-sm font-medium">{{ $job->snapshot->databaseServer->name }}</span>
+                                        @else
+                                            <a href="{{ route('database-servers.show', $job->snapshot->databaseServer) }}" wire:navigate
+                                               class="truncate text-sm font-medium hover:text-primary hover:underline">
+                                                {{ $job->snapshot->databaseServer->name }}
+                                            </a>
+                                        @endif
                                         <span class="text-xs text-base-content/50 truncate hidden sm:inline">{{ $job->snapshot->database_name }}</span>
                                     @elseif($job->restore && $job->restore->targetServer)
                                         @if($job->restore->snapshot)
                                             <x-icon :name="$job->restore->snapshot->database_type->icon()" class="w-4 h-4 shrink-0 hidden sm:block" />
                                         @endif
-                                        <span class="truncate text-sm font-medium">{{ $job->restore->targetServer->name }}</span>
+                                        @if($serverId)
+                                            <span class="truncate text-sm font-medium">{{ $job->restore->targetServer->name }}</span>
+                                        @else
+                                            <a href="{{ route('database-servers.show', $job->restore->targetServer) }}" wire:navigate
+                                               class="truncate text-sm font-medium hover:text-primary hover:underline">
+                                                {{ $job->restore->targetServer->name }}
+                                            </a>
+                                        @endif
                                         <span class="text-xs text-base-content/50 truncate hidden sm:inline">{{ $job->restore->schema_name }}</span>
                                     @endif
                                 </div>
