@@ -15,8 +15,8 @@
                             default => 'bg-info',
                         };
 
-                        $serverName = $job->snapshot?->databaseServer?->name
-                            ?? $job->restore?->targetServer?->name
+                        $serverName = $job->snapshot?->databaseServer->name
+                            ?? $job->restore?->targetServer->name
                             ?? __('Unknown');
 
                         $databaseName = $job->snapshot?->database_name

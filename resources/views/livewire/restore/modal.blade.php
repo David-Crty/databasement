@@ -17,7 +17,7 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="text-xs opacity-60">{{ __('Snapshot:') }}</span>
                     <x-badge
-                        :value="($this->selectedSnapshot->databaseServer?->name ?? '?') . ' · ' . $this->selectedSnapshot->database_name . ' (' . $this->selectedSnapshot->database_type->label() . ')'"
+                        :value="$this->selectedSnapshot->databaseServer->name . ' · ' . $this->selectedSnapshot->database_name . ' (' . $this->selectedSnapshot->database_type->label() . ')'"
                         class="badge-secondary"
                     />
                 </div>
@@ -98,7 +98,7 @@
                                                 <div class="text-xs">
                                                     <span class="opacity-50">{{ __('Server:') }}</span>
                                                     <span
-                                                        class="opacity-70">{{ $snapshot->databaseServer?->name }}</span>
+                                                        class="opacity-70">{{ $snapshot->databaseServer->name }}</span>
                                                 </div>
                                             </div>
                                             <div class="text-right space-y-0.5">
@@ -252,7 +252,7 @@
                             <div class="text-sm font-semibold mb-2">{{ __('Restore Summary') }}</div>
                             <div class="text-sm opacity-70 space-y-1">
                                 <div><strong>{{ __('Source:') }}</strong>
-                                    {{ $this->selectedSnapshot->databaseServer?->name }} &bull; {{ $this->selectedSnapshot->database_name }}
+                                    {{ $this->selectedSnapshot->databaseServer->name }} &bull; {{ $this->selectedSnapshot->database_name }}
                                 </div>
                                 <div>
                                     <strong>{{ __('Snapshot:') }}</strong> {{ \App\Support\Formatters::humanDate($this->selectedSnapshot->created_at) }}

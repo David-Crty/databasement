@@ -9,8 +9,8 @@
                 // differs from the user's current organization. The relations
                 // were loaded with withoutGlobalScopes so the data is present
                 // even when scoped queries would normally exclude it.
-                $jobOrgId = $snapshot?->databaseServer?->organization_id
-                    ?? $this->selectedJob->restore?->targetServer?->organization_id;
+                $jobOrgId = $snapshot?->databaseServer->organization_id
+                    ?? $this->selectedJob->restore?->targetServer->organization_id;
                 $currentOrgId = app(\App\Services\CurrentOrganization::class)->id();
                 $crossOrg = ($jobOrgId && $jobOrgId !== $currentOrgId)
                     ? \App\Models\Organization::find($jobOrgId)
@@ -41,9 +41,9 @@
                             </div>
                             <div class="font-semibold truncate">
                                 @if($this->selectedJob->snapshot)
-                                    {{ $this->selectedJob->snapshot->databaseServer?->name ?? '?' }} / {{ $this->selectedJob->snapshot->database_name }}
+                                    {{ $this->selectedJob->snapshot->databaseServer->name }} / {{ $this->selectedJob->snapshot->database_name }}
                                 @elseif($this->selectedJob->restore)
-                                    {{ $this->selectedJob->restore->targetServer?->name ?? '?' }} / {{ $this->selectedJob->restore->schema_name }}
+                                    {{ $this->selectedJob->restore->targetServer->name }} / {{ $this->selectedJob->restore->schema_name }}
                                 @endif
                             </div>
                         </div>

@@ -79,7 +79,7 @@ class SnapshotVerificationService
 
             if (! $exists && $wasPreviouslyExisting) {
                 $this->newlyMissing->push([
-                    'server' => $snapshot->databaseServer->name ?? 'Unknown',
+                    'server' => $snapshot->databaseServer->name,
                     'database' => $snapshot->database_name,
                     'filename' => $snapshot->filename,
                     'database_server_id' => $snapshot->database_server_id,
