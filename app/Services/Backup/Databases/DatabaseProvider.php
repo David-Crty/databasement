@@ -88,6 +88,13 @@ class DatabaseProvider
             if ($server->database_type === DatabaseType::MYSQL && $server->getExtraConfig('ssl_enabled', false)) {
                 $config['ssl_enabled'] = true;
             }
+
+            // Optional short timeout used by interactive UI lookups; jobs leave
+            // it unset and fall back to each handler's longer default.
+            $connectTimeout = $server->getExtraConfig('connect_timeout');
+            if ($connectTimeout !== null) {
+                $config['connect_timeout'] = (int) $connectTimeout;
+            }
         }
 
         return $this->makeConfigured($server->database_type, $config);

@@ -175,9 +175,12 @@ class MssqlDatabase implements DatabaseInterface
 
     protected function createPdoForDatabase(string $database): \PDO
     {
+        $loginTimeout = (int) ($this->config['connect_timeout'] ?? 10);
+
         $dsn = sprintf(
-            'sqlsrv:Server=%s;TrustServerCertificate=true;Encrypt=true;LoginTimeout=10%s',
+            'sqlsrv:Server=%s;TrustServerCertificate=true;Encrypt=true;LoginTimeout=%d%s',
             $this->buildServerName(),
+            $loginTimeout,
             $database !== '' ? ';Database='.$database : '',
         );
 

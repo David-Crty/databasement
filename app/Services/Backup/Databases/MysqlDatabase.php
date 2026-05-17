@@ -180,7 +180,7 @@ class MysqlDatabase implements DatabaseInterface
 
         $options = [
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-            \PDO::ATTR_TIMEOUT => 30,
+            \PDO::ATTR_TIMEOUT => (int) ($this->config['connect_timeout'] ?? 30),
         ];
 
         if (! empty($this->config['ssl_enabled'])) {

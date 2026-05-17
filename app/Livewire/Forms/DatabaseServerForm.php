@@ -23,6 +23,13 @@ use Livewire\Form;
 
 class DatabaseServerForm extends Form
 {
+    /**
+     * Connection timeout (seconds) for interactive form lookups like
+     * "load available databases". Kept short so an unreachable host does not
+     * lock the form for PHP's full max_execution_time.
+     */
+    private const int FORM_CONNECT_TIMEOUT_SECONDS = 5;
+
     public ?DatabaseServer $server = null;
 
     public string $name = '';
@@ -181,6 +188,12 @@ class DatabaseServerForm extends Form
         }
 
         if ($this->server === null || $this->isSqlite() || $this->isRedis()) {
+            return;
+        }
+
+        // Agent-backed servers are not reachable from this app; the agent does
+        // its own discovery. Don't try (and stall) a direct PDO connection.
+        if ($this->hasAgent()) {
             return;
         }
 
@@ -1239,7 +1252,11 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Load available databases from the server for selection
+     * Load available databases from the server for selection.
+     *
+     * Uses a short connection timeout so an unreachable host (e.g. fake/seeded
+     * data, dead network) doesn't lock the edit form for PHP's full
+     * max_execution_time.
      */
     public function loadAvailableDatabases(): void
     {
@@ -1252,6 +1269,9 @@ class DatabaseServerForm extends Form
             // Build SSH config if enabled
             $sshConfig = $this->ssh_enabled ? $this->buildSshConfigForTest() : null;
 
+            $extraConfig = $this->buildExtraConfigForTest() ?? [];
+            $extraConfig['connect_timeout'] = self::FORM_CONNECT_TIMEOUT_SECONDS;
+
             // Create a temporary DatabaseServer object for the service
             $tempServer = DatabaseServer::forConnectionTest([
                 'host' => $this->host,
@@ -1259,7 +1279,7 @@ class DatabaseServerForm extends Form
                 'database_type' => $this->database_type,
                 'username' => $this->username,
                 'password' => $password,
-                'extra_config' => $this->buildExtraConfigForTest(),
+                'extra_config' => $extraConfig,
             ], $sshConfig);
 
             $databases = app(DatabaseProvider::class)->listDatabasesForServer($tempServer);
