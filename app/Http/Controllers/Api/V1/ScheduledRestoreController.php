@@ -26,7 +26,7 @@ class ScheduledRestoreController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $perPage = min($request->integer('per_page', 15), 100);
+        $perPage = max(1, min($request->integer('per_page', 15), 100));
 
         $scheduledRestores = ScheduledRestore::query()
             ->whereHas('targetServer')
@@ -106,7 +106,7 @@ class ScheduledRestoreController extends Controller
         Artisan::call('restores:run', ['scheduledRestore' => $scheduledRestore->id]);
 
         return response()->json([
-            'message' => 'Scheduled restore triggered.',
+            'message' => __('Scheduled restore triggered.'),
         ], 202);
     }
 }

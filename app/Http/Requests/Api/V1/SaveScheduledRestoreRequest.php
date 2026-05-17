@@ -51,7 +51,7 @@ class SaveScheduledRestoreRequest extends FormRequest
         if ($source->database_type !== $target->database_type) {
             $validator->errors()->add(
                 'target_server_id',
-                'Target server type must match the source server type.'
+                __('Target server type must match the source server type.')
             );
         }
     }
