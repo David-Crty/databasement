@@ -215,9 +215,11 @@ class MongodbDatabase implements DatabaseInterface
             $this->authSource(),
         );
 
+        $timeoutMs = (int) ($this->config['connect_timeout'] ?? 10) * 1000;
+
         return new Manager($uri, [
-            'connectTimeoutMS' => 10000,
-            'serverSelectionTimeoutMS' => 10000,
+            'connectTimeoutMS' => $timeoutMs,
+            'serverSelectionTimeoutMS' => $timeoutMs,
         ]);
     }
 }

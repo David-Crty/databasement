@@ -216,9 +216,12 @@ class PostgresqlDatabase implements DatabaseInterface
     {
         $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s', $this->config['host'], $this->config['port'], $database);
 
+        $timeout = (int) ($this->config['connect_timeout'] ?? 30);
+        $dsn .= ';connect_timeout='.$timeout;
+
         return new \PDO($dsn, $this->config['user'], $this->config['pass'], [
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-            \PDO::ATTR_TIMEOUT => 30,
+            \PDO::ATTR_TIMEOUT => $timeout,
         ]);
     }
 
