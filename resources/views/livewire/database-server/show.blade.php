@@ -1,8 +1,10 @@
 <div>
     @php
+        use App\Enums\DatabaseSelectionMode;
         use App\Enums\DatabaseType;
         use App\Enums\NotificationChannelSelection;
         use App\Enums\NotificationTrigger;
+        use App\Livewire\Forms\BackupForm;
 
         $sshConfig = $server->sshConfig;
         $agent = $server->agent;
@@ -18,34 +20,10 @@
         $notifNoChannels = ! $notifDisabled && $channelCount === 0;
 
         $triggerMeta = [
-            'all' => [
-                'icon' => 'o-bell-alert',
-                'figure' => 'text-success',
-                'status' => 'status-success',
-                'alert' => 'alert-success',
-                'summary' => __('all events'),
-            ],
-            'success' => [
-                'icon' => 'o-check-circle',
-                'figure' => 'text-info',
-                'status' => 'status-info',
-                'alert' => 'alert-info',
-                'summary' => __('successful backups'),
-            ],
-            'failure' => [
-                'icon' => 'o-exclamation-triangle',
-                'figure' => 'text-warning',
-                'status' => 'status-warning',
-                'alert' => 'alert-warning',
-                'summary' => __('failures'),
-            ],
-            'none' => [
-                'icon' => 'o-bell-slash',
-                'figure' => 'text-base-content/40',
-                'status' => '',
-                'alert' => '',
-                'summary' => __('no events'),
-            ],
+            'all' => ['icon' => 'o-bell-alert', 'figure' => 'text-success', 'status' => 'status-success'],
+            'success' => ['icon' => 'o-check-circle', 'figure' => 'text-info', 'status' => 'status-info'],
+            'failure' => ['icon' => 'o-exclamation-triangle', 'figure' => 'text-warning', 'status' => 'status-warning'],
+            'none' => ['icon' => 'o-bell-slash', 'figure' => 'text-base-content/40', 'status' => ''],
         ][$trigger->value];
     @endphp
 
@@ -71,16 +49,11 @@
                                 {{ $server->database_type->label() }}
                             </span>
 
-                            <span class="badge badge-outline gap-1.5">
-                                <x-icon name="o-wifi" class="w-3.5 h-3.5 opacity-60" />
-                                <code class="font-mono">{{ $server->getConnectionLabel() }}</code>
-                            </span>
-
                             @if($sshConfig)
                                 <span class="badge badge-warning badge-soft gap-1.5">
                                     <x-icon name="o-shield-check" class="w-3.5 h-3.5" />
-                                    {{ __('SSH tunnel via') }}
-                                    <code class="font-mono">{{ $sshConfig->host }}</code>
+                                    {{ __('SSH tunnel') }}
+                                    <code class="font-mono">{{ $sshConfig->username . '@' . $sshConfig->host . ':' . $sshConfig->port }}</code>
                                 </span>
                             @endif
 
@@ -90,6 +63,18 @@
                                     <x-icon :name="$online ? 'o-signal' : 'o-signal-slash'" class="w-3.5 h-3.5" />
                                     {{ __('Agent') }}: {{ $agent->name }}
                                     <span class="status {{ $online ? 'status-success animate-pulse' : 'status-error' }}"></span>
+                                </span>
+                            @endif
+
+                            @if($server->backups_enabled)
+                                <span class="badge badge-success badge-soft gap-1.5">
+                                    <x-icon name="o-check-circle" class="w-3.5 h-3.5" />
+                                    {{ trans_choice('{0} Backups enabled (no config)|{1} Backups enabled (:count config)|[2,*] Backups enabled (:count configs)', $server->backups->count(), ['count' => $server->backups->count()]) }}
+                                </span>
+                            @else
+                                <span class="badge badge-warning badge-soft gap-1.5">
+                                    <x-icon name="o-no-symbol" class="w-3.5 h-3.5" />
+                                    {{ __('Backups disabled') }}
                                 </span>
                             @endif
                         </div>
@@ -149,17 +134,6 @@
         </a>
 
         <div class="stat">
-            <div class="stat-figure {{ $server->backups_enabled ? 'text-success' : 'text-base-content/40' }}">
-                <x-icon name="o-server-stack" class="w-8 h-8" />
-            </div>
-            <div class="stat-title">{{ __('Backup configs') }}</div>
-            <div class="stat-value font-mono">{{ $server->backups->count() }}</div>
-            <div class="stat-desc {{ $server->backups_enabled ? 'text-success' : '' }}">
-                {{ $server->backups_enabled ? __('Enabled') : __('Disabled') }}
-            </div>
-        </div>
-
-        <div class="stat">
             <div class="stat-figure {{ $triggerMeta['figure'] }}">
                 <x-icon :name="$triggerMeta['icon']" class="w-8 h-8" />
             </div>
@@ -170,11 +144,25 @@
                 @endif
                 {{ $trigger->label() }}
             </div>
-            <div class="stat-desc {{ $notifNoChannels ? 'text-warning' : '' }}">
+            <div class="stat-desc mt-1">
                 @if($notifDisabled)
-                    {{ __('No alerts') }}
+                    <span class="opacity-60">{{ __('No alerts') }}</span>
+                @elseif($notifNoChannels)
+                    <span class="text-warning inline-flex items-center gap-1">
+                        <x-icon name="o-exclamation-triangle" class="w-3.5 h-3.5" />
+                        {{ $selection === NotificationChannelSelection::All
+                            ? __('No channels configured')
+                            : __('No channels selected') }}
+                    </span>
                 @else
-                    {{ trans_choice('{0} no channels|{1} :count channel|[2,*] :count channels', $channelCount, ['count' => $channelCount]) }}
+                    <div class="flex flex-wrap gap-1">
+                        @foreach($activeChannels as $channel)
+                            <span class="badge badge-ghost badge-sm gap-1" title="{{ $channel->type->label() }}">
+                                <x-icon :name="$channel->type->icon()" class="w-3 h-3" />
+                                <span class="normal-case">{{ $channel->name }}</span>
+                            </span>
+                        @endforeach
+                    </div>
                 @endif
             </div>
         </div>
@@ -219,43 +207,76 @@
                     @else
                         <div class="flex flex-col gap-3">
                             @foreach($server->backups as $backup)
-                                @php $label = $backup->getDisplayLabel(false); @endphp
-                                <div class="rounded-box border border-base-200 bg-base-200/40 p-3 sm:p-4 space-y-3">
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <span class="badge badge-primary badge-soft gap-1.5">
-                                            <x-icon name="o-clock" class="w-3.5 h-3.5" />
-                                            {{ $label['schedule'] }}
-                                        </span>
-                                        <x-icon name="o-arrow-right" class="w-3.5 h-3.5 shrink-0 opacity-40" />
-                                        <span class="badge badge-ghost gap-1.5">
-                                            <x-volume-type-icon :type="$backup->volume->type" class="w-3.5 h-3.5" />
-                                            {{ $label['volume'] }}
-                                        </span>
-                                    </div>
+                                @php
+                                    $entry = $backup->toArray();
+                                    $summaryWhat = BackupForm::selectionSummary($entry, $server->database_type);
+                                    $summaryWhere = $backup->volume?->name;
+                                    $summaryWhen = $backup->backupSchedule
+                                        ? \App\Support\Formatters::cronTranslation($backup->backupSchedule->expression).' ('.$backup->backupSchedule->name.')'
+                                        : null;
+                                    $summaryKeep = BackupForm::retentionSummary($entry);
 
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        @if($label['databases'])
-                                            <span class="badge badge-ghost badge-sm gap-1">
-                                                <x-icon name="o-circle-stack" class="w-3 h-3" />
-                                                <span class="opacity-60">{{ __('Databases') }}:</span>
-                                                <span class="font-medium">{{ $label['databases'] }}</span>
-                                            </span>
+                                    $mode = $backup->database_selection_mode;
+                                    $isSqliteServer = $server->database_type === DatabaseType::SQLITE;
+                                    $databaseNames = is_array($backup->database_names) ? array_values(array_filter($backup->database_names)) : [];
+                                    $showNamesList = ($isSqliteServer && $databaseNames !== [])
+                                        || ($mode === DatabaseSelectionMode::Selected && $databaseNames !== []);
+                                @endphp
+                                <div class="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3.5">
+                                    <dl class="grid gap-y-2 gap-x-4 text-sm" style="grid-template-columns: auto 1fr;">
+                                        @if($summaryWhat || $showNamesList)
+                                            <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
+                                                <x-icon name="o-circle-stack" class="w-3.5 h-3.5" />
+                                                {{ __('What') }}
+                                            </dt>
+                                            <dd class="font-semibold text-base-content">
+                                                @if($showNamesList)
+                                                    <div class="flex flex-wrap items-center gap-1.5">
+                                                        @foreach($databaseNames as $name)
+                                                            <span class="badge badge-ghost badge-sm font-mono normal-case">
+                                                                <x-icon :name="$isSqliteServer ? 'o-document' : 'o-circle-stack'" class="w-3 h-3 opacity-60 mr-1" />
+                                                                {{ $name }}
+                                                            </span>
+                                                        @endforeach
+                                                    </div>
+                                                @elseif($mode === DatabaseSelectionMode::Pattern && ! empty($backup->database_include_pattern))
+                                                    <span class="inline-flex items-center gap-1.5">
+                                                        {{ __('Databases matching') }}
+                                                        <code class="font-mono text-xs px-1.5 py-0.5 rounded bg-base-200">/{{ $backup->database_include_pattern }}/i</code>
+                                                    </span>
+                                                @else
+                                                    {{ $summaryWhat }}
+                                                @endif
+                                            </dd>
                                         @endif
-                                        @if($label['retention'])
-                                            <span class="badge badge-info badge-soft badge-sm gap-1">
-                                                <x-icon name="o-archive-box" class="w-3 h-3" />
-                                                <span class="opacity-70">{{ __('Retention') }}:</span>
-                                                <span class="font-medium">{{ $label['retention'] }}</span>
-                                            </span>
+
+                                        @if($summaryWhere)
+                                            <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
+                                                <x-icon name="o-server-stack" class="w-3.5 h-3.5" />
+                                                {{ __('Where') }}
+                                            </dt>
+                                            <dd class="font-semibold text-base-content inline-flex items-center gap-1.5">
+                                                @if($backup->volume)
+                                                    <x-volume-type-icon :type="$backup->volume->type" class="w-3.5 h-3.5 opacity-70" />
+                                                @endif
+                                                <span>{{ $summaryWhere }}@if($backup->path)<span class="text-base-content/50 font-normal font-mono text-xs"> / {{ $backup->path }}</span>@endif</span>
+                                            </dd>
                                         @endif
-                                        @if($backup->path)
-                                            <span class="badge badge-ghost badge-sm gap-1">
-                                                <x-icon name="o-folder" class="w-3 h-3" />
-                                                <span class="opacity-60">{{ __('Path') }}:</span>
-                                                <span class="font-mono font-medium">{{ $backup->path }}</span>
-                                            </span>
+
+                                        @if($summaryWhen)
+                                            <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
+                                                <x-icon name="o-clock" class="w-3.5 h-3.5" />
+                                                {{ __('When') }}
+                                            </dt>
+                                            <dd class="font-semibold text-base-content">{{ $summaryWhen }}</dd>
                                         @endif
-                                    </div>
+
+                                        <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
+                                            <x-icon name="o-archive-box" class="w-3.5 h-3.5" />
+                                            {{ __('Keep') }}
+                                        </dt>
+                                        <dd class="font-semibold text-base-content">{{ $summaryKeep }}</dd>
+                                    </dl>
                                 </div>
                             @endforeach
                         </div>
@@ -342,22 +363,6 @@
                 </ul>
             </div>
 
-            {{-- SSH --}}
-            @if($sshConfig)
-                <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
-                    <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
-                        <x-icon name="o-shield-check" class="w-4 h-4 text-warning" />
-                        <h2 class="text-sm font-semibold">{{ __('SSH Tunnel') }}</h2>
-                    </div>
-                    <div class="p-4">
-                        <div role="alert" class="alert alert-warning alert-soft">
-                            <x-icon name="o-server" class="w-4 h-4" />
-                            <code class="font-mono text-sm break-all">{{ $sshConfig->username }}@{{ $sshConfig->host }}:{{ $sshConfig->port }}</code>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
             {{-- Agent --}}
             @if($agent)
                 @php
@@ -385,69 +390,6 @@
                             </p>
                         @endif
                     </div>
-                </div>
-            @endif
-        </div>
-    </div>
-
-    {{-- ── Notifications ── --}}
-    <div class="card card-border bg-base-100 shadow-sm overflow-hidden mt-6">
-        <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
-            <x-icon name="o-bell" class="w-4 h-4 opacity-60" />
-            <h2 class="text-sm font-semibold">{{ __('Notifications') }}</h2>
-        </div>
-        <div class="p-4">
-            @php
-                $alertClass = $notifNoChannels ? 'alert-warning' : ($triggerMeta['alert'] ?: '');
-                $alertIcon = $notifNoChannels ? 'o-exclamation-triangle' : $triggerMeta['icon'];
-            @endphp
-            <div role="alert" class="alert {{ $alertClass }} alert-soft">
-                <x-icon :name="$alertIcon" class="w-4 h-4 shrink-0" />
-                <span class="text-sm">
-                    @if($notifDisabled)
-                        {{ __('Notifications are disabled for this server.') }}
-                    @elseif($notifNoChannels)
-                        @if($selection === NotificationChannelSelection::All)
-                            {{ __('Trigger is set to') }}
-                            <strong>{{ $trigger->label() }}</strong>
-                            {{ __('but no notification channels are configured.') }}
-                        @else
-                            {{ __('Trigger is set to') }}
-                            <strong>{{ $trigger->label() }}</strong>
-                            {{ __('but no channels are selected.') }}
-                        @endif
-                    @else
-                        {{ __('Sends notifications on') }}
-                        <strong>{{ $triggerMeta['summary'] }}</strong>
-                        {{ __('to') }}
-                        <strong>
-                            @if($selection === NotificationChannelSelection::All)
-                                {{ trans_choice('{1} all :count channel|[2,*] all :count channels', $channelCount, ['count' => $channelCount]) }}
-                            @else
-                                {{ trans_choice('{1} :count channel|[2,*] :count channels', $channelCount, ['count' => $channelCount]) }}
-                            @endif
-                        </strong>.
-                    @endif
-                </span>
-            </div>
-
-            @if(! $notifDisabled && $activeChannels->isNotEmpty())
-                <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    @foreach($activeChannels as $channel)
-                        <div class="card card-border bg-base-100">
-                            <div class="card-body p-3 flex-row items-center gap-3">
-                                <div class="avatar avatar-placeholder shrink-0">
-                                    <div class="bg-info/10 text-info rounded-box w-8 h-8">
-                                        <x-icon :name="$channel->type->icon()" class="w-4 h-4" />
-                                    </div>
-                                </div>
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-medium">{{ $channel->name }}</p>
-                                    <p class="text-xs opacity-60">{{ $channel->type->label() }}</p>
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
                 </div>
             @endif
         </div>
