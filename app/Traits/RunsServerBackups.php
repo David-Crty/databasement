@@ -25,6 +25,14 @@ trait RunsServerBackups
             }
         }
 
+        if ($results === []) {
+            $this->warning(
+                title: __('No backup configurations to start'),
+            );
+
+            return;
+        }
+
         $successCount = count(array_filter($results, fn ($v): bool => $v === 'success'));
         $failureCount = count($results) - $successCount;
 

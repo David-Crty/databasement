@@ -123,7 +123,7 @@
             <div class="flex justify-end">
                 <x-floating-dropdown right>
                     <x-slot:trigger>
-                        <x-button icon="o-ellipsis-vertical" class="btn-ghost btn-sm" tooltip-left="{{ __('Actions') }}" />
+                        <x-button icon="o-ellipsis-vertical" class="btn-ghost btn-sm" :tooltip-left="__('Actions')" />
                     </x-slot:trigger>
 
                     @can('view', $server)
