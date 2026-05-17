@@ -8,11 +8,10 @@ use App\Livewire\Forms\ConfigurationForm;
 use App\Models\BackupSchedule;
 use App\Services\Backup\TriggerBackupAction;
 use App\Services\CurrentOrganization;
+use App\Services\SchedulerRestarter;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -228,24 +227,16 @@ class Backup extends Component
 
     private function restartScheduler(): bool
     {
-        $result = Process::timeout(10)->run('supervisorctl -c /config/supervisord.conf restart schedule-run');
-
-        if ($result->failed()) {
-            Log::warning('Failed to restart schedule-run', [
-                'exit_code' => $result->exitCode(),
-                'error' => $result->errorOutput(),
-            ]);
-            $this->warning(
-                title: __('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'),
-                timeout: 6000
-            );
-
-            return false;
+        if (app(SchedulerRestarter::class)->restart()) {
+            return true;
         }
 
-        Log::info('Scheduler restarted successfully.');
+        $this->warning(
+            title: __('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'),
+            timeout: 6000
+        );
 
-        return true;
+        return false;
     }
 
     public function render(): View

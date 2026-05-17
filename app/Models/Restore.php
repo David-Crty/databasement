@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property string $schema_name
  * @property array<string, mixed>|null $options
  * @property string|null $triggered_by_user_id
+ * @property string|null $scheduled_restore_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property string $backup_job_id
@@ -22,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property-read Snapshot $snapshot
  * @property-read DatabaseServer $targetServer
  * @property-read User|null $triggeredBy
+ * @property-read ScheduledRestore|null $scheduledRestore
  *
  * @method static Builder<static>|Restore newModelQuery()
  * @method static Builder<static>|Restore newQuery()
@@ -56,6 +58,7 @@ class Restore extends Model
         'schema_name',
         'options',
         'triggered_by_user_id',
+        'scheduled_restore_id',
     ];
 
     /**
@@ -106,5 +109,13 @@ class Restore extends Model
     public function job(): BelongsTo
     {
         return $this->belongsTo(BackupJob::class, 'backup_job_id');
+    }
+
+    /**
+     * @return BelongsTo<ScheduledRestore, Restore>
+     */
+    public function scheduledRestore(): BelongsTo
+    {
+        return $this->belongsTo(ScheduledRestore::class);
     }
 }

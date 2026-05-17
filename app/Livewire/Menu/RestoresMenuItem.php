@@ -11,7 +11,7 @@ class RestoresMenuItem extends Component
 
     public function mount(): void
     {
-        $this->isActive = request()->routeIs('restores.*');
+        $this->isActive = request()->routeIs('restores.*') || request()->routeIs('scheduled-restores.*');
     }
 
     public function getActiveRestoresCountProperty(): int
@@ -25,16 +25,23 @@ class RestoresMenuItem extends Component
     public function render(): string
     {
         return <<<'HTML'
-        <div wire:poll.5s>
-            <x-menu-item
-                title="{{ __('Restores') }}"
-                icon="o-arrow-uturn-left"
-                link="{{ route('restores.index') }}"
-                wire:navigate
-                :active="$isActive"
-                :badge="$this->activeRestoresCount > 0 ? $this->activeRestoresCount : null"
-                badge-classes="badge-warning badge-soft"
-            />
+        <div>
+            <x-menu-sub title="{{ __('Restores') }}" icon="o-arrow-uturn-left" :active="$isActive">
+                <x-menu-item
+                    title="{{ __('History') }}"
+                    icon="o-clock"
+                    link="{{ route('restores.index') }}"
+                    wire:navigate
+                    :badge="$this->activeRestoresCount > 0 ? $this->activeRestoresCount : null"
+                    badge-classes="badge-warning badge-soft"
+                />
+                <x-menu-item
+                    title="{{ __('Scheduled') }}"
+                    icon="o-calendar"
+                    link="{{ route('scheduled-restores.index') }}"
+                    wire:navigate
+                />
+            </x-menu-sub>
         </div>
         HTML;
     }

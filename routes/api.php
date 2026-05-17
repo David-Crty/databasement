@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AgentController;
 use App\Http\Controllers\Api\V1\BackupJobController;
 use App\Http\Controllers\Api\V1\BackupScheduleController;
 use App\Http\Controllers\Api\V1\DatabaseServerController;
+use App\Http\Controllers\Api\V1\ScheduledRestoreController;
 use App\Http\Controllers\Api\V1\SnapshotController;
 use App\Http\Controllers\Api\V1\UserOrganizationController;
 use App\Http\Controllers\Api\V1\VolumeController;
@@ -40,6 +41,13 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
         ->only(['index', 'show', 'store', 'destroy']);
     Route::put('backup-schedules/{backup_schedule}', [BackupScheduleController::class, 'update'])
         ->name('backup-schedules.update');
+
+    Route::apiResource('scheduled-restores', ScheduledRestoreController::class)
+        ->only(['index', 'show', 'store', 'destroy']);
+    Route::put('scheduled-restores/{scheduled_restore}', [ScheduledRestoreController::class, 'update'])
+        ->name('scheduled-restores.update');
+    Route::post('scheduled-restores/{scheduled_restore}/run', [ScheduledRestoreController::class, 'run'])
+        ->name('scheduled-restores.run');
 
     Route::get('user/organizations', [UserOrganizationController::class, 'index'])
         ->name('user.organizations');

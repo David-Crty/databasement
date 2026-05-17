@@ -48,6 +48,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('snapshots.index');
     Route::livewire('restores', \App\Livewire\Restore\Index::class)
         ->name('restores.index');
+    Route::livewire('scheduled-restores', \App\Livewire\ScheduledRestore\Index::class)
+        ->name('scheduled-restores.index');
     Route::redirect('jobs', 'snapshots');
 
     // Users index - viewable by all (actions restricted in component)

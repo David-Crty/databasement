@@ -2,6 +2,7 @@
 
 use App\Facades\AppConfig;
 use App\Models\BackupSchedule;
+use App\Models\ScheduledRestore;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -16,6 +17,16 @@ try {
     foreach (BackupSchedule::all() as $backupSchedule) {
         Schedule::command('backups:run', [$backupSchedule->id])
             ->cron($backupSchedule->expression);
+    }
+} catch (QueryException) {
+    // Table may not exist yet (pre-migration)
+}
+
+// Register scheduled restores dynamically from the database
+try {
+    foreach (ScheduledRestore::where('enabled', true)->with('backupSchedule')->get() as $scheduledRestore) {
+        Schedule::command('restores:run', [$scheduledRestore->id])
+            ->cron($scheduledRestore->backupSchedule->expression);
     }
 } catch (QueryException) {
     // Table may not exist yet (pre-migration)
