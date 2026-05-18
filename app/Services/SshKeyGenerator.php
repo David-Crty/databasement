@@ -38,7 +38,13 @@ class SshKeyGenerator
 
         // Replace dots with hyphens first so hostnames like bastion.example.com
         // stay readable as bastion-example-com instead of bastionexamplecom.
-        return 'databasement:'.Str::slug(str_replace('.', '-', $source));
+        $slug = Str::slug(str_replace('.', '-', $source));
+
+        if ($slug === '') {
+            $slug = Str::lower(Str::random(8));
+        }
+
+        return 'databasement:'.$slug;
     }
 
     /**

@@ -42,6 +42,14 @@ test('buildComment falls back to a random token when both are blank', function (
     expect($comment)->toMatch('/^databasement:[a-z0-9]{8}$/');
 });
 
+test('buildComment falls back to a random token when source slugifies to empty', function () {
+    expect($this->generator->buildComment('!!!', 'irrelevant'))
+        ->toMatch('/^databasement:[a-z0-9]{8}$/')
+        ->and($this->generator->buildComment('', '...'))
+        ->toMatch('/^databasement:[a-z0-9]{8}$/');
+
+});
+
 test('public key stays single-line even with whitespace in comment', function () {
     $result = $this->generator->generate("multi\nline\tcomment");
 
