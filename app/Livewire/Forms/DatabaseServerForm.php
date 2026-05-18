@@ -15,6 +15,7 @@ use App\Models\NotificationChannel;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\CurrentOrganization;
+use App\Services\SshKeyGenerator;
 use App\Services\SshTunnelService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -72,6 +73,12 @@ class DatabaseServerForm extends Form
     public string $ssh_private_key = '';
 
     public string $ssh_key_passphrase = '';
+
+    /**
+     * Transient public key shown once after generation. Never persisted —
+     * the user copies it to their server's authorized_keys before saving.
+     */
+    public string $ssh_public_key = '';
 
     public ?string $sshTestMessage = null;
 
@@ -350,6 +357,7 @@ class DatabaseServerForm extends Form
         $this->ssh_password = '';
         $this->ssh_private_key = '';
         $this->ssh_key_passphrase = '';
+        $this->ssh_public_key = '';
     }
 
     /**
@@ -365,6 +373,28 @@ class DatabaseServerForm extends Form
         $this->ssh_password = '';
         $this->ssh_private_key = '';
         $this->ssh_key_passphrase = '';
+        $this->ssh_public_key = '';
+    }
+
+    /**
+     * Generate a fresh Ed25519 keypair and populate the private/public form
+     * fields. The public key is held only in transient form state — the user
+     * is expected to copy it to the SSH server before saving.
+     */
+    public function generateSshKey(): void
+    {
+        if ($this->ssh_auth_type !== 'key') {
+            return;
+        }
+
+        $generator = app(SshKeyGenerator::class);
+        $comment = $generator->buildComment($this->name, $this->ssh_host);
+        $keypair = $generator->generate($comment);
+
+        $this->ssh_private_key = $keypair['private'];
+        $this->ssh_public_key = $keypair['public'];
+        $this->ssh_key_passphrase = '';
+        $this->resetSshTestState();
     }
 
     /**

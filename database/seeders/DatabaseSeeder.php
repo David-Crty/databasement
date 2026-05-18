@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
+use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
 use App\Models\User;
 use App\Models\Volume;
@@ -52,7 +53,18 @@ class DatabaseSeeder extends Seeder
             ['expression' => '0 2 * * *'],
         );
 
-        // MySQL server (from docker-compose)
+        // SSH tunnel config pointing at the openssh-server container.
+        // From inside that container, MySQL is reachable at mysql:3306.
+        $mysqlSshConfig = DatabaseServerSshConfig::create([
+            'host' => 'ssh',
+            'port' => 2222,
+            'username' => 'testuser',
+            'auth_type' => 'password',
+            'password' => 'testpass',
+            'organization_id' => $defaultOrg->id,
+        ]);
+
+        // MySQL server (from docker-compose) — connects through the SSH tunnel above
         $mysql = DatabaseServer::create([
             'name' => 'Local MySQL',
             'host' => 'mysql',
@@ -60,6 +72,7 @@ class DatabaseSeeder extends Seeder
             'database_type' => 'mysql',
             'username' => 'root',
             'password' => 'root',
+            'ssh_config_id' => $mysqlSshConfig->id,
             'organization_id' => $defaultOrg->id,
         ]);
 

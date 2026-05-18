@@ -77,6 +77,11 @@ class Create extends Component
         $this->form->testSshConnection();
     }
 
+    public function generateSshKey(): void
+    {
+        $this->form->generateSshKey();
+    }
+
     public function refreshVolumes(): void
     {
         $this->success(__('Volume list refreshed.'));
