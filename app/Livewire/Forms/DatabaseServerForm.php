@@ -49,6 +49,8 @@ class DatabaseServerForm extends Form
 
     public string $dump_flags = '';
 
+    public string $dump_format = 'plain';
+
     public bool $ssl_enabled = false;
 
     // SSH Tunnel Configuration
@@ -426,6 +428,7 @@ class DatabaseServerForm extends Form
         $this->database_type = $server->database_type->value;
         $this->auth_source = $server->getExtraConfig('auth_source', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
+        $this->dump_format = $server->getExtraConfig('dump_format', 'plain');
         $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $this->username = $server->username ?? '';
         $this->description = $server->description;
@@ -617,6 +620,14 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Check if current database type is PostgreSQL.
+     */
+    public function isPostgresql(): bool
+    {
+        return $this->database_type === 'postgres';
+    }
+
+    /**
      * Check if current database type has optional credentials (username/password not required).
      */
     public function hasOptionalCredentials(): bool
@@ -657,6 +668,10 @@ class DatabaseServerForm extends Form
 
         if ($type === DatabaseType::MYSQL) {
             $config['ssl_enabled'] = $this->ssl_enabled;
+        }
+
+        if ($type === DatabaseType::POSTGRESQL) {
+            $config['dump_format'] = $this->dump_format;
         }
 
         try {
@@ -843,6 +858,7 @@ class DatabaseServerForm extends Form
             'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
+            'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
             'ssl_enabled' => 'boolean',
             'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
             'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],

@@ -45,8 +45,7 @@ afterEach(function () {
     }
 });
 
-test('client-server database backup and restore workflow', function (string $type, string $compression, string $expectedExt) {
-    // Set compression method (and encryption key for encrypted backups)
+test('mysql backup and restore workflow', function (string $compression, string $expectedExt) {
     AppConfig::set('backup.compression', $compression);
     if ($compression === 'encrypted') {
         config(['backup.encryption_key' => 'base64:'.base64_encode('0123456789abcdef0123456789abcdef')]);
@@ -57,16 +56,13 @@ test('client-server database backup and restore workflow', function (string $typ
     app()->forgetInstance(BackupTask::class);
     app()->forgetInstance(RestoreTask::class);
 
-    // Create models
-    $this->volume = IntegrationTestHelpers::createVolume($type);
-    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer($type);
+    $this->volume = IntegrationTestHelpers::createVolume('mysql');
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('mysql');
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
     $this->databaseServer->load('backups.volume');
 
-    // Load test data
-    IntegrationTestHelpers::loadTestData($type, $this->databaseServer);
+    IntegrationTestHelpers::loadTestData('mysql', $this->databaseServer);
 
-    // Run backup
     $snapshots = $this->backupJobFactory->createSnapshots(
         backup: $this->backup,
         method: 'manual',
@@ -84,7 +80,6 @@ test('client-server database backup and restore workflow', function (string $typ
         ->and($this->snapshot->filename)->toEndWith(".sql.{$expectedExt}")
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
 
-    // Run restore (use unique name with parallel token and microseconds to avoid collisions)
     $suffix = IntegrationTestHelpers::getParallelSuffix();
     $this->restoredDatabaseName = 'testdb_restored_'.hrtime(true).$suffix;
     $restore = $this->backupJobFactory->createRestore(
@@ -94,20 +89,69 @@ test('client-server database backup and restore workflow', function (string $typ
     );
     ProcessRestoreJob::dispatchSync($restore->id);
 
-    // Verify restore
-    $pdo = IntegrationTestHelpers::connectToDatabase($type, $this->databaseServer, $this->restoredDatabaseName);
-    expect($pdo)->toBeInstanceOf(PDO::class);
-
-    $verifyQuery = match ($type) {
-        'mysql' => 'SHOW TABLES',
-        'postgres' => "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'",
-    };
-    $stmt = $pdo->query($verifyQuery);
+    $pdo = IntegrationTestHelpers::connectToDatabase('mysql', $this->databaseServer, $this->restoredDatabaseName);
+    $stmt = $pdo->query('SHOW TABLES');
     expect($stmt)->not->toBeFalse();
 })->with([
-    'postgres with gzip' => ['postgres', 'gzip', 'gz'],
-    'mysql with zstd' => ['mysql', 'zstd', 'zst'],
-    'mysql with encrypted' => ['mysql', 'encrypted', '7z'],
+    'zstd' => ['zstd', 'zst'],
+    'encrypted' => ['encrypted', '7z'],
+]);
+
+test('postgres backup and restore workflow', function (?string $dumpFormat) {
+    AppConfig::set('backup.compression', 'gzip');
+
+    app()->forgetInstance(CompressorInterface::class);
+    app()->forgetInstance(BackupTask::class);
+    app()->forgetInstance(RestoreTask::class);
+
+    $this->volume = IntegrationTestHelpers::createVolume('postgres');
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('postgres');
+    if ($dumpFormat !== null) {
+        $this->databaseServer->update([
+            'extra_config' => array_merge(
+                $this->databaseServer->extra_config ?? [],
+                ['dump_format' => $dumpFormat],
+            ),
+        ]);
+    }
+    $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
+    $this->databaseServer->load('backups.volume');
+
+    IntegrationTestHelpers::loadTestData('postgres', $this->databaseServer);
+
+    $snapshots = $this->backupJobFactory->createSnapshots(
+        backup: $this->backup,
+        method: 'manual',
+    );
+    $this->snapshot = $snapshots[0];
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
+    $this->snapshot->refresh();
+    $this->snapshot->load('job');
+
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+
+    $expectedDumpExt = $dumpFormat === 'custom' ? 'dump' : 'sql';
+    expect($this->snapshot->job->status)->toBe('completed')
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->compression_type)->toBe(CompressionType::GZIP)
+        ->and($this->snapshot->filename)->toEndWith(".{$expectedDumpExt}.gz")
+        ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
+
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $this->restoredDatabaseName = 'testdb_restored_'.hrtime(true).$suffix;
+    $restore = $this->backupJobFactory->createRestore(
+        snapshot: $this->snapshot,
+        targetServer: $this->databaseServer,
+        schemaName: $this->restoredDatabaseName,
+    );
+    ProcessRestoreJob::dispatchSync($restore->id);
+
+    $pdo = IntegrationTestHelpers::connectToDatabase('postgres', $this->databaseServer, $this->restoredDatabaseName);
+    $stmt = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'");
+    expect($stmt)->not->toBeFalse();
+})->with([
+    'plain format' => [null],
+    'custom dump format' => ['custom'],
 ]);
 
 test('backup with extra dump flags succeeds', function (string $type, string $flag) {

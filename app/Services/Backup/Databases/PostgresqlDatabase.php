@@ -22,6 +22,17 @@ class PostgresqlDatabase implements DatabaseInterface
         '--quote-all-identifiers',  // Quote all identifiers (safer for reserved words)
     ];
 
+    /**
+     * Restore-side counterparts applied by pg_restore when reading a custom-format archive.
+     * --clean/--if-exists in DUMP_OPTIONS only affect plain SQL output, so we re-pass them here.
+     */
+    private const array RESTORE_OPTIONS = [
+        '--clean',
+        '--if-exists',
+        '--no-owner',
+        '--no-privileges',
+    ];
+
     private const array EXCLUDED_DATABASES = [
         'rdsadmin',          // AWS RDS internal database
         'azure_maintenance', // Azure Database for PostgreSQL internal database
@@ -38,6 +49,11 @@ class PostgresqlDatabase implements DatabaseInterface
 
     public function dump(string $outputPath): DatabaseOperationResult
     {
+        $options = self::DUMP_OPTIONS;
+        if (($this->config['dump_format'] ?? 'plain') === 'custom') {
+            $options[] = '--format=custom';
+        }
+
         $extraFlags = '';
         if (! empty($this->config['dump_flags'])) {
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
@@ -47,7 +63,7 @@ class PostgresqlDatabase implements DatabaseInterface
         $command = sprintf(
             'PGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s%s %s',
             escapeshellarg($this->config['pass']),
-            implode(' ', self::DUMP_OPTIONS),
+            implode(' ', $options),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
@@ -62,6 +78,19 @@ class PostgresqlDatabase implements DatabaseInterface
 
     public function restore(string $inputPath): DatabaseOperationResult
     {
+        if (($this->config['dump_format'] ?? 'plain') === 'custom') {
+            return new DatabaseOperationResult(command: sprintf(
+                'PGPASSWORD=%s pg_restore %s --host=%s --port=%s --username=%s --dbname=%s %s',
+                escapeshellarg($this->config['pass']),
+                implode(' ', self::RESTORE_OPTIONS),
+                escapeshellarg($this->config['host']),
+                escapeshellarg((string) $this->config['port']),
+                escapeshellarg($this->config['user']),
+                escapeshellarg($this->config['database']),
+                escapeshellarg($inputPath),
+            ));
+        }
+
         return new DatabaseOperationResult(command: sprintf(
             'PGPASSWORD=%s psql --host=%s --port=%s --username=%s %s -f %s',
             escapeshellarg($this->config['pass']),

@@ -45,6 +45,24 @@ test('makeForServer uses explicit host and port parameters', function () {
         ->not->toContain('private-db.internal');
 });
 
+test('makeForServer handles unsaved forConnectionTest server (no name)', function () {
+    // The form's "Test Connection" and "Load Databases" flows build a transient
+    // DatabaseServer via forConnectionTest() without a name. This must not blow up
+    // when threaded through the DTO conversion in makeForServer.
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'mysql',
+        'host' => 'db.local',
+        'port' => 3306,
+        'username' => 'root',
+        'password' => 'secret',
+    ]);
+
+    $factory = new DatabaseProvider;
+    $database = $factory->makeForServer($server, 'myapp', 'db.local', 3306);
+
+    expect($database)->toBeInstanceOf(MysqlDatabase::class);
+});
+
 test('listDatabasesForServer delegates to handler listDatabases', function () {
     $server = DatabaseServer::factory()->create([
         'database_type' => 'mysql',

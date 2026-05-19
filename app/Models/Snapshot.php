@@ -116,7 +116,7 @@ class Snapshot extends Model
      * Generate metadata array for a snapshot.
      * Sensitive fields (passwords) are excluded from the volume config.
      *
-     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volume: array{type: string, config: array<string, mixed>}}
+     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volume: array{type: string, config: array<string, mixed>}, dump_format?: string}
      */
     public static function generateMetadata(DatabaseServer $server, string $databaseName, Volume $volume): array
     {
@@ -132,7 +132,7 @@ class Snapshot extends Model
             ];
         }
 
-        return [
+        $metadata = [
             'database_server' => [
                 'host' => $server->host,
                 'port' => $server->port,
@@ -145,6 +145,14 @@ class Snapshot extends Model
                 'config' => $volume->getSafeConfig(),
             ],
         ];
+
+        // Record dump format for restore-time dispatch. Absent → plain (default for legacy snapshots).
+        if ($server->database_type === DatabaseType::POSTGRESQL
+            && $server->getExtraConfig('dump_format') === 'custom') {
+            $metadata['dump_format'] = 'custom';
+        }
+
+        return $metadata;
     }
 
     /**

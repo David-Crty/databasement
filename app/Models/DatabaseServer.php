@@ -413,6 +413,15 @@ class DatabaseServer extends Model
             unset($data['dump_flags']);
         }
 
+        if (array_key_exists('dump_format', $data)) {
+            if ($type === DatabaseType::POSTGRESQL->value && $data['dump_format'] === 'custom') {
+                $extraConfig['dump_format'] = 'custom';
+            } else {
+                unset($extraConfig['dump_format']);
+            }
+            unset($data['dump_format']);
+        }
+
         if (array_key_exists('ssl_enabled', $data)) {
             if ($type === DatabaseType::MYSQL->value && $data['ssl_enabled']) {
                 $extraConfig['ssl_enabled'] = true;

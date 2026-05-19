@@ -73,6 +73,7 @@ class ProcessRestoreJob implements ShouldQueue
                 workingDirectory: FilesystemSupport::createWorkingDirectory('restore', $restore->id),
                 forceDatabase: filter_var($restore->getOption('force_database', false), FILTER_VALIDATE_BOOLEAN),
                 ownerUser: is_string($value = $restore->getOption('owner_user')) && $value !== '' ? $value : null,
+                snapshotDumpFormat: is_string($format = ($snapshot->metadata['dump_format'] ?? null)) ? $format : null,
             );
 
             $restoreTask->execute($config, $job);
