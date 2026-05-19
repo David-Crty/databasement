@@ -390,12 +390,6 @@
                                             </span>
                                         @endif
                                     </div>
-                                    @if($dumpFormat === 'custom')
-                                        <p class="mt-2 text-xs opacity-70 leading-snug">
-                                            <x-icon name="o-exclamation-triangle" class="w-3.5 h-3.5 inline align-text-bottom text-warning" />
-                                            {{ __('Restore target must be PostgreSQL 17 or newer.') }}
-                                        </p>
-                                    @endif
                                 </div>
                             </li>
                         @endif

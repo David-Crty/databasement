@@ -23,14 +23,18 @@ class PostgresqlDatabase implements DatabaseInterface
     ];
 
     /**
-     * Restore-side counterparts applied by pg_restore when reading a custom-format archive.
-     * --clean/--if-exists in DUMP_OPTIONS only affect plain SQL output, so we re-pass them here.
+     * Restore-side flags applied by pg_restore when reading a custom-format archive.
+     * Only used by the custom-format branch of restore() — plain format uses psql -f
+     * which accepts none of these. --clean/--if-exists must be passed at restore time
+     * (not dump time) for custom archives. --jobs=4 enables parallel restore, which is
+     * the main reason custom format exists.
      */
-    private const array RESTORE_OPTIONS = [
+    private const array RESTORE_CUSTOM_FORMAT_OPTIONS = [
         '--clean',
         '--if-exists',
         '--no-owner',
         '--no-privileges',
+        '--jobs=4',
     ];
 
     private const array EXCLUDED_DATABASES = [
@@ -82,7 +86,7 @@ class PostgresqlDatabase implements DatabaseInterface
             return new DatabaseOperationResult(command: sprintf(
                 'PGPASSWORD=%s pg_restore %s --host=%s --port=%s --username=%s --dbname=%s %s',
                 escapeshellarg($this->config['pass']),
-                implode(' ', self::RESTORE_OPTIONS),
+                implode(' ', self::RESTORE_CUSTOM_FORMAT_OPTIONS),
                 escapeshellarg($this->config['host']),
                 escapeshellarg((string) $this->config['port']),
                 escapeshellarg($this->config['user']),

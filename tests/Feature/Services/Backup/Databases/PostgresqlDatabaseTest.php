@@ -78,7 +78,7 @@ test('restore uses pg_restore when dump_format config is custom', function () {
     $result = $db->restore('/tmp/snapshot.sql');
 
     expect($result->command)->toBe(
-        "PGPASSWORD='pg_secret' pg_restore --clean --if-exists --no-owner --no-privileges --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' '/tmp/snapshot.sql'"
+        "PGPASSWORD='pg_secret' pg_restore --clean --if-exists --no-owner --no-privileges --jobs=4 --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' '/tmp/snapshot.sql'"
     );
 });
 
