@@ -90,8 +90,10 @@ test('mysql backup and restore workflow', function (string $compression, string 
     ProcessRestoreJob::dispatchSync($restore->id);
 
     $pdo = IntegrationTestHelpers::connectToDatabase('mysql', $this->databaseServer, $this->restoredDatabaseName);
-    $stmt = $pdo->query('SHOW TABLES');
-    expect($stmt)->not->toBeFalse();
+    $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
+    expect($tables)->toContain('users')->toContain('products')
+        ->and((int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn())->toBe(2)
+        ->and((int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn())->toBe(2);
 })->with([
     'zstd' => ['zstd', 'zst'],
     'encrypted' => ['encrypted', '7z'],
@@ -147,8 +149,10 @@ test('postgres backup and restore workflow', function (?string $dumpFormat) {
     ProcessRestoreJob::dispatchSync($restore->id);
 
     $pdo = IntegrationTestHelpers::connectToDatabase('postgres', $this->databaseServer, $this->restoredDatabaseName);
-    $stmt = $pdo->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public'");
-    expect($stmt)->not->toBeFalse();
+    $tables = $pdo->query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name")->fetchAll(PDO::FETCH_COLUMN);
+    expect($tables)->toContain('users')->toContain('products')
+        ->and((int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn())->toBe(2)
+        ->and((int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn())->toBe(2);
 })->with([
     'plain format' => [null],
     'custom dump format' => ['custom'],
