@@ -119,6 +119,14 @@ services:
       timeout: 5s
       retries: 10
 
+  firebird:
+    image: firebirdsql/firebird
+    container_name: databasement-firebird
+    environment:
+      FIREBIRD_ROOT_PASSWORD: masterkey
+    volumes:
+      - firebird-data:/var/lib/firebird/data
+
   ssh:
     image: linuxserver/openssh-server:latest
     container_name: databasement-ssh
@@ -217,4 +225,5 @@ volumes:
   mongodb-data:
   redis-data:
   mssql-data:
+  firebird-data:
   ftp-data:

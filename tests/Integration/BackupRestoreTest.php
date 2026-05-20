@@ -30,6 +30,28 @@ beforeEach(function () {
     $this->restoredDatabaseName = null;
 });
 
+function prepareBackupWorkflow(string $databaseType): void
+{
+    test()->volume = IntegrationTestHelpers::createVolume($databaseType);
+    test()->databaseServer = IntegrationTestHelpers::createDatabaseServer($databaseType);
+    test()->backup = IntegrationTestHelpers::createBackup(test()->databaseServer, test()->volume);
+    test()->databaseServer->load('backups.volume');
+
+    IntegrationTestHelpers::loadTestData($databaseType, test()->databaseServer);
+}
+
+function runManualBackupSnapshot(): void
+{
+    test()->snapshot = test()->backupJobFactory->createSnapshots(
+        backup: test()->backup,
+        method: 'manual',
+    )[0];
+
+    ProcessBackupJob::dispatchSync(test()->snapshot->id);
+    test()->snapshot->refresh();
+    test()->snapshot->load('job');
+}
+
 afterEach(function () {
     // Cleanup restored database on the external database server
     if ($this->restoredDatabaseName && $this->databaseServer) {
@@ -363,4 +385,32 @@ test('redis backup workflow', function () {
         ->and($this->snapshot->database_name)->toBe('all')
         ->and($this->snapshot->filename)->toEndWith('.rdb.gz')
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
+});
+
+test('firebird backup and restore workflow', function () {
+    if (! IntegrationTestHelpers::canRunFirebirdIntegration()) {
+        test()->markTestSkipped('Firebird CLI and service are required for this integration test.');
+    }
+
+    prepareBackupWorkflow('firebird');
+    runManualBackupSnapshot();
+
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+
+    expect($this->snapshot->job->status)->toBe('completed')
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->filename)->toEndWith('.fbk.gz')
+        ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
+
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $this->restoredDatabaseName = '/var/lib/firebird/data/testdb_restored_'.hrtime(true).$suffix.'.fdb';
+    $restore = $this->backupJobFactory->createRestore(
+        snapshot: $this->snapshot,
+        targetServer: $this->databaseServer,
+        schemaName: $this->restoredDatabaseName,
+    );
+    ProcessRestoreJob::dispatchSync($restore->id);
+
+    $rowCount = IntegrationTestHelpers::verifyFirebirdRestore($this->databaseServer, $this->restoredDatabaseName);
+    expect($rowCount)->toBe(3);
 });

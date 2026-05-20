@@ -135,6 +135,11 @@ final class BackupForm
             return;
         }
 
+        if ($serverType === DatabaseType::FIREBIRD) {
+            $entry['database_selection_mode'] = DatabaseSelectionMode::Selected->value;
+            $entry['database_include_pattern'] = null;
+        }
+
         $mode = $entry['database_selection_mode'] ?? null;
 
         if ($mode !== DatabaseSelectionMode::Selected->value) {
@@ -164,7 +169,9 @@ final class BackupForm
             return;
         }
 
-        // Only needed when no multiselect options are loaded.
+        // Firebird uses the same free-text input as other client-server
+        // databases, but it never loads a selectable database list.
+        // Only skip normalization when a multiselect dropdown is actually in use.
         if (! empty($availableDatabases)) {
             return;
         }

@@ -1,3 +1,5 @@
+FROM firebirdsql/firebird:5.0.3 AS firebird
+
 FROM dunglas/frankenphp:1.12-php8.5-alpine
 
 RUN install-php-extensions \
@@ -45,7 +47,10 @@ RUN apk add --no-cache git \
         curl \
         unzip \
         icu-libs krb5-libs libgcc libssl3 libstdc++ zlib \
-        gcompat
+        gcompat \
+        libc6-compat \
+        procps-ng \
+        ncurses-libs
 
 # Install MongoDB tools (mongodump, mongorestore) from Alpine edge community repo
 RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mongodb-tools
@@ -64,6 +69,30 @@ RUN curl -fsSL -o /tmp/sqlpackage.zip "${SQLPACKAGE_URL}" \
     && chmod +x /opt/sqlpackage/sqlpackage \
     && ln -s /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage \
     && rm /tmp/sqlpackage.zip
+
+RUN mkdir -p /opt/firebird/compat
+COPY --from=firebird /opt/firebird /opt/firebird
+COPY --from=firebird /lib/x86_64-linux-gnu/libc.so.6 /opt/firebird/compat/
+COPY --from=firebird /lib/x86_64-linux-gnu/libdl.so.2 /opt/firebird/compat/
+COPY --from=firebird /lib/x86_64-linux-gnu/libgcc_s.so.1 /opt/firebird/compat/
+COPY --from=firebird /lib/x86_64-linux-gnu/libm.so.6 /opt/firebird/compat/
+COPY --from=firebird /lib/x86_64-linux-gnu/libpthread.so.0 /opt/firebird/compat/
+COPY --from=firebird /lib/x86_64-linux-gnu/libtommath.so.1 /opt/firebird/compat/
+COPY --from=firebird /lib64/ld-linux-x86-64.so.2 /opt/firebird/compat/
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'LOADER=/opt/firebird/compat/ld-linux-x86-64.so.2' \
+    'LIBRARY_PATH=/opt/firebird/lib:/opt/firebird/compat' \
+    'exec "$LOADER" --library-path "$LIBRARY_PATH" /opt/firebird/bin/gbak "$@"' \
+    > /usr/local/bin/gbak && \
+    printf '%s\n' \
+    '#!/bin/sh' \
+    'LOADER=/opt/firebird/compat/ld-linux-x86-64.so.2' \
+    'LIBRARY_PATH=/opt/firebird/lib:/opt/firebird/compat' \
+    'exec "$LOADER" --library-path "$LIBRARY_PATH" /opt/firebird/bin/isql "$@"' \
+    > /usr/local/bin/isql && \
+    ln -sf /usr/local/bin/isql /usr/local/bin/isql-fb && \
+    chmod 755 /usr/local/bin/gbak /usr/local/bin/isql
 
 COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini

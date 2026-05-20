@@ -306,7 +306,7 @@ use App\Enums\DatabaseType;
     </div>
 
     <!-- Enable Backups Toggle (shown after successful connection test, agent assigned, or when editing) -->
-    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit)
+    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isFirebird())
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
                 <x-toggle
@@ -320,7 +320,7 @@ use App\Enums\DatabaseType;
     @endif
 
     <!-- Section 3: Backup Configurations (collection of one or more) -->
-    @if(($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite()) && $form->backups_enabled)
+    @if(($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite() or $form->isFirebird()) && $form->backups_enabled)
         @php
             $volumes = $form->getAllVolumes();
             $schedules = $form->getBackupSchedules();
@@ -370,7 +370,7 @@ use App\Enums\DatabaseType;
     @endif
 
     <!-- Section 4: Notifications -->
-    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite())
+    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite() or $form->isFirebird())
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
                 <div class="flex items-center gap-3 mb-4">

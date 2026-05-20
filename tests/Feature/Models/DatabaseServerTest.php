@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 
@@ -93,4 +94,11 @@ test('requiresSftpTransfer returns correct value', function () {
         ->and($sqliteWithSsh->requiresSftpTransfer())->toBeTrue()
         ->and($sqliteLocal->requiresSftpTransfer())->toBeFalse()
         ->and($mysqlWithSsh->requiresSftpTransfer())->toBeFalse();
+});
+
+test('database type has firebird defaults for backup flow', function () {
+    $firebirdType = DatabaseType::from('firebird');
+
+    expect($firebirdType->defaultPort())->toBe(3050)
+        ->and($firebirdType->dumpExtension())->toBe('fbk');
 });

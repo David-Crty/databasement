@@ -16,6 +16,11 @@ use App\Services\Backup\RestoreTask;
 use App\Services\SshTunnelService;
 use Tests\Support\TestShellProcessor;
 
+const FIREBIRD_SOURCE_DATABASE = '/data/source.fdb';
+const FIREBIRD_RESTORE_TARGET_DATABASE = '/data/restore-target.fdb';
+const FIREBIRD_RESTORE_COMMAND = "echo 'firebird restore command'";
+const COMPRESSED_BACKUP_DATA = 'compressed backup data';
+
 beforeEach(function () {
     $this->shellProcessor = new TestShellProcessor;
     $this->compressorFactory = new CompressorFactory($this->shellProcessor);
@@ -38,6 +43,18 @@ function buildTargetConfig(string $host = 'localhost'): DatabaseConnectionConfig
         port: 3306,
         username: 'root',
         password: 'secret',
+    );
+}
+
+function buildFirebirdTargetConfig(string $host = 'fb.local', int $port = 3050): DatabaseConnectionConfig
+{
+    return new DatabaseConnectionConfig(
+        databaseType: DatabaseType::FIREBIRD,
+        serverName: 'Target Firebird',
+        host: $host,
+        port: $port,
+        username: 'sysdba',
+        password: 'masterkey',
     );
 }
 
@@ -65,6 +82,21 @@ function buildRestoreConfig(?string $workingDirectory = null): RestoreConfig
     );
 }
 
+function buildFirebirdRestoreConfig(?string $workingDirectory = null): RestoreConfig
+{
+    return new RestoreConfig(
+        targetServer: buildFirebirdTargetConfig(),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.fbk.gz',
+        snapshotFileSize: 2048,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::FIREBIRD,
+        snapshotDatabaseName: FIREBIRD_SOURCE_DATABASE,
+        schemaName: FIREBIRD_RESTORE_TARGET_DATABASE,
+        workingDirectory: $workingDirectory ?? test()->tempDir.'/restore-firebird-'.uniqid(),
+    );
+}
+
 function buildMockRestoreProvider(): DatabaseProvider
 {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
@@ -81,13 +113,56 @@ function buildMockRestoreProvider(): DatabaseProvider
     return $mockProvider;
 }
 
+function buildMockFirebirdRestoreProvider(): DatabaseProvider
+{
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('prepareForRestore')->once()->with(FIREBIRD_RESTORE_TARGET_DATABASE, Mockery::any(), false)->andReturnNull();
+    $mockHandler->shouldReceive('restore')
+        ->once()
+        ->with(Mockery::on(function (string $workingFile): bool {
+            return file_exists($workingFile) && ! str_ends_with($workingFile, '.gz');
+        }))
+        ->andReturn(new DatabaseOperationResult(command: FIREBIRD_RESTORE_COMMAND));
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')
+        ->once()
+        ->with(
+            Mockery::on(fn (DatabaseConnectionConfig $connectionConfig) => $connectionConfig->databaseType === DatabaseType::FIREBIRD),
+            FIREBIRD_RESTORE_TARGET_DATABASE,
+            'fb.local',
+            3050,
+            FIREBIRD_SOURCE_DATABASE,
+            null,
+        )
+        ->andReturn($mockHandler);
+
+    return $mockProvider;
+}
+
 function setupDownloadMock(): void
 {
     test()->filesystemProvider
         ->shouldReceive('downloadFromConfig')
         ->once()
-        ->andReturnUsing(function ($volumeConfig, $remoteFilename, $destination) {
-            file_put_contents($destination, 'compressed backup data');
+        ->andReturnUsing(function (...$arguments) {
+            file_put_contents($arguments[2], COMPRESSED_BACKUP_DATA);
+        });
+}
+
+function setupFirebirdDownloadMock(RestoreConfig $config): void
+{
+    test()->filesystemProvider
+        ->shouldReceive('downloadFromConfig')
+        ->once()
+        ->with(
+            Mockery::type(VolumeConfig::class),
+            'backup.fbk.gz',
+            Mockery::on(fn (string $destination) => str_starts_with($destination, $config->workingDirectory.'/')
+                && str_ends_with($destination, '.gz'))
+        )
+        ->andReturnUsing(function (...$arguments) {
+            file_put_contents($arguments[2], COMPRESSED_BACKUP_DATA);
         });
 }
 
@@ -452,6 +527,68 @@ test('execute cleans up working directory on failure', function () {
 
     expect(fn () => $restoreTask->execute($config, new InMemoryBackupLogger))
         ->toThrow(\App\Exceptions\ShellProcessFailed::class);
+
+    expect(is_dir($config->workingDirectory))->toBeFalse();
+});
+
+test('execute restores firebird snapshot and runs download/decompress/cleanup lifecycle', function () {
+    $config = buildFirebirdRestoreConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $mockProvider = buildMockFirebirdRestoreProvider();
+    setupFirebirdDownloadMock($config);
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $restoreTask->execute($config, new InMemoryBackupLogger);
+
+    expect($this->shellProcessor->hasCommand(FIREBIRD_RESTORE_COMMAND))->toBeTrue()
+        ->and(is_dir($config->workingDirectory))->toBeFalse();
+});
+
+test('execute propagates firebird restore command failure and cleans up working directory', function () {
+    $config = buildFirebirdRestoreConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $mockProvider = buildMockFirebirdRestoreProvider();
+    setupFirebirdDownloadMock($config);
+
+    $shellProcessor = Mockery::mock(\App\Services\Backup\ShellProcessor::class);
+    $shellProcessor->shouldReceive('setLogger')->once();
+    $shellProcessor->shouldReceive('process')
+        ->once()
+        ->with(FIREBIRD_RESTORE_COMMAND)
+        ->andThrow(new \App\Exceptions\ShellProcessFailed('Firebird restore failed'));
+
+    $compressor = Mockery::mock(\App\Services\Backup\Compressors\CompressorInterface::class);
+    $compressor->shouldReceive('decompress')
+        ->once()
+        ->andReturnUsing(function (string $compressedFile) {
+            $decompressedFile = preg_replace('/\.gz$/', '', $compressedFile);
+            file_put_contents($decompressedFile, '-- Fake Firebird backup data');
+
+            return $decompressedFile;
+        });
+
+    $compressorFactory = Mockery::mock(\App\Services\Backup\Compressors\CompressorFactory::class);
+    $compressorFactory->shouldReceive('make')->once()->with(CompressionType::GZIP)->andReturn($compressor);
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $shellProcessor,
+        $this->filesystemProvider,
+        $compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    expect(fn () => $restoreTask->execute($config, new InMemoryBackupLogger))
+        ->toThrow(\App\Exceptions\ShellProcessFailed::class, 'Firebird restore failed');
 
     expect(is_dir($config->workingDirectory))->toBeFalse();
 });

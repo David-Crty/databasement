@@ -25,6 +25,13 @@ test('make returns correct handler for database type', function (DatabaseType $t
     'mongodb' => [DatabaseType::MONGODB, MongodbDatabase::class],
 ]);
 
+test('make returns firebird handler for firebird type', function () {
+    $factory = new DatabaseProvider;
+    $firebirdType = DatabaseType::from('firebird');
+
+    expect($factory->make($firebirdType))->toBeInstanceOf('App\\Services\\Backup\\Databases\\FirebirdDatabase');
+});
+
 test('makeForServer uses explicit host and port parameters', function () {
     $server = DatabaseServer::factory()->create([
         'database_type' => 'mysql',
@@ -149,6 +156,24 @@ test('makeForServer passes sourceDatabaseName for mongodb restore', function () 
     $result = $database->restore('/tmp/dump.archive');
     expect($result->command)->toContain("--nsFrom='sourcedb.*'")
         ->toContain("--nsTo='targetdb.*'");
+});
+
+test('makeForServer passes firebird target database path for restore', function () {
+    $server = DatabaseServer::factory()->firebird()->create([
+        'host' => 'fb.internal',
+        'port' => 3050,
+        'username' => 'sysdba',
+        'password' => 'masterkey',
+        'database_names' => ['/data/main.fdb'],
+    ]);
+
+    $factory = new DatabaseProvider;
+
+    $database = $factory->makeForServer($server, '/data/restore-target.fdb', '127.0.0.1', 43050);
+
+    $result = $database->restore('/tmp/restore.fbk');
+    expect($result->command)->toContain("'127.0.0.1/43050:/data/restore-target.fdb'")
+        ->toContain("'/tmp/restore.fbk'");
 });
 
 test('testConnectionForServer delegates to handler testConnection', function (string $dbType, string $expectedDbName) {

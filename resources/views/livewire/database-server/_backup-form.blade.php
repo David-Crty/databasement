@@ -7,6 +7,7 @@
     /** @var array<string, mixed> $backup */
     $serverType = DatabaseType::tryFrom($form->database_type);
     $isSqlite = $serverType === DatabaseType::SQLITE;
+    $isFirebird = $serverType === DatabaseType::FIREBIRD;
     $showDatabaseSelection = $serverType !== null
         && ! in_array($serverType, [DatabaseType::SQLITE, DatabaseType::REDIS], true);
 
@@ -147,6 +148,44 @@
                         wire:model.live="form.backups.{{ $index }}.database_selection_mode"
                     />
                 </x-radio-card-group>
+                @if($isFirebird)
+                    <div class="rounded-lg border border-base-300 bg-base-100 p-4 flex items-start gap-3">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-info/10 text-info">
+                            <x-icon name="o-information-circle" class="w-3.5 h-3.5" />
+                        </span>
+                        <div class="flex-1 min-w-0 space-y-1">
+                            <p class="text-sm font-medium">{{ __('Firebird backups require explicit database paths.') }}</p>
+                            <p class="text-sm text-base-content/70">{{ __('This backup configuration always uses Selected mode, and connection tests need at least one database path.') }}</p>
+                        </div>
+                    </div>
+                @else
+                    <x-radio-card-group class="grid-cols-1 sm:grid-cols-3" :label="__('Database selection mode')">
+                        <x-radio-card
+                            :active="($backup['database_selection_mode'] ?? '') === DatabaseSelectionMode::All->value"
+                            icon="o-circle-stack"
+                            :label="__('All databases')"
+                            :hint="__('Back up every user database')"
+                            :value="DatabaseSelectionMode::All->value"
+                            wire:model.live="form.backups.{{ $index }}.database_selection_mode"
+                        />
+                        <x-radio-card
+                            :active="($backup['database_selection_mode'] ?? '') === DatabaseSelectionMode::Selected->value"
+                            icon="o-check-badge"
+                            :label="__('Selected')"
+                            :hint="__('Pick specific databases')"
+                            :value="DatabaseSelectionMode::Selected->value"
+                            wire:model.live="form.backups.{{ $index }}.database_selection_mode"
+                        />
+                        <x-radio-card
+                            :active="($backup['database_selection_mode'] ?? '') === DatabaseSelectionMode::Pattern->value"
+                            icon="bi.regex"
+                            :label="__('Pattern')"
+                            :hint="__('Filter by regex')"
+                            :value="DatabaseSelectionMode::Pattern->value"
+                            wire:model.live="form.backups.{{ $index }}.database_selection_mode"
+                        />
+                    </x-radio-card-group>
+                @endif
 
                 {{-- All Databases sub-panel --}}
                 @if(($backup['database_selection_mode'] ?? '') === DatabaseSelectionMode::All->value)

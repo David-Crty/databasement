@@ -12,6 +12,7 @@ enum DatabaseType: string
     case REDIS = 'redis';
     case MONGODB = 'mongodb';
     case MSSQL = 'mssql';
+    case FIREBIRD = 'firebird';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum DatabaseType: string
             self::REDIS => 'Redis / Valkey',
             self::MONGODB => 'MongoDB',
             self::MSSQL => 'Microsoft SQL Server',
+            self::FIREBIRD => 'Firebird',
         };
     }
 
@@ -34,6 +36,7 @@ enum DatabaseType: string
             self::REDIS => 'devicon.redis',
             self::MONGODB => 'devicon.mongodb',
             self::MSSQL => 'devicon.microsoftsqlserver',
+            self::FIREBIRD => 'o-circle-stack',
         };
     }
 
@@ -46,6 +49,7 @@ enum DatabaseType: string
             self::REDIS => 6379,
             self::MONGODB => 27017,
             self::MSSQL => 1433,
+            self::FIREBIRD => 3050,
         };
     }
 
@@ -80,6 +84,7 @@ enum DatabaseType: string
             self::MSSQL => $database
                 ? sprintf('sqlsrv:Server=%s,%d;Database=%s;TrustServerCertificate=true;Encrypt=true', $host, $port, $database)
                 : sprintf('sqlsrv:Server=%s,%d;TrustServerCertificate=true;Encrypt=true', $host, $port),
+            self::FIREBIRD => throw new \RuntimeException('Firebird does not support PDO connections'),
         };
     }
 
@@ -92,7 +97,7 @@ enum DatabaseType: string
      */
     public function createPdo(DatabaseServer $server, ?string $database = null, int $timeout = 30): \PDO
     {
-        if (in_array($this, [self::REDIS, self::MONGODB], true)) {
+        if (in_array($this, [self::REDIS, self::MONGODB, self::FIREBIRD], true)) {
             throw new \RuntimeException("{$this->label()} does not support PDO connections");
         }
 
@@ -142,6 +147,7 @@ enum DatabaseType: string
             self::REDIS => 'rdb',
             self::MONGODB => 'archive',
             self::MSSQL => 'dacpac',
+            self::FIREBIRD => 'fbk',
             default => 'sql',
         };
     }

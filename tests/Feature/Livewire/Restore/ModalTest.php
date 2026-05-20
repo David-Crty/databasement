@@ -41,7 +41,7 @@ test('from-server mode: navigates step 1 -> step 2 by picking a snapshot', funct
         ->call('selectSnapshot', $snapshot->id)
         ->assertSet('selectedSnapshotId', $snapshot->id)
         ->assertSet('currentStep', 2);
-})->with(['mysql', 'postgres', 'sqlite']);
+})->with(['mysql', 'postgres', 'sqlite', 'firebird']);
 
 test('from-server mode: queues restore job and dispatches restore-created', function () {
     Queue::fake();
@@ -123,6 +123,72 @@ test('from-server mode: sqlite pre-fills schema with target server database path
         ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
         ->call('selectSnapshot', $snapshot->id)
         ->assertSet('schemaName', '/data/production.sqlite');
+});
+
+test('from-server mode: shows firebird snapshots for firebird targets', function () {
+    $target = DatabaseServer::factory()->firebird()->create();
+
+    $firebirdSource = DatabaseServer::factory()->firebird()->create();
+    $snapshot = Snapshot::factory()->forServer($firebirdSource)->withFile()->create([
+        'database_name' => '/data/source.fdb',
+    ]);
+
+    $mysqlSource = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    Snapshot::factory()->forServer($mysqlSource)->withFile()->create([
+        'database_name' => 'mysql_db',
+    ]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->assertSee($firebirdSource->name)
+        ->assertSee($snapshot->database_name)
+        ->assertDontSee($mysqlSource->name);
+});
+
+test('from-server mode: firebird restore allows path-style schema names', function () {
+    Queue::fake();
+
+    $target = DatabaseServer::factory()->firebird()->create();
+    $source = DatabaseServer::factory()->firebird()->create();
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('schemaName', '/data/Main Database.fdb')
+        ->call('restore')
+        ->assertHasNoErrors()
+        ->assertDispatched('restore-created');
+
+    Queue::assertPushed(ProcessRestoreJob::class, 1);
+
+    $restore = Restore::where('snapshot_id', $snapshot->id)
+        ->where('target_server_id', $target->id)
+        ->first();
+
+    expect($restore)->not->toBeNull()
+        ->and($restore->schema_name)->toBe('/data/Main Database.fdb')
+        ->and((string) $restore->triggered_by_user_id)->toBe((string) $this->user->id)
+        ->and($restore->job)->not->toBeNull()
+        ->and($restore->job->status)->toBe('pending');
+});
+
+test('from-server mode: firebird restore rejects unsafe schema names with shell metacharacters', function () {
+    Queue::fake();
+
+    $target = DatabaseServer::factory()->firebird()->create();
+    $source = DatabaseServer::factory()->firebird()->create();
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('schemaName', '/data/main;rm -rf.fdb')
+        ->call('restore')
+        ->assertHasErrors(['schemaName' => ['regex']])
+        ->assertSee('Database name can only contain letters, numbers, spaces, slashes, dots, dashes, colons, and underscores.');
+
+    Queue::assertNotPushed(ProcessRestoreJob::class);
 });
 
 test('from-server mode: prevents restoring over the application database', function () {
