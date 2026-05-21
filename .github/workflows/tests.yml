@@ -3,8 +3,7 @@ name: tests
 on:
   push:
     branches: [main]
-  pull_request_target:
-    types: [opened, synchronize, reopened]
+  pull_request:
 
 permissions:
   contents: read
@@ -98,8 +97,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -122,17 +119,18 @@ jobs:
       - name: Run Tests
         run: php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v6
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: coverage
-          files: coverage.xml
-          skip_validation: true
+      - name: Save PR metadata
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
 
-      - name: Upload test results to Codecov
-        uses: codecov/codecov-action@v6
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
-          skip_validation: true
+          name: coverage-reports
+          path: |
+            coverage.xml
+            junit.xml
+            pr-number.txt
+          retention-days: 1
+          if-no-files-found: ignore
