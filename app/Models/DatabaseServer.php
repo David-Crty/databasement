@@ -45,7 +45,6 @@ use Illuminate\Support\Carbon;
  * @property-read int|null $snapshots_count
  * @property-read Collection<int, NotificationChannel> $notificationChannels
  * @property-read int|null $notification_channels_count
- *
  * @method static DatabaseServerFactory factory($count = null, $state = [])
  * @method static Builder<static>|DatabaseServer newModelQuery()
  * @method static Builder<static>|DatabaseServer newQuery()
@@ -61,8 +60,8 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|DatabaseServer whereUpdatedAt($value)
  * @method static Builder<static>|DatabaseServer whereUsername($value)
  * @method static Builder<static>|DatabaseServer whereBackupsEnabled($value)
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperDatabaseServer
  */
 class DatabaseServer extends Model
 {

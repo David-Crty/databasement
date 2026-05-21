@@ -26,7 +26,6 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Restore|null $restore
  * @property-read Snapshot|null $snapshot
- *
  * @method static Builder<static>|BackupJob newModelQuery()
  * @method static Builder<static>|BackupJob newQuery()
  * @method static Builder<static>|BackupJob query()
@@ -41,8 +40,8 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|BackupJob whereStartedAt($value)
  * @method static Builder<static>|BackupJob whereStatus($value)
  * @method static Builder<static>|BackupJob whereUpdatedAt($value)
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperBackupJob
  */
 class BackupJob extends Model implements BackupLogger
 {

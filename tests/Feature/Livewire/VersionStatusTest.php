@@ -5,14 +5,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
-
-class VersionStatusWithoutGit extends VersionStatus
-{
-    protected function getGitShortHash(): ?string
-    {
-        return null;
-    }
-}
+use Tests\Support\VersionStatusWithoutGit;
 
 beforeEach(function () {
     config(['app.version' => null, 'app.commit_hash' => null]);

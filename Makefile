@@ -71,10 +71,13 @@ lint-fix: ## Fix code style with Laravel Pint
 
 lint: lint-fix ## Alias for lint-fix
 
+ide-helper: ## Regenerate _ide_helper_models.php (gitignored; consumed by PHPStan via scanFiles)
+	$(PHP_EXEC) php artisan ide-helper:models --write-mixin --no-interaction
+
 phpstan: ## Run PHPStan static analysis
 	$(PHP_EXEC) vendor/bin/phpstan analyse --memory-limit=1G
 
-pre-commit: lint-fix phpstan test ## Run all pre-commit checks (lint, phpstan, tests)
+pre-commit: lint-fix ide-helper phpstan test ## Run all pre-commit checks (lint, ide-helper, phpstan, tests)
 
 ##@ Assets
 

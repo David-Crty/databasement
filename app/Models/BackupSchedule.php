@@ -18,8 +18,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Collection<int, Backup> $backups
  * @property-read int|null $backups_count
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperBackupSchedule
  */
 class BackupSchedule extends Model
 {

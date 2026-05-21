@@ -24,8 +24,8 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Collection<int, DatabaseServer> $databaseServers
- *
  * @method static DatabaseServerSshConfigFactory factory($count = null, $state = [])
+ * @mixin IdeHelperDatabaseServerSshConfig
  */
 class DatabaseServerSshConfig extends Model
 {

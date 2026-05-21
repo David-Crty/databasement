@@ -42,7 +42,6 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read int|null $oauth_identities_count
  * @property-read Collection<int, Organization> $organizations
  * @property-read int|null $organizations_count
- *
  * @method static Builder<static>|User active()
  * @method static UserFactory factory($count = null, $state = [])
  * @method static Builder<static>|User newModelQuery()
@@ -63,11 +62,10 @@ use Laravel\Sanctum\HasApiTokens;
  * @method static Builder<static>|User whereTwoFactorRecoveryCodes($value)
  * @method static Builder<static>|User whereTwoFactorSecret($value)
  * @method static Builder<static>|User whereUpdatedAt($value)
- *
  * @property-read Collection<int, \Laravel\Sanctum\PersonalAccessToken> $tokens
  * @property-read int|null $tokens_count
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperUser
  */
 class User extends Authenticatable
 {

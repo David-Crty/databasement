@@ -26,7 +26,6 @@ use Illuminate\Support\Facades\Crypt;
  * @property-read int|null $backups_count
  * @property-read Collection<int, Snapshot> $snapshots
  * @property-read int|null $snapshots_count
- *
  * @method static VolumeFactory factory($count = null, $state = [])
  * @method static Builder<static>|Volume newModelQuery()
  * @method static Builder<static>|Volume newQuery()
@@ -37,8 +36,8 @@ use Illuminate\Support\Facades\Crypt;
  * @method static Builder<static>|Volume whereName($value)
  * @method static Builder<static>|Volume whereType($value)
  * @method static Builder<static>|Volume whereUpdatedAt($value)
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperVolume
  */
 class Volume extends Model
 {

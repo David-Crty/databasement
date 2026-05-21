@@ -27,13 +27,12 @@ use Illuminate\Support\Carbon;
  * @property-read int|null $volumes_count
  * @property-read Collection<int, Agent> $agents
  * @property-read int|null $agents_count
- *
  * @method static OrganizationFactory factory($count = null, $state = [])
  * @method static Builder<static>|Organization newModelQuery()
  * @method static Builder<static>|Organization newQuery()
  * @method static Builder<static>|Organization query()
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperOrganization
  */
 class Organization extends Model
 {

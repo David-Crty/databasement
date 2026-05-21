@@ -34,13 +34,12 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Snapshot> $snapshots
  * @property-read int|null $snapshots_count
  * @property-read Volume $volume
- *
  * @method static BackupFactory factory($count = null, $state = [])
  * @method static Builder<static>|Backup newModelQuery()
  * @method static Builder<static>|Backup newQuery()
  * @method static Builder<static>|Backup query()
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperBackup
  */
 class Backup extends Model
 {

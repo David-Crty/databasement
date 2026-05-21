@@ -42,7 +42,6 @@ use Illuminate\Support\Carbon;
  * @property-read BackupJob $job
  * @property-read User|null $triggeredBy
  * @property-read Volume $volume
- *
  * @method static Builder<static>|Snapshot forDatabaseServer(DatabaseServer $databaseServer)
  * @method static Builder<static>|Snapshot newModelQuery()
  * @method static Builder<static>|Snapshot newQuery()
@@ -65,11 +64,10 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Snapshot whereUpdatedAt($value)
  * @method static Builder<static>|Snapshot whereVolumeId($value)
  * @method static SnapshotFactory factory($count = null, $state = [])
- *
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Restore> $restores
  * @property-read int|null $restores_count
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperSnapshot
  */
 class Snapshot extends Model
 {

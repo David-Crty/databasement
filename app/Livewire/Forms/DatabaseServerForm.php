@@ -968,6 +968,7 @@ class DatabaseServerForm extends Form
         $serverData['organization_id'] = app(CurrentOrganization::class)->id();
 
         DB::transaction(function () use ($serverData): void {
+            /** @var array<string, mixed> $serverData */
             $server = DatabaseServer::create($serverData);
             $this->syncBackupConfigurations($server);
             $this->syncNotificationChannels($server);

@@ -30,7 +30,6 @@ use Illuminate\Support\Carbon;
  * @property-read Agent|null $agent
  * @property-read DatabaseServer|null $databaseServer
  * @property-read Snapshot|null $snapshot
- *
  * @method static AgentJobFactory factory($count = null, $state = [])
  * @method static Builder<static>|AgentJob newModelQuery()
  * @method static Builder<static>|AgentJob newQuery()
@@ -41,8 +40,8 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|AgentJob whereStatus($value)
  * @method static Builder<static>|AgentJob whereCreatedAt($value)
  * @method static Builder<static>|AgentJob whereUpdatedAt($value)
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperAgentJob
  */
 class AgentJob extends Model
 {

@@ -13,7 +13,6 @@
         "mcp-development",
         "socialite-development",
         "livewire-development",
-        "pest-testing",
-        "tailwindcss-development"
+        "pest-testing"
     ]
 }

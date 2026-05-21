@@ -24,7 +24,6 @@ use Laravel\Sanctum\HasApiTokens;
  * @property-read int|null $database_servers_count
  * @property-read Collection<int, AgentJob> $agentJobs
  * @property-read int|null $agent_jobs_count
- *
  * @method static AgentFactory factory($count = null, $state = [])
  * @method static Builder<static>|Agent newModelQuery()
  * @method static Builder<static>|Agent newQuery()
@@ -34,8 +33,8 @@ use Laravel\Sanctum\HasApiTokens;
  * @method static Builder<static>|Agent whereLastHeartbeatAt($value)
  * @method static Builder<static>|Agent whereCreatedAt($value)
  * @method static Builder<static>|Agent whereUpdatedAt($value)
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperAgent
  */
 class Agent extends Model
 {

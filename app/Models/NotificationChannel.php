@@ -22,13 +22,12 @@ use Illuminate\Support\Facades\Crypt;
  * @property Carbon|null $updated_at
  * @property-read Collection<int, DatabaseServer> $databaseServers
  * @property-read int|null $database_servers_count
- *
  * @method static NotificationChannelFactory factory($count = null, $state = [])
  * @method static Builder<static>|NotificationChannel newModelQuery()
  * @method static Builder<static>|NotificationChannel newQuery()
  * @method static Builder<static>|NotificationChannel query()
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperNotificationChannel
  */
 class NotificationChannel extends Model
 {

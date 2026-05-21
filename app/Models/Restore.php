@@ -22,7 +22,6 @@ use Illuminate\Support\Carbon;
  * @property-read Snapshot $snapshot
  * @property-read DatabaseServer $targetServer
  * @property-read User|null $triggeredBy
- *
  * @method static Builder<static>|Restore newModelQuery()
  * @method static Builder<static>|Restore newQuery()
  * @method static Builder<static>|Restore query()
@@ -34,8 +33,8 @@ use Illuminate\Support\Carbon;
  * @method static Builder<static>|Restore whereTargetServerId($value)
  * @method static Builder<static>|Restore whereTriggeredByUserId($value)
  * @method static Builder<static>|Restore whereUpdatedAt($value)
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperRestore
  */
 class Restore extends Model
 {

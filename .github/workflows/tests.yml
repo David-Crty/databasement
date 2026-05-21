@@ -110,13 +110,17 @@ jobs:
       - name: Run Pint
         run: vendor/bin/pint
 
+      - name: Migrate database
+        run: php artisan migrate --force
+
+      - name: Generate IDE helper models
+        run: php artisan ide-helper:models --write-mixin --no-interaction
+
       - name: Run phpstan
         run: vendor/bin/phpstan analyse
 
       - name: Run Tests
-        run: |
-          php artisan migrate --force
-          php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml
+        run: php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v6
