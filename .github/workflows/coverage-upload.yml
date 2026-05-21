@@ -17,6 +17,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download coverage artifact
+        # Producer uses `if-no-files-found: ignore`, so the artifact may be
+        # absent when tests crashed before generating any reports. Continue
+        # so the downstream `hashFiles` gates can no-op cleanly.
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: coverage-reports
@@ -37,7 +41,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: coverage
           files: coverage.xml
-          skip_validation: true
           override_commit: ${{ github.event.workflow_run.head_sha }}
           override_branch: ${{ github.event.workflow_run.head_branch }}
           override_pr: ${{ steps.pr.outputs.number }}
@@ -49,7 +52,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           files: junit.xml
-          skip_validation: true
           override_commit: ${{ github.event.workflow_run.head_sha }}
           override_branch: ${{ github.event.workflow_run.head_branch }}
           override_pr: ${{ steps.pr.outputs.number }}
