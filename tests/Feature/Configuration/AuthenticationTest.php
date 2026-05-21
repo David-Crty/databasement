@@ -11,6 +11,7 @@ test('authentication page displays SSO environment variables', function () {
     Livewire::actingAs($user)
         ->test(Authentication::class)
         ->assertSee('Configuration')
+        ->assertSee('OAUTH_ONLY_MODE')
         ->assertSee('OAUTH_GOOGLE_ENABLED')
         ->assertSee('OAUTH_GITHUB_ENABLED')
         ->assertSee('OAUTH_GITLAB_ENABLED')

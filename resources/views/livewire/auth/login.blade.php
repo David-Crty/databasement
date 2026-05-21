@@ -1,11 +1,22 @@
+@php
+    $oauthOnlyMode = (bool) config('oauth.only_mode');
+    $oauthProviders = app(\App\Services\OAuthService::class)->getEnabledProviders();
+@endphp
+
 <x-layouts::auth>
     <div class="flex flex-col gap-6">
         <div class="flex w-full flex-col text-center">
             <h1 class="text-2xl font-bold">{{ __('Log in to your account') }}</h1>
-            <p class="text-sm opacity-70">{{ __('Enter your email and password below to log in') }}</p>
+            <p class="text-sm opacity-70">
+                @if ($oauthOnlyMode)
+                    {{ __('Sign in with your identity provider to continue') }}
+                @else
+                    {{ __('Enter your email and password below to log in') }}
+                @endif
+            </p>
         </div>
 
-        @if (config('app.demo_mode'))
+        @if (config('app.demo_mode') && ! $oauthOnlyMode)
             <x-alert class="alert-info" icon="o-information-circle">
                 {{ __('Demo mode: credentials are pre-filled. Just click Log in!') }}
             </x-alert>
@@ -23,54 +34,53 @@
             <x-alert class="alert-error" icon="o-exclamation-circle">{{ $message }}</x-alert>
         @enderror
 
-        <x-form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-6">
-            @csrf
+        @unless ($oauthOnlyMode)
+            <x-form method="POST" action="{{ route('login.store') }}" class="flex flex-col gap-6">
+                @csrf
 
-            <!-- Email Address -->
-            <x-input
-                name="email"
-                label="{{ __('Email address') }}"
-                type="email"
-                required
-                autofocus
-                autocomplete="email"
-                placeholder="email@example.com"
-                value="{{ config('app.demo_mode') ? config('app.demo_user_email') : old('email') }}"
-            />
-
-            <!-- Password -->
-            <div class="relative">
-                <x-password
-                    name="password"
-                    label="{{ __('Password') }}"
+                <!-- Email Address -->
+                <x-input
+                    name="email"
+                    label="{{ __('Email address') }}"
+                    type="email"
                     required
-                    autocomplete="current-password"
-                    placeholder="{{ __('Password') }}"
-                    value="{{ config('app.demo_mode') ? config('app.demo_user_password') : '' }}"
+                    autofocus
+                    autocomplete="email"
+                    placeholder="email@example.com"
+                    value="{{ config('app.demo_mode') ? config('app.demo_user_email') : old('email') }}"
                 />
 
-                @if (Route::has('password.request'))
-                    <a href="{{ route('password.request') }}" class="absolute top-0 text-sm end-0 link link-hover" wire:navigate>
-                        {{ __('Forgot your password?') }}
-                    </a>
-                @endif
-            </div>
+                <!-- Password -->
+                <div class="relative">
+                    <x-password
+                        name="password"
+                        label="{{ __('Password') }}"
+                        required
+                        autocomplete="current-password"
+                        placeholder="{{ __('Password') }}"
+                        value="{{ config('app.demo_mode') ? config('app.demo_user_password') : '' }}"
+                    />
 
-            <!-- Remember Me -->
-            <x-checkbox name="remember" label="{{ __('Remember me') }}" :checked="old('remember')" />
+                    @if (Route::has('password.request'))
+                        <a href="{{ route('password.request') }}" class="absolute top-0 text-sm end-0 link link-hover" wire:navigate>
+                            {{ __('Forgot your password?') }}
+                        </a>
+                    @endif
+                </div>
 
-            <div class="flex items-center justify-end">
-                <x-button type="submit" class="btn-primary w-full" label="{{ __('Log in') }}" data-test="login-button" />
-            </div>
-        </x-form>
+                <!-- Remember Me -->
+                <x-checkbox name="remember" label="{{ __('Remember me') }}" :checked="old('remember')" />
 
-        {{-- OAuth Providers Section --}}
-        @php
-            $oauthProviders = app(\App\Services\OAuthService::class)->getEnabledProviders();
-        @endphp
+                <div class="flex items-center justify-end">
+                    <x-button type="submit" class="btn-primary w-full" label="{{ __('Log in') }}" data-test="login-button" />
+                </div>
+            </x-form>
+        @endunless
 
         @if (count($oauthProviders) > 0)
-            <div class="divider">{{ __('or continue with') }}</div>
+            @unless ($oauthOnlyMode)
+                <div class="divider">{{ __('or continue with') }}</div>
+            @endunless
 
             <div class="flex flex-col gap-3">
                 @foreach ($oauthProviders as $key => $provider)
@@ -80,6 +90,10 @@
                     </a>
                 @endforeach
             </div>
+        @elseif ($oauthOnlyMode)
+            <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                {{ __('OAuth-only mode is enabled but no OAuth providers are configured. Please contact your administrator.') }}
+            </x-alert>
         @endif
     </div>
 </x-layouts::auth>

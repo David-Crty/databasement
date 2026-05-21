@@ -112,16 +112,16 @@
             @scope('cell_status', $restore)
                 @php $status = $restore->job?->status ?? 'pending'; $job = $restore->job; @endphp
                 @if($status === 'completed')
-                    <x-badge :value="__('Completed')" class="badge-success badge-soft badge-sm" />
+                    <x-badge :value="__('Completed')" class="badge-success badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
                 @elseif($status === 'failed')
-                    <x-badge :value="__('Failed')" class="badge-error badge-soft badge-sm" />
+                    <x-badge :value="__('Failed')" class="badge-error badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
                 @elseif($status === 'running')
-                    <span class="badge badge-warning badge-soft badge-sm gap-1">
-                        <x-loading class="loading-spinner loading-xs" />
+                    <x-badge class="badge-warning badge-soft badge-sm gap-1 h-auto py-1 whitespace-normal text-center">
+                        <x-loading class="loading-spinner loading-xs shrink-0" />
                         {{ __('Running') }}
-                    </span>
+                    </x-badge>
                 @else
-                    <x-badge :value="__('Pending')" class="badge-info badge-soft badge-sm" />
+                    <x-badge :value="__('Pending')" class="badge-info badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
                 @endif
 
                 @if($status === 'running' && $job?->started_at)

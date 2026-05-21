@@ -149,6 +149,44 @@ test('user without organization is logged out with error', function () {
     $this->assertGuest();
 });
 
+test('oauth-only mode hides password form on login screen', function () {
+    User::factory()->create();
+    config()->set('oauth.only_mode', true);
+    config()->set('oauth.providers.github.enabled', true);
+    config()->set('oauth.providers.github.client_id', 'test');
+    config()->set('oauth.providers.github.client_secret', 'test');
+
+    $response = $this->get(route('login'));
+
+    $response->assertStatus(200);
+    $response->assertDontSee('name="password"', false);
+    $response->assertDontSee(route('login.store'));
+    $response->assertSeeText('Continue with GitHub');
+});
+
+test('oauth-only mode rejects password authentication even with valid credentials', function () {
+    $user = User::factory()->withoutTwoFactor()->create();
+    config()->set('oauth.only_mode', true);
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $response->assertSessionHasErrors([
+        'email' => 'Password login is disabled. Please sign in with an OAuth provider.',
+    ]);
+
+    $this->assertGuest();
+});
+
+test('oauth-only mode disables password reset routes', function () {
+    User::factory()->create();
+    config()->set('oauth.only_mode', true);
+
+    $this->get('/forgot-password')->assertNotFound();
+});
+
 test('users can logout', function () {
     $user = User::factory()->create();
 

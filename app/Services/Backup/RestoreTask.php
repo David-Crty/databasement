@@ -58,7 +58,7 @@ class RestoreTask
             }
 
             $humanFileSize = Formatters::humanFileSize($config->snapshotFileSize);
-            $compressedFile = $config->workingDirectory.'/snapshot.'.$config->snapshotDatabaseType->dumpExtension().'.'.$config->snapshotCompressionType->extension();
+            $compressedFile = $config->workingDirectory.'/snapshot.'.$config->snapshotDatabaseType->dumpExtension($config->snapshotDumpFormat).'.'.$config->snapshotCompressionType->extension();
             $compressor = $this->compressorFactory->make($config->snapshotCompressionType);
 
             // Download snapshot from volume
@@ -82,6 +82,7 @@ class RestoreTask
                 $this->getConnectionHost($target),
                 $this->getConnectionPort($target),
                 $config->snapshotDatabaseName,
+                $config->snapshotDumpFormat,
             );
 
             $this->prepareDatabase($database, $config->schemaName, $logger, $config->forceDatabase);

@@ -11,8 +11,14 @@ use App\Support\Formatters;
  * Microsoft SQL Server handler.
  *
  * Backup and restore both go through Microsoft's `sqlpackage` CLI
- * (`/Action:Export` produces a `.bacpac`, `/Action:Import` consumes one).
- * Connection tests, listDatabases, and the drop-before-import step in
+ * (`/Action:Extract` produces a `.dacpac` with table data, `/Action:Publish`
+ * consumes one). We chose Extract/Publish over Export/Import because BACPAC
+ * validates against Azure SQL Database compatibility and rejects on-prem
+ * artefacts like `[NT AUTHORITY\SYSTEM]` Windows logins (SQL71627). DACPAC
+ * lets us exclude server-bound objects (users, logins, permissions) that we
+ * don't want to round-trip anyway.
+ *
+ * Connection tests, listDatabases, and the drop-before-publish step in
  * prepareForRestore use the `pdo_sqlsrv` extension.
  */
 class MssqlDatabase implements DatabaseInterface
@@ -39,7 +45,7 @@ class MssqlDatabase implements DatabaseInterface
     {
         $parts = [
             'sqlpackage',
-            '/Action:Export',
+            '/Action:Extract',
             '/TargetFile:'.escapeshellarg($outputPath),
             '/SourceServerName:'.escapeshellarg($this->buildServerName()),
             '/SourceDatabaseName:'.escapeshellarg($this->config['database']),
@@ -47,6 +53,10 @@ class MssqlDatabase implements DatabaseInterface
             '/SourcePassword:'.escapeshellarg($this->config['pass']),
             '/SourceTrustServerCertificate:True',
             '/SourceEncryptConnection:True',
+            '/p:ExtractAllTableData=True',
+            '/p:ExtractReferencedServerScopedElements=False',
+            '/p:IgnoreUserLoginMappings=True',
+            '/p:IgnorePermissions=True',
         ];
 
         if (! empty($this->config['dump_flags'])) {
@@ -60,7 +70,7 @@ class MssqlDatabase implements DatabaseInterface
     {
         $sqlpackage = implode(' ', [
             'sqlpackage',
-            '/Action:Import',
+            '/Action:Publish',
             '/SourceFile:'.escapeshellarg($inputPath),
             '/TargetServerName:'.escapeshellarg($this->buildServerName()),
             '/TargetDatabaseName:'.escapeshellarg($this->config['database']),
@@ -74,15 +84,16 @@ class MssqlDatabase implements DatabaseInterface
     }
 
     /**
-     * sqlpackage Import refuses to run if the target database already exists,
-     * so we drop it first. ALTER ... SET SINGLE_USER WITH ROLLBACK IMMEDIATE
-     * evicts any lingering sessions before the DROP.
+     * Publish will incrementally migrate an existing database, which is not
+     * what a restore should do, so we drop it first to guarantee a clean
+     * recreate. ALTER ... SET SINGLE_USER WITH ROLLBACK IMMEDIATE evicts any
+     * lingering sessions before the DROP.
      */
     public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
         try {
             $sql = self::dropDatabaseIfExistsSql($schemaName);
-            $logger->log("Ensuring target database {$schemaName} is dropped before sqlpackage Import", 'info');
+            $logger->log("Ensuring target database {$schemaName} is dropped before sqlpackage Publish", 'info');
             $logger->logCommand($sql, null, 0);
             $this->createPdoForDatabase('master')->exec($sql);
         } catch (\PDOException $e) {

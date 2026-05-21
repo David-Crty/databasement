@@ -21,7 +21,11 @@
     <!-- SSH Configuration Form (shown only when enabled) -->
     @if($form->ssh_enabled)
         <div class="border-t border-base-300 bg-base-100 p-4 rounded-b-lg">
-            <div class="space-y-4">
+            <div
+                class="space-y-4"
+                wire:key="ssh-config-{{ $form->ssh_config_mode }}"
+                x-data="{ showForm: @js($form->ssh_config_mode !== 'existing') }"
+            >
                 <!-- SSH Configuration Mode -->
                 @if($hasExistingConfigs)
                     <div class="form-control">
@@ -70,10 +74,28 @@
                             option-value="id"
                             option-label="name"
                             required
-                        />
+                        >
+                            <x-slot:append>
+                                <x-button
+                                    type="button"
+                                    class="join-item btn-neutral"
+                                    x-on:click="showForm = !showForm"
+                                >
+                                    <span x-show="!showForm" class="flex items-center gap-1.5">
+                                        <x-icon name="o-pencil-square" class="w-4 h-4" />
+                                        {{ __('Edit') }}
+                                    </span>
+                                    <span x-show="showForm" x-cloak class="flex items-center gap-1.5">
+                                        <x-icon name="o-eye-slash" class="w-4 h-4" />
+                                        {{ __('Hide') }}
+                                    </span>
+                                </x-button>
+                            </x-slot:append>
+                        </x-select>
                     @endif
                 @endif
 
+                <div x-show="showForm" x-cloak class="space-y-4">
                 <!-- SSH Host, Port & Username -->
                 <div class="grid grid-cols-1 sm:grid-cols-6 gap-3">
                     <div class="sm:col-span-3">
@@ -144,23 +166,68 @@
                         autocomplete="off"
                     />
                 @else
+                    @if($form->ssh_public_key !== '')
+                        {{-- Just-generated state: the public key dominates the section --}}
+                        <div class="rounded-lg border border-success bg-success/5 p-4 space-y-3">
+                            <div class="flex items-start gap-3">
+                                <x-icon name="s-check-circle" class="w-6 h-6 text-success shrink-0 mt-0.5" />
+                                <div class="flex-1">
+                                    <p class="font-semibold">{{ __('Keypair generated — copy your public key now') }}</p>
+                                    <p class="text-sm opacity-80 mt-0.5">{{ __('Add this line to ~/.ssh/authorized_keys on your SSH server.') }}</p>
+                                </div>
+                            </div>
+
+                            <x-alert icon="o-exclamation-triangle" class="alert-warning alert-soft py-2">
+                                <span class="text-xs">{{ __('This is the only time the public key will be shown. It is not stored — copy it before leaving this page.') }}</span>
+                            </x-alert>
+
+                            <x-copy-input :value="$form->ssh_public_key" />
+                        </div>
+                    @else
+                        {{-- Empty state: Generate is a first-class CTA card --}}
+                        <div class="rounded-lg border border-base-300 bg-base-200 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                            <span class="flex w-9 h-9 shrink-0 items-center justify-center rounded-md bg-primary/10">
+                                <x-icon name="o-sparkles" class="w-5 h-5 text-primary" />
+                            </span>
+                            <div class="flex-1">
+                                <p class="text-sm font-semibold">{{ __('Generate a new Ed25519 keypair') }}</p>
+                                <p class="text-xs opacity-70 mt-0.5">{{ __('Don\'t have a key? Generate one and add the public part to ~/.ssh/authorized_keys on your SSH server.') }}</p>
+                            </div>
+                            <x-button
+                                class="btn-primary btn-sm sm:btn-md"
+                                type="button"
+                                icon="o-sparkles"
+                                wire:click="generateSshKey"
+                                spinner="generateSshKey"
+                            >
+                                {{ __('Generate') }}
+                            </x-button>
+                        </div>
+                    @endif
+
                     <x-textarea
                         wire:model="form.ssh_private_key"
-                        label="{{ __('Private Key') }}"
+                        label="{{ $form->ssh_public_key !== '' ? __('Generated private key (will be saved encrypted)') : __('Or paste an existing private key') }}"
                         placeholder="{{ $credentialsOptional ? __('Leave blank to keep current') : __('Paste your private key here...') }}"
                         hint="{{ __('OpenSSH format (begins with -----BEGIN OPENSSH PRIVATE KEY-----)') }}"
                         rows="3"
                         class="font-mono text-xs"
                         :required="!$credentialsOptional"
                     />
-                    <x-password
-                        wire:model="form.ssh_key_passphrase"
-                        label="{{ __('Key Passphrase') }}"
-                        placeholder="{{ __('Enter passphrase if key is encrypted') }}"
-                        hint="{{ __('Only required if your private key is encrypted') }}"
-                        autocomplete="off"
-                    />
+
+                    @if($form->ssh_public_key === '')
+                        <x-password
+                            wire:model="form.ssh_key_passphrase"
+                            label="{{ __('Key Passphrase') }}"
+                            placeholder="{{ __('Enter passphrase if key is encrypted') }}"
+                            hint="{{ __('Only required if your private key is encrypted') }}"
+                            autocomplete="off"
+                        />
+                    @endif
                 @endif
+                    </div>
+
+                <x-hr />
 
                 <!-- Test SSH Connection -->
                 <div class="flex flex-wrap items-center gap-2">

@@ -118,6 +118,25 @@ OAUTH_OIDC_BASE_URL=https://authentik.example.com/application/o/databasement/
 OAUTH_OIDC_LABEL=Authentik
 ```
 
+## OAuth-Only Mode
+
+To enforce OAuth/SSO as the only sign-in method, hide the password login form, and reject password authentication on the server:
+
+```env
+OAUTH_ONLY_MODE=true  # Default: false
+```
+
+When enabled:
+
+- The password fields are hidden on the login page; users only see OAuth provider buttons.
+- Password authentication is rejected even if a request bypasses the UI.
+- The "forgot password" and "reset password" routes return `404`.
+- First-user bootstrap registration (when no users exist yet) still works, so the instance can be initialized before connecting an identity provider.
+
+:::warning
+Make sure at least one OAuth provider is configured and working before enabling `OAUTH_ONLY_MODE` — otherwise no one will be able to sign in.
+:::
+
 ## User Creation Settings
 
 ### Auto-Create Users

@@ -56,7 +56,7 @@ readonly class DatabaseConnectionConfig
 
         return new self(
             databaseType: $server->database_type,
-            serverName: $server->name,
+            serverName: $server->name ?? '',
             host: $server->host ?? '',
             port: $server->port,
             username: $server->username ?? '',

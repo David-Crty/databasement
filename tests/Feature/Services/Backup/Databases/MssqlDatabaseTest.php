@@ -14,18 +14,22 @@ beforeEach(function () {
     ]);
 });
 
-test('dump produces sqlpackage export command', function () {
-    $result = $this->db->dump('/tmp/snapshot.bacpac');
+test('dump produces sqlpackage extract command', function () {
+    $result = $this->db->dump('/tmp/snapshot.dacpac');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
         ->and($result->command)->toBe(
-            "sqlpackage /Action:Export /TargetFile:'/tmp/snapshot.bacpac' "
+            "sqlpackage /Action:Extract /TargetFile:'/tmp/snapshot.dacpac' "
             ."/SourceServerName:'mssql.example.com,1433' "
             ."/SourceDatabaseName:'app_db' "
             ."/SourceUser:'sa' "
             ."/SourcePassword:'Pa55w0rd!' "
             .'/SourceTrustServerCertificate:True '
-            .'/SourceEncryptConnection:True'
+            .'/SourceEncryptConnection:True '
+            .'/p:ExtractAllTableData=True '
+            .'/p:ExtractReferencedServerScopedElements=False '
+            .'/p:IgnoreUserLoginMappings=True '
+            .'/p:IgnorePermissions=True'
         );
 });
 
@@ -39,17 +43,17 @@ test('dump appends user-provided dump flags', function () {
         'dump_flags' => '/Verbose:True',
     ]);
 
-    $result = $this->db->dump('/tmp/snapshot.bacpac');
+    $result = $this->db->dump('/tmp/snapshot.dacpac');
 
-    expect($result->command)->toEndWith("/SourceEncryptConnection:True '/Verbose:True'");
+    expect($result->command)->toEndWith("/p:IgnorePermissions=True '/Verbose:True'");
 });
 
-test('restore produces sqlpackage import command when input is already a .bacpac', function () {
-    $result = $this->db->restore('/tmp/snapshot.bacpac');
+test('restore produces sqlpackage publish command', function () {
+    $result = $this->db->restore('/tmp/snapshot.dacpac');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
         ->and($result->command)->toBe(
-            "sqlpackage /Action:Import /SourceFile:'/tmp/snapshot.bacpac' "
+            "sqlpackage /Action:Publish /SourceFile:'/tmp/snapshot.dacpac' "
             ."/TargetServerName:'mssql.example.com,1433' "
             ."/TargetDatabaseName:'app_db' "
             ."/TargetUser:'sa' "

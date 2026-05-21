@@ -143,9 +143,9 @@ return [
     |
     */
 
-    'features' => [
+    'features' => array_values(array_filter([
         Features::registration(),
-        Features::resetPasswords(),
+        env('OAUTH_ONLY_MODE', false) ? null : Features::resetPasswords(),
         // Features::updateProfileInformation(),
         // Features::updatePasswords(),
         Features::twoFactorAuthentication([
@@ -153,6 +153,6 @@ return [
             'confirmPassword' => true,
             // 'window' => 0,
         ]),
-    ],
+    ])),
 
 ];

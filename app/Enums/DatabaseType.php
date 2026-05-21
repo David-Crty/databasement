@@ -128,14 +128,20 @@ enum DatabaseType: string
 
     /**
      * Get the file extension used for database dumps.
+     *
+     * $format is the postgres dump format ('plain'|'custom'); ignored for other types.
      */
-    public function dumpExtension(): string
+    public function dumpExtension(?string $format = null): string
     {
+        if ($this === self::POSTGRESQL && $format === 'custom') {
+            return 'dump';
+        }
+
         return match ($this) {
             self::SQLITE => 'db',
             self::REDIS => 'rdb',
             self::MONGODB => 'archive',
-            self::MSSQL => 'bacpac',
+            self::MSSQL => 'dacpac',
             default => 'sql',
         };
     }

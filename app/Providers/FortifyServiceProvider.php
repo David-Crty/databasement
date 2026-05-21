@@ -41,6 +41,12 @@ class FortifyServiceProvider extends ServiceProvider
     private function configureAuthentication(): void
     {
         Fortify::authenticateUsing(function (Request $request) {
+            if (config('oauth.only_mode')) {
+                throw ValidationException::withMessages([
+                    Fortify::username() => [__('Password login is disabled. Please sign in with an OAuth provider.')],
+                ]);
+            }
+
             $user = User::where('email', $request->email)->first();
 
             if (! $user) {
@@ -93,8 +99,20 @@ class FortifyServiceProvider extends ServiceProvider
 
             return view('livewire.auth.confirm-password');
         });
-        Fortify::resetPasswordView(fn () => view('livewire.auth.reset-password'));
-        Fortify::requestPasswordResetLinkView(fn () => view('livewire.auth.forgot-password'));
+        Fortify::resetPasswordView(function () {
+            if (config('oauth.only_mode')) {
+                abort(404);
+            }
+
+            return view('livewire.auth.reset-password');
+        });
+        Fortify::requestPasswordResetLinkView(function () {
+            if (config('oauth.only_mode')) {
+                abort(404);
+            }
+
+            return view('livewire.auth.forgot-password');
+        });
 
         Fortify::registerView(function () {
             if (User::count() > 0) {

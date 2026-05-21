@@ -8,18 +8,20 @@
             @if($mode->targetServerLocked() && $targetServer)
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="text-xs opacity-60">{{ __('Restoring to:') }}</span>
-                    <x-badge :value="$targetServer->name . ' (' . $targetServer->database_type->label() . ')'"
-                             class="badge-primary"/>
+                    <x-badge class="badge-primary gap-1.5 h-auto py-1 whitespace-normal text-left">
+                        <x-icon :name="$targetServer->database_type->icon()" class="w-3.5 h-3.5 shrink-0"/>
+                        <span class="min-w-0 break-all">{{ $targetServer->name }}</span>
+                    </x-badge>
                 </div>
             @endif
 
             @if($mode->snapshotLocked() && $this->selectedSnapshot)
                 <div class="flex flex-wrap items-center gap-2">
                     <span class="text-xs opacity-60">{{ __('Snapshot:') }}</span>
-                    <x-badge
-                        :value="$this->selectedSnapshot->databaseServer->name . ' · ' . $this->selectedSnapshot->database_name . ' (' . $this->selectedSnapshot->database_type->label() . ')'"
-                        class="badge-secondary"
-                    />
+                    <x-badge class="badge-secondary gap-1.5 h-auto py-1 whitespace-normal text-left">
+                        <x-icon :name="$this->selectedSnapshot->database_type->icon()" class="w-3.5 h-3.5 shrink-0"/>
+                        <span class="min-w-0 break-all">{{ $this->selectedSnapshot->databaseServer->name }} · {{ $this->selectedSnapshot->database_name }}</span>
+                    </x-badge>
                 </div>
             @endif
 
@@ -87,30 +89,29 @@
                                         wire:click="selectSnapshot('{{ $snapshot->id }}')"
                                         class="px-3 py-2 border rounded-lg cursor-pointer hover:bg-base-200 border-base-300 {{ $selectedSnapshotId === $snapshot->id ? 'border-primary bg-primary/10' : '' }}"
                                     >
-                                        <div class="flex items-center justify-between gap-4">
+                                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-4">
                                             <div class="flex-1 min-w-0 space-y-0.5">
                                                 <div class="text-sm">
                                                     <span class="opacity-50">{{ __('Database:') }}</span>
                                                     <span class="font-medium">{{ $snapshot->database_name }}</span>
-                                                    <x-badge :value="$snapshot->database_type->label()"
-                                                             class="badge-ghost badge-xs ml-1"/>
                                                 </div>
-                                                <div class="text-xs">
+                                                <div class="text-xs flex items-center gap-1.5">
                                                     <span class="opacity-50">{{ __('Server:') }}</span>
+                                                    <x-icon :name="$snapshot->database_type->icon()" class="w-3.5 h-3.5"/>
                                                     <span
                                                         class="opacity-70">{{ $snapshot->databaseServer->name }}</span>
                                                 </div>
                                             </div>
-                                            <div class="text-right space-y-0.5">
+                                            <div class="sm:text-right space-y-0.5">
                                                 <div
-                                                    class="text-xs opacity-60 whitespace-nowrap flex items-center justify-end gap-2">
+                                                    class="text-xs opacity-60 flex flex-wrap items-center gap-x-2 sm:justify-end sm:flex-nowrap sm:whitespace-nowrap">
                                                     <x-loading wire:loading
                                                                wire:target="selectSnapshot('{{ $snapshot->id }}')"
                                                                class="loading-xs"/>
-                                                    {{ \App\Support\Formatters::humanDate($snapshot->created_at) }}
+                                                    <span>{{ \App\Support\Formatters::humanDate($snapshot->created_at) }}</span>
                                                     <span class="opacity-50">({{ $snapshot->created_at->diffForHumans() }})</span>
-                                                    &bull;
-                                                    {{ $snapshot->getHumanFileSize() }}
+                                                    <span class="opacity-50">&bull;</span>
+                                                    <span>{{ $snapshot->getHumanFileSize() }}</span>
                                                 </div>
                                             </div>
                                         </div>

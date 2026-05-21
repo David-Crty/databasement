@@ -52,7 +52,8 @@ class BackupTask
                 $this->establishSshTunnel($db, $logger);
             }
 
-            $workingFile = $config->workingDirectory.'/dump.'.$db->databaseType->dumpExtension();
+            $dumpFormat = is_string($value = ($db->extraConfig['dump_format'] ?? null)) ? $value : null;
+            $workingFile = $config->workingDirectory.'/dump.'.$db->databaseType->dumpExtension($dumpFormat);
 
             // Database dump
             $database = $this->databaseProvider->makeFromConfig(
@@ -88,7 +89,7 @@ class BackupTask
 
             // Generate filename and transfer
             $humanFileSize = Formatters::humanFileSize($fileSize);
-            $filename = $this->generateFilename($db->serverName, $config->databaseName, $db->databaseType->dumpExtension(), $compressor, $config->backupPath);
+            $filename = $this->generateFilename($db->serverName, $config->databaseName, $db->databaseType->dumpExtension($dumpFormat), $compressor, $config->backupPath);
             $logger->log("Transferring backup ({$humanFileSize}) to volume: {$config->volume->name}", 'info', [
                 'volume_type' => $config->volume->type,
                 'source' => $archive,

@@ -28,6 +28,11 @@ class Authentication extends Component
     {
         return [
             [
+                'env' => 'OAUTH_ONLY_MODE',
+                'value' => config('oauth.only_mode') ? 'true' : 'false',
+                'description' => __('Hide the password login form and require OAuth/SSO sign-in.'),
+            ],
+            [
                 'env' => 'OAUTH_GOOGLE_ENABLED',
                 'value' => config('oauth.providers.google.enabled') ? 'true' : 'false',
                 'description' => __('Enable Google OAuth authentication.'),

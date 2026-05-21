@@ -9,9 +9,12 @@
         $sshConfig = $server->sshConfig;
         $agent = $server->agent;
         $isSqlite = $server->database_type === DatabaseType::SQLITE;
+        $isPostgres = $server->database_type === DatabaseType::POSTGRESQL;
         $sslEnabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $authSource = $server->getExtraConfig('auth_source');
         $dumpFlags = $server->getExtraConfig('dump_flags');
+        $dumpFormat = $isPostgres ? ($server->getExtraConfig('dump_format', 'plain')) : null;
+        $showDumpCard = $dumpFlags || ($isPostgres && $dumpFormat === 'custom');
 
         $trigger = $server->notification_trigger;
         $selection = $server->notification_channel_selection;
@@ -357,18 +360,51 @@
                                 </div>
                             </li>
                         @endif
-                        @if($dumpFlags)
-                            <li class="list-row">
-                                <x-icon name="o-command-line" class="w-4 h-4 opacity-60" />
-                                <div>
-                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Dump flags') }}</div>
-                                    <div class="text-xs font-mono break-all">{{ $dumpFlags }}</div>
-                                </div>
-                            </li>
-                        @endif
                     @endif
                 </ul>
             </div>
+
+            {{-- Dump configuration --}}
+            @if($showDumpCard)
+                <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
+                    <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
+                        <x-icon name="o-command-line" class="w-4 h-4 opacity-60" />
+                        <h2 class="text-sm font-semibold">{{ __('Dump configuration') }}</h2>
+                    </div>
+                    <ul class="list">
+                        @if($isPostgres)
+                            <li class="list-row">
+                                <x-icon name="o-document-text" class="w-4 h-4 opacity-60" />
+                                <div class="min-w-0">
+                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Format') }}</div>
+                                    <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                        @if($dumpFormat === 'custom')
+                                            <span class="badge badge-info badge-soft gap-1.5">
+                                                <x-icon name="o-cube" class="w-3 h-3" />
+                                                {{ __('Custom (pg_restore)') }}
+                                            </span>
+                                        @else
+                                            <span class="badge badge-ghost gap-1.5">
+                                                <x-icon name="o-document" class="w-3 h-3" />
+                                                {{ __('Plain SQL (psql -f)') }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
+                            </li>
+                        @endif
+                        @if($dumpFlags)
+                            <li class="list-row">
+                                <x-icon name="o-adjustments-horizontal" class="w-4 h-4 opacity-60" />
+                                <div class="min-w-0">
+                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Extra flags') }}</div>
+                                    <code class="mt-1 inline-block text-xs font-mono break-all px-1.5 py-0.5 rounded bg-base-200">{{ $dumpFlags }}</code>
+                                </div>
+                            </li>
+                        @endif
+                    </ul>
+                </div>
+            @endif
 
             {{-- Agent --}}
             @if($agent)

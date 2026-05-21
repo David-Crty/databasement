@@ -49,6 +49,10 @@ class SaveDatabaseServerRequest extends FormRequest
             $rules['dump_flags'] = ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'];
         }
 
+        if ($type === 'postgres') {
+            $rules['dump_format'] = ['nullable', 'string', Rule::in(['plain', 'custom'])];
+        }
+
         if (in_array($type, ['mongodb', 'redis'])) {
             $rules['username'] = 'nullable|string|max:255';
             $rules['password'] = 'nullable';

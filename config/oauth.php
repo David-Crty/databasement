@@ -3,6 +3,19 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | OAuth-Only Mode
+    |--------------------------------------------------------------------------
+    |
+    | When enabled, the password login form is hidden and password-based
+    | authentication is rejected — users must sign in via an OAuth provider.
+    | The first-user bootstrap registration still works so the instance can
+    | be initialized before connecting an identity provider.
+    |
+    */
+    'only_mode' => env('OAUTH_ONLY_MODE', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | OAuth Default Role
     |--------------------------------------------------------------------------
     |

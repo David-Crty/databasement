@@ -265,6 +265,67 @@ test('disabling SSH tunnel clears SSH config link', function () {
     expect($server->requiresSshTunnel())->toBeFalse();
 });
 
+test('generateSshKey populates private and public key fields with a comment derived from server name', function () {
+    $user = User::factory()->create();
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Prod MySQL')
+        ->set('form.ssh_enabled', true)
+        ->set('form.ssh_auth_type', 'key')
+        ->call('generateSshKey');
+
+    $privateKey = $component->get('form.ssh_private_key');
+    $publicKey = $component->get('form.ssh_public_key');
+
+    expect($privateKey)->toStartWith('-----BEGIN OPENSSH PRIVATE KEY-----');
+    expect($publicKey)->toMatch('/^ssh-ed25519 [A-Za-z0-9+\/=]+ databasement:prod-mysql$/');
+});
+
+test('generateSshKey falls back to host when name is empty', function () {
+    $user = User::factory()->create();
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.ssh_enabled', true)
+        ->set('form.ssh_auth_type', 'key')
+        ->set('form.ssh_host', 'bastion.example.com')
+        ->call('generateSshKey');
+
+    expect($component->get('form.ssh_public_key'))
+        ->toMatch('/databasement:bastion-example-com$/');
+});
+
+test('generateSshKey is a no-op when auth type is password', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.ssh_enabled', true)
+        ->set('form.ssh_auth_type', 'password')
+        ->call('generateSshKey')
+        ->assertSet('form.ssh_private_key', '')
+        ->assertSet('form.ssh_public_key', '');
+});
+
+test('generateSshKey replaces any existing key in the form', function () {
+    // The blade uses wire:confirm to require explicit user approval before
+    // overwriting; the action itself should perform the overwrite once called.
+    $user = User::factory()->create();
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.ssh_enabled', true)
+        ->set('form.ssh_auth_type', 'key')
+        ->set('form.ssh_private_key', 'previous-key-contents')
+        ->call('generateSshKey');
+
+    expect($component->get('form.ssh_private_key'))
+        ->toStartWith('-----BEGIN OPENSSH PRIVATE KEY-----');
+    expect($component->get('form.ssh_public_key'))
+        ->toStartWith('ssh-ed25519 ');
+});
+
 test('testSshConnection calls form method', function () {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->withSshTunnel()->create();

@@ -47,6 +47,9 @@ class DatabaseProvider
      * Create a configured database interface from a server model.
      *
      * Host and port are passed explicitly to support SSH tunnel overrides.
+     * Delegates to makeFromConfig() for non-SQLite types; SQLite is kept inline
+     * because its SSH config uses the Eloquent model directly, not the
+     * decrypted array shape carried by DatabaseConnectionConfig.
      */
     public function makeForServer(
         DatabaseServer $server,
@@ -61,49 +64,25 @@ class DatabaseProvider
             if ($server->sshConfig !== null) {
                 $config['ssh_config'] = $server->sshConfig;
             }
-        } else {
-            $config = [
-                'host' => $host,
-                'port' => $port,
-                'user' => $server->username,
-                'pass' => $server->getDecryptedPassword(),
-            ];
 
-            if ($server->database_type !== DatabaseType::REDIS) {
-                $config['database'] = $databaseName;
-            }
-
-            if ($server->database_type === DatabaseType::MONGODB) {
-                $config['auth_source'] = $server->getExtraConfig('auth_source', 'admin');
-                if ($sourceDatabaseName !== null) {
-                    $config['source_database'] = $sourceDatabaseName;
-                }
-            }
-
-            $dumpFlags = $server->getExtraConfig('dump_flags', '');
-            if ($dumpFlags !== '') {
-                $config['dump_flags'] = $dumpFlags;
-            }
-
-            if ($server->database_type === DatabaseType::MYSQL && $server->getExtraConfig('ssl_enabled', false)) {
-                $config['ssl_enabled'] = true;
-            }
-
-            // Optional short timeout used by interactive UI lookups; jobs leave
-            // it unset and fall back to each handler's longer default.
-            $connectTimeout = $server->getExtraConfig('connect_timeout');
-            if ($connectTimeout !== null) {
-                $config['connect_timeout'] = (int) $connectTimeout;
-            }
+            return $this->makeConfigured(DatabaseType::SQLITE, $config);
         }
 
-        return $this->makeConfigured($server->database_type, $config);
+        return $this->makeFromConfig(
+            DatabaseConnectionConfig::fromServer($server),
+            $databaseName,
+            $host,
+            $port,
+            $sourceDatabaseName,
+        );
     }
 
     /**
      * Create a configured database interface from a DatabaseConnectionConfig DTO.
      *
      * Host and port are passed explicitly to support SSH tunnel overrides.
+     * $snapshotDumpFormat overrides the target's dump_format at restore time: format
+     * is a property of the snapshot file, not the destination server.
      */
     public function makeFromConfig(
         DatabaseConnectionConfig $config,
@@ -111,6 +90,7 @@ class DatabaseProvider
         string $host,
         int $port,
         ?string $sourceDatabaseName = null,
+        ?string $snapshotDumpFormat = null,
     ): DatabaseInterface {
         if ($config->databaseType === DatabaseType::SQLITE) {
             $dbConfig = ['sqlite_path' => $databaseName];
@@ -118,33 +98,47 @@ class DatabaseProvider
             if ($config->sshConfig !== null) {
                 $dbConfig['ssh_config_array'] = $config->sshConfig;
             }
-        } else {
-            $dbConfig = [
-                'host' => $host,
-                'port' => $port,
-                'user' => $config->username,
-                'pass' => $config->password,
-            ];
 
-            if ($config->databaseType !== DatabaseType::REDIS) {
-                $dbConfig['database'] = $databaseName;
-            }
+            return $this->makeConfigured(DatabaseType::SQLITE, $dbConfig);
+        }
 
-            if ($config->databaseType === DatabaseType::MONGODB) {
-                $dbConfig['auth_source'] = $config->extraConfig['auth_source'] ?? 'admin';
-                if ($sourceDatabaseName !== null) {
-                    $dbConfig['source_database'] = $sourceDatabaseName;
-                }
-            }
+        $extra = $config->extraConfig ?? [];
 
-            $dumpFlags = $config->extraConfig['dump_flags'] ?? '';
-            if ($dumpFlags !== '') {
-                $dbConfig['dump_flags'] = $dumpFlags;
-            }
+        $dbConfig = [
+            'host' => $host,
+            'port' => $port,
+            'user' => $config->username,
+            'pass' => $config->password,
+        ];
 
-            if ($config->databaseType === DatabaseType::MYSQL && ! empty($config->extraConfig['ssl_enabled'])) {
-                $dbConfig['ssl_enabled'] = true;
+        if ($config->databaseType !== DatabaseType::REDIS) {
+            $dbConfig['database'] = $databaseName;
+        }
+
+        if ($config->databaseType === DatabaseType::MONGODB) {
+            $dbConfig['auth_source'] = $extra['auth_source'] ?? 'admin';
+            if ($sourceDatabaseName !== null) {
+                $dbConfig['source_database'] = $sourceDatabaseName;
             }
+        }
+
+        if (! empty($extra['dump_flags'])) {
+            $dbConfig['dump_flags'] = $extra['dump_flags'];
+        }
+
+        if ($config->databaseType === DatabaseType::MYSQL && ! empty($extra['ssl_enabled'])) {
+            $dbConfig['ssl_enabled'] = true;
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL
+            && ($snapshotDumpFormat ?? $extra['dump_format'] ?? null) === 'custom') {
+            $dbConfig['dump_format'] = 'custom';
+        }
+
+        // Optional short timeout used by interactive UI lookups; jobs leave
+        // it unset and fall back to each handler's longer default.
+        if (isset($extra['connect_timeout'])) {
+            $dbConfig['connect_timeout'] = (int) $extra['connect_timeout'];
         }
 
         return $this->makeConfigured($config->databaseType, $dbConfig);

@@ -185,12 +185,30 @@ use App\Enums\DatabaseType;
                     @endif
 
                     @if($form->supportsDumpFlags())
-                        <x-collapse class="mt-2" :open="!empty($form->dump_flags)">
+                        <x-collapse class="mt-2" :open="!empty($form->dump_flags) || $form->dump_format === 'custom'">
                             <x-slot:heading>
                                 <x-icon name="o-command-line" class="w-4 h-4" />
                                 {{ __('Dump Command Configuration') }}
                             </x-slot:heading>
                             <x-slot:content class="space-y-3">
+                                @if($form->isPostgresql())
+                                    <x-select
+                                        wire:model.live="form.dump_format"
+                                        :label="__('Dump Format')"
+                                        :hint="__('Custom format enables pg_restore parallel and selective restores. Defaults to plain SQL.')"
+                                        :options="[
+                                            ['id' => 'plain', 'name' => __('Plain SQL (psql -f)')],
+                                            ['id' => 'custom', 'name' => __('Custom (pg_restore)')],
+                                        ]"
+                                    />
+
+                                    @if($form->dump_format === 'custom')
+                                        <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                                            {{ __('Custom format archives are version-sensitive: the target restore server must be PostgreSQL 17 or newer. Restores run with 4 parallel pg_restore workers.') }}
+                                        </x-alert>
+                                    @endif
+                                @endif
+
                                 <x-input
                                     wire:model.live.debounce.300ms="form.dump_flags"
                                     placeholder="{{ __('e.g., --no-tablespaces --verbose') }}"

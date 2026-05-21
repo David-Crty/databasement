@@ -15,6 +15,7 @@ use App\Models\NotificationChannel;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\CurrentOrganization;
+use App\Services\SshKeyGenerator;
 use App\Services\SshTunnelService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -48,6 +49,8 @@ class DatabaseServerForm extends Form
 
     public string $dump_flags = '';
 
+    public string $dump_format = 'plain';
+
     public bool $ssl_enabled = false;
 
     // SSH Tunnel Configuration
@@ -72,6 +75,12 @@ class DatabaseServerForm extends Form
     public string $ssh_private_key = '';
 
     public string $ssh_key_passphrase = '';
+
+    /**
+     * Transient public key shown once after generation. Never persisted —
+     * the user copies it to their server's authorized_keys before saving.
+     */
+    public string $ssh_public_key = '';
 
     public ?string $sshTestMessage = null;
 
@@ -350,6 +359,7 @@ class DatabaseServerForm extends Form
         $this->ssh_password = '';
         $this->ssh_private_key = '';
         $this->ssh_key_passphrase = '';
+        $this->ssh_public_key = '';
     }
 
     /**
@@ -365,6 +375,28 @@ class DatabaseServerForm extends Form
         $this->ssh_password = '';
         $this->ssh_private_key = '';
         $this->ssh_key_passphrase = '';
+        $this->ssh_public_key = '';
+    }
+
+    /**
+     * Generate a fresh Ed25519 keypair and populate the private/public form
+     * fields. The public key is held only in transient form state — the user
+     * is expected to copy it to the SSH server before saving.
+     */
+    public function generateSshKey(): void
+    {
+        if ($this->ssh_auth_type !== 'key') {
+            return;
+        }
+
+        $generator = app(SshKeyGenerator::class);
+        $comment = $generator->buildComment($this->name, $this->ssh_host);
+        $keypair = $generator->generate($comment);
+
+        $this->ssh_private_key = $keypair['private'];
+        $this->ssh_public_key = $keypair['public'];
+        $this->ssh_key_passphrase = '';
+        $this->resetSshTestState();
     }
 
     /**
@@ -396,6 +428,7 @@ class DatabaseServerForm extends Form
         $this->database_type = $server->database_type->value;
         $this->auth_source = $server->getExtraConfig('auth_source', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
+        $this->dump_format = $server->getExtraConfig('dump_format', 'plain');
         $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $this->username = $server->username ?? '';
         $this->description = $server->description;
@@ -587,6 +620,14 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Check if current database type is PostgreSQL.
+     */
+    public function isPostgresql(): bool
+    {
+        return $this->database_type === 'postgres';
+    }
+
+    /**
      * Check if current database type has optional credentials (username/password not required).
      */
     public function hasOptionalCredentials(): bool
@@ -627,6 +668,10 @@ class DatabaseServerForm extends Form
 
         if ($type === DatabaseType::MYSQL) {
             $config['ssl_enabled'] = $this->ssl_enabled;
+        }
+
+        if ($type === DatabaseType::POSTGRESQL) {
+            $config['dump_format'] = $this->dump_format;
         }
 
         try {
@@ -813,6 +858,7 @@ class DatabaseServerForm extends Form
             'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
+            'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
             'ssl_enabled' => 'boolean',
             'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
             'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],
