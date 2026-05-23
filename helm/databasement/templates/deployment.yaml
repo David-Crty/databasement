@@ -43,7 +43,7 @@ spec:
             {{ toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["sh", "-c", "php artisan db:wait --allow-missing-db && php artisan migrate --force"]
+          args: ["sh", "-c", "php artisan db:wait --allow-missing-db && php artisan migrate --force"]
           env:
             {{ include "databasement.env" . | nindent 12 }}
           {{- with .Values.extraEnvFrom }}
@@ -98,7 +98,7 @@ spec:
             {{ toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["sh", "-c", "{{ .Values.worker.command }}"]
+          args: ["sh", "-c", "{{ .Values.worker.command }}"]
           env:
             {{ include "databasement.env" . | nindent 12 }}
           {{- with .Values.extraEnvFrom }}
@@ -180,7 +180,7 @@ spec:
             {{ toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["sh", "-c", "php artisan db:wait && {{ .Values.worker.command }}"]
+          args: ["sh", "-c", "php artisan db:wait && {{ .Values.worker.command }}"]
           env:
             {{ include "databasement.env" . | nindent 12 }}
           {{- with .Values.extraEnvFrom }}
