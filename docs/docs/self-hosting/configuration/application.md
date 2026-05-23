@@ -131,6 +131,7 @@ Here's a complete `.env` file for a production deployment with MySQL:
 APP_DEBUG=false
 APP_URL=https://backup.yourdomain.com
 APP_KEY=base64:your-generated-key-here
+# APP_DISPLAY_TIMEZONE=UTC  # timezone for UI, backup filenames, and schedules
 
 # Database (for Databasement itself)
 DB_CONNECTION=mysql
