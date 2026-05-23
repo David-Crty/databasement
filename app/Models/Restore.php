@@ -2,38 +2,11 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 
 /**
- * @property string $id
- * @property string $snapshot_id
- * @property string $target_server_id
- * @property string $schema_name
- * @property array<string, mixed>|null $options
- * @property string|null $triggered_by_user_id
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property string $backup_job_id
- * @property-read BackupJob $job
- * @property-read Snapshot $snapshot
- * @property-read DatabaseServer $targetServer
- * @property-read User|null $triggeredBy
- * @method static Builder<static>|Restore newModelQuery()
- * @method static Builder<static>|Restore newQuery()
- * @method static Builder<static>|Restore query()
- * @method static Builder<static>|Restore whereBackupJobId($value)
- * @method static Builder<static>|Restore whereCreatedAt($value)
- * @method static Builder<static>|Restore whereId($value)
- * @method static Builder<static>|Restore whereSchemaName($value)
- * @method static Builder<static>|Restore whereSnapshotId($value)
- * @method static Builder<static>|Restore whereTargetServerId($value)
- * @method static Builder<static>|Restore whereTriggeredByUserId($value)
- * @method static Builder<static>|Restore whereUpdatedAt($value)
- * @mixin \Eloquent
  * @mixin IdeHelperRestore
  */
 class Restore extends Model

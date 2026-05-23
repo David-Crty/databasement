@@ -10,37 +10,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Support\Carbon;
 
 /**
- * @property string $id
- * @property string|null $job_id
- * @property string $status
- * @property Carbon|null $started_at
- * @property Carbon|null $completed_at
- * @property int|null $duration_ms
- * @property string|null $error_message
- * @property string|null $error_trace
- * @property array<array-key, mixed>|null $logs
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property-read Restore|null $restore
- * @property-read Snapshot|null $snapshot
- * @method static Builder<static>|BackupJob newModelQuery()
- * @method static Builder<static>|BackupJob newQuery()
- * @method static Builder<static>|BackupJob query()
- * @method static Builder<static>|BackupJob whereCompletedAt($value)
- * @method static Builder<static>|BackupJob whereCreatedAt($value)
- * @method static Builder<static>|BackupJob whereDurationMs($value)
- * @method static Builder<static>|BackupJob whereErrorMessage($value)
- * @method static Builder<static>|BackupJob whereErrorTrace($value)
- * @method static Builder<static>|BackupJob whereId($value)
- * @method static Builder<static>|BackupJob whereJobId($value)
- * @method static Builder<static>|BackupJob whereLogs($value)
- * @method static Builder<static>|BackupJob whereStartedAt($value)
- * @method static Builder<static>|BackupJob whereStatus($value)
- * @method static Builder<static>|BackupJob whereUpdatedAt($value)
- * @mixin \Eloquent
  * @mixin IdeHelperBackupJob
  */
 class BackupJob extends Model implements BackupLogger

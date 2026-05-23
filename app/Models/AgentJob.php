@@ -3,44 +3,12 @@
 namespace App\Models;
 
 use Database\Factories\AgentJobFactory;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 
 /**
- * @property string $id
- * @property string $type
- * @property string|null $database_server_id
- * @property string|null $agent_id
- * @property string|null $snapshot_id
- * @property string $status
- * @property array<string, mixed> $payload
- * @property Carbon|null $lease_expires_at
- * @property int $attempts
- * @property int $max_attempts
- * @property Carbon|null $claimed_at
- * @property Carbon|null $completed_at
- * @property string|null $error_message
- * @property array<string, mixed>|null $logs
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property-read Agent|null $agent
- * @property-read DatabaseServer|null $databaseServer
- * @property-read Snapshot|null $snapshot
- * @method static AgentJobFactory factory($count = null, $state = [])
- * @method static Builder<static>|AgentJob newModelQuery()
- * @method static Builder<static>|AgentJob newQuery()
- * @method static Builder<static>|AgentJob query()
- * @method static Builder<static>|AgentJob whereId($value)
- * @method static Builder<static>|AgentJob whereAgentId($value)
- * @method static Builder<static>|AgentJob whereSnapshotId($value)
- * @method static Builder<static>|AgentJob whereStatus($value)
- * @method static Builder<static>|AgentJob whereCreatedAt($value)
- * @method static Builder<static>|AgentJob whereUpdatedAt($value)
- * @mixin \Eloquent
  * @mixin IdeHelperAgentJob
  */
 class AgentJob extends Model

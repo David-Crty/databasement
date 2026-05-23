@@ -4,27 +4,13 @@ namespace App\Models;
 
 use App\Models\Scopes\OrganizationScope;
 use Database\Factories\DatabaseServerSshConfigFactory;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
- * @property string $id
- * @property string $host
- * @property int $port
- * @property string $username
- * @property string $auth_type
- * @property string|null $password
- * @property string|null $private_key
- * @property string|null $key_passphrase
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property-read Collection<int, DatabaseServer> $databaseServers
- * @method static DatabaseServerSshConfigFactory factory($count = null, $state = [])
  * @mixin IdeHelperDatabaseServerSshConfig
  */
 class DatabaseServerSshConfig extends Model

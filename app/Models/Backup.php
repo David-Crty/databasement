@@ -4,41 +4,13 @@ namespace App\Models;
 
 use App\Enums\DatabaseSelectionMode;
 use Database\Factories\BackupFactory;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
- * @property string $id
- * @property string $database_server_id
- * @property string $volume_id
- * @property string|null $path
- * @property string $backup_schedule_id
- * @property int|null $retention_days
- * @property string $retention_policy
- * @property int|null $gfs_keep_daily
- * @property int|null $gfs_keep_weekly
- * @property int|null $gfs_keep_monthly
- * @property DatabaseSelectionMode $database_selection_mode
- * @property array<string>|null $database_names
- * @property string|null $database_include_pattern
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property-read DatabaseServer $databaseServer
- * @property-read BackupSchedule $backupSchedule
- * @property-read Collection<int, Snapshot> $snapshots
- * @property-read int|null $snapshots_count
- * @property-read Volume $volume
- * @method static BackupFactory factory($count = null, $state = [])
- * @method static Builder<static>|Backup newModelQuery()
- * @method static Builder<static>|Backup newQuery()
- * @method static Builder<static>|Backup query()
- * @mixin \Eloquent
  * @mixin IdeHelperBackup
  */
 class Backup extends Model

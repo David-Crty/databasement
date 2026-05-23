@@ -15,58 +15,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
- * @property string $id
- * @property string $database_server_id
- * @property string|null $backup_id
- * @property string $volume_id
- * @property string $filename
- * @property int $file_size
- * @property bool $file_exists
- * @property Carbon|null $file_verified_at
- * @property string|null $checksum
- * @property Carbon $started_at
- * @property string $database_name
- * @property DatabaseType $database_type
- * @property CompressionType $compression_type
- * @property string $method
- * @property array<string, mixed>|null $metadata
- * @property string|null $triggered_by_user_id
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property string $backup_job_id
- * @property-read Backup|null $backup
- * @property-read DatabaseServer $databaseServer
- * @property-read BackupJob $job
- * @property-read User|null $triggeredBy
- * @property-read Volume $volume
- * @method static Builder<static>|Snapshot forDatabaseServer(DatabaseServer $databaseServer)
- * @method static Builder<static>|Snapshot newModelQuery()
- * @method static Builder<static>|Snapshot newQuery()
- * @method static Builder<static>|Snapshot query()
- * @method static Builder<static>|Snapshot whereBackupId($value)
- * @method static Builder<static>|Snapshot whereBackupJobId($value)
- * @method static Builder<static>|Snapshot whereChecksum($value)
- * @method static Builder<static>|Snapshot whereCompressionType($value)
- * @method static Builder<static>|Snapshot whereCreatedAt($value)
- * @method static Builder<static>|Snapshot whereDatabaseName($value)
- * @method static Builder<static>|Snapshot whereDatabaseServerId($value)
- * @method static Builder<static>|Snapshot whereDatabaseType($value)
- * @method static Builder<static>|Snapshot whereFileSize($value)
- * @method static Builder<static>|Snapshot whereFilename($value)
- * @method static Builder<static>|Snapshot whereId($value)
- * @method static Builder<static>|Snapshot whereMetadata($value)
- * @method static Builder<static>|Snapshot whereMethod($value)
- * @method static Builder<static>|Snapshot whereStartedAt($value)
- * @method static Builder<static>|Snapshot whereTriggeredByUserId($value)
- * @method static Builder<static>|Snapshot whereUpdatedAt($value)
- * @method static Builder<static>|Snapshot whereVolumeId($value)
- * @method static SnapshotFactory factory($count = null, $state = [])
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Restore> $restores
- * @property-read int|null $restores_count
- * @mixin \Eloquent
  * @mixin IdeHelperSnapshot
  */
 class Snapshot extends Model

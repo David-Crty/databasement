@@ -9,7 +9,6 @@ use App\Exceptions\Backup\EncryptionException;
 use App\Models\Scopes\OrganizationScope;
 use Database\Factories\DatabaseServerFactory;
 use Illuminate\Contracts\Encryption\DecryptException;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,50 +16,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
- * @property string $id
- * @property string $name
- * @property string $host
- * @property int $port
- * @property DatabaseType $database_type
- * @property string $username
- * @property string $password
- * @property array<string, mixed>|null $extra_config
- * @property string|null $description
- * @property bool $backups_enabled
- * @property string|null $ssh_config_id
- * @property string|null $agent_id
- * @property string|null $managed_by
- * @property NotificationTrigger $notification_trigger
- * @property NotificationChannelSelection $notification_channel_selection
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property-read Agent|null $agent
- * @property-read Collection<int, Backup> $backups
- * @property-read int|null $backups_count
- * @property-read DatabaseServerSshConfig|null $sshConfig
- * @property-read Collection<int, Snapshot> $snapshots
- * @property-read int|null $snapshots_count
- * @property-read Collection<int, NotificationChannel> $notificationChannels
- * @property-read int|null $notification_channels_count
- * @method static DatabaseServerFactory factory($count = null, $state = [])
- * @method static Builder<static>|DatabaseServer newModelQuery()
- * @method static Builder<static>|DatabaseServer newQuery()
- * @method static Builder<static>|DatabaseServer query()
- * @method static Builder<static>|DatabaseServer whereCreatedAt($value)
- * @method static Builder<static>|DatabaseServer whereDatabaseType($value)
- * @method static Builder<static>|DatabaseServer whereDescription($value)
- * @method static Builder<static>|DatabaseServer whereHost($value)
- * @method static Builder<static>|DatabaseServer whereId($value)
- * @method static Builder<static>|DatabaseServer whereName($value)
- * @method static Builder<static>|DatabaseServer wherePassword($value)
- * @method static Builder<static>|DatabaseServer wherePort($value)
- * @method static Builder<static>|DatabaseServer whereUpdatedAt($value)
- * @method static Builder<static>|DatabaseServer whereUsername($value)
- * @method static Builder<static>|DatabaseServer whereBackupsEnabled($value)
- * @mixin \Eloquent
  * @mixin IdeHelperDatabaseServer
  */
 class DatabaseServer extends Model
