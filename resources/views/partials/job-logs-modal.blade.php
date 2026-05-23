@@ -155,7 +155,8 @@
                     <div class="max-h-[60vh] overflow-y-auto divide-y divide-base-300">
                         @foreach($logs as $index => $log)
                             @php
-                                $timestamp = \Carbon\Carbon::parse($log['timestamp']);
+                                $timestamp = \Carbon\Carbon::parse($log['timestamp'])
+                                    ->setTimezone(config('app.display_timezone'));
                                 $isCommand = $log['type'] === 'command';
                                 $isRunning = $isCommand && ($log['status'] ?? null) === 'running';
 

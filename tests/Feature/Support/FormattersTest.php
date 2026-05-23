@@ -74,6 +74,15 @@ test('humanDate handles single digit days correctly', function () {
     expect(Formatters::humanDate($date))->toBe('Jan 5, 2025, 09:05');
 });
 
+test('humanDate renders in the configured display timezone', function () {
+    config(['app.display_timezone' => 'Asia/Tokyo']);
+
+    // 2025-12-19 16:44 UTC = 2025-12-20 01:44 Tokyo (UTC+9)
+    $date = \Carbon\Carbon::create(2025, 12, 19, 16, 44, 0, 'UTC');
+
+    expect(Formatters::humanDate($date))->toBe('Dec 20, 2025, 01:44');
+});
+
 test('resolveDatePlaceholders replaces year, month and day tokens zero-padded', function () {
     $date = \Carbon\Carbon::create(2026, 3, 5);
 
@@ -97,6 +106,17 @@ test('resolveDatePlaceholders replaces each placeholder globally', function () {
 
 test('resolveDatePlaceholders defaults to the current date when none is provided', function () {
     \Carbon\Carbon::setTestNow(\Carbon\Carbon::create(2026, 7, 8));
+
+    expect(Formatters::resolveDatePlaceholders('archive/{year}/{month}/{day}'))
+        ->toBe('archive/2026/07/08');
+
+    \Carbon\Carbon::setTestNow();
+});
+
+test('resolveDatePlaceholders uses display timezone for "now"', function () {
+    config(['app.display_timezone' => 'Asia/Tokyo']);
+    // 2026-07-07 23:00 UTC = 2026-07-08 08:00 Tokyo — day boundary differs.
+    \Carbon\Carbon::setTestNow(\Carbon\Carbon::create(2026, 7, 7, 23, 0, 0, 'UTC'));
 
     expect(Formatters::resolveDatePlaceholders('archive/{year}/{month}/{day}'))
         ->toBe('archive/2026/07/08');

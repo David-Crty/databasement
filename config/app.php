@@ -74,15 +74,48 @@ return [
     | Application Timezone
     |--------------------------------------------------------------------------
     |
-    | Here you may specify the default timezone for your application, which
-    | will be used by the PHP date and date-time functions. The timezone
-    | is set to "UTC" by default as it is suitable for most use cases.
+    | All internal timestamps (database storage, scheduling math, log entries)
+    | are kept in UTC regardless of the host's TZ environment variable. This
+    | guarantees consistent comparisons between the web app and the worker
+    | container, which previously diverged when their system timezones did
+    | not match (see GitHub issue #335).
+    |
+    | The user-facing display timezone is configured separately via
+    | "display_timezone" below.
     |
     | See: https://www.php.net/manual/en/timezones.php
     |
     */
 
-    'timezone' => env('TZ', 'UTC'),
+    'timezone' => 'UTC',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Display Timezone
+    |--------------------------------------------------------------------------
+    |
+    | The timezone used when rendering datetimes in the UI, generating
+    | timestamps in backup filenames, and elsewhere in user-facing output.
+    | The container entrypoint also migrates a legacy TZ value into this
+    | variable before PHP boots, so existing deployments keep working.
+    | Storage stays UTC.
+    |
+    */
+
+    'display_timezone' => env('APP_DISPLAY_TIMEZONE', 'UTC'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Schedule Timezone
+    |--------------------------------------------------------------------------
+    |
+    | Timezone used by Laravel's scheduler to interpret cron expressions —
+    | including user-configured BackupSchedule expressions. Mirrors the
+    | display timezone so "0 2 * * *" fires at 02:00 local, not 02:00 UTC.
+    |
+    */
+
+    'schedule_timezone' => env('APP_DISPLAY_TIMEZONE', 'UTC'),
 
     /*
     |--------------------------------------------------------------------------
