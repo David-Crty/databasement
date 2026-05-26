@@ -29,7 +29,8 @@
 <p align="center">
   <a href="https://databasement-demo.crty.dev/"><strong>Live Demo</strong></a> ·
   <a href="https://david-crty.github.io/databasement/">Documentation</a> ·
-  <a href="https://github.com/David-Crty/databasement/issues">Report Bug or Request Feature</a> ·
+  <a href="https://david-crty.github.io/databasement/llms.txt">llms.txt</a> ·
+  <a href="https://github.com/David-Crty/databasement/issues">Report Bug or Request Feature</a>
 </p>
 
 ---
@@ -106,6 +107,10 @@ Databasement can be managed programmatically through its **REST API** and **MCP 
 ## Documentation
 
 Full documentation is available at [david-crty.github.io/databasement](https://david-crty.github.io/databasement/).
+
+For LLMs and AI assistants, the documentation is also published in the [llmstxt.org](https://llmstxt.org/) format:
+- [llms.txt](https://david-crty.github.io/databasement/llms.txt) — index of all documentation pages
+- [llms-full.txt](https://david-crty.github.io/databasement/llms-full.txt) — full documentation content in a single file
 
 ## Issues & Feature Requests
 
