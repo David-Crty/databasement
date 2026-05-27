@@ -40,6 +40,7 @@ class HealthCheckController extends Controller
         $isTrustedProxy = $request->isFromTrustedProxy();
 
         $dbTimezone = $this->getDatabaseTimezone();
+        $displayTimezone = config('app.display_timezone');
 
         $response = [
             'ip_address' => $ipAddress,
@@ -48,7 +49,7 @@ class HealthCheckController extends Controller
             'hostname' => $hostname,
             'timestamp' => Carbon::now()->timestamp,
             'date_time_utc' => Carbon::now('UTC')->toDateTimeString(),
-            'date_time_app' => Carbon::now()->toDateTimeString(),
+            'date_time_app' => Carbon::now()->setTimezone($displayTimezone)->toDateTimeString(),
             'timezone' => $dbTimezone,
             'secure' => $secure,
             'is_trusted_proxy' => $isTrustedProxy,
@@ -59,6 +60,7 @@ class HealthCheckController extends Controller
             $response['app_url'] = config('app.url');
             $response['app_env'] = app()->environment();
             $response['app_timezone'] = config('app.timezone');
+            $response['app_display_timezone'] = $displayTimezone;
             $response['app_force_https'] = config('app.force_https');
             $response['session_secure'] = config('session.secure');
             $response['trusted_proxies'] = config('app.trusted_proxies');
