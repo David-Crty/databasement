@@ -34,12 +34,14 @@ test('health debug renders date_time_app in display timezone and exposes it in d
 
     Carbon::setTestNow(Carbon::parse('2026-05-27 00:00:00', 'UTC'));
 
-    $response = $this->getJson(route('health.debug'));
+    try {
+        $response = $this->getJson(route('health.debug'));
 
-    $response->assertOk()
-        ->assertJsonPath('date_time_utc', '2026-05-27 00:00:00')
-        ->assertJsonPath('date_time_app', '2026-05-27 09:00:00')
-        ->assertJsonPath('app_display_timezone', 'Asia/Tokyo');
-
-    Carbon::setTestNow();
+        $response->assertOk()
+            ->assertJsonPath('date_time_utc', '2026-05-27 00:00:00')
+            ->assertJsonPath('date_time_app', '2026-05-27 09:00:00')
+            ->assertJsonPath('app_display_timezone', 'Asia/Tokyo');
+    } finally {
+        Carbon::setTestNow();
+    }
 });
