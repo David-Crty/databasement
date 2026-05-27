@@ -25,6 +25,14 @@
     overflow-y: visible;
 }
 
+/* daisyUI's bare .modal-box uses max-height: 100vh with no margin, which on
+   mobile clips the close button and action row under the browser chrome. Use
+   dvh + a 2rem buffer (1rem each side, ~matching the horizontal margin from
+   w-11/12) so spacing is symmetric. Remove once mary/pull/1091 lands. */
+.modal-box {
+    max-height: calc(100dvh - 2rem);
+}
+
 [x-cloak] {
     display: none !important;
 }
