@@ -13,8 +13,8 @@ trait OpensAdminerForServer
 {
     protected function openAdminerForServer(DatabaseServer $server): void
     {
-        abort_unless($server->supportsAdminer(), 403);
         $this->authorize('adminer', DatabaseServer::class);
+        abort_unless($server->supportsAdminer(), 403);
 
         session()->put('adminer_server_id', $server->id);
 

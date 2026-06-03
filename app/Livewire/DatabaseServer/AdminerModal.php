@@ -3,6 +3,7 @@
 namespace App\Livewire\DatabaseServer;
 
 use Illuminate\View\View;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
@@ -16,6 +17,7 @@ class AdminerModal extends Component
 
     public string $databaseType = '';
 
+    #[Locked]
     public string $adminerUrl = '';
 
     #[On('open-adminer-modal')]
