@@ -124,7 +124,7 @@
             </div>
             @endscope
 
-            @scope('cell_actions', $server, $canAdminer)
+            @scope('cell_actions', $server, $canAdminer, $canPromoteAdminer)
             <div class="flex justify-end">
                 <x-floating-dropdown right>
                     <x-slot:trigger>
@@ -135,7 +135,7 @@
                         <x-menu-item :title="__('View')" icon="o-eye"
                                      link="{{ route('database-servers.show', $server) }}" wire:navigate />
                     @endcan
-                    @if($canAdminer && $server->supportsAdminer())
+                    @if(($canAdminer || $canPromoteAdminer) && $server->supportsAdminer())
                         <x-menu-item :title="__('Browse')" icon="o-table-cells"
                                      wire:click="openAdminer('{{ $server->id }}')" spinner
                                      class="text-accent" />
@@ -174,9 +174,7 @@
     <livewire:restore.modal />
 
     <!-- ADMINER MODAL -->
-    @if(\App\Facades\AppConfig::get('app.adminer_enabled'))
-        <livewire:database-server.adminer-modal />
-    @endif
+    <livewire:database-server.adminer-modal />
 
     <!-- REDIS RESTORE INFO MODAL -->
     <x-modal wire:model="showRedisRestoreModal" :title="__('Restore Redis / Valkey Snapshot')" class="backdrop-blur">

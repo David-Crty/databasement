@@ -3,11 +3,13 @@
 namespace App\Livewire\DatabaseServer;
 
 use App\Enums\DatabaseType;
+use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\TriggerBackupAction;
+use App\Traits\OpensAdminerForServer;
 use App\Traits\RunsServerBackups;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
@@ -23,7 +25,7 @@ use Livewire\WithPagination;
 #[Title('Database Servers')]
 class Index extends Component
 {
-    use AuthorizesRequests, RunsServerBackups, Toast, WithPagination;
+    use AuthorizesRequests, OpensAdminerForServer, RunsServerBackups, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -135,19 +137,7 @@ class Index extends Component
 
     public function openAdminer(string $id): void
     {
-        $server = DatabaseServer::findOrFail($id);
-
-        abort_unless($server->supportsAdminer(), 403);
-        $this->authorize('adminer', DatabaseServer::class);
-
-        session()->put('adminer_server_id', $server->id);
-
-        $this->dispatch('open-adminer-modal',
-            serverName: $server->name,
-            databaseIcon: $server->database_type->icon(),
-            databaseType: $server->database_type->label(),
-            adminerUrl: route('adminer'),
-        );
+        $this->openAdminerForServer(DatabaseServer::findOrFail($id));
     }
 
     public function runBackup(string $backupId, TriggerBackupAction $action): void
@@ -192,6 +182,7 @@ class Index extends Component
             'servers' => $servers,
             'headers' => $this->headers(),
             'canAdminer' => Gate::allows('adminer', DatabaseServer::class),
+            'canPromoteAdminer' => ! AppConfig::get('app.adminer_enabled') && (auth()->user()?->isAdmin() ?? false),
         ]);
     }
 }

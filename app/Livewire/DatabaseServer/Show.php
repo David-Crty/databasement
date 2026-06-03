@@ -5,22 +5,25 @@ namespace App\Livewire\DatabaseServer;
 use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
+use App\Facades\AppConfig;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Restore;
 use App\Services\Backup\TriggerBackupAction;
+use App\Traits\OpensAdminerForServer;
 use App\Traits\RunsServerBackups;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Title('Database Server')]
 class Show extends Component
 {
-    use AuthorizesRequests, RunsServerBackups, Toast;
+    use AuthorizesRequests, OpensAdminerForServer, RunsServerBackups, Toast;
 
     public DatabaseServer $server;
 
@@ -81,6 +84,11 @@ class Show extends Component
         $this->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $this->server->id);
     }
 
+    public function openAdminer(): void
+    {
+        $this->openAdminerForServer($this->server);
+    }
+
     public function confirmDelete(): void
     {
         $this->authorize('delete', $this->server);
@@ -125,6 +133,8 @@ class Show extends Component
     {
         return view('livewire.database-server.show', [
             'activeChannels' => $this->activeChannels(),
+            'canAdminer' => Gate::allows('adminer', DatabaseServer::class),
+            'canPromoteAdminer' => ! AppConfig::get('app.adminer_enabled') && (auth()->user()?->isAdmin() ?? false),
         ]);
     }
 }

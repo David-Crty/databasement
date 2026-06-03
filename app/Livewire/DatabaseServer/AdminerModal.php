@@ -10,6 +10,8 @@ class AdminerModal extends Component
 {
     public bool $showModal = false;
 
+    public bool $isPromo = false;
+
     public string $serverName = '';
 
     public string $databaseIcon = '';
@@ -21,6 +23,7 @@ class AdminerModal extends Component
     #[On('open-adminer-modal')]
     public function openModal(string $serverName, string $databaseIcon, string $databaseType, string $adminerUrl): void
     {
+        $this->isPromo = false;
         $this->serverName = $serverName;
         $this->databaseIcon = $databaseIcon;
         $this->databaseType = $databaseType;
@@ -28,10 +31,18 @@ class AdminerModal extends Component
         $this->showModal = true;
     }
 
+    #[On('open-adminer-promo-modal')]
+    public function openPromo(): void
+    {
+        $this->isPromo = true;
+        $this->showModal = true;
+    }
+
     public function closeModal(): void
     {
         $this->showModal = false;
         $this->adminerUrl = '';
+        $this->isPromo = false;
     }
 
     public function render(): View
