@@ -166,6 +166,16 @@ class DatabaseServer extends Model
     }
 
     /**
+     * Check if this server supports browsing via Adminer.
+     * Requires a compatible database type (MySQL, PostgreSQL, SQLite) and no SSH.
+     */
+    public function supportsAdminer(): bool
+    {
+        return in_array($this->database_type, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL, DatabaseType::SQLITE])
+            && $this->ssh_config_id === null;
+    }
+
+    /**
      * Check if this server requires an SSH tunnel for connections.
      * SQLite servers never need SSH tunnels since they use local file paths.
      */

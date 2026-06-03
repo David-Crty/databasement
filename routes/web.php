@@ -82,6 +82,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('snapshots.download');
 });
 
+// Adminer database browser (excluded from CSRF in bootstrap/app.php)
+Route::any('/adminer', \App\Http\Controllers\Web\AdminerController::class)
+    ->middleware('auth')
+    ->name('adminer');
+
 // Action routes - authorization handled by Policies in components
 Route::middleware(['auth'])->group(function () {
     // Database Servers

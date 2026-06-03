@@ -151,7 +151,7 @@ class User extends Authenticatable
     /**
      * Get the user's role in the current org context.
      */
-    private function currentOrgRole(): ?UserRole
+    public function currentOrgRole(): ?UserRole
     {
         return $this->roleIn(app(\App\Services\CurrentOrganization::class)->model());
     }

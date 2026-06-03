@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "5623614aa2794f29c964972497726d87",
+    "content-hash": "eed8130d1568d10317ab71119369270d",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -828,6 +828,38 @@
                 "source": "https://github.com/dflydev/dflydev-dot-access-data/tree/v3.0.3"
             },
             "time": "2024-07-08T12:26:09+00:00"
+        },
+        {
+            "name": "dg/adminer",
+            "version": "v3.3.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/dg/adminer.git",
+                "reference": "04e4219c4c74b56d1bc1d803041d3191669d1735"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/dg/adminer/zipball/04e4219c4c74b56d1bc1d803041d3191669d1735",
+                "reference": "04e4219c4c74b56d1bc1d803041d3191669d1735",
+                "shasum": ""
+            },
+            "type": "library",
+            "notification-url": "https://packagist.org/downloads/",
+            "description": "Customization for Adminer, the best database management tool written in PHP.",
+            "keywords": [
+                "database",
+                "elasticsearch",
+                "mongodb",
+                "mssql",
+                "mysql",
+                "oracle",
+                "postgresql",
+                "sqlite"
+            ],
+            "support": {
+                "source": "https://github.com/dg/adminer/tree/v3.3.1"
+            },
+            "time": "2025-12-11T07:10:50+00:00"
         },
         {
             "name": "doctrine/deprecations",

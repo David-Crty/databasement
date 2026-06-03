@@ -1,0 +1,65 @@
+/* Adminer theme: vendor base + Databasement overrides */
+@import '../../vendor/dg/adminer/adminer.css';
+
+/* ═══════════════════════════════════════════════════
+   Databasement overrides
+   Modernization + hide branding/logout/server link
+   ═══════════════════════════════════════════════════ */
+
+/* ── Hide Adminer logo & logout ─────────────────── */
+#menu h1 { display: none !important; }
+#foot > form:last-child { display: none !important; }
+#lang { display: none !important; }
+
+#breadcrumb a:first-of-type { display: none !important; }
+
+#breadcrumb {
+    position: fixed;
+    z-index: 2;
+    padding-left: 20px;
+}
+
+/* ── Modern font ────────────────────────────────── */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif !important;
+}
+
+/* ── Rounded inputs & buttons ───────────────────── */
+input, select, textarea {
+    border-radius: 6px;
+    padding: 5px 10px;
+}
+
+input[type="submit"] {
+    border-radius: 6px;
+    padding: 5px 14px;
+    font-weight: 500;
+}
+
+fieldset {
+    border-radius: 8px;
+}
+
+/* ── Cleaner tables ─────────────────────────────── */
+table {
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+thead th, thead td {
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: .03em;
+}
+
+
+/* --- I DON´T KNOW WHY I NEED THIS TO PROPERLY RENDER THEAD --- */
+thead {
+    top: 0px;
+    position: static;
+}
+
+/* ── Softer link hover ──────────────────────────── */
+a:hover {
+    border-radius: 3px;
+}
