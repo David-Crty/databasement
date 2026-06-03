@@ -24,13 +24,7 @@ class AdminerController extends Controller
             abort_unless($server->supportsAdminer(), 403);
 
             $credentials = $this->buildCredentials($server);
-            $_POST['auth'] = [
-                'driver' => $credentials['driver'],
-                'server' => $credentials['server'],
-                'username' => $credentials['username'],
-                'password' => $credentials['password'],
-                'db' => $credentials['db'],
-            ];
+            $_POST['auth'] = $credentials;
         }
 
         // Release the session lock before Adminer runs. Adminer is long-lived
@@ -57,8 +51,8 @@ class AdminerController extends Controller
             : $server->host.':'.$server->port;
 
         $db = '';
-        $databaseNames = $server->backups->first()?->database_names;
-        if ($databaseNames && count($databaseNames) === 1) {
+        $databaseNames = $server->resolveDatabaseNames();
+        if (count($databaseNames) === 1) {
             $db = $databaseNames[0];
         }
 
