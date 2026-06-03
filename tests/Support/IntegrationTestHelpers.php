@@ -111,11 +111,9 @@ class IntegrationTestHelpers
             mkdir($storageDir, 0755, true);
         }
 
-        return Volume::create([
+        return Volume::factory()->local()->create([
             'name' => "Integration Test Volume ({$type})",
-            'type' => 'local',
             'config' => ['root' => $storageDir],
-            'organization_id' => \App\Models\Organization::first()->id,
         ]);
     }
 
@@ -126,9 +124,8 @@ class IntegrationTestHelpers
     {
         $ssh = self::getSshConfig();
 
-        return Volume::create([
+        return Volume::factory()->sftp()->create([
             'name' => 'Integration Test SFTP Volume',
-            'type' => 'sftp',
             'config' => [
                 'host' => $ssh['host'],
                 'port' => $ssh['port'],
@@ -137,7 +134,6 @@ class IntegrationTestHelpers
                 'root' => '/config/backups',
                 'timeout' => 10,
             ],
-            'organization_id' => \App\Models\Organization::first()->id,
         ]);
     }
 

@@ -35,11 +35,9 @@ test('getForVolume supports both root and path config keys for local filesystem'
     $tempDir = $volume->config['path'];
 
     // Test with 'root' key (from config/backup.php style)
-    $volumeWithRoot = Volume::create([
+    $volumeWithRoot = Volume::factory()->local()->create([
         'name' => 'Volume with root key',
-        'type' => 'local',
         'config' => ['root' => $tempDir],
-        'organization_id' => \App\Models\Organization::first()->id,
     ]);
 
     $filesystem = $this->filesystemProvider->getForVolume($volumeWithRoot);
@@ -48,11 +46,9 @@ test('getForVolume supports both root and path config keys for local filesystem'
     expect(file_exists($tempDir.'/root-test.txt'))->toBeTrue();
 
     // Test with 'path' key (from Volume database style)
-    $volumeWithPath = Volume::create([
+    $volumeWithPath = Volume::factory()->local()->create([
         'name' => 'Volume with path key',
-        'type' => 'local',
         'config' => ['path' => $tempDir],
-        'organization_id' => \App\Models\Organization::first()->id,
     ]);
 
     $filesystem2 = $this->filesystemProvider->getForVolume($volumeWithPath);

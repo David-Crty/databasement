@@ -200,17 +200,13 @@ describe('volume editing', function () {
 describe('volume listing', function () {
     test('displays volumes in index', function () {
         $user = User::factory()->create();
-        Volume::create([
+        Volume::factory()->local()->create([
             'name' => 'Local Volume',
-            'type' => 'local',
             'config' => ['path' => '/var/backups'],
-            'organization_id' => \App\Models\Organization::first()->id,
         ]);
-        Volume::create([
+        Volume::factory()->s3()->create([
             'name' => 'S3 Volume',
-            'type' => 's3',
             'config' => ['bucket' => 'my-bucket', 'prefix' => ''],
-            'organization_id' => \App\Models\Organization::first()->id,
         ]);
 
         Livewire::actingAs($user)
@@ -223,18 +219,8 @@ describe('volume listing', function () {
 
     test('can search volumes', function () {
         $user = User::factory()->create();
-        Volume::create([
-            'name' => 'Production Volume',
-            'type' => 'local',
-            'config' => ['path' => '/var/backups'],
-            'organization_id' => \App\Models\Organization::first()->id,
-        ]);
-        Volume::create([
-            'name' => 'Development Volume',
-            'type' => 's3',
-            'config' => ['bucket' => 'dev-bucket', 'prefix' => ''],
-            'organization_id' => \App\Models\Organization::first()->id,
-        ]);
+        Volume::factory()->local()->create(['name' => 'Production Volume']);
+        Volume::factory()->s3()->create(['name' => 'Development Volume']);
 
         Livewire::actingAs($user)
             ->test(Index::class)
@@ -247,12 +233,7 @@ describe('volume listing', function () {
 describe('volume deletion', function () {
     test('can delete volume', function () {
         $user = User::factory()->create();
-        $volume = Volume::create([
-            'name' => 'Volume to Delete',
-            'type' => 'local',
-            'config' => ['path' => '/var/backups'],
-            'organization_id' => \App\Models\Organization::first()->id,
-        ]);
+        $volume = Volume::factory()->local()->create(['name' => 'Volume to Delete']);
 
         Livewire::actingAs($user)
             ->test(Index::class)
@@ -401,12 +382,7 @@ describe('volume immutability', function () {
 
     test('can edit volume without snapshots', function () {
         $user = User::factory()->create();
-        $volume = Volume::create([
-            'name' => 'Empty Volume',
-            'type' => 'local',
-            'config' => ['path' => '/var/backups'],
-            'organization_id' => \App\Models\Organization::first()->id,
-        ]);
+        $volume = Volume::factory()->local()->create(['name' => 'Empty Volume']);
 
         // Verify volume has no snapshots
         expect($volume->hasSnapshots())->toBeFalse();
@@ -439,9 +415,8 @@ describe('connection testing', function () {
         $user = User::factory()->create();
 
         // Create SFTP volume with encrypted password
-        $volume = Volume::create([
+        $volume = Volume::factory()->sftp()->create([
             'name' => 'Test SFTP Volume',
-            'type' => 'sftp',
             'config' => [
                 'host' => 'localhost',
                 'port' => 22,
@@ -449,7 +424,6 @@ describe('connection testing', function () {
                 'password' => Crypt::encryptString('secret-password'),
                 'root' => '/uploads',
             ],
-            'organization_id' => \App\Models\Organization::first()->id,
         ]);
 
         // Mock the FilesystemProvider to verify the volume receives merged password

@@ -12,12 +12,7 @@ use Livewire\Livewire;
 
 test('can edit database server', function (array $config) {
     $user = User::factory()->create();
-    $volume = Volume::create([
-        'name' => 'Test Volume',
-        'type' => 'local',
-        'config' => ['path' => '/var/backups'],
-        'organization_id' => \App\Models\Organization::first()->id,
-    ]);
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
     $schedule = dailySchedule();
 
     $serverData = [
@@ -99,12 +94,7 @@ test('can edit database server', function (array $config) {
 
 test('can change retention policy', function (array $config) {
     $user = User::factory()->create();
-    $volume = Volume::create([
-        'name' => 'Test Volume',
-        'type' => 'local',
-        'config' => ['path' => '/var/backups'],
-        'organization_id' => \App\Models\Organization::first()->id,
-    ]);
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
     $schedule = dailySchedule();
 
     $server = DatabaseServer::create([
