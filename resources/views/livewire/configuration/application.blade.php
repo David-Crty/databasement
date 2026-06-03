@@ -25,7 +25,7 @@
 
         <form wire:submit="saveApplicationConfig" class="mt-4 border-t border-base-200/60 pt-4">
             <div class="divide-y divide-base-200/80">
-                <x-config-row :label="__('Database Browser')" :description="__('Enable the built-in Adminer database browser for viewing and managing database contents.')">
+                <x-config-row :label="__('Database Browser')" :badge="__('New')" badge-classes="badge-primary badge-soft badge-xs" :description="__('Enable the built-in Adminer database browser for viewing and managing database contents. Not available for servers connected through SSH tunnels or remote agents.')">
                     <x-toggle wire:model.live="form.adminer_enabled" :disabled="!$this->isAdmin" />
                 </x-config-row>
 
@@ -34,11 +34,9 @@
                         <x-select wire:model="form.adminer_role" :options="$adminerRoleOptions" :disabled="!$this->isAdmin" />
                     </x-config-row>
 
-                    <div class="px-1 py-3">
-                        <x-alert class="alert-warning" icon="o-exclamation-triangle">
-                            {{ __('Users will have the same permissions as the database connection user configured on each server. Ensure connection users have appropriate privilege levels.') }}
-                        </x-alert>
-                    </div>
+                    <x-alert class="alert-warning" icon="o-exclamation-triangle">
+                        {{ __('Users will have the same permissions as the database connection user configured on each server. Ensure connection users have appropriate privilege levels.') }}
+                    </x-alert>
                 @endif
             </div>
 

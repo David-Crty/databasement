@@ -42,6 +42,7 @@
 - **Automated backups** - Schedule recurring backups on daily or weekly intervals. Flexible retention policies: simple time-based (days) or GFS (grandfather-father-son)
 - **Multiple compression options** - gzip, zstd (20-40% better compression), or encrypted (AES-256 for sensitive data)
 - **Cross-server restore** - Restore snapshots from production to staging, or between any compatible servers
+- **Built-in data browser** - Open Adminer in-app to inspect MySQL, PostgreSQL, and SQLite servers (admin-enabled, role-gated)
 - **Flexible storage** - Store backups locally, on S3-compatible storage (AWS S3, MinIO, etc.), or remote servers via SFTP/FTP
 - **Real-time monitoring** - Track backup and restore progress with detailed job logs
 - **Failure notifications** - Get alerted via Email, Slack, Discord, Telegram, Pushover, Gotify, or Webhook when jobs fail
