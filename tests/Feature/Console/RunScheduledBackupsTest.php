@@ -132,12 +132,11 @@ test('server with no databases does not prevent other backups from running', fun
     expect($snapshot->database_name)->toBe('production_db');
 });
 
-test('server throwing exception when listing databases does not prevent other backups from running', function () {
+test('server unreachable during all/pattern listing produces a failed preflight snapshot', function () {
     Queue::fake();
 
     $schedule = dailySchedule();
 
-    // Server with selection_mode=all that will throw an exception
     $failingServer = DatabaseServer::factory()->create([
         'name' => 'Failing Server',
         'database_selection_mode' => 'all',
@@ -145,7 +144,6 @@ test('server throwing exception when listing databases does not prevent other ba
     ]);
     $failingServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
 
-    // Server with selection_mode=all that should still work (databases from mock provider)
     $normalServer = DatabaseServer::factory()->create([
         'name' => 'Normal Server',
         'database_selection_mode' => 'all',
@@ -166,21 +164,23 @@ test('server throwing exception when listing databases does not prevent other ba
             });
     });
 
-    Log::shouldReceive('error')
-        ->once()
-        ->withArgs(fn (string $msg, array $ctx) => str_starts_with($msg, 'Failed to dispatch backup job for server [Failing Server / ')
-            && $ctx === ['error' => 'Connection refused']);
-
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain('Dispatching 2 backup(s)')
-        ->expectsOutput('Completed with 1 failed server(s).')
+        ->expectsOutput('All backup jobs dispatched successfully.')
         ->assertExitCode(0);
 
-    // Only the normal server's backup should be dispatched
+    // Only the normal server's snapshots get dispatched to the queue.
     Queue::assertPushed(ProcessBackupJob::class, 2);
 
-    $snapshot = Snapshot::first();
-    expect($snapshot->database_name)->toBe('production_db');
+    $failingSnapshot = Snapshot::where('database_server_id', $failingServer->id)->first();
+    expect($failingSnapshot)->not->toBeNull()
+        ->and($failingSnapshot->database_name)->toBe('(all databases)')
+        ->and($failingSnapshot->method)->toBe('scheduled')
+        ->and($failingSnapshot->job->status)->toBe('failed')
+        ->and($failingSnapshot->job->error_message)->toBe('Connection refused');
+
+    expect(Snapshot::where('database_server_id', $normalServer->id)->pluck('database_name')->sort()->values()->all())
+        ->toBe(['other_db', 'production_db']);
 });
 
 test('dispatches agent jobs when server has agent', function () {
@@ -223,6 +223,10 @@ test('dispatches discovery job for agent server with all mode', function () {
         ->and($discoveryJob->database_server_id)->toBe($server->id)
         ->and($discoveryJob->snapshot_id)->toBeNull()
         ->and($discoveryJob->payload['type'])->toBe('discover');
+
+    // Agent servers must defer discovery to the agent — the web app must not
+    // attempt a direct connection, so no pre-flight failure snapshot.
+    expect(Snapshot::where('database_server_id', $server->id)->count())->toBe(0);
 });
 
 test('skips duplicate discovery job when one is already in-flight', function () {

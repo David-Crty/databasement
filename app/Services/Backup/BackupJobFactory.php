@@ -12,6 +12,7 @@ use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -54,20 +55,26 @@ class BackupJobFactory
             return $snapshots;
         }
 
-        // Agent-backed servers with all/pattern mode need a discovery phase —
-        // the web app can't reach the database, only the agent can list databases.
+        // Agent-backed servers defer discovery to the agent — the web app
+        // can't reach the database itself.
         if ($server->agent_id && in_array($backup->database_selection_mode, [DatabaseSelectionMode::All, DatabaseSelectionMode::Pattern], true)) {
             return [];
         }
 
-        $databases = match ($backup->database_selection_mode) {
-            DatabaseSelectionMode::All => $this->databaseProvider->listDatabasesForServer($server),
-            DatabaseSelectionMode::Pattern => DatabaseServer::filterDatabasesByPattern(
-                $this->databaseProvider->listDatabasesForServer($server),
-                $backup->database_include_pattern ?? ''
-            ),
-            default => $backup->database_names ?? [],
-        };
+        try {
+            $databases = match ($backup->database_selection_mode) {
+                DatabaseSelectionMode::All => $this->databaseProvider->listDatabasesForServer($server),
+                DatabaseSelectionMode::Pattern => DatabaseServer::filterDatabasesByPattern(
+                    $this->databaseProvider->listDatabasesForServer($server),
+                    $backup->database_include_pattern ?? '',
+                ),
+                default => $backup->database_names ?? [],
+            };
+        } catch (\Throwable $e) {
+            $this->recordPreflightFailure($backup, $method, $triggeredByUserId, $e);
+
+            return [];
+        }
 
         if (empty($databases)) {
             Log::warning("No databases found on server [{$server->name}] for backup [{$backup->id}].");
@@ -115,6 +122,41 @@ class BackupJobFactory
         $snapshot->load(['job', 'volume', 'databaseServer']);
 
         return $snapshot;
+    }
+
+    /**
+     * Record a pre-flight failure (e.g. database unreachable when listing
+     * databases for All/Pattern modes) as a failed snapshot so monitoring
+     * dashboards and notifications can pick it up.
+     *
+     * @param  'manual'|'scheduled'  $method
+     */
+    private function recordPreflightFailure(
+        Backup $backup,
+        string $method,
+        ?int $triggeredByUserId,
+        \Throwable $exception,
+    ): void {
+        $databaseName = match ($backup->database_selection_mode) {
+            DatabaseSelectionMode::All => '(all databases)',
+            DatabaseSelectionMode::Pattern => $backup->database_include_pattern ?: '(pattern)',
+            default => '(preflight)',
+        };
+
+        $snapshot = $this->createSnapshot($backup, $databaseName, $method, $triggeredByUserId);
+        $snapshot->job->log("Pre-flight failed: {$exception->getMessage()}", 'error', [
+            'exception' => get_class($exception),
+        ]);
+        $snapshot->job->markFailed($exception);
+
+        try {
+            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
+        } catch (\Throwable $notificationException) {
+            Log::warning('Pre-flight failure notification failed', [
+                'snapshot_id' => $snapshot->id,
+                'error' => $notificationException->getMessage(),
+            ]);
+        }
     }
 
     /**
