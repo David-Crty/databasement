@@ -94,7 +94,7 @@
                 <div class="flex shrink-0 flex-wrap items-center gap-2">
                     <x-button :label="__('Back')" icon="o-arrow-left" link="{{ route('database-servers.index') }}"
                               class="btn-ghost btn-sm" wire:navigate />
-                    @if(($canAdminer || $canPromoteAdminer) && $server->supportsAdminer())
+                    @if($canAdminer && $server->supportsAdminer())
                         <x-button :label="__('Browse')" icon="o-table-cells" wire:click="openAdminer" spinner
                                   class="btn-outline btn-accent btn-sm" />
                     @endif

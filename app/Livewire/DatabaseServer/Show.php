@@ -5,7 +5,6 @@ namespace App\Livewire\DatabaseServer;
 use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
-use App\Facades\AppConfig;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Restore;
@@ -134,7 +133,6 @@ class Show extends Component
         return view('livewire.database-server.show', [
             'activeChannels' => $this->activeChannels(),
             'canAdminer' => Gate::allows('adminer', DatabaseServer::class),
-            'canPromoteAdminer' => ! AppConfig::get('app.adminer_enabled') && (auth()->user()?->isAdmin() ?? false),
         ]);
     }
 }

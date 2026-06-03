@@ -218,7 +218,7 @@ Restore is performed with `gbak -rep`, which writes a fresh `.fdb` at the target
 
 Databasement can launch [Adminer](https://www.adminer.org/) directly against a registered server to inspect schema and run queries from the browser. Supported for **MySQL**, **PostgreSQL**, and **SQLite** servers that connect without an SSH tunnel.
 
-Disabled by default. A Super Admin enables it under **Configuration → Application** and picks the minimum role required to use it (Viewer, Member, or Admin). Once enabled, a *Browse* action appears on compatible servers in the Database Servers list and opens Adminer pre-authenticated with the server's stored credentials.
+Enabled by default for Admins only. A Super Admin can change the minimum required role (Viewer, Member, or Admin) or disable the feature entirely under **Configuration → Application**. When enabled, a *Browse* action appears on compatible servers in the Database Servers list and opens Adminer pre-authenticated with the server's stored credentials.
 
 ## Troubleshooting Connection Issues
 

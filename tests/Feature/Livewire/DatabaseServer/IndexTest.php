@@ -53,23 +53,15 @@ test('runBackup fails with authorization error if user is viewer', function () {
 // --- openAdminer ---
 
 test('openAdminer is forbidden when adminer is disabled', function () {
-    $user = User::factory()->create(['role' => UserRole::Viewer]);
-    $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'mysql']);
+    AppConfig::set('app.adminer_enabled', false);
 
-    Livewire::actingAs($user)
-        ->test(Index::class)
-        ->call('openAdminer', $server->id)
-        ->assertForbidden();
-});
-
-test('openAdminer dispatches promo modal for admins when adminer is disabled', function () {
     $user = User::factory()->create(['role' => UserRole::Admin]);
     $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'mysql']);
 
     Livewire::actingAs($user)
         ->test(Index::class)
         ->call('openAdminer', $server->id)
-        ->assertDispatched('open-adminer-promo-modal');
+        ->assertForbidden();
 });
 
 test('openAdminer is forbidden for users below required role', function () {

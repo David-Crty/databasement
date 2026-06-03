@@ -28,7 +28,7 @@ test('application page displays environment variables', function () {
 test('application page displays adminer settings', function () {
     Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
         ->test(Application::class)
-        ->assertSet('form.adminer_enabled', false)
+        ->assertSet('form.adminer_enabled', true)
         ->assertSet('form.adminer_role', 'admin')
         ->assertSee('Database Browser');
 });
