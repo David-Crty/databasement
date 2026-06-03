@@ -234,7 +234,7 @@ class DatabaseServerForm extends Form
 
         // Path-based types (SQLite, Firebird) need at least one path row on
         // each backup so the user has somewhere to type the file path.
-        if ($value === 'sqlite' || $value === 'firebird') {
+        if (DatabaseType::tryFrom($value)?->identifiesDatabasesByPath() ?? false) {
             foreach ($this->backups as $index => $backup) {
                 if (empty($this->backups[$index]['database_names'])) {
                     $this->backups[$index]['database_names'] = [''];

@@ -210,8 +210,8 @@ CREATE USER databasement PASSWORD 'your_secure_password';
 GRANT RDB$ADMIN TO databasement;
 ```
 
-:::note Restore creates a new file
-Restore is performed with `gbak -c`, which writes a fresh `.fdb` at the target path. The user supplies the destination path during restore; the existing file (if any) is overwritten only when explicitly forced.
+:::note Restore replaces the target file
+Restore is performed with `gbak -rep`, which writes a fresh `.fdb` at the target path and replaces an existing file at that path if one is present. The user supplies the destination path during restore.
 :::
 
 ## Troubleshooting Connection Issues

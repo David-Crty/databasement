@@ -15,6 +15,7 @@ test('sanitizes sensitive patterns', function (string $input, string $expectedTo
     'quoted --password= format' => ["mysqldump --password='secret123' dbname", '--password=***', 'secret123'],
     '-p shorthand format' => ['mysqldump -psecret123 dbname', '-p***', 'secret123'],
     'firebird -password format' => ["gbak -b -user 'SYSDBA' -password 'masterkey' 'db' 'dump'", '-password ***', 'masterkey'],
+    'firebird -password with spaces in value' => ["gbak -b -user 'SYSDBA' -password 'sec ret pass' 'db' 'dump'", '-password ***', 'sec ret pass'],
     'PGPASSWORD env var' => ['PGPASSWORD=secret123 pg_dump dbname', 'PGPASSWORD=***', 'secret123'],
     'MYSQL_PWD env var' => ['MYSQL_PWD=secret123 mysqldump failed', 'MYSQL_PWD=***', 'secret123'],
     'sqlpackage source password' => ["sqlpackage /Action:Export /SourcePassword:'secret123' /SourceDatabaseName:'db'", '/SourcePassword:***', 'secret123'],

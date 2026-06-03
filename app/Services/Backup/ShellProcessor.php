@@ -76,8 +76,8 @@ class ShellProcessor
         $patterns = [
             // Match --password=VALUE or --password='VALUE' or --password="VALUE"
             '/--password=[\'"]?[^\s\'"]+[\'"]?/' => '--password=***',
-            // Match Firebird-style -password VALUE (with optional quoting)
-            '/-password\s+[\'"]?[^\s\'"]+[\'"]?/' => '-password ***',
+            // Match Firebird-style -password VALUE (single-quoted, double-quoted, or unquoted token)
+            '#-password\s+(?:\'[^\']*\'|"[^"]*"|[^\s]+)#' => '-password ***',
             // Match -pPASSWORD (MySQL shorthand) - only when -p is a standalone argument
             // followed directly by password (not --port, not -password, not inside words like mysql-production)
             '/(^|\s)-p(?!assword\b)([^\s\-][^\s]*)/' => '$1-p***',
