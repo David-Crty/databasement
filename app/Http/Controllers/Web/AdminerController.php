@@ -56,11 +56,18 @@ class AdminerController extends Controller
             $db = $databaseNames[0];
         }
 
+        $user = auth()->user();
+        $useDemoCreds = $user instanceof \App\Models\User && $user->isDemo();
+
         return [
             'driver' => $driver,
             'server' => $serverAddress,
-            'username' => $server->username ?? '',
-            'password' => $server->getDecryptedPassword(),
+            'username' => $useDemoCreds
+                ? (string) config('services.adminer.demo_username')
+                : ($server->username ?? ''),
+            'password' => $useDemoCreds
+                ? (string) config('services.adminer.demo_password')
+                : $server->getDecryptedPassword(),
             'db' => $db,
         ];
     }

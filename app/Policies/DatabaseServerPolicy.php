@@ -67,11 +67,17 @@ class DatabaseServerPolicy
      * Determine whether the user can open the Adminer database browser.
      * Requires the feature to be enabled and the user to meet the configured minimum role.
      * Server compatibility (database type, SSH) is checked separately via DatabaseServer::supportsAdminer().
+     * Demo users get access when read-only demo credentials are configured (see AdminerController).
      */
     public function adminer(User $user): bool
     {
         if (! AppConfig::get('app.adminer_enabled')) {
             return false;
+        }
+
+        if ($user->isDemo()) {
+            return config('services.adminer.demo_username') !== null
+                && config('services.adminer.demo_password') !== null;
         }
 
         $requiredRole = UserRole::tryFrom((string) AppConfig::get('app.adminer_role'));
