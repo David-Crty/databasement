@@ -122,11 +122,12 @@ final class BackupForm
             return;
         }
 
-        if ($serverType === DatabaseType::SQLITE) {
-            // SQLite: keep `database_names` (file paths) and force Selected mode.
+        // Path-based types (SQLite, Firebird) keep their file paths in
+        // `database_names` and always run in Selected mode — there's no
+        // server-side enumeration to support All / Pattern.
+        if ($serverType->identifiesDatabasesByPath()) {
             $entry['database_selection_mode'] = DatabaseSelectionMode::Selected->value;
             $entry['database_include_pattern'] = null;
-            // Strip empty path rows.
             $paths = $entry['database_names'] ?? [];
             $entry['database_names'] = array_values(array_filter(
                 array_map('trim', is_array($paths) ? $paths : []),
@@ -159,12 +160,13 @@ final class BackupForm
         array $availableDatabases,
         DatabaseType $serverType,
     ): void {
-        // SQLite uses its own row-based UI; Redis has no selection.
-        if (in_array($serverType, [DatabaseType::SQLITE, DatabaseType::REDIS], true)) {
+        // Path-based types (SQLite, Firebird) use their own per-row path UI;
+        // Redis has no selection at all.
+        if ($serverType->identifiesDatabasesByPath() || $serverType === DatabaseType::REDIS) {
             return;
         }
 
-        // Only needed when no multiselect options are loaded.
+        // Only skip normalization when a multiselect dropdown is actually in use.
         if (! empty($availableDatabases)) {
             return;
         }
@@ -221,15 +223,16 @@ final class BackupForm
             $rules[$prefix.'gfs_keep_monthly'] = 'nullable|integer|min:0|max:24';
         }
 
-        // SQLite stores file paths in `database_names`; require at least one.
-        if ($serverType === DatabaseType::SQLITE) {
+        // Path-based types (SQLite, Firebird) store file paths in
+        // `database_names`; require at least one.
+        if ($serverType->identifiesDatabasesByPath()) {
             $rules[$prefix.'database_names'] = 'required|array|min:1';
             $rules[$prefix.'database_names.*'] = 'required|string|max:1000';
         }
 
-        // Database selection only applies to client-server types (not SQLite
-        // or Redis).
-        if (! in_array($serverType, [DatabaseType::SQLITE, DatabaseType::REDIS], true)) {
+        // Database selection only applies to enumerable client-server types
+        // (not path-based types or Redis).
+        if (! $serverType->identifiesDatabasesByPath() && $serverType !== DatabaseType::REDIS) {
             $rules[$prefix.'database_selection_mode'] = [
                 'required',
                 'string',
@@ -331,7 +334,7 @@ final class BackupForm
             return true;
         }
 
-        if ($serverType === DatabaseType::SQLITE) {
+        if ($serverType->identifiesDatabasesByPath()) {
             $paths = $entry['database_names'] ?? [];
             $paths = array_filter(array_map('trim', is_array($paths) ? $paths : []));
 
@@ -352,7 +355,7 @@ final class BackupForm
             return null;
         }
 
-        if ($serverType === DatabaseType::SQLITE) {
+        if ($serverType->identifiesDatabasesByPath()) {
             $paths = $entry['database_names'] ?? [];
             $count = is_array($paths) ? count(array_filter($paths)) : 0;
 

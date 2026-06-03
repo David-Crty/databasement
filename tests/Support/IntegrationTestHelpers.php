@@ -89,6 +89,14 @@ class IntegrationTestHelpers
                 'database' => config('testing.databases.mssql.database').$suffix,
                 'database_type' => 'mssql',
             ],
+            'firebird' => [
+                'host' => config('testing.databases.firebird.host'),
+                'port' => (int) config('testing.databases.firebird.port'),
+                'username' => config('testing.databases.firebird.username'),
+                'password' => config('testing.databases.firebird.password'),
+                'database' => preg_replace('/\.fdb$/', $suffix.'.fdb', (string) config('testing.databases.firebird.database')),
+                'database_type' => 'firebird',
+            ],
             default => throw new InvalidArgumentException("Unsupported database type: {$type}"),
         };
     }
@@ -355,6 +363,50 @@ class IntegrationTestHelpers
     }
 
     /**
+     * Run SQL against Firebird using the CLI client and return raw output.
+     */
+    public static function runFirebirdSql(DatabaseServer $server, array $statements, ?string $databaseName = null): string
+    {
+        $scriptFile = tempnam(sys_get_temp_dir(), 'firebird-sql-');
+        if ($scriptFile === false) {
+            throw new InvalidArgumentException('Unable to create temporary Firebird SQL script');
+        }
+
+        file_put_contents($scriptFile, implode(PHP_EOL, [...$statements, 'EXIT;']).PHP_EOL);
+
+        $target = $databaseName !== null
+            ? sprintf('%s/%d:%s', $server->host, $server->port, $databaseName)
+            : null;
+
+        $parts = [
+            'isql',
+            '-user',
+            escapeshellarg($server->username),
+            '-password',
+            escapeshellarg($server->getDecryptedPassword()),
+        ];
+
+        if ($target !== null) {
+            $parts[] = escapeshellarg($target);
+        }
+
+        $parts[] = '-i';
+        $parts[] = escapeshellarg($scriptFile);
+        $parts[] = '2>&1';
+
+        exec(implode(' ', $parts), $output, $exitCode);
+        @unlink($scriptFile);
+
+        $joined = trim(implode(PHP_EOL, $output));
+
+        if ($exitCode !== 0) {
+            throw new InvalidArgumentException('Firebird SQL command failed: '.($joined !== '' ? $joined : 'unknown error'));
+        }
+
+        return $joined;
+    }
+
+    /**
      * Get SSH tunnel test configuration.
      *
      * @return array{host: string, port: int, username: string, password: string, mysql_host: string}
@@ -434,6 +486,16 @@ class IntegrationTestHelpers
             return;
         }
 
+        if ($type === 'firebird') {
+            try {
+                self::runFirebirdSql($server, ['DROP DATABASE;'], $databaseName);
+            } catch (InvalidArgumentException) {
+                // Best-effort cleanup only.
+            }
+
+            return;
+        }
+
         $pdo = DatabaseType::from($type)->createPdo($server);
 
         if ($type === 'mysql') {
@@ -469,6 +531,32 @@ class IntegrationTestHelpers
         // raw script with batch separators in one exec).
         if ($type === 'mssql') {
             self::loadMssqlTestData($server);
+
+            return;
+        }
+
+        if ($type === 'firebird') {
+            $databaseName = self::resolveTestDatabaseName($server);
+
+            self::dropDatabase($type, $server, $databaseName);
+            self::runFirebirdSql($server, [
+                sprintf(
+                    "CREATE DATABASE '%s/%d:%s' USER '%s' PASSWORD '%s';",
+                    $server->host,
+                    $server->port,
+                    $databaseName,
+                    str_replace("'", "''", $server->username),
+                    str_replace("'", "''", $server->getDecryptedPassword()),
+                ),
+            ]);
+
+            $fixtureFile = __DIR__.'/../Integration/fixtures/firebird-init.sql';
+            $sql = array_values(array_filter(array_map('trim', explode(';', (string) file_get_contents($fixtureFile)))));
+            self::runFirebirdSql(
+                $server,
+                array_map(static fn (string $statement) => $statement.';', $sql),
+                $databaseName,
+            );
 
             return;
         }
@@ -532,5 +620,22 @@ class IntegrationTestHelpers
             array_map('trim', $batches),
             fn (string $batch): bool => $batch !== '',
         ));
+    }
+
+    /**
+     * Verify Firebird restore by counting rows in the test table.
+     */
+    public static function verifyFirebirdRestore(DatabaseServer $server, string $databaseName): int
+    {
+        $output = self::runFirebirdSql($server, [
+            'SET HEADING OFF;',
+            'SET LIST OFF;',
+            'SET COUNT OFF;',
+            'SELECT COUNT(*) FROM test_table;',
+        ], $databaseName);
+
+        preg_match('/\b(\d+)\b/', $output, $matches);
+
+        return isset($matches[1]) ? (int) $matches[1] : 0;
     }
 }

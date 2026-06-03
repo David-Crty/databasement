@@ -41,7 +41,7 @@ test('from-server mode: navigates step 1 -> step 2 by picking a snapshot', funct
         ->call('selectSnapshot', $snapshot->id)
         ->assertSet('selectedSnapshotId', $snapshot->id)
         ->assertSet('currentStep', 2);
-})->with(['mysql', 'postgres', 'sqlite']);
+})->with(['mysql', 'postgres', 'sqlite', 'firebird']);
 
 test('from-server mode: queues restore job and dispatches restore-created', function () {
     Queue::fake();

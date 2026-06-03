@@ -143,6 +143,23 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
+     * Configure the factory for Firebird database type.
+     */
+    public function firebird(): static
+    {
+        return $this->state(fn () => [
+            'name' => fake()->company().' Firebird Server',
+            'database_type' => 'firebird',
+            'host' => fake()->randomElement(['localhost', '127.0.0.1']),
+            'port' => 3050,
+            'username' => 'sysdba',
+            'password' => 'masterkey',
+            'database_selection_mode' => 'selected',
+            'database_names' => ['/data/main.fdb'],
+        ]);
+    }
+
+    /**
      * Configure the factory with SSH tunnel using password authentication.
      *
      * Note: Uses afterCreating() hook, so only works with create(), not make().

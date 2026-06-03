@@ -364,3 +364,45 @@ test('redis backup workflow', function () {
         ->and($this->snapshot->filename)->toEndWith('.rdb.gz')
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
 });
+
+test('firebird backup and restore workflow', function () {
+    // Create models
+    $this->volume = IntegrationTestHelpers::createVolume('firebird');
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('firebird');
+    $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
+    $this->databaseServer->load('backups.volume');
+
+    // Load test data
+    IntegrationTestHelpers::loadTestData('firebird', $this->databaseServer);
+
+    // Run backup
+    $snapshots = $this->backupJobFactory->createSnapshots(
+        backup: $this->backup,
+        method: 'manual',
+    );
+    $this->snapshot = $snapshots[0];
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
+    $this->snapshot->refresh();
+    $this->snapshot->load('job');
+
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+
+    expect($this->snapshot->job->status)->toBe('completed')
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->filename)->toEndWith('.fbk.gz')
+        ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
+
+    // Run restore (use unique name with parallel token and microseconds to avoid collisions)
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $this->restoredDatabaseName = '/var/lib/firebird/data/testdb_restored_'.hrtime(true).$suffix.'.fdb';
+    $restore = $this->backupJobFactory->createRestore(
+        snapshot: $this->snapshot,
+        targetServer: $this->databaseServer,
+        schemaName: $this->restoredDatabaseName,
+    );
+    ProcessRestoreJob::dispatchSync($restore->id);
+
+    // Verify restore — the fixture inserts 3 rows in test_table
+    $rowCount = IntegrationTestHelpers::verifyFirebirdRestore($this->databaseServer, $this->restoredDatabaseName);
+    expect($rowCount)->toBe(3);
+});

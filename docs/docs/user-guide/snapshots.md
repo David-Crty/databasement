@@ -43,6 +43,11 @@ PGPASSWORD='...' psql --host='...' --port='...' --username='...' \
 cp '/path/to/snapshot' '/path/to/database.sqlite'
 ```
 
+**Firebird:**
+```bash
+gbak -c -user '...' -password '...' '/path/to/dump.fbk' 'host/port:/path/to/target.fdb'
+```
+
 **MongoDB:**
 ```bash
 mongorestore --host='...' --port='...' --username='...' --password='...' \

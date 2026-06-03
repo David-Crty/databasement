@@ -76,6 +76,19 @@ jobs:
           --health-timeout=5s
           --health-retries=20
 
+      firebird:
+        image: firebirdsql/firebird:5
+        env:
+          FIREBIRD_ROOT_PASSWORD: masterkey
+          FIREBIRD_DATABASE: sample.fdb
+        ports:
+          - 3050:3050
+        options: >-
+          --health-cmd="echo 'QUIT;' | isql -user SYSDBA -password masterkey /var/lib/firebird/data/sample.fdb || exit 0"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+
       ssh:
         image: linuxserver/openssh-server:latest
         env:

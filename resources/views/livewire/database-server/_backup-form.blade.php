@@ -6,9 +6,10 @@
 
     /** @var array<string, mixed> $backup */
     $serverType = DatabaseType::tryFrom($form->database_type);
-    $isSqlite = $serverType === DatabaseType::SQLITE;
+    $isPathBased = $serverType?->identifiesDatabasesByPath() ?? false;
     $showDatabaseSelection = $serverType !== null
-        && ! in_array($serverType, [DatabaseType::SQLITE, DatabaseType::REDIS], true);
+        && ! $isPathBased
+        && $serverType !== DatabaseType::REDIS;
 
     $resolvedPathPreview = BackupForm::resolvedPathPreview($backup);
     $summaryWhat = $serverType ? BackupForm::selectionSummary($backup, $serverType) : null;
@@ -21,9 +22,20 @@
         ? implode(' · ', array_filter([$summarySchedule.' → '.$summaryVolume, $summaryWhat, $summaryHowLong]))
         : __('New backup configuration');
 
-    $sqlitePaths = $isSqlite
+    $pathRows = $isPathBased
         ? (! empty($backup['database_names']) ? $backup['database_names'] : [''])
         : [];
+
+    $pathPlaceholder = match ($serverType) {
+        DatabaseType::FIREBIRD => __('e.g., /var/lib/firebird/data/main.fdb'),
+        default => __('e.g., /var/data/database.sqlite'),
+    };
+
+    $pathHint = match (true) {
+        $serverType === DatabaseType::FIREBIRD => __('Absolute paths to database files on the Firebird server'),
+        $serverType === DatabaseType::SQLITE && $form->ssh_enabled => __('Absolute paths on the remote SSH server'),
+        default => __('Absolute paths to SQLite database files'),
+    };
 @endphp
 
 @php
@@ -60,9 +72,9 @@
 
     <div class="space-y-6">
         {{-- ======================================================================== --}}
-        {{-- Sub-group 1a — SQLite file paths (only for SQLite)                        --}}
+        {{-- Sub-group 1a — Database file paths (for path-identified types)            --}}
         {{-- ======================================================================== --}}
-        @if($isSqlite)
+        @if($isPathBased)
             <div class="space-y-3">
                 <div class="flex items-center gap-2">
                     <span class="flex h-6 w-6 items-center justify-center rounded bg-base-200 text-base-content/70">
@@ -74,16 +86,16 @@
                 </div>
 
                 <div class="space-y-2">
-                    @foreach($sqlitePaths as $pathIndex => $path)
+                    @foreach($pathRows as $pathIndex => $path)
                         <div wire:key="backup-{{ $index }}-path-{{ $pathIndex }}" class="flex gap-2 items-center">
                             <div class="flex-1">
                                 <x-input
                                     wire:model.live.debounce.400ms="form.backups.{{ $index }}.database_names.{{ $pathIndex }}"
-                                    placeholder="{{ __('e.g., /var/data/database.sqlite') }}"
+                                    :placeholder="$pathPlaceholder"
                                     type="text"
                                 />
                             </div>
-                            @if(count($sqlitePaths) > 1)
+                            @if(count($pathRows) > 1)
                                 <x-button
                                     wire:click="removeDatabasePath({{ $index }}, {{ $pathIndex }})"
                                     icon="o-trash"
@@ -100,9 +112,7 @@
                         :label="__('Add path')"
                         type="button"
                     />
-                    <p class="text-xs opacity-50">
-                        {{ $form->ssh_enabled ? __('Absolute paths on the remote SSH server') : __('Absolute paths to SQLite database files') }}
-                    </p>
+                    <p class="text-xs opacity-50">{{ $pathHint }}</p>
                 </div>
             </div>
         @endif
