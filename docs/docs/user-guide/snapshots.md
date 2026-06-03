@@ -45,7 +45,7 @@ cp '/path/to/snapshot' '/path/to/database.sqlite'
 
 **Firebird:**
 ```bash
-gbak -c -user '...' -password '...' '/path/to/dump.fbk' 'host/port:/path/to/target.fdb'
+gbak -rep -user '...' -password '...' '/path/to/dump.fbk' 'host/port:/path/to/target.fdb'
 ```
 
 **MongoDB:**
