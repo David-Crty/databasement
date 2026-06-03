@@ -1,3 +1,5 @@
+FROM firebirdsql/firebird:5 AS firebird
+
 FROM dunglas/frankenphp:1.12-php8.5-alpine
 
 RUN install-php-extensions \
@@ -45,7 +47,10 @@ RUN apk add --no-cache git \
         curl \
         unzip \
         icu-libs krb5-libs libgcc libssl3 libstdc++ zlib \
-        gcompat
+        gcompat \
+        libc6-compat \
+        procps-ng \
+        ncurses-libs
 
 # Install MongoDB tools (mongodump, mongorestore) from Alpine edge community repo
 RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mongodb-tools
@@ -64,6 +69,31 @@ RUN curl -fsSL -o /tmp/sqlpackage.zip "${SQLPACKAGE_URL}" \
     && chmod +x /opt/sqlpackage/sqlpackage \
     && ln -s /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage \
     && rm /tmp/sqlpackage.zip
+
+# Firebird tooling: gbak (dump/restore) and isql (connection probe + test
+# fixtures). The official Firebird image is Debian-based, so the binaries are
+# linked against glibc — Alpine's musl+gcompat doesn't provide all the glibc
+# symbols they need (__strftime_l, __register_atfork, __rawmemchr, __strdup).
+# We therefore COPY both the Firebird payload and the glibc loader+libs from
+# the firebird stage, then run the binaries via the bundled glibc loader.
+# The /lib/*-linux-gnu/ glob keeps this multi-arch: amd64 resolves to
+# x86_64-linux-gnu, arm64 to aarch64-linux-gnu. A symlink to ld.so gives the
+# wrappers a stable path regardless of arch. Wrappers live in /usr/local/bin so
+# they take precedence over unixodbc's /usr/bin/isql regardless of shell type.
+COPY --from=firebird /opt/firebird /opt/firebird
+COPY --from=firebird \
+    /lib/*-linux-gnu/ld-linux-*.so.* \
+    /lib/*-linux-gnu/libc.so.6 \
+    /lib/*-linux-gnu/libdl.so.2 \
+    /lib/*-linux-gnu/libgcc_s.so.1 \
+    /lib/*-linux-gnu/libm.so.6 \
+    /lib/*-linux-gnu/libpthread.so.0 \
+    /lib/*-linux-gnu/libtommath.so.1 \
+    /opt/firebird/compat/
+RUN ln -s /opt/firebird/compat/ld-linux-*.so.* /opt/firebird/compat/ld.so
+
+COPY scripts/firebird/gbak scripts/firebird/isql /usr/local/bin/
+RUN chmod 755 /usr/local/bin/gbak /usr/local/bin/isql
 
 COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini
