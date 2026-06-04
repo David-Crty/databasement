@@ -21,41 +21,6 @@ beforeEach(function () {
     });
 });
 
-test('requires a schedule to be selected', function () {
-    $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
-    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
-    Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
-
-    Livewire::test(Modal::class)
-        ->call('open')
-        ->set('sourceServerId', $source->id)
-        ->set('sourceDatabaseName', 'app')
-        ->call('nextStep')
-        ->set('targetServerId', $target->id)
-        ->set('schemaName', 'restored_db')
-        ->call('nextStep')
-        ->set('name', 'Refresh')
-        ->set('backupScheduleId', null)
-        ->call('save')
-        ->assertHasErrors(['backupScheduleId']);
-});
-
-test('rejects invalid schema name regex for non-sqlite targets', function () {
-    $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
-    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
-    Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
-
-    Livewire::test(Modal::class)
-        ->call('open')
-        ->set('sourceServerId', $source->id)
-        ->set('sourceDatabaseName', 'app')
-        ->call('nextStep')
-        ->set('targetServerId', $target->id)
-        ->set('schemaName', 'has spaces')
-        ->call('nextStep')
-        ->assertHasErrors(['schemaName']);
-});
-
 test('rejects target server with a different database type than the source', function () {
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
     $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);

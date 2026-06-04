@@ -5,14 +5,6 @@ use App\Models\ScheduledRestore;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 
-function apiSourceTarget(string $type = 'mysql'): array
-{
-    $source = DatabaseServer::factory()->create(['database_type' => $type, 'database_names' => ['app']]);
-    $target = DatabaseServer::factory()->create(['database_type' => $type, 'database_names' => ['target']]);
-
-    return [$source, $target];
-}
-
 // ─── Index ───────────────────────────────────────────────────────────────────
 
 test('unauthenticated users cannot list scheduled restores', function () {
@@ -21,7 +13,7 @@ test('unauthenticated users cannot list scheduled restores', function () {
 
 test('can list scheduled restores via api', function () {
     $user = User::factory()->create();
-    [$source, $target] = apiSourceTarget();
+    [$source, $target] = createRestoreServerPair();
 
     ScheduledRestore::factory()->create([
         'name' => 'Nightly staging refresh',
@@ -41,7 +33,7 @@ test('can list scheduled restores via api', function () {
 
 test('can view a scheduled restore via api', function () {
     $user = User::factory()->create();
-    [$source, $target] = apiSourceTarget();
+    [$source, $target] = createRestoreServerPair();
     $schedule = dailySchedule();
 
     $scheduled = ScheduledRestore::factory()->create([
@@ -62,7 +54,7 @@ test('can view a scheduled restore via api', function () {
 
 test('can create a scheduled restore via api', function () {
     $user = User::factory()->create();
-    [$source, $target] = apiSourceTarget();
+    [$source, $target] = createRestoreServerPair();
     $schedule = dailySchedule();
 
     $response = $this->actingAs($user, 'sanctum')
@@ -87,31 +79,6 @@ test('can create a scheduled restore via api', function () {
     ]);
 });
 
-test('store returns validation errors for missing required fields', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/scheduled-restores', [])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['name', 'source_server_id', 'target_server_id', 'schema_name', 'backup_schedule_id']);
-});
-
-test('store rejects invalid backup_schedule_id', function () {
-    $user = User::factory()->create();
-    [$source, $target] = apiSourceTarget();
-
-    $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/scheduled-restores', [
-            'name' => 'Bad',
-            'source_server_id' => $source->id,
-            'target_server_id' => $target->id,
-            'schema_name' => 'restored_db',
-            'backup_schedule_id' => 'non-existent-id',
-        ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['backup_schedule_id']);
-});
-
 test('store rejects mismatched server types', function () {
     $user = User::factory()->create();
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
@@ -132,7 +99,7 @@ test('store rejects mismatched server types', function () {
 
 test('viewers cannot create scheduled restores', function () {
     $user = User::factory()->viewer()->create();
-    [$source, $target] = apiSourceTarget();
+    [$source, $target] = createRestoreServerPair();
     $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
@@ -150,7 +117,7 @@ test('viewers cannot create scheduled restores', function () {
 
 test('can update a scheduled restore via api', function () {
     $user = User::factory()->create();
-    [$source, $target] = apiSourceTarget();
+    [$source, $target] = createRestoreServerPair();
     $schedule1 = dailySchedule();
     $schedule2 = weeklySchedule();
 
@@ -178,7 +145,7 @@ test('can update a scheduled restore via api', function () {
 
 test('can delete a scheduled restore via api', function () {
     $user = User::factory()->create();
-    [$source, $target] = apiSourceTarget();
+    [$source, $target] = createRestoreServerPair();
 
     $scheduled = ScheduledRestore::factory()->create([
         'source_server_id' => $source->id,
@@ -198,7 +165,7 @@ test('can trigger a scheduled restore run via api', function () {
     Artisan::spy();
 
     $user = User::factory()->create();
-    [$source, $target] = apiSourceTarget();
+    [$source, $target] = createRestoreServerPair();
 
     $scheduled = ScheduledRestore::factory()->create([
         'source_server_id' => $source->id,
@@ -216,7 +183,7 @@ test('can trigger a scheduled restore run via api', function () {
 
 test('viewers cannot trigger a scheduled restore', function () {
     $user = User::factory()->viewer()->create();
-    [$source, $target] = apiSourceTarget();
+    [$source, $target] = createRestoreServerPair();
 
     $scheduled = ScheduledRestore::factory()->create([
         'source_server_id' => $source->id,

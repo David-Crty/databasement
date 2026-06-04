@@ -1,19 +1,8 @@
 <?php
 
 use App\Models\DatabaseServer;
-use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use App\Services\Backup\LatestSnapshotResolver;
-
-function makeScheduledRestore(DatabaseServer $source, DatabaseServer $target, ?string $database = null): ScheduledRestore
-{
-    return ScheduledRestore::factory()->create([
-        'source_server_id' => $source->id,
-        'target_server_id' => $target->id,
-        'source_database_name' => $database,
-        'schema_name' => 'restored_db',
-    ]);
-}
 
 test('returns the most recent completed snapshot for the source server', function () {
     $source = DatabaseServer::factory()->create();
@@ -25,7 +14,7 @@ test('returns the most recent completed snapshot for the source server', functio
     $latest = Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
     $latest->forceFill(['created_at' => now()->subHour()])->saveQuietly();
 
-    $scheduled = makeScheduledRestore($source, $target, 'app');
+    $scheduled = createScheduledRestore(['source' => $source, 'target' => $target, 'source_database_name' => 'app']);
 
     $resolved = app(LatestSnapshotResolver::class)->resolve($scheduled);
 
@@ -42,7 +31,7 @@ test('filters by source_database_name when specified', function () {
     $appDb = Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
     $appDb->forceFill(['created_at' => now()->subHour()])->saveQuietly();
 
-    $scheduled = makeScheduledRestore($source, $target, 'app');
+    $scheduled = createScheduledRestore(['source' => $source, 'target' => $target, 'source_database_name' => 'app']);
 
     $resolved = app(LatestSnapshotResolver::class)->resolve($scheduled);
 
@@ -59,7 +48,7 @@ test('ignores database name when source_database_name is null', function () {
     $second = Snapshot::factory()->forServer($source)->create(['database_name' => 'bar']);
     $second->forceFill(['created_at' => now()->subHour()])->saveQuietly();
 
-    $scheduled = makeScheduledRestore($source, $target, null);
+    $scheduled = createScheduledRestore(['source' => $source, 'target' => $target, 'source_database_name' => null]);
 
     $resolved = app(LatestSnapshotResolver::class)->resolve($scheduled);
 
@@ -73,7 +62,7 @@ test('skips snapshots whose job is not completed', function () {
     $running = Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
     $running->job->update(['status' => 'running']);
 
-    $scheduled = makeScheduledRestore($source, $target, 'app');
+    $scheduled = createScheduledRestore(['source' => $source, 'target' => $target, 'source_database_name' => 'app']);
 
     expect(app(LatestSnapshotResolver::class)->resolve($scheduled))->toBeNull();
 });
@@ -84,7 +73,7 @@ test('skips snapshots whose file is missing', function () {
 
     Snapshot::factory()->forServer($source)->fileMissing()->create(['database_name' => 'app']);
 
-    $scheduled = makeScheduledRestore($source, $target, 'app');
+    $scheduled = createScheduledRestore(['source' => $source, 'target' => $target, 'source_database_name' => 'app']);
 
     expect(app(LatestSnapshotResolver::class)->resolve($scheduled))->toBeNull();
 });
@@ -96,7 +85,7 @@ test('does not return snapshots from a different source server', function () {
 
     Snapshot::factory()->forServer($other)->create(['database_name' => 'app']);
 
-    $scheduled = makeScheduledRestore($source, $target, 'app');
+    $scheduled = createScheduledRestore(['source' => $source, 'target' => $target, 'source_database_name' => 'app']);
 
     expect(app(LatestSnapshotResolver::class)->resolve($scheduled))->toBeNull();
 });

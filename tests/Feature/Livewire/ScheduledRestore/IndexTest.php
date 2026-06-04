@@ -2,7 +2,6 @@
 
 use App\Enums\UserRole;
 use App\Livewire\ScheduledRestore\Index;
-use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use App\Models\User;
@@ -16,21 +15,8 @@ beforeEach(function () {
     actingAs($this->user);
 });
 
-function makeScheduled(array $attrs = []): ScheduledRestore
-{
-    $source = $attrs['source'] ?? DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
-    $target = $attrs['target'] ?? DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['target']]);
-
-    return ScheduledRestore::factory()->create(array_merge([
-        'source_server_id' => $source->id,
-        'target_server_id' => $target->id,
-        'source_database_name' => 'app',
-        'schema_name' => 'restored_db',
-    ], array_diff_key($attrs, ['source' => null, 'target' => null])));
-}
-
 test('lists existing scheduled restores', function () {
-    $scheduled = makeScheduled(['name' => 'Nightly staging refresh']);
+    $scheduled = createScheduledRestore(['name' => 'Nightly staging refresh']);
 
     Livewire::test(Index::class)
         ->assertSee('Nightly staging refresh')
@@ -44,8 +30,8 @@ test('openCreate dispatches the modal open event', function () {
 });
 
 test('search filters by name', function () {
-    makeScheduled(['name' => 'alpha refresh']);
-    makeScheduled(['name' => 'beta refresh']);
+    createScheduledRestore(['name' => 'alpha refresh']);
+    createScheduledRestore(['name' => 'beta refresh']);
 
     Livewire::test(Index::class)
         ->set('search', 'alpha')
@@ -54,7 +40,7 @@ test('search filters by name', function () {
 });
 
 test('toggleEnabled flips the enabled flag', function () {
-    $scheduled = makeScheduled(['enabled' => true]);
+    $scheduled = createScheduledRestore(['enabled' => true]);
 
     Livewire::test(Index::class)
         ->call('toggleEnabled', $scheduled->id);
@@ -65,7 +51,7 @@ test('toggleEnabled flips the enabled flag', function () {
 test('runNow dispatches the restores:run artisan command', function () {
     Artisan::spy();
 
-    $scheduled = makeScheduled();
+    $scheduled = createScheduledRestore();
     Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
 
     Livewire::test(Index::class)
@@ -77,7 +63,7 @@ test('runNow dispatches the restores:run artisan command', function () {
 });
 
 test('deleteScheduledRestore removes the record', function () {
-    $scheduled = makeScheduled();
+    $scheduled = createScheduledRestore();
 
     Livewire::test(Index::class)
         ->call('confirmDelete', $scheduled->id)
@@ -96,8 +82,8 @@ test('non-admin users cannot create scheduled restores', function () {
 });
 
 test('enabled filter narrows the list', function () {
-    makeScheduled(['name' => 'active task', 'enabled' => true]);
-    makeScheduled(['name' => 'paused task', 'enabled' => false]);
+    createScheduledRestore(['name' => 'active task', 'enabled' => true]);
+    createScheduledRestore(['name' => 'paused task', 'enabled' => false]);
 
     Livewire::test(Index::class)
         ->set('enabledFilter', '0')
@@ -106,7 +92,7 @@ test('enabled filter narrows the list', function () {
 });
 
 test('an unrecognized sort column falls back to the default instead of reaching the query', function () {
-    makeScheduled(['name' => 'visible task']);
+    createScheduledRestore(['name' => 'visible task']);
 
     Livewire::test(Index::class)
         ->set('sortBy', ['column' => 'name); drop table users; --', 'direction' => 'asc'])

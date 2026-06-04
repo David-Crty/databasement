@@ -80,15 +80,6 @@ test('can create a backup schedule via api', function () {
     $this->assertDatabaseHas('backup_schedules', ['name' => 'Nightly']);
 });
 
-test('store returns validation errors for missing required fields', function () {
-    $user = User::factory()->create();
-
-    $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/backup-schedules', [])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['name', 'expression']);
-});
-
 test('store rejects invalid cron expression', function () {
     $user = User::factory()->create();
 

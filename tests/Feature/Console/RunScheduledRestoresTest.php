@@ -2,24 +2,10 @@
 
 use App\Jobs\ProcessRestoreJob;
 use App\Models\BackupJob;
-use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use Illuminate\Support\Facades\Queue;
-
-function freshScheduledRestore(array $attrs = []): ScheduledRestore
-{
-    $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
-    $target = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['target']]);
-
-    return ScheduledRestore::factory()->create(array_merge([
-        'source_server_id' => $source->id,
-        'target_server_id' => $target->id,
-        'source_database_name' => 'app',
-        'schema_name' => 'restored_db',
-    ], $attrs));
-}
 
 test('fails when scheduled restore ID does not exist', function () {
     $this->artisan('restores:run', ['scheduledRestore' => 'missing-id'])
@@ -30,7 +16,7 @@ test('fails when scheduled restore ID does not exist', function () {
 test('skips disabled scheduled restore', function () {
     Queue::fake();
 
-    $scheduled = freshScheduledRestore(['enabled' => false]);
+    $scheduled = createScheduledRestore(['enabled' => false]);
 
     $this->artisan('restores:run', ['scheduledRestore' => $scheduled->id])
         ->expectsOutputToContain('disabled')
@@ -46,7 +32,7 @@ test('skips disabled scheduled restore', function () {
 test('skips when no eligible snapshot exists', function () {
     Queue::fake();
 
-    $scheduled = freshScheduledRestore();
+    $scheduled = createScheduledRestore();
 
     $this->artisan('restores:run', ['scheduledRestore' => $scheduled->id])
         ->expectsOutputToContain('No eligible snapshot')
@@ -61,7 +47,7 @@ test('skips when no eligible snapshot exists', function () {
 test('skips when a previous restore is still in flight', function () {
     Queue::fake();
 
-    $scheduled = freshScheduledRestore();
+    $scheduled = createScheduledRestore();
 
     Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
 
@@ -87,7 +73,7 @@ test('skips when a previous restore is still in flight', function () {
 test('creates restore and dispatches job for happy path', function () {
     Queue::fake();
 
-    $scheduled = freshScheduledRestore();
+    $scheduled = createScheduledRestore();
 
     $snapshot = Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
 
@@ -112,7 +98,7 @@ test('creates restore and dispatches job for happy path', function () {
 test('passes options to the created restore', function () {
     Queue::fake();
 
-    $scheduled = freshScheduledRestore([
+    $scheduled = createScheduledRestore([
         'options' => ['force_database' => true, 'owner_user' => 'webapp'],
     ]);
 
@@ -129,7 +115,7 @@ test('passes options to the created restore', function () {
 test('completed previous restores do not block new ones', function () {
     Queue::fake();
 
-    $scheduled = freshScheduledRestore();
+    $scheduled = createScheduledRestore();
 
     Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
 

@@ -140,6 +140,40 @@ function createDatabaseServer(array $attributes = []): \App\Models\DatabaseServe
         ->load('backups.volume');
 }
 
+/**
+ * Create a matching source + target DatabaseServer pair of the same type.
+ *
+ * @return array{0: \App\Models\DatabaseServer, 1: \App\Models\DatabaseServer}
+ */
+function createRestoreServerPair(string $type = 'mysql'): array
+{
+    return [
+        \App\Models\DatabaseServer::factory()->create(['database_type' => $type, 'database_names' => ['app']]),
+        \App\Models\DatabaseServer::factory()->create(['database_type' => $type, 'database_names' => ['target']]),
+    ];
+}
+
+/**
+ * Create a ScheduledRestore with sensible MySQL defaults.
+ *
+ * Pass 'source' and/or 'target' DatabaseServer models to reuse existing
+ * servers; all other keys are forwarded to the factory.
+ *
+ * @param  array<string, mixed>  $attrs
+ */
+function createScheduledRestore(array $attrs = []): \App\Models\ScheduledRestore
+{
+    $source = $attrs['source'] ?? \App\Models\DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
+    $target = $attrs['target'] ?? \App\Models\DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['target']]);
+
+    return \App\Models\ScheduledRestore::factory()->create(array_merge([
+        'source_server_id' => $source->id,
+        'target_server_id' => $target->id,
+        'source_database_name' => 'app',
+        'schema_name' => 'restored_db',
+    ], array_diff_key($attrs, ['source' => null, 'target' => null])));
+}
+
 /*
 |--------------------------------------------------------------------------
 | Datasets
