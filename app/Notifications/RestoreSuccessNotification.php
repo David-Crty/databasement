@@ -17,7 +17,7 @@ class RestoreSuccessNotification extends BaseSuccessNotification
             body: 'A restore job completed successfully.',
             actionText: '🔗 View Job Details',
             actionUrl: route('restores.index', ['job' => $this->restore->backup_job_id]),
-            footerText: '🕐 '.now()->toDateTimeString(),
+            footerText: '🕐 '.\App\Support\Formatters::humanDate(now()),
             fields: [
                 'Target Server' => $this->restore->targetServer->name ?? 'Unknown',
                 'Target Database' => $this->restore->schema_name ?? 'Unknown',

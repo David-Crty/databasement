@@ -20,7 +20,7 @@ class RestoreFailedNotification extends BaseFailedNotification
             body: 'A restore job has failed and requires your attention.',
             actionText: '🔗 View Job Details',
             actionUrl: route('restores.index', ['job' => $this->restore->backup_job_id]),
-            footerText: '🕐 '.now()->toDateTimeString(),
+            footerText: '🕐 '.\App\Support\Formatters::humanDate(now()),
             errorLabel: '❌ Error Details',
             fields: [
                 'Target Server' => $this->restore->targetServer->name ?? 'Unknown',

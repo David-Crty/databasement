@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Database Servers
 
-Database servers are the source of your backups. Databasement can connect to and backup MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, and Redis/Valkey servers.
+Database servers are the source of your backups. Databasement can connect to and backup MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis/Valkey servers.
 
 ## Supported Versions
 
@@ -18,6 +18,7 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 | SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.dacpac`)     | Yes     |
 | MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes     |
 | SQLite     | 3.x                          | File copy                    | Yes     |
+| Firebird   | 3.x, 4.x, 5.x                | `gbak` v5                    | Yes     |
 | Redis      | 2.8+                         | `redis-cli --rdb`            | No      |
 | Valkey     | 7.2+                         | `redis-cli --rdb`            | No      |
 
@@ -27,6 +28,7 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 - **SQL Server**: Backups are extracted as `.dacpac` files (schema + table data) using Microsoft's `sqlpackage` CLI (`/Action:Extract`) and re-applied with `/Action:Publish`. Server-bound objects (logins, users, permissions, role memberships) are excluded so backups stay portable across instances and don't fail on Windows-auth principals like `[NT AUTHORITY\SYSTEM]`. Works against on-prem SQL Server 2017+ and Azure SQL Database. Connections use the `pdo_sqlsrv` PHP extension.
 - **MongoDB**: The MongoDB Database Tools (`mongodump` / `mongorestore`) officially support server versions 4.2 through 8.0.
 - **SQLite**: Backups are performed by copying the database file over SFTP. The SQLite 3.x file format has been backwards-compatible since 3.0.0 (2004).
+- **Firebird**: Backups use `gbak` to produce a portable `.fbk` transportable backup file; restore replays it with `gbak -rep`, which replaces the target `.fdb` if one already exists. Databasement ships the Firebird 5 client, which can back up and restore Firebird 3.x, 4.x, and 5.x servers. Each `.fdb` file on the server is its own database, so backup configuration is path-based (like SQLite) rather than name-based.
 - **Redis / Valkey**: `redis-cli --rdb` creates a point-in-time RDB snapshot via the replication protocol. Valkey 7.2+ is supported as a drop-in replacement for Redis. Restore is not supported.
 :::
 
@@ -184,6 +186,39 @@ SQLite databases are backed up by copying the database file directly. Databaseme
 :::note
 SQLite requires an SSH tunnel to access remote database files. Databasement uses SFTP over the tunnel to copy and restore files.
 :::
+
+### Firebird
+
+Firebird databases are backed up using the `gbak` CLI, which connects to the Firebird server over TCP and streams a transportable backup file. Each `.fdb` file on the server is its own database, so the connection is configured with both server credentials and one or more file paths.
+
+#### Connection settings
+
+| Field | Description |
+|-------|-------------|
+| Host | Firebird server hostname or IP |
+| Port | Firebird port (default: 3050) |
+| Username | Firebird user (default: `SYSDBA`) |
+| Password | Server password |
+| Database paths | One or more absolute paths to `.fdb` files on the server |
+
+#### Creating a backup user
+
+`SYSDBA` works out of the box. For a dedicated backup account:
+
+```sql
+CREATE USER databasement PASSWORD 'your_secure_password';
+GRANT RDB$ADMIN TO databasement;
+```
+
+:::note Restore replaces the target file
+Restore is performed with `gbak -rep`, which writes a fresh `.fdb` at the target path and replaces an existing file at that path if one is present. The user supplies the destination path during restore.
+:::
+
+## Browsing Data with Adminer
+
+Databasement can launch [Adminer](https://www.adminer.org/) directly against a registered server to inspect schema and run queries from the browser. Supported for **MySQL**, **PostgreSQL**, and **SQLite** servers that connect without an SSH tunnel.
+
+Enabled by default for Admins only. A Super Admin can change the minimum required role (Viewer, Member, or Admin) or disable the feature entirely under **Configuration → Application**. When enabled, a *Browse* action appears on compatible servers in the Database Servers list and opens Adminer pre-authenticated with the server's stored credentials.
 
 ## Troubleshooting Connection Issues
 

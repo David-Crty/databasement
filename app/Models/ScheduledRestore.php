@@ -32,13 +32,12 @@ use Illuminate\Support\Carbon;
  * @property-read Restore|null $lastRestore
  * @property-read BackupSchedule $backupSchedule
  * @property-read Collection<int, Restore> $restores
- *
  * @method static ScheduledRestoreFactory factory($count = null, $state = [])
  * @method static Builder<static>|ScheduledRestore newModelQuery()
  * @method static Builder<static>|ScheduledRestore newQuery()
  * @method static Builder<static>|ScheduledRestore query()
- *
  * @mixin \Eloquent
+ * @mixin IdeHelperScheduledRestore
  */
 class ScheduledRestore extends Model
 {

@@ -1,0 +1,68 @@
+name: coverage-upload
+
+on:
+  workflow_run:
+    workflows: [tests]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read   # needed to download artifacts from the triggering run
+
+jobs:
+  upload:
+    # Run even on test failure so junit results still reach Codecov.
+    # Skip only when the run was cancelled or skipped.
+    if: ${{ github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source (read-only, for Codecov path resolution)
+        # Codecov's CLI needs the source tree on disk to build its file
+        # network and apply path fixups against the paths in coverage.xml.
+        # Safe in this secret-bearing context because we never execute the
+        # checked-out code — we only let the CLI read file paths.
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Download coverage artifact
+        # Producer uses `if-no-files-found: ignore`, so the artifact may be
+        # absent when tests crashed before generating any reports. Continue
+        # so the downstream `hashFiles` gates can no-op cleanly.
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: coverage-reports
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read PR number
+        id: pr
+        run: |
+          if [ -f pr-number.txt ]; then
+            echo "number=$(cat pr-number.txt)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload coverage to Codecov
+        if: hashFiles('coverage.xml') != ''
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: coverage
+          files: coverage.xml
+          override_commit: ${{ github.event.workflow_run.head_sha }}
+          override_branch: ${{ github.event.workflow_run.head_branch }}
+          override_pr: ${{ steps.pr.outputs.number }}
+
+      - name: Upload test results to Codecov
+        if: hashFiles('junit.xml') != ''
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          files: junit.xml
+          override_commit: ${{ github.event.workflow_run.head_sha }}
+          override_branch: ${{ github.event.workflow_run.head_branch }}
+          override_pr: ${{ steps.pr.outputs.number }}

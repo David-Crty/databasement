@@ -104,7 +104,7 @@ use App\Enums\DatabaseType;
                 <!-- Database Type Selection -->
                 <div>
                     <label class="label label-text font-semibold mb-2">{{ __('Database Type') }}</label>
-                    <x-radio-card-group class="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" :label="__('Database Type')">
+                    <x-radio-card-group class="grid-cols-2 sm:grid-cols-3 lg:grid-cols-7" :label="__('Database Type')">
                         @foreach(DatabaseType::cases() as $dbType)
                             <x-radio-card
                                 :active="$form->database_type === $dbType->value"
@@ -320,7 +320,7 @@ use App\Enums\DatabaseType;
     @endif
 
     <!-- Section 3: Backup Configurations (collection of one or more) -->
-    @if(($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite()) && $form->backups_enabled)
+    @if(($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite() or $form->isFirebird()) && $form->backups_enabled)
         @php
             $volumes = $form->getAllVolumes();
             $schedules = $form->getBackupSchedules();
@@ -370,7 +370,7 @@ use App\Enums\DatabaseType;
     @endif
 
     <!-- Section 4: Notifications -->
-    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite())
+    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite() or $form->isFirebird())
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
                 <div class="flex items-center gap-3 mb-4">

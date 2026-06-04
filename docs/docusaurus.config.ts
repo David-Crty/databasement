@@ -3,6 +3,7 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const version = process.env.DOCS_VERSION;
+const isLocalBuild = process.env.DOCS_LOCAL === 'true';
 
 const config: Config = {
     title: 'Databasement',
@@ -11,9 +12,46 @@ const config: Config = {
 
     plugins: [
         require.resolve('docusaurus-lunr-search'),
+        [
+            'docusaurus-plugin-llms',
+            {
+                title: 'Databasement Documentation',
+                description: 'Simple and powerful database backup management — self-hosting and user documentation for Databasement.',
+                generateLLMsTxt: true,
+                generateLLMsFullTxt: true,
+                generateMarkdownFiles: true,
+                preserveDirectoryStructure: false,
+                excludeImports: true,
+                removeDuplicateHeadings: true,
+                ignoreFiles: [
+                    'index.md',
+                ],
+                includeOrder: [
+                    'self-hosting/intro.md',
+                    'self-hosting/docker-compose.md',
+                    'self-hosting/docker.md',
+                    'self-hosting/kubernetes-helm.md',
+                    'self-hosting/native-ubuntu.md',
+                    'self-hosting/configuration/**',
+                    'self-hosting/versioning.md',
+                    'user-guide/intro.md',
+                    'user-guide/database-servers.md',
+                    'user-guide/volumes.md',
+                    'user-guide/backups.md',
+                    'user-guide/snapshots.md',
+                    'user-guide/organizations.md',
+                    'user-guide/permissions.md',
+                    'user-guide/api.md',
+                    'user-guide/mcp.md',
+                    'contributing/**',
+                ],
+                includeUnmatchedLast: true,
+                ...(version ? {version} : {}),
+            },
+        ],
     ],
 
-    url: 'https://david-crty.github.io',
+    url: isLocalBuild ? 'http://localhost:3000' : 'https://david-crty.github.io',
     baseUrl: '/databasement/',
 
     organizationName: 'David-Crty',
@@ -78,6 +116,12 @@ const config: Config = {
                     position: 'right' as const,
                     value: `<span class="badge badge--secondary">v${version}</span>`,
                 }] : []),
+                {
+                    href: 'pathname:///llms.txt',
+                    label: 'llms.txt',
+                    position: 'right',
+                    title: 'LLM-friendly documentation index (llmstxt.org)',
+                },
                 {
                     href: 'https://github.com/David-Crty/databasement',
                     label: 'GitHub',

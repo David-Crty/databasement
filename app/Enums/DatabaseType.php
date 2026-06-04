@@ -12,6 +12,7 @@ enum DatabaseType: string
     case REDIS = 'redis';
     case MONGODB = 'mongodb';
     case MSSQL = 'mssql';
+    case FIREBIRD = 'firebird';
 
     public function label(): string
     {
@@ -22,6 +23,7 @@ enum DatabaseType: string
             self::REDIS => 'Redis / Valkey',
             self::MONGODB => 'MongoDB',
             self::MSSQL => 'Microsoft SQL Server',
+            self::FIREBIRD => 'Firebird',
         };
     }
 
@@ -34,6 +36,25 @@ enum DatabaseType: string
             self::REDIS => 'devicon.redis',
             self::MONGODB => 'devicon.mongodb',
             self::MSSQL => 'devicon.microsoftsqlserver',
+            self::FIREBIRD => 'devicon.firebird',
+        };
+    }
+
+    /**
+     * Whether this type identifies databases by file path rather than by name.
+     * SQLite stores everything in a local file; Firebird is networked but each
+     * `.fdb` file on the server is its own database. Either way, the UI
+     * collects file paths (not names) and there's no way to enumerate or
+     * pattern-match — selection mode is always Selected.
+     *
+     * Orthogonal to whether the type uses host/port/credentials: that's still
+     * determined elsewhere (SQLite has none, Firebird has all of them).
+     */
+    public function identifiesDatabasesByPath(): bool
+    {
+        return match ($this) {
+            self::SQLITE, self::FIREBIRD => true,
+            default => false,
         };
     }
 
@@ -46,6 +67,7 @@ enum DatabaseType: string
             self::REDIS => 6379,
             self::MONGODB => 27017,
             self::MSSQL => 1433,
+            self::FIREBIRD => 3050,
         };
     }
 
@@ -80,6 +102,7 @@ enum DatabaseType: string
             self::MSSQL => $database
                 ? sprintf('sqlsrv:Server=%s,%d;Database=%s;TrustServerCertificate=true;Encrypt=true', $host, $port, $database)
                 : sprintf('sqlsrv:Server=%s,%d;TrustServerCertificate=true;Encrypt=true', $host, $port),
+            self::FIREBIRD => throw new \RuntimeException('Firebird does not support PDO connections'),
         };
     }
 
@@ -92,7 +115,7 @@ enum DatabaseType: string
      */
     public function createPdo(DatabaseServer $server, ?string $database = null, int $timeout = 30): \PDO
     {
-        if (in_array($this, [self::REDIS, self::MONGODB], true)) {
+        if (in_array($this, [self::REDIS, self::MONGODB, self::FIREBIRD], true)) {
             throw new \RuntimeException("{$this->label()} does not support PDO connections");
         }
 
@@ -142,6 +165,7 @@ enum DatabaseType: string
             self::REDIS => 'rdb',
             self::MONGODB => 'archive',
             self::MSSQL => 'dacpac',
+            self::FIREBIRD => 'fbk',
             default => 'sql',
         };
     }

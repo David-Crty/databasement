@@ -19,14 +19,17 @@ Databasement uses a role-based access control system. Roles are assigned **per o
 
 ### Database Servers
 
-| Action            | Viewer | Member | Admin |
-|-------------------|:------:|:------:|:-----:|
-| View list         |   ✅    |   ✅    |   ✅   |
-| Create            |   ❌    |   ✅    |   ✅   |
-| Edit              |   ❌    |   ✅    |   ✅   |
-| Delete            |   ❌    |   ✅    |   ✅   |
-| Run backup        |   ❌    |   ✅    |   ✅   |
-| Restore to server |   ❌    |   ✅    |   ✅   |
+| Action            |    Viewer    |    Member    | Admin |
+|-------------------|:------------:|:------------:|:-----:|
+| View list         |      ✅       |      ✅       |   ✅   |
+| Create            |      ❌       |      ✅       |   ✅   |
+| Edit              |      ❌       |      ✅       |   ✅   |
+| Delete            |      ❌       |      ✅       |   ✅   |
+| Run backup        |      ❌       |      ✅       |   ✅   |
+| Restore to server |      ❌       |      ✅       |   ✅   |
+| Open Adminer      | configurable | configurable |   ✅   |
+
+Adminer access is enabled by default for Admins only. A Super Admin can change the threshold or disable the feature under **Configuration → Application**. See [Browsing Data with Adminer](./database-servers.md#browsing-data-with-adminer).
 
 ### Volumes
 

@@ -84,7 +84,7 @@ tests:
           path: spec.template.spec.containers[1].name
           value: databasement-worker
       - equal:
-          path: spec.template.spec.containers[1].command
+          path: spec.template.spec.containers[1].args
           value: ["sh", "-c", "php artisan queue:work --queue=custom --tries=5"]
 
   - it: should apply worker resources in sidecar mode
@@ -162,7 +162,7 @@ tests:
     asserts:
       - documentIndex: 1
         equal:
-          path: spec.template.spec.containers[0].command
+          path: spec.template.spec.containers[0].args
           value: ["sh", "-c", "php artisan db:wait && php artisan queue:work --queue=custom --tries=5"]
 
   - it: should apply worker resources in separate deployment

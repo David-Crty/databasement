@@ -8,10 +8,12 @@ use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\TriggerBackupAction;
+use App\Traits\OpensAdminerForServer;
 use App\Traits\RunsServerBackups;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\View as ViewFacade;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -22,7 +24,7 @@ use Livewire\WithPagination;
 #[Title('Database Servers')]
 class Index extends Component
 {
-    use AuthorizesRequests, RunsServerBackups, Toast, WithPagination;
+    use AuthorizesRequests, OpensAdminerForServer, RunsServerBackups, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -132,6 +134,11 @@ class Index extends Component
         $this->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $id);
     }
 
+    public function openAdminer(string $id): void
+    {
+        $this->openAdminerForServer(DatabaseServer::findOrFail($id));
+    }
+
     public function runBackup(string $backupId, TriggerBackupAction $action): void
     {
         $backup = Backup::with(['databaseServer', 'volume', 'backupSchedule'])->findOrFail($backupId);
@@ -173,6 +180,7 @@ class Index extends Component
         return view('livewire.database-server.index', [
             'servers' => $servers,
             'headers' => $this->headers(),
+            'canAdminer' => Gate::allows('adminer', DatabaseServer::class),
         ]);
     }
 }

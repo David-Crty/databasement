@@ -1,4 +1,4 @@
-<x-modal wire:model="showLogsModal" @close="$wire.closeLogs()" :title="__('Job Logs')" class="backdrop-blur" box-class="w-full sm:w-11/12 max-w-6xl max-h-[90vh]">
+<x-modal wire:model="showLogsModal" @close="$wire.closeLogs()" :title="__('Job Logs')" class="backdrop-blur" box-class="w-11/12 max-w-6xl">
     @if($this->selectedJob)
         <div class="space-y-4" x-data="{ showMetadata: false }">
             @php
@@ -155,7 +155,8 @@
                     <div class="max-h-[60vh] overflow-y-auto divide-y divide-base-300">
                         @foreach($logs as $index => $log)
                             @php
-                                $timestamp = \Carbon\Carbon::parse($log['timestamp']);
+                                $timestamp = \Carbon\Carbon::parse($log['timestamp'])
+                                    ->setTimezone(config('app.display_timezone'));
                                 $isCommand = $log['type'] === 'command';
                                 $isRunning = $isCommand && ($log['status'] ?? null) === 'running';
 

@@ -64,7 +64,9 @@ class Formatters
             $date = Carbon::parse($date);
         }
 
-        return $date->format('M j, Y, H:i');
+        return Carbon::instance($date)
+            ->setTimezone(config('app.display_timezone'))
+            ->format('M j, Y, H:i');
     }
 
     /**
@@ -97,7 +99,8 @@ class Formatters
      */
     public static function resolveDatePlaceholders(string $path, ?\DateTimeInterface $date = null): string
     {
-        $date ??= Carbon::now();
+        $date = Carbon::instance($date ?? Carbon::now())
+            ->setTimezone(config('app.display_timezone'));
 
         return str_replace(
             ['{year}', '{month}', '{day}'],

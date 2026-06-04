@@ -6,11 +6,17 @@ parameters:
     paths:
         - app/
 
+    scanFiles:
+        - _ide_helper_models.php
+
     # Level 9 is the highest level
     level: 7
 
     checkModelProperties: true
     noEnvCallsOutsideOfConfig: true
+
+    excludePaths:
+        - app/Services/adminer_object.php
 
     ignoreErrors:
         - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder.*::allowedFilters\(\)#'

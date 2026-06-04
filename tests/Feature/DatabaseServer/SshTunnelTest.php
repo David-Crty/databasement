@@ -13,12 +13,7 @@ uses(RefreshDatabase::class);
 
 test('can create database server with SSH tunnel (password auth)', function () {
     $user = User::factory()->create();
-    $volume = Volume::create([
-        'name' => 'Test Volume',
-        'type' => 'local',
-        'config' => ['path' => '/var/backups'],
-        'organization_id' => \App\Models\Organization::first()->id,
-    ]);
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     Livewire::actingAs($user)
         ->test(Create::class)
@@ -62,12 +57,7 @@ test('can create database server with SSH tunnel (password auth)', function () {
 
 test('can create database server with SSH tunnel (key auth)', function () {
     $user = User::factory()->create();
-    $volume = Volume::create([
-        'name' => 'Test Volume',
-        'type' => 'local',
-        'config' => ['path' => '/var/backups'],
-        'organization_id' => \App\Models\Organization::first()->id,
-    ]);
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     $privateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest_key_content\n-----END OPENSSH PRIVATE KEY-----";
 
@@ -106,12 +96,7 @@ test('can create database server with SSH tunnel (key auth)', function () {
 
 test('can create database server using existing SSH config', function () {
     $user = User::factory()->create();
-    $volume = Volume::create([
-        'name' => 'Test Volume',
-        'type' => 'local',
-        'config' => ['path' => '/var/backups'],
-        'organization_id' => \App\Models\Organization::first()->id,
-    ]);
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     // Create existing SSH config
     $existingSshConfig = DatabaseServerSshConfig::factory()->create([
@@ -188,12 +173,7 @@ test('SSH section is shown for SQLite with SFTP label', function () {
 
 test('can create SQLite server with SSH config for remote access', function () {
     $user = User::factory()->create();
-    $volume = Volume::create([
-        'name' => 'Test Volume',
-        'type' => 'local',
-        'config' => ['path' => '/var/backups'],
-        'organization_id' => \App\Models\Organization::first()->id,
-    ]);
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     Livewire::actingAs($user)
         ->test(Create::class)

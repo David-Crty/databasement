@@ -94,6 +94,10 @@
                 <div class="flex shrink-0 flex-wrap items-center gap-2">
                     <x-button :label="__('Back')" icon="o-arrow-left" link="{{ route('database-servers.index') }}"
                               class="btn-ghost btn-sm" wire:navigate />
+                    @if($canAdminer && $server->supportsAdminer())
+                        <x-button :label="__('Browse')" icon="o-table-cells" wire:click="openAdminer" spinner
+                                  class="btn-outline btn-accent btn-sm" />
+                    @endif
                     @can('backup', $server)
                         <x-button :label="__('Backup now')" icon="bi.database-fill-up" wire:click="runBackupAll" spinner
                                   class="btn-outline btn-info btn-sm" />
@@ -452,6 +456,9 @@
 
     {{-- RESTORE MODAL --}}
     <livewire:restore.modal />
+
+    {{-- ADMINER MODAL --}}
+    <livewire:database-server.adminer-modal />
 
     {{-- REDIS RESTORE INFO MODAL --}}
     <x-modal wire:model="showRedisRestoreModal" :title="__('Restore Redis / Valkey Snapshot')" class="backdrop-blur">

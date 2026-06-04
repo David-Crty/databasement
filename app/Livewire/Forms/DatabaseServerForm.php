@@ -196,7 +196,7 @@ class DatabaseServerForm extends Form
             return;
         }
 
-        if ($this->server === null || $this->isSqlite() || $this->isRedis()) {
+        if ($this->server === null || $this->identifiesDatabasesByPath() || $this->isRedis()) {
             return;
         }
 
@@ -232,8 +232,9 @@ class DatabaseServerForm extends Form
         $this->resetConnectionTestState();
         $this->availableDatabases = [];
 
-        // Ensure SQLite always has at least one path row on the first backup
-        if ($value === 'sqlite') {
+        // Path-based types (SQLite, Firebird) need at least one path row on
+        // each backup so the user has somewhere to type the file path.
+        if (DatabaseType::tryFrom($value)?->identifiesDatabasesByPath() ?? false) {
             foreach ($this->backups as $index => $backup) {
                 if (empty($this->backups[$index]['database_names'])) {
                     $this->backups[$index]['database_names'] = [''];
@@ -511,11 +512,14 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Normalize SQLite database_names across all backup cards (strip empty entries).
+     * Normalize database_names across all backup cards (strip empty entries).
+     * Only applies to path-identified types where each entry is a file path the
+     * user typed into a list — server-enumerable types store names a different
+     * way and don't need this trimming pass.
      */
     public function normalizeDatabaseNames(): void
     {
-        if (! $this->isSqlite()) {
+        if (! $this->identifiesDatabasesByPath()) {
             return;
         }
 
@@ -528,13 +532,13 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Flatten, de-duplicate and return every SQLite file path across the
-     * backup cards. Used for connection testing so any populated backup can
-     * exercise the connection — not only the first one.
+     * Flatten, de-duplicate and return every database file path across the
+     * backup cards. Used by connection-test flows for path-identified types so
+     * any populated backup can exercise the connection — not only the first.
      *
      * @return array<int, string>
      */
-    private function collectSqlitePaths(): array
+    private function collectDatabasePaths(): array
     {
         $paths = [];
 
@@ -550,7 +554,7 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Add an empty SQLite file path row to the given backup card.
+     * Add an empty path row to the given backup card (path-identified types).
      */
     public function addDatabasePath(int $backupIndex): void
     {
@@ -604,7 +608,7 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Check if current database type is Microsoft SQL Server
+     * Check if current database type is Microsoft SQL Server.
      */
     public function isMssql(): bool
     {
@@ -628,11 +632,28 @@ class DatabaseServerForm extends Form
     }
 
     /**
+     * Check if current database type is Firebird.
+     */
+    public function isFirebird(): bool
+    {
+        return $this->database_type === 'firebird';
+    }
+
+    /**
      * Check if current database type has optional credentials (username/password not required).
      */
     public function hasOptionalCredentials(): bool
     {
         return $this->isRedis() || $this->isMongodb();
+    }
+
+    /**
+     * Whether the current database type identifies databases by file path.
+     * See {@see DatabaseType::identifiesDatabasesByPath()}.
+     */
+    public function identifiesDatabasesByPath(): bool
+    {
+        return DatabaseType::tryFrom($this->database_type)?->identifiesDatabasesByPath() ?? false;
     }
 
     /**
@@ -968,6 +989,7 @@ class DatabaseServerForm extends Form
         $serverData['organization_id'] = app(CurrentOrganization::class)->id();
 
         DB::transaction(function () use ($serverData): void {
+            /** @var array<string, mixed> $serverData */
             $server = DatabaseServer::create($serverData);
             $this->syncBackupConfigurations($server);
             $this->syncNotificationChannels($server);
@@ -1133,7 +1155,7 @@ class DatabaseServerForm extends Form
         try {
             if ($this->isSqlite()) {
                 $this->normalizeDatabaseNames();
-                if ($this->collectSqlitePaths() === []) {
+                if ($this->collectDatabasePaths() === []) {
                     throw ValidationException::withMessages([
                         'form.backups' => __('Add at least one SQLite database path before testing the connection.'),
                     ]);
@@ -1153,6 +1175,15 @@ class DatabaseServerForm extends Form
                     'username' => 'required|string|max:255',
                     'password' => ($this->server === null ? 'required|string|max:255' : 'nullable'),
                 ]);
+
+                if ($this->isFirebird()) {
+                    $this->normalizeDatabaseNames();
+                    if ($this->collectDatabasePaths() === []) {
+                        throw ValidationException::withMessages([
+                            'form.backups' => __('Add at least one Firebird database path before testing the connection.'),
+                        ]);
+                    }
+                }
             }
         } catch (ValidationException $e) {
             $this->testingConnection = false;
@@ -1187,7 +1218,9 @@ class DatabaseServerForm extends Form
             'port' => $this->port,
             'username' => $this->username,
             'password' => $password,
-            'database_names' => $this->isSqlite() ? $this->collectSqlitePaths() : null,
+            'database_names' => $this->identifiesDatabasesByPath()
+                ? $this->collectDatabasePaths()
+                : null,
             'extra_config' => $this->buildExtraConfigForTest(),
         ], $sshConfig);
 
@@ -1199,7 +1232,7 @@ class DatabaseServerForm extends Form
         $this->testingConnection = false;
 
         // If connection successful and supports per-database backups, load available databases
-        if ($this->connectionTestSuccess && ! $this->isSqlite() && ! $this->isRedis()) {
+        if ($this->connectionTestSuccess && ! $this->identifiesDatabasesByPath() && ! $this->isRedis()) {
             $this->loadAvailableDatabases();
         }
     }

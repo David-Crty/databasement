@@ -1,0 +1,4 @@
+#!/bin/sh
+exec /opt/firebird/compat/ld.so \
+    --library-path /opt/firebird/lib:/opt/firebird/compat \
+    /opt/firebird/bin/gbak "$@"

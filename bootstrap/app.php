@@ -53,6 +53,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(append: [
             \App\Http\Middleware\SetCurrentOrganization::class,
         ]);
+        $middleware->preventRequestForgery(except: [
+            'adminer',
+        ]);
         $middleware->alias([
             'agent' => \App\Http\Middleware\EnsureAgentToken::class,
             'throttle-failed-agent-auth' => \App\Http\Middleware\ThrottleFailedAgentAuth::class,

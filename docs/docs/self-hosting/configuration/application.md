@@ -8,12 +8,12 @@ Core application settings including database, timezone, proxy configuration, and
 
 ## Application Settings
 
-| Variable    | Description                                      | Default                 |
-| ----------- | ------------------------------------------------ | ----------------------- |
-| `APP_KEY`   | Application encryption key (required)            | -                       |
-| `APP_URL`   | Full URL where the app is accessible             | `http://localhost:2226` |
-| `APP_DEBUG` | Enable debug mode (set to `false` in production) | `false`                 |
-| `TZ`        | Application timezone                             | `UTC`                   |
+| Variable                | Description                                      | Default                 |
+| ----------------------- | ------------------------------------------------ | ----------------------- |
+| `APP_KEY`               | Application encryption key (required)            | -                       |
+| `APP_URL`               | Full URL where the app is accessible             | `http://localhost:2226` |
+| `APP_DEBUG`             | Enable debug mode (set to `false` in production) | `false`                 |
+| `APP_DISPLAY_TIMEZONE`  | Timezone for UI, backup filenames, and crons     | `UTC`                   |
 
 
 ### Generating the Application Key
@@ -28,14 +28,15 @@ Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
 
 ### Timezone Configuration
 
-Set the `TZ` environment variable to configure the application timezone.
+Set `APP_DISPLAY_TIMEZONE` to display dates, backup filenames, and schedule times in your local timezone. A cron like `0 2 * * *` will then fire at 02:00 in that zone.
+
 ```bash
-TZ=America/New_York
-TZ=Europe/London
-TZ=Asia/Tokyo
+APP_DISPLAY_TIMEZONE=Europe/London
 ```
 
 See the [list of supported timezones](https://www.php.net/manual/en/timezones.php).
+
+Data is always stored in UTC internally. If you previously set `TZ`, it is migrated automatically — no action needed.
 
 ## Database Configuration
 
@@ -130,6 +131,7 @@ Here's a complete `.env` file for a production deployment with MySQL:
 APP_DEBUG=false
 APP_URL=https://backup.yourdomain.com
 APP_KEY=base64:your-generated-key-here
+# APP_DISPLAY_TIMEZONE=UTC  # timezone for UI, backup filenames, and schedules
 
 # Database (for Databasement itself)
 DB_CONNECTION=mysql

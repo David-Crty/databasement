@@ -135,6 +135,18 @@ class DatabaseSeeder extends Seeder
             'organization_id' => $defaultOrg->id,
         ]);
 
+        // Firebird server (from docker-compose)
+        $firebirdPath = '/var/lib/firebird/data/sample.fdb';
+        $firebird = DatabaseServer::create([
+            'name' => 'Local Firebird',
+            'host' => 'firebird',
+            'port' => 3050,
+            'database_type' => 'firebird',
+            'username' => 'sysdba',
+            'password' => 'masterkey',
+            'organization_id' => $defaultOrg->id,
+        ]);
+
         // Backup configurations (database_selection_mode lives on Backup now)
         $backupDefaults = [
             'volume_id' => $volume->id,
@@ -155,6 +167,13 @@ class DatabaseSeeder extends Seeder
             'database_server_id' => $sqlite->id,
             'database_selection_mode' => 'selected',
             'database_names' => [$sqlitePath],
+        ]));
+
+        // Firebird backup uses 'selected' mode with explicit file paths
+        Backup::create(array_merge($backupDefaults, [
+            'database_server_id' => $firebird->id,
+            'database_selection_mode' => 'selected',
+            'database_names' => [$firebirdPath],
         ]));
     }
 

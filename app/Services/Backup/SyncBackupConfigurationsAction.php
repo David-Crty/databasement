@@ -51,6 +51,7 @@ class SyncBackupConfigurationsAction
 
                 $existingId = $entry['id'] ?? null;
 
+                /** @var array<string, mixed> $data */
                 if ($existingId !== null) {
                     $existing->get($existingId)->update($data);
                     $submittedIds[] = $existingId;

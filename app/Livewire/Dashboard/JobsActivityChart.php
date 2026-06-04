@@ -18,11 +18,12 @@ class JobsActivityChart extends Component
     public function mount(): void
     {
         $days = 14;
-        $startDate = Carbon::now()->subDays($days - 1)->startOfDay();
+        $displayTz = config('app.display_timezone');
+        $startDate = Carbon::now($displayTz)->subDays($days - 1)->startOfDay();
 
         $jobs = BackupJob::forCurrentOrg()->where('created_at', '>=', $startDate)
             ->get()
-            ->groupBy(fn ($job) => $job->created_at->format('Y-m-d'));
+            ->groupBy(fn ($job) => $job->created_at->copy()->setTimezone($displayTz)->format('Y-m-d'));
 
         $labels = [];
         $completed = [];

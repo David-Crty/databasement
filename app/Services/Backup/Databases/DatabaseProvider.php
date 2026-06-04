@@ -27,6 +27,7 @@ class DatabaseProvider
             DatabaseType::REDIS => new RedisDatabase,
             DatabaseType::MONGODB => new MongodbDatabase,
             DatabaseType::MSSQL => new MssqlDatabase,
+            DatabaseType::FIREBIRD => new FirebirdDatabase,
         };
     }
 
@@ -93,34 +94,12 @@ class DatabaseProvider
         ?string $snapshotDumpFormat = null,
     ): DatabaseInterface {
         if ($config->databaseType === DatabaseType::SQLITE) {
-            $dbConfig = ['sqlite_path' => $databaseName];
-
-            if ($config->sshConfig !== null) {
-                $dbConfig['ssh_config_array'] = $config->sshConfig;
-            }
-
-            return $this->makeConfigured(DatabaseType::SQLITE, $dbConfig);
+            return $this->makeConfigured(DatabaseType::SQLITE, $this->sqliteConfig($databaseName, $config->sshConfig));
         }
 
         $extra = $config->extraConfig ?? [];
-
-        $dbConfig = [
-            'host' => $host,
-            'port' => $port,
-            'user' => $config->username,
-            'pass' => $config->password,
-        ];
-
-        if ($config->databaseType !== DatabaseType::REDIS) {
-            $dbConfig['database'] = $databaseName;
-        }
-
-        if ($config->databaseType === DatabaseType::MONGODB) {
-            $dbConfig['auth_source'] = $extra['auth_source'] ?? 'admin';
-            if ($sourceDatabaseName !== null) {
-                $dbConfig['source_database'] = $sourceDatabaseName;
-            }
-        }
+        $dbConfig = $this->connectionConfig($config, $databaseName, $host, $port);
+        $dbConfig = $this->applyMongoConfig($dbConfig, $config->databaseType, $extra, $sourceDatabaseName);
 
         if (! empty($extra['dump_flags'])) {
             $dbConfig['dump_flags'] = $extra['dump_flags'];
@@ -142,6 +121,69 @@ class DatabaseProvider
         }
 
         return $this->makeConfigured($config->databaseType, $dbConfig);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $sshConfig
+     * @return array<string, mixed>
+     */
+    private function sqliteConfig(string $databaseName, ?array $sshConfig): array
+    {
+        $dbConfig = ['sqlite_path' => $databaseName];
+
+        if ($sshConfig !== null) {
+            $dbConfig['ssh_config_array'] = $sshConfig;
+        }
+
+        return $dbConfig;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function connectionConfig(
+        DatabaseConnectionConfig $config,
+        string $databaseName,
+        string $host,
+        int $port,
+    ): array {
+        $dbConfig = [
+            'host' => $host,
+            'port' => $port,
+            'user' => $config->username,
+            'pass' => $config->password,
+        ];
+
+        if ($config->databaseType === DatabaseType::REDIS) {
+            return $dbConfig;
+        }
+
+        $dbConfig['database'] = $databaseName;
+
+        return $dbConfig;
+    }
+
+    /**
+     * @param  array<string, mixed>  $dbConfig
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    private function applyMongoConfig(
+        array $dbConfig,
+        DatabaseType $databaseType,
+        array $extra,
+        ?string $sourceDatabaseName,
+    ): array {
+        if ($databaseType !== DatabaseType::MONGODB) {
+            return $dbConfig;
+        }
+
+        $dbConfig['auth_source'] = $extra['auth_source'] ?? 'admin';
+        if ($sourceDatabaseName !== null) {
+            $dbConfig['source_database'] = $sourceDatabaseName;
+        }
+
+        return $dbConfig;
     }
 
     /**
@@ -236,6 +278,7 @@ class DatabaseProvider
         return match ($server->database_type) {
             DatabaseType::POSTGRESQL => 'postgres',
             DatabaseType::MSSQL => 'master',
+            DatabaseType::FIREBIRD => $server->resolveDatabaseNames()[0] ?? '',
             default => '',
         };
     }

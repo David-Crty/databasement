@@ -5,6 +5,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\Databases\FirebirdDatabase;
 use App\Services\Backup\Databases\MongodbDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
@@ -23,6 +24,7 @@ test('make returns correct handler for database type', function (DatabaseType $t
     'sqlite' => [DatabaseType::SQLITE, SqliteDatabase::class],
     'redis' => [DatabaseType::REDIS, RedisDatabase::class],
     'mongodb' => [DatabaseType::MONGODB, MongodbDatabase::class],
+    'firebird' => [DatabaseType::FIREBIRD, FirebirdDatabase::class],
 ]);
 
 test('makeForServer uses explicit host and port parameters', function () {
@@ -188,6 +190,7 @@ test('testConnectionForServer delegates to handler testConnection', function (st
     'postgresql uses postgres database' => ['postgres', 'postgres'],
     'redis uses empty database name' => ['redis', ''],
     'mongodb uses empty database name' => ['mongodb', ''],
+    'firebird uses empty database name when no paths set' => ['firebird', ''],
 ]);
 
 test('makeFromConfig builds correct config for SQLite with SSH array', function () {

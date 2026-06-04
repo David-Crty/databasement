@@ -75,6 +75,7 @@ class DatabaseServerController extends Controller
 
         $validated['organization_id'] = app(CurrentOrganization::class)->id();
 
+        /** @var array<string, mixed> $validated */
         $server = DatabaseServer::create($validated);
         $this->syncBackupConfigurations($server, $backupsPayload, $hasBackupsPayload);
 

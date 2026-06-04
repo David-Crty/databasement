@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
 
+/**
+ * @mixin IdeHelperAppConfig
+ */
 class AppConfig extends Model
 {
     public $incrementing = false;

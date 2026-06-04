@@ -23,24 +23,26 @@
 </p>
 
 <p align="center">
-  A modern, self-hosted database backup management application for MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, and Redis.
+  A modern, self-hosted database backup management application for MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis.
 </p>
 
 <p align="center">
   <a href="https://databasement-demo.crty.dev/"><strong>Live Demo</strong></a> ·
   <a href="https://david-crty.github.io/databasement/">Documentation</a> ·
-  <a href="https://github.com/David-Crty/databasement/issues">Report Bug or Request Feature</a> ·
+  <a href="https://david-crty.github.io/databasement/llms.txt">llms.txt</a> ·
+  <a href="https://github.com/David-Crty/databasement/issues">Report Bug or Request Feature</a>
 </p>
 
 ---
 
 ## Features
 
-- **Multi-database support** - Manage MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, and Redis/Valkey servers from a single interface
+- **Multi-database support** - Manage MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis/Valkey servers from a single interface
 - **SSH tunnel support** - Connect to databases in private networks through a bastion/jump server with password or key-based authentication
 - **Automated backups** - Schedule recurring backups on daily or weekly intervals. Flexible retention policies: simple time-based (days) or GFS (grandfather-father-son)
 - **Multiple compression options** - gzip, zstd (20-40% better compression), or encrypted (AES-256 for sensitive data)
 - **Cross-server restore** - Restore snapshots from production to staging, or between any compatible servers
+- **Built-in data browser** - Open Adminer in-app to inspect MySQL, PostgreSQL, and SQLite servers (admin-enabled, role-gated)
 - **Flexible storage** - Store backups locally, on S3-compatible storage (AWS S3, MinIO, etc.), or remote servers via SFTP/FTP
 - **Real-time monitoring** - Track backup and restore progress with detailed job logs
 - **Failure notifications** - Get alerted via Email, Slack, Discord, Telegram, Pushover, Gotify, or Webhook when jobs fail
@@ -91,6 +93,7 @@ For production deployments, see our [configuration guide](https://david-crty.git
 | SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.dacpac`)     | Yes     |
 | MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes     |
 | SQLite     | 3.x                          | `sqlite3 .backup`            | Yes     |
+| Firebird   | 3.x, 4.x, 5.x                | `gbak` v5                    | Yes     |
 | Redis      | 2.8+                         | `redis-cli --rdb`            | No      |
 | Valkey     | 7.2+                         | `redis-cli --rdb`            | No      |
 
@@ -106,6 +109,10 @@ Databasement can be managed programmatically through its **REST API** and **MCP 
 ## Documentation
 
 Full documentation is available at [david-crty.github.io/databasement](https://david-crty.github.io/databasement/).
+
+For LLMs and AI assistants, the documentation is also published in the [llmstxt.org](https://llmstxt.org/) format:
+- [llms.txt](https://david-crty.github.io/databasement/llms.txt) — index of all documentation pages
+- [llms-full.txt](https://david-crty.github.io/databasement/llms-full.txt) — full documentation content in a single file
 
 ## Issues & Feature Requests
 

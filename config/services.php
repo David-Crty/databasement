@@ -29,6 +29,11 @@ return [
         ],
     ],
 
+    'adminer' => [
+        'demo_username' => env('ADMINER_DEMO_USERNAME'),
+        'demo_password' => env('ADMINER_DEMO_PASSWORD'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | OAuth Providers (Laravel Socialite)

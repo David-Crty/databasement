@@ -2,6 +2,8 @@
 
 namespace App\Policies;
 
+use App\Enums\UserRole;
+use App\Facades\AppConfig;
 use App\Models\DatabaseServer;
 use App\Models\User;
 
@@ -59,6 +61,38 @@ class DatabaseServerPolicy
     public function delete(User $user, DatabaseServer $databaseServer): bool
     {
         return $user->canPerformActions();
+    }
+
+    /**
+     * Determine whether the user can open the Adminer database browser.
+     * Requires the feature to be enabled and the user to meet the configured minimum role.
+     * Server compatibility (database type, SSH) is checked separately via DatabaseServer::supportsAdminer().
+     * Demo users get access when read-only demo credentials are configured (see AdminerController).
+     */
+    public function adminer(User $user): bool
+    {
+        if (! AppConfig::get('app.adminer_enabled')) {
+            return false;
+        }
+
+        if ($user->isDemo()) {
+            return config('services.adminer.demo_username') !== null
+                && config('services.adminer.demo_password') !== null;
+        }
+
+        $requiredRole = UserRole::tryFrom((string) AppConfig::get('app.adminer_role'));
+
+        if ($requiredRole === null) {
+            return false;
+        }
+
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        $currentRole = $user->currentOrgRole();
+
+        return $currentRole !== null && $currentRole->meetsMinimum($requiredRole);
     }
 
     /**

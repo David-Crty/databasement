@@ -50,6 +50,24 @@ enum UserRole: string
     }
 
     /**
+     * Whether this role meets or exceeds the given minimum role.
+     */
+    public function meetsMinimum(self $required): bool
+    {
+        return $this->level() >= $required->level();
+    }
+
+    public function level(): int
+    {
+        return match ($this) {
+            self::Demo => 0,
+            self::Viewer => 1,
+            self::Member => 2,
+            self::Admin => 3,
+        };
+    }
+
+    /**
      * Validation rule string for assignable roles.
      */
     public static function validationRule(): string

@@ -133,7 +133,7 @@ class BackupTask
      */
     private function generateFilename(string $serverName, string $databaseName, string $baseExtension, CompressorInterface $compressor, string $backupPath): string
     {
-        $timestamp = now()->format('Y-m-d-His');
+        $timestamp = now()->setTimezone(config('app.display_timezone'))->format('Y-m-d-His');
         $sanitizedServerName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $serverName) ?? $serverName;
         $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName) ?? $databaseName;
         $compressionExtension = $compressor->getExtension();

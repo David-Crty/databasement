@@ -21,7 +21,7 @@ class OrganizationScope implements Scope
         $currentOrg = app(CurrentOrganization::class);
 
         if ($currentOrg->isResolved()) {
-            $builder->where($model->getTable().'.organization_id', $currentOrg->id());
+            $builder->getQuery()->where($model->getTable().'.organization_id', $currentOrg->id());
         }
     }
 }

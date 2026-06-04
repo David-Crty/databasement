@@ -14,6 +14,8 @@ class AppConfigService
      * @var array<string, array{type: string, is_sensitive: bool, default: mixed}>
      */
     private const array CONFIG = [
+        'app.adminer_enabled' => ['type' => 'boolean', 'is_sensitive' => false, 'default' => true],
+        'app.adminer_role' => ['type' => 'string', 'is_sensitive' => false, 'default' => 'admin'],
         'backup.working_directory' => ['type' => 'string', 'is_sensitive' => false, 'default' => '/tmp/backups'],
         'backup.compression' => ['type' => 'string', 'is_sensitive' => false, 'default' => 'gzip'],
         'backup.compression_level' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 6],

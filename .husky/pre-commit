@@ -1,5 +1,9 @@
 echo "🎨 Running code formatter..."
 make lint-fix
+echo ""
+
+echo "🧬 Refreshing IDE helper model annotations..."
+make ide-helper
 git add -u
 echo ""
 

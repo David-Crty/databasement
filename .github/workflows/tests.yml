@@ -3,8 +3,7 @@ name: tests
 on:
   push:
     branches: [main]
-  pull_request_target:
-    types: [opened, synchronize, reopened]
+  pull_request:
 
 permissions:
   contents: read
@@ -72,7 +71,20 @@ jobs:
         ports:
           - 1433:1433
         options: >-
-          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Databasement!Strong1 -Q 'SELECT 1' || exit 0"
+          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P Databasement!Strong1 -Q 'SELECT 1'"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+
+      firebird:
+        image: firebirdsql/firebird:5
+        env:
+          FIREBIRD_ROOT_PASSWORD: masterkey
+          FIREBIRD_DATABASE: sample.fdb
+        ports:
+          - 3050:3050
+        options: >-
+          --health-cmd="echo 'QUIT;' | isql -user SYSDBA -password masterkey /var/lib/firebird/data/sample.fdb"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=20
@@ -98,8 +110,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
@@ -110,25 +120,30 @@ jobs:
       - name: Run Pint
         run: vendor/bin/pint
 
+      - name: Migrate database
+        run: php artisan migrate --force
+
+      - name: Generate IDE helper models
+        run: php artisan ide-helper:models --write-mixin --no-interaction
+
       - name: Run phpstan
         run: vendor/bin/phpstan analyse
 
       - name: Run Tests
-        run: |
-          php artisan migrate --force
-          php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml
+        run: php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v6
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: coverage
-          files: coverage.xml
-          skip_validation: true
+      - name: Save PR metadata
+        if: ${{ always() && github.event_name == 'pull_request' }}
+        run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
 
-      - name: Upload test results to Codecov
-        uses: codecov/codecov-action@v6
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          report_type: test_results
-          skip_validation: true
+          name: coverage-reports
+          path: |
+            coverage.xml
+            junit.xml
+            pr-number.txt
+          retention-days: 1
+          if-no-files-found: ignore

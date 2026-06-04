@@ -94,7 +94,7 @@ should render deployment with default values:
               volumeMounts:
                 - mountPath: /data
                   name: data
-            - command:
+            - args:
                 - sh
                 - -c
                 - php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --max-jobs=1000
@@ -139,7 +139,7 @@ should render deployment with default values:
                 - mountPath: /data
                   name: data
           initContainers:
-            - command:
+            - args:
                 - sh
                 - -c
                 - php artisan db:wait --allow-missing-db && php artisan migrate --force
@@ -300,7 +300,7 @@ should render deployment with mysql database:
               volumeMounts:
                 - mountPath: /data
                   name: data
-            - command:
+            - args:
                 - sh
                 - -c
                 - php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --max-jobs=1000
@@ -356,7 +356,7 @@ should render deployment with mysql database:
                 - mountPath: /data
                   name: data
           initContainers:
-            - command:
+            - args:
                 - sh
                 - -c
                 - php artisan db:wait --allow-missing-db && php artisan migrate --force
