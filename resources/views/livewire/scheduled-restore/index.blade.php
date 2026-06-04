@@ -33,31 +33,61 @@
 
             @scope('cell_name', $scheduledRestore)
                 <div class="table-cell-primary">{{ $scheduledRestore->name }}</div>
+                <div class="mt-0.5">
+                    @can('update', $scheduledRestore)
+                        <x-button
+                            :label="$scheduledRestore->enabled ? __('Enabled') : __('Disabled')"
+                            :icon="$scheduledRestore->enabled ? 'o-check-circle' : 'o-pause-circle'"
+                            wire:click="toggleEnabled('{{ $scheduledRestore->id }}')"
+                            class="btn-ghost btn-xs -ml-2 {{ $scheduledRestore->enabled ? 'text-success' : 'text-base-content/50' }}"
+                            :tooltip="$scheduledRestore->enabled ? __('Disable') : __('Enable')"
+                        />
+                    @else
+                        <x-badge
+                            :value="$scheduledRestore->enabled ? __('Enabled') : __('Disabled')"
+                            class="badge-sm {{ $scheduledRestore->enabled ? 'badge-success' : 'badge-ghost' }}"
+                        />
+                    @endcan
+                </div>
             @endscope
 
-            @scope('cell_source', $scheduledRestore)
-                @if($scheduledRestore->sourceServer)
-                    <div class="flex items-center gap-2">
-                        <x-icon :name="$scheduledRestore->sourceServer->database_type->icon()" class="w-5 h-5" />
-                        <div>
-                            <div class="table-cell-primary">{{ $scheduledRestore->sourceServer->name }}</div>
-                            <div class="text-sm text-base-content/70">{{ $scheduledRestore->source_database_name ?? __('(any database)') }}</div>
-                        </div>
+            @scope('cell_flow', $scheduledRestore)
+                @php $source = $scheduledRestore->sourceServer; $target = $scheduledRestore->targetServer; @endphp
+                <div class="flex items-center gap-3 min-w-0">
+                    {{-- Source --}}
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        @if($source)
+                            <x-icon :name="$source->database_type->icon()" class="w-5 h-5 shrink-0" />
+                            <div class="min-w-0">
+                                <div class="table-cell-primary truncate">{{ $scheduledRestore->source_database_name ?? __('(any database)') }}</div>
+                                <a href="{{ route('database-servers.show', $source) }}" wire:navigate
+                                   class="text-xs text-base-content/60 hover:text-primary hover:underline truncate block">
+                                    {{ $source->name }}
+                                </a>
+                            </div>
+                        @else
+                            <span class="text-sm text-base-content/50 italic">{{ __('(source deleted)') }}</span>
+                        @endif
                     </div>
-                @else
-                    <span class="text-base-content/50">-</span>
-                @endif
-            @endscope
 
-            @scope('cell_target', $scheduledRestore)
-                @if($scheduledRestore->targetServer)
-                    <div>
-                        <div class="table-cell-primary">{{ $scheduledRestore->targetServer->name }}</div>
-                        <div class="text-sm text-base-content/70">{{ $scheduledRestore->schema_name }}</div>
+                    <x-icon name="o-arrow-right" class="w-4 h-4 text-base-content/40 shrink-0" />
+
+                    {{-- Target --}}
+                    <div class="flex items-center gap-2 min-w-0 flex-1">
+                        @if($target)
+                            <x-icon :name="$target->database_type->icon()" class="w-5 h-5 shrink-0" />
+                            <div class="min-w-0">
+                                <div class="table-cell-primary truncate">{{ $scheduledRestore->schema_name }}</div>
+                                <a href="{{ route('database-servers.show', $target) }}" wire:navigate
+                                   class="text-xs text-base-content/60 hover:text-primary hover:underline truncate block">
+                                    {{ $target->name }}
+                                </a>
+                            </div>
+                        @else
+                            <span class="text-sm text-base-content/50 italic">{{ __('(target deleted)') }}</span>
+                        @endif
                     </div>
-                @else
-                    <span class="text-base-content/50">-</span>
-                @endif
+                </div>
             @endscope
 
             @scope('cell_backup_schedule', $scheduledRestore)
@@ -72,40 +102,28 @@
             @scope('cell_last_run', $scheduledRestore)
                 @if($scheduledRestore->last_executed_at)
                     <div class="text-sm">{{ $scheduledRestore->last_executed_at->diffForHumans() }}</div>
+                    @if($scheduledRestore->lastRestore)
+                        <div class="mt-1">
+                            <a
+                                href="{{ route('restores.index', ['search' => $scheduledRestore->lastRestore->id]) }}"
+                                wire:navigate
+                                class="tooltip"
+                                data-tip="{{ __('View restore') }}"
+                            >
+                                <kbd class="kbd kbd-xs font-mono cursor-pointer hover:text-primary">#{{ \Illuminate\Support\Str::substr($scheduledRestore->lastRestore->id, -7) }}</kbd>
+                            </a>
+                        </div>
+                    @endif
                     @if($scheduledRestore->last_skip_reason)
-                        <div class="text-xs text-warning">{{ __('Skipped: :reason', ['reason' => __($scheduledRestore->last_skip_reason)]) }}</div>
+                        <div class="text-xs text-warning mt-1">{{ __('Skipped: :reason', ['reason' => __($scheduledRestore->last_skip_reason)]) }}</div>
                     @elseif($scheduledRestore->lastRestore?->job)
-                        @php $status = $scheduledRestore->lastRestore->job->status; @endphp
-                        @if($status === 'completed')
-                            <div class="text-xs text-success">{{ __('Completed') }}</div>
-                        @elseif($status === 'failed')
-                            <div class="text-xs text-error">{{ __('Failed') }}</div>
-                        @elseif($status === 'running')
-                            <div class="text-xs text-warning">{{ __('Running') }}</div>
-                        @else
-                            <div class="text-xs text-info">{{ __('Pending') }}</div>
-                        @endif
+                        <div class="mt-1">
+                            @include('livewire.restore._status-badge', ['status' => $scheduledRestore->lastRestore->job->status])
+                        </div>
                     @endif
                 @else
                     <span class="text-base-content/50">{{ __('Never') }}</span>
                 @endif
-            @endscope
-
-            @scope('cell_enabled', $scheduledRestore)
-                @can('update', $scheduledRestore)
-                    <x-button
-                        :icon="$scheduledRestore->enabled ? 'o-check-circle' : 'o-pause-circle'"
-                        wire:click="toggleEnabled('{{ $scheduledRestore->id }}')"
-                        class="btn-ghost btn-sm {{ $scheduledRestore->enabled ? 'text-success' : 'text-base-content/50' }}"
-                        :tooltip="$scheduledRestore->enabled ? __('Disable') : __('Enable')"
-                    />
-                @else
-                    @if($scheduledRestore->enabled)
-                        <x-badge value="{{ __('Enabled') }}" class="badge-success" />
-                    @else
-                        <x-badge value="{{ __('Disabled') }}" class="badge-ghost" />
-                    @endif
-                @endcan
             @endscope
 
             @scope('actions', $scheduledRestore)

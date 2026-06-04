@@ -93,11 +93,9 @@ class Index extends Component
     {
         return [
             ['key' => 'name', 'label' => __('Name')],
-            ['key' => 'source', 'label' => __('Source'), 'sortable' => false],
-            ['key' => 'target', 'label' => __('Target'), 'sortable' => false],
+            ['key' => 'flow', 'label' => __('Source → Target'), 'sortable' => false],
             ['key' => 'backup_schedule', 'label' => __('Schedule'), 'class' => 'w-40', 'sortable' => false],
             ['key' => 'last_run', 'label' => __('Last run'), 'class' => 'w-48', 'sortable' => false],
-            ['key' => 'enabled', 'label' => __('Enabled'), 'class' => 'w-28', 'sortable' => false],
         ];
     }
 

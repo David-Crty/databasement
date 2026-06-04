@@ -103,26 +103,27 @@
             @scope('cell_created_at', $restore)
                 <div class="table-cell-primary">{{ $restore->created_at->diffForHumans() }}</div>
                 <div class="text-sm text-base-content/60">{{ \App\Support\Formatters::humanDate($restore->created_at) }}</div>
-                <div class="flex items-center gap-1 text-xs text-base-content/60 mt-1">
-                    <x-icon name="o-user" class="w-3 h-3" />
-                    <span>{{ $restore->triggeredBy?->name ?? __('system') }}</span>
-                </div>
+                @if($restore->scheduledRestore)
+                    <div>
+                        <a href="{{ route('scheduled-restores.index', ['search' => $restore->scheduledRestore->name]) }}"
+                           wire:navigate
+                           title="{{ __('Scheduled restore') }}"
+                           class="flex items-center gap-1 text-xs text-base-content/60 hover:text-primary mt-1 min-w-0">
+                            <x-icon name="o-calendar" class="w-3 h-3 shrink-0" />
+                            <span class="truncate">{{ $restore->scheduledRestore->name }}</span>
+                        </a>
+                    </div>
+                @else
+                    <div class="flex items-center gap-1 text-xs text-base-content/60 mt-1">
+                        <x-icon name="o-user" class="w-3 h-3" />
+                        <span>{{ $restore->triggeredBy?->name ?? __('system') }}</span>
+                    </div>
+                @endif
             @endscope
 
             @scope('cell_status', $restore)
                 @php $status = $restore->job?->status ?? 'pending'; $job = $restore->job; @endphp
-                @if($status === 'completed')
-                    <x-badge :value="__('Completed')" class="badge-success badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
-                @elseif($status === 'failed')
-                    <x-badge :value="__('Failed')" class="badge-error badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
-                @elseif($status === 'running')
-                    <x-badge class="badge-warning badge-soft badge-sm gap-1 h-auto py-1 whitespace-normal text-center">
-                        <x-loading class="loading-spinner loading-xs shrink-0" />
-                        {{ __('Running') }}
-                    </x-badge>
-                @else
-                    <x-badge :value="__('Pending')" class="badge-info badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
-                @endif
+                @include('livewire.restore._status-badge', ['status' => $status])
 
                 @if($status === 'running' && $job?->started_at)
                     <div class="text-xs text-warning font-mono mt-1">{{ $job->started_at->diffForHumans(null, true) }}</div>

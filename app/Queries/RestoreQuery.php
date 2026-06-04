@@ -13,6 +13,7 @@ class RestoreQuery
         'snapshot.databaseServer',
         'targetServer',
         'triggeredBy',
+        'scheduledRestore',
         'job',
     ];
 

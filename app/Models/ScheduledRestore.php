@@ -3,40 +3,13 @@
 namespace App\Models;
 
 use Database\Factories\ScheduledRestoreFactory;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 /**
- * @property string $id
- * @property string $name
- * @property string $source_server_id
- * @property string|null $source_database_name
- * @property string $target_server_id
- * @property string $schema_name
- * @property string $backup_schedule_id
- * @property array<string, mixed>|null $options
- * @property bool $enabled
- * @property Carbon|null $last_executed_at
- * @property string|null $last_restore_id
- * @property string|null $last_skip_reason
- * @property Carbon|null $created_at
- * @property Carbon|null $updated_at
- * @property-read DatabaseServer $sourceServer
- * @property-read DatabaseServer $targetServer
- * @property-read Restore|null $lastRestore
- * @property-read BackupSchedule $backupSchedule
- * @property-read Collection<int, Restore> $restores
- * @method static ScheduledRestoreFactory factory($count = null, $state = [])
- * @method static Builder<static>|ScheduledRestore newModelQuery()
- * @method static Builder<static>|ScheduledRestore newQuery()
- * @method static Builder<static>|ScheduledRestore query()
- * @mixin \Eloquent
  * @mixin IdeHelperScheduledRestore
  */
 class ScheduledRestore extends Model
