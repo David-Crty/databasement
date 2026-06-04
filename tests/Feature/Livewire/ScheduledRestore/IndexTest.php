@@ -95,6 +95,16 @@ test('non-admin users cannot create scheduled restores', function () {
         ->assertForbidden();
 });
 
+test('demo users can create scheduled restores', function () {
+    $demo = User::factory()->demo()->create();
+    actingAs($demo);
+
+    Livewire::test(Index::class)
+        ->call('openCreate')
+        ->assertOk()
+        ->assertDispatched('open-scheduled-restore-modal');
+});
+
 test('enabled filter narrows the list', function () {
     makeScheduled(['name' => 'active task', 'enabled' => true]);
     makeScheduled(['name' => 'paused task', 'enabled' => false]);

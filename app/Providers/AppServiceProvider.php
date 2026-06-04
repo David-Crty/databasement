@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\ScheduledRestore;
+use App\Policies\RestorePolicy;
 use App\Services\AppConfigService;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
@@ -20,6 +22,7 @@ use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -93,6 +96,8 @@ class AppServiceProvider extends ServiceProvider
         $this->warnDeprecatedEnvVars();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
+
+        Gate::policy(ScheduledRestore::class, RestorePolicy::class);
 
         Scramble::configure()
             ->routes(fn (Route $route) => Str::startsWith($route->uri, 'api/') && ! Str::startsWith($route->uri, 'api/v1/agent'))

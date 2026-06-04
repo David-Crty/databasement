@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\Restore;
+use App\Models\ScheduledRestore;
 use App\Models\User;
 
 class RestorePolicy
@@ -20,7 +21,7 @@ class RestorePolicy
      * Determine whether the user can view the model.
      * All authenticated users can view details.
      */
-    public function view(User $user, Restore $restore): bool
+    public function view(User $user, Restore|ScheduledRestore $restore): bool
     {
         return true;
     }
@@ -37,10 +38,26 @@ class RestorePolicy
     }
 
     /**
+     * Determine whether the user can update the model.
+     */
+    public function update(User $user, Restore|ScheduledRestore $restore): bool
+    {
+        return $user->canPerformActions();
+    }
+
+    /**
      * Determine whether the user can delete a restore record.
      * Viewers and demo users cannot delete.
      */
-    public function delete(User $user, Restore $restore): bool
+    public function delete(User $user, Restore|ScheduledRestore $restore): bool
+    {
+        return $user->canPerformActions();
+    }
+
+    /**
+     * Determine whether the user can manually run the scheduled restore now.
+     */
+    public function run(User $user, ScheduledRestore $restore): bool
     {
         return $user->canPerformActions();
     }
