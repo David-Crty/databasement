@@ -5,12 +5,12 @@ namespace App\Livewire\Restore;
 use App\Enums\DatabaseType;
 use App\Enums\RestoreModalMode;
 use App\Jobs\ProcessRestoreJob;
+use App\Livewire\Concerns\InteractsWithTargetDatabases;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Queries\SnapshotQuery;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\Databases\DatabaseProvider;
 use App\Traits\Toast;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
@@ -25,7 +25,7 @@ use Livewire\WithPagination;
 
 class Modal extends Component
 {
-    use AuthorizesRequests, Toast, WithPagination;
+    use AuthorizesRequests, InteractsWithTargetDatabases, Toast, WithPagination;
 
     public RestoreModalMode $mode = RestoreModalMode::FromServer;
 
@@ -35,18 +35,9 @@ class Modal extends Component
     #[Locked]
     public ?string $selectedSnapshotId = null;
 
-    public string $schemaName = '';
-
     public int $currentStep = 1;
 
-    /** @var array<int, string> */
-    public array $existingDatabases = [];
-
     public bool $showModal = false;
-
-    public bool $forceDatabase = false;
-
-    public string $ownerUser = '';
 
     public string $snapshotSearch = '';
 
@@ -73,31 +64,11 @@ class Modal extends Component
         $this->resetPage('snapshots');
     }
 
-    /**
-     * @return array<int, string>
-     */
-    public function getFilteredDatabasesProperty(): array
-    {
-        if (empty($this->schemaName)) {
-            return $this->existingDatabases;
-        }
-
-        return collect($this->existingDatabases)
-            ->filter(fn ($db) => str_contains(strtolower($db), strtolower($this->schemaName)))
-            ->values()
-            ->all();
-    }
-
-    public function selectDatabase(string $database): void
-    {
-        $this->schemaName = $database;
-    }
-
     #[On('open-restore-modal')]
     public function openModal(string $mode = 'from-server', ?string $targetServerId = null, ?string $snapshotId = null, ?string $restoreId = null): void
     {
         $this->reset([
-            'targetServer', 'selectedSnapshotId', 'schemaName', 'forceDatabase',
+            'targetServer', 'targetServerId', 'selectedSnapshotId', 'schemaName', 'forceDatabase',
             'ownerUser', 'currentStep', 'existingDatabases', 'snapshotSearch',
             'serverFilter', 'dbTypeFilter',
         ]);
@@ -172,11 +143,12 @@ class Modal extends Component
         $this->selectedSnapshotId = $snapshot->id;
         $this->dbTypeFilter = $snapshot->database_type->value;
         $this->targetServer = $target;
+        $this->targetServerId = $target->id;
         $this->schemaName = $restore->schema_name;
         $this->forceDatabase = (bool) ($restore->options['force_database'] ?? false);
         $this->ownerUser = (string) ($restore->options['owner_user'] ?? '');
-        $this->loadExistingDatabases();
-        $this->currentStep = 3;
+        $this->loadExistingDatabases($this->targetServer);
+        $this->currentStep = 2;
 
         return true;
     }
@@ -199,11 +171,17 @@ class Modal extends Component
         $this->currentStep = 2;
     }
 
-    public function selectTargetServer(string $targetServerId): void
+    public function updatedTargetServerId(): void
     {
-        $server = DatabaseServer::findOrFail($targetServerId);
-        $this->authorize('restore', $server);
+        if (! $this->targetServerId) {
+            $this->targetServer = null;
+            $this->existingDatabases = [];
 
+            return;
+        }
+
+        $server = DatabaseServer::findOrFail($this->targetServerId);
+        $this->authorize('restore', $server);
         $this->targetServer = $server;
 
         $snapshot = $this->selectedSnapshotId
@@ -212,9 +190,9 @@ class Modal extends Component
 
         if ($snapshot) {
             $this->prefillSchemaNameAndDatabases($snapshot);
+        } else {
+            $this->loadExistingDatabases($server);
         }
-
-        $this->currentStep = $this->mode === RestoreModalMode::FromRestoreIndex ? 3 : 2;
     }
 
     protected function prefillSchemaNameAndDatabases(Snapshot $snapshot): void
@@ -226,7 +204,7 @@ class Modal extends Component
             $this->schemaName = $snapshot->database_name;
         }
 
-        $this->loadExistingDatabases();
+        $this->loadExistingDatabases($this->targetServer);
     }
 
     public function previousStep(): void
@@ -235,27 +213,21 @@ class Modal extends Component
             return;
         }
 
-        // When stepping back, clear the selection that was made on the step we're leaving.
+        // When stepping back, clear the selection made on the step we're leaving.
         if ($this->mode === RestoreModalMode::FromRestoreIndex) {
-            if ($this->currentStep === 3) {
-                $this->targetServer = null;
-                $this->existingDatabases = [];
-            } elseif ($this->currentStep === 2) {
-                // Returning to the snapshot picker: also clear the auto-applied
-                // dbTypeFilter (which selectSnapshot pinned to the previous
-                // snapshot's type) and reset paging so the user starts fresh.
-                $this->selectedSnapshotId = null;
-                $this->dbTypeFilter = null;
-                $this->serverFilter = null;
-                $this->snapshotSearch = '';
-                $this->resetPage('snapshots');
-            }
-        } elseif ($this->mode === RestoreModalMode::FromSnapshot) {
-            // step 2 -> step 1: clear chosen target
+            // Destination -> snapshot picker: drop the chosen target and reset the
+            // snapshot selection/filters (the auto-applied dbTypeFilter was pinned
+            // to the previous snapshot) so the user starts the pick fresh.
             $this->targetServer = null;
+            $this->targetServerId = null;
             $this->existingDatabases = [];
+            $this->selectedSnapshotId = null;
+            $this->dbTypeFilter = null;
+            $this->serverFilter = null;
+            $this->snapshotSearch = '';
+            $this->resetPage('snapshots');
         } else {
-            // from-server: step 2 -> step 1: clear chosen snapshot
+            // from-server: destination -> snapshot picker: clear chosen snapshot.
             $this->selectedSnapshotId = null;
         }
 
@@ -289,19 +261,6 @@ class Modal extends Component
         $this->validate($rules, $messages);
     }
 
-    public function loadExistingDatabases(): void
-    {
-        if (! $this->targetServer) {
-            return;
-        }
-
-        try {
-            $this->existingDatabases = app(DatabaseProvider::class)->listDatabasesForServer($this->targetServer);
-        } catch (\Exception $e) {
-            $this->existingDatabases = [];
-        }
-    }
-
     public function restore(BackupJobFactory $backupJobFactory): void
     {
         if (! $this->targetServer) {
@@ -329,10 +288,7 @@ class Modal extends Component
                 targetServer: $this->targetServer,
                 schemaName: $this->schemaName,
                 triggeredByUserId: is_int($userId) ? $userId : null,
-                options: array_filter([
-                    'force_database' => $this->forceDatabase ?: null,
-                    'owner_user' => ($trimmedOwner = trim($this->ownerUser)) !== '' ? $trimmedOwner : null,
-                ]),
+                options: $this->buildOptions(),
             );
 
             ProcessRestoreJob::dispatch($restore->id);
@@ -435,6 +391,22 @@ class Modal extends Component
     }
 
     /**
+     * Target-server options for the destination-step select (from-snapshot and
+     * from-restore-index modes).
+     *
+     * @return array<int, array{id: string, name: string}>
+     */
+    public function getTargetServerOptionsProperty(): array
+    {
+        return $this->getCompatibleTargetServersProperty()
+            ->map(fn (DatabaseServer $s) => [
+                'id' => $s->id,
+                'name' => $this->serverOptionLabel($s),
+            ])
+            ->all();
+    }
+
+    /**
      * @return array<int, array{id: string, name: string}>
      */
     public function dbTypeOptions(): array
@@ -453,8 +425,8 @@ class Modal extends Component
     {
         return match ($this->mode) {
             RestoreModalMode::FromServer => [__('Select Snapshot'), __('Destination')],
-            RestoreModalMode::FromSnapshot => [__('Select Target Server'), __('Destination')],
-            RestoreModalMode::FromRestoreIndex => [__('Select Snapshot'), __('Select Target Server'), __('Destination')],
+            RestoreModalMode::FromSnapshot => [__('Destination')],
+            RestoreModalMode::FromRestoreIndex => [__('Select Snapshot'), __('Destination')],
         };
     }
 

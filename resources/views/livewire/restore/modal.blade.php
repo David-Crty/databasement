@@ -25,12 +25,14 @@
                 </div>
             @endif
 
-            {{-- Step indicator --}}
-            <ul class="steps steps-horizontal w-full">
-                @foreach($this->stepLabels() as $i => $label)
-                    <li class="step {{ $currentStep >= ($i + 1) ? 'step-primary' : '' }}">{{ $label }}</li>
-                @endforeach
-            </ul>
+            {{-- Step indicator (hidden when the flow has a single step) --}}
+            @if(count($this->stepLabels()) > 1)
+                <ul class="steps steps-horizontal w-full">
+                    @foreach($this->stepLabels() as $i => $label)
+                        <li class="step {{ $currentStep >= ($i + 1) ? 'step-primary' : '' }}">{{ $label }}</li>
+                    @endforeach
+                </ul>
+            @endif
 
             {{-- Step body: snapshot picker --}}
             @if(
@@ -136,139 +138,18 @@
                 </div>
             @endif
 
-            {{-- Step body: target server picker --}}
-            @if(
-                ($mode === RestoreModalMode::FromSnapshot && $currentStep === 1) ||
-                ($mode === RestoreModalMode::FromRestoreIndex && $currentStep === 2)
-            )
+            {{-- Step body: target + destination (final step) --}}
+            @if($this->isConfigureStep())
                 <div class="space-y-4">
-                    <p class="text-sm opacity-70">
-                        {{ __('Select a target server to restore to. Only :type servers are shown.', ['type' => $this->selectedSnapshot?->database_type?->label()]) }}
-                    </p>
-
-                    @if($this->compatibleTargetServers->isEmpty())
-                        <div class="p-4 text-center border rounded-lg border-base-300">
-                            <p class="opacity-70">{{ __('No compatible target servers found.') }}</p>
-                        </div>
-                    @else
-                        <div class="space-y-1 max-h-80 overflow-y-auto">
-                            @foreach($this->compatibleTargetServers as $server)
-                                <div
-                                    wire:click="selectTargetServer('{{ $server->id }}')"
-                                    class="px-3 py-2 border rounded-lg cursor-pointer hover:bg-base-200 border-base-300 {{ $targetServer?->id === $server->id ? 'border-primary bg-primary/10' : '' }}"
-                                >
-                                    <div class="flex items-center justify-between gap-4">
-                                        <div class="flex-1 min-w-0">
-                                            <div class="text-sm font-medium">{{ $server->name }}</div>
-                                            <div class="text-xs opacity-60">{{ $server->host }}@if($server->port)
-                                                    :{{ $server->port }}
-                                                @endif</div>
-                                        </div>
-                                        <x-loading wire:loading wire:target="selectTargetServer('{{ $server->id }}')"
-                                                   class="loading-xs"/>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @endif
+                    @include('livewire.restore._destination-step', [
+                        'targetLocked' => $mode->targetServerLocked(),
+                        'snapshot' => $this->selectedSnapshot,
+                    ])
 
                     <div class="flex gap-2 mt-6">
-                        @if($mode === RestoreModalMode::FromRestoreIndex)
+                        @if($currentStep > 1)
                             <x-button class="btn-ghost" wire:click="previousStep">{{ __('Back') }}</x-button>
                         @endif
-                        <div class="flex-1"></div>
-                        <x-button class="btn-ghost" @click="$wire.showModal = false">{{ __('Cancel') }}</x-button>
-                    </div>
-                </div>
-            @endif
-
-            {{-- Step body: configure (final step) --}}
-            @if($this->isConfigureStep() && $currentStep > 1)
-                <div class="space-y-4">
-                    <div x-data="{ open: false }" @click.outside="open = false" class="relative">
-                        <x-input
-                            wire:model.live.debounce.200ms="schemaName"
-                            :label="__('Destination Database Name')"
-                            :placeholder="__('Type or select database name...')"
-                            @focus="open = true"
-                            @keydown.escape="open = false"
-                            autocomplete="off"
-                        />
-                        @error('schemaName')
-                        <p class="text-error text-sm mt-1">{{ $message }}</p>
-                        @enderror
-
-                        @if(count($this->filteredDatabases) > 0)
-                            <div
-                                x-show="open"
-                                x-transition:enter="transition ease-out duration-100"
-                                x-transition:enter-start="opacity-0 scale-95"
-                                x-transition:enter-end="opacity-100 scale-100"
-                                x-transition:leave="transition ease-in duration-75"
-                                x-transition:leave-start="opacity-100 scale-100"
-                                x-transition:leave-end="opacity-0 scale-95"
-                                class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-48 overflow-y-auto"
-                            >
-                                @foreach($this->filteredDatabases as $database)
-                                    <div
-                                        wire:click="selectDatabase('{{ $database }}')"
-                                        @click="open = false"
-                                        class="px-3 py-2 cursor-pointer hover:bg-base-200 text-sm {{ $schemaName === $database ? 'bg-primary/10 font-medium' : '' }}"
-                                    >
-                                        {{ $database }}
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-
-                    @if(in_array($schemaName, $existingDatabases))
-                        <x-alert class="alert-warning" icon="o-exclamation-triangle">
-                            {{ __('The database') }}
-                            <x-badge class="badge-error badge-dash" :value="$schemaName"/> {{ __('already exists.') }}
-                            <br>
-                            {{ __('It will be overwritten if you continue.') }}
-                        </x-alert>
-                    @endif
-
-                    @if($targetServer?->database_type === \App\Enums\DatabaseType::POSTGRESQL)
-                        <x-input
-                            wire:model="ownerUser"
-                            :label="__('Transfer database ownership to user after restore')"
-                            :placeholder="__('PostgreSQL username (leave empty to skip)')"
-                            :hint="__('Transfers ownership of the database and all its objects (tables, sequences, functions, schemas) to this user. Useful when the restore user differs from the application user.')"
-                        />
-                    @endif
-
-                    @if(in_array($targetServer?->database_type, [\App\Enums\DatabaseType::MYSQL, \App\Enums\DatabaseType::POSTGRESQL]))
-                        <x-checkbox
-                            wire:model="forceDatabase"
-                            :label="__('Drop and recreate database before restore')"
-                            :hint="__('Not usually needed — dumps already include per-table DROP/CREATE statements. Use this only if you need a completely clean database (e.g. to remove tables not in the snapshot).')"
-                        />
-                    @endif
-
-                    @if($this->selectedSnapshot)
-                        <div class="p-4 border rounded-lg bg-base-200 border-base-300">
-                            <div class="text-sm font-semibold mb-2">{{ __('Restore Summary') }}</div>
-                            <div class="text-sm opacity-70 space-y-1">
-                                <div><strong>{{ __('Source:') }}</strong>
-                                    {{ $this->selectedSnapshot->databaseServer->name }} &bull; {{ $this->selectedSnapshot->database_name }}
-                                </div>
-                                <div>
-                                    <strong>{{ __('Snapshot:') }}</strong> {{ \App\Support\Formatters::humanDate($this->selectedSnapshot->created_at) }}
-                                </div>
-                                <div><strong>{{ __('Target:') }}</strong>
-                                    {{ $targetServer?->name }} &bull; {{ $schemaName ?: __('(enter name)') }}</div>
-                                <div>
-                                    <strong>{{ __('Size:') }}</strong> {{ $this->selectedSnapshot->getHumanFileSize() }}
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <div class="flex gap-2 mt-6">
-                        <x-button class="btn-ghost" wire:click="previousStep">{{ __('Back') }}</x-button>
                         <div class="flex-1"></div>
                         <x-button class="btn-ghost" @click="$wire.showModal = false">{{ __('Cancel') }}</x-button>
                         <x-button class="btn-primary" wire:click="restore" spinner="restore">

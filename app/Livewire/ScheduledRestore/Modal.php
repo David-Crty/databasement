@@ -3,11 +3,11 @@
 namespace App\Livewire\ScheduledRestore;
 
 use App\Enums\DatabaseType;
+use App\Livewire\Concerns\InteractsWithTargetDatabases;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
-use App\Services\Backup\Databases\DatabaseProvider;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -17,7 +17,7 @@ use Livewire\Component;
 
 class Modal extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, InteractsWithTargetDatabases, Toast;
 
     public bool $showModal = false;
 
@@ -30,22 +30,11 @@ class Modal extends Component
 
     public ?string $sourceDatabaseName = null;
 
-    public ?string $targetServerId = null;
-
-    public string $schemaName = '';
-
-    public bool $forceDatabase = false;
-
-    public string $ownerUser = '';
-
     public string $name = '';
 
     public ?string $backupScheduleId = null;
 
     public bool $enabled = true;
-
-    /** @var array<int, string> */
-    public array $existingTargetDatabases = [];
 
     #[On('open-scheduled-restore-modal')]
     public function open(?string $id = null): void
@@ -53,7 +42,7 @@ class Modal extends Component
         $this->reset([
             'currentStep', 'editingId', 'sourceServerId', 'sourceDatabaseName',
             'targetServerId', 'schemaName', 'forceDatabase', 'ownerUser',
-            'name', 'backupScheduleId', 'enabled', 'existingTargetDatabases',
+            'name', 'backupScheduleId', 'enabled', 'existingDatabases',
         ]);
         $this->resetValidation();
 
@@ -72,7 +61,7 @@ class Modal extends Component
             $this->backupScheduleId = $scheduledRestore->backup_schedule_id;
             $this->enabled = $scheduledRestore->enabled;
 
-            $this->loadExistingTargetDatabases();
+            $this->loadExistingDatabases(DatabaseServer::find($this->targetServerId));
         } else {
             $this->authorize('create', ScheduledRestore::class);
         }
@@ -87,8 +76,7 @@ class Modal extends Component
 
     public function updatedTargetServerId(): void
     {
-        $this->existingTargetDatabases = [];
-        $this->loadExistingTargetDatabases();
+        $this->loadExistingDatabases($this->targetServerId ? DatabaseServer::find($this->targetServerId) : null);
     }
 
     public function nextStep(): void
@@ -127,7 +115,7 @@ class Modal extends Component
             'schema_name' => $this->schemaName,
             'backup_schedule_id' => $this->backupScheduleId,
             'enabled' => $this->enabled,
-            'options' => $this->buildOptions(),
+            'options' => $this->buildOptions() ?: null,
         ];
 
         if ($this->editingId) {
@@ -226,37 +214,6 @@ class Modal extends Component
     }
 
     /**
-     * @return array<string, mixed>|null
-     */
-    protected function buildOptions(): ?array
-    {
-        $opts = array_filter([
-            'force_database' => $this->forceDatabase ?: null,
-            'owner_user' => ($trimmed = trim($this->ownerUser)) !== '' ? $trimmed : null,
-        ]);
-
-        return $opts ?: null;
-    }
-
-    public function loadExistingTargetDatabases(): void
-    {
-        if (! $this->targetServerId) {
-            $this->existingTargetDatabases = [];
-
-            return;
-        }
-
-        try {
-            $target = DatabaseServer::find($this->targetServerId);
-            $this->existingTargetDatabases = $target
-                ? app(DatabaseProvider::class)->listDatabasesForServer($target)
-                : [];
-        } catch (\Exception) {
-            $this->existingTargetDatabases = [];
-        }
-    }
-
-    /**
      * @return array<int, array{id: string, name: string}>
      */
     public function getSourceServerOptionsProperty(): array
@@ -307,8 +264,8 @@ class Modal extends Component
         return DatabaseServer::query()
             ->whereRaw('database_type = ?', [$source->database_type->value])
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (DatabaseServer $s) => ['id' => $s->id, 'name' => $s->name])
+            ->get(['id', 'name', 'host', 'port'])
+            ->map(fn (DatabaseServer $s) => ['id' => $s->id, 'name' => $this->serverOptionLabel($s)])
             ->toArray();
     }
 
@@ -335,15 +292,9 @@ class Modal extends Component
         return $source ? $this->sourceServerRequiresDatabaseName($source) : true;
     }
 
-    public function getTargetServerIsSqliteProperty(): bool
+    public function getTargetServerProperty(): ?DatabaseServer
     {
-        if (! $this->targetServerId) {
-            return false;
-        }
-
-        $target = DatabaseServer::find($this->targetServerId);
-
-        return $target?->database_type === DatabaseType::SQLITE;
+        return $this->targetServerId ? DatabaseServer::find($this->targetServerId) : null;
     }
 
     public function render(): View

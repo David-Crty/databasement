@@ -51,37 +51,10 @@
                         {{ __('Choose where the snapshot will be restored on each run.') }}
                     </p>
 
-                    <x-select
-                        :label="__('Target server')"
-                        wire:model.live="targetServerId"
-                        :options="$this->targetServerOptions"
-                        :placeholder="__('Select a target server')"
-                        placeholder-value=""
-                    />
-
-                    <x-input
-                        :label="$this->targetServerIsSqlite ? __('Target database path') : __('Target database name')"
-                        wire:model="schemaName"
-                        :placeholder="$this->targetServerIsSqlite ? '/data/staging.sqlite' : 'staging_app'"
-                    />
-
-                    @if(!empty($existingTargetDatabases))
-                        <div class="text-xs opacity-60">
-                            {{ __('Existing databases on target:') }}
-                            <span class="font-mono">{{ implode(', ', array_slice($existingTargetDatabases, 0, 8)) }}{{ count($existingTargetDatabases) > 8 ? '…' : '' }}</span>
-                        </div>
-                    @endif
-
-                    <x-checkbox
-                        :label="__('Drop and recreate target database if it already exists')"
-                        wire:model="forceDatabase"
-                    />
-
-                    <x-input
-                        :label="__('Owner user (optional)')"
-                        wire:model="ownerUser"
-                        :placeholder="__('Leave blank for default owner')"
-                    />
+                    @include('livewire.restore._destination-step', [
+                        'targetLocked' => false,
+                        'snapshot' => null,
+                    ])
                 </div>
             @endif
 

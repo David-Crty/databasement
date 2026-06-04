@@ -159,7 +159,7 @@ test('from-server mode: prevents restoring over the application database', funct
 // from-snapshot mode
 // ============================================================================
 
-test('from-snapshot mode: step 1 shows target-server picker filtered by snapshot db type', function () {
+test('from-snapshot mode: target select lists only servers matching the snapshot db type', function () {
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
 
@@ -174,7 +174,7 @@ test('from-snapshot mode: step 1 shows target-server picker filtered by snapshot
         ->assertDontSee('Postgres Target');
 });
 
-test('from-snapshot mode: selectTargetServer advances to configure step and queues restore', function () {
+test('from-snapshot mode: choosing a target prefills the schema and queues restore', function () {
     Queue::fake();
 
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
@@ -183,8 +183,7 @@ test('from-snapshot mode: selectTargetServer advances to configure step and queu
 
     Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
-        ->call('selectTargetServer', $target->id)
-        ->assertSet('currentStep', 2)
+        ->set('targetServerId', $target->id)
         ->assertSet('schemaName', 'mydb')
         ->set('schemaName', 'restored_db')
         ->call('restore')
@@ -193,25 +192,23 @@ test('from-snapshot mode: selectTargetServer advances to configure step and queu
     Queue::assertPushed(ProcessRestoreJob::class, 1);
 });
 
-test('from-snapshot mode: previousStep clears the chosen target server', function () {
+test('from-snapshot mode: is a single step with no back navigation', function () {
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
-    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
 
     Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
-        ->call('selectTargetServer', $target->id)
-        ->assertSet('currentStep', 2)
-        ->call('previousStep')
         ->assertSet('currentStep', 1)
-        ->assertSet('targetServer', null);
+        ->assertDontSee(__('Back'))
+        ->call('previousStep')
+        ->assertSet('currentStep', 1);
 });
 
 // ============================================================================
 // from-restore-index mode
 // ============================================================================
 
-test('from-restore-index mode: walks all three steps and queues restore', function () {
+test('from-restore-index mode: walks both steps and queues restore', function () {
     Queue::fake();
 
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
@@ -226,8 +223,7 @@ test('from-restore-index mode: walks all three steps and queues restore', functi
         ->call('selectSnapshot', $snapshot->id)
         ->assertSet('currentStep', 2)
         ->assertSet('selectedSnapshotId', $snapshot->id)
-        ->call('selectTargetServer', $target->id)
-        ->assertSet('currentStep', 3)
+        ->set('targetServerId', $target->id)
         ->set('schemaName', 'fresh_db')
         ->call('restore')
         ->assertDispatched('restore-created');
@@ -286,7 +282,7 @@ test('changing dbTypeFilter clears the stale serverFilter so results are not ove
         ->assertDontSee('mysql_db');
 });
 
-test('from-restore-index mode: passing restoreId pre-fills snapshot, target, and jumps to step 3', function () {
+test('from-restore-index mode: passing restoreId pre-fills snapshot, target, and jumps to step 2', function () {
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create(['database_name' => 'app_db']);
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
@@ -301,15 +297,16 @@ test('from-restore-index mode: passing restoreId pre-fills snapshot, target, and
 
     Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-restore-index', restoreId: $restore->id)
-        ->assertSet('currentStep', 3)
+        ->assertSet('currentStep', 2)
         ->assertSet('selectedSnapshotId', $snapshot->id)
         ->assertSet('targetServer.id', $target->id)
+        ->assertSet('targetServerId', $target->id)
         ->assertSet('schemaName', 'previous_schema')
         ->assertSet('forceDatabase', true)
         ->assertSet('ownerUser', 'postgres');
 });
 
-test('from-restore-index mode: previousStep from step 3 clears target then step 2 clears snapshot', function () {
+test('from-restore-index mode: previousStep from destination clears target and snapshot', function () {
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
@@ -317,13 +314,13 @@ test('from-restore-index mode: previousStep from step 3 clears target then step 
     Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-restore-index')
         ->call('selectSnapshot', $snapshot->id)
-        ->call('selectTargetServer', $target->id)
-        ->assertSet('currentStep', 3)
-        ->call('previousStep')
+        ->set('targetServerId', $target->id)
         ->assertSet('currentStep', 2)
-        ->assertSet('targetServer', null)
+        ->assertSet('targetServer.id', $target->id)
         ->call('previousStep')
         ->assertSet('currentStep', 1)
+        ->assertSet('targetServer', null)
+        ->assertSet('targetServerId', null)
         ->assertSet('selectedSnapshotId', null);
 });
 

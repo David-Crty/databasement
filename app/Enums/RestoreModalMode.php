@@ -10,7 +10,12 @@ enum RestoreModalMode: string
 
     public function totalSteps(): int
     {
-        return $this === self::FromRestoreIndex ? 3 : 2;
+        return match ($this) {
+            // Snapshot picker, then the merged target + destination step.
+            self::FromServer, self::FromRestoreIndex => 2,
+            // Snapshot is fixed, so the target + destination step is all there is.
+            self::FromSnapshot => 1,
+        };
     }
 
     public function targetServerLocked(): bool

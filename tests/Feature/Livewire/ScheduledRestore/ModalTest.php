@@ -104,3 +104,23 @@ test('non-admin users cannot open the create modal', function () {
         ->call('open')
         ->assertForbidden();
 });
+
+test('target database autocomplete loads existing databases and selects one', function () {
+    $this->mock(DatabaseProvider::class, function (MockInterface $mock) {
+        $mock->shouldReceive('listDatabasesForServer')->andReturn(['orders_db', 'staging_db']);
+    });
+
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
+    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
+
+    Livewire::test(Modal::class)
+        ->call('open')
+        ->set('sourceServerId', $source->id)
+        ->set('sourceDatabaseName', 'app')
+        ->call('nextStep')
+        ->set('targetServerId', $target->id)
+        ->assertSet('existingDatabases', ['orders_db', 'staging_db'])
+        ->call('selectDatabase', 'staging_db')
+        ->assertSet('schemaName', 'staging_db');
+});
