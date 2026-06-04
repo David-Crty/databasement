@@ -21,7 +21,7 @@ class LatestSnapshotResolver
             ->withoutGlobalScope(OrganizationScope::class)
             ->where('database_server_id', $scheduledRestore->source_server_id)
             ->when(
-                $scheduledRestore->source_database_name,
+                $scheduledRestore->source_database_name !== null,
                 fn ($q) => $q->where('database_name', $scheduledRestore->source_database_name)
             )
             ->where('file_exists', true)
