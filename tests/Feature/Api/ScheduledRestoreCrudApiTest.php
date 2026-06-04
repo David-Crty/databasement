@@ -3,15 +3,7 @@
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Models\User;
-use App\Services\SchedulerRestarter;
 use Illuminate\Support\Facades\Artisan;
-use Mockery\MockInterface;
-
-beforeEach(function () {
-    $this->mock(SchedulerRestarter::class, function (MockInterface $mock) {
-        $mock->shouldReceive('restart')->andReturn(true);
-    });
-});
 
 function apiSourceTarget(string $type = 'mysql'): array
 {

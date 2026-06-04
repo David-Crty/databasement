@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveScheduledRestoreRequest;
 use App\Http\Resources\ScheduledRestoreResource;
 use App\Models\ScheduledRestore;
-use App\Services\SchedulerRestarter;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,13 +50,11 @@ class ScheduledRestoreController extends Controller
      *
      * @response 201
      */
-    public function store(SaveScheduledRestoreRequest $request, SchedulerRestarter $restarter): JsonResponse
+    public function store(SaveScheduledRestoreRequest $request): JsonResponse
     {
         $this->authorize('create', ScheduledRestore::class);
 
         $scheduledRestore = ScheduledRestore::create($request->validated());
-
-        $restarter->restart();
 
         return (new ScheduledRestoreResource($scheduledRestore))
             ->response()
@@ -67,13 +64,11 @@ class ScheduledRestoreController extends Controller
     /**
      * Update a scheduled restore.
      */
-    public function update(SaveScheduledRestoreRequest $request, ScheduledRestore $scheduledRestore, SchedulerRestarter $restarter): ScheduledRestoreResource
+    public function update(SaveScheduledRestoreRequest $request, ScheduledRestore $scheduledRestore): ScheduledRestoreResource
     {
         $this->authorize('update', $scheduledRestore);
 
         $scheduledRestore->update($request->validated());
-
-        $restarter->restart();
 
         return new ScheduledRestoreResource($scheduledRestore);
     }
@@ -83,13 +78,11 @@ class ScheduledRestoreController extends Controller
      *
      * @response 204
      */
-    public function destroy(ScheduledRestore $scheduledRestore, SchedulerRestarter $restarter): Response
+    public function destroy(ScheduledRestore $scheduledRestore): Response
     {
         $this->authorize('delete', $scheduledRestore);
 
         $scheduledRestore->delete();
-
-        $restarter->restart();
 
         return response()->noContent();
     }

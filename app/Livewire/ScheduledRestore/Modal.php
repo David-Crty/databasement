@@ -8,7 +8,6 @@ use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use App\Services\Backup\Databases\DatabaseProvider;
-use App\Services\SchedulerRestarter;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -142,16 +141,9 @@ class Modal extends Component
 
         $this->showModal = false;
 
-        if (app(SchedulerRestarter::class)->restart()) {
-            $this->success($this->editingId
-                ? __('Scheduled restore updated.')
-                : __('Scheduled restore created.'));
-        } else {
-            $this->warning(
-                title: __('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'),
-                timeout: 6000
-            );
-        }
+        $this->success($this->editingId
+            ? __('Scheduled restore updated.')
+            : __('Scheduled restore created.'));
 
         $this->dispatch('scheduled-restore-saved');
     }

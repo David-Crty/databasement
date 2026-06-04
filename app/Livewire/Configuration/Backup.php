@@ -8,7 +8,6 @@ use App\Livewire\Forms\ConfigurationForm;
 use App\Models\BackupSchedule;
 use App\Services\Backup\TriggerBackupAction;
 use App\Services\CurrentOrganization;
-use App\Services\SchedulerRestarter;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -51,9 +50,7 @@ class Backup extends Component
 
         $this->form->saveBackup();
 
-        if ($this->restartScheduler()) {
-            $this->success(__('Backup configuration saved.'));
-        }
+        $this->success(__('Backup configuration saved.'));
     }
 
     public function runCleanup(): void
@@ -119,9 +116,7 @@ class Backup extends Component
         $this->editingScheduleId = null;
         $this->form->resetScheduleFields();
 
-        if ($this->restartScheduler()) {
-            $this->success(__('Backup schedule saved.'));
-        }
+        $this->success(__('Backup schedule saved.'));
     }
 
     public function confirmDeleteSchedule(string $scheduleId): void
@@ -152,9 +147,7 @@ class Backup extends Component
         $this->showDeleteScheduleModal = false;
         $this->deleteScheduleId = null;
 
-        if ($this->restartScheduler()) {
-            $this->success(__('Backup schedule deleted.'));
-        }
+        $this->success(__('Backup schedule deleted.'));
     }
 
     public function runSchedule(string $scheduleId, TriggerBackupAction $action): void
@@ -223,20 +216,6 @@ class Backup extends Component
             ['id' => 'zstd', 'name' => 'zstd'],
             ['id' => 'encrypted', 'name' => 'encrypted'],
         ];
-    }
-
-    private function restartScheduler(): bool
-    {
-        if (app(SchedulerRestarter::class)->restart()) {
-            return true;
-        }
-
-        $this->warning(
-            title: __('Saved, but scheduler restart failed. Schedule changes take effect after container restart.'),
-            timeout: 6000
-        );
-
-        return false;
     }
 
     public function render(): View

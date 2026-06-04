@@ -7,7 +7,6 @@ use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use App\Models\User;
 use App\Services\Backup\Databases\DatabaseProvider;
-use App\Services\SchedulerRestarter;
 use Livewire\Livewire;
 use Mockery\MockInterface;
 
@@ -16,10 +15,6 @@ use function Pest\Laravel\actingAs;
 beforeEach(function () {
     $this->user = User::factory()->create(['role' => UserRole::Admin]);
     actingAs($this->user);
-
-    $this->mock(SchedulerRestarter::class, function (MockInterface $mock) {
-        $mock->shouldReceive('restart')->andReturn(true);
-    });
 
     $this->mock(DatabaseProvider::class, function (MockInterface $mock) {
         $mock->shouldReceive('listDatabasesForServer')->andReturn([]);

@@ -10,14 +10,8 @@ use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\User;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
-
-beforeEach(function () {
-    Process::fake();
-});
 
 test('backup page displays current values', function () {
     $user = User::factory()->create(['role' => UserRole::Admin]);
@@ -59,20 +53,6 @@ test('saving backup config persists values', function () {
     expect(AppConfig::get('backup.compression'))->toBe('zstd')
         ->and(AppConfig::get('backup.compression_level'))->toBe(10)
         ->and(AppConfig::get('backup.job_timeout'))->toBe(3600);
-});
-
-test('shows warning toast when scheduler restart fails', function () {
-    Log::spy();
-
-    Process::fake(fn () => Process::result(errorOutput: 'connection refused', exitCode: 1));
-
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
-        ->test(Backup::class)
-        ->call('saveBackupConfig');
-
-    Log::shouldHaveReceived('warning')
-        ->withArgs(fn (string $message) => str_contains($message, 'Failed to restart schedule-run'))
-        ->once();
 });
 
 test('validation rejects invalid backup values', function () {

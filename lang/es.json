@@ -510,7 +510,6 @@
   "Save Notification Settings": "Guardar configuración de notificaciones",
   "Save before testing.": "Guarde antes de probar.",
   "Save changes": "Guardar cambios",
-  "Saved, but scheduler restart failed. Schedule changes take effect after container restart.": "Guardado, pero falló el reinicio del planificador. Los cambios en la programación surtirán efecto después de reiniciar el contenedor.",
   "Schedule": "Programación",
   "Schedule list refreshed.": "Lista de programaciones actualizada.",
   "Scheduled": "Programados",
