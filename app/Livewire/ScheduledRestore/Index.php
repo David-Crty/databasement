@@ -40,6 +40,9 @@ class Index extends Component
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'name', 'direction' => 'asc'];
 
+    /** @var list<string> */
+    private const ALLOWED_SORT_COLUMNS = ['name'];
+
     #[Locked]
     public ?string $deleteScheduledRestoreId = null;
 
@@ -201,6 +204,10 @@ class Index extends Component
 
     public function render(): View
     {
+        $sortColumn = in_array($this->sortBy['column'], self::ALLOWED_SORT_COLUMNS, true)
+            ? $this->sortBy['column']
+            : 'name';
+
         $query = ScheduledRestore::query()
             ->with(['sourceServer', 'targetServer', 'backupSchedule', 'lastRestore.job'])
             ->whereHas('targetServer')
@@ -212,7 +219,7 @@ class Index extends Component
             ->when($this->sourceServerFilter, fn (Builder $q) => $q->where('source_server_id', $this->sourceServerFilter))
             ->when($this->targetServerFilter, fn (Builder $q) => $q->where('target_server_id', $this->targetServerFilter))
             ->when($this->dbTypeFilter, fn (Builder $q) => $q->whereHas('targetServer', fn (Builder $sq) => $sq->whereRaw('database_type = ?', [$this->dbTypeFilter])))
-            ->orderBy($this->sortBy['column'], $this->sortBy['direction'] === 'desc' ? 'desc' : 'asc');
+            ->orderBy($sortColumn, $this->sortBy['direction'] === 'desc' ? 'desc' : 'asc');
 
         return view('livewire.scheduled-restore.index', [
             'scheduledRestores' => $query->paginate(15),

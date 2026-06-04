@@ -104,3 +104,12 @@ test('enabled filter narrows the list', function () {
         ->assertSee('paused task')
         ->assertDontSee('active task');
 });
+
+test('an unrecognized sort column falls back to the default instead of reaching the query', function () {
+    makeScheduled(['name' => 'visible task']);
+
+    Livewire::test(Index::class)
+        ->set('sortBy', ['column' => 'name); drop table users; --', 'direction' => 'asc'])
+        ->assertOk()
+        ->assertSee('visible task');
+});

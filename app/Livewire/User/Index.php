@@ -32,6 +32,9 @@ class Index extends Component
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
 
+    /** @var list<string> */
+    private const ALLOWED_SORT_COLUMNS = ['name', 'email', 'role', 'created_at'];
+
     #[Locked]
     public ?int $deleteId = null;
 
@@ -215,6 +218,10 @@ class Index extends Component
     {
         $currentOrg = app(CurrentOrganization::class);
 
+        $sortColumn = in_array($this->sortBy['column'], self::ALLOWED_SORT_COLUMNS, true)
+            ? $this->sortBy['column']
+            : 'created_at';
+
         $query = User::query();
 
         $query->whereRelation('organizations', 'organization_id', $currentOrg->id());
@@ -237,7 +244,7 @@ class Index extends Component
                     $query->whereNull('invitation_accepted_at');
                 }
             })
-            ->orderBy($this->sortBy['column'], Formatters::sortDirection((string) $this->sortBy['direction']))
+            ->orderBy($sortColumn, Formatters::sortDirection((string) $this->sortBy['direction']))
             ->paginate(15);
 
         return view('livewire.user.index', [
