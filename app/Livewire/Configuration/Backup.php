@@ -132,9 +132,12 @@ class Backup extends Component
             return;
         }
 
-        $schedule = BackupSchedule::withCount(['backups', 'scheduledRestores'])->findOrFail($this->deleteScheduleId);
+        $schedule = BackupSchedule::withCount([
+            'backups as total_backups_count',
+            'scheduledRestores as scheduled_restores_count',
+        ])->findOrFail($this->deleteScheduleId);
 
-        if ($schedule->backups_count > 0) {
+        if ((int) $schedule->getAttribute('total_backups_count') > 0) {
             $this->error(__('Cannot delete a schedule that is in use by database servers.'));
             $this->showDeleteScheduleModal = false;
             $this->deleteScheduleId = null;
@@ -142,7 +145,7 @@ class Backup extends Component
             return;
         }
 
-        if ($schedule->scheduled_restores_count > 0) {
+        if ((int) $schedule->getAttribute('scheduled_restores_count') > 0) {
             $this->error(__('Cannot delete a schedule that is in use by scheduled restores.'));
             $this->showDeleteScheduleModal = false;
             $this->deleteScheduleId = null;

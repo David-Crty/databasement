@@ -33,7 +33,7 @@ class Index extends Component
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
 
     /** @var list<string> */
-    private const ALLOWED_SORT_COLUMNS = ['name', 'email', 'role', 'created_at'];
+    private const ALLOWED_SORT_COLUMNS = ['name', 'email', 'created_at'];
 
     #[Locked]
     public ?int $deleteId = null;
@@ -88,7 +88,7 @@ class Index extends Component
         return [
             ['key' => 'name', 'label' => __('Name'), 'class' => 'w-64'],
             ['key' => 'email', 'label' => __('Email')],
-            ['key' => 'role', 'label' => __('Role'), 'class' => 'w-32'],
+            ['key' => 'role', 'label' => __('Role'), 'class' => 'w-32', 'sortable' => false],
             ['key' => 'status', 'label' => __('Status'), 'class' => 'w-32', 'sortable' => false],
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-40'],
         ];

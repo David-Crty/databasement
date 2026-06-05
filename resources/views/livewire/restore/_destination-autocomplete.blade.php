@@ -32,7 +32,7 @@
         >
             @foreach($this->filteredDatabases as $database)
                 <div
-                    wire:click="selectDatabase('{{ $database }}')"
+                    wire:click="selectDatabase({{ \Illuminate\Support\Js::from($database) }})"
                     @click="open = false"
                     class="px-3 py-2 cursor-pointer hover:bg-base-200 text-sm {{ $schemaName === $database ? 'bg-primary/10 font-medium' : '' }}"
                 >
