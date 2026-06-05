@@ -27,7 +27,6 @@ class ScheduledRestoreResource extends JsonResource
             'options' => $this->options,
             'enabled' => $this->enabled,
             'last_executed_at' => $this->last_executed_at,
-            'last_restore_id' => $this->last_restore_id,
             'last_skip_reason' => $this->last_skip_reason,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

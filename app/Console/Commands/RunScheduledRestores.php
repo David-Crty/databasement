@@ -76,7 +76,6 @@ class RunScheduledRestores extends Command
 
         $scheduledRestore->forceFill([
             'last_executed_at' => now(),
-            'last_restore_id' => $restore->id,
             'last_skip_reason' => null,
         ])->save();
 

@@ -35,6 +35,19 @@
                                         </x-slot:content>
                                     </x-popover>
                                 @endif
+                                @if ($schedule->scheduled_restores_count > 0)
+                                    <x-popover>
+                                        <x-slot:trigger>
+                                            <span class="badge badge-outline badge-info cursor-default">
+                                                <x-icon name="o-calendar" class="w-3 h-3" />
+                                                {{ trans_choice(':count scheduled restore|:count scheduled restores', $schedule->scheduled_restores_count) }}
+                                            </span>
+                                        </x-slot:trigger>
+                                        <x-slot:content>
+                                            {{ $schedule->scheduledRestores->pluck('name')->join(', ') }}
+                                        </x-slot:content>
+                                    </x-popover>
+                                @endif
                             </span>
                         </x-slot:label>
                         <div class="flex flex-wrap items-center gap-3">
@@ -45,16 +58,21 @@
                             <span class="text-sm text-base-content/60 min-w-0">{{ \App\Support\Formatters::cronTranslation($schedule->expression) }}</span>
                             @if ($this->isAdmin)
                                 <div class="flex items-center gap-0.5 shrink-0 ml-auto">
-                                    @if ($schedule->backups_count > 0)
-                                        <x-button icon="bi.database-fill-up" class="btn-ghost btn-sm text-info" wire:click="runSchedule('{{ $schedule->id }}')" spinner="runSchedule('{{ $schedule->id }}')" :tooltip-left="__('Run now')" />
-                                    @endif
                                     <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openScheduleModal('{{ $schedule->id }}')" :tooltip-left="__('Edit')" />
-                                    @if ($schedule->total_backups_count > 0)
+                                    @if ($schedule->total_backups_count > 0 || $schedule->scheduled_restores_count > 0)
                                         <x-popover>
                                             <x-slot:trigger>
                                                 <x-button icon="o-trash" class="btn-ghost btn-sm opacity-40" disabled />
                                             </x-slot:trigger>
-                                            <x-slot:content>{{ __('In use by servers') }}</x-slot:content>
+                                            <x-slot:content>
+                                                @if ($schedule->total_backups_count > 0 && $schedule->scheduled_restores_count > 0)
+                                                    {{ __('In use by servers and scheduled restores') }}
+                                                @elseif ($schedule->total_backups_count > 0)
+                                                    {{ __('In use by servers') }}
+                                                @else
+                                                    {{ __('In use by scheduled restores') }}
+                                                @endif
+                                            </x-slot:content>
                                         </x-popover>
                                     @else
                                         <x-button icon="o-trash" class="btn-ghost btn-sm text-error hover:bg-error/10" wire:click="confirmDeleteSchedule('{{ $schedule->id }}')" :tooltip-left="__('Delete')" />

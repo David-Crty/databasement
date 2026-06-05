@@ -26,7 +26,6 @@ class ScheduledRestoreFactory extends Factory
             'options' => null,
             'enabled' => true,
             'last_executed_at' => null,
-            'last_restore_id' => null,
             'last_skip_reason' => null,
         ];
     }

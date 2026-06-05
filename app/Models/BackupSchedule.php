@@ -28,4 +28,12 @@ class BackupSchedule extends Model
     {
         return $this->hasMany(Backup::class);
     }
+
+    /**
+     * @return HasMany<ScheduledRestore, BackupSchedule>
+     */
+    public function scheduledRestores(): HasMany
+    {
+        return $this->hasMany(ScheduledRestore::class);
+    }
 }

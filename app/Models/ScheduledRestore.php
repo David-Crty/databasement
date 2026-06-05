@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * @mixin IdeHelperScheduledRestore
@@ -33,7 +34,6 @@ class ScheduledRestore extends Model
         'options',
         'enabled',
         'last_executed_at',
-        'last_restore_id',
         'last_skip_reason',
     ];
 
@@ -74,11 +74,11 @@ class ScheduledRestore extends Model
     }
 
     /**
-     * @return BelongsTo<Restore, ScheduledRestore>
+     * @return HasOne<Restore, ScheduledRestore>
      */
-    public function lastRestore(): BelongsTo
+    public function lastRestore(): HasOne
     {
-        return $this->belongsTo(Restore::class, 'last_restore_id');
+        return $this->hasOne(Restore::class)->latestOfMany();
     }
 
     /**

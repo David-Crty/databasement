@@ -3,6 +3,7 @@
 use App\Livewire\DatabaseServer\Show;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\ScheduledRestore;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -55,6 +56,21 @@ test('delete removes the database server', function () {
         ->call('delete');
 
     $this->assertDatabaseMissing('database_servers', ['id' => $server->id]);
+});
+
+test('delete cascades to scheduled restores referencing the server', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create();
+
+    $asSource = ScheduledRestore::factory()->create(['source_server_id' => $server->id]);
+    $asTarget = ScheduledRestore::factory()->create(['target_server_id' => $server->id]);
+
+    Livewire::actingAs($user)
+        ->test(Show::class, ['server' => $server])
+        ->call('delete');
+
+    $this->assertDatabaseMissing('scheduled_restores', ['id' => $asSource->id]);
+    $this->assertDatabaseMissing('scheduled_restores', ['id' => $asTarget->id]);
 });
 
 test('confirmRestore on a Redis server opens the redis info modal', function () {

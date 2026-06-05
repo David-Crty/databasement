@@ -6,7 +6,6 @@ use App\Jobs\CleanupExpiredSnapshotsJob;
 use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Forms\ConfigurationForm;
 use App\Models\BackupSchedule;
-use App\Services\Backup\TriggerBackupAction;
 use App\Services\CurrentOrganization;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
@@ -133,10 +132,18 @@ class Backup extends Component
             return;
         }
 
-        $schedule = BackupSchedule::withCount('backups')->findOrFail($this->deleteScheduleId);
+        $schedule = BackupSchedule::withCount(['backups', 'scheduledRestores'])->findOrFail($this->deleteScheduleId);
 
         if ($schedule->backups_count > 0) {
             $this->error(__('Cannot delete a schedule that is in use by database servers.'));
+            $this->showDeleteScheduleModal = false;
+            $this->deleteScheduleId = null;
+
+            return;
+        }
+
+        if ($schedule->scheduled_restores_count > 0) {
+            $this->error(__('Cannot delete a schedule that is in use by scheduled restores.'));
             $this->showDeleteScheduleModal = false;
             $this->deleteScheduleId = null;
 
@@ -148,41 +155,6 @@ class Backup extends Component
         $this->deleteScheduleId = null;
 
         $this->success(__('Backup schedule deleted.'));
-    }
-
-    public function runSchedule(string $scheduleId, TriggerBackupAction $action): void
-    {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
-        $schedule = BackupSchedule::findOrFail($scheduleId);
-
-        $backups = $schedule->backups()
-            ->whereRelation('databaseServer', 'backups_enabled', true)
-            ->with(['databaseServer', 'volume'])
-            ->get();
-
-        $totalSnapshots = 0;
-        $errors = [];
-
-        foreach ($backups as $backup) {
-            try {
-                $userId = auth()->id();
-                $result = $action->execute($backup, is_int($userId) ? $userId : null);
-                $totalSnapshots += count($result['snapshots']);
-            } catch (\Throwable $e) {
-                $errors[] = $backup->databaseServer->name.': '.$e->getMessage();
-            }
-        }
-
-        if ($totalSnapshots > 0) {
-            $this->success(
-                trans_choice(':count backup started successfully!|:count backups started successfully!', $totalSnapshots)
-            );
-        }
-
-        if (! empty($errors)) {
-            $this->error(implode('; ', $errors));
-        }
     }
 
     // --- Computed Properties ---
@@ -198,10 +170,15 @@ class Backup extends Component
                 $query->whereRelation('databaseServer', 'backups_enabled', true);
             },
             'backups as total_backups_count',
+            'scheduledRestores as scheduled_restores_count',
         ])
-            ->with(['backups' => function ($query) {
-                $query->whereRelation('databaseServer', 'backups_enabled', true);
-            }, 'backups.databaseServer:id,name'])
+            ->with([
+                'backups' => function ($query) {
+                    $query->whereRelation('databaseServer', 'backups_enabled', true);
+                },
+                'backups.databaseServer:id,name',
+                'scheduledRestores:id,name,backup_schedule_id',
+            ])
             ->orderBy('name')
             ->get();
     }

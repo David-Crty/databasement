@@ -19,14 +19,12 @@ return new class extends Migration
             $table->json('options')->nullable();
             $table->boolean('enabled')->default(true);
             $table->timestamp('last_executed_at')->nullable();
-            $table->ulid('last_restore_id')->nullable();
             $table->string('last_skip_reason')->nullable();
             $table->timestamps();
 
-            $table->foreign('source_server_id')->references('id')->on('database_servers')->restrictOnDelete();
-            $table->foreign('target_server_id')->references('id')->on('database_servers')->restrictOnDelete();
+            $table->foreign('source_server_id')->references('id')->on('database_servers')->cascadeOnDelete();
+            $table->foreign('target_server_id')->references('id')->on('database_servers')->cascadeOnDelete();
             $table->foreign('backup_schedule_id')->references('id')->on('backup_schedules')->restrictOnDelete();
-            $table->foreign('last_restore_id')->references('id')->on('restores')->nullOnDelete();
 
             $table->index(['enabled', 'source_server_id']);
         });

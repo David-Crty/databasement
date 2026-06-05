@@ -3,12 +3,11 @@
 use App\Enums\UserRole;
 use App\Facades\AppConfig;
 use App\Jobs\CleanupExpiredSnapshotsJob;
-use App\Jobs\ProcessBackupJob;
 use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Configuration\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
-use App\Models\Snapshot;
+use App\Models\ScheduledRestore;
 use App\Models\User;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -130,6 +129,18 @@ test('cannot delete a backup schedule that is in use', function () {
     $this->assertDatabaseHas('backup_schedules', ['id' => $schedule->id]);
 });
 
+test('cannot delete a backup schedule that is referenced by a scheduled restore', function () {
+    $schedule = BackupSchedule::factory()->create();
+    ScheduledRestore::factory()->create(['backup_schedule_id' => $schedule->id]);
+
+    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+        ->test(Backup::class)
+        ->call('confirmDeleteSchedule', $schedule->id)
+        ->call('deleteSchedule');
+
+    $this->assertDatabaseHas('backup_schedules', ['id' => $schedule->id]);
+});
+
 test('schedule name must be unique', function () {
     Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
         ->test(Backup::class)
@@ -161,49 +172,6 @@ test('non-admin cannot delete schedule', function () {
     Livewire::actingAs(User::factory()->create(['role' => UserRole::Member]))
         ->test(Backup::class)
         ->call('deleteSchedule')
-        ->assertForbidden();
-});
-
-test('admin can run a schedule to trigger backups for all its servers', function () {
-    Queue::fake();
-
-    $schedule = BackupSchedule::factory()->create();
-    $server = DatabaseServer::factory()->create(['database_names' => ['app']]);
-    $server->backups->first()->update(['backup_schedule_id' => $schedule->id]);
-
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
-        ->test(Backup::class)
-        ->call('runSchedule', $schedule->id);
-
-    Queue::assertPushed(ProcessBackupJob::class);
-});
-
-test('running a schedule skips servers with backups disabled', function () {
-    Queue::fake();
-
-    $schedule = BackupSchedule::factory()->create();
-    $enabledServer = DatabaseServer::factory()->create(['database_names' => ['app'], 'backups_enabled' => true]);
-    $disabledServer = DatabaseServer::factory()->create(['database_names' => ['app'], 'backups_enabled' => false]);
-    $enabledServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
-    $disabledServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
-
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
-        ->test(Backup::class)
-        ->call('runSchedule', $schedule->id);
-
-    Queue::assertPushed(ProcessBackupJob::class, function ($job) use ($enabledServer) {
-        return Snapshot::find($job->snapshotId)->database_server_id === $enabledServer->id;
-    });
-
-    Queue::assertNotPushed(ProcessBackupJob::class, function ($job) use ($disabledServer) {
-        return Snapshot::find($job->snapshotId)->database_server_id === $disabledServer->id;
-    });
-});
-
-test('non-admin cannot run a schedule', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Member]))
-        ->test(Backup::class)
-        ->call('runSchedule', 'fake-id')
         ->assertForbidden();
 });
 

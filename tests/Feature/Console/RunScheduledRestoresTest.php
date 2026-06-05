@@ -90,7 +90,7 @@ test('creates restore and dispatches job for happy path', function () {
         ->and($restore->triggered_by_user_id)->toBeNull();
 
     $scheduled->refresh();
-    expect($scheduled->last_restore_id)->toBe($restore->id)
+    expect($scheduled->lastRestore?->id)->toBe($restore->id)
         ->and($scheduled->last_executed_at)->not->toBeNull()
         ->and($scheduled->last_skip_reason)->toBeNull();
 });
