@@ -219,7 +219,7 @@ use App\Enums\DatabaseType;
 
                                 @php $dumpPreview = $form->getDumpCommandPreview() @endphp
                                 @if($dumpPreview)
-                                    <x-badge :value="__('Command preview')" class="badge-primary badge-soft "/>
+                                    <x-badge :value="__('Command preview')" class="badge-primary"/>
                                     <div class="mockup-code text-xs">
                                         <pre data-prefix="$"><code>{{ $dumpPreview }}</code></pre>
                                     </div>

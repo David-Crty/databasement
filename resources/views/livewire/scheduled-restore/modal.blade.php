@@ -10,55 +10,12 @@
 
         <div class="space-y-5">
             <ul class="steps steps-horizontal w-full">
-                <li class="step {{ $currentStep >= 1 ? 'step-primary' : '' }}">{{ __('Source') }}</li>
-                <li class="step {{ $currentStep >= 2 ? 'step-primary' : '' }}">{{ __('Target') }}</li>
-                <li class="step {{ $currentStep >= 3 ? 'step-primary' : '' }}">{{ __('Schedule') }}</li>
+                <li class="step {{ $currentStep >= 1 ? 'step-primary' : '' }}">{{ __('Schedule') }}</li>
+                <li class="step {{ $currentStep >= 2 ? 'step-primary' : '' }}">{{ __('Source') }}</li>
+                <li class="step {{ $currentStep >= 3 ? 'step-primary' : '' }}">{{ __('Target') }}</li>
             </ul>
 
             @if($currentStep === 1)
-                <div class="space-y-4">
-                    <p class="text-sm opacity-70">
-                        {!! __('Choose the source server. On each run, the :snapshot from this server is selected automatically.', [
-                            'snapshot' => '<strong>'.e(__('latest completed snapshot')).'</strong>',
-                        ]) !!}
-                    </p>
-
-                    <x-select
-                        :label="__('Source server')"
-                        wire:model.live="sourceServerId"
-                        :options="$this->sourceServerOptions"
-                        :placeholder="__('Select a source server')"
-                        placeholder-value=""
-                    />
-
-                    @if($this->sourceServerRequiresDatabase)
-                        <x-select
-                            :label="__('Source database')"
-                            wire:model="sourceDatabaseName"
-                            :options="$this->sourceDatabaseOptions"
-                            :placeholder="__('Select a database')"
-                            placeholder-value=""
-                            :disabled="empty($this->sourceDatabaseOptions)"
-                            :hint="empty($this->sourceDatabaseOptions) ? __('No completed snapshots are available for this server yet.') : null"
-                        />
-                    @endif
-                </div>
-            @endif
-
-            @if($currentStep === 2)
-                <div class="space-y-4">
-                    <p class="text-sm opacity-70">
-                        {{ __('Choose where the snapshot will be restored on each run.') }}
-                    </p>
-
-                    @include('livewire.restore._destination-step', [
-                        'targetLocked' => false,
-                        'snapshot' => null,
-                    ])
-                </div>
-            @endif
-
-            @if($currentStep === 3)
                 <div class="space-y-4">
                     <p class="text-sm opacity-70">
                         {{ __('Name this scheduled restore and pick how often it should run.') }}
@@ -83,6 +40,54 @@
                         :label="__('Enabled')"
                         wire:model="enabled"
                     />
+                </div>
+            @endif
+
+            @if($currentStep === 2)
+                <div class="space-y-4">
+                    <p class="text-sm opacity-70">
+                        {!! __('Choose the source server. On each run, the :snapshot from this server is selected automatically.', [
+                            'snapshot' => '<strong>'.e(__('latest completed snapshot')).'</strong>',
+                        ]) !!}
+                    </p>
+
+                    <x-select
+                        :label="__('Source server')"
+                        wire:model.live="sourceServerId"
+                        :options="$this->sourceServerOptions"
+                        :placeholder="__('Select a source server')"
+                        placeholder-value=""
+                    />
+
+                    <x-select
+                        :label="__('Source database')"
+                        wire:model="sourceDatabaseName"
+                        :options="$this->sourceDatabaseOptions"
+                        :placeholder="__('Select a database')"
+                        placeholder-value=""
+                        :disabled="empty($this->sourceDatabaseOptions)"
+                        :hint="empty($this->sourceDatabaseOptions) ? __('No completed snapshots are available for this server yet.') : null"
+                    />
+                </div>
+            @endif
+
+            @if($currentStep === 3)
+                <div class="space-y-4">
+                    <p class="text-sm opacity-70">
+                        {{ __('Choose where the snapshot will be restored on each run.') }}
+                    </p>
+
+                    @include('livewire.restore._destination-step', [
+                        'targetLocked' => false,
+                    ])
+
+                    @include('livewire.restore._summary', [
+                        'source' => ($this->sourceServer?->name ?? '—').' • '.$sourceDatabaseName,
+                        'snapshot' => __('Latest completed at run time'),
+                        'target' => ($this->targetServer?->name ?? '—').' • '.($schemaName ?: '—'),
+                        'size' => null,
+                        'schedule' => $this->selectedSchedule?->displayLabel(),
+                    ])
                 </div>
             @endif
         </div>

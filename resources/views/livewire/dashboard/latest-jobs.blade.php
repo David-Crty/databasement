@@ -65,18 +65,7 @@
 
                                 {{-- Status --}}
                                 <div class="shrink-0">
-                                    @if($job->status === 'completed')
-                                        <x-badge value="{{ __('Done') }}" class="badge-success badge-sm" />
-                                    @elseif($job->status === 'failed')
-                                        <x-badge value="{{ __('Failed') }}" class="badge-error badge-sm" />
-                                    @elseif($job->status === 'running')
-                                        <div class="badge badge-warning badge-sm gap-1">
-                                            <x-loading class="loading-spinner loading-xs" />
-                                            {{ __('Running') }}
-                                        </div>
-                                    @else
-                                        <x-badge value="{{ __('Pending') }}" class="badge-info badge-sm" />
-                                    @endif
+                                    <x-job-status-indicator :status="$job->status" />
                                 </div>
                             </div>
 

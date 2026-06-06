@@ -123,7 +123,7 @@
 
             @scope('cell_status', $restore)
                 @php $status = $restore->job?->status ?? 'pending'; $job = $restore->job; @endphp
-                @include('livewire.restore._status-badge', ['status' => $status])
+                <x-job-status-indicator :status="$status" />
 
                 @if($status === 'running' && $job?->started_at)
                     <div class="text-xs text-warning font-mono mt-1">{{ $job->started_at->diffForHumans(null, true) }}</div>

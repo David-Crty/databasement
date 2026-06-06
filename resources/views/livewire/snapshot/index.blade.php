@@ -57,7 +57,7 @@
                             @if($fileMissing)
                                 <x-popover>
                                     <x-slot:trigger>
-                                        <span class="badge badge-warning badge-soft badge-xs gap-1 cursor-help">
+                                        <span class="badge badge-warning badge-xs gap-1 cursor-help">
                                             <x-icon name="o-exclamation-triangle" class="w-3 h-3" />
                                             {{ __('File missing') }}
                                         </span>
@@ -87,18 +87,7 @@
 
             @scope('cell_status', $snapshot)
                 @php $status = $snapshot->job?->status ?? 'pending'; $job = $snapshot->job; @endphp
-                @if($status === 'completed')
-                    <x-badge :value="__('Completed')" class="badge-success badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
-                @elseif($status === 'failed')
-                    <x-badge :value="__('Failed')" class="badge-error badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
-                @elseif($status === 'running')
-                    <x-badge class="badge-warning badge-soft badge-sm gap-1 h-auto py-1 whitespace-normal text-center">
-                        <x-loading class="loading-spinner loading-xs shrink-0" />
-                        {{ __('Running') }}
-                    </x-badge>
-                @else
-                    <x-badge :value="__('Pending')" class="badge-info badge-soft badge-sm h-auto py-1 whitespace-normal text-center" />
-                @endif
+                <x-job-status-indicator :status="$status" />
 
                 @if($status === 'running' && $job?->started_at)
                     <div class="text-xs text-warning font-mono mt-1">{{ $job->started_at->diffForHumans(null, true) }}</div>

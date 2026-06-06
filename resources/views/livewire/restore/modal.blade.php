@@ -140,11 +140,20 @@
 
             {{-- Step body: target + destination (final step) --}}
             @if($this->isConfigureStep())
+                @php($snapshot = $this->selectedSnapshot)
                 <div class="space-y-4">
                     @include('livewire.restore._destination-step', [
                         'targetLocked' => $mode->targetServerLocked(),
-                        'snapshot' => $this->selectedSnapshot,
                     ])
+
+                    @if($snapshot)
+                        @include('livewire.restore._summary', [
+                            'source' => $snapshot->databaseServer->name.' • '.$snapshot->database_name,
+                            'snapshot' => \App\Support\Formatters::humanDate($snapshot->created_at),
+                            'target' => ($this->targetServer?->name ?? '').' • '.($schemaName ?: '—'),
+                            'size' => $snapshot->getHumanFileSize(),
+                        ])
+                    @endif
 
                     <div class="flex gap-2 mt-6">
                         @if($currentStep > 1)

@@ -82,14 +82,14 @@ class Modal extends Component
     public function nextStep(): void
     {
         if ($this->currentStep === 1) {
-            $this->validateSourceStep();
+            $this->validateScheduleStep();
             $this->currentStep = 2;
 
             return;
         }
 
         if ($this->currentStep === 2) {
-            $this->validateTargetStep();
+            $this->validateSourceStep();
             $this->currentStep = 3;
         }
     }
@@ -103,14 +103,14 @@ class Modal extends Component
 
     public function save(): void
     {
+        $this->validateScheduleStep();
         $this->validateSourceStep();
         $this->validateTargetStep();
-        $this->validateScheduleStep();
 
         $payload = [
             'name' => $this->name,
             'source_server_id' => $this->sourceServerId,
-            'source_database_name' => $this->sourceDatabaseName ?: null,
+            'source_database_name' => $this->sourceDatabaseName,
             'target_server_id' => $this->targetServerId,
             'schema_name' => $this->schemaName,
             'backup_schedule_id' => $this->backupScheduleId,
@@ -138,19 +138,10 @@ class Modal extends Component
 
     protected function validateSourceStep(): void
     {
-        $rules = [
+        $this->validate([
             'sourceServerId' => 'required|exists:database_servers,id',
-        ];
-
-        $sourceServer = $this->sourceServerId
-            ? DatabaseServer::find($this->sourceServerId)
-            : null;
-
-        if ($sourceServer && $this->sourceServerRequiresDatabaseName($sourceServer)) {
-            $rules['sourceDatabaseName'] = 'required|string|max:255';
-        }
-
-        $this->validate($rules, [
+            'sourceDatabaseName' => 'required|string|max:255',
+        ], [
             'sourceServerId.required' => __('Please select a source server.'),
             'sourceDatabaseName.required' => __('Please select the source database.'),
         ]);
@@ -167,22 +158,11 @@ class Modal extends Component
         ]);
 
         $target = DatabaseServer::findOrFail($this->targetServerId);
-        $isSqlite = $target->database_type === DatabaseType::SQLITE;
 
-        if ($isSqlite) {
-            $this->validate(
-                ['schemaName' => 'required|string|max:255'],
-                ['schemaName.required' => __('Please enter a database path.')]
-            );
-        } else {
-            $this->validate(
-                ['schemaName' => 'required|string|max:64|regex:/^[a-zA-Z0-9_]+$/'],
-                [
-                    'schemaName.required' => __('Please enter a database name.'),
-                    'schemaName.regex' => __('Database name can only contain letters, numbers, and underscores.'),
-                ]
-            );
-        }
+        $this->validate(
+            ['schemaName' => $target->database_type->databaseNameRules()],
+            $target->database_type->databaseNameMessages('schemaName'),
+        );
 
         if ($target->isAppDatabase($this->schemaName)) {
             $this->addError('schemaName', __('Cannot restore over the application database.'));
@@ -208,11 +188,6 @@ class Modal extends Component
         ]);
     }
 
-    protected function sourceServerRequiresDatabaseName(DatabaseServer $server): bool
-    {
-        return ! in_array($server->database_type, [DatabaseType::REDIS, DatabaseType::SQLITE], true);
-    }
-
     /**
      * @return array<int, array{id: string, name: string}>
      */
@@ -220,6 +195,7 @@ class Modal extends Component
     {
         return DatabaseServer::query()
             ->whereHas('snapshots', fn ($q) => $q->whereHas('job', fn ($jq) => $jq->whereRaw('status = ?', ['completed'])))
+            ->where('database_type', '!=', DatabaseType::REDIS->value)
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (DatabaseServer $s) => ['id' => $s->id, 'name' => $s->name])
@@ -277,19 +253,18 @@ class Modal extends Component
         return BackupSchedule::query()
             ->orderBy('name')
             ->get(['id', 'name', 'expression'])
-            ->map(fn (BackupSchedule $s) => ['id' => $s->id, 'name' => "{$s->name} ({$s->expression})"])
+            ->map(fn (BackupSchedule $s) => ['id' => $s->id, 'name' => $s->displayLabel()])
             ->toArray();
     }
 
-    public function getSourceServerRequiresDatabaseProperty(): bool
+    public function getSourceServerProperty(): ?DatabaseServer
     {
-        if (! $this->sourceServerId) {
-            return true;
-        }
+        return $this->sourceServerId ? DatabaseServer::find($this->sourceServerId) : null;
+    }
 
-        $source = DatabaseServer::find($this->sourceServerId);
-
-        return $source ? $this->sourceServerRequiresDatabaseName($source) : true;
+    public function getSelectedScheduleProperty(): ?BackupSchedule
+    {
+        return $this->backupScheduleId ? BackupSchedule::find($this->backupScheduleId) : null;
     }
 
     public function getTargetServerProperty(): ?DatabaseServer

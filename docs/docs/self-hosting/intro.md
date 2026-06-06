@@ -49,11 +49,14 @@ The fastest way to try Databasement:
 docker run -d \
   --name databasement \
   -p 2226:2226 \
-  -v databasement-data:/app/storage \
+  -e DB_CONNECTION=sqlite \
+  -e DB_DATABASE=/data/database.sqlite \
+  -e ENABLE_QUEUE_WORKER=true \
+  -v ./databasement-data:/data \
   davidcrty/databasement:1
 ```
 
-Then open http://localhost:2226 in your browser.
+Then open http://localhost:2226 in your browser and create your first admin account.
 
 :::note
 This quick start uses SQLite for the application database. For production deployments, see the [Docker guide](docker) for recommended configurations.

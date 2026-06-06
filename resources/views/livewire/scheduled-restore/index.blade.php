@@ -32,22 +32,16 @@
             </x-slot:empty>
 
             @scope('cell_name', $scheduledRestore)
-                <div class="table-cell-primary">{{ $scheduledRestore->name }}</div>
-                <div class="mt-0.5">
-                    @can('update', $scheduledRestore)
-                        <x-button
-                            :label="$scheduledRestore->enabled ? __('Enabled') : __('Disabled')"
-                            :icon="$scheduledRestore->enabled ? 'o-check-circle' : 'o-pause-circle'"
-                            wire:click="toggleEnabled('{{ $scheduledRestore->id }}')"
-                            class="btn-ghost btn-xs -ml-2 {{ $scheduledRestore->enabled ? 'text-success' : 'text-base-content/50' }}"
-                            :tooltip="$scheduledRestore->enabled ? __('Disable') : __('Enable')"
-                        />
-                    @else
+                @php $enabled = $scheduledRestore->enabled; @endphp
+                <div class="flex items-center gap-2">
+                    <span class="tooltip" data-tip="{{ $enabled ? __('Enabled') : __('Disabled') }}">
                         <x-badge
-                            :value="$scheduledRestore->enabled ? __('Enabled') : __('Disabled')"
-                            class="badge-sm {{ $scheduledRestore->enabled ? 'badge-success' : 'badge-ghost' }}"
+                            value=""
+                            :icon="$enabled ? 'o-check-circle' : 'o-pause-circle'"
+                            class="badge-sm {{ $enabled ? 'badge-success' : 'badge-ghost' }}"
                         />
-                    @endcan
+                    </span>
+                    <div class="table-cell-primary">{{ $scheduledRestore->name }}</div>
                 </div>
             @endscope
 
@@ -94,35 +88,42 @@
                 @if($scheduledRestore->backupSchedule)
                     <div class="table-cell-primary">{{ $scheduledRestore->backupSchedule->name }}</div>
                     <div class="font-mono text-xs text-base-content/60">{{ $scheduledRestore->backupSchedule->expression }}</div>
+                    <div class="text-xs text-base-content/50">{{ $scheduledRestore->backupSchedule->cronTranslation() }}</div>
                 @else
                     <span class="text-base-content/50">-</span>
                 @endif
             @endscope
 
             @scope('cell_last_run', $scheduledRestore)
-                @if($scheduledRestore->last_executed_at)
-                    <div class="text-sm">{{ $scheduledRestore->last_executed_at->diffForHumans() }}</div>
-                    @if($scheduledRestore->lastRestore)
-                        <div class="mt-1">
+                @if(! $scheduledRestore->last_executed_at)
+                    <div class="flex items-center gap-2 text-base-content/50">
+                        <x-icon name="o-clock" class="w-4 h-4" />
+                        <span class="text-sm">{{ __('Never run') }}</span>
+                    </div>
+                @else
+                    @php
+                        $skipped = (bool) $scheduledRestore->last_skip_reason;
+                        $verdictStatus = $skipped ? 'skipped' : ($scheduledRestore->lastRestore?->job?->status ?? 'pending');
+                    @endphp
+
+                    <div class="flex flex-col gap-1">
+                        <x-job-status-indicator :status="$verdictStatus" />
+                        <div class="text-xs text-base-content/60">{{ $scheduledRestore->last_executed_at->diffForHumans() }}</div>
+                        @if($skipped)
+                            <div class="text-xs text-base-content/70">
+                                <span class="font-medium">{{ __('Reason:') }}</span> {{ __($scheduledRestore->last_skip_reason) }}
+                            </div>
+                        @elseif($scheduledRestore->lastRestore)
                             <a
                                 href="{{ route('restores.index', ['search' => $scheduledRestore->lastRestore->id]) }}"
                                 wire:navigate
-                                class="tooltip"
+                                class="tooltip w-fit"
                                 data-tip="{{ __('View restore') }}"
                             >
                                 <kbd class="kbd kbd-xs font-mono cursor-pointer hover:text-primary">#{{ \Illuminate\Support\Str::substr($scheduledRestore->lastRestore->id, -7) }}</kbd>
                             </a>
-                        </div>
-                    @endif
-                    @if($scheduledRestore->last_skip_reason)
-                        <div class="text-xs text-warning mt-1">{{ __('Skipped: :reason', ['reason' => __($scheduledRestore->last_skip_reason)]) }}</div>
-                    @elseif($scheduledRestore->lastRestore?->job)
-                        <div class="mt-1">
-                            @include('livewire.restore._status-badge', ['status' => $scheduledRestore->lastRestore->job->status])
-                        </div>
-                    @endif
-                @else
-                    <span class="text-base-content/50">{{ __('Never') }}</span>
+                        @endif
+                    </div>
                 @endif
             @endscope
 

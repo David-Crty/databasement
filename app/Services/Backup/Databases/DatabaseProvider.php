@@ -237,6 +237,13 @@ class DatabaseProvider
      */
     public function listDatabasesForServer(DatabaseServer $server): array
     {
+        // SQLite identifies databases by configured file path. Connecting just
+        // to read back a basename loses the path; return the configured paths
+        // directly so callers (restore autocomplete, agent discovery) see them.
+        if ($server->database_type === DatabaseType::SQLITE) {
+            return $server->resolveDatabaseNames();
+        }
+
         try {
             [$host, $port] = $this->resolveHostAndPort($server);
 

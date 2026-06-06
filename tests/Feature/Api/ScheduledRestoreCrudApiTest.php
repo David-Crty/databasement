@@ -89,6 +89,7 @@ test('store rejects mismatched server types', function () {
         ->postJson('/api/v1/scheduled-restores', [
             'name' => 'Mismatched',
             'source_server_id' => $source->id,
+            'source_database_name' => 'app',
             'target_server_id' => $target->id,
             'schema_name' => 'restored_db',
             'backup_schedule_id' => $schedule->id,
@@ -106,6 +107,7 @@ test('viewers cannot create scheduled restores', function () {
         ->postJson('/api/v1/scheduled-restores', [
             'name' => 'Nightly',
             'source_server_id' => $source->id,
+            'source_database_name' => 'app',
             'target_server_id' => $target->id,
             'schema_name' => 'restored_db',
             'backup_schedule_id' => $schedule->id,
@@ -132,6 +134,7 @@ test('can update a scheduled restore via api', function () {
         ->putJson("/api/v1/scheduled-restores/{$scheduled->id}", [
             'name' => 'New name',
             'source_server_id' => $source->id,
+            'source_database_name' => 'app',
             'target_server_id' => $target->id,
             'schema_name' => 'restored_db',
             'backup_schedule_id' => $schedule2->id,

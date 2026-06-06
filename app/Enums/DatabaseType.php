@@ -150,6 +150,46 @@ enum DatabaseType: string
     }
 
     /**
+     * Validation rules for a destination database name/path of this type.
+     *
+     * SQLite accepts any non-empty path. Firebird is a path too but with a
+     * restricted character set. All other types use the conservative
+     * identifier charset (letters, numbers, underscores).
+     *
+     * @return array<int, string>
+     */
+    public function databaseNameRules(): array
+    {
+        return match ($this) {
+            self::SQLITE => ['required', 'string', 'max:255'],
+            self::FIREBIRD => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_\/\\\\.\-: ]+$/'],
+            default => ['required', 'string', 'max:64', 'regex:/^[a-zA-Z0-9_]+$/'],
+        };
+    }
+
+    /**
+     * Validation messages for {@see databaseNameRules()}, keyed by `{field}.{rule}`.
+     *
+     * @return array<string, string>
+     */
+    public function databaseNameMessages(string $field): array
+    {
+        return match ($this) {
+            self::SQLITE => [
+                "{$field}.required" => __('Please enter a database path.'),
+            ],
+            self::FIREBIRD => [
+                "{$field}.required" => __('Please enter a database name or path.'),
+                "{$field}.regex" => __('Database name can only contain letters, numbers, spaces, slashes, dots, dashes, colons, and underscores.'),
+            ],
+            default => [
+                "{$field}.required" => __('Please enter a database name.'),
+                "{$field}.regex" => __('Database name can only contain letters, numbers, and underscores.'),
+            ],
+        };
+    }
+
+    /**
      * Get the file extension used for database dumps.
      *
      * $format is the postgres dump format ('plain'|'custom'); ignored for other types.

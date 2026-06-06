@@ -38,23 +38,6 @@ test('filters by source_database_name when specified', function () {
     expect($resolved->id)->toBe($appDb->id);
 });
 
-test('ignores database name when source_database_name is null', function () {
-    $source = DatabaseServer::factory()->create();
-    $target = DatabaseServer::factory()->create();
-
-    $first = Snapshot::factory()->forServer($source)->create(['database_name' => 'foo']);
-    $first->forceFill(['created_at' => now()->subDays(2)])->saveQuietly();
-
-    $second = Snapshot::factory()->forServer($source)->create(['database_name' => 'bar']);
-    $second->forceFill(['created_at' => now()->subHour()])->saveQuietly();
-
-    $scheduled = createScheduledRestore(['source' => $source, 'target' => $target, 'source_database_name' => null]);
-
-    $resolved = app(LatestSnapshotResolver::class)->resolve($scheduled);
-
-    expect($resolved->id)->toBe($second->id);
-});
-
 test('skips snapshots whose job is not completed', function () {
     $source = DatabaseServer::factory()->create();
     $target = DatabaseServer::factory()->create();

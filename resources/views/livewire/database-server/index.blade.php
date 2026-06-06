@@ -74,7 +74,7 @@
                         @if ($server->getSshDisplayName())
                             <x-popover>
                                 <x-slot:trigger>
-                                    <x-badge value="SSH" class="badge-warning badge-soft badge-xs cursor-pointer" />
+                                    <x-badge value="SSH" class="badge-warning badge-xs cursor-pointer" />
                                 </x-slot:trigger>
                                 <x-slot:content class="text-sm">
                                     {{ __('Via') }} {{ $server->getSshDisplayName() }}
@@ -91,7 +91,7 @@
 
             @scope('cell_backup', $server)
             @if (!$server->backups_enabled)
-                <span class="badge badge-warning badge-soft badge-xs gap-1">
+                <span class="badge badge-warning badge-xs gap-1">
                         <x-icon name="o-no-symbol" class="w-3 h-3" />
                         {{ __('Disabled') }}
                     </span>

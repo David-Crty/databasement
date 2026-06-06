@@ -15,9 +15,6 @@
         @keydown.escape="open = false"
         autocomplete="off"
     />
-    @error('schemaName')
-    <p class="text-error text-sm mt-1">{{ $message }}</p>
-    @enderror
 
     @if(count($this->filteredDatabases) > 0)
         <div

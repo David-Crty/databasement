@@ -58,7 +58,7 @@
                             </span>
 
                             @if($sshConfig)
-                                <span class="badge badge-warning badge-soft gap-1.5 whitespace-nowrap max-w-full">
+                                <span class="badge badge-warning gap-1.5 whitespace-nowrap max-w-full">
                                     <x-icon name="o-shield-check" class="w-3.5 h-3.5 shrink-0" />
                                     <span class="truncate">
                                         {{ __('SSH tunnel') }}
@@ -69,7 +69,7 @@
 
                             @if($agent)
                                 @php $online = $agent->isOnline(); @endphp
-                                <span class="badge {{ $online ? 'badge-success' : 'badge-error' }} badge-soft gap-1.5 whitespace-nowrap max-w-full">
+                                <span class="badge {{ $online ? 'badge-success' : 'badge-error' }} gap-1.5 whitespace-nowrap max-w-full">
                                     <x-icon :name="$online ? 'o-signal' : 'o-signal-slash'" class="w-3.5 h-3.5 shrink-0" />
                                     <span class="truncate">{{ __('Agent') }}: {{ $agent->name }}</span>
                                     <span class="status {{ $online ? 'status-success animate-pulse' : 'status-error' }} shrink-0"></span>
@@ -77,12 +77,12 @@
                             @endif
 
                             @if($server->backups_enabled)
-                                <span class="badge badge-success badge-soft gap-1.5 whitespace-nowrap">
+                                <span class="badge badge-success gap-1.5 whitespace-nowrap">
                                     <x-icon name="o-check-circle" class="w-3.5 h-3.5" />
                                     {{ trans_choice('{0} Backups enabled (no config)|{1} Backups enabled (:count config)|[2,*] Backups enabled (:count configs)', $server->backups->count(), ['count' => $server->backups->count()]) }}
                                 </span>
                             @else
-                                <span class="badge badge-warning badge-soft gap-1.5 whitespace-nowrap">
+                                <span class="badge badge-warning gap-1.5 whitespace-nowrap">
                                     <x-icon name="o-no-symbol" class="w-3.5 h-3.5" />
                                     {{ __('Backups disabled') }}
                                 </span>
@@ -194,7 +194,7 @@
                         <span class="badge badge-ghost badge-sm">{{ $server->backups->count() }}</span>
                     </div>
                     @if(! $server->backups_enabled)
-                        <span class="badge badge-warning badge-soft badge-sm">{{ __('Disabled') }}</span>
+                        <span class="badge badge-warning badge-sm">{{ __('Disabled') }}</span>
                     @endif
                 </div>
 
@@ -383,7 +383,7 @@
                                     <div class="text-xs uppercase font-semibold opacity-60">{{ __('Format') }}</div>
                                     <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
                                         @if($dumpFormat === 'custom')
-                                            <span class="badge badge-info badge-soft gap-1.5">
+                                            <span class="badge badge-info gap-1.5">
                                                 <x-icon name="o-cube" class="w-3 h-3" />
                                                 {{ __('Custom (pg_restore)') }}
                                             </span>
@@ -424,7 +424,7 @@
                     <div class="p-4 space-y-3">
                         <div class="flex items-center justify-between gap-2">
                             <span class="text-sm font-medium truncate">{{ $agent->name }}</span>
-                            <span class="badge {{ $neverConnected ? 'badge-ghost' : ($online ? 'badge-success' : 'badge-error') }} badge-soft gap-1.5">
+                            <span class="badge {{ $neverConnected ? 'badge-ghost' : ($online ? 'badge-success' : 'badge-error') }} gap-1.5">
                                 @if(! $neverConnected)
                                     <span class="status {{ $online ? 'status-success animate-pulse' : 'status-error' }}"></span>
                                 @endif

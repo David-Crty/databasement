@@ -60,3 +60,16 @@ Redis/Valkey restore is not currently supported. RDB file imports require direct
 :::
 
 All snapshots are decompressed with `gzip -d` before restore.
+
+## Scheduled Restores
+
+You can replay the **latest completed snapshot** of a source database onto a target server on a recurring schedule — useful for keeping a staging or QA database refreshed from production.
+
+A scheduled restore is configured with:
+
+- **Source server** (and database name, unless the type is whole-instance like SQLite or Redis)
+- **Target server** and destination database name/path
+- **Schedule** — reuses the same cron schedules defined under Configuration → Backup
+
+On each run, Databasement picks the most recent completed snapshot of the source database and runs the normal [restore process](#restore-process) against the target. Source and target must be of the same database type.
+

@@ -239,26 +239,12 @@ class Modal extends Component
      */
     protected function validateSchemaName(): void
     {
-        $type = $this->targetServer?->database_type;
+        $type = $this->targetServer->database_type;
 
-        if ($type === DatabaseType::SQLITE) {
-            $rules = ['schemaName' => 'required|string|max:255'];
-            $messages = ['schemaName.required' => __('Please enter a database path.')];
-        } elseif ($type === DatabaseType::FIREBIRD) {
-            $rules = ['schemaName' => 'required|string|max:255|regex:/^[a-zA-Z0-9_\/\\\\.\-: ]+$/'];
-            $messages = [
-                'schemaName.required' => __('Please enter a database name or path.'),
-                'schemaName.regex' => __('Database name can only contain letters, numbers, spaces, slashes, dots, dashes, colons, and underscores.'),
-            ];
-        } else {
-            $rules = ['schemaName' => 'required|string|max:64|regex:/^[a-zA-Z0-9_]+$/'];
-            $messages = [
-                'schemaName.required' => __('Please enter a database name.'),
-                'schemaName.regex' => __('Database name can only contain letters, numbers, and underscores.'),
-            ];
-        }
-
-        $this->validate($rules, $messages);
+        $this->validate(
+            ['schemaName' => $type->databaseNameRules()],
+            $type->databaseNameMessages('schemaName'),
+        );
     }
 
     public function restore(BackupJobFactory $backupJobFactory): void

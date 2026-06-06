@@ -39,15 +39,6 @@ test('search filters by name', function () {
         ->assertDontSee('beta refresh');
 });
 
-test('toggleEnabled flips the enabled flag', function () {
-    $scheduled = createScheduledRestore(['enabled' => true]);
-
-    Livewire::test(Index::class)
-        ->call('toggleEnabled', $scheduled->id);
-
-    expect($scheduled->fresh()->enabled)->toBeFalse();
-});
-
 test('runNow dispatches the restores:run artisan command', function () {
     Artisan::spy();
 

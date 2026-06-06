@@ -735,7 +735,7 @@ class DatabaseServerForm extends Form
         return $this->getBackupSchedules()
             ->map(fn (BackupSchedule $schedule) => [
                 'id' => $schedule->id,
-                'name' => $schedule->name.' — '.$schedule->expression.' ('.\App\Support\Formatters::cronTranslation($schedule->expression).')',
+                'name' => $schedule->displayLabel(),
             ])
             ->toArray();
     }

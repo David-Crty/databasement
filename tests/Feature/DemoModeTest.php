@@ -151,6 +151,16 @@ test('demo user can trigger restore', function () {
     expect($this->demoUser->can('restore', $server))->toBeTrue();
 });
 
+test('demo user can manage scheduled restores', function () {
+    [$source, $target] = createRestoreServerPair('mysql');
+    $scheduledRestore = createScheduledRestore(['source' => $source, 'target' => $target]);
+
+    expect($this->demoUser->can('create', \App\Models\ScheduledRestore::class))->toBeTrue()
+        ->and($this->demoUser->can('update', $scheduledRestore))->toBeTrue()
+        ->and($this->demoUser->can('delete', $scheduledRestore))->toBeTrue()
+        ->and($this->demoUser->can('run', $scheduledRestore))->toBeTrue();
+});
+
 // Settings restrictions for demo users
 test('demo user cannot access profile settings', function () {
     $this->actingAs($this->demoUser)

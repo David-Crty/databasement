@@ -1,7 +1,6 @@
 {
   "(You)": "(Vous)",
   "(any database)": "(toute base de données)",
-  "(enter name)": "(entrez un nom)",
   "(resolved today)": "(résolu aujourd’hui)",
   "1-9 for gzip/encrypted, 1-19 for zstd.": "1-9 pour gzip/chiffré, 1-19 pour zstd.",
   "1/month for N months": "1/mois pendant N mois",

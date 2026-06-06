@@ -22,18 +22,22 @@ beforeEach(function () {
 });
 
 test('rejects target server with a different database type than the source', function () {
+    $schedule = dailySchedule();
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
     $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);
     Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
 
     Livewire::test(Modal::class)
         ->call('open')
+        ->set('name', 'Nightly refresh')
+        ->set('backupScheduleId', $schedule->id)
+        ->call('nextStep')
         ->set('sourceServerId', $source->id)
         ->set('sourceDatabaseName', 'app')
         ->call('nextStep')
         ->set('targetServerId', $target->id)
         ->set('schemaName', 'restored_db')
-        ->call('nextStep')
+        ->call('save')
         ->assertHasErrors(['targetServerId']);
 });
 
@@ -45,6 +49,9 @@ test('creates a scheduled restore end-to-end', function () {
 
     Livewire::test(Modal::class)
         ->call('open')
+        ->set('name', 'Nightly refresh')
+        ->set('backupScheduleId', $schedule->id)
+        ->call('nextStep')
         ->set('sourceServerId', $source->id)
         ->set('sourceDatabaseName', 'app')
         ->call('nextStep')
@@ -52,9 +59,6 @@ test('creates a scheduled restore end-to-end', function () {
         ->set('schemaName', 'restored_db')
         ->set('forceDatabase', true)
         ->set('ownerUser', 'webapp')
-        ->call('nextStep')
-        ->set('name', 'Nightly refresh')
-        ->set('backupScheduleId', $schedule->id)
         ->call('save')
         ->assertDispatched('scheduled-restore-saved');
 
@@ -110,12 +114,16 @@ test('target database autocomplete loads existing databases and selects one', fu
         $mock->shouldReceive('listDatabasesForServer')->andReturn(['orders_db', 'staging_db']);
     });
 
+    $schedule = dailySchedule();
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
 
     Livewire::test(Modal::class)
         ->call('open')
+        ->set('name', 'Nightly refresh')
+        ->set('backupScheduleId', $schedule->id)
+        ->call('nextStep')
         ->set('sourceServerId', $source->id)
         ->set('sourceDatabaseName', 'app')
         ->call('nextStep')

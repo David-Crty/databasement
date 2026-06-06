@@ -2,8 +2,7 @@
 {{--
     Shared "destination" step for the restore modals: choose the target server
     (unless it is locked), the destination database name (type-ahead), and the
-    per-restore options. Optionally renders a restore summary when a concrete
-    snapshot is in context.
+    per-restore options. The host modal renders its own restore summary.
 
     Requires the host component to use App\Livewire\Concerns\InteractsWithTargetDatabases
     (which provides the bound $targetServerId, $schemaName, $forceDatabase and
@@ -11,8 +10,7 @@
     $this->targetServer accessor.
 
     Params:
-      $targetLocked (bool)        - when true the target is fixed; hide the select
-      $snapshot (?Snapshot)       - when set, show a restore summary for it
+      $targetLocked (bool) - when true the target is fixed; hide the select
 --}}
 @php
     $type = $this->targetServer?->database_type;
@@ -62,21 +60,3 @@
     @endif
 @endif
 
-@if($snapshot)
-    <div class="p-4 border rounded-lg bg-base-200 border-base-300">
-        <div class="text-sm font-semibold mb-2">{{ __('Restore Summary') }}</div>
-        <div class="text-sm opacity-70 space-y-1">
-            <div><strong>{{ __('Source:') }}</strong>
-                {{ $snapshot->databaseServer->name }} &bull; {{ $snapshot->database_name }}
-            </div>
-            <div>
-                <strong>{{ __('Snapshot:') }}</strong> {{ \App\Support\Formatters::humanDate($snapshot->created_at) }}
-            </div>
-            <div><strong>{{ __('Target:') }}</strong>
-                {{ $this->targetServer?->name }} &bull; {{ $schemaName ?: __('(enter name)') }}</div>
-            <div>
-                <strong>{{ __('Size:') }}</strong> {{ $snapshot->getHumanFileSize() }}
-            </div>
-        </div>
-    </div>
-@endif

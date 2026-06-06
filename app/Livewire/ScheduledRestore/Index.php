@@ -115,19 +115,6 @@ class Index extends Component
         $this->dispatch('open-scheduled-restore-modal', id: $id);
     }
 
-    public function toggleEnabled(string $id): void
-    {
-        $scheduledRestore = ScheduledRestore::findOrFail($id);
-
-        $this->authorize('update', $scheduledRestore);
-
-        $scheduledRestore->update(['enabled' => ! $scheduledRestore->enabled]);
-
-        $this->success($scheduledRestore->enabled
-            ? __('Scheduled restore enabled.')
-            : __('Scheduled restore disabled.'));
-    }
-
     public function runNow(string $id): void
     {
         $scheduledRestore = ScheduledRestore::findOrFail($id);

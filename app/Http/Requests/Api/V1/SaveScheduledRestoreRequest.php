@@ -16,7 +16,7 @@ class SaveScheduledRestoreRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:100'],
             'source_server_id' => ['required', 'string', 'exists:database_servers,id'],
-            'source_database_name' => ['nullable', 'string', 'max:255'],
+            'source_database_name' => ['required', 'string', 'max:255'],
             'target_server_id' => ['required', 'string', 'exists:database_servers,id'],
             'schema_name' => ['required', 'string', 'max:255'],
             'backup_schedule_id' => ['required', 'string', 'exists:backup_schedules,id'],

@@ -27,10 +27,9 @@ class RestorePolicy
     }
 
     /**
-     * Determine whether the user can start a new restore (from a context
-     * where the target server is not yet known).
-     * Demo users can trigger restores. Final authorization on the target
-     * server is still checked via DatabaseServerPolicy@restore.
+     * Determine whether the user can start a new restore or schedule one.
+     * Demo users can create both. Final authorization on the target server
+     * is still checked via DatabaseServerPolicy@restore.
      */
     public function create(User $user): bool
     {
@@ -38,20 +37,21 @@ class RestorePolicy
     }
 
     /**
-     * Determine whether the user can update the model.
+     * Determine whether the user can update the scheduled restore.
+     * One-shot Restore records are not editable, so update only applies
+     * to ScheduledRestore.
      */
-    public function update(User $user, Restore|ScheduledRestore $restore): bool
+    public function update(User $user, ScheduledRestore $restore): bool
     {
-        return $user->canPerformActions();
+        return $user->isDemo() || $user->canPerformActions();
     }
 
     /**
-     * Determine whether the user can delete a restore record.
-     * Viewers and demo users cannot delete.
+     * Determine whether the user can delete the model.
      */
     public function delete(User $user, Restore|ScheduledRestore $restore): bool
     {
-        return $user->canPerformActions();
+        return $user->isDemo() || $user->canPerformActions();
     }
 
     /**
@@ -59,6 +59,6 @@ class RestorePolicy
      */
     public function run(User $user, ScheduledRestore $restore): bool
     {
-        return $user->canPerformActions();
+        return $user->isDemo() || $user->canPerformActions();
     }
 }
