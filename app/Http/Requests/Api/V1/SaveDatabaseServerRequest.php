@@ -60,13 +60,7 @@ class SaveDatabaseServerRequest extends FormRequest
             $rules['auth_source'] = 'nullable|string|max:255';
         }
 
-        /** @var DatabaseServer|null $existing */
-        $existing = $this->route('database_server');
-        $backupsEnabled = $this->has('backups_enabled')
-            ? $this->boolean('backups_enabled')
-            : ($existing !== null ? $existing->backups_enabled : true);
-
-        if ($backupsEnabled) {
+        if ($this->backupsEnabled()) {
             $rules['backups'] = 'required|array|min:1';
             $rules['backups.*.volume_id'] = 'required|exists:volumes,id';
             $rules['backups.*.path'] = ['nullable', 'string', 'max:255', new SafePath];
@@ -94,13 +88,7 @@ class SaveDatabaseServerRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            /** @var DatabaseServer|null $existing */
-            $existing = $this->route('database_server');
-            $backupsEnabled = $this->has('backups_enabled')
-                ? $this->boolean('backups_enabled')
-                : ($existing !== null ? $existing->backups_enabled : true);
-
-            if (! $backupsEnabled) {
+            if (! $this->backupsEnabled()) {
                 return;
             }
 
@@ -114,6 +102,22 @@ class SaveDatabaseServerRequest extends FormRequest
                 $this->validateBackupEntry($validator, $index, is_array($backup) ? $backup : []);
             }
         });
+    }
+
+    /**
+     * Resolve whether backups are enabled for this request: explicit input wins,
+     * otherwise fall back to the existing server's flag (defaulting to true).
+     */
+    private function backupsEnabled(): bool
+    {
+        if ($this->has('backups_enabled')) {
+            return $this->boolean('backups_enabled');
+        }
+
+        /** @var DatabaseServer|null $existing */
+        $existing = $this->route('database_server');
+
+        return $existing !== null ? $existing->backups_enabled : true;
     }
 
     /**

@@ -5,7 +5,6 @@ namespace App\Services\Backup;
 use App\Jobs\ProcessBackupJob;
 use App\Models\Backup;
 use App\Models\Snapshot;
-use Illuminate\Validation\ValidationException;
 
 class TriggerBackupAction
 {
@@ -17,8 +16,6 @@ class TriggerBackupAction
      * Trigger one backup configuration.
      *
      * @return array{snapshots: Snapshot[], message: string}
-     *
-     * @throws ValidationException
      */
     public function execute(Backup $backup, ?int $triggeredByUserId = null): array
     {

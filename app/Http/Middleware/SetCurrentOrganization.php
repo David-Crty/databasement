@@ -18,31 +18,33 @@ class SetCurrentOrganization
 
     public function handle(Request $request, Closure $next): Response
     {
-        $authenticatable = $request->user();
+        $user = $request->user();
 
-        if ($authenticatable instanceof User) {
-            $this->currentOrganization->reset();
+        if (! $user instanceof User) {
+            return $next($request);
+        }
 
-            if ($request->is('api/*') || $request->is('mcp*')) {
-                $this->resolveApiOrganization($request, $authenticatable);
-            } else {
-                /** @var string|null $cookieOrgId */
-                $cookieOrgId = $request->cookie(CurrentOrganization::COOKIE_NAME);
-                $this->currentOrganization->resolveForUser($authenticatable, $cookieOrgId);
+        $this->currentOrganization->reset();
+
+        if ($request->is('api/*') || $request->is('mcp*')) {
+            $this->resolveApiOrganization($request, $user);
+        } else {
+            /** @var string|null $cookieOrgId */
+            $cookieOrgId = $request->cookie(CurrentOrganization::COOKIE_NAME);
+            $this->currentOrganization->resolveForUser($user, $cookieOrgId);
+        }
+
+        if (! $this->currentOrganization->isResolved()) {
+            if ($request->expectsJson()) {
+                abort(401, __('Your account is not a member of any organization. Please contact an administrator.'));
             }
 
-            if (! $this->currentOrganization->isResolved()) {
-                if ($request->expectsJson()) {
-                    abort(401, __('Your account is not a member of any organization. Please contact an administrator.'));
-                }
+            Auth::guard('web')->logout();
+            Session::invalidate();
+            Session::regenerateToken();
+            session()->flash('error', __('Your account is not a member of any organization. Please contact an administrator.'));
 
-                Auth::guard('web')->logout();
-                Session::invalidate();
-                Session::regenerateToken();
-                session()->flash('error', __('Your account is not a member of any organization. Please contact an administrator.'));
-
-                return redirect()->route('login');
-            }
+            return redirect()->route('login');
         }
 
         return $next($request);
