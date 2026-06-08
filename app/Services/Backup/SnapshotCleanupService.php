@@ -147,7 +147,7 @@ class SnapshotCleanupService
 
             $snapshotInPeriod = $snapshots
                 ->filter(fn (Snapshot $s) => $s->created_at->between($periodStart, $periodEnd))
-                ->sortBy('created_at')
+                ->sortByDesc('created_at')
                 ->first();
 
             if ($snapshotInPeriod) {

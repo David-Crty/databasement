@@ -71,8 +71,6 @@ test('dry-run mode does not delete snapshots', function () {
 });
 
 test('GFS retention combines daily, weekly, and monthly tiers', function () {
-    // Fixed mid-month Saturday avoids day3 landing on a month boundary,
-    // which would cause the monthly tier to keep it as the oldest in the month.
     $this->travelTo(\Carbon\Carbon::create(2026, 6, 20, 12, 0));
 
     $server = DatabaseServer::factory()->create();
@@ -84,21 +82,28 @@ test('GFS retention combines daily, weekly, and monthly tiers', function () {
         'gfs_keep_monthly' => 2,
     ]);
 
+    // Daily tier keeps the 2 most recent regardless of period.
     $day1 = createSnapshot($server, 'completed', now()->subDays(1));
     $day2 = createSnapshot($server, 'completed', now()->subDays(2));
     $day3 = createSnapshot($server, 'completed', now()->subDays(3));
-    $thisWeekOldest = createSnapshot($server, 'completed', now()->startOfWeek());
-    $lastWeek = createSnapshot($server, 'completed', now()->subWeek()->startOfWeek()->addDay());
-    $lastMonth = createSnapshot($server, 'completed', now()->subMonth()->startOfMonth()->addDay());
+
+    // Last week has two snapshots — only the newest one should be kept by the weekly tier.
+    $lastWeekMid = createSnapshot($server, 'completed', now()->subWeek()->startOfWeek()->addDay());
+    $lastWeekNewest = createSnapshot($server, 'completed', now()->subWeek()->endOfWeek()->subHour());
+
+    // Last month has two snapshots — only the newest one should be kept by the monthly tier.
+    $lastMonthMid = createSnapshot($server, 'completed', now()->subMonth()->startOfMonth()->addDay());
+    $lastMonthNewest = createSnapshot($server, 'completed', now()->subMonth()->endOfMonth()->subHour());
 
     app(SnapshotCleanupService::class)->run();
 
     expect(Snapshot::find($day1->id))->not->toBeNull()
         ->and(Snapshot::find($day2->id))->not->toBeNull()
         ->and(Snapshot::find($day3->id))->toBeNull()
-        ->and(Snapshot::find($thisWeekOldest->id))->not->toBeNull()
-        ->and(Snapshot::find($lastWeek->id))->not->toBeNull()
-        ->and(Snapshot::find($lastMonth->id))->not->toBeNull();
+        ->and(Snapshot::find($lastWeekMid->id))->toBeNull()
+        ->and(Snapshot::find($lastWeekNewest->id))->not->toBeNull()
+        ->and(Snapshot::find($lastMonthMid->id))->toBeNull()
+        ->and(Snapshot::find($lastMonthNewest->id))->not->toBeNull();
 });
 
 test('GFS retention applies per database_name', function () {
