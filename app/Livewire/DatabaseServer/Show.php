@@ -44,7 +44,6 @@ class Show extends Component
 
         $server->load([
             'sshConfig',
-            'agent',
             'backups.volume',
             'backups.backupSchedule',
             'notificationChannels',
@@ -67,12 +66,6 @@ class Show extends Component
     public function confirmRestore(): void
     {
         $this->authorize('restore', $this->server);
-
-        if ($this->server->agent_id) {
-            $this->error(__('Restore is not yet supported for agent-backed servers.'));
-
-            return;
-        }
 
         if ($this->server->database_type === DatabaseType::REDIS) {
             $this->showRedisRestoreModal = true;

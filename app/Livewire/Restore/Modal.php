@@ -370,7 +370,6 @@ class Modal extends Component
 
         return DatabaseServer::query()
             ->whereRaw('database_type = ?', [$snapshot->database_type->value])
-            ->whereNull('agent_id')
             ->where('database_type', '!=', DatabaseType::REDIS->value)
             ->orderBy('name')
             ->get(['id', 'name', 'database_type', 'host', 'port']);

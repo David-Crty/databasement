@@ -7,7 +7,6 @@
         use App\Livewire\Forms\BackupForm;
 
         $sshConfig = $server->sshConfig;
-        $agent = $server->agent;
         $isSqlite = $server->database_type === DatabaseType::SQLITE;
         $isPostgres = $server->database_type === DatabaseType::POSTGRESQL;
         $sslEnabled = (bool) $server->getExtraConfig('ssl_enabled', false);
@@ -64,15 +63,6 @@
                                         {{ __('SSH tunnel') }}
                                         <code class="font-mono">{{ $sshConfig->username . '@' . $sshConfig->host . ':' . $sshConfig->port }}</code>
                                     </span>
-                                </span>
-                            @endif
-
-                            @if($agent)
-                                @php $online = $agent->isOnline(); @endphp
-                                <span class="badge {{ $online ? 'badge-success' : 'badge-error' }} gap-1.5 whitespace-nowrap max-w-full">
-                                    <x-icon :name="$online ? 'o-signal' : 'o-signal-slash'" class="w-3.5 h-3.5 shrink-0" />
-                                    <span class="truncate">{{ __('Agent') }}: {{ $agent->name }}</span>
-                                    <span class="status {{ $online ? 'status-success animate-pulse' : 'status-error' }} shrink-0"></span>
                                 </span>
                             @endif
 
@@ -299,7 +289,7 @@
             </div>
         </div>
 
-        {{-- Side: Connection / SSH / Agent --}}
+        {{-- Side: Connection / SSH --}}
         <div class="flex flex-col gap-4 lg:basis-1/3 lg:w-1/3">
             {{-- Connection --}}
             <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
@@ -410,35 +400,6 @@
                 </div>
             @endif
 
-            {{-- Agent --}}
-            @if($agent)
-                @php
-                    $online = $agent->isOnline();
-                    $neverConnected = $agent->last_heartbeat_at === null;
-                @endphp
-                <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
-                    <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
-                        <x-icon name="o-cpu-chip" class="w-4 h-4 opacity-60" />
-                        <h2 class="text-sm font-semibold">{{ __('Agent') }}</h2>
-                    </div>
-                    <div class="p-4 space-y-3">
-                        <div class="flex items-center justify-between gap-2">
-                            <span class="text-sm font-medium truncate">{{ $agent->name }}</span>
-                            <span class="badge {{ $neverConnected ? 'badge-ghost' : ($online ? 'badge-success' : 'badge-error') }} gap-1.5">
-                                @if(! $neverConnected)
-                                    <span class="status {{ $online ? 'status-success animate-pulse' : 'status-error' }}"></span>
-                                @endif
-                                {{ $neverConnected ? __('Never connected') : ($online ? __('Online') : __('Offline')) }}
-                            </span>
-                        </div>
-                        @if($agent->last_heartbeat_at)
-                            <p class="text-xs opacity-60">
-                                {{ __('Last heartbeat :time', ['time' => $agent->last_heartbeat_at->diffForHumans()]) }}
-                            </p>
-                        @endif
-                    </div>
-                </div>
-            @endif
         </div>
     </div>
 

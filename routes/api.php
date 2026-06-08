@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Api\V1\AgentController;
 use App\Http\Controllers\Api\V1\BackupJobController;
 use App\Http\Controllers\Api\V1\BackupScheduleController;
 use App\Http\Controllers\Api\V1\DatabaseServerController;
@@ -51,14 +50,4 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
 
     Route::get('user/organizations', [UserOrganizationController::class, 'index'])
         ->name('user.organizations');
-});
-
-// Agent API routes — authenticated via Sanctum with agent-specific token check
-Route::middleware(['throttle-failed-agent-auth', 'auth:sanctum', 'agent'])->name('api.agent.')->prefix('v1/agent')->group(function () {
-    Route::post('heartbeat', [AgentController::class, 'heartbeat'])->name('heartbeat');
-    Route::post('jobs/claim', [AgentController::class, 'claimJob'])->name('jobs.claim');
-    Route::post('jobs/{agentJob}/heartbeat', [AgentController::class, 'jobHeartbeat'])->name('jobs.heartbeat');
-    Route::post('jobs/{agentJob}/ack', [AgentController::class, 'ack'])->name('jobs.ack');
-    Route::post('jobs/{agentJob}/fail', [AgentController::class, 'fail'])->name('jobs.fail');
-    Route::post('jobs/{agentJob}/discovered-databases', [AgentController::class, 'discoveredDatabases'])->name('jobs.discovered-databases');
 });

@@ -6,7 +6,6 @@ use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
 use App\Exceptions\Backup\EncryptionException;
-use App\Models\Agent;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
@@ -89,10 +88,6 @@ class DatabaseServerForm extends Form
     public bool $testingSshConnection = false;
 
     public ?string $description = null;
-
-    public bool $use_agent = false;
-
-    public ?string $agent_id = null;
 
     public bool $backups_enabled = true;
 
@@ -200,12 +195,6 @@ class DatabaseServerForm extends Form
             return;
         }
 
-        // Agent-backed servers are not reachable from this app; the agent does
-        // its own discovery. Don't try (and stall) a direct PDO connection.
-        if ($this->hasAgent()) {
-            return;
-        }
-
         $this->loadAvailableDatabases();
     }
 
@@ -262,30 +251,6 @@ class DatabaseServerForm extends Form
         $databaseNames = array_column($this->availableDatabases, 'name');
 
         return DatabaseServer::filterDatabasesByPattern($databaseNames, $pattern);
-    }
-
-    /**
-     * Called when use_agent changes - clear agent_id when toggled off.
-     */
-    public function updatedUseAgent(): void
-    {
-        if (! $this->use_agent) {
-            $this->agent_id = null;
-        }
-
-        // Clear volume selection(s) if they were local (incompatible with agents)
-        if ($this->use_agent) {
-            foreach ($this->backups as $index => $backup) {
-                $volumeId = $backup['volume_id'] ?? '';
-                if ($volumeId !== ''
-                    && \App\Models\Volume::whereKey($volumeId)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
-                ) {
-                    $this->backups[$index]['volume_id'] = '';
-                }
-            }
-        }
-
-        $this->resetConnectionTestState();
     }
 
     /**
@@ -433,8 +398,6 @@ class DatabaseServerForm extends Form
         $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $this->username = $server->username ?? '';
         $this->description = $server->description;
-        $this->agent_id = $server->agent_id;
-        $this->use_agent = ! empty($server->agent_id);
         $this->backups_enabled = $server->backups_enabled ?? true;
         $this->notification_trigger = $server->notification_trigger?->value ?? 'failure'; // @phpstan-ignore nullCoalesce.expr
         $this->notification_channel_selection = $server->notification_channel_selection?->value ?? 'all'; // @phpstan-ignore nullCoalesce.expr
@@ -755,33 +718,6 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Get agent options for select
-     *
-     * @return array<array{id: string, name: string}>
-     */
-    public function getAgentOptions(): array
-    {
-        return Agent::orderBy('name')->get()->map(fn (Agent $agent) => [
-            'id' => $agent->id,
-            'name' => $agent->name,
-        ])->toArray();
-    }
-
-    public function hasAgent(): bool
-    {
-        return ! empty($this->agent_id);
-    }
-
-    public function getSelectedAgent(): ?Agent
-    {
-        if (! $this->hasAgent()) {
-            return null;
-        }
-
-        return Agent::find($this->agent_id);
-    }
-
-    /**
      * Load the full Volume collection (used by blade for display helpers).
      *
      * @return \Illuminate\Support\Collection<int, \App\Models\Volume>
@@ -794,21 +730,14 @@ class DatabaseServerForm extends Form
     /**
      * Get volume options for select
      *
-     * @return array<array{id: string, name: string, disabled: bool}>
+     * @return array<array{id: string, name: string}>
      */
     public function getVolumeOptions(): array
     {
-        return $this->getAllVolumes()->map(function ($v) {
-            $isLocalWithAgent = $this->use_agent && $v->getVolumeType() === \App\Enums\VolumeType::LOCAL;
-
-            return [
-                'id' => $v->id,
-                'name' => $isLocalWithAgent
-                    ? "{$v->name} ({$v->type}) — ".__('not available for remote agents')
-                    : "{$v->name} ({$v->type})",
-                'disabled' => $isLocalWithAgent,
-            ];
-        })->toArray();
+        return $this->getAllVolumes()->map(fn ($v) => [
+            'id' => $v->id,
+            'name' => "{$v->name} ({$v->type})",
+        ])->toArray();
     }
 
     /**
@@ -835,7 +764,7 @@ class DatabaseServerForm extends Form
             foreach ($this->backups as $index => $entry) {
                 $rules = array_merge(
                     $rules,
-                    BackupForm::rulesFor($index, $entry, $serverType, $this->hasAgent()),
+                    BackupForm::rulesFor($index, $entry, $serverType),
                 );
             }
         }
@@ -876,7 +805,6 @@ class DatabaseServerForm extends Form
                 DatabaseType::cases()
             ))],
             'description' => 'nullable|string|max:1000',
-            'agent_id' => 'nullable|exists:agents,id',
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],

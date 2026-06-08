@@ -57,14 +57,6 @@ class Organization extends Model
     }
 
     /**
-     * @return HasMany<Agent, Organization>
-     */
-    public function agents(): HasMany
-    {
-        return $this->hasMany(Agent::class);
-    }
-
-    /**
      * @return HasMany<DatabaseServerSshConfig, Organization>
      */
     public function sshConfigs(): HasMany
@@ -81,12 +73,11 @@ class Organization extends Model
     }
 
     /**
-     * Check if the organization has any resources (servers, volumes, agents).
+     * Check if the organization has any resources (servers, volumes).
      */
     public function hasResources(): bool
     {
         return $this->databaseServers()->withoutGlobalScope(OrganizationScope::class)->exists()
-            || $this->volumes()->withoutGlobalScope(OrganizationScope::class)->exists()
-            || $this->agents()->withoutGlobalScope(OrganizationScope::class)->exists();
+            || $this->volumes()->withoutGlobalScope(OrganizationScope::class)->exists();
     }
 }

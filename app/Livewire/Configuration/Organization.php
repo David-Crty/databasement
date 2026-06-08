@@ -49,7 +49,6 @@ class Organization extends Component
             'users',
             'databaseServers' => fn ($q) => $q->withoutGlobalScope(OrganizationScope::class),
             'volumes' => fn ($q) => $q->withoutGlobalScope(OrganizationScope::class),
-            'agents' => fn ($q) => $q->withoutGlobalScope(OrganizationScope::class),
         ])
             ->orderByDesc('is_default')
             ->orderBy('name')
@@ -158,7 +157,6 @@ class Organization extends Component
                 ['key' => 'users_count', 'label' => __('Users')],
                 ['key' => 'database_servers_count', 'label' => __('Servers')],
                 ['key' => 'volumes_count', 'label' => __('Volumes')],
-                ['key' => 'agents_count', 'label' => __('Agents')],
                 ['key' => 'actions', 'label' => '', 'class' => 'w-32'],
             ],
         ]);

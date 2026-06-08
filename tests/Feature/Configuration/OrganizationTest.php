@@ -99,7 +99,7 @@ test('super admin sees warning when deleting organization with resources', funct
         ->test(Organization::class)
         ->call('confirmDelete', $org->id)
         ->assertSet('deleteOrgHasResources', true)
-        ->assertSee('still has servers, volumes, or agents. Remove all resources before deleting it.');
+        ->assertSee('still has servers or volumes. Remove all resources before deleting it.');
 });
 
 test('super admin cannot force delete organization with resources', function () {

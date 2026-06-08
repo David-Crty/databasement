@@ -4,11 +4,6 @@
 
 set -e
 
-if [ -n "${DATABASEMENT_URL:-}" ]; then
-    echo "Agent mode"
-    exec php artisan agent:run
-fi
-
 if [ "$(id -u)" = "0" ]; then
     USERHOME=$(grep application /etc/passwd | cut -d ":" -f6)
 

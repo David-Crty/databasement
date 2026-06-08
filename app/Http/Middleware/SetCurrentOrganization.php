@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Agent;
 use App\Models\User;
 use App\Services\CurrentOrganization;
 use Closure;
@@ -19,12 +18,9 @@ class SetCurrentOrganization
 
     public function handle(Request $request, Closure $next): Response
     {
-        /** @var User|Agent|null $authenticatable */
         $authenticatable = $request->user();
 
-        if ($authenticatable instanceof Agent) {
-            $this->currentOrganization->set($authenticatable->organization);
-        } elseif ($authenticatable instanceof User) {
+        if ($authenticatable instanceof User) {
             $this->currentOrganization->reset();
 
             if ($request->is('api/*') || $request->is('mcp*')) {

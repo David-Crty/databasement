@@ -15,36 +15,12 @@ readonly class VolumeConfig
         public array $config,
     ) {}
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function toPayload(): array
-    {
-        return [
-            'type' => $this->type,
-            'name' => $this->name,
-            'config' => $this->config,
-        ];
-    }
-
     public static function fromVolume(Volume $volume): self
     {
         return new self(
             type: $volume->type,
             name: $volume->name,
             config: $volume->getDecryptedConfig(),
-        );
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    public static function fromPayload(array $payload): self
-    {
-        return new self(
-            type: $payload['type'],
-            name: $payload['name'] ?? 'Remote Volume',
-            config: $payload['config'] ?? [],
         );
     }
 }

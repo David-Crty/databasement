@@ -7,7 +7,6 @@ use App\Enums\DatabaseType;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
-use App\Models\Volume;
 use App\Rules\SafePath;
 use App\Support\Formatters;
 use Illuminate\Support\Collection;
@@ -192,22 +191,11 @@ final class BackupForm
         int $index,
         array $entry,
         DatabaseType $serverType,
-        bool $isAgent,
     ): array {
         $prefix = "backups.{$index}.";
 
         $rules = [
-            $prefix.'volume_id' => [
-                'required',
-                'exists:volumes,id',
-                function (string $attribute, mixed $value, \Closure $fail) use ($isAgent): void {
-                    if ($isAgent
-                        && Volume::whereKey($value)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
-                    ) {
-                        $fail(__('Local volumes cannot be used with remote agents.'));
-                    }
-                },
-            ],
+            $prefix.'volume_id' => 'required|exists:volumes,id',
             $prefix.'path' => ['nullable', 'string', 'max:255', new SafePath],
             $prefix.'backup_schedule_id' => 'required|exists:backup_schedules,id',
             $prefix.'retention_policy' => 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES),

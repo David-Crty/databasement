@@ -65,43 +65,4 @@ readonly class DatabaseConnectionConfig
             sshConfig: $sshConfig,
         );
     }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function toPayload(): array
-    {
-        return [
-            'type' => $this->databaseType->value,
-            'host' => $this->host,
-            'port' => $this->port,
-            'username' => $this->username,
-            'password' => $this->password,
-            'extra_config' => $this->extraConfig,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $dbConfig
-     */
-    public static function fromPayload(array $dbConfig, string $serverName): self
-    {
-        $databaseType = DatabaseType::from($dbConfig['type']);
-        $port = (int) ($dbConfig['port'] ?? 0);
-
-        if ($port <= 0) {
-            $port = $databaseType->defaultPort();
-        }
-
-        return new self(
-            databaseType: $databaseType,
-            serverName: $serverName,
-            host: $dbConfig['host'] ?? '',
-            port: $port,
-            username: $dbConfig['username'] ?? '',
-            password: $dbConfig['password'] ?? '',
-            extraConfig: $dbConfig['extra_config'] ?? null,
-            sshConfig: null,
-        );
-    }
 }
