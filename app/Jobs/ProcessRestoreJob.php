@@ -113,7 +113,11 @@ class ProcessRestoreJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        $restore = Restore::with(['targetServer', 'snapshot'])->findOrFail($this->restoreId);
+        $restore = Restore::with(['targetServer', 'snapshot'])->find($this->restoreId);
+        if ($restore === null) {
+            return;
+        }
+
         app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
     }
 }

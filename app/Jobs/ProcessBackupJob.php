@@ -115,7 +115,11 @@ class ProcessBackupJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        $snapshot = Snapshot::with(['databaseServer'])->findOrFail($this->snapshotId);
+        $snapshot = Snapshot::with(['databaseServer'])->find($this->snapshotId);
+        if ($snapshot === null) {
+            return;
+        }
+
         app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
     }
 }

@@ -13,6 +13,7 @@ use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\NotificationService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -93,25 +94,28 @@ class BackupJobFactory
         ?int $triggeredByUserId = null
     ): Snapshot {
         $server = $backup->databaseServer;
-        $job = BackupJob::create(['status' => 'pending']);
         $volume = $backup->volume;
 
-        $snapshot = Snapshot::create([
-            'backup_job_id' => $job->id,
-            'database_server_id' => $server->id,
-            'backup_id' => $backup->id,
-            'volume_id' => $volume->id,
-            'filename' => '',
-            'file_size' => 0,
-            'checksum' => null,
-            'started_at' => now(),
-            'database_name' => $databaseName,
-            'database_type' => $server->database_type,
-            'compression_type' => CompressionType::from(AppConfig::get('backup.compression')),
-            'method' => $method,
-            'metadata' => Snapshot::generateMetadata($server, $databaseName, $volume),
-            'triggered_by_user_id' => $triggeredByUserId,
-        ]);
+        $snapshot = DB::transaction(function () use ($backup, $server, $volume, $databaseName, $method, $triggeredByUserId) {
+            $job = BackupJob::create(['status' => 'pending']);
+
+            return Snapshot::create([
+                'backup_job_id' => $job->id,
+                'database_server_id' => $server->id,
+                'backup_id' => $backup->id,
+                'volume_id' => $volume->id,
+                'filename' => '',
+                'file_size' => 0,
+                'checksum' => null,
+                'started_at' => now(),
+                'database_name' => $databaseName,
+                'database_type' => $server->database_type,
+                'compression_type' => CompressionType::from(AppConfig::get('backup.compression')),
+                'method' => $method,
+                'metadata' => Snapshot::generateMetadata($server, $databaseName, $volume),
+                'triggered_by_user_id' => $triggeredByUserId,
+            ]);
+        });
 
         $snapshot->load(['job', 'volume', 'databaseServer']);
 
@@ -168,6 +172,13 @@ class BackupJobFactory
         array $options = [],
         ?string $scheduledRestoreId = null,
     ): Restore {
+        $snapshot->loadMissing('job');
+        if ($snapshot->job->status !== 'completed' || $snapshot->filename === '') {
+            throw ValidationException::withMessages([
+                'snapshot_id' => 'Snapshot is not completed and cannot be restored.',
+            ]);
+        }
+
         if ($snapshot->database_type !== $targetServer->database_type) {
             throw ValidationException::withMessages([
                 'snapshot_id' => 'Snapshot database type does not match the target server.',
@@ -180,17 +191,19 @@ class BackupJobFactory
             ]);
         }
 
-        $job = BackupJob::create(['status' => 'pending']);
+        $restore = DB::transaction(function () use ($snapshot, $targetServer, $schemaName, $options, $triggeredByUserId, $scheduledRestoreId) {
+            $job = BackupJob::create(['status' => 'pending']);
 
-        $restore = Restore::create([
-            'backup_job_id' => $job->id,
-            'snapshot_id' => $snapshot->id,
-            'target_server_id' => $targetServer->id,
-            'schema_name' => $schemaName,
-            'options' => $options ?: null,
-            'triggered_by_user_id' => $triggeredByUserId,
-            'scheduled_restore_id' => $scheduledRestoreId,
-        ]);
+            return Restore::create([
+                'backup_job_id' => $job->id,
+                'snapshot_id' => $snapshot->id,
+                'target_server_id' => $targetServer->id,
+                'schema_name' => $schemaName,
+                'options' => $options ?: null,
+                'triggered_by_user_id' => $triggeredByUserId,
+                'scheduled_restore_id' => $scheduledRestoreId,
+            ]);
+        });
 
         $restore->load(['job', 'snapshot.volume', 'snapshot.databaseServer', 'targetServer']);
 

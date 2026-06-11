@@ -73,7 +73,13 @@ class SshTunnelService
 
         $this->tunnelProcess = $this->createTunnelProcess($command);
         $this->tunnelProcess->setTimeout(null);
-        $this->tunnelProcess->start();
+
+        try {
+            $this->tunnelProcess->start();
+        } catch (\Throwable $e) {
+            $this->close();
+            throw new SshTunnelException('Failed to start SSH tunnel process: '.$e->getMessage(), previous: $e);
+        }
 
         // Wait for tunnel to be established
         if (! $this->waitForTunnel()) {
