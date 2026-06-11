@@ -48,6 +48,7 @@ class SaveDatabaseServerRequest extends FormRequest
 
         if ($type === 'postgres') {
             $rules['dump_format'] = ['nullable', 'string', Rule::in(['plain', 'custom'])];
+            $rules['dump_privileges'] = 'boolean';
         }
 
         if (in_array($type, ['mongodb', 'redis'])) {

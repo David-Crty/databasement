@@ -20,5 +20,6 @@ readonly class RestoreConfig
         public bool $forceDatabase = false,
         public ?string $ownerUser = null,
         public ?string $snapshotDumpFormat = null,
+        public bool $snapshotDumpPrivileges = false,
     ) {}
 }

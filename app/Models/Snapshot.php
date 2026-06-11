@@ -64,7 +64,7 @@ class Snapshot extends Model
      * Generate metadata array for a snapshot.
      * Sensitive fields (passwords) are excluded from the volume config.
      *
-     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volume: array{type: string, config: array<string, mixed>}, dump_format?: string}
+     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volume: array{type: string, config: array<string, mixed>}, dump_format?: string, dump_privileges?: bool}
      */
     public static function generateMetadata(DatabaseServer $server, string $databaseName, Volume $volume): array
     {
@@ -98,6 +98,13 @@ class Snapshot extends Model
         if ($server->database_type === DatabaseType::POSTGRESQL
             && $server->getExtraConfig('dump_format') === 'custom') {
             $metadata['dump_format'] = 'custom';
+        }
+
+        // Record whether ownership/privilege information was preserved in the dump.
+        // Absent → stripped via --no-owner/--no-privileges (default for legacy snapshots).
+        if ($server->database_type === DatabaseType::POSTGRESQL
+            && (bool) $server->getExtraConfig('dump_privileges')) {
+            $metadata['dump_privileges'] = true;
         }
 
         return $metadata;

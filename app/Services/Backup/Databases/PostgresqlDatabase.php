@@ -37,6 +37,15 @@ class PostgresqlDatabase implements DatabaseInterface
         '--jobs=4',
     ];
 
+    /**
+     * Dropped from dump/restore options when the server is configured to
+     * preserve ownership and privilege information (dump_privileges).
+     */
+    private const array PORTABILITY_OPTIONS = [
+        '--no-owner',
+        '--no-privileges',
+    ];
+
     private const array EXCLUDED_DATABASES = [
         'rdsadmin',          // AWS RDS internal database
         'azure_maintenance', // Azure Database for PostgreSQL internal database
@@ -53,7 +62,7 @@ class PostgresqlDatabase implements DatabaseInterface
 
     public function dump(string $outputPath): DatabaseOperationResult
     {
-        $options = self::DUMP_OPTIONS;
+        $options = $this->withPrivilegeOptions(self::DUMP_OPTIONS);
         if (($this->config['dump_format'] ?? 'plain') === 'custom') {
             $options[] = '--format=custom';
         }
@@ -86,7 +95,7 @@ class PostgresqlDatabase implements DatabaseInterface
             return new DatabaseOperationResult(command: sprintf(
                 'PGPASSWORD=%s pg_restore %s --host=%s --port=%s --username=%s --dbname=%s %s',
                 escapeshellarg($this->config['pass']),
-                implode(' ', self::RESTORE_CUSTOM_FORMAT_OPTIONS),
+                implode(' ', $this->withPrivilegeOptions(self::RESTORE_CUSTOM_FORMAT_OPTIONS)),
                 escapeshellarg($this->config['host']),
                 escapeshellarg((string) $this->config['port']),
                 escapeshellarg($this->config['user']),
@@ -104,6 +113,22 @@ class PostgresqlDatabase implements DatabaseInterface
             escapeshellarg($this->config['database']),
             escapeshellarg($inputPath)
         ));
+    }
+
+    /**
+     * Strip the --no-owner/--no-privileges portability flags when the
+     * configuration asks to preserve ownership and privilege information.
+     *
+     * @param  array<string>  $options
+     * @return array<string>
+     */
+    private function withPrivilegeOptions(array $options): array
+    {
+        if (empty($this->config['dump_privileges'])) {
+            return $options;
+        }
+
+        return array_values(array_diff($options, self::PORTABILITY_OPTIONS));
     }
 
     public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void

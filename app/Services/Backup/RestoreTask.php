@@ -83,6 +83,7 @@ class RestoreTask
                 $this->getConnectionPort($target),
                 $config->snapshotDatabaseName,
                 $config->snapshotDumpFormat,
+                $config->snapshotDumpPrivileges,
             );
 
             $this->prepareDatabase($database, $config->schemaName, $logger, $config->forceDatabase);

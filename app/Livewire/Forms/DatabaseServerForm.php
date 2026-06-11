@@ -50,6 +50,15 @@ class DatabaseServerForm extends Form
 
     public string $dump_format = 'plain';
 
+    public bool $dump_privileges = false;
+
+    /**
+     * Whether the dump config collapse starts open. Snapshot taken when the
+     * form loads — intentionally not derived from live fields so the collapse
+     * doesn't close while the user toggles options.
+     */
+    public bool $dump_config_open = false;
+
     public bool $ssl_enabled = false;
 
     // SSH Tunnel Configuration
@@ -395,6 +404,8 @@ class DatabaseServerForm extends Form
         $this->auth_source = $server->getExtraConfig('auth_source', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
         $this->dump_format = $server->getExtraConfig('dump_format', 'plain');
+        $this->dump_privileges = (bool) $server->getExtraConfig('dump_privileges', false);
+        $this->dump_config_open = ! empty($this->dump_flags) || $this->dump_format === 'custom' || $this->dump_privileges;
         $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $this->username = $server->username ?? '';
         $this->description = $server->description;
@@ -656,6 +667,7 @@ class DatabaseServerForm extends Form
 
         if ($type === DatabaseType::POSTGRESQL) {
             $config['dump_format'] = $this->dump_format;
+            $config['dump_privileges'] = $this->dump_privileges;
         }
 
         try {
@@ -808,6 +820,7 @@ class DatabaseServerForm extends Form
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
+            'dump_privileges' => 'boolean',
             'ssl_enabled' => 'boolean',
             'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
             'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],

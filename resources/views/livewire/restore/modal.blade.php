@@ -144,6 +144,7 @@
                 <div class="space-y-4">
                     @include('livewire.restore._destination-step', [
                         'targetLocked' => $mode->targetServerLocked(),
+                        'snapshotPreservesPrivileges' => (bool) ($snapshot?->metadata['dump_privileges'] ?? false),
                     ])
 
                     @if($snapshot)

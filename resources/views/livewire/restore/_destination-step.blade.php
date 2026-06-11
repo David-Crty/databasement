@@ -11,6 +11,9 @@
 
     Params:
       $targetLocked (bool) - when true the target is fixed; hide the select
+      $snapshotPreservesPrivileges (bool, optional) - when true the snapshot was
+          dumped with ownership/privilege information, so the post-restore
+          ownership transfer option is hidden (the dump itself sets owners)
 --}}
 @php
     $type = $this->targetServer?->database_type;
@@ -43,12 +46,18 @@
     @endif
 
     @if($type === DatabaseType::POSTGRESQL)
-        <x-input
-            wire:model="ownerUser"
-            :label="__('Transfer database ownership to user after restore')"
-            :placeholder="__('PostgreSQL username (leave empty to skip)')"
-            :hint="__('Transfers ownership of the database and all its objects (tables, sequences, functions, schemas) to this user. Useful when the restore user differs from the application user.')"
-        />
+        @if($snapshotPreservesPrivileges ?? false)
+            <x-alert class="alert-info" icon="o-information-circle">
+                {{ __('This snapshot includes ownership and privilege information; original owners and grants will be applied by the restore itself.') }}
+            </x-alert>
+        @else
+            <x-input
+                wire:model="ownerUser"
+                :label="__('Transfer database ownership to user after restore')"
+                :placeholder="__('PostgreSQL username (leave empty to skip)')"
+                :hint="__('Transfers ownership of the database and all its objects (tables, sequences, functions, schemas) to this user. Useful when the restore user differs from the application user.')"
+            />
+        @endif
     @endif
 
     @if(in_array($type, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true))

@@ -82,8 +82,9 @@ class DatabaseProvider
      * Create a configured database interface from a DatabaseConnectionConfig DTO.
      *
      * Host and port are passed explicitly to support SSH tunnel overrides.
-     * $snapshotDumpFormat overrides the target's dump_format at restore time: format
-     * is a property of the snapshot file, not the destination server.
+     * $snapshotDumpFormat and $snapshotDumpPrivileges override the target's
+     * extra_config at restore time: both are properties of the snapshot file,
+     * not the destination server.
      */
     public function makeFromConfig(
         DatabaseConnectionConfig $config,
@@ -92,6 +93,7 @@ class DatabaseProvider
         int $port,
         ?string $sourceDatabaseName = null,
         ?string $snapshotDumpFormat = null,
+        ?bool $snapshotDumpPrivileges = null,
     ): DatabaseInterface {
         if ($config->databaseType === DatabaseType::SQLITE) {
             return $this->makeConfigured(DatabaseType::SQLITE, $this->sqliteConfig($databaseName, $config->sshConfig));
@@ -112,6 +114,11 @@ class DatabaseProvider
         if ($config->databaseType === DatabaseType::POSTGRESQL
             && ($snapshotDumpFormat ?? $extra['dump_format'] ?? null) === 'custom') {
             $dbConfig['dump_format'] = 'custom';
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL
+            && ($snapshotDumpPrivileges ?? ! empty($extra['dump_privileges']))) {
+            $dbConfig['dump_privileges'] = true;
         }
 
         // Optional short timeout used by interactive UI lookups; jobs leave

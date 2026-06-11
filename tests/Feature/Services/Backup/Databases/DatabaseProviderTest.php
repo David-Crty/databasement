@@ -141,6 +141,47 @@ test('makeFromConfig passes ssl_enabled from extra_config for mysql', function (
         ->not->toContain('--skip_ssl');
 });
 
+test('makeFromConfig passes dump_privileges from extra_config for postgres', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::POSTGRESQL,
+        serverName: 'PG Server',
+        host: 'pg.example.com',
+        port: 5432,
+        username: 'postgres',
+        password: 'secret',
+        extraConfig: ['dump_privileges' => true],
+    );
+
+    $database = (new DatabaseProvider)->makeFromConfig($config, 'myapp', 'pg.example.com', 5432);
+
+    expect($database->dump('/tmp/test.sql')->command)
+        ->not->toContain('--no-owner')
+        ->not->toContain('--no-privileges');
+});
+
+test('makeFromConfig snapshot dump_privileges overrides target extra_config at restore time', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::POSTGRESQL,
+        serverName: 'PG Server',
+        host: 'pg.example.com',
+        port: 5432,
+        username: 'postgres',
+        password: 'secret',
+        extraConfig: ['dump_privileges' => true],
+    );
+
+    // Legacy snapshot dumped without privileges: target server setting must not apply
+    $database = (new DatabaseProvider)->makeFromConfig(
+        $config, 'myapp', 'pg.example.com', 5432,
+        snapshotDumpFormat: 'custom',
+        snapshotDumpPrivileges: false,
+    );
+
+    expect($database->restore('/tmp/snapshot.dump')->command)
+        ->toContain('--no-owner')
+        ->toContain('--no-privileges');
+});
+
 test('makeForServer passes sourceDatabaseName for mongodb restore', function () {
     $server = DatabaseServer::factory()->mongodb()->create();
 

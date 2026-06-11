@@ -127,7 +127,7 @@ use App\Enums\DatabaseType;
                     @endif
 
                     @if($form->supportsDumpFlags())
-                        <x-collapse class="mt-2" :open="!empty($form->dump_flags) || $form->dump_format === 'custom'">
+                        <x-collapse class="mt-2" :open="$form->dump_config_open">
                             <x-slot:heading>
                                 <x-icon name="o-command-line" class="w-4 h-4" />
                                 {{ __('Dump Command Configuration') }}
@@ -149,6 +149,12 @@ use App\Enums\DatabaseType;
                                             {{ __('Custom format archives are version-sensitive: the target restore server must be PostgreSQL 17 or newer. Restores run with 4 parallel pg_restore workers.') }}
                                         </x-alert>
                                     @endif
+
+                                    <x-checkbox
+                                        wire:model.live="form.dump_privileges"
+                                        :label="__('Backup ownership and privilege information (less portable)')"
+                                        :hint="__('Keeps OWNER and GRANT/REVOKE statements in the dump instead of stripping them with --no-owner and --no-privileges. Every role referenced by the dump must exist on the restore target, otherwise the restore will report errors.')"
+                                    />
                                 @endif
 
                                 <x-input

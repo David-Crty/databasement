@@ -82,6 +82,41 @@ test('restore uses pg_restore when dump_format config is custom', function () {
     );
 });
 
+test('dump keeps ownership and privileges when dump_privileges is enabled', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'dump_privileges' => true,
+    ]);
+
+    $result = $db->dump('/tmp/dump.sql');
+
+    expect($result->command)->toBe("PGPASSWORD='pg_secret' pg_dump --clean --if-exists --quote-all-identifiers --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/dump.sql'");
+});
+
+test('custom format restore keeps ownership and privileges when dump_privileges is enabled', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'dump_format' => 'custom',
+        'dump_privileges' => true,
+    ]);
+
+    $result = $db->restore('/tmp/snapshot.sql');
+
+    expect($result->command)->toBe(
+        "PGPASSWORD='pg_secret' pg_restore --clean --if-exists --jobs=4 --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' '/tmp/snapshot.sql'"
+    );
+});
+
 test('restore falls back to psql when dump_format is absent', function () {
     $result = $this->db->restore('/tmp/snapshot.sql');
 

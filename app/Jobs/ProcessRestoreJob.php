@@ -74,6 +74,7 @@ class ProcessRestoreJob implements ShouldQueue
                 forceDatabase: filter_var($restore->getOption('force_database', false), FILTER_VALIDATE_BOOLEAN),
                 ownerUser: is_string($value = $restore->getOption('owner_user')) && $value !== '' ? $value : null,
                 snapshotDumpFormat: is_string($format = ($snapshot->metadata['dump_format'] ?? null)) ? $format : null,
+                snapshotDumpPrivileges: (bool) ($snapshot->metadata['dump_privileges'] ?? false),
             );
 
             $restoreTask->execute($config, $job);

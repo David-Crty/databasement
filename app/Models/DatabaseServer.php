@@ -379,6 +379,15 @@ class DatabaseServer extends Model
             unset($data['dump_format']);
         }
 
+        if (array_key_exists('dump_privileges', $data)) {
+            if ($type === DatabaseType::POSTGRESQL->value && $data['dump_privileges']) {
+                $extraConfig['dump_privileges'] = true;
+            } else {
+                unset($extraConfig['dump_privileges']);
+            }
+            unset($data['dump_privileges']);
+        }
+
         if (array_key_exists('ssl_enabled', $data)) {
             if ($type === DatabaseType::MYSQL->value && $data['ssl_enabled']) {
                 $extraConfig['ssl_enabled'] = true;

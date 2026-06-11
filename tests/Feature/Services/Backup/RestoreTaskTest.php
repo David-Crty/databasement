@@ -342,6 +342,7 @@ test('execute establishes SSH tunnel when target server requires it', function (
             54321,
             'sourcedb',
             null,
+            false,
         )
         ->andReturn($mockHandler);
 
