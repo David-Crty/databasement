@@ -30,7 +30,7 @@ class Edit extends Component
         if (Gate::denies('update', $this->form->server)) {
             $this->warning(
                 title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: url()->previous(route('database-servers.index')),
+                redirectTo: $this->safeRedirectUrl(),
                 flashAs: 'demo_notice',
             );
 
@@ -40,9 +40,27 @@ class Edit extends Component
         if ($this->form->update()) {
             $this->success(
                 title: __('Database server updated successfully!'),
-                redirectTo: url()->previous(route('database-servers.index')),
+                redirectTo: $this->safeRedirectUrl(),
             );
         }
+    }
+
+    private function safeRedirectUrl(): string
+    {
+        $fallback = route('database-servers.index');
+        $previous = url()->previous($fallback);
+
+        // Reject external URLs to prevent open redirect.
+        if (parse_url($previous, PHP_URL_HOST) !== request()->getHost()) {
+            return $fallback;
+        }
+
+        // Don't redirect back to the edit page itself.
+        if ($previous === route('database-servers.edit', $this->form->server)) {
+            return $fallback;
+        }
+
+        return $previous;
     }
 
     public function addBackup(?string $defaultScheduleId = null): void
