@@ -30,7 +30,7 @@ class Edit extends Component
         if (Gate::denies('update', $this->form->server)) {
             $this->warning(
                 title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: route('database-servers.index'),
+                redirectTo: url()->previous(route('database-servers.index')),
                 flashAs: 'demo_notice',
             );
 
@@ -40,7 +40,7 @@ class Edit extends Component
         if ($this->form->update()) {
             $this->success(
                 title: __('Database server updated successfully!'),
-                redirectTo: route('database-servers.index'),
+                redirectTo: url()->previous(route('database-servers.index')),
             );
         }
     }
