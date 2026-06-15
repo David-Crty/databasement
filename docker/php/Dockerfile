@@ -1,5 +1,13 @@
 FROM firebirdsql/firebird:5 AS firebird
 
+# Build the sqlpackage CLI for the target arch. Microsoft only ships a self-contained
+# x64 zip (no arm64 build), so for multi-arch we install the framework-dependent
+# dotnet tool, which runs on the .NET runtime present in the final image. The Alpine
+# SDK produces a musl apphost matching the final stage. Bump the version to update.
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS sqlpackage
+ARG SQLPACKAGE_VERSION=170.3.93
+RUN dotnet tool install --tool-path /opt/sqlpackage microsoft.sqlpackage --version "${SQLPACKAGE_VERSION}"
+
 FROM dunglas/frankenphp:1.12-php8.5-alpine
 
 RUN install-php-extensions \
@@ -71,20 +79,17 @@ RUN case "${TARGETARCH}" in \
     && chmod +x /usr/local/bin/mongodump /usr/local/bin/mongorestore \
     && rm -rf /tmp/mtools.tgz /tmp/mongodb-database-tools-*
 
-# Install .NET 8 ASP.NET runtime (required by sqlpackage). Pulled from edge/community
-# because Alpine stable repos lag behind the .NET LTS Microsoft supports for musl.
-RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community aspnetcore8-runtime
+# Install .NET 8 runtime — required by the framework-dependent sqlpackage tool
+# (base Microsoft.NETCore.App only; no ASP.NET Core needed). Pulled from
+# edge/community because Alpine stable repos lag behind the .NET LTS Microsoft
+# supports for musl.
+RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community dotnet8-runtime
 
-# Install sqlpackage (Microsoft SQL Server export tool). Pinned for reproducible
-# builds; refresh from https://aka.ms/sqlpackage-linux when bumping versions.
-# Relies on the .NET 8 runtime installed above.
-ARG SQLPACKAGE_URL=https://download.microsoft.com/download/c149d463-e758-4207-bf98-3ee0e2547faa/sqlpackage-linux-x64-en-170.3.93.6.zip
-RUN curl -fsSL -o /tmp/sqlpackage.zip "${SQLPACKAGE_URL}" \
-    && mkdir -p /opt/sqlpackage \
-    && unzip -q /tmp/sqlpackage.zip -d /opt/sqlpackage \
-    && chmod +x /opt/sqlpackage/sqlpackage \
-    && ln -s /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage \
-    && rm /tmp/sqlpackage.zip
+# sqlpackage (Microsoft SQL Server export tool) — the framework-dependent dotnet
+# tool built in the sqlpackage stage above. Runs on the .NET 8 runtime installed
+# above and works on both amd64 and arm64. Bump SQLPACKAGE_VERSION in that stage.
+COPY --from=sqlpackage /opt/sqlpackage /opt/sqlpackage
+RUN ln -s /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage
 
 # Firebird tooling: gbak (dump/restore) and isql (connection probe + test
 # fixtures). The official Firebird image is Debian-based, so the binaries are
