@@ -168,3 +168,26 @@ jobs:
           echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "Base image: \`davidcrty/databasement-php:${{ needs.build-base-image.outputs.base_image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+
+  snyk-monitor:
+    runs-on: ubuntu-latest
+    needs: build-app-image
+    # Only when the `latest` tag was (re)published, i.e. a push to the default branch.
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Snyk CLI
+        uses: snyk/actions/setup@master
+
+      - name: Monitor latest image in Snyk
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: |
+          snyk container monitor davidcrty/databasement:latest \
+            --file=Dockerfile \
+            --platform=linux/amd64 \
+            --project-name=databasement \
+            --project-tags=image=latest
