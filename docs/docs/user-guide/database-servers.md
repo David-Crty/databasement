@@ -351,13 +351,6 @@ Ensure your firewall allows connections:
 
 ## SSH Tunnel
 
-Connect to databases in private networks through a bastion/jump server. Enable this when the database isn't directly accessible from Databasement.
+Connect to databases that aren't directly reachable from Databasement — in private networks, behind a bastion/jump host, or on a remote Docker host whose database ports aren't exposed. Databasement opens the tunnel before each backup/restore and closes it afterward, with credentials encrypted at rest.
 
-| Field | Description |
-|-------|-------------|
-| SSH Host | Bastion server hostname or IP |
-| SSH Port | SSH port (default: 22) |
-| SSH Username | SSH user |
-| Auth Type | `Password` or `Private Key` (with optional passphrase) |
-
-Databasement establishes the tunnel before each backup/restore operation and closes it when complete. Sensitive credentials are encrypted at rest.
+See [SSH Tunnel](./ssh-tunnel.md) for configuration and for backing up databases on a remote host.
