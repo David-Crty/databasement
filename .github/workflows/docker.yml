@@ -178,6 +178,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Snyk CLI
         uses: snyk/actions/setup@master
