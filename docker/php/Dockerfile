@@ -52,8 +52,24 @@ RUN apk add --no-cache git \
         procps-ng \
         ncurses-libs
 
-# Install MongoDB tools (mongodump, mongorestore) from Alpine edge community repo
-RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/community mongodb-tools
+# Install MongoDB tools — only mongodump + mongorestore, the binaries the app
+# uses. From MongoDB's official archive (newer than Alpine's edge package); the
+# glibc builds run on Alpine via the gcompat layer, like the Firebird binaries.
+# Refresh from https://www.mongodb.com/try/download/database-tools when bumping.
+ARG MONGODB_TOOLS_VERSION=100.17.0
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
+        amd64) MONGO_ARCH=x86_64 ;; \
+        arm64) MONGO_ARCH=arm64 ;; \
+        *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && curl -fsSL -o /tmp/mtools.tgz \
+        "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-${MONGO_ARCH}-${MONGODB_TOOLS_VERSION}.tgz" \
+    && tar xzf /tmp/mtools.tgz -C /tmp \
+    && cp /tmp/mongodb-database-tools-*/bin/mongodump \
+          /tmp/mongodb-database-tools-*/bin/mongorestore /usr/local/bin/ \
+    && chmod +x /usr/local/bin/mongodump /usr/local/bin/mongorestore \
+    && rm -rf /tmp/mtools.tgz /tmp/mongodb-database-tools-*
 
 # Install .NET 8 ASP.NET runtime (required by sqlpackage). Pulled from edge/community
 # because Alpine stable repos lag behind the .NET LTS Microsoft supports for musl.
