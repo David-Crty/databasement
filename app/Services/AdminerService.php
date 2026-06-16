@@ -20,7 +20,7 @@ class AdminerService
         $this->defineAdminerObject();
 
         chdir($vendorAdminer);
-        include $vendorAdminer.'/adminer.php';
+        include_once $vendorAdminer.'/adminer.php';
     }
 
     /**

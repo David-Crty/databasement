@@ -12,8 +12,8 @@ RUN php artisan vendor:publish --force --tag=livewire:assets
 FROM node:22-slim AS frontend-build
 
 WORKDIR /app
-COPY package.json .
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
 
 COPY --from=backend-build /app /app
 RUN npm run build
