@@ -43,13 +43,12 @@ Set the database **Host** to `127.0.0.1` and **Port** to `5432`. Loopback is exa
 
 ### Optional: SSH server in the stack
 
-If the host doesn't expose SSH — or you'd rather not publish the database port at all — add a small SSH server to the database's network. Only the SSH port is published; Databasement reaches the database by its container name over the internal network.
+If the host doesn't expose SSH — or you'd rather not publish the database port at all — add a small SSH server to the same Compose project. Only the SSH port is published; Databasement reaches the database by its service name over the project's default network.
 
 ```yaml
 services:
   db:
     image: postgres:16
-    networks: [internal]
 
   sshd:
     image: lscr.io/linuxserver/openssh-server
@@ -58,12 +57,8 @@ services:
       PUBLIC_KEY: "ssh-ed25519 AAAA... databasement-tunnel"
     ports:
       - "2222:2222"   # only SSH is published — not the database
-    networks: [internal]
-
-networks:
-  internal:
 ```
 
-Point the SSH Tunnel at the host on port `2222`, then set the database **Host** to `db` and **Port** to `5432` — the service name resolves on the SSH container's network.
+Point the SSH Tunnel at the host on port `2222`, then set the database **Host** to `db` and **Port** to `5432` — the service name resolves on the project's default network.
 
 For same-host containers sharing a Docker network (no SSH), see [Docker Networking](./database-servers.md#docker-networking) instead.
