@@ -5,8 +5,33 @@ entries:
       artifacthub.io/license: MIT
       artifacthub.io/readme: README.md
     apiVersion: v2
+    appVersion: 1.4.2
+    created: "2026-06-16T07:55:51.36433528Z"
+    description: A Helm chart for Databasement - Database backup management application
+    digest: a4ef67d49224f584ee9dea66ed735b498fec57c50f341e8f4b0609b07f68f14c
+    home: https://david-crty.github.io/databasement/
+    keywords:
+    - database
+    - backup
+    - mysql
+    - postgresql
+    - mariadb
+    maintainers:
+    - email: david_courtey@yahoo.com
+      name: David-Crty
+    name: databasement
+    sources:
+    - https://github.com/David-Crty/databasement
+    type: application
+    urls:
+    - https://david-crty.github.io/databasement/charts/databasement-1.4.2.tgz
+    version: 1.4.2
+  - annotations:
+      artifacthub.io/license: MIT
+      artifacthub.io/readme: README.md
+    apiVersion: v2
     appVersion: 1.4.1
-    created: "2026-06-11T17:40:37.843893327Z"
+    created: "2026-06-16T07:55:51.363575601Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 08d71bc755faf42cf1c42a107fe91ada52719a1efd22238bc65cd5f7cf4f9c34
     home: https://david-crty.github.io/databasement/
@@ -31,7 +56,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.4.0
-    created: "2026-06-11T17:40:37.843197829Z"
+    created: "2026-06-16T07:55:51.362161381Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 6d7ea14d9954ac1cebf4f91beeeea8ec157bbe0df5a6c974748dc3357d0fea3e
     home: https://david-crty.github.io/databasement/
@@ -56,7 +81,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.3.1
-    created: "2026-06-11T17:40:37.842494439Z"
+    created: "2026-06-16T07:55:51.360612717Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: f1f729600a988904766f1e10e9811ce38dac33c863641688b6e0a8ef21a5d25e
     home: https://david-crty.github.io/databasement/
@@ -81,7 +106,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.3.0
-    created: "2026-06-11T17:40:37.841395026Z"
+    created: "2026-06-16T07:55:51.359377049Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 720259785ac0555e4b1d944bf815b4aeac0cc396fd75bc6c1b9930be2608d061
     home: https://david-crty.github.io/databasement/
@@ -106,7 +131,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.12
-    created: "2026-06-11T17:40:37.834394437Z"
+    created: "2026-06-16T07:55:51.348469826Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: bd9e044224741ce7e66adeec4e8044ea11fe3e209ac0980ff5c28b3107da3a8f
     home: https://david-crty.github.io/databasement/
@@ -131,7 +156,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.11
-    created: "2026-06-11T17:40:37.833748304Z"
+    created: "2026-06-16T07:55:51.347848345Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 4d5426d984e1c6ae1eeff1c2504c29647498315df28cc6f452b50d4581ef970d
     home: https://david-crty.github.io/databasement/
@@ -156,7 +181,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.10
-    created: "2026-06-11T17:40:37.833070042Z"
+    created: "2026-06-16T07:55:51.347161383Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 45cc06858df4f4fdd2d8c18e42055f6df5a6bf3dba4c6da52ea1f9aae8466fcc
     home: https://david-crty.github.io/databasement/
@@ -181,7 +206,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.9
-    created: "2026-06-11T17:40:37.840584283Z"
+    created: "2026-06-16T07:55:51.358135501Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 57029ce036dbcf94631f34faee391fe7c0ffe8228bc6e05ab929d2860e5122de
     home: https://david-crty.github.io/databasement/
@@ -206,7 +231,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.8
-    created: "2026-06-11T17:40:37.839909016Z"
+    created: "2026-06-16T07:55:51.356878734Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: d80373e0cd7c60ab75f52970e1d20c9b9f247044db15d2c381cd2f75fc93fbaa
     home: https://david-crty.github.io/databasement/
@@ -231,7 +256,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.7
-    created: "2026-06-11T17:40:37.839247519Z"
+    created: "2026-06-16T07:55:51.355616978Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 9e21dd89fae7cd1975171d964d81895af2abaa0af716bc20047ec1fd13db8390
     home: https://david-crty.github.io/databasement/
@@ -256,7 +281,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.6
-    created: "2026-06-11T17:40:37.838592102Z"
+    created: "2026-06-16T07:55:51.3543434Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 5c247373a06fee97b682c8a8cab688af2709811bc59317ca039e5ba80cdab0a3
     home: https://david-crty.github.io/databasement/
@@ -281,7 +306,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.5
-    created: "2026-06-11T17:40:37.837954983Z"
+    created: "2026-06-16T07:55:51.353099638Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: bd2c959764706d460dfa5ea96b9bd32033bb1bd13a4a6893ba697f3031bd3b91
     home: https://david-crty.github.io/databasement/
@@ -306,7 +331,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.4
-    created: "2026-06-11T17:40:37.837268198Z"
+    created: "2026-06-16T07:55:51.351878237Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 0bb9427814f96fddf19fc9c64225f1cd0586452a0cd4b5834524afe1c2936432
     home: https://david-crty.github.io/databasement/
@@ -331,7 +356,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.3
-    created: "2026-06-11T17:40:37.836505157Z"
+    created: "2026-06-16T07:55:51.350129645Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: b2d9056ee9dc87c66ae330ce31a1746c9ff5647b644a0ec5c9af1af74067413d
     home: https://david-crty.github.io/databasement/
@@ -356,7 +381,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.2
-    created: "2026-06-11T17:40:37.835084987Z"
+    created: "2026-06-16T07:55:51.349277915Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: f19c75e89bae369e13f9eac389ae595a7a33758a62e8bc87e12cef481e57da3f
     home: https://david-crty.github.io/databasement/
@@ -381,7 +406,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.1
-    created: "2026-06-11T17:40:37.832405441Z"
+    created: "2026-06-16T07:55:51.346483838Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 32e3a15725eb277566d87b06fe68f2c86e5e46b458f6251fd0704041b2769fbf
     home: https://david-crty.github.io/databasement/
@@ -406,7 +431,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.2.0
-    created: "2026-06-11T17:40:37.831759989Z"
+    created: "2026-06-16T07:55:51.345855324Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: cc26673d50936315bdf02b4cd82740d743987677f1db566440288ea9dd75c518
     home: https://david-crty.github.io/databasement/
@@ -431,7 +456,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.1.7
-    created: "2026-06-11T17:40:37.831000794Z"
+    created: "2026-06-16T07:55:51.345169533Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: cb5be185e5b3a71fcd64944de2880e9d613680f2c3b1f5846b3e47a4b552695c
     home: https://david-crty.github.io/databasement/
@@ -456,7 +481,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.1.6
-    created: "2026-06-11T17:40:37.83019602Z"
+    created: "2026-06-16T07:55:51.344267199Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 6e73b55ec97e4e7561b18f65aa95f5e33c16bbab5e74ad2ebdd74b4d7144fab4
     home: https://david-crty.github.io/databasement/
@@ -481,7 +506,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.1.5
-    created: "2026-06-11T17:40:37.82878918Z"
+    created: "2026-06-16T07:55:51.342666029Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 9fe33da8c32bc4756d77f635815e6a02d88cba014dd07fbad4460983cd82ba62
     home: https://david-crty.github.io/databasement/
@@ -506,7 +531,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.1.4
-    created: "2026-06-11T17:40:37.828134013Z"
+    created: "2026-06-16T07:55:51.342026084Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: ae1bbfddca1e276146fe992d0e24fb6a2ad56debafac90b6386c7b2119b98317
     home: https://david-crty.github.io/databasement/
@@ -531,7 +556,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.1.3
-    created: "2026-06-11T17:40:37.827435761Z"
+    created: "2026-06-16T07:55:51.341372574Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 075c641c93fa36e23a309de7bbf11aaacab597c3bd617f223edac16f5fc0a48d
     home: https://david-crty.github.io/databasement/
@@ -556,7 +581,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.1.2
-    created: "2026-06-11T17:40:37.826811801Z"
+    created: "2026-06-16T07:55:51.340756343Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 62bf55bc180dac6dd010e25210e4dd2e8afba2f4d89652546b2eda1abb02b1cd
     home: https://david-crty.github.io/databasement/
@@ -581,7 +606,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.1.1
-    created: "2026-06-11T17:40:37.826118527Z"
+    created: "2026-06-16T07:55:51.340119203Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: bd4c16d70801d378efc1b7bd943e4f9f5917480a4e754745f3d82cbafe69cfb3
     home: https://david-crty.github.io/databasement/
@@ -606,7 +631,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.1.0
-    created: "2026-06-11T17:40:37.825438062Z"
+    created: "2026-06-16T07:55:51.339432381Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 2333407672fd7fd71bf3e488e824a94847cbfb158fb10dd03fc260f9b3cb9e0d
     home: https://david-crty.github.io/databasement/
@@ -631,7 +656,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.12
-    created: "2026-06-11T17:40:37.818477092Z"
+    created: "2026-06-16T07:55:51.332149673Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: e4d85a5a36f2e618339e3be97199dcf12307492fe4554ae596a0220e9da2ab7f
     home: https://david-crty.github.io/databasement/
@@ -656,7 +681,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.11
-    created: "2026-06-11T17:40:37.817808565Z"
+    created: "2026-06-16T07:55:51.331457149Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 9012f74111d59361c8704b945c928565e041560f5f432d1a431cdde2b6d7f38e
     home: https://david-crty.github.io/databasement/
@@ -681,7 +706,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.10
-    created: "2026-06-11T17:40:37.816355756Z"
+    created: "2026-06-16T07:55:51.330762423Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 148d28d3d88959b5ae79db14a46542beec8926a53145caf0dc520f209d0af64d
     home: https://david-crty.github.io/databasement/
@@ -706,7 +731,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.9
-    created: "2026-06-11T17:40:37.82476638Z"
+    created: "2026-06-16T07:55:51.338780604Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 787e75acb4d574d576e1a7de59b08ed4e02ed5dfe350a0a5153d6a019a8fc028
     home: https://david-crty.github.io/databasement/
@@ -731,7 +756,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.8
-    created: "2026-06-11T17:40:37.824090892Z"
+    created: "2026-06-16T07:55:51.338066921Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: f7697626935f3a9db1cb685b90d2a38475eda2ea0f38012990602a5ff50b7e87
     home: https://david-crty.github.io/databasement/
@@ -756,7 +781,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.7
-    created: "2026-06-11T17:40:37.822696141Z"
+    created: "2026-06-16T07:55:51.336108425Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: ca64125e54a0f75f87ec3d76234794d071cad8531acdc8e42b1df85e0647034c
     home: https://david-crty.github.io/databasement/
@@ -781,7 +806,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.6
-    created: "2026-06-11T17:40:37.822019381Z"
+    created: "2026-06-16T07:55:51.33545773Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 84a5e8f061335586c13e165d7dbd46734fa2e1dbd9fede3ba3f96535f4ddddb7
     home: https://david-crty.github.io/databasement/
@@ -806,7 +831,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.5
-    created: "2026-06-11T17:40:37.821332566Z"
+    created: "2026-06-16T07:55:51.334817614Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 1c482baf9f044248f925d578f50578a1db468bfec22299953df0cbb51f90fc51
     home: https://david-crty.github.io/databasement/
@@ -831,7 +856,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.4
-    created: "2026-06-11T17:40:37.820672863Z"
+    created: "2026-06-16T07:55:51.334116315Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 8a04d70991a51af09e244fa873ae33a19a276ffcdff0ea66a1612d439eb9d75a
     home: https://david-crty.github.io/databasement/
@@ -856,7 +881,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.3
-    created: "2026-06-11T17:40:37.819997035Z"
+    created: "2026-06-16T07:55:51.333460811Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: e8a20e3a7c0b0eaa17baa47bc5a5e5afb5f31447ad67bd73519cfb8671daa26d
     home: https://david-crty.github.io/databasement/
@@ -881,7 +906,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.2
-    created: "2026-06-11T17:40:37.8191924Z"
+    created: "2026-06-16T07:55:51.332814454Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 8b2da735f28f00afbcc437af9989182299098e990ad60d52eaaf1b2b1899c02c
     home: https://david-crty.github.io/databasement/
@@ -906,7 +931,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.1
-    created: "2026-06-11T17:40:37.815706147Z"
+    created: "2026-06-16T07:55:51.329997675Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 81f7261dd411401727f128b0ca70d48e1eb80f0129b650ae2cca7d606a6bbbd8
     home: https://david-crty.github.io/databasement/
@@ -931,7 +956,7 @@ entries:
       artifacthub.io/readme: README.md
     apiVersion: v2
     appVersion: 1.0.0
-    created: "2026-06-11T17:40:37.814949346Z"
+    created: "2026-06-16T07:55:51.328068642Z"
     description: A Helm chart for Databasement - Database backup management application
     digest: 7d4c54a99adc872b234d032ce4f40b930950e6d01ba024e1211cf872c04ff200
     home: https://david-crty.github.io/databasement/
@@ -1421,4 +1446,4 @@ entries:
     urls:
     - https://github.com/David-Crty/databasement/releases/download/databasement-0.1.1/databasement-0.1.1.tgz
     version: 0.1.1
-generated: "2026-06-11T17:40:37.814095998Z"
+generated: "2026-06-16T07:55:51.327212534Z"
