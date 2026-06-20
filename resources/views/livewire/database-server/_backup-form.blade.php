@@ -300,8 +300,8 @@
                                 </div>
                             @endif
                         @else
-                            <x-alert class="alert-warning" icon="o-exclamation-triangle">
-                                {{ __('Test connection to see pattern preview.') }}
+                            <x-alert class="alert-{{ $form->hasAgent() ? 'info' : 'warning' }}" icon="{{ $form->hasAgent() ? 'o-information-circle' : 'o-exclamation-triangle' }}">
+                                {{ $form->hasAgent() ? __('Pattern preview is not available for agent-managed servers.') : __('Test connection to see pattern preview.') }}
                             </x-alert>
                         @endif
                     </div>

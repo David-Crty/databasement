@@ -75,6 +75,7 @@ class DatabaseServer extends Model
         'description',
         'backups_enabled',
         'ssh_config_id',
+        'agent_id',
         'extra_config',
         'managed_by',
         'notification_trigger',
@@ -105,6 +106,14 @@ class DatabaseServer extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * @return BelongsTo<Agent, DatabaseServer>
+     */
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class);
     }
 
     /**

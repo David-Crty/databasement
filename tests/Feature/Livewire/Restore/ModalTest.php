@@ -68,6 +68,26 @@ test('from-server mode: queues restore job and dispatches restore-created', func
         ->and($restore->job->status)->toBe('pending');
 });
 
+test('rejects restore when the target server is agent-backed', function () {
+    Queue::fake();
+
+    $agent = \App\Models\Agent::factory()->create();
+    $agentTarget = DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => $agent->id]);
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
+
+    // Craft a request that bypasses the UI picker, which hides agent-backed servers.
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
+        ->set('targetServerId', $agentTarget->id)
+        ->set('schemaName', 'restored_db')
+        ->call('restore')
+        ->assertNotDispatched('restore-created');
+
+    Queue::assertNothingPushed();
+    expect(Restore::count())->toBe(0);
+});
+
 test('from-server mode: only shows snapshots matching target database type', function () {
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
 

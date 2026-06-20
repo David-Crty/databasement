@@ -56,6 +56,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->preventRequestForgery(except: [
             'adminer',
         ]);
+        $middleware->alias([
+            'agent' => \App\Http\Middleware\EnsureAgentToken::class,
+            'throttle-failed-agent-auth' => \App\Http\Middleware\ThrottleFailedAgentAuth::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         $exceptions->renderable(function (\Illuminate\Contracts\Encryption\DecryptException $e, $request) {

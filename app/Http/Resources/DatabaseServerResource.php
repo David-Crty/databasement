@@ -28,6 +28,7 @@ class DatabaseServerResource extends JsonResource
             'description' => $this->description,
             'backups_enabled' => $this->backups_enabled,
             'ssh_config_id' => $this->ssh_config_id,
+            'agent_id' => $this->agent_id,
             'extra_config' => $this->extra_config,
             'managed_by' => $this->managed_by,
             'created_at' => $this->created_at,

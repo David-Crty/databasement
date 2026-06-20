@@ -27,6 +27,16 @@ class ConnectionStatus extends Component
     {
         $this->authorize('view', $this->server);
 
+        if ($this->server->agent_id) {
+            $agent = $this->server->agent;
+            $this->success = $agent !== null && $agent->isOnline();
+            $this->message = $this->success
+                ? __('Agent online')
+                : __('Agent offline');
+
+            return;
+        }
+
         $result = $provider->testConnectionForServer($this->server);
 
         $this->success = $result['success'];

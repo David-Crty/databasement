@@ -56,7 +56,7 @@ class DatabaseServerQuery
 
         return DatabaseServer::query()
             ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
-            ->withCount(['snapshots' => fn (Builder $q) => $q->whereHas('job', fn (Builder $q) => $q->whereRaw('status = ?', ['completed']))])
+            ->withCount('snapshots')
             ->addSelect([
                 'restores_count' => Restore::selectRaw('count(*)')
                     ->whereColumn('target_server_id', 'database_servers.id'),

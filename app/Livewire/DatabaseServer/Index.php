@@ -119,6 +119,12 @@ class Index extends Component
 
         $this->restoreId = $id;
 
+        if ($server->agent_id) {
+            $this->error(__('Restore is not yet supported for agent-backed servers.'));
+
+            return;
+        }
+
         if ($server->database_type === DatabaseType::REDIS) {
             $this->showRedisRestoreModal = true;
 

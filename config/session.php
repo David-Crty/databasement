@@ -18,7 +18,7 @@ return [
     |
     */
 
-    'driver' => env('SESSION_DRIVER', 'database'),
+    'driver' => env('DATABASEMENT_URL') ? 'array' : env('SESSION_DRIVER', 'database'),
 
     /*
     |--------------------------------------------------------------------------

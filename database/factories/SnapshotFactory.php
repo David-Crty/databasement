@@ -92,26 +92,6 @@ class SnapshotFactory extends Factory
     }
 
     /**
-     * Mark the snapshot's job as completed.
-     */
-    public function completed(): static
-    {
-        return $this->afterCreating(function (Snapshot $snapshot) {
-            $snapshot->job->update(['status' => 'completed']);
-        });
-    }
-
-    /**
-     * Mark the snapshot's job as failed.
-     */
-    public function failed(): static
-    {
-        return $this->afterCreating(function (Snapshot $snapshot) {
-            $snapshot->job->update(['status' => 'failed']);
-        });
-    }
-
-    /**
      * Set the snapshot file as missing.
      */
     public function fileMissing(): static

@@ -96,6 +96,11 @@ class Modal extends Component
         $this->targetServer = DatabaseServer::findOrFail($targetServerId);
         $this->authorize('restore', $this->targetServer);
 
+        // Agent-backed servers aren't directly reachable, so they can't be restore targets.
+        if ($this->targetServer->agent_id !== null) {
+            abort(422, 'Restores cannot target agent-backed servers.');
+        }
+
         return true;
     }
 
@@ -257,6 +262,13 @@ class Modal extends Component
 
         $this->authorize('restore', $this->targetServer);
 
+        // Defend against crafted requests that bypass the UI picker (agent-backed targets are unreachable).
+        if ($this->targetServer->agent_id !== null) {
+            $this->error(__('Restores cannot target agent-backed servers.'));
+
+            return;
+        }
+
         if (! $this->selectedSnapshotId) {
             $this->error(__('Please select a snapshot before restoring.'));
 
@@ -370,6 +382,7 @@ class Modal extends Component
 
         return DatabaseServer::query()
             ->whereRaw('database_type = ?', [$snapshot->database_type->value])
+            ->whereNull('agent_id')
             ->where('database_type', '!=', DatabaseType::REDIS->value)
             ->orderBy('name')
             ->get(['id', 'name', 'database_type', 'host', 'port']);

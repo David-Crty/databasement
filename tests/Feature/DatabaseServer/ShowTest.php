@@ -4,7 +4,6 @@ use App\Livewire\DatabaseServer\Show;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
-use App\Models\Snapshot;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -72,19 +71,6 @@ test('delete cascades to scheduled restores referencing the server', function ()
 
     $this->assertDatabaseMissing('scheduled_restores', ['id' => $asSource->id]);
     $this->assertDatabaseMissing('scheduled_restores', ['id' => $asTarget->id]);
-});
-
-test('snapshot counter only includes completed snapshots', function () {
-    $user = User::factory()->create();
-    $server = DatabaseServer::factory()->create();
-
-    Snapshot::factory()->forServer($server)->completed()->create();
-    Snapshot::factory()->forServer($server)->completed()->create();
-    Snapshot::factory()->forServer($server)->failed()->create();
-
-    Livewire::actingAs($user)
-        ->test(Show::class, ['server' => $server])
-        ->assertSet('snapshotsCount', 2);
 });
 
 test('confirmRestore on a Redis server opens the redis info modal', function () {

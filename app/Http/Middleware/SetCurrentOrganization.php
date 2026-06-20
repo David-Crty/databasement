@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Agent;
 use App\Models\User;
 use App\Services\CurrentOrganization;
 use Closure;
@@ -18,33 +19,34 @@ class SetCurrentOrganization
 
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
+        /** @var User|Agent|null $authenticatable */
+        $authenticatable = $request->user();
 
-        if (! $user instanceof User) {
-            return $next($request);
-        }
+        if ($authenticatable instanceof Agent) {
+            $this->currentOrganization->set($authenticatable->organization);
+        } elseif ($authenticatable instanceof User) {
+            $this->currentOrganization->reset();
 
-        $this->currentOrganization->reset();
-
-        if ($request->is('api/*') || $request->is('mcp*')) {
-            $this->resolveApiOrganization($request, $user);
-        } else {
-            /** @var string|null $cookieOrgId */
-            $cookieOrgId = $request->cookie(CurrentOrganization::COOKIE_NAME);
-            $this->currentOrganization->resolveForUser($user, $cookieOrgId);
-        }
-
-        if (! $this->currentOrganization->isResolved()) {
-            if ($request->expectsJson()) {
-                abort(401, __('Your account is not a member of any organization. Please contact an administrator.'));
+            if ($request->is('api/*') || $request->is('mcp*')) {
+                $this->resolveApiOrganization($request, $authenticatable);
+            } else {
+                /** @var string|null $cookieOrgId */
+                $cookieOrgId = $request->cookie(CurrentOrganization::COOKIE_NAME);
+                $this->currentOrganization->resolveForUser($authenticatable, $cookieOrgId);
             }
 
-            Auth::guard('web')->logout();
-            Session::invalidate();
-            Session::regenerateToken();
-            session()->flash('error', __('Your account is not a member of any organization. Please contact an administrator.'));
+            if (! $this->currentOrganization->isResolved()) {
+                if ($request->expectsJson()) {
+                    abort(401, __('Your account is not a member of any organization. Please contact an administrator.'));
+                }
 
-            return redirect()->route('login');
+                Auth::guard('web')->logout();
+                Session::invalidate();
+                Session::regenerateToken();
+                session()->flash('error', __('Your account is not a member of any organization. Please contact an administrator.'));
+
+                return redirect()->route('login');
+            }
         }
 
         return $next($request);

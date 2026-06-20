@@ -100,7 +100,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(ScheduledRestore::class, RestorePolicy::class);
 
         Scramble::configure()
-            ->routes(fn (Route $route) => Str::startsWith($route->uri, 'api/'))
+            ->routes(fn (Route $route) => Str::startsWith($route->uri, 'api/') && ! Str::startsWith($route->uri, 'api/v1/agent'))
             ->withDocumentTransformers(function (OpenApi $openApi) {
                 $openApi->secure(
                     SecurityScheme::http('bearer')

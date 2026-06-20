@@ -64,7 +64,7 @@ class Snapshot extends Model
      * Generate metadata array for a snapshot.
      * Sensitive fields (passwords) are excluded from the volume config.
      *
-     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volume: array{type: string, config: array<string, mixed>}, dump_format?: string, dump_privileges?: bool}
+     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volume: array{type: string, config: array<string, mixed>}, agent?: array{name: string}, dump_format?: string, dump_privileges?: bool}
      */
     public static function generateMetadata(DatabaseServer $server, string $databaseName, Volume $volume): array
     {
@@ -93,6 +93,12 @@ class Snapshot extends Model
                 'config' => $volume->getSafeConfig(),
             ],
         ];
+
+        // Record the agent name when the backup runs through a remote agent,
+        // so the logs modal can show how the job was executed.
+        if ($server->agent_id !== null && $server->agent !== null) {
+            $metadata['agent'] = ['name' => $server->agent->name];
+        }
 
         // Record dump format for restore-time dispatch. Absent → plain (default for legacy snapshots).
         if ($server->database_type === DatabaseType::POSTGRESQL
@@ -136,6 +142,14 @@ class Snapshot extends Model
             'type' => null,
             'config' => null,
         ];
+    }
+
+    /**
+     * Name of the agent that ran this backup, or null if it ran on the app's own queue.
+     */
+    public function getAgentName(): ?string
+    {
+        return $this->metadata['agent']['name'] ?? null;
     }
 
     protected static function booted(): void

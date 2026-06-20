@@ -56,6 +56,12 @@ class BackupJobFactory
             return $snapshots;
         }
 
+        // Agent-backed servers defer discovery to the agent — the web app
+        // can't reach the database itself.
+        if ($server->agent_id && in_array($backup->database_selection_mode, [DatabaseSelectionMode::All, DatabaseSelectionMode::Pattern], true)) {
+            return [];
+        }
+
         try {
             $databases = match ($backup->database_selection_mode) {
                 DatabaseSelectionMode::All => $this->databaseProvider->listDatabasesForServer($server),

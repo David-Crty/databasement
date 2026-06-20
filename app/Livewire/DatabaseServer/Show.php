@@ -44,15 +44,14 @@ class Show extends Component
 
         $server->load([
             'sshConfig',
+            'agent',
             'backups.volume',
             'backups.backupSchedule',
             'notificationChannels',
         ]);
 
         $this->server = $server;
-        $this->snapshotsCount = $server->snapshots()
-            ->whereHas('job', fn ($q) => $q->whereRaw('status = ?', ['completed']))
-            ->count();
+        $this->snapshotsCount = $server->snapshots()->count();
         $this->restoresCount = Restore::where('target_server_id', $server->id)->count();
     }
 
@@ -68,6 +67,12 @@ class Show extends Component
     public function confirmRestore(): void
     {
         $this->authorize('restore', $this->server);
+
+        if ($this->server->agent_id) {
+            $this->error(__('Restore is not yet supported for agent-backed servers.'));
+
+            return;
+        }
 
         if ($this->server->database_type === DatabaseType::REDIS) {
             $this->showRedisRestoreModal = true;

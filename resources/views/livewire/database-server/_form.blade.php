@@ -30,6 +30,64 @@ use App\Enums\DatabaseType;
                     :hint="__('Notes for your team about this server\'s purpose')"
                     rows="2"
                 />
+
+                @php $agentOptions = $form->getAgentOptions(); @endphp
+                @if(count($agentOptions) > 0 || $form->hasAgent())
+                    <div class="border border-base-300 rounded-lg bg-base-200">
+                        <!-- Toggle Header -->
+                        <label class="flex items-start gap-3 p-4 cursor-pointer select-none">
+                            <x-toggle
+                                wire:model.live="form.use_agent"
+                                class="toggle-primary"
+                            />
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-medium">{{ __('Use a remote agent') }}</span>
+                                    <span class="badge badge-ghost badge-sm text-base-content/50 font-normal">{{ __('Optional') }}</span>
+                                </div>
+                                <p class="text-xs text-base-content/50 mt-0.5 leading-relaxed">
+                                    {{ __('Route backups through an agent installed on a server inside your private network or behind a firewall.') }}
+                                </p>
+                            </div>
+                        </label>
+
+                        <!-- Agent Selection (shown only when enabled) -->
+                        @if($form->use_agent)
+                            <div class="border-t border-base-300 bg-base-100 p-4 rounded-b-lg space-y-3">
+                                <x-select
+                                    wire:model.live="form.agent_id"
+                                    :label="__('Agent')"
+                                    :options="$agentOptions"
+                                    :placeholder="__('Select an agent')"
+                                    placeholder-value=""
+                                />
+
+                                @if($form->hasAgent())
+                                    @php $selectedAgent = $form->getSelectedAgent(); @endphp
+                                    @if($selectedAgent)
+                                        <div class="flex items-center gap-2 text-sm">
+                                            @if($selectedAgent->isOnline())
+                                                <span class="badge badge-success badge-sm gap-1">
+                                                    <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+                                                    {{ __('Online') }}
+                                                </span>
+                                                <span class="text-base-content/70">{{ __('Last heartbeat :time', ['time' => $selectedAgent->last_heartbeat_at->diffForHumans()]) }}</span>
+                                            @elseif($selectedAgent->last_heartbeat_at)
+                                                <span class="badge badge-warning badge-sm gap-1">
+                                                    <span class="w-2 h-2 rounded-full bg-warning"></span>
+                                                    {{ __('Offline') }}
+                                                </span>
+                                                <span class="text-base-content/70">{{ __('Last heartbeat :time', ['time' => $selectedAgent->last_heartbeat_at->diffForHumans()]) }}</span>
+                                            @else
+                                                <span class="badge badge-ghost badge-sm">{{ __('Never connected') }}</span>
+                                            @endif
+                                        </div>
+                                    @endif
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -177,7 +235,12 @@ use App\Enums\DatabaseType;
                     @endif
 
                     <!-- Test Connection Button -->
-                    <div class="flex flex-wrap items-center gap-2 pt-2">
+                    @if($form->hasAgent())
+                        <x-alert class="alert-info mt-2" icon="o-information-circle">
+                            {{ __('Connection testing is not available for agent-managed servers. The agent will test connectivity when running backups.') }}
+                        </x-alert>
+                    @else
+                        <div class="flex flex-wrap items-center gap-2 pt-2">
                             <x-button
                                 class="{{ $form->connectionTestSuccess ? 'btn-success' : 'btn-outline btn-primary' }}"
                                 type="button"
@@ -242,13 +305,14 @@ use App\Enums\DatabaseType;
                                 @endforeach
                             </div>
                         @endif
+                    @endif
                 @endif
             </div>
         </div>
     </div>
 
     <!-- Enable Backups Toggle (shown after successful connection test, agent assigned, or when editing) -->
-    @if($form->connectionTestSuccess or $isEdit)
+    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit)
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
                 <x-toggle
@@ -262,7 +326,7 @@ use App\Enums\DatabaseType;
     @endif
 
     <!-- Section 3: Backup Configurations (collection of one or more) -->
-    @if(($form->connectionTestSuccess or $isEdit or $form->isSqlite() or $form->isFirebird()) && $form->backups_enabled)
+    @if(($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite() or $form->isFirebird()) && $form->backups_enabled)
         @php
             $volumes = $form->getAllVolumes();
             $schedules = $form->getBackupSchedules();
@@ -312,7 +376,7 @@ use App\Enums\DatabaseType;
     @endif
 
     <!-- Section 4: Notifications -->
-    @if($form->connectionTestSuccess or $isEdit or $form->isSqlite() or $form->isFirebird())
+    @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite() or $form->isFirebird())
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
                 <div class="flex items-center gap-3 mb-4">

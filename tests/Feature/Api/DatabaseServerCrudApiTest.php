@@ -198,6 +198,33 @@ test('store returns validation errors for missing required fields', function () 
         ->assertJsonValidationErrors(['name', 'database_type']);
 });
 
+test('cannot create an agent-backed server with a local volume', function () {
+    $user = User::factory()->create();
+    $agent = \App\Models\Agent::factory()->create();
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    // Local volumes live on the API host and are unreachable from a remote agent.
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Agent MySQL',
+            'database_type' => 'mysql',
+            'host' => 'db.internal',
+            'port' => 3306,
+            'username' => 'root',
+            'agent_id' => $agent->id,
+            'backups' => [[
+                'database_selection_mode' => 'all',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ]],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['backups.0.volume_id']);
+});
+
 test('can create a server with backup config including gfs retention', function () {
     $user = User::factory()->create();
     $volume = Volume::factory()->local()->create();

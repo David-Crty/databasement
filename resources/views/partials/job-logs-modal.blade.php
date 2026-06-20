@@ -93,6 +93,14 @@
                                 {{ $snapshot->volume->getVolumeType()?->label() ?? $snapshot->volume->type }}
                             </div>
                         @endif
+
+                        {{-- Agent: only for backup jobs that ran through a remote agent --}}
+                        @if($this->selectedJob->snapshot?->getAgentName())
+                            <div class="badge badge-outline gap-1.5">
+                                <x-icon name="o-cpu-chip" class="w-3.5 h-3.5" />
+                                {{ __('Agent') }}: {{ $this->selectedJob->snapshot->getAgentName() }}
+                            </div>
+                        @endif
                     </div>
                 @endif
                 <div class="text-xs sm:text-sm text-base-content/70">

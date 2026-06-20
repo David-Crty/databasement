@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
@@ -45,6 +46,32 @@ class DatabaseSeeder extends Seeder
             'name' => 'Local',
             'type' => 'local',
             'config' => ['path' => '/data/backups'],
+            'organization_id' => $defaultOrg->id,
+        ]);
+
+        // S3 volume backed by the local rustfs service (docker-compose).
+        // Internal endpoint reaches rustfs over the compose network; the public
+        // endpoint (host-published port) is used for presigned download URLs.
+        $s3Config = [
+            'bucket' => 'databasement-backups',
+            'prefix' => '',
+            'region' => 'us-east-1',
+            'access_key_id' => 'rustfsadmin',
+            'secret_access_key' => 'rustfsadmin',
+            'custom_endpoint' => 'http://rustfs:9000',
+            'public_endpoint' => 'http://localhost:9000',
+            'use_path_style_endpoint' => true,
+            'custom_role_arn' => '',
+            'role_session_name' => '',
+            'sts_endpoint' => '',
+        ];
+
+        $this->createRustfsBucket($s3Config);
+
+        $s3Volume = Volume::create([
+            'name' => 'RustFS (S3)',
+            'type' => 's3',
+            'config' => VolumeType::S3->encryptSensitiveFields($s3Config),
             'organization_id' => $defaultOrg->id,
         ]);
 
@@ -156,11 +183,17 @@ class DatabaseSeeder extends Seeder
             'database_selection_mode' => 'all',
         ];
 
-        foreach ([$mysql, $postgres, $redis, $mongodb, $mssql] as $server) {
+        foreach ([$mysql, $redis, $mongodb, $mssql] as $server) {
             Backup::create(array_merge($backupDefaults, [
                 'database_server_id' => $server->id,
             ]));
         }
+
+        // PostgreSQL backs up to the rustfs S3 volume (local S3 testing)
+        Backup::create(array_merge($backupDefaults, [
+            'database_server_id' => $postgres->id,
+            'volume_id' => $s3Volume->id,
+        ]));
 
         // SQLite backup uses 'selected' mode with explicit file paths
         Backup::create(array_merge($backupDefaults, [
@@ -175,6 +208,34 @@ class DatabaseSeeder extends Seeder
             'database_selection_mode' => 'selected',
             'database_names' => [$firebirdPath],
         ]));
+    }
+
+    /**
+     * Ensure the rustfs bucket exists so the seeded S3 volume works out of the box.
+     * Best-effort: never fail seeding if rustfs is unreachable or the bucket exists.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    private function createRustfsBucket(array $config): void
+    {
+        try {
+            $client = new \Aws\S3\S3Client([
+                'version' => 'latest',
+                'region' => $config['region'],
+                'endpoint' => $config['custom_endpoint'],
+                'use_path_style_endpoint' => true,
+                'credentials' => [
+                    'key' => $config['access_key_id'],
+                    'secret' => $config['secret_access_key'],
+                ],
+            ]);
+
+            if (! $client->doesBucketExist($config['bucket'])) {
+                $client->createBucket(['Bucket' => $config['bucket']]);
+            }
+        } catch (\Throwable $e) {
+            $this->command?->warn("Could not provision rustfs bucket '{$config['bucket']}': {$e->getMessage()}");
+        }
     }
 
     /**

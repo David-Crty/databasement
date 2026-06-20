@@ -71,7 +71,7 @@
     <x-modal wire:model="showDeleteModal" :title="__('Delete Organization')">
         @if($deleteOrgHasResources)
             <x-alert icon="o-exclamation-triangle" class="alert-warning">
-                {{ __('This organization still has servers or volumes. Remove all resources before deleting it.') }}
+                {{ __('This organization still has servers, volumes, or agents. Remove all resources before deleting it.') }}
             </x-alert>
         @else
             <p>{{ __('Are you sure you want to delete this organization? This action cannot be undone.') }}</p>

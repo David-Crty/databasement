@@ -111,6 +111,19 @@ The Docker setup provides:
 
 **Queue Worker**: The queue service automatically starts with `make start` and processes jobs from the `backups` queue. It restarts automatically on failure and respects a max of 1000 jobs before auto-restarting (prevents memory leaks).
 
+## Agent Mode
+
+When `DATABASEMENT_URL` is set, the app runs as a remote agent — it only executes the `agent:run` CLI command (polls an API and runs `BackupTask`). It never uses the app's own database.
+
+Config files check `env('DATABASEMENT_URL')` to swap database-dependent drivers for in-memory/no-op alternatives:
+
+- **Database**: `agent` connection (SQLite `:memory:`)
+- **Cache**: `array` driver
+- **Queue**: `sync` driver
+- **Session**: `array` driver
+
+This means agent mode requires zero database configuration.
+
 ## Architecture
 
 ### Application Structure
