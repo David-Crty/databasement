@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Agent;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 
@@ -82,6 +83,21 @@ test('getSshDisplayName returns display name when SSH configured', function () {
 
     expect($server->getSshDisplayName())->not->toBeNull()
         ->and($server->getSshDisplayName())->toContain('@'); // Format: user@host:port
+});
+
+test('supportsAdminer is false for agent-backed servers', function () {
+    $agent = Agent::factory()->create();
+    $agentBacked = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+        'agent_id' => $agent->id,
+    ]);
+    $direct = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+        'agent_id' => null,
+    ]);
+
+    expect($agentBacked->supportsAdminer())->toBeFalse()
+        ->and($direct->supportsAdminer())->toBeTrue();
 });
 
 test('requiresSftpTransfer returns correct value', function () {

@@ -167,12 +167,14 @@ class DatabaseServer extends Model
 
     /**
      * Check if this server supports browsing via Adminer.
-     * Requires a compatible database type (MySQL, PostgreSQL, SQLite) and no SSH.
+     * Requires a compatible database type (MySQL, PostgreSQL, SQLite), no SSH, and no agent.
+     * Agent-backed servers are outbound-only and unreachable directly, so Adminer cannot connect.
      */
     public function supportsAdminer(): bool
     {
         return in_array($this->database_type, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL, DatabaseType::SQLITE])
-            && $this->ssh_config_id === null;
+            && $this->ssh_config_id === null
+            && $this->agent_id === null;
     }
 
     /**
