@@ -40,11 +40,19 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read PR number
+      - name: Read PR metadata
         id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -f pr-number.txt ]; then
-            echo "number=$(cat pr-number.txt)" >> "$GITHUB_OUTPUT"
+            number=$(cat pr-number.txt)
+            echo "number=$number" >> "$GITHUB_OUTPUT"
+            # Resolve the PR's base branch for SonarQube PR analysis. The
+            # workflow_run payload doesn't reliably carry it, so query the API
+            # and fall back to the default branch if anything goes wrong.
+            base=$(gh pr view "$number" --repo "${{ github.repository }}" --json baseRefName -q .baseRefName 2>/dev/null || true)
+            echo "base=${base:-main}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload coverage to Codecov
@@ -69,8 +77,8 @@ jobs:
           override_branch: ${{ github.event.workflow_run.head_branch }}
           override_pr: ${{ steps.pr.outputs.number }}
 
-      - name: SonarQube Scan
-        # Only analyse the main branch, using the coverage.xml and junit.xml
+      - name: SonarQube Scan (main)
+        # Analyse the main branch, using the coverage.xml and junit.xml
         # produced by the triggering `tests` run.
         if: ${{ github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.event == 'push' && hashFiles('coverage.xml') != '' }}
         uses: SonarSource/sonarqube-scan-action@v8
@@ -82,4 +90,22 @@ jobs:
           # original push. Pin branch and revision to the triggering commit.
           args: >-
             -Dsonar.branch.name=${{ github.event.workflow_run.head_branch }}
+            -Dsonar.scm.revision=${{ github.event.workflow_run.head_sha }}
+
+      - name: SonarQube Scan (pull request)
+        # Analyse pull requests so SonarQube decorates the PR with its Quality
+        # Gate and inline issues. The `pull_requests` payload is unreliable in
+        # workflow_run, so we drive this off the PR number from the artifact and
+        # the base branch resolved above.
+        if: ${{ github.event.workflow_run.event == 'pull_request' && steps.pr.outputs.number != '' && hashFiles('coverage.xml') != '' }}
+        uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          # PR analysis params take precedence over branch analysis. Pin the
+          # revision to the triggering commit since we run detached.
+          args: >-
+            -Dsonar.pullrequest.key=${{ steps.pr.outputs.number }}
+            -Dsonar.pullrequest.branch=${{ github.event.workflow_run.head_branch }}
+            -Dsonar.pullrequest.base=${{ steps.pr.outputs.base }}
             -Dsonar.scm.revision=${{ github.event.workflow_run.head_sha }}
