@@ -2842,6 +2842,18 @@ Adminer access is enabled by default for Admins only. A Super Admin can change t
 | Edit      |   ❌    |   ✅    |   ✅   |
 | Delete    |   ❌    |   ✅    |   ✅   |
 
+### Agents
+
+| Action           | Viewer | Member | Admin |
+|------------------|:------:|:------:|:-----:|
+| View list        |   ✅    |   ✅    |   ✅   |
+| Create           |   ❌    |   ✅    |   ✅   |
+| Edit             |   ❌    |   ✅    |   ✅   |
+| Regenerate token |   ❌    |   ✅    |   ✅   |
+| Delete           |   ❌    |   ✅    |   ✅   |
+
+See [Remote Agents](./agents.md) for how agents back up databases in firewalled or isolated networks.
+
 ### Snapshots
 
 | Action       | Viewer | Member | Admin |
@@ -3116,6 +3128,50 @@ OAUTH_OIDC_LABEL=SSO
 - **OAuth-only users**: Cannot use password login — they must use the OAuth button
 - **Settings access**: OAuth-only users don't see Password or Two-Factor settings (managed by the OAuth provider)
 
+## Running an Agent Locally
+
+A remote agent polls the app over HTTPS and runs backups on its own network (for servers the app can't reach directly). For local development you can run an agent straight from your working copy — no image rebuild — by bind-mounting the repo into the dev PHP image.
+
+### 1. Create an agent and copy its token
+
+Create one in the UI (**Agents → Add Agent**), or via tinker:
+
+```bash
+docker compose exec --user application app php artisan tinker --execute '
+$org = App\Models\Organization::where("is_default", true)->first();
+$agent = App\Models\Agent::create(["name" => "local-test-agent", "organization_id" => $org->id]);
+echo $agent->createToken("agent")->plainTextToken.PHP_EOL;
+'
+```
+
+### 2. Run the agent
+
+Attach it to the compose network so it can reach the app, databases, and the S3 (rustfs) volume by service name. The `-v "$(pwd)":/app` mount runs your local code (dev only):
+
+```bash
+docker run -d --rm \
+  --network databasement_default \
+  -v "$(pwd)":/app \
+  -e DATABASEMENT_URL='http://app:2226' \
+  -e DATABASEMENT_AGENT_TOKEN='<paste-token>' \
+  --name databasement-agent \
+  davidcrty/databasement-php \
+  php artisan agent:run
+
+docker logs -f databasement-agent   # follow output
+docker rm -f databasement-agent     # stop the agent
+```
+
+When `DATABASEMENT_URL` is set the image runs in agent mode (it execs `php artisan agent:run` and needs zero database configuration). Setting it explicitly here lets us also override the startup command for the bind-mount workflow.
+
+### 3. Back up through the agent
+
+Assign the agent to a database server (set `agent_id`) and run a backup. Agent-backed servers **cannot** use a local volume — use the seeded **RustFS (S3)** volume. The agent then claims the job, dumps the database, and uploads it to the volume.
+
+:::note
+Use `--network databasement_default` so `app:2226`, `postgres:5432`, and `rustfs:9000` resolve by name. Alternatively use `--network host` with `DATABASEMENT_URL=http://localhost:2226`, but then the server host and S3 endpoint must also be reachable from the host network.
+:::
+
 ## Git Hooks
 
 Pre-commit hooks (via Husky) automatically run:
@@ -3235,6 +3291,78 @@ We use Pest PHP for testing. Key principles:
 5. Submit a pull request with a clear description
 
 For significant changes, open an issue first to discuss the approach.
+
+---
+
+## Remote Agents
+
+
+A remote **agent** backs up databases that Databasement cannot reach directly — without opening any inbound port to them.
+
+Instead of Databasement connecting **in** to your database (as an [SSH tunnel](./ssh-tunnel.md) does), you run a small agent next to the database that connects **out** to Databasement. The database stays completely private; only outbound HTTPS is ever needed.
+
+:::info Egress, not ingress
+The SSH tunnel needs **inbound** access (Databasement reaches into the network). An agent needs only **outbound** HTTPS. That makes it the right fit for hardened, firewalled, or multi-tenant environments where opening inbound ports is forbidden.
+:::
+
+## How it works
+
+The agent is the same Databasement image running in agent mode (`agent:run`). It polls the server over HTTPS, claims any job assigned to it, runs the dump on its own network, uploads the result straight to your storage volume, and reports back. It never receives an inbound connection and never touches the server's database.
+
+```
+  ┌─────────────────────── your private network ──────────────────────┐
+  │                                                                    │
+  │   ┌──────────┐        ┌──────────────┐        ┌──────────────┐     │
+  │   │ Database │◄───────│    Agent     │───────►│    Volume    │     │
+  │   └──────────┘  dump  │ (agent:run)  │ upload │ (S3 / SFTP)  │     │
+  │                       └──────┬───────┘        └──────────────┘     │
+  │                              │                                     │
+  └──────────────────────────────┼─────────────────────────────────────┘
+                                 │  outbound HTTPS only
+                                 │  (poll → claim → report)
+                                 ▼
+                       ┌──────────────────┐
+                       │   Databasement   │
+                       │      server      │
+                       └──────────────────┘
+```
+
+1. **Poll** — the agent sends a heartbeat and asks the server for work.
+2. **Claim** — the server hands back a job describing the database, the schedule, and the destination volume.
+3. **Run** — the agent dumps the database (it reaches it on the local network) and uploads the snapshot to the volume.
+4. **Report** — the agent acknowledges the result (filename, size, checksum, logs) so the snapshot shows up in the UI like any other.
+
+## When to use an agent
+
+- The database lives in a network where **no inbound port** can be opened (compliance, firewall, customer-managed VPC).
+- You back up databases in **many isolated networks** and want one Databasement server orchestrating them all over HTTPS.
+- An [SSH tunnel](./ssh-tunnel.md) isn't possible because there's no SSH host to reach.
+
+If you *can* reach the database directly or over SSH, prefer that — it's simpler. The agent's unique value is the outbound-only connectivity.
+
+## Setup
+
+1. **Create an agent** — go to **Agents → Add Agent**, then copy the token shown once on creation.
+2. **Run the agent** next to your database, pointing it at your server:
+
+   ```bash
+   docker run -d --restart unless-stopped \
+     --name databasement-agent \
+     -e DATABASEMENT_URL='https://databasement.example.com' \
+     -e DATABASEMENT_AGENT_TOKEN='<paste-token>' \
+     davidcrty/databasement:1
+   ```
+
+   When `DATABASEMENT_URL` is set, the container runs in agent mode — it only executes `agent:run` and needs no database configuration of its own.
+
+3. **Assign the agent** to a database server by setting its **Agent** field. From then on, that server's backups run through the agent.
+
+The **Agents** page shows each agent's connection status, so you can confirm it's polling.
+
+## Constraints
+
+- **No local volume** — the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
+- **Backups only** — restore is not available for agent-backed servers.
 
 ---
 

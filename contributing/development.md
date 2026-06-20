@@ -150,6 +150,50 @@ OAUTH_OIDC_LABEL=SSO
 - **OAuth-only users**: Cannot use password login — they must use the OAuth button
 - **Settings access**: OAuth-only users don't see Password or Two-Factor settings (managed by the OAuth provider)
 
+## Running an Agent Locally
+
+A remote agent polls the app over HTTPS and runs backups on its own network (for servers the app can't reach directly). For local development you can run an agent straight from your working copy — no image rebuild — by bind-mounting the repo into the dev PHP image.
+
+### 1. Create an agent and copy its token
+
+Create one in the UI (**Agents → Add Agent**), or via tinker:
+
+```bash
+docker compose exec --user application app php artisan tinker --execute '
+$org = App\Models\Organization::where("is_default", true)->first();
+$agent = App\Models\Agent::create(["name" => "local-test-agent", "organization_id" => $org->id]);
+echo $agent->createToken("agent")->plainTextToken.PHP_EOL;
+'
+```
+
+### 2. Run the agent
+
+Attach it to the compose network so it can reach the app, databases, and the S3 (rustfs) volume by service name. The `-v "$(pwd)":/app` mount runs your local code (dev only):
+
+```bash
+docker run -d --rm \
+  --network databasement_default \
+  -v "$(pwd)":/app \
+  -e DATABASEMENT_URL='http://app:2226' \
+  -e DATABASEMENT_AGENT_TOKEN='<paste-token>' \
+  --name databasement-agent \
+  davidcrty/databasement-php \
+  php artisan agent:run
+
+docker logs -f databasement-agent   # follow output
+docker rm -f databasement-agent     # stop the agent
+```
+
+When `DATABASEMENT_URL` is set the image runs in agent mode (it execs `php artisan agent:run` and needs zero database configuration). Setting it explicitly here lets us also override the startup command for the bind-mount workflow.
+
+### 3. Back up through the agent
+
+Assign the agent to a database server (set `agent_id`) and run a backup. Agent-backed servers **cannot** use a local volume — use the seeded **RustFS (S3)** volume. The agent then claims the job, dumps the database, and uploads it to the volume.
+
+:::note
+Use `--network databasement_default` so `app:2226`, `postgres:5432`, and `rustfs:9000` resolve by name. Alternatively use `--network host` with `DATABASEMENT_URL=http://localhost:2226`, but then the server host and S3 endpoint must also be reachable from the host network.
+:::
+
 ## Git Hooks
 
 Pre-commit hooks (via Husky) automatically run:
