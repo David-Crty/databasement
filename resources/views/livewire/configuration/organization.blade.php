@@ -9,7 +9,15 @@
 
     <x-alert icon="o-information-circle" class="alert-info mb-4">
         {{ __('Organizations let you group users, servers, and volumes into isolated workspaces.') }}
-        <a href="https://david-crty.github.io/databasement/docs/user-guide/organizations" target="_blank" rel="noopener noreferrer" class="link link-primary">{{ __('Learn more') }}</a>
+        <x-slot:actions>
+            <x-button
+                :label="__('Learn more')"
+                link="https://david-crty.github.io/databasement/user-guide/organizations"
+                external
+                icon="o-book-open"
+                class="btn-sm"
+            />
+        </x-slot:actions>
     </x-alert>
 
     <div class="flex justify-end mb-4">

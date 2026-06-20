@@ -28,6 +28,15 @@
 
     <x-alert class="alert-info alert-vertical sm:alert-horizontal rounded-md mb-4" icon="o-information-circle">
         {{ __('Agents run on remote networks to back up database servers that are not directly accessible. They are optional, you only need them if your servers are behind a firewall or private network.') }}
+        <x-slot:actions>
+            <x-button
+                :label="__('Learn more')"
+                link="https://david-crty.github.io/databasement/user-guide/agents"
+                external
+                icon="o-book-open"
+                class="btn-sm"
+            />
+        </x-slot:actions>
     </x-alert>
 
     <!-- SEARCH (Mobile) -->
@@ -63,19 +72,7 @@
             @endscope
 
             @scope('cell_status', $agent)
-                @if($agent->isOnline())
-                    <span class="badge badge-success badge-sm gap-1 whitespace-nowrap">
-                        <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-                        {{ __('Online') }}
-                    </span>
-                @elseif($agent->last_heartbeat_at)
-                    <span class="badge badge-warning badge-sm gap-1 whitespace-nowrap">
-                        <span class="w-2 h-2 rounded-full bg-warning"></span>
-                        {{ __('Offline') }}
-                    </span>
-                @else
-                    <span class="badge badge-ghost badge-sm whitespace-nowrap">{{ __('Never connected') }}</span>
-                @endif
+                <x-agent-status-indicator :status="$agent->connectionStatus()" />
             @endscope
 
             @scope('cell_servers', $agent)

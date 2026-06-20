@@ -66,20 +66,9 @@ use App\Enums\DatabaseType;
                                     @php $selectedAgent = $form->getSelectedAgent(); @endphp
                                     @if($selectedAgent)
                                         <div class="flex items-center gap-2 text-sm">
-                                            @if($selectedAgent->isOnline())
-                                                <span class="badge badge-success badge-sm gap-1">
-                                                    <span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
-                                                    {{ __('Online') }}
-                                                </span>
+                                            <x-agent-status-indicator :status="$selectedAgent->connectionStatus()" />
+                                            @if($selectedAgent->last_heartbeat_at)
                                                 <span class="text-base-content/70">{{ __('Last heartbeat :time', ['time' => $selectedAgent->last_heartbeat_at->diffForHumans()]) }}</span>
-                                            @elseif($selectedAgent->last_heartbeat_at)
-                                                <span class="badge badge-warning badge-sm gap-1">
-                                                    <span class="w-2 h-2 rounded-full bg-warning"></span>
-                                                    {{ __('Offline') }}
-                                                </span>
-                                                <span class="text-base-content/70">{{ __('Last heartbeat :time', ['time' => $selectedAgent->last_heartbeat_at->diffForHumans()]) }}</span>
-                                            @else
-                                                <span class="badge badge-ghost badge-sm">{{ __('Never connected') }}</span>
                                             @endif
                                         </div>
                                     @endif

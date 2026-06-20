@@ -39,6 +39,7 @@
 
 - **Multi-database support** - Manage MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis/Valkey servers from a single interface
 - **SSH tunnel support** - Connect to databases in private networks through a bastion/jump server with password or key-based authentication
+- **Remote agents** - Back up databases in firewalled or isolated networks with no inbound port: a lightweight agent connects out over HTTPS, dumps locally, and uploads to your storage
 - **Automated backups** - Schedule recurring backups on daily or weekly intervals. Flexible retention policies: simple time-based (days) or GFS (grandfather-father-son)
 - **Multiple compression options** - gzip, zstd (20-40% better compression), or encrypted (AES-256 for sensitive data)
 - **Cross-server restore** - Restore snapshots from production to staging, or between any compatible servers

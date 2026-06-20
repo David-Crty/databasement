@@ -69,4 +69,16 @@ class Agent extends Model
         return $this->last_heartbeat_at !== null
             && $this->last_heartbeat_at->isAfter(now()->subMinutes(1));
     }
+
+    /**
+     * Connection status for display: 'online', 'offline', or 'never'.
+     */
+    public function connectionStatus(): string
+    {
+        if ($this->isOnline()) {
+            return 'online';
+        }
+
+        return $this->last_heartbeat_at !== null ? 'offline' : 'never';
+    }
 }

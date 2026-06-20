@@ -412,10 +412,6 @@
 
             {{-- Agent --}}
             @if($agent)
-                @php
-                    $online = $agent->isOnline();
-                    $neverConnected = $agent->last_heartbeat_at === null;
-                @endphp
                 <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
                     <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
                         <x-icon name="o-cpu-chip" class="w-4 h-4 opacity-60" />
@@ -424,12 +420,7 @@
                     <div class="p-4 space-y-3">
                         <div class="flex items-center justify-between gap-2">
                             <span class="text-sm font-medium truncate">{{ $agent->name }}</span>
-                            <span class="badge {{ $neverConnected ? 'badge-ghost' : ($online ? 'badge-success' : 'badge-error') }} gap-1.5">
-                                @if(! $neverConnected)
-                                    <span class="status {{ $online ? 'status-success animate-pulse' : 'status-error' }}"></span>
-                                @endif
-                                {{ $neverConnected ? __('Never connected') : ($online ? __('Online') : __('Offline')) }}
-                            </span>
+                            <x-agent-status-indicator :status="$agent->connectionStatus()" />
                         </div>
                         @if($agent->last_heartbeat_at)
                             <p class="text-xs opacity-60">
