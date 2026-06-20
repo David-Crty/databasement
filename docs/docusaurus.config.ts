@@ -58,11 +58,14 @@ const config: Config = {
     projectName: 'databasement',
 
     markdown: {
+        mermaid: true,
         hooks: {
             onBrokenMarkdownLinks: 'throw',
         }
     },
     onBrokenLinks: 'throw',
+
+    themes: ['@docusaurus/theme-mermaid'],
 
     i18n: {
         defaultLocale: 'en',
