@@ -16,22 +16,28 @@ The SSH tunnel needs **inbound** access (Databasement reaches into the network).
 
 The agent is the same Databasement image running in agent mode (`agent:run`). It polls the server over HTTPS, claims any job assigned to it, runs the dump on its own network, uploads the result straight to your storage volume, and reports back. It never receives an inbound connection and never touches the server's database.
 
-```
-  ┌─────────────────────── your private network ──────────────────────┐
-  │                                                                    │
-  │   ┌──────────┐        ┌──────────────┐        ┌──────────────┐     │
-  │   │ Database │◄───────│    Agent     │───────►│    Volume    │     │
-  │   └──────────┘  dump  │ (agent:run)  │ upload │ (S3 / SFTP)  │     │
-  │                       └──────┬───────┘        └──────────────┘     │
-  │                              │                                     │
-  └──────────────────────────────┼─────────────────────────────────────┘
-                                 │  outbound HTTPS only
-                                 │  (poll → claim → report)
-                                 ▼
-                       ┌──────────────────┐
-                       │   Databasement   │
-                       │      server      │
-                       └──────────────────┘
+```mermaid
+flowchart TB
+  subgraph net["🔒 Your private network — no inbound ports"]
+    direction LR
+    DB[("Database")]
+    Agent["Agent (agent:run)"]
+    Vol["Volume (S3 / SFTP)"]
+    Agent ==>|dump| DB
+    Agent ==>|upload| Vol
+  end
+
+  Agent -. "outbound HTTPS only (poll → claim → report)" .-> Server["Databasement server"]
+
+  classDef agent fill:#dbeafe,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a;
+  classDef data fill:#ede9fe,stroke:#8b5cf6,stroke-width:1.5px,color:#4c1d95;
+  classDef server fill:#dcfce7,stroke:#22c55e,stroke-width:1.5px,color:#14532d;
+
+  class Agent agent;
+  class DB,Vol data;
+  class Server server;
+
+  style net fill:#f8fafc,stroke:#cbd5e1,stroke-width:1px,color:#475569;
 ```
 
 1. **Poll** — the agent sends a heartbeat and asks the server for work.
