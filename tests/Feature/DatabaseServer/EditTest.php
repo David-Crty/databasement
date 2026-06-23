@@ -250,6 +250,17 @@ test('falls back to index when return url is the edit page itself', function () 
         ->assertRedirect(route('database-servers.index'));
 });
 
+test('falls back to index when return url is the edit page with a query string', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('returnUrl', route('database-servers.edit', $server).'?tab=backups')
+        ->call('save')
+        ->assertRedirect(route('database-servers.index'));
+});
+
 test('pattern mode filters available databases and auto-loads on switch', function () {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->create();

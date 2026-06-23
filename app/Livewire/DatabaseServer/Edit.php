@@ -59,8 +59,8 @@ class Edit extends Component
             return $fallback;
         }
 
-        // Don't redirect back to the edit page itself.
-        if ($url === route('database-servers.edit', $this->form->server)) {
+        // Don't redirect back to the edit page itself (strip query string/fragment before comparing).
+        if (strtok($url, '?#') === route('database-servers.edit', $this->form->server)) {
             return $fallback;
         }
 
