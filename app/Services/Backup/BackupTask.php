@@ -116,6 +116,16 @@ class BackupTask
                 'filename' => $filename,
             ]);
 
+            if ($config->postScript !== null && $config->postScript !== '') {
+                try {
+                    $logger->log('Running post-script', 'info', ['command' => $config->postScript]);
+                    $this->shellProcessor->process($config->postScript);
+                    $logger->log('Post-script completed successfully', 'success');
+                } catch (\Throwable $e) {
+                    $logger->log('Post-script failed: '.$e->getMessage(), 'warning');
+                }
+            }
+
             return new BackupResult($filename, $fileSize, $checksum);
         } finally {
             $this->closeSshTunnel($logger);

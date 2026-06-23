@@ -26,6 +26,7 @@ test('toPayload and fromPayload are symmetric', function () {
         backupPath: 'backups/2026/02',
         compressionType: CompressionType::GZIP,
         compressionLevel: 6,
+        postScript: '/usr/local/bin/notify.sh',
     );
 
     $payload = $original->toPayload();
@@ -42,7 +43,8 @@ test('toPayload and fromPayload are symmetric', function () {
         ->and($restored->workingDirectory)->toBe('/tmp/restored')
         ->and($restored->backupPath)->toBe('backups/2026/02')
         ->and($restored->compressionType)->toBe(CompressionType::GZIP)
-        ->and($restored->compressionLevel)->toBe(6);
+        ->and($restored->compressionLevel)->toBe(6)
+        ->and($restored->postScript)->toBe('/usr/local/bin/notify.sh');
 });
 
 test('toPayload includes server_name and database_name in database section', function () {

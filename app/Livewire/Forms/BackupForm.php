@@ -44,6 +44,7 @@ final class BackupForm
             'database_names' => [],
             'database_names_input' => '',
             'database_include_pattern' => '',
+            'post_script' => '',
         ];
     }
 
@@ -68,6 +69,7 @@ final class BackupForm
             'database_names' => $backup->database_names ?? [],
             'database_names_input' => implode(', ', $backup->database_names ?? []),
             'database_include_pattern' => $backup->database_include_pattern ?? '',
+            'post_script' => $backup->post_script ?? '',
         ];
     }
 
@@ -94,6 +96,7 @@ final class BackupForm
             'database_selection_mode' => $entry['database_selection_mode'] ?? DatabaseSelectionMode::All->value,
             'database_names' => $entry['database_names'] ?? null,
             'database_include_pattern' => ! empty($entry['database_include_pattern']) ? $entry['database_include_pattern'] : null,
+            'post_script' => ! empty($entry['post_script']) ? $entry['post_script'] : null,
         ];
 
         if ($retentionPolicy === Backup::RETENTION_DAYS) {
@@ -198,6 +201,7 @@ final class BackupForm
         $prefix = "backups.{$index}.";
 
         $rules = [
+            $prefix.'post_script' => ['nullable', 'string', 'max:2000'],
             $prefix.'volume_id' => [
                 'required',
                 Rule::exists('volumes', 'id')->where('organization_id', app(CurrentOrganization::class)->id()),

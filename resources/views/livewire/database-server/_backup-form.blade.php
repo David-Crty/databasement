@@ -581,6 +581,32 @@
         </div>
 
         {{-- ======================================================================== --}}
+        {{-- Sub-group 5 — Post-script                                                  --}}
+        {{-- ======================================================================== --}}
+        <div class="space-y-3 pt-6 border-t border-base-200">
+            <div class="flex items-center gap-2">
+                <span class="flex h-6 w-6 items-center justify-center rounded bg-base-200 text-base-content/70">
+                    <x-icon name="o-command-line" class="w-3.5 h-3.5" />
+                </span>
+                <span class="text-sm font-semibold text-base-content/80 tracking-tight">
+                    {{ __('Post-script (optional)') }}
+                </span>
+            </div>
+
+            <x-textarea
+                wire:model.live.debounce.300ms="form.backups.{{ $index }}.post_script"
+                :label="__('Command')"
+                :placeholder="__('e.g., /usr/local/bin/notify-backup.sh')"
+                :hint="__('Shell command to run after a successful backup. A non-zero exit code is logged as a warning but does not fail the backup.')"
+                rows="2"
+            />
+
+            @error('form.backups.'.$index.'.post_script')
+                <x-alert class="alert-error" icon="o-x-circle">{{ $message }}</x-alert>
+            @enderror
+        </div>
+
+        {{-- ======================================================================== --}}
         {{-- Live summary callout                                                       --}}
         {{-- ======================================================================== --}}
         <div class="pt-6 border-t border-base-200">

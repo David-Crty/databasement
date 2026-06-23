@@ -345,6 +345,83 @@ test('execute uses custom compression type and level', function () {
     expect(array_values($zstdCommands)[0])->toContain('-5');
 });
 
+test('execute records post-script command in shell processor after successful backup', function () {
+    $mockProvider = buildMockDatabaseProvider();
+
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $workingDirectory = $this->tempDir.'/post-script-test-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    $config = new BackupConfig(
+        database: buildDbConfig(),
+        volume: buildVolumeConfig(),
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+        postScript: '/usr/local/bin/notify.sh',
+    );
+
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
+
+    expect($result)->toBeInstanceOf(BackupResult::class)
+        ->and($this->shellProcessor->getCommands())->toContain('/usr/local/bin/notify.sh');
+});
+
+test('execute logs warning and continues when post-script fails', function () {
+    $mockProvider = buildMockDatabaseProvider();
+
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $throwingShellProcessor = new class extends TestShellProcessor {
+        public function process(string $command): string
+        {
+            if (str_contains($command, '__fail_marker__')) {
+                throw new \App\Exceptions\ShellProcessFailed('Script exited with code 1');
+            }
+
+            return parent::process($command);
+        }
+    };
+
+    $compressorFactory = new CompressorFactory($throwingShellProcessor);
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $throwingShellProcessor,
+        $this->filesystemProvider,
+        $compressorFactory,
+        $this->sshTunnelService,
+    );
+
+    $workingDirectory = $this->tempDir.'/post-script-fail-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    $logger = new InMemoryBackupLogger;
+
+    $config = new BackupConfig(
+        database: buildDbConfig(),
+        volume: buildVolumeConfig(),
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+        postScript: 'echo __fail_marker__',
+    );
+
+    $result = $backupTask->execute($config, $logger);
+
+    expect($result)->toBeInstanceOf(BackupResult::class);
+
+    $warningLogs = array_filter($logger->getLogs(), fn ($log) => ($log['level'] ?? '') === 'warning');
+    expect($warningLogs)->not->toBeEmpty();
+});
+
 test('execute prepends backup path with date variables to filename', function () {
     $mockProvider = buildMockDatabaseProvider();
 
