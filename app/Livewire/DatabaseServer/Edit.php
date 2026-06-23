@@ -8,6 +8,7 @@ use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -18,6 +19,7 @@ class Edit extends Component
 
     public DatabaseServerForm $form;
 
+    #[Locked]
     public string $returnUrl = '';
 
     public function mount(DatabaseServer $server): void
@@ -34,7 +36,7 @@ class Edit extends Component
         if (Gate::denies('update', $this->form->server)) {
             $this->warning(
                 title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: $this->safeReturnUrl($this->returnUrl),
+                redirectTo: $this->returnUrl,
                 flashAs: 'demo_notice',
             );
 
@@ -44,7 +46,7 @@ class Edit extends Component
         if ($this->form->update()) {
             $this->success(
                 title: __('Database server updated successfully!'),
-                redirectTo: $this->safeReturnUrl($this->returnUrl),
+                redirectTo: $this->returnUrl,
             );
         }
     }

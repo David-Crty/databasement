@@ -221,45 +221,29 @@ test('redirects to show page when arriving from show page', function () {
     $server = DatabaseServer::factory()->create();
     $showUrl = route('database-servers.show', $server);
 
+    session()->setPreviousUrl($showUrl);
+
     Livewire::actingAs($user)
         ->test(Edit::class, ['server' => $server])
-        ->set('returnUrl', $showUrl)
         ->call('save')
         ->assertRedirect($showUrl);
 });
 
-test('falls back to index when return url is external', function () {
+test('falls back to index when the previous url is unsafe', function (Closure $previousUrl) {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->create();
 
-    Livewire::actingAs($user)
-        ->test(Edit::class, ['server' => $server])
-        ->set('returnUrl', 'https://evil.com/steal-tokens')
-        ->call('save')
-        ->assertRedirect(route('database-servers.index'));
-});
-
-test('falls back to index when return url is the edit page itself', function () {
-    $user = User::factory()->create();
-    $server = DatabaseServer::factory()->create();
+    session()->setPreviousUrl($previousUrl($server));
 
     Livewire::actingAs($user)
         ->test(Edit::class, ['server' => $server])
-        ->set('returnUrl', route('database-servers.edit', $server))
         ->call('save')
         ->assertRedirect(route('database-servers.index'));
-});
-
-test('falls back to index when return url is the edit page with a query string', function () {
-    $user = User::factory()->create();
-    $server = DatabaseServer::factory()->create();
-
-    Livewire::actingAs($user)
-        ->test(Edit::class, ['server' => $server])
-        ->set('returnUrl', route('database-servers.edit', $server).'?tab=backups')
-        ->call('save')
-        ->assertRedirect(route('database-servers.index'));
-});
+})->with([
+    'external host' => [fn ($server) => 'https://evil.com/steal-tokens'],
+    'edit page itself' => [fn ($server) => route('database-servers.edit', $server)],
+    'edit page with query string' => [fn ($server) => route('database-servers.edit', $server).'?tab=backups'],
+]);
 
 test('pattern mode filters available databases and auto-loads on switch', function () {
     $user = User::factory()->create();
