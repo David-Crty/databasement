@@ -118,11 +118,11 @@ class BackupTask
 
             if ($config->postScript !== null && $config->postScript !== '') {
                 try {
-                    $logger->log('Running post-script', 'info', ['command' => $config->postScript]);
+                    $logger->log('Running post-script', 'info');
                     $this->shellProcessor->process($config->postScript);
                     $logger->log('Post-script completed successfully', 'success');
                 } catch (\Throwable $e) {
-                    $logger->log('Post-script failed: '.$e->getMessage(), 'warning');
+                    $logger->log('Post-script failed with a non-zero exit code', 'warning');
                 }
             }
 

@@ -96,7 +96,7 @@ final class BackupForm
             'database_selection_mode' => $entry['database_selection_mode'] ?? DatabaseSelectionMode::All->value,
             'database_names' => $entry['database_names'] ?? null,
             'database_include_pattern' => ! empty($entry['database_include_pattern']) ? $entry['database_include_pattern'] : null,
-            'post_script' => ! empty($entry['post_script']) ? $entry['post_script'] : null,
+            'post_script' => ($trimmed = trim((string) ($entry['post_script'] ?? ''))) !== '' ? $trimmed : null,
         ];
 
         if ($retentionPolicy === Backup::RETENTION_DAYS) {

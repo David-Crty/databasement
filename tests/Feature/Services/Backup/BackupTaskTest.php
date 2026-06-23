@@ -371,8 +371,12 @@ test('execute records post-script command in shell processor after successful ba
 
     $result = $backupTask->execute($config, new InMemoryBackupLogger);
 
+    $commands = $this->shellProcessor->getCommands();
+
     expect($result)->toBeInstanceOf(BackupResult::class)
-        ->and($this->shellProcessor->getCommands())->toContain('/usr/local/bin/notify.sh');
+        ->and($commands)->not->toBeEmpty()
+        ->and(end($commands))->toBe('/usr/local/bin/notify.sh')
+        ->and(count($commands))->toBeGreaterThan(1);
 });
 
 test('execute logs warning and continues when post-script fails', function () {
@@ -380,7 +384,8 @@ test('execute logs warning and continues when post-script fails', function () {
 
     test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
-    $throwingShellProcessor = new class extends TestShellProcessor {
+    $throwingShellProcessor = new class extends TestShellProcessor
+    {
         public function process(string $command): string
         {
             if (str_contains($command, '__fail_marker__')) {
