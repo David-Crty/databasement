@@ -18,11 +18,15 @@ class Edit extends Component
 
     public DatabaseServerForm $form;
 
+    public string $returnUrl = '';
+
     public function mount(DatabaseServer $server): void
     {
         $this->authorize('viewForm', $server);
 
         $this->form->setServer($server);
+
+        $this->returnUrl = $this->safeReturnUrl(url()->previous(route('database-servers.index')));
     }
 
     public function save(): void
@@ -30,7 +34,7 @@ class Edit extends Component
         if (Gate::denies('update', $this->form->server)) {
             $this->warning(
                 title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: $this->safeRedirectUrl(),
+                redirectTo: $this->safeReturnUrl($this->returnUrl),
                 flashAs: 'demo_notice',
             );
 
@@ -40,27 +44,27 @@ class Edit extends Component
         if ($this->form->update()) {
             $this->success(
                 title: __('Database server updated successfully!'),
-                redirectTo: $this->safeRedirectUrl(),
+                redirectTo: $this->safeReturnUrl($this->returnUrl),
             );
         }
     }
 
-    private function safeRedirectUrl(): string
+    private function safeReturnUrl(string $url): string
     {
         $fallback = route('database-servers.index');
-        $previous = url()->previous($fallback);
+        $appRoot = request()->getSchemeAndHttpHost();
 
-        // Reject external URLs to prevent open redirect.
-        if (parse_url($previous, PHP_URL_HOST) !== request()->getHost()) {
+        // Same-origin only (scheme + host + port).
+        if (! str_starts_with($url, $appRoot.'/') && $url !== $appRoot) {
             return $fallback;
         }
 
         // Don't redirect back to the edit page itself.
-        if ($previous === route('database-servers.edit', $this->form->server)) {
+        if ($url === route('database-servers.edit', $this->form->server)) {
             return $fallback;
         }
 
-        return $previous;
+        return $url;
     }
 
     public function addBackup(?string $defaultScheduleId = null): void

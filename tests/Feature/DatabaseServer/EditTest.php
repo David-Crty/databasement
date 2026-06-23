@@ -216,6 +216,40 @@ test('refreshVolumes can be called without error', function () {
         ->assertOk();
 });
 
+test('redirects to show page when arriving from show page', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create();
+    $showUrl = route('database-servers.show', $server);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('returnUrl', $showUrl)
+        ->call('save')
+        ->assertRedirect($showUrl);
+});
+
+test('falls back to index when return url is external', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('returnUrl', 'https://evil.com/steal-tokens')
+        ->call('save')
+        ->assertRedirect(route('database-servers.index'));
+});
+
+test('falls back to index when return url is the edit page itself', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('returnUrl', route('database-servers.edit', $server))
+        ->call('save')
+        ->assertRedirect(route('database-servers.index'));
+});
+
 test('pattern mode filters available databases and auto-loads on switch', function () {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->create();
