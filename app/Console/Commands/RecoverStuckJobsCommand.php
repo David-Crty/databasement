@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\BackupJobStatus;
 use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
@@ -86,13 +87,13 @@ class RecoverStuckJobsCommand extends Command
         $cutoff = now()->subSeconds($timeout);
 
         $stuckJobs = BackupJob::query()
-            ->whereIn('status', ['running', 'pending'])
+            ->inProgress()
             ->where(function ($query) use ($cutoff) {
                 $query->where(function ($q) use ($cutoff) {
-                    $q->where('status', 'running')
+                    $q->where('status', BackupJobStatus::Running)
                         ->where('started_at', '<', $cutoff);
                 })->orWhere(function ($q) use ($cutoff) {
-                    $q->where('status', 'pending')
+                    $q->where('status', BackupJobStatus::Pending)
                         ->where('created_at', '<', $cutoff);
                 });
             })
@@ -104,7 +105,7 @@ class RecoverStuckJobsCommand extends Command
 
         foreach ($stuckJobs as $job) {
             $job->markFailed(
-                new RuntimeException('Job timed out: stuck in '.$job->status.' state beyond the configured timeout.')
+                new RuntimeException('Job timed out: stuck in '.$job->status->value.' state beyond the configured timeout.')
             );
         }
 

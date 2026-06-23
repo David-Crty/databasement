@@ -75,7 +75,13 @@ make lint-check         # Check code style without fixing
 
 make phpstan            # Run PHPStan static analysis
 make analyse            # Alias for phpstan
+
+make ide-helper         # Regenerate model type hints for PHPStan
 ```
+
+### Model Type Hints (IDE Helper)
+
+PHPStan reads model property/method types from `_ide_helper_models.php` (gitignored, generated). After changing a model's casts, `$fillable`, relationships, or scopes, run `make ide-helper` so PHPStan sees the new types. Without it, PHPStan may report wrong-type or undefined-method errors. Only run `make ide-helper` (which uses `--write-mixin`); never `ide-helper:models --write`, as that pollutes the model files with inline docblocks.
 
 ### Database Operations
 ```bash

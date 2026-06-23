@@ -10,6 +10,7 @@
  * Run with: php artisan test --filter=SshTunnelTest
  */
 
+use App\Enums\BackupJobStatus;
 use App\Jobs\ProcessBackupJob;
 use App\Jobs\ProcessRestoreJob;
 use App\Services\Backup\BackupJobFactory;
@@ -84,7 +85,7 @@ test('MySQL backup and restore through SSH tunnel', function () {
 
     $filesystem = $filesystemProvider->getForVolume($snapshot->volume);
 
-    expect($snapshot->job->status)->toBe('completed')
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($snapshot->file_size)->toBeGreaterThan(0)
         ->and($filesystem->fileExists($snapshot->filename))->toBeTrue();
 

@@ -17,7 +17,7 @@ class SnapshotsMenuItem extends Component
     public function getActiveSnapshotsCountProperty(): int
     {
         return BackupJob::forCurrentOrg()
-            ->whereIn('status', ['running', 'pending'])
+            ->inProgress()
             ->whereHas('snapshot')
             ->count();
     }

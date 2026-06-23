@@ -27,7 +27,7 @@ class StorageCard extends Component
 
     private function loadData(): void
     {
-        $totalBytes = Snapshot::forCurrentOrg()->whereRelation('job', 'status', 'completed')->sum('file_size');
+        $totalBytes = Snapshot::forCurrentOrg()->completed()->sum('file_size');
         $this->totalStorage = Formatters::humanFileSize((int) $totalBytes);
     }
 

@@ -17,7 +17,7 @@ class RestoresMenuItem extends Component
     public function getActiveRestoresCountProperty(): int
     {
         return BackupJob::forCurrentOrg()
-            ->whereIn('status', ['running', 'pending'])
+            ->inProgress()
             ->whereHas('restore')
             ->count();
     }

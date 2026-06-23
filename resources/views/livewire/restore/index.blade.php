@@ -30,8 +30,8 @@
             :sort-by="$sortBy"
             with-pagination
             :row-decoration="[
-                'bg-error/5' => fn ($restore) => $restore->job?->status === 'failed',
-                'bg-warning/5' => fn ($restore) => $restore->job?->status === 'running',
+                'bg-error/5' => fn ($restore) => $restore->job?->status?->value === 'failed',
+                'bg-warning/5' => fn ($restore) => $restore->job?->status?->value === 'running',
             ]"
         >
             <x-slot:empty>
@@ -122,7 +122,7 @@
             @endscope
 
             @scope('cell_status', $restore)
-                @php $status = $restore->job?->status ?? 'pending'; $job = $restore->job; @endphp
+                @php $status = $restore->job?->status?->value ?? 'pending'; $job = $restore->job; @endphp
                 <x-job-status-indicator :status="$status" />
 
                 @if($status === 'running' && $job?->started_at)

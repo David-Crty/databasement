@@ -32,7 +32,7 @@ class SnapshotVerificationService
         $query = Snapshot::query()
             ->whereNotNull('filename')
             ->where('filename', '!=', '')
-            ->whereRelation('job', 'status', 'completed');
+            ->completed();
 
         if ($organizationId) {
             $query->whereHas('databaseServer', function ($sq) use ($organizationId) {

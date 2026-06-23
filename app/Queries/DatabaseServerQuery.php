@@ -4,6 +4,7 @@ namespace App\Queries;
 
 use App\Models\DatabaseServer;
 use App\Models\Restore;
+use App\Models\Snapshot;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
@@ -56,7 +57,10 @@ class DatabaseServerQuery
 
         return DatabaseServer::query()
             ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
-            ->withCount(['snapshots' => fn (Builder $q) => $q->whereHas('job', fn (Builder $q) => $q->whereRaw('status = ?', ['completed']))])
+            ->withCount(['snapshots' => function (Builder $q) {
+                /** @var Builder<Snapshot> $q */
+                return $q->completed();
+            }])
             ->addSelect([
                 'restores_count' => Restore::selectRaw('count(*)')
                     ->whereColumn('target_server_id', 'database_servers.id'),

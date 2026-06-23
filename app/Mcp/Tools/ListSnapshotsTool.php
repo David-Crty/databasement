@@ -34,7 +34,7 @@ class ListSnapshotsTool extends Tool
         }
 
         $lines = $snapshots->map(function (Snapshot $snapshot) {
-            $status = $snapshot->job->status;
+            $status = $snapshot->job->status->value;
             $size = $snapshot->getHumanFileSize();
             $date = $snapshot->created_at?->toDateTimeString() ?? 'unknown';
             $server = $snapshot->databaseServer->name;

@@ -7,6 +7,7 @@
  * Run with: php artisan test --group=integration
  */
 
+use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use App\Jobs\ProcessBackupJob;
@@ -74,7 +75,7 @@ test('mysql backup and restore workflow', function (string $compression, string 
 
     $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
 
-    expect($this->snapshot->job->status)->toBe('completed')
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
         ->and($this->snapshot->compression_type)->toBe(CompressionType::from($compression))
         ->and($this->snapshot->filename)->toEndWith(".sql.{$expectedExt}")
@@ -133,7 +134,7 @@ test('postgres backup and restore workflow', function (?string $dumpFormat) {
     $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
 
     $expectedDumpExt = $dumpFormat === 'custom' ? 'dump' : 'sql';
-    expect($this->snapshot->job->status)->toBe('completed')
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
         ->and($this->snapshot->compression_type)->toBe(CompressionType::GZIP)
         ->and($this->snapshot->filename)->toEndWith(".{$expectedDumpExt}.gz")
@@ -184,7 +185,7 @@ test('backup with extra dump flags succeeds', function (string $type, string $fl
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
-    expect($this->snapshot->job->status)->toBe('completed')
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0);
 })->with([
     'mysql with --verbose' => ['mysql', '--verbose'],
@@ -219,7 +220,7 @@ test('sqlite backup and restore workflow', function () {
 
     $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
 
-    expect($this->snapshot->job->status)->toBe('completed')
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
         ->and($this->snapshot->getDatabaseServerMetadata()['host'])->toBeNull()
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
@@ -272,7 +273,7 @@ test('mongodb backup and restore workflow', function () {
 
     $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
 
-    expect($this->snapshot->job->status)->toBe('completed')
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
         ->and($this->snapshot->filename)->toEndWith('.archive.gz')
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
@@ -314,7 +315,7 @@ test('mssql backup and restore workflow', function () {
 
     $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
 
-    expect($this->snapshot->job->status)->toBe('completed')
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
         ->and($this->snapshot->filename)->toEndWith('.dacpac.gz')
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();
@@ -358,7 +359,7 @@ test('redis backup workflow', function () {
 
     $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
 
-    expect($this->snapshot->job->status)->toBe('completed')
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
         ->and($this->snapshot->database_name)->toBe('all')
         ->and($this->snapshot->filename)->toEndWith('.rdb.gz')
@@ -387,7 +388,7 @@ test('firebird backup and restore workflow', function () {
 
     $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
 
-    expect($this->snapshot->job->status)->toBe('completed')
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
         ->and($this->snapshot->filename)->toEndWith('.fbk.gz')
         ->and($filesystem->fileExists($this->snapshot->filename))->toBeTrue();

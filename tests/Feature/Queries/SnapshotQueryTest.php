@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackupJobStatus;
 use App\Models\DatabaseServer;
 use App\Queries\SnapshotQuery;
 use App\Services\Backup\BackupJobFactory;
@@ -50,7 +51,7 @@ test('can filter snapshots by status', function () {
     $results = SnapshotQuery::buildFromParams(statusFilter: 'completed')->get();
 
     expect($results)->toHaveCount(1)
-        ->and($results->first()->job->status)->toBe('completed');
+        ->and($results->first()->job->status)->toBe(BackupJobStatus::Completed);
 });
 
 test('can sort snapshots by column', function () {

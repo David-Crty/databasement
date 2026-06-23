@@ -322,8 +322,9 @@ class Modal extends Component
     public function getCompatibleServersProperty(): Collection
     {
         $query = DatabaseServer::query()
-            ->whereHas('snapshots', function ($q) {
-                $q->whereHas('job', fn ($jq) => $jq->whereRaw("status = 'completed'"));
+            ->whereHas('snapshots', function (Builder $q) {
+                /** @var Builder<Snapshot> $q */
+                $q->completed();
             });
 
         if ($this->mode === RestoreModalMode::FromServer && $this->targetServer) {
@@ -357,8 +358,8 @@ class Modal extends Component
         )
             ->when($dbType, fn (Builder $q) => $q->whereRaw('database_type = ?', [$dbType]))
             ->when($this->serverFilter, fn ($q) => $q->where('database_server_id', $this->serverFilter))
-            ->whereHas('job', fn (Builder $q) => $q->whereRaw("status = 'completed'"))
-            ->whereRaw('file_exists = ?', [true])
+            ->completed()
+            ->fileExists()
             ->paginate(20, pageName: 'snapshots');
     }
 

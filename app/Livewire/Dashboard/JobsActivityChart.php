@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Enums\BackupJobStatus;
 use App\Models\BackupJob;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -39,10 +40,10 @@ class JobsActivityChart extends Component
             /** @var Collection<int, BackupJob> $dayJobs */
             $dayJobs = $jobs->get($dateKey, collect());
 
-            $completed[] = $dayJobs->where('status', 'completed')->count();
-            $failed[] = $dayJobs->where('status', 'failed')->count();
-            $running[] = $dayJobs->where('status', 'running')->count();
-            $pending[] = $dayJobs->where('status', 'pending')->count();
+            $completed[] = $dayJobs->where('status', BackupJobStatus::Completed)->count();
+            $failed[] = $dayJobs->where('status', BackupJobStatus::Failed)->count();
+            $running[] = $dayJobs->where('status', BackupJobStatus::Running)->count();
+            $pending[] = $dayJobs->where('status', BackupJobStatus::Pending)->count();
         }
 
         $this->chart = [

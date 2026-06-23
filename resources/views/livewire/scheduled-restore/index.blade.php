@@ -103,7 +103,7 @@
                 @else
                     @php
                         $skipped = (bool) $scheduledRestore->last_skip_reason;
-                        $verdictStatus = $skipped ? 'skipped' : ($scheduledRestore->lastRestore?->job?->status ?? 'pending');
+                        $verdictStatus = $skipped ? 'skipped' : ($scheduledRestore->lastRestore?->job?->status?->value ?? 'pending');
                     @endphp
 
                     <div class="flex flex-col gap-1">

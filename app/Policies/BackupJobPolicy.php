@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\BackupJobStatus;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\User;
@@ -37,7 +38,7 @@ class BackupJobPolicy
      */
     public function delete(User $user, BackupJob $backupJob): bool
     {
-        return $user->canPerformActions() && $backupJob->status === 'pending';
+        return $user->canPerformActions() && $backupJob->status === BackupJobStatus::Pending;
     }
 
     /**

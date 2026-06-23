@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackupJobStatus;
 use App\Http\Middleware\ThrottleFailedAgentAuth;
 use App\Models\Agent;
 use App\Models\AgentJob;
@@ -84,7 +85,7 @@ describe('job claiming', function () {
 
         // BackupJob should be marked as running with started_at set
         $backupJob = $snapshot->job->fresh();
-        expect($backupJob->status)->toBe('running')
+        expect($backupJob->status)->toBe(BackupJobStatus::Running)
             ->and($backupJob->started_at)->not->toBeNull();
     });
 
@@ -205,7 +206,7 @@ describe('job acknowledgement', function () {
 
         // BackupJob should be completed with logs written
         $backupJob = $snapshot->job;
-        expect($backupJob->status)->toBe('completed')
+        expect($backupJob->status)->toBe(BackupJobStatus::Completed)
             ->and($backupJob->logs)->toHaveCount(2)
             ->and($backupJob->logs[0]['message'])->toBe('Starting backup for database: testdb');
     });
@@ -235,7 +236,7 @@ describe('job failure', function () {
 
         // BackupJob should be failed with logs written
         $backupJob = $agentJob->snapshot->fresh()->job;
-        expect($backupJob->status)->toBe('failed')
+        expect($backupJob->status)->toBe(BackupJobStatus::Failed)
             ->and($backupJob->logs)->toHaveCount(2)
             ->and($backupJob->logs[1]['message'])->toBe('Backup failed: Connection refused');
     });

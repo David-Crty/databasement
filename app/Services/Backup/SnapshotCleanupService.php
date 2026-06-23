@@ -57,7 +57,7 @@ class SnapshotCleanupService
         $serverName = $backup->databaseServer->name ?? 'Unknown Server';
 
         $expiredSnapshots = Snapshot::where('backup_id', $backup->id)
-            ->whereRelation('job', 'status', 'completed')
+            ->completed()
             ->where('created_at', '<', $cutoffDate)
             ->get();
 
@@ -83,7 +83,7 @@ class SnapshotCleanupService
         }
 
         $allSnapshots = Snapshot::where('backup_id', $backup->id)
-            ->whereRelation('job', 'status', 'completed')
+            ->completed()
             ->orderBy('created_at', 'desc')
             ->get();
 
