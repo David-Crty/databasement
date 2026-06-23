@@ -135,5 +135,6 @@ test('index snapshot badge only counts completed snapshots', function () {
 
     Livewire::actingAs($user)
         ->test(Index::class)
-        ->assertSee('2');
+        ->assertSeeHtml('data-tip="View snapshots"')
+        ->assertSeeHtml('<span>2</span>');
 });
