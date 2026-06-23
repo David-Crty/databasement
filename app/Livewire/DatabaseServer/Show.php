@@ -51,7 +51,9 @@ class Show extends Component
         ]);
 
         $this->server = $server;
-        $this->snapshotsCount = $server->snapshots()->count();
+        $this->snapshotsCount = $server->snapshots()
+            ->whereHas('job', fn ($q) => $q->whereRaw('status = ?', ['completed']))
+            ->count();
         $this->restoresCount = Restore::where('target_server_id', $server->id)->count();
     }
 
