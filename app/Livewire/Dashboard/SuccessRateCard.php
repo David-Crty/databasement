@@ -47,6 +47,8 @@ class SuccessRateCard extends Component
 
         if ($total > 0) {
             $this->successRate = round(($completed / $total) * 100, 1);
+        } else {
+            $this->successRate = 0;
         }
 
         $this->runningJobs = BackupJob::forCurrentOrg()->where('status', BackupJobStatus::Running)->count();
