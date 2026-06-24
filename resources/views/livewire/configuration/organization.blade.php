@@ -50,6 +50,7 @@
                 @unless($org->is_default)
                     <div class="text-right">
                         <x-button icon="o-pencil" class="btn-ghost btn-xs" wire:click="openEditModal('{{ $org->id }}')" :tooltip="__('Edit')" />
+                        <x-button icon="o-arrows-pointing-in" class="btn-ghost btn-xs" wire:click="openMergeModal('{{ $org->id }}')" :tooltip="__('Merge')" />
                         <x-button icon="o-trash" class="btn-ghost btn-xs text-error" wire:click="confirmDelete('{{ $org->id }}')" :tooltip="__('Delete')" />
                     </div>
                 @endunless
@@ -72,6 +73,23 @@
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showEditModal = false" />
             <x-button :label="__('Save')" class="btn-primary" wire:click="updateOrganization" />
+        </x-slot:actions>
+    </x-modal>
+
+    {{-- Merge Modal --}}
+    <x-modal wire:model="showMergeModal" :title="__('Merge Organization')">
+        <x-alert icon="o-exclamation-triangle" class="alert-warning mb-4">
+            {{ __('All servers, volumes, agents, jobs and snapshots will be moved to the destination organization, and this organization will be deleted. This action cannot be undone.') }}
+        </x-alert>
+        <x-select
+            :label="__('Destination organization')"
+            wire:model="mergeDestinationId"
+            :options="$this->mergeDestinations()"
+            :placeholder="__('Select a destination')"
+        />
+        <x-slot:actions>
+            <x-button :label="__('Cancel')" @click="$wire.showMergeModal = false" />
+            <x-button :label="__('Merge')" class="btn-primary" wire:click="mergeOrganization" />
         </x-slot:actions>
     </x-modal>
 
