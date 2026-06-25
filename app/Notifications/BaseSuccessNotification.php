@@ -23,13 +23,13 @@ abstract class BaseSuccessNotification extends Notification
         string $body,
         string $actionUrl,
         array $fields = [],
-        string $actionText = '🔗 View Job Details',
+        ?string $actionText = null,
     ): NotificationMessage {
         return new NotificationMessage(
             type: NotificationType::Success,
             title: $title,
             body: $body,
-            actionText: $actionText,
+            actionText: $actionText ?? '🔗 '.__('View Job Details'),
             actionUrl: $actionUrl,
             footerText: '🕐 '.Formatters::humanDate(now()),
             fields: $fields,

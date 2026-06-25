@@ -27,19 +27,19 @@ abstract class BaseFailedNotification extends Notification
         string $body,
         string $actionUrl,
         array $fields = [],
-        string $actionText = '🔗 View Job Details',
-        string $errorLabel = '❌ Error Details',
+        ?string $actionText = null,
+        ?string $errorLabel = null,
     ): NotificationMessage {
         return new NotificationMessage(
             type: NotificationType::Failure,
             title: $title,
             body: $body,
-            actionText: $actionText,
+            actionText: $actionText ?? '🔗 '.__('View Job Details'),
             actionUrl: $actionUrl,
             footerText: '🕐 '.Formatters::humanDate(now()),
             fields: $fields,
             errorMessage: $this->exception->getMessage(),
-            errorLabel: $errorLabel,
+            errorLabel: $errorLabel ?? '❌ '.__('Error Details'),
         );
     }
 }

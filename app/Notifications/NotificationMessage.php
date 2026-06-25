@@ -47,6 +47,7 @@ class NotificationMessage
             'body' => $this->body,
             'fields' => $this->fields,
             'errorMessage' => $this->errorMessage,
+            'errorLabel' => $this->errorLabel,
             'actionText' => $this->actionText,
             'actionUrl' => $this->actionUrl,
             'footerText' => $this->footerText,

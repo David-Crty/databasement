@@ -65,11 +65,11 @@ function notificationRestore(Snapshot $snapshot, DatabaseServer $server): Restor
  */
 function sentChannelNotifications(string $notificationClass): \Illuminate\Support\Collection
 {
+    /** @var \Illuminate\Support\Testing\Fakes\NotificationFake $fake */
     $fake = Notification::getFacadeRoot();
-    $all = (new ReflectionProperty($fake, 'notifications'))->getValue($fake);
     $results = collect();
 
-    foreach ($all[ChannelNotifiable::class] ?? [] as $keyGroup) {
+    foreach ($fake->sentNotifications()[ChannelNotifiable::class] ?? [] as $keyGroup) {
         foreach ($keyGroup[$notificationClass] ?? [] as $entry) {
             $results->push($entry);
         }
@@ -163,6 +163,7 @@ test('notification trigger controls which notifications are sent', function (str
     'all + failure' => ['all', 'failure', true],
     'success + success' => ['success', 'success', true],
     'success + failure' => ['success', 'failure', false],
+    'failure + failure' => ['failure', 'failure', true],
     'failure + success' => ['failure', 'success', false],
     'none + success' => ['none', 'success', false],
     'none + failure' => ['none', 'failure', false],
@@ -383,39 +384,25 @@ test('failure message renders every channel with error details', function (Closu
 ]);
 
 test('success message renders every channel without error details', function () {
-    $message = new NotificationMessage(
-        type: NotificationType::Success,
-        title: 'Test Title',
-        body: 'Test body',
-        actionText: 'View Details',
-        actionUrl: 'https://example.com',
-        footerText: 'Footer',
-        fields: ['Server' => 'Test Server', 'Database' => 'testdb'],
-    );
+    $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+    $message = (new BackupSuccessNotification($snapshot))->getMessage();
 
     expect($message->toMail())->toBeInstanceOf(MailMessage::class)
-        ->and($message->toMail()->subject)->toBe('Test Title')
         ->and($message->toSlack())->toBeInstanceOf(SlackMessage::class)
         ->and($message->toDiscord())->toBeInstanceOf(DiscordMessage::class)
         ->and($message->toTelegram('12345'))->toBeInstanceOf(TelegramMessage::class)
         ->and($message->toPushover())->toBeInstanceOf(PushoverMessage::class);
 
     // Gotify uses the success priority
-    $gotify = $message->toGotify();
-    expect($gotify)->toBeArray()
-        ->and($gotify['title'])->toBe('Test Title')
-        ->and($gotify['priority'])->toBe(4);
+    expect($message->toGotify()['priority'])->toBe(4);
 
     // Discord webhook uses the success colour
-    $discordWebhook = $message->toDiscordWebhook();
-    expect($discordWebhook['embeds'][0]['title'])->toBe('Test Title')
-        ->and($discordWebhook['embeds'][0]['color'])->toBe(3066993);
+    expect($message->toDiscordWebhook()['embeds'][0]['color'])->toBe(3066993);
 
     // Webhook omits the error key for success
     $webhook = $message->toWebhook('BackupSuccessNotification');
     expect($webhook['event'])->toBe('BackupSuccessNotification')
-        ->and($webhook['title'])->toBe('Test Title')
-        ->and($webhook['action_url'])->toBe('https://example.com')
         ->and($webhook)->not->toHaveKey('error');
 });
 

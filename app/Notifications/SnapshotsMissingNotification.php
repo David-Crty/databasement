@@ -22,11 +22,11 @@ class SnapshotsMissingNotification extends BaseFailedNotification
         $count = $this->missingSnapshots->count();
 
         return $this->message(
-            title: "⚠️ {$count} backup ".str('file')->plural($count).' missing',
-            body: "{$count} backup ".str('file')->plural($count).' could not be found on their storage volumes.',
-            actionText: '🔗 View Missing Files',
+            title: '⚠️ '.trans_choice(':count backup file missing|:count backup files missing', $count, ['count' => $count]),
+            body: trans_choice(':count backup file could not be found on its storage volume.|:count backup files could not be found on their storage volumes.', $count, ['count' => $count]),
+            actionText: '🔗 '.__('View Missing Files'),
             actionUrl: route('snapshots.index', ['fileMissing' => '1']),
-            errorLabel: '📁 Missing Files',
+            errorLabel: '📁 '.__('Missing Files'),
         );
     }
 

@@ -11,7 +11,7 @@
 </x-mail::panel>
 
 @if($errorMessage !== null)
-## Error Details
+## {{ $errorLabel ?? __('Error Details') }}
 
 <x-mail::panel>
 {{ $errorMessage }}
@@ -24,7 +24,7 @@
 
 ---
 
-This is an automated notification from {{ config('app.name') }}.@if($actionRequired) Please investigate the issue and take appropriate action.@endif
+{{ __('This is an automated notification from :app.', ['app' => config('app.name')]) }}@if($actionRequired) {{ __('Please investigate the issue and take appropriate action.') }}@endif
 
 Thanks,<br>
 {{ config('app.name') }}
