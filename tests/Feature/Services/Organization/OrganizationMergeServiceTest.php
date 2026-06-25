@@ -16,3 +16,7 @@ test('merge rejects merging an organization into itself', function () {
 
     app(OrganizationMergeService::class)->merge($org, $org);
 })->throws(InvalidArgumentException::class);
+
+test('delete rejects the default organization', function () {
+    app(OrganizationMergeService::class)->delete(Organization::default());
+})->throws(InvalidArgumentException::class);

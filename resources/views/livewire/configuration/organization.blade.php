@@ -95,18 +95,17 @@
 
     {{-- Delete Confirmation --}}
     <x-modal wire:model="showDeleteModal" :title="__('Delete Organization')">
-        @if($deleteOrgHasResources)
-            <x-alert icon="o-exclamation-triangle" class="alert-warning">
-                {{ __('This organization still has servers, volumes, or agents. Remove all resources before deleting it.') }}
-            </x-alert>
-        @else
-            <p>{{ __('Are you sure you want to delete this organization? This action cannot be undone.') }}</p>
-        @endif
+        <x-alert icon="o-exclamation-triangle" class="alert-warning">
+            {{ __('All servers, volumes, agents and snapshots in this organization will be permanently deleted. This action cannot be undone.') }}
+        </x-alert>
+
+        <label class="flex items-start gap-3 mt-4 cursor-pointer">
+            <input type="checkbox" wire:model="keepFiles" class="checkbox checkbox-sm mt-0.5" />
+            <span class="text-sm">{{ __('Keep backup files on storage (only delete database records)') }}</span>
+        </label>
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showDeleteModal = false" />
-            @unless($deleteOrgHasResources)
-                <x-button :label="__('Delete')" class="btn-error" wire:click="deleteOrganization" />
-            @endunless
+            <x-button :label="__('Delete')" class="btn-error" wire:click="deleteOrganization" spinner="deleteOrganization" />
         </x-slot:actions>
     </x-modal>
 </div>

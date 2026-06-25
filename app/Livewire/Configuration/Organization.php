@@ -35,7 +35,7 @@ class Organization extends Component
 
     public ?string $deleteOrgId = null;
 
-    public bool $deleteOrgHasResources = false;
+    public bool $keepFiles = false;
 
     public bool $showMergeModal = false;
 
@@ -131,7 +131,7 @@ class Organization extends Component
         $this->authorize('delete', $org);
 
         $this->deleteOrgId = $orgId;
-        $this->deleteOrgHasResources = $org->hasResources();
+        $this->keepFiles = false;
         $this->showDeleteModal = true;
     }
 
@@ -141,15 +141,9 @@ class Organization extends Component
 
         $this->authorize('delete', $org);
 
-        if ($org->hasResources()) {
-            $this->error(__('This organization still has resources and cannot be deleted.'));
-
-            return null;
-        }
-
         $this->ensureNotCurrentOrg($org);
 
-        DeleteOrganizationJob::dispatch($org->id, $this->actorId());
+        DeleteOrganizationJob::dispatch($org->id, $this->actorId(), $this->keepFiles);
 
         $this->showDeleteModal = false;
         $this->deleteOrgId = null;

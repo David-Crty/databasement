@@ -22,6 +22,7 @@ class DeleteOrganizationJob implements ShouldQueue
     public function __construct(
         public string $organizationId,
         public ?int $actorUserId = null,
+        public bool $keepFiles = false,
     ) {}
 
     public function handle(OrganizationMergeService $service): void
@@ -32,6 +33,6 @@ class DeleteOrganizationJob implements ShouldQueue
             return;
         }
 
-        $service->delete($organization, $this->actorUserId);
+        $service->delete($organization, $this->actorUserId, $this->keepFiles);
     }
 }

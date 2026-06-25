@@ -59,19 +59,18 @@ class OrganizationMergeService
     }
 
     /**
-     * Delete an empty organization inside a transaction.
+     * Delete an organization inside a transaction, cascading the deletion of
+     * its servers, volumes, agents and SSH configs. When $keepFiles is true,
+     * backup files on storage are preserved (only database records are removed).
      */
-    public function delete(Organization $organization, ?int $actorUserId = null): void
+    public function delete(Organization $organization, ?int $actorUserId = null, bool $keepFiles = false): void
     {
         if ($organization->is_default) {
             throw new InvalidArgumentException('The default organization cannot be deleted.');
         }
 
-        if ($organization->hasResources()) {
-            throw new InvalidArgumentException('The organization still has resources and cannot be deleted.');
-        }
-
-        DB::transaction(function () use ($organization): void {
+        DB::transaction(function () use ($organization, $keepFiles): void {
+            $organization->skipFileCleanup = $keepFiles;
             $organization->delete();
         });
 
@@ -79,6 +78,7 @@ class OrganizationMergeService
             'organization_id' => $organization->id,
             'organization_name' => $organization->name,
             'actor_user_id' => $actorUserId,
+            'kept_files' => $keepFiles,
         ]);
     }
 

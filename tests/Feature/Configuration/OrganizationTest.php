@@ -103,11 +103,10 @@ test('super admin sees warning when deleting organization with resources', funct
     Livewire::actingAs($admin)
         ->test(Organization::class)
         ->call('confirmDelete', $org->id)
-        ->assertSet('deleteOrgHasResources', true)
-        ->assertSee('still has servers, volumes, or agents. Remove all resources before deleting it.');
+        ->assertSee('All servers, volumes, agents and snapshots in this organization will be permanently deleted.');
 });
 
-test('super admin cannot force delete organization with resources', function () {
+test('super admin queues cascading deletion of organization with resources', function () {
     Queue::fake();
 
     $admin = User::factory()->superAdmin()->create();
@@ -116,11 +115,33 @@ test('super admin cannot force delete organization with resources', function () 
 
     Livewire::actingAs($admin)
         ->test(Organization::class)
-        ->set('deleteOrgId', $org->id)
+        ->call('confirmDelete', $org->id)
+        ->call('deleteOrganization')
+        ->assertRedirect(route('configuration.organizations'));
+
+    Queue::assertPushed(
+        DeleteOrganizationJob::class,
+        fn ($job) => $job->organizationId === $org->id && $job->keepFiles === false,
+    );
+});
+
+test('super admin can keep backup files when deleting organization', function () {
+    Queue::fake();
+
+    $admin = User::factory()->superAdmin()->create();
+    $org = OrganizationModel::factory()->create();
+    DatabaseServer::factory()->create(['organization_id' => $org->id]);
+
+    Livewire::actingAs($admin)
+        ->test(Organization::class)
+        ->call('confirmDelete', $org->id)
+        ->set('keepFiles', true)
         ->call('deleteOrganization');
 
-    Queue::assertNotPushed(DeleteOrganizationJob::class);
-    expect(OrganizationModel::find($org->id))->not->toBeNull();
+    Queue::assertPushed(
+        DeleteOrganizationJob::class,
+        fn ($job) => $job->organizationId === $org->id && $job->keepFiles === true,
+    );
 });
 
 test('super admin can queue an organization merge', function () {
