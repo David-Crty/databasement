@@ -3,6 +3,7 @@
 use App\Enums\UserRole;
 use App\Jobs\MergeOrganizationJob;
 use App\Models\Agent;
+use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
@@ -22,6 +23,7 @@ test('job merges a fully populated source into a destination with overlapping me
     $sourceAgent = Agent::factory()->create(['organization_id' => $source->id]);
     $sourceSshConfig = DatabaseServerSshConfig::factory()->create(['organization_id' => $source->id]);
     $snapshot = App\Models\Snapshot::factory()->forServer($sourceServer)->create();
+    $snapshotBackupJobId = $snapshot->backup_job_id;
 
     $destinationServer = DatabaseServer::factory()->create(['organization_id' => $destination->id]);
 
@@ -51,7 +53,11 @@ test('job merges a fully populated source into a destination with overlapping me
         ->and(Agent::withoutGlobalScope(OrganizationScope::class)->find($sourceAgent->id)->organization_id)->toBe($destination->id)
         ->and(DatabaseServerSshConfig::withoutGlobalScope(OrganizationScope::class)->find($sourceSshConfig->id)->organization_id)->toBe($destination->id)
         ->and($findServer($destinationServer->id)->organization_id)->toBe($destination->id)
-        ->and($snapshot->fresh()->database_server_id)->toBe($sourceServer->id);
+        ->and($snapshot->fresh()->database_server_id)->toBe($sourceServer->id)
+        // The backup job has no organization_id; it follows the snapshot's
+        // server through the merge and must survive intact.
+        ->and($snapshot->fresh()->backup_job_id)->toBe($snapshotBackupJobId)
+        ->and(BackupJob::find($snapshotBackupJobId))->not->toBeNull();
 
     // The snapshot followed its server (it has no organization_id of its own).
 
