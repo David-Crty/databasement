@@ -8,6 +8,7 @@ use App\Enums\DatabaseType;
 use App\Models\Scopes\OrganizationScope;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\CurrentOrganization;
+use App\Support\FilesystemSupport;
 use App\Support\Formatters;
 use Database\Factories\SnapshotFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -261,6 +262,10 @@ class Snapshot extends Model
             // Delete the file if it exists
             if ($filesystem->fileExists($this->filename)) {
                 $filesystem->delete($this->filename);
+
+                FilesystemSupport::deleteEmptyParentDirectories($filesystem, $this->filename, [
+                    'snapshot_id' => $this->id,
+                ]);
 
                 return true;
             }

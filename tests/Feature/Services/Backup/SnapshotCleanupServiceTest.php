@@ -2,7 +2,11 @@
 
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\SnapshotCleanupService;
+use Illuminate\Support\Facades\Log;
+use League\Flysystem\DirectoryListing;
+use League\Flysystem\Filesystem;
 
 /**
  * @param  array<string, mixed>  $attrs
@@ -52,6 +56,125 @@ test('days retention deletes expired snapshots and files, skips pending and rece
         ->and(Snapshot::find($recentCompleted->id))->not->toBeNull()
         ->and(Snapshot::find($expiredPending->id))->not->toBeNull()
         ->and(Snapshot::find($otherDbExpired->id))->toBeNull();
+});
+
+test('deleting a snapshot prunes empty parent folders and stops at the first non-empty one', function (
+    string $folder,
+    array $extraFiles,
+    array $removedDirs,
+    array $keptDirs,
+) {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $snapshot = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
+    $volumePath = $snapshot->volume->config['path'];
+
+    // Move the backup file into the folder under test, mirroring a path with date placeholders.
+    // An empty folder means the snapshot lives directly in the volume root.
+    if ($folder !== '') {
+        $newFilename = $folder.'/'.$snapshot->filename;
+        mkdir($volumePath.'/'.$folder, 0755, true);
+        rename($volumePath.'/'.$snapshot->filename, $volumePath.'/'.$newFilename);
+        $snapshot->update(['filename' => $newFilename]);
+    } else {
+        $newFilename = $snapshot->filename;
+    }
+
+    // Drop unrelated files that should keep their ancestor folders alive.
+    foreach ($extraFiles as $relativePath) {
+        $fullPath = $volumePath.'/'.$relativePath;
+        if (! is_dir(dirname($fullPath))) {
+            mkdir(dirname($fullPath), 0755, true);
+        }
+        touch($fullPath);
+    }
+
+    app(SnapshotCleanupService::class)->run();
+
+    expect(Snapshot::find($snapshot->id))->toBeNull()
+        ->and(file_exists($volumePath.'/'.$newFilename))->toBeFalse()
+        // The volume root must never be pruned, even once it becomes empty.
+        ->and(is_dir($volumePath))->toBeTrue();
+
+    foreach ($removedDirs as $dir) {
+        expect(is_dir($volumePath.'/'.$dir))->toBeFalse("Expected folder '{$dir}' to be removed");
+    }
+
+    foreach ($keptDirs as $dir) {
+        expect(is_dir($volumePath.'/'.$dir))->toBeTrue("Expected folder '{$dir}' to be kept");
+    }
+
+    expect(is_dir($volumePath))->toBeTrue('Volume root must never be pruned');
+})->with([
+    'snapshot in the volume root leaves the root intact' => [
+        'folder' => '',
+        'extraFiles' => [],
+        'removedDirs' => [],
+        'keptDirs' => [],
+    ],
+    'single empty folder is removed' => [
+        'folder' => '2026_06_15',
+        'extraFiles' => [],
+        'removedDirs' => ['2026_06_15'],
+        'keptDirs' => [],
+    ],
+    'nested empty folders are all removed' => [
+        'folder' => '2026/06/15',
+        'extraFiles' => [],
+        'removedDirs' => ['2026/06/15', '2026/06', '2026'],
+        'keptDirs' => [],
+    ],
+    'folder holding another file is kept' => [
+        'folder' => '2026_06_15',
+        'extraFiles' => ['2026_06_15/other-backup.sql.gz'],
+        'removedDirs' => [],
+        'keptDirs' => ['2026_06_15'],
+    ],
+    'walk stops at an ancestor that still holds a file' => [
+        'folder' => '2026/06/15',
+        'extraFiles' => ['2026/keep.txt'],
+        'removedDirs' => ['2026/06/15', '2026/06'],
+        'keptDirs' => ['2026'],
+    ],
+    'walk stops at an ancestor that holds a sibling subfolder' => [
+        'folder' => '2026/06/15',
+        'extraFiles' => ['2026/07/older-backup.sql.gz'],
+        'removedDirs' => ['2026/06/15', '2026/06'],
+        'keptDirs' => ['2026', '2026/07'],
+    ],
+]);
+
+test('snapshot is still deleted when pruning empty parent folders throws', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $snapshot = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
+    $snapshot->update(['filename' => '2026_06_15/backup.sql.gz']);
+
+    // The file is removed fine, but the volume blows up while pruning the now-empty folder.
+    $filesystem = Mockery::mock(Filesystem::class);
+    $filesystem->shouldReceive('fileExists')->andReturnTrue();
+    $filesystem->shouldReceive('delete')->once();
+    $filesystem->shouldReceive('listContents')->andReturn(new DirectoryListing([]));
+    $filesystem->shouldReceive('deleteDirectory')->andThrow(new RuntimeException('permission denied'));
+
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldReceive('getForVolume')->andReturn($filesystem);
+    app()->instance(FilesystemProvider::class, $provider);
+
+    Log::spy();
+
+    app(SnapshotCleanupService::class)->run();
+
+    // The folder failure is swallowed; the snapshot is still removed from the database,
+    // and it is logged as a folder-pruning warning rather than a file-deletion error.
+    expect(Snapshot::find($snapshot->id))->toBeNull();
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message) => str_contains($message, 'Failed to delete empty parent directory'))
+        ->once();
+    // The failure must stay warning-only — the file-deletion error path must not fire.
+    Log::shouldNotHaveReceived('error');
 });
 
 test('dry-run mode does not delete snapshots', function () {
