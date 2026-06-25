@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Enums\NotificationType;
 use App\Notifications\Concerns\HasChannelRouting;
+use App\Support\Formatters;
 use Illuminate\Notifications\Notification;
 
 abstract class BaseFailedNotification extends Notification
@@ -24,11 +25,10 @@ abstract class BaseFailedNotification extends Notification
     protected function message(
         string $title,
         string $body,
-        string $actionText,
         string $actionUrl,
-        string $footerText,
-        string $errorLabel,
         array $fields = [],
+        string $actionText = '🔗 View Job Details',
+        string $errorLabel = '❌ Error Details',
     ): NotificationMessage {
         return new NotificationMessage(
             type: NotificationType::Failure,
@@ -36,7 +36,7 @@ abstract class BaseFailedNotification extends Notification
             body: $body,
             actionText: $actionText,
             actionUrl: $actionUrl,
-            footerText: $footerText,
+            footerText: '🕐 '.Formatters::humanDate(now()),
             fields: $fields,
             errorMessage: $this->exception->getMessage(),
             errorLabel: $errorLabel,

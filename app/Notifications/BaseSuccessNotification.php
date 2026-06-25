@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Enums\NotificationType;
 use App\Notifications\Concerns\HasChannelRouting;
+use App\Support\Formatters;
 use Illuminate\Notifications\Notification;
 
 abstract class BaseSuccessNotification extends Notification
@@ -20,10 +21,9 @@ abstract class BaseSuccessNotification extends Notification
     protected function message(
         string $title,
         string $body,
-        string $actionText,
         string $actionUrl,
-        string $footerText,
         array $fields = [],
+        string $actionText = '🔗 View Job Details',
     ): NotificationMessage {
         return new NotificationMessage(
             type: NotificationType::Success,
@@ -31,7 +31,7 @@ abstract class BaseSuccessNotification extends Notification
             body: $body,
             actionText: $actionText,
             actionUrl: $actionUrl,
-            footerText: $footerText,
+            footerText: '🕐 '.Formatters::humanDate(now()),
             fields: $fields,
         );
     }

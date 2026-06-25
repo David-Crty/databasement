@@ -18,10 +18,7 @@ class RestoreFailedNotification extends BaseFailedNotification
         return $this->message(
             title: '🚨 Restore Failed: '.($this->restore->targetServer->name ?? 'Unknown'),
             body: 'A restore job has failed and requires your attention.',
-            actionText: '🔗 View Job Details',
             actionUrl: route('restores.index', ['job' => $this->restore->backup_job_id]),
-            footerText: '🕐 '.\App\Support\Formatters::humanDate(now()),
-            errorLabel: '❌ Error Details',
             fields: [
                 'Target Server' => $this->restore->targetServer->name ?? 'Unknown',
                 'Target Database' => $this->restore->schema_name ?? 'Unknown',
