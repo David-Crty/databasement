@@ -177,27 +177,11 @@
                 {{-- Hook scripts --}}
                 @php
                     $backupPlaceholder = <<<'SH'
-                    echo "=== post-backup hook ==="
-                    echo "Server ID    : $BACKUP_SERVER_ID"
-                    echo "Server name  : $BACKUP_SERVER_NAME"
-                    echo "Database     : $BACKUP_DATABASE_NAME"
-                    echo "DB type      : $BACKUP_DATABASE_TYPE"
-                    echo "Filename     : $BACKUP_FILENAME"
-                    echo "File size    : $BACKUP_FILE_SIZE bytes"
-                    echo "Checksum     : $BACKUP_CHECKSUM"
-                    echo "Volume       : $BACKUP_VOLUME_NAME"
-                    echo "Finished at  : $(date)"
-                    echo "=== done ==="
-                    SH;
-
-                    $restorePlaceholder = <<<'SH'
-                    # Only ping the prod healthcheck for one server
-                    if [ "$RESTORE_SERVER_ID" = "01JCABCDEF0123456789ABCDEF" ]; then
-                      echo "Production restore done, pinging healthcheck"
-                      curl -fsS "https://hc-ping.com/your-uuid?db=$RESTORE_DATABASE_NAME"
-                    else
-                      echo "Skipping healthcheck for server $RESTORE_SERVER_NAME ($RESTORE_SERVER_ID)"
-                    fi
+                    # Post-backup
+                    curl -fsS -X POST https://example.com/hooks/backup \
+                      -d "database=$BACKUP_DATABASE_NAME" \
+                      -d "file=$BACKUP_FILENAME" \
+                      -d "size=$BACKUP_FILE_SIZE"
                     SH;
 
                     $hookEditors = [
@@ -225,7 +209,7 @@
                             'icon' => 'o-arrow-up-tray',
                             'barClass' => 'bg-info/5',
                             'chipClass' => 'bg-info/10 text-info',
-                            'placeholder' => $restorePlaceholder,
+                            'placeholder' => '',
                             'vars' => [
                                 'RESTORE_SERVER_ID' => __('Target database server ID'),
                                 'RESTORE_SERVER_NAME' => __('Target database server name'),
@@ -248,7 +232,7 @@
                     </div>
 
                     <x-alert icon="o-information-circle" class="alert-info">
-                        {{ __('Run a shell script after every successful backup or restore. Scripts run with :shebang on the worker host, and their output appears in the job log.', ['shebang' => '#!/bin/sh']) }}
+                        {{ __('Run a shell script after every successful backup or restore. Scripts run with `:shebang` on the worker host, and their output appears in the job log. Find example in doc', ['shebang' => '#!/bin/sh']) }}
                         <x-slot:actions>
                             <x-button
                                 :label="__('Learn more')"

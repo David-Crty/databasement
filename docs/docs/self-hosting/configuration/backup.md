@@ -83,21 +83,20 @@ else
 fi
 ```
 
-Branch on database type and warn on small backups:
+Debug the available environment variables:
 
 ```sh
-# Post-backup
-echo "Backup of $BACKUP_DATABASE_NAME ($BACKUP_DATABASE_TYPE) -> $BACKUP_FILENAME"
-
-if [ "$BACKUP_FILE_SIZE" -lt 1024 ]; then
-  echo "WARNING: backup is only $BACKUP_FILE_SIZE bytes — check the database"
-fi
-
-case "$BACKUP_DATABASE_TYPE" in
-  postgresql) echo "Postgres backup complete" ;;
-  mysql|mariadb) echo "MySQL/MariaDB backup complete" ;;
-  *) echo "Backup complete" ;;
-esac
+echo "=== post-backup hook ==="
+echo "Server ID    : $BACKUP_SERVER_ID"
+echo "Server name  : $BACKUP_SERVER_NAME"
+echo "Database     : $BACKUP_DATABASE_NAME"
+echo "DB type      : $BACKUP_DATABASE_TYPE"
+echo "Filename     : $BACKUP_FILENAME"
+echo "File size    : $BACKUP_FILE_SIZE bytes"
+echo "Checksum     : $BACKUP_CHECKSUM"
+echo "Volume       : $BACKUP_VOLUME_NAME"
+echo "Finished at  : $(date)"
+echo "=== done ==="
 ```
 
 Post-restore notification:
