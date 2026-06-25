@@ -59,9 +59,17 @@ class OrganizationMergeService
     }
 
     /**
-     * Delete an organization inside a transaction, cascading the deletion of
-     * its servers, volumes, agents and SSH configs. When $keepFiles is true,
-     * backup files on storage are preserved (only database records are removed).
+     * Delete an organization, cascading the deletion of its servers, volumes,
+     * agents and SSH configs. When $keepFiles is true, backup files on storage
+     * are preserved (only database records are removed).
+     *
+     * This deliberately runs without a wrapping transaction: the cascade deletes
+     * backup files from storage (an irreversible side effect), so a rollback
+     * would leave the database referencing files that no longer exist. Running
+     * unwrapped keeps database rows and storage consistent — both are removed
+     * together — and matches every other delete path (server, volume, snapshot),
+     * which also clean up files synchronously without a transaction. A mid-cascade
+     * failure leaves a partially deleted org, which is safely re-deletable.
      */
     public function delete(Organization $organization, ?int $actorUserId = null, bool $keepFiles = false): void
     {
@@ -69,10 +77,8 @@ class OrganizationMergeService
             throw new InvalidArgumentException('The default organization cannot be deleted.');
         }
 
-        DB::transaction(function () use ($organization, $keepFiles): void {
-            $organization->skipFileCleanup = $keepFiles;
-            $organization->delete();
-        });
+        $organization->skipFileCleanup = $keepFiles;
+        $organization->delete();
 
         Log::info('Organization deleted', [
             'organization_id' => $organization->id,
