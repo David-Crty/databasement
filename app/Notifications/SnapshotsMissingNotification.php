@@ -17,7 +17,7 @@ class SnapshotsMissingNotification extends BaseFailedNotification
         parent::__construct(new \RuntimeException($this->fileList()));
     }
 
-    public function getMessage(): FailedNotificationMessage
+    public function getMessage(): NotificationMessage
     {
         $count = $this->missingSnapshots->count();
 

@@ -13,7 +13,7 @@ class RestoreFailedNotification extends BaseFailedNotification
         parent::__construct($exception);
     }
 
-    public function getMessage(): FailedNotificationMessage
+    public function getMessage(): NotificationMessage
     {
         return $this->message(
             title: '🚨 Restore Failed: '.($this->restore->targetServer->name ?? 'Unknown'),

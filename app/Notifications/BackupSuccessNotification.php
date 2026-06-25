@@ -10,7 +10,7 @@ class BackupSuccessNotification extends BaseSuccessNotification
         public Snapshot $snapshot
     ) {}
 
-    public function getMessage(): SuccessNotificationMessage
+    public function getMessage(): NotificationMessage
     {
         return $this->message(
             title: '✅ Backup Succeeded: '.$this->snapshot->databaseServer->name,

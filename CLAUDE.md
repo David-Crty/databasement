@@ -282,13 +282,13 @@ The volume system uses dynamic class resolution based on the type value. Use exi
 
 ### Adding a New Notification Channel
 
-The notification system uses a delegation pattern: concrete notifications extend `BaseFailedNotification` and inherit all channel support. Adding a new channel requires no changes to concrete notification classes.
+The notification system uses a delegation pattern: concrete notifications extend `BaseFailedNotification` or `BaseSuccessNotification` and inherit all channel support via the `HasChannelRouting` trait. A single `NotificationMessage` (driven by a `NotificationType` enum) renders every channel for both success and failure. Adding a new channel requires no changes to concrete notification classes.
 
 #### Files to Update
 
 **Core:**
-- `app/Notifications/FailedNotificationMessage.php` - Add `to{Channel}()` rendering method
-- `app/Notifications/BaseFailedNotification.php` - Add `to{Channel}()` delegation method, add entry to `CHANNEL_MAP`
+- `app/Notifications/NotificationMessage.php` - Add `to{Channel}()` rendering method (success/failure differences key off `$this->type` and `$this->hasError()`)
+- `app/Notifications/Concerns/HasChannelRouting.php` - Add `to{Channel}()` delegation method, add entry to `CHANNEL_MAP`
 - `app/Services/FailureNotificationService.php` - Add route to `getNotificationRoutes()`
 - `app/Services/AppConfigService.php` - Add keys to `AppConfigService::CONFIG` (each key defines its default, type, and sensitivity)
 

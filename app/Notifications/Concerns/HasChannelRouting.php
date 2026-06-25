@@ -5,8 +5,7 @@ namespace App\Notifications\Concerns;
 use App\Notifications\Channels\DiscordWebhookChannel;
 use App\Notifications\Channels\GotifyChannel;
 use App\Notifications\Channels\WebhookChannel;
-use App\Notifications\FailedNotificationMessage;
-use App\Notifications\SuccessNotificationMessage;
+use App\Notifications\NotificationMessage;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Slack\SlackMessage;
 use NotificationChannels\Discord\DiscordChannel;
@@ -50,7 +49,7 @@ trait HasChannelRouting
     /**
      * Get the notification message.
      */
-    abstract public function getMessage(): FailedNotificationMessage|SuccessNotificationMessage;
+    abstract public function getMessage(): NotificationMessage;
 
     public function toMail(object $notifiable): MailMessage
     {

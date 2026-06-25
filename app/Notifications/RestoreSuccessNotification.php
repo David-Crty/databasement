@@ -10,7 +10,7 @@ class RestoreSuccessNotification extends BaseSuccessNotification
         public Restore $restore
     ) {}
 
-    public function getMessage(): SuccessNotificationMessage
+    public function getMessage(): NotificationMessage
     {
         return $this->message(
             title: '✅ Restore Succeeded: '.($this->restore->targetServer->name ?? 'Unknown'),

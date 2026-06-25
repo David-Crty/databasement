@@ -13,7 +13,7 @@ class BackupFailedNotification extends BaseFailedNotification
         parent::__construct($exception);
     }
 
-    public function getMessage(): FailedNotificationMessage
+    public function getMessage(): NotificationMessage
     {
         return $this->message(
             title: '🚨 Backup Failed: '.$this->snapshot->databaseServer->name,

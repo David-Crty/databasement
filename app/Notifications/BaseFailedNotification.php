@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\NotificationType;
 use App\Notifications\Concerns\HasChannelRouting;
 use Illuminate\Notifications\Notification;
 
@@ -13,7 +14,7 @@ abstract class BaseFailedNotification extends Notification
         public \Throwable $exception
     ) {}
 
-    abstract public function getMessage(): FailedNotificationMessage;
+    abstract public function getMessage(): NotificationMessage;
 
     /**
      * Create a failed notification message.
@@ -28,16 +29,17 @@ abstract class BaseFailedNotification extends Notification
         string $footerText,
         string $errorLabel,
         array $fields = [],
-    ): FailedNotificationMessage {
-        return new FailedNotificationMessage(
+    ): NotificationMessage {
+        return new NotificationMessage(
+            type: NotificationType::Failure,
             title: $title,
             body: $body,
-            errorMessage: $this->exception->getMessage(),
-            errorLabel: $errorLabel,
             actionText: $actionText,
             actionUrl: $actionUrl,
             footerText: $footerText,
             fields: $fields,
+            errorMessage: $this->exception->getMessage(),
+            errorLabel: $errorLabel,
         );
     }
 }
