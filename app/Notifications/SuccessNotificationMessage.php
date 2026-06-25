@@ -70,7 +70,7 @@ class SuccessNotificationMessage
             ]);
     }
 
-    public function toTelegram(string $chatId): TelegramMessage
+    public function toTelegram(string $chatId, ?string $topicId = null): TelegramMessage
     {
         $lines = ['<b>'.e($this->title).'</b>', '', e($this->body), ''];
 
@@ -81,9 +81,15 @@ class SuccessNotificationMessage
         $lines[] = '';
         $lines[] = '<i>'.e($this->footerText).'</i>';
 
+        $options = ['parse_mode' => 'HTML'];
+
+        if ($topicId !== null && $topicId !== '') {
+            $options['message_thread_id'] = (int) $topicId;
+        }
+
         return TelegramMessage::create(implode("\n", $lines))
             ->to($chatId)
-            ->options(['parse_mode' => 'HTML'])
+            ->options($options)
             ->button($this->actionText, $this->actionUrl);
     }
 

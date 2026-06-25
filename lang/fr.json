@@ -592,6 +592,8 @@
   "Telegram": "Telegram",
   "Telegram Bot Token": "Jeton du bot Telegram",
   "Telegram Chat ID": "ID du chat Telegram",
+  "Topic ID": "ID du sujet",
+  "Optional. The message thread ID for sending to a specific topic in a forum group.": "Optionnel. L’ID du fil de discussion pour envoyer vers un sujet précis dans un groupe forum.",
   "Temporary directory for backup and restore operations.": "Répertoire temporaire pour les opérations de sauvegarde et restauration.",
   "Test": "Test",
   "Test Connection": "Tester la connexion",

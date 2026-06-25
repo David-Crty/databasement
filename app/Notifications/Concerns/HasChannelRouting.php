@@ -70,8 +70,9 @@ trait HasChannelRouting
     public function toTelegram(object $notifiable): TelegramMessage
     {
         $chatId = (string) ($notifiable->routes['telegram'] ?? '');
+        $topicId = (string) ($notifiable->channelConfig['topic_id'] ?? '');
 
-        return $this->getMessage()->toTelegram($chatId);
+        return $this->getMessage()->toTelegram($chatId, $topicId);
     }
 
     public function toPushover(object $notifiable): PushoverMessage

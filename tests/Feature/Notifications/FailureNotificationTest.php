@@ -178,6 +178,23 @@ test('send refreshes service configs from channel config before dispatching', fu
     expect($sent)->toHaveCount(3);
 });
 
+test('telegram notification sets message_thread_id only when a topic id is configured', function (string $topicId, ?int $expected) {
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = createTestSnapshot($server);
+    $notification = new BackupFailedNotification($snapshot, new \Exception('Test error'));
+
+    $telegram = $notification->toTelegram((object) [
+        'routes' => ['telegram' => '123456'],
+        'channelConfig' => ['topic_id' => $topicId],
+    ]);
+
+    expect($telegram->getPayloadValue('chat_id'))->toBe('123456')
+        ->and($telegram->getPayloadValue('message_thread_id'))->toBe($expected);
+})->with([
+    'with topic id' => ['42', 42],
+    'without topic id' => ['', null],
+]);
+
 test('via method returns channels based on configured routes', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = createTestSnapshot($server);

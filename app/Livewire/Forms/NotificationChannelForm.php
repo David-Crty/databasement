@@ -29,6 +29,8 @@ class NotificationChannelForm extends Form
 
     public string $config_chat_id = '';
 
+    public string $config_topic_id = '';
+
     public string $config_user_key = '';
 
     public string $config_url = '';
@@ -85,6 +87,7 @@ class NotificationChannelForm extends Form
     {
         $this->has_config_bot_token = ! empty($config['bot_token']);
         $this->config_chat_id = $config['chat_id'] ?? '';
+        $this->config_topic_id = $config['topic_id'] ?? '';
     }
 
     /**
@@ -144,6 +147,7 @@ class NotificationChannelForm extends Form
             NotificationChannelType::Telegram => array_merge($rules, [
                 'config_bot_token' => [($isEdit && $this->has_config_bot_token) ? 'nullable' : 'required', 'string', 'max:500'],
                 'config_chat_id' => ['required', 'string', 'max:100'],
+                'config_topic_id' => ['nullable', 'integer', 'min:1'],
             ]),
             NotificationChannelType::Pushover => array_merge($rules, [
                 'config_token' => [($isEdit && $this->has_config_token) ? 'nullable' : 'required', 'string', 'max:500'],
@@ -175,7 +179,7 @@ class NotificationChannelForm extends Form
             NotificationChannelType::Slack => ['webhook_url' => $this->config_webhook_url],
             NotificationChannelType::Discord => ['token' => $this->config_token, 'channel_id' => $this->config_channel_id],
             NotificationChannelType::DiscordWebhook => ['url' => $this->config_url],
-            NotificationChannelType::Telegram => ['bot_token' => $this->config_bot_token, 'chat_id' => $this->config_chat_id],
+            NotificationChannelType::Telegram => ['bot_token' => $this->config_bot_token, 'chat_id' => $this->config_chat_id, 'topic_id' => $this->config_topic_id],
             NotificationChannelType::Pushover => ['token' => $this->config_token, 'user_key' => $this->config_user_key],
             NotificationChannelType::Gotify => ['url' => $this->config_url, 'token' => $this->config_token],
             NotificationChannelType::Webhook => ['url' => $this->config_url, 'secret' => $this->config_secret],

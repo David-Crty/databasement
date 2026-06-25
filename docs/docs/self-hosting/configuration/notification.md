@@ -164,6 +164,17 @@ To receive failure notifications via Telegram, you need a bot token and a chat I
 
 Enter both the **Bot Token** and **Chat ID** on the Configuration page.
 
+### Sending to a Topic (optional)
+
+For forum-style groups that have **Topics** enabled, you can route notifications to a specific topic by setting the optional **Topic ID** field.
+
+1. Open the target topic in Telegram and post a message in it
+2. Open `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` in a browser
+3. Find the `message_thread_id` value in the JSON response
+4. Enter it as the **Topic ID** on the Configuration page
+
+Leave **Topic ID** empty to send to the group's default (General) topic.
+
 ## Pushover {#pushover}
 
 [Pushover](https://pushover.net/) delivers push notifications to your phone and desktop.

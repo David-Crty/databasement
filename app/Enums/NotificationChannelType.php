@@ -105,7 +105,7 @@ enum NotificationChannelType: string
             self::Slack => ['Type' => 'Webhook'],
             self::Discord => array_filter(['Channel ID' => $config['channel_id'] ?? '']),
             self::DiscordWebhook => ['Type' => 'Webhook'],
-            self::Telegram => array_filter(['Chat ID' => $config['chat_id'] ?? '']),
+            self::Telegram => array_filter(['Chat ID' => $config['chat_id'] ?? '', 'Topic ID' => $config['topic_id'] ?? '']),
             self::Pushover => ['Type' => 'Push'],
             self::Gotify => array_filter(['URL' => $config['url'] ?? '']),
             self::Webhook => array_filter(['URL' => $config['url'] ?? '']),
