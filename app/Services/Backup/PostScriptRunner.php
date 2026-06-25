@@ -35,16 +35,14 @@ class PostScriptRunner
         }
 
         $label = str_replace('-', ' ', $name);
-        $capitalizedLabel = ucfirst($label);
         $scriptPath = rtrim($workingDirectory, '/').'/'.$name.'.sh';
         file_put_contents($scriptPath, self::SHEBANG.$script."\n");
 
         try {
             $logger->log("Running {$label}", 'info');
             $shellProcessor->process('sh '.escapeshellarg($scriptPath), $env);
-            $logger->log("{$capitalizedLabel} completed successfully", 'success');
         } catch (\Throwable) {
-            $logger->log("{$capitalizedLabel} failed with a non-zero exit code", 'warning');
+            $logger->log(ucfirst($label).' failed with a non-zero exit code', 'warning');
         }
     }
 }

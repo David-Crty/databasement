@@ -176,6 +176,30 @@
 
                 {{-- Hook scripts --}}
                 @php
+                    $backupPlaceholder = <<<'SH'
+                    echo "=== post-backup hook ==="
+                    echo "Server ID    : $BACKUP_SERVER_ID"
+                    echo "Server name  : $BACKUP_SERVER_NAME"
+                    echo "Database     : $BACKUP_DATABASE_NAME"
+                    echo "DB type      : $BACKUP_DATABASE_TYPE"
+                    echo "Filename     : $BACKUP_FILENAME"
+                    echo "File size    : $BACKUP_FILE_SIZE bytes"
+                    echo "Checksum     : $BACKUP_CHECKSUM"
+                    echo "Volume       : $BACKUP_VOLUME_NAME"
+                    echo "Finished at  : $(date)"
+                    echo "=== done ==="
+                    SH;
+
+                    $restorePlaceholder = <<<'SH'
+                    # Only ping the prod healthcheck for one server
+                    if [ "$RESTORE_SERVER_ID" = "01JCABCDEF0123456789ABCDEF" ]; then
+                      echo "Production restore done, pinging healthcheck"
+                      curl -fsS "https://hc-ping.com/your-uuid?db=$RESTORE_DATABASE_NAME"
+                    else
+                      echo "Skipping healthcheck for server $RESTORE_SERVER_NAME ($RESTORE_SERVER_ID)"
+                    fi
+                    SH;
+
                     $hookEditors = [
                         [
                             'field' => 'post_backup_script',
@@ -183,7 +207,7 @@
                             'icon' => 'o-arrow-down-tray',
                             'barClass' => 'bg-success/5',
                             'chipClass' => 'bg-success/10 text-success',
-                            'placeholder' => 'curl -fsS https://example.com/ping?db=$BACKUP_DATABASE_NAME',
+                            'placeholder' => $backupPlaceholder,
                             'vars' => [
                                 'BACKUP_SERVER_ID' => __('Database server ID'),
                                 'BACKUP_SERVER_NAME' => __('Database server name'),
@@ -201,7 +225,7 @@
                             'icon' => 'o-arrow-up-tray',
                             'barClass' => 'bg-info/5',
                             'chipClass' => 'bg-info/10 text-info',
-                            'placeholder' => 'curl -fsS https://example.com/ping?db=$RESTORE_DATABASE_NAME',
+                            'placeholder' => $restorePlaceholder,
                             'vars' => [
                                 'RESTORE_SERVER_ID' => __('Target database server ID'),
                                 'RESTORE_SERVER_NAME' => __('Target database server name'),
