@@ -21,5 +21,6 @@ readonly class RestoreConfig
         public ?string $ownerUser = null,
         public ?string $snapshotDumpFormat = null,
         public bool $snapshotDumpPrivileges = false,
+        public ?string $postRestoreScript = null,
     ) {}
 }

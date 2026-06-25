@@ -14,7 +14,7 @@ readonly class BackupConfig
         public string $backupPath = '',
         public ?CompressionType $compressionType = null,
         public ?int $compressionLevel = null,
-        public ?string $postScript = null,
+        public ?string $postBackupScript = null,
     ) {}
 
     /**
@@ -26,7 +26,7 @@ readonly class BackupConfig
      *     compression: array{type: string|null, level: int|null},
      *     backup_path: string,
      *     server_name: string,
-     *     post_script: string|null,
+     *     post_backup_script: string|null,
      * }
      */
     public function toPayload(): array
@@ -43,7 +43,7 @@ readonly class BackupConfig
             ],
             'backup_path' => $this->backupPath,
             'server_name' => $this->database->serverName,
-            'post_script' => $this->postScript,
+            'post_backup_script' => $this->postBackupScript,
         ];
     }
 
@@ -56,7 +56,7 @@ readonly class BackupConfig
      *     compression: array{type: string|null, level: int|null},
      *     backup_path?: string,
      *     server_name: string,
-     *     post_script?: string|null,
+     *     post_backup_script?: string|null,
      * }  $payload
      */
     public static function fromPayload(array $payload, string $workingDirectory): self
@@ -73,7 +73,7 @@ readonly class BackupConfig
                 ? CompressionType::from($payload['compression']['type'])
                 : null,
             compressionLevel: $payload['compression']['level'] ?? null,
-            postScript: $payload['post_script'] ?? null,
+            postBackupScript: $payload['post_backup_script'] ?? null,
         );
     }
 }

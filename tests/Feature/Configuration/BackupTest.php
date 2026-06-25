@@ -54,6 +54,18 @@ test('saving backup config persists values', function () {
         ->and(AppConfig::get('backup.job_timeout'))->toBe(3600);
 });
 
+test('saving backup config persists post-backup and post-restore scripts', function () {
+    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+        ->test(Backup::class)
+        ->set('form.post_backup_script', 'echo "$BACKUP_FILENAME"')
+        ->set('form.post_restore_script', 'echo "$RESTORE_DATABASE_NAME"')
+        ->call('saveBackupConfig')
+        ->assertHasNoErrors();
+
+    expect(AppConfig::get('backup.post_backup_script'))->toBe('echo "$BACKUP_FILENAME"')
+        ->and(AppConfig::get('backup.post_restore_script'))->toBe('echo "$RESTORE_DATABASE_NAME"');
+});
+
 test('validation rejects invalid backup values', function () {
     Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
         ->test(Backup::class)

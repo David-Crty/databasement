@@ -65,17 +65,13 @@ class ProcessBackupJob implements ShouldQueue
                 ? ($snapshot->backup->path ?? '')
                 : '';
 
-            $postScript = $snapshot->backup instanceof \App\Models\Backup
-                ? ($snapshot->backup->post_script ?? null)
-                : null;
-
             $config = new BackupConfig(
                 database: DatabaseConnectionConfig::fromServer($databaseServer),
                 volume: VolumeConfig::fromVolume($snapshot->volume),
                 databaseName: $snapshot->database_name,
                 workingDirectory: FilesystemSupport::createWorkingDirectory('backup', $snapshot->id),
                 backupPath: $backupPath,
-                postScript: $postScript,
+                postBackupScript: AppConfig::get('backup.post_backup_script'),
             );
 
             $result = $backupTask->execute($config, $job);

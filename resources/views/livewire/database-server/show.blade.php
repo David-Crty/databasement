@@ -51,6 +51,18 @@
                             <p class="mt-1 line-clamp-2 text-sm opacity-60 leading-relaxed">{{ $server->description }}</p>
                         @endif
 
+                        <div class="mt-1.5 flex items-center gap-1 text-xs text-base-content/50">
+                            <span class="opacity-70">{{ __('ID') }}</span>
+                            <code class="font-mono break-all">{{ $server->id }}</code>
+                            <x-button
+                                icon="o-clipboard-document"
+                                class="btn-ghost btn-xs btn-circle shrink-0"
+                                x-clipboard="'{{ $server->id }}'"
+                                x-on:clipboard-copied="$wire.success('{{ __('Copied to clipboard!') }}', null, 'toast-bottom')"
+                                :tooltip="__('Copy ID')"
+                            />
+                        </div>
+
                         <div class="mt-3 flex flex-wrap items-center gap-2">
                             <span class="badge badge-ghost gap-1.5 whitespace-nowrap">
                                 <x-icon name="o-circle-stack" class="w-3.5 h-3.5" />

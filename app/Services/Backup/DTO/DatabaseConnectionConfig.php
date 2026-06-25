@@ -20,6 +20,7 @@ readonly class DatabaseConnectionConfig
         public string $password,
         public ?array $extraConfig = null,
         public ?array $sshConfig = null,
+        public string $serverId = '',
     ) {}
 
     public function requiresSshTunnel(): bool
@@ -63,11 +64,12 @@ readonly class DatabaseConnectionConfig
             password: $server->getDecryptedPassword(),
             extraConfig: $server->extra_config,
             sshConfig: $sshConfig,
+            serverId: (string) $server->id,
         );
     }
 
     /**
-     * @return array{type: string, host: string, port: int, username: string, password: string, extra_config: array<string, mixed>|null}
+     * @return array{type: string, host: string, port: int, username: string, password: string, extra_config: array<string, mixed>|null, id: string}
      */
     public function toPayload(): array
     {
@@ -78,11 +80,12 @@ readonly class DatabaseConnectionConfig
             'username' => $this->username,
             'password' => $this->password,
             'extra_config' => $this->extraConfig,
+            'id' => $this->serverId,
         ];
     }
 
     /**
-     * @param  array{type: string, host?: string, port?: int, username?: string, password?: string, extra_config?: array<string, mixed>|null}  $dbConfig
+     * @param  array{type: string, host?: string, port?: int, username?: string, password?: string, extra_config?: array<string, mixed>|null, id?: string}  $dbConfig
      */
     public static function fromPayload(array $dbConfig, string $serverName): self
     {
@@ -102,6 +105,7 @@ readonly class DatabaseConnectionConfig
             password: $dbConfig['password'] ?? '',
             extraConfig: $dbConfig['extra_config'] ?? null,
             sshConfig: null,
+            serverId: $dbConfig['id'] ?? '',
         );
     }
 }

@@ -12,6 +12,7 @@ use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\InMemoryBackupLogger;
+use App\Services\Backup\PostScriptRunner;
 use App\Services\Backup\RestoreTask;
 use App\Services\SshTunnelService;
 use Tests\Support\TestShellProcessor;
@@ -112,6 +113,7 @@ test('execute calls transferOwnership when ownerUser is set and database is Post
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = new RestoreConfig(
@@ -155,6 +157,7 @@ test('execute does not call transferOwnership for non-PostgreSQL databases', fun
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = new RestoreConfig(
@@ -194,6 +197,7 @@ test('execute passes forceDatabase flag to prepareForRestore', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = new RestoreConfig(
@@ -223,6 +227,7 @@ test('execute restores successfully', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = buildRestoreConfig();
@@ -246,6 +251,7 @@ test('execute throws when database types are incompatible', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = new RestoreConfig(
@@ -280,6 +286,7 @@ test('execute throws for Redis restore', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = new RestoreConfig(
@@ -366,6 +373,7 @@ test('execute establishes SSH tunnel when target server requires it', function (
         $this->filesystemProvider,
         $this->compressorFactory,
         $sshTunnelService,
+        new PostScriptRunner,
     );
 
     $workingDirectory = $this->tempDir.'/ssh-test-'.uniqid();
@@ -396,6 +404,7 @@ test('execute cleans up working directory on success', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = buildRestoreConfig();
@@ -446,6 +455,7 @@ test('execute cleans up working directory on failure', function () {
         $this->filesystemProvider,
         $compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = buildRestoreConfig();
@@ -455,4 +465,42 @@ test('execute cleans up working directory on failure', function () {
         ->toThrow(\App\Exceptions\ShellProcessFailed::class);
 
     expect(is_dir($config->workingDirectory))->toBeFalse();
+});
+
+test('execute runs post-restore script with restore variables after successful restore', function () {
+    setupDownloadMock();
+
+    $restoreTask = new RestoreTask(
+        buildMockRestoreProvider(),
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+        new PostScriptRunner,
+    );
+
+    $config = new RestoreConfig(
+        targetServer: buildTargetConfig(),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.sql.gz',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::GZIP,
+        snapshotDatabaseType: DatabaseType::MYSQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $this->tempDir.'/post-restore-'.uniqid(),
+        postRestoreScript: 'echo "$RESTORE_DATABASE_NAME"',
+    );
+
+    mkdir($config->workingDirectory, 0755, true);
+
+    $restoreTask->execute($config, new InMemoryBackupLogger);
+
+    $commands = $this->shellProcessor->getCommands();
+    $lastEnv = end($this->shellProcessor->executedEnv);
+
+    expect(end($commands))->toContain('post-restore-script.sh')
+        ->and($lastEnv)->toHaveKey('RESTORE_DATABASE_NAME', 'restored_db')
+        ->and($lastEnv)->toHaveKey('RESTORE_SOURCE_DATABASE', 'sourcedb')
+        ->and($lastEnv)->toHaveKey('RESTORE_SNAPSHOT_FILENAME', 'backup.sql.gz');
 });

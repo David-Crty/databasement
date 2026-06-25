@@ -33,6 +33,10 @@ class ConfigurationForm extends Form
 
     public string $verify_files_cron = '';
 
+    public string $post_backup_script = '';
+
+    public string $post_restore_script = '';
+
     // Backup Schedule modal fields
     public string $schedule_name = '';
 
@@ -51,6 +55,8 @@ class ConfigurationForm extends Form
         $this->cleanup_cron = (string) AppConfig::get('backup.cleanup_cron');
         $this->verify_files = (bool) AppConfig::get('backup.verify_files');
         $this->verify_files_cron = (string) AppConfig::get('backup.verify_files_cron');
+        $this->post_backup_script = (string) AppConfig::get('backup.post_backup_script');
+        $this->post_restore_script = (string) AppConfig::get('backup.post_restore_script');
     }
 
     /**
@@ -93,6 +99,8 @@ class ConfigurationForm extends Form
             'cleanup_cron' => ['required', 'string', 'max:100', $this->cronRule()],
             'verify_files' => ['boolean'],
             'verify_files_cron' => ['required', 'string', 'max:100', $this->cronRule()],
+            'post_backup_script' => ['nullable', 'string', 'max:10000'],
+            'post_restore_script' => ['nullable', 'string', 'max:10000'],
         ];
     }
 
@@ -133,6 +141,8 @@ class ConfigurationForm extends Form
             'cleanup_cron' => 'backup.cleanup_cron',
             'verify_files' => 'backup.verify_files',
             'verify_files_cron' => 'backup.verify_files_cron',
+            'post_backup_script' => 'backup.post_backup_script',
+            'post_restore_script' => 'backup.post_restore_script',
         ];
 
         foreach ($backupKeyMap as $property => $configKey) {

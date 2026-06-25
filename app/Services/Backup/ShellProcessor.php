@@ -16,10 +16,17 @@ class ShellProcessor
         $this->logger = $logger;
     }
 
-    public function process(string $command): string
+    /**
+     * @param  array<string, string>  $env  Extra environment variables exposed to the command.
+     */
+    public function process(string $command, array $env = []): string
     {
         $process = Process::fromShellCommandline($command);
         $process->setTimeout(null);
+
+        if ($env !== []) {
+            $process->setEnv($env);
+        }
 
         // Mask sensitive data in command line for logging
         $sanitizedCommand = $this->sanitize($command);

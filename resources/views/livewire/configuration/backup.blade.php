@@ -174,6 +174,123 @@
                     @endif
                 </div>
 
+                {{-- Hook scripts --}}
+                @php
+                    $hookEditors = [
+                        [
+                            'field' => 'post_backup_script',
+                            'title' => __('Post-backup Script'),
+                            'icon' => 'o-arrow-down-tray',
+                            'barClass' => 'bg-success/5',
+                            'chipClass' => 'bg-success/10 text-success',
+                            'placeholder' => 'curl -fsS https://example.com/ping?db=$BACKUP_DATABASE_NAME',
+                            'vars' => [
+                                'BACKUP_SERVER_ID' => __('Database server ID'),
+                                'BACKUP_SERVER_NAME' => __('Database server name'),
+                                'BACKUP_DATABASE_NAME' => __('Backed-up database name'),
+                                'BACKUP_DATABASE_TYPE' => __('Database type (mysql, postgresql, …)'),
+                                'BACKUP_FILENAME' => __('Path of the file written to the volume'),
+                                'BACKUP_FILE_SIZE' => __('Backup file size in bytes'),
+                                'BACKUP_CHECKSUM' => __('SHA-256 checksum of the backup'),
+                                'BACKUP_VOLUME_NAME' => __('Destination volume name'),
+                            ],
+                        ],
+                        [
+                            'field' => 'post_restore_script',
+                            'title' => __('Post-restore Script'),
+                            'icon' => 'o-arrow-up-tray',
+                            'barClass' => 'bg-info/5',
+                            'chipClass' => 'bg-info/10 text-info',
+                            'placeholder' => 'curl -fsS https://example.com/ping?db=$RESTORE_DATABASE_NAME',
+                            'vars' => [
+                                'RESTORE_SERVER_ID' => __('Target database server ID'),
+                                'RESTORE_SERVER_NAME' => __('Target database server name'),
+                                'RESTORE_DATABASE_NAME' => __('Target database name'),
+                                'RESTORE_DATABASE_TYPE' => __('Database type (mysql, postgresql, …)'),
+                                'RESTORE_SOURCE_DATABASE' => __('Original database name in the snapshot'),
+                                'RESTORE_SNAPSHOT_FILENAME' => __('Snapshot file restored from the volume'),
+                                'RESTORE_VOLUME_NAME' => __('Source volume name'),
+                            ],
+                        ],
+                    ];
+                @endphp
+
+                <div class="border-t border-base-200/60 pt-6 mt-2 space-y-4">
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/70">
+                            <x-icon name="o-command-line" class="w-4 h-4" />
+                        </span>
+                        <h3 class="text-sm font-semibold text-base-content">{{ __('Hook Scripts') }}</h3>
+                    </div>
+
+                    <x-alert icon="o-information-circle" class="alert-info">
+                        {{ __('Run a shell script after every successful backup or restore. Scripts run with :shebang on the worker host, and their output appears in the job log.', ['shebang' => '#!/bin/sh']) }}
+                        <x-slot:actions>
+                            <x-button
+                                :label="__('Learn more')"
+                                link="https://david-crty.github.io/databasement/self-hosting/configuration/backup#hook-scripts"
+                                external
+                                icon="o-book-open"
+                                class="btn-sm"
+                            />
+                        </x-slot:actions>
+                    </x-alert>
+
+                    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        @foreach ($hookEditors as $editor)
+                            <div wire:key="hook-{{ $editor['field'] }}" class="rounded-lg border border-base-300 bg-base-100 overflow-hidden">
+                                {{-- Editor header --}}
+                                <div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-base-200 {{ $editor['barClass'] }}">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded {{ $editor['chipClass'] }}">
+                                            <x-icon :name="$editor['icon']" class="w-3 h-3" />
+                                        </span>
+                                        <span class="text-sm font-medium text-base-content truncate">{{ $editor['title'] }}</span>
+                                    </div>
+                                    <span class="badge badge-ghost badge-sm font-mono text-[10px] shrink-0">#!/bin/sh</span>
+                                </div>
+
+                                {{-- Code editor --}}
+                                <textarea
+                                    wire:model.blur="form.{{ $editor['field'] }}"
+                                    rows="6"
+                                    spellcheck="false"
+                                    @disabled(!$this->isAdmin)
+                                    placeholder="{{ $editor['placeholder'] }}"
+                                    class="w-full resize-y border-0 bg-base-200/30 p-3 font-mono text-xs leading-relaxed text-base-content focus:outline-none focus:ring-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                                ></textarea>
+
+                                {{-- Footer: variable reference --}}
+                                <div class="border-t border-base-200 px-3 py-2" x-data="{ open: false }">
+                                    <button
+                                        type="button"
+                                        x-on:click="open = !open"
+                                        class="flex items-center gap-1 text-xs font-medium text-base-content/70 hover:text-base-content"
+                                    >
+                                        <span class="transition-transform" x-bind:class="{ 'rotate-90': open }">
+                                            <x-icon name="o-chevron-right" class="w-3 h-3" />
+                                        </span>
+                                        {{ __('Available variables') }}
+                                    </button>
+
+                                    <div x-show="open" x-collapse class="mt-2 flex flex-wrap gap-1.5">
+                                        @foreach ($editor['vars'] as $var => $desc)
+                                            <code
+                                                title="{{ $desc }}"
+                                                class="cursor-help rounded bg-base-200 px-1.5 py-0.5 font-mono text-[11px] text-base-content/70"
+                                            >${{ $var }}</code>
+                                        @endforeach
+                                    </div>
+                                </div>
+
+                                @error('form.'.$editor['field'])
+                                    <p class="px-3 pb-2 text-xs text-error">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
                 @if ($this->isAdmin)
                 <div class="flex items-center justify-end border-t border-base-200/60 pt-6">
                     <x-button

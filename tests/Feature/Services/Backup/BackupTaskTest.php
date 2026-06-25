@@ -14,6 +14,7 @@ use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\InMemoryBackupLogger;
+use App\Services\Backup\PostScriptRunner;
 use App\Services\SshTunnelService;
 use Tests\Support\TestShellProcessor;
 
@@ -90,6 +91,7 @@ test('execute returns BackupResult with filename, fileSize, and checksum', funct
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = buildBackupConfig();
@@ -115,6 +117,7 @@ test('execute calls onProgress callback at each checkpoint', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = buildBackupConfig();
@@ -190,6 +193,7 @@ test('execute establishes SSH tunnel when server requires it', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $sshTunnelService,
+        new PostScriptRunner,
     );
 
     $workingDirectory = $this->tempDir.'/ssh-test-'.uniqid();
@@ -234,6 +238,7 @@ test('execute uses server host and port when no SSH tunnel is needed', function 
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = buildBackupConfig();
@@ -253,6 +258,7 @@ test('execute cleans up working directory on success', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = buildBackupConfig();
@@ -286,6 +292,7 @@ test('execute cleans up working directory on failure', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $config = buildBackupConfig();
@@ -318,6 +325,7 @@ test('execute uses custom compression type and level', function () {
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $workingDirectory = $this->tempDir.'/compression-test-'.uniqid();
@@ -345,7 +353,7 @@ test('execute uses custom compression type and level', function () {
     expect(array_values($zstdCommands)[0])->toContain('-5');
 });
 
-test('execute records post-script command in shell processor after successful backup', function () {
+test('execute runs post-backup script with backup variables after successful backup', function () {
     $mockProvider = buildMockDatabaseProvider();
 
     test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
@@ -356,6 +364,7 @@ test('execute records post-script command in shell processor after successful ba
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $workingDirectory = $this->tempDir.'/post-script-test-'.uniqid();
@@ -366,33 +375,68 @@ test('execute records post-script command in shell processor after successful ba
         volume: buildVolumeConfig(),
         databaseName: 'myapp',
         workingDirectory: $workingDirectory,
-        postScript: '/usr/local/bin/notify.sh',
+        postBackupScript: 'echo "$BACKUP_FILENAME"',
     );
 
     $result = $backupTask->execute($config, new InMemoryBackupLogger);
 
     $commands = $this->shellProcessor->getCommands();
+    $lastEnv = end($this->shellProcessor->executedEnv);
 
     expect($result)->toBeInstanceOf(BackupResult::class)
         ->and($commands)->not->toBeEmpty()
-        ->and(end($commands))->toBe('/usr/local/bin/notify.sh')
-        ->and(count($commands))->toBeGreaterThan(1);
+        ->and(end($commands))->toContain('post-backup-script.sh')
+        ->and(count($commands))->toBeGreaterThan(1)
+        ->and($lastEnv)->toHaveKey('BACKUP_DATABASE_NAME', 'myapp')
+        ->and($lastEnv)->toHaveKey('BACKUP_FILENAME')
+        ->and($lastEnv)->toHaveKey('BACKUP_CHECKSUM');
 });
 
-test('execute logs warning and continues when post-script fails', function () {
+test('execute skips post-backup script when none configured', function () {
+    $mockProvider = buildMockDatabaseProvider();
+
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+        new PostScriptRunner,
+    );
+
+    $workingDirectory = $this->tempDir.'/post-script-none-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    $config = new BackupConfig(
+        database: buildDbConfig(),
+        volume: buildVolumeConfig(),
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+        postBackupScript: '   ',
+    );
+
+    $backupTask->execute($config, new InMemoryBackupLogger);
+
+    $commands = $this->shellProcessor->getCommands();
+    expect(collect($commands)->contains(fn ($cmd) => str_contains($cmd, 'post-backup-script.sh')))->toBeFalse();
+});
+
+test('execute logs warning and continues when post-backup script fails', function () {
     $mockProvider = buildMockDatabaseProvider();
 
     test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
     $throwingShellProcessor = new class extends TestShellProcessor
     {
-        public function process(string $command): string
+        public function process(string $command, array $env = []): string
         {
-            if (str_contains($command, '__fail_marker__')) {
+            if (str_contains($command, 'post-backup-script.sh')) {
                 throw new \App\Exceptions\ShellProcessFailed('Script exited with code 1');
             }
 
-            return parent::process($command);
+            return parent::process($command, $env);
         }
     };
 
@@ -404,6 +448,7 @@ test('execute logs warning and continues when post-script fails', function () {
         $this->filesystemProvider,
         $compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $workingDirectory = $this->tempDir.'/post-script-fail-'.uniqid();
@@ -416,7 +461,7 @@ test('execute logs warning and continues when post-script fails', function () {
         volume: buildVolumeConfig(),
         databaseName: 'myapp',
         workingDirectory: $workingDirectory,
-        postScript: 'echo __fail_marker__',
+        postBackupScript: 'exit 1',
     );
 
     $result = $backupTask->execute($config, $logger);
@@ -438,6 +483,7 @@ test('execute prepends backup path with date variables to filename', function ()
         $this->filesystemProvider,
         $this->compressorFactory,
         $this->sshTunnelService,
+        new PostScriptRunner,
     );
 
     $workingDirectory = $this->tempDir.'/path-test-'.uniqid();

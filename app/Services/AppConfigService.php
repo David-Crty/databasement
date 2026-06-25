@@ -25,6 +25,8 @@ class AppConfigService
         'backup.cleanup_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 4 * * *'],
         'backup.verify_files' => ['type' => 'boolean', 'is_sensitive' => false, 'default' => true],
         'backup.verify_files_cron' => ['type' => 'string', 'is_sensitive' => false, 'default' => '0 5 * * *'],
+        'backup.post_backup_script' => ['type' => 'string', 'is_sensitive' => false, 'default' => ''],
+        'backup.post_restore_script' => ['type' => 'string', 'is_sensitive' => false, 'default' => ''],
     ];
 
     /**

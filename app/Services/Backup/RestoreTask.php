@@ -26,6 +26,7 @@ class RestoreTask
         private readonly FilesystemProvider $filesystemProvider,
         private readonly CompressorFactory $compressorFactory,
         private readonly SshTunnelService $sshTunnelService,
+        private readonly PostScriptRunner $postScriptRunner,
     ) {}
 
     protected function getSshTunnelService(): SshTunnelService
@@ -108,6 +109,23 @@ class RestoreTask
 
             // Mark job as completed
             $logger->log('Restore completed successfully', 'success');
+
+            $this->postScriptRunner->run(
+                $this->shellProcessor,
+                $logger,
+                'post-restore-script',
+                $config->postRestoreScript,
+                $config->workingDirectory,
+                [
+                    'RESTORE_SERVER_ID' => $target->serverId,
+                    'RESTORE_SERVER_NAME' => $target->serverName,
+                    'RESTORE_DATABASE_NAME' => $config->schemaName,
+                    'RESTORE_DATABASE_TYPE' => $target->databaseType->value,
+                    'RESTORE_SOURCE_DATABASE' => $config->snapshotDatabaseName,
+                    'RESTORE_SNAPSHOT_FILENAME' => $config->snapshotFilename,
+                    'RESTORE_VOLUME_NAME' => $config->snapshotVolume->name,
+                ],
+            );
         } finally {
             // Close SSH tunnel if active
             $this->closeSshTunnel($logger);

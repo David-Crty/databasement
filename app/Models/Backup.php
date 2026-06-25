@@ -45,7 +45,6 @@ class Backup extends Model
         'database_selection_mode',
         'database_names',
         'database_include_pattern',
-        'post_script',
     ];
 
     protected function casts(): array

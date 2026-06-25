@@ -72,6 +72,7 @@ test('toPayload serializes connection config', function () {
         username: 'admin',
         password: 'secret',
         extraConfig: ['sslmode' => 'require'],
+        serverId: 'srv_123',
     );
 
     expect($config->toPayload())->toBe([
@@ -81,6 +82,7 @@ test('toPayload serializes connection config', function () {
         'username' => 'admin',
         'password' => 'secret',
         'extra_config' => ['sslmode' => 'require'],
+        'id' => 'srv_123',
     ]);
 });
 
@@ -92,6 +94,7 @@ test('fromPayload reconstructs config with default port fallback', function () {
         'username' => 'root',
         'password' => 'secret',
         'extra_config' => null,
+        'id' => 'srv_123',
     ], 'My Server');
 
     expect($config->databaseType)->toBe(DatabaseType::MYSQL)
@@ -99,6 +102,7 @@ test('fromPayload reconstructs config with default port fallback', function () {
         ->and($config->host)->toBe('db.example.com')
         ->and($config->port)->toBe(3306)
         ->and($config->password)->toBe('secret')
+        ->and($config->serverId)->toBe('srv_123')
         ->and($config->sshConfig)->toBeNull();
 
     // Uses default port when missing or zero

@@ -12,10 +12,14 @@ class TestShellProcessor extends ShellProcessor
 {
     public array $executedCommands = [];
 
-    public function process(string $command): string
+    /** @var array<int, array<string, string>> */
+    public array $executedEnv = [];
+
+    public function process(string $command, array $env = []): string
     {
-        // Capture the command
+        // Capture the command and env
         $this->executedCommands[] = $command;
+        $this->executedEnv[] = $env;
 
         // Simulate file creation based on command patterns
         $this->simulateCommandEffects($command);
