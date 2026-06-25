@@ -48,7 +48,7 @@
 
             @scope('cell_actions', $org)
                 @unless($org->is_default)
-                    <div class="text-right">
+                    <div class="flex justify-end flex-nowrap gap-1">
                         <x-button icon="o-pencil" class="btn-ghost btn-xs" wire:click="openEditModal('{{ $org->id }}')" :tooltip="__('Edit')" />
                         <x-button icon="o-arrows-pointing-in" class="btn-ghost btn-xs" wire:click="openMergeModal('{{ $org->id }}')" :tooltip="__('Merge')" />
                         <x-button icon="o-trash" class="btn-ghost btn-xs text-error" wire:click="confirmDelete('{{ $org->id }}')" :tooltip="__('Delete')" />

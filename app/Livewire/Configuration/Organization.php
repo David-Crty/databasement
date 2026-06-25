@@ -241,7 +241,7 @@ class Organization extends Component
                 ['key' => 'database_servers_count', 'label' => __('Servers')],
                 ['key' => 'volumes_count', 'label' => __('Volumes')],
                 ['key' => 'agents_count', 'label' => __('Agents')],
-                ['key' => 'actions', 'label' => '', 'class' => 'w-32'],
+                ['key' => 'actions', 'label' => '', 'class' => 'w-32 whitespace-nowrap'],
             ],
         ]);
     }
