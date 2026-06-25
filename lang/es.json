@@ -42,6 +42,7 @@
   "All Types": "Todos los tipos",
   "All databases": "Todas las bases",
   "All servers": "Todos los servidores",
+  "All servers, volumes, agents and snapshots in this organization will be permanently deleted. This action cannot be undone.": "Todos los servidores, volúmenes, agentes y snapshots de esta organización se eliminarán permanentemente. Esta acción no se puede deshacer.",
   "All snapshots will be kept indefinitely. Make sure you have enough storage space or manually delete old snapshots.": "Todos los snapshots se conservarán indefinidamente. Asegúrese de tener suficiente espacio de almacenamiento o elimine manualmente los snapshots antiguos.",
   "All user databases will be backed up. System databases are automatically excluded.": "Se hará backup de todas las bases de datos de usuario. Las bases de datos del sistema se excluyen automáticamente.",
   "All verified": "Todos verificados",

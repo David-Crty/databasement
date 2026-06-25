@@ -21,8 +21,8 @@ class LatestSnapshotResolver
             ->withoutGlobalScope(OrganizationScope::class)
             ->where('database_server_id', $scheduledRestore->source_server_id)
             ->where('database_name', $scheduledRestore->source_database_name)
-            ->where('file_exists', true)
-            ->whereHas('job', fn ($q) => $q->whereRaw('status = ?', ['completed']))
+            ->fileExists()
+            ->completed()
             ->orderByDesc('created_at')
             ->first();
     }

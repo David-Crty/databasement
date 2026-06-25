@@ -39,6 +39,7 @@
   "All Types": "Όλοι οι τύποι",
   "All databases": "Όλες οι Βάσεις Δεδομένων",
   "All servers": "Όλοι οι servers",
+  "All servers, volumes, agents and snapshots in this organization will be permanently deleted. This action cannot be undone.": "Όλοι οι servers, volumes, agents και snapshots αυτού του οργανισμού θα διαγραφούν οριστικά. Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.",
   "All snapshots will be kept indefinitely. Make sure you have enough storage space or manually delete old snapshots.": "Όλα τα snapshots θα διατηρηθούν επ' αόριστον. Βεβαιωθείτε ότι έχετε αρκετό χώρο αποθήκευσης ή διαγράψτε χειροκίνητα παλιά snapshots.",
   "All user databases will be backed up. System databases are automatically excluded.": "Όλες οι Βάσεις Δεδομένων χρήστη θα δημιουργηθούν αντίγραφα ασφαλείας. Οι βάσεις συστήματος εξαιρούνται αυτόματα.",
   "All verified": "Όλα επαληθευμένα",

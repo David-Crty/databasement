@@ -13,19 +13,16 @@ class RestoreFailedNotification extends BaseFailedNotification
         parent::__construct($exception);
     }
 
-    public function getMessage(): FailedNotificationMessage
+    public function getMessage(): NotificationMessage
     {
         return $this->message(
-            title: '🚨 Restore Failed: '.($this->restore->targetServer->name ?? 'Unknown'),
-            body: 'A restore job has failed and requires your attention.',
-            actionText: '🔗 View Job Details',
+            title: '🚨 '.__('Restore Failed: :server', ['server' => $this->restore->targetServer->name ?? __('Unknown')]),
+            body: __('A restore job has failed and requires your attention.'),
             actionUrl: route('restores.index', ['job' => $this->restore->backup_job_id]),
-            footerText: '🕐 '.\App\Support\Formatters::humanDate(now()),
-            errorLabel: '❌ Error Details',
             fields: [
-                'Target Server' => $this->restore->targetServer->name ?? 'Unknown',
-                'Target Database' => $this->restore->schema_name ?? 'Unknown',
-                'Source Snapshot' => $this->restore->snapshot->filename ?? 'Unknown',
+                __('Target Server') => $this->restore->targetServer->name ?? __('Unknown'),
+                __('Target Database') => $this->restore->schema_name ?? __('Unknown'),
+                __('Source Snapshot') => $this->restore->snapshot->filename ?? __('Unknown'),
             ],
         );
     }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use App\Jobs\ProcessRestoreJob;
@@ -78,7 +79,7 @@ test('handle builds config from models and marks job completed', function () {
     (new ProcessRestoreJob($restore->id))->handle($mockRestoreTask);
 
     $restore->refresh();
-    expect($restore->job->status)->toBe('completed');
+    expect($restore->job->status)->toBe(BackupJobStatus::Completed);
 });
 
 test('handle marks job as failed and re-throws on execute failure', function () {
@@ -114,7 +115,7 @@ test('handle marks job as failed and re-throws on execute failure', function () 
         ->toThrow(\App\Exceptions\ShellProcessFailed::class, 'Access denied for user');
 
     $restore->refresh();
-    expect($restore->job->status)->toBe('failed')
+    expect($restore->job->status)->toBe(BackupJobStatus::Failed)
         ->and($restore->job->error_message)->toBe('Access denied for user')
         ->and($restore->job->completed_at)->not->toBeNull();
 });

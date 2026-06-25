@@ -10,18 +10,16 @@ class RestoreSuccessNotification extends BaseSuccessNotification
         public Restore $restore
     ) {}
 
-    public function getMessage(): SuccessNotificationMessage
+    public function getMessage(): NotificationMessage
     {
         return $this->message(
-            title: '✅ Restore Succeeded: '.($this->restore->targetServer->name ?? 'Unknown'),
-            body: 'A restore job completed successfully.',
-            actionText: '🔗 View Job Details',
+            title: '✅ '.__('Restore Succeeded: :server', ['server' => $this->restore->targetServer->name ?? __('Unknown')]),
+            body: __('A restore job completed successfully.'),
             actionUrl: route('restores.index', ['job' => $this->restore->backup_job_id]),
-            footerText: '🕐 '.\App\Support\Formatters::humanDate(now()),
             fields: [
-                'Target Server' => $this->restore->targetServer->name ?? 'Unknown',
-                'Target Database' => $this->restore->schema_name ?? 'Unknown',
-                'Source Snapshot' => $this->restore->snapshot->filename ?? 'Unknown',
+                __('Target Server') => $this->restore->targetServer->name ?? __('Unknown'),
+                __('Target Database') => $this->restore->schema_name ?? __('Unknown'),
+                __('Source Snapshot') => $this->restore->snapshot->filename ?? __('Unknown'),
             ],
         );
     }

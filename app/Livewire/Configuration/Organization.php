@@ -2,8 +2,11 @@
 
 namespace App\Livewire\Configuration;
 
+use App\Jobs\DeleteOrganizationJob;
+use App\Jobs\MergeOrganizationJob;
 use App\Models\Organization as OrganizationModel;
 use App\Models\Scopes\OrganizationScope;
+use App\Services\CurrentOrganization;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
@@ -32,7 +35,13 @@ class Organization extends Component
 
     public ?string $deleteOrgId = null;
 
-    public bool $deleteOrgHasResources = false;
+    public bool $keepFiles = false;
+
+    public bool $showMergeModal = false;
+
+    public ?string $mergeSourceId = null;
+
+    public ?string $mergeDestinationId = null;
 
     public function mount(): void
     {
@@ -122,7 +131,7 @@ class Organization extends Component
         $this->authorize('delete', $org);
 
         $this->deleteOrgId = $orgId;
-        $this->deleteOrgHasResources = $org->hasResources();
+        $this->keepFiles = false;
         $this->showDeleteModal = true;
     }
 
@@ -132,20 +141,93 @@ class Organization extends Component
 
         $this->authorize('delete', $org);
 
-        if ($org->hasResources()) {
-            $this->error(__('This organization still has resources and cannot be deleted.'));
+        $this->ensureNotCurrentOrg($org);
 
-            return null;
-        }
-
-        $org->delete();
+        DeleteOrganizationJob::dispatch($org->id, $this->actorId(), $this->keepFiles);
 
         $this->showDeleteModal = false;
         $this->deleteOrgId = null;
 
-        $this->success(__('Organization deleted.'));
+        $this->success(__('Organization deletion queued. It will complete shortly.'));
 
         return $this->redirect(route('configuration.organizations'), navigate: true);
+    }
+
+    public function openMergeModal(string $orgId): void
+    {
+        $org = OrganizationModel::findOrFail($orgId);
+
+        $this->authorize('delete', $org);
+
+        $this->mergeSourceId = $orgId;
+        $this->mergeDestinationId = null;
+        $this->resetValidation();
+        $this->showMergeModal = true;
+    }
+
+    public function mergeOrganization(): mixed
+    {
+        $source = OrganizationModel::findOrFail($this->mergeSourceId);
+
+        $this->authorize('delete', $source);
+
+        $this->validate([
+            'mergeDestinationId' => [
+                'required',
+                'string',
+                'exists:organizations,id',
+                'different:mergeSourceId',
+            ],
+        ]);
+
+        $this->ensureNotCurrentOrg($source);
+
+        MergeOrganizationJob::dispatch($source->id, $this->mergeDestinationId, $this->actorId());
+
+        $this->showMergeModal = false;
+        $this->mergeSourceId = null;
+        $this->mergeDestinationId = null;
+
+        $this->success(__('Organization merge queued. It will complete shortly.'));
+
+        return $this->redirect(route('configuration.organizations'), navigate: true);
+    }
+
+    /**
+     * Destination options for the merge modal (all orgs except the source).
+     *
+     * @return array<int, array{id: string, name: string}>
+     */
+    #[Computed]
+    public function mergeDestinations(): array
+    {
+        return OrganizationModel::query()
+            ->when($this->mergeSourceId, fn ($q) => $q->whereKeyNot($this->mergeSourceId))
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (OrganizationModel $org) => ['id' => $org->id, 'name' => $org->name])
+            ->all();
+    }
+
+    private function actorId(): ?int
+    {
+        $id = auth()->id();
+
+        return $id === null ? null : (int) $id;
+    }
+
+    /**
+     * If the actor is currently scoped to the org being removed, switch their
+     * context to the default org so they don't land on a stale organization.
+     */
+    private function ensureNotCurrentOrg(OrganizationModel $org): void
+    {
+        $current = app(CurrentOrganization::class);
+
+        if ($current->isResolved() && $current->id() === $org->id) {
+            $current->switchTo(OrganizationModel::default());
+        }
     }
 
     public function render(): View
@@ -159,7 +241,7 @@ class Organization extends Component
                 ['key' => 'database_servers_count', 'label' => __('Servers')],
                 ['key' => 'volumes_count', 'label' => __('Volumes')],
                 ['key' => 'agents_count', 'label' => __('Agents')],
-                ['key' => 'actions', 'label' => '', 'class' => 'w-32'],
+                ['key' => 'actions', 'label' => '', 'class' => 'w-32 whitespace-nowrap'],
             ],
         ]);
     }

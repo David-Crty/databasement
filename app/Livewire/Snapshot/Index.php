@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Snapshot;
 
+use App\Enums\BackupJobStatus;
 use App\Enums\DatabaseType;
 use App\Livewire\Concerns\HandlesJobLogsModal;
 use App\Models\BackupJob;
@@ -210,7 +211,7 @@ class Index extends Component
 
         $this->authorize('delete', $job);
 
-        if ($job->status !== 'pending') {
+        if ($job->status !== BackupJobStatus::Pending) {
             $this->error(__('Job is no longer pending and cannot be deleted.'));
             $this->showDeleteModal = false;
 

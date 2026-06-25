@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Enums\DatabaseType;
 use App\Models\Scopes\OrganizationScope;
@@ -299,5 +300,38 @@ class Snapshot extends Model
     public function scopeForDatabaseServer(Builder $query, DatabaseServer $databaseServer): Builder
     {
         return $query->where('database_server_id', $databaseServer->id);
+    }
+
+    /**
+     * Scope to only snapshots whose backup job completed successfully.
+     *
+     * @param  Builder<Snapshot>  $query
+     * @return Builder<Snapshot>
+     */
+    public function scopeCompleted(Builder $query): Builder
+    {
+        return $query->whereRelation('job', 'status', BackupJobStatus::Completed);
+    }
+
+    /**
+     * Scope to snapshots whose backup file still exists on the volume.
+     *
+     * @param  Builder<Snapshot>  $query
+     * @return Builder<Snapshot>
+     */
+    public function scopeFileExists(Builder $query): Builder
+    {
+        return $query->where('file_exists', true);
+    }
+
+    /**
+     * Scope to snapshots whose backup file is missing from the volume.
+     *
+     * @param  Builder<Snapshot>  $query
+     * @return Builder<Snapshot>
+     */
+    public function scopeFileMissing(Builder $query): Builder
+    {
+        return $query->where('file_exists', false);
     }
 }

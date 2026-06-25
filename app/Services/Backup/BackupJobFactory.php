@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;
@@ -103,7 +104,7 @@ class BackupJobFactory
         $volume = $backup->volume;
 
         $snapshot = DB::transaction(function () use ($backup, $server, $volume, $databaseName, $method, $triggeredByUserId) {
-            $job = BackupJob::create(['status' => 'pending']);
+            $job = BackupJob::create(['status' => BackupJobStatus::Pending]);
 
             return Snapshot::create([
                 'backup_job_id' => $job->id,
@@ -179,7 +180,7 @@ class BackupJobFactory
         ?string $scheduledRestoreId = null,
     ): Restore {
         $snapshot->loadMissing('job');
-        if ($snapshot->job->status !== 'completed' || $snapshot->filename === '') {
+        if ($snapshot->job->status !== BackupJobStatus::Completed || $snapshot->filename === '') {
             throw ValidationException::withMessages([
                 'snapshot_id' => 'Snapshot is not completed and cannot be restored.',
             ]);
@@ -198,7 +199,7 @@ class BackupJobFactory
         }
 
         $restore = DB::transaction(function () use ($snapshot, $targetServer, $schemaName, $options, $triggeredByUserId, $scheduledRestoreId) {
-            $job = BackupJob::create(['status' => 'pending']);
+            $job = BackupJob::create(['status' => BackupJobStatus::Pending]);
 
             return Restore::create([
                 'backup_job_id' => $job->id,

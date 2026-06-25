@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Jobs\ProcessRestoreJob;
+use App\Models\BackupJob;
 use App\Models\Restore;
 use App\Models\ScheduledRestore;
 use App\Services\Backup\BackupJobFactory;
@@ -88,7 +89,10 @@ class RunScheduledRestores extends Command
     {
         return Restore::query()
             ->where('scheduled_restore_id', $scheduledRestore->id)
-            ->whereHas('job', fn (Builder $q) => $q->whereIn('status', ['pending', 'running']))
+            ->whereHas('job', function (Builder $q) {
+                /** @var Builder<BackupJob> $q */
+                $q->inProgress();
+            })
             ->exists();
     }
 

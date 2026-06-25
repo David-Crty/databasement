@@ -1,9 +1,12 @@
 <?php
 
+use App\Jobs\DeleteOrganizationJob;
+use App\Jobs\MergeOrganizationJob;
 use App\Livewire\Configuration\Organization;
 use App\Models\DatabaseServer;
 use App\Models\Organization as OrganizationModel;
 use App\Models\User;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -67,7 +70,9 @@ test('super admin cannot rename the main organization', function () {
         ->assertForbidden();
 });
 
-test('super admin can delete an empty non-main organization', function () {
+test('super admin queues deletion of an empty non-main organization', function () {
+    Queue::fake();
+
     $admin = User::factory()->superAdmin()->create();
     $org = OrganizationModel::factory()->create();
 
@@ -77,7 +82,7 @@ test('super admin can delete an empty non-main organization', function () {
         ->call('deleteOrganization')
         ->assertRedirect(route('configuration.organizations'));
 
-    expect(OrganizationModel::find($org->id))->toBeNull();
+    Queue::assertPushed(DeleteOrganizationJob::class, fn ($job) => $job->organizationId === $org->id);
 });
 
 test('super admin cannot delete main organization', function () {
@@ -98,19 +103,87 @@ test('super admin sees warning when deleting organization with resources', funct
     Livewire::actingAs($admin)
         ->test(Organization::class)
         ->call('confirmDelete', $org->id)
-        ->assertSet('deleteOrgHasResources', true)
-        ->assertSee('still has servers, volumes, or agents. Remove all resources before deleting it.');
+        ->assertSee('All servers, volumes, agents and snapshots in this organization will be permanently deleted.');
 });
 
-test('super admin cannot force delete organization with resources', function () {
+test('super admin queues cascading deletion of organization with resources', function () {
+    Queue::fake();
+
     $admin = User::factory()->superAdmin()->create();
     $org = OrganizationModel::factory()->create();
     DatabaseServer::factory()->create(['organization_id' => $org->id]);
 
     Livewire::actingAs($admin)
         ->test(Organization::class)
-        ->set('deleteOrgId', $org->id)
+        ->call('confirmDelete', $org->id)
+        ->call('deleteOrganization')
+        ->assertRedirect(route('configuration.organizations'));
+
+    Queue::assertPushed(
+        DeleteOrganizationJob::class,
+        fn ($job) => $job->organizationId === $org->id && $job->keepFiles === false,
+    );
+});
+
+test('super admin can keep backup files when deleting organization', function () {
+    Queue::fake();
+
+    $admin = User::factory()->superAdmin()->create();
+    $org = OrganizationModel::factory()->create();
+    DatabaseServer::factory()->create(['organization_id' => $org->id]);
+
+    Livewire::actingAs($admin)
+        ->test(Organization::class)
+        ->call('confirmDelete', $org->id)
+        ->set('keepFiles', true)
         ->call('deleteOrganization');
 
-    expect(OrganizationModel::find($org->id))->not->toBeNull();
+    Queue::assertPushed(
+        DeleteOrganizationJob::class,
+        fn ($job) => $job->organizationId === $org->id && $job->keepFiles === true,
+    );
+});
+
+test('super admin can queue an organization merge', function () {
+    Queue::fake();
+
+    $admin = User::factory()->superAdmin()->create();
+    $source = OrganizationModel::factory()->create();
+    $destination = OrganizationModel::factory()->create();
+
+    Livewire::actingAs($admin)
+        ->test(Organization::class)
+        ->call('openMergeModal', $source->id)
+        ->set('mergeDestinationId', $destination->id)
+        ->call('mergeOrganization')
+        ->assertRedirect(route('configuration.organizations'));
+
+    Queue::assertPushed(MergeOrganizationJob::class, fn ($job) => $job->sourceId === $source->id
+        && $job->destinationId === $destination->id);
+});
+
+test('merge requires a destination different from the source', function () {
+    Queue::fake();
+
+    $admin = User::factory()->superAdmin()->create();
+    $source = OrganizationModel::factory()->create();
+
+    Livewire::actingAs($admin)
+        ->test(Organization::class)
+        ->call('openMergeModal', $source->id)
+        ->set('mergeDestinationId', $source->id)
+        ->call('mergeOrganization')
+        ->assertHasErrors('mergeDestinationId');
+
+    Queue::assertNotPushed(MergeOrganizationJob::class);
+});
+
+test('super admin cannot merge the default organization as source', function () {
+    $admin = User::factory()->superAdmin()->create();
+    $defaultOrg = OrganizationModel::default();
+
+    Livewire::actingAs($admin)
+        ->test(Organization::class)
+        ->call('openMergeModal', $defaultOrg->id)
+        ->assertForbidden();
 });

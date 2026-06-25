@@ -8,6 +8,7 @@ use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -18,11 +19,16 @@ class Edit extends Component
 
     public DatabaseServerForm $form;
 
+    #[Locked]
+    public string $returnUrl = '';
+
     public function mount(DatabaseServer $server): void
     {
         $this->authorize('viewForm', $server);
 
         $this->form->setServer($server);
+
+        $this->returnUrl = $this->safeReturnUrl(url()->previous(route('database-servers.index')));
     }
 
     public function save(): void
@@ -30,7 +36,7 @@ class Edit extends Component
         if (Gate::denies('update', $this->form->server)) {
             $this->warning(
                 title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: route('database-servers.index'),
+                redirectTo: $this->returnUrl,
                 flashAs: 'demo_notice',
             );
 
@@ -40,9 +46,27 @@ class Edit extends Component
         if ($this->form->update()) {
             $this->success(
                 title: __('Database server updated successfully!'),
-                redirectTo: route('database-servers.index'),
+                redirectTo: $this->returnUrl,
             );
         }
+    }
+
+    private function safeReturnUrl(string $url): string
+    {
+        $fallback = route('database-servers.index');
+        $appRoot = request()->getSchemeAndHttpHost();
+
+        // Same-origin only (scheme + host + port).
+        if (! str_starts_with($url, $appRoot.'/') && $url !== $appRoot) {
+            return $fallback;
+        }
+
+        // Don't redirect back to the edit page itself (strip query string/fragment before comparing).
+        if (strtok($url, '?#') === route('database-servers.edit', $this->form->server)) {
+            return $fallback;
+        }
+
+        return $url;
     }
 
     public function addBackup(?string $defaultScheduleId = null): void

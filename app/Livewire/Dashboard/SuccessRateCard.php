@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Enums\BackupJobStatus;
 use App\Models\BackupJob;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Carbon;
@@ -35,20 +36,22 @@ class SuccessRateCard extends Component
         $counts = BackupJob::forCurrentOrg()
             ->toBase()
             ->where('created_at', '>=', $thirtyDaysAgo)
-            ->whereIn('status', ['completed', 'failed'])
+            ->whereIn('status', [BackupJobStatus::Completed, BackupJobStatus::Failed])
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
 
-        $completed = (int) ($counts['completed'] ?? 0);
-        $failed = (int) ($counts['failed'] ?? 0);
+        $completed = (int) ($counts[BackupJobStatus::Completed->value] ?? 0);
+        $failed = (int) ($counts[BackupJobStatus::Failed->value] ?? 0);
         $total = $completed + $failed;
 
         if ($total > 0) {
             $this->successRate = round(($completed / $total) * 100, 1);
+        } else {
+            $this->successRate = 0;
         }
 
-        $this->runningJobs = BackupJob::forCurrentOrg()->where('status', 'running')->count();
+        $this->runningJobs = BackupJob::forCurrentOrg()->where('status', BackupJobStatus::Running)->count();
     }
 
     public function placeholder(): View

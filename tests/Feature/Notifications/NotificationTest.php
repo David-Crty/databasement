@@ -1,20 +1,25 @@
 <?php
 
+use App\Enums\NotificationType;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Notifications\BackupFailedNotification;
+use App\Notifications\BackupSuccessNotification;
 use App\Notifications\ChannelNotifiable;
 use App\Notifications\Channels\DiscordWebhookChannel;
 use App\Notifications\Channels\GotifyChannel;
 use App\Notifications\Channels\WebhookChannel;
+use App\Notifications\NotificationMessage;
 use App\Notifications\RestoreFailedNotification;
+use App\Notifications\RestoreSuccessNotification;
 use App\Notifications\SnapshotsMissingNotification;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\NotificationService;
 use Illuminate\Http\Client\Request;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Slack\SlackMessage;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
@@ -25,23 +30,28 @@ use NotificationChannels\Pushover\PushoverMessage;
 use NotificationChannels\Telegram\TelegramChannel;
 use NotificationChannels\Telegram\TelegramMessage;
 
-function createTestSnapshot(DatabaseServer $server): Snapshot
+/**
+ * Create a completed snapshot for the given server via BackupJobFactory.
+ */
+function notificationSnapshot(DatabaseServer $server): Snapshot
 {
-    $factory = app(BackupJobFactory::class);
-
-    return $factory->createSnapshots($server->backups->first(), 'manual')[0];
+    return app(BackupJobFactory::class)
+        ->createSnapshots($server->backups->first(), 'manual')[0];
 }
 
-function createTestRestore(Snapshot $snapshot, DatabaseServer $server): Restore
+/**
+ * Create a Restore targeting the given server for the given snapshot.
+ */
+function notificationRestore(Snapshot $snapshot, DatabaseServer $server): Restore
 {
-    $restoreJob = BackupJob::create([
+    $job = BackupJob::create([
         'type' => 'restore',
         'status' => 'pending',
         'started_at' => now(),
     ]);
 
     return Restore::create([
-        'backup_job_id' => $restoreJob->id,
+        'backup_job_id' => $job->id,
         'snapshot_id' => $snapshot->id,
         'target_server_id' => $server->id,
         'schema_name' => 'restored_db',
@@ -49,17 +59,17 @@ function createTestRestore(Snapshot $snapshot, DatabaseServer $server): Restore
 }
 
 /**
- * Get all notifications of a given type sent to ChannelNotifiable instances.
+ * Collect all sent notifications of the given class delivered to ChannelNotifiable instances.
  *
- * @return \Illuminate\Support\Collection<int, array{notification: mixed, channels: array, notifiable: ChannelNotifiable}>
+ * @return \Illuminate\Support\Collection<int, array{notification: mixed, channels: array<int, string>, notifiable: ChannelNotifiable}>
  */
 function sentChannelNotifications(string $notificationClass): \Illuminate\Support\Collection
 {
+    /** @var \Illuminate\Support\Testing\Fakes\NotificationFake $fake */
     $fake = Notification::getFacadeRoot();
-    $all = (new ReflectionProperty($fake, 'notifications'))->getValue($fake);
     $results = collect();
 
-    foreach ($all[ChannelNotifiable::class] ?? [] as $keyGroup) {
+    foreach ($fake->sentNotifications()[ChannelNotifiable::class] ?? [] as $keyGroup) {
         foreach ($keyGroup[$notificationClass] ?? [] as $entry) {
             $results->push($entry);
         }
@@ -68,14 +78,16 @@ function sentChannelNotifications(string $notificationClass): \Illuminate\Suppor
     return $results;
 }
 
-test('notification is sent with correct details', function (string $type) {
+// --- Dispatch & trigger handling ---
+
+test('failure notification is sent with correct details', function (string $type) {
     NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production DB',
         'database_names' => ['myapp'],
     ]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
     $exception = new \Exception('Connection refused');
 
     if ($type === 'backup') {
@@ -87,7 +99,7 @@ test('notification is sent with correct details', function (string $type) {
         expect($notification->snapshot->id)->toBe($snapshot->id)
             ->and($notification->exception->getMessage())->toBe($exception->getMessage());
     } else {
-        $restore = createTestRestore($snapshot, $server);
+        $restore = notificationRestore($snapshot, $server);
         app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
 
         $sent = sentChannelNotifications(RestoreFailedNotification::class);
@@ -98,29 +110,74 @@ test('notification is sent with correct details', function (string $type) {
     }
 })->with(['backup', 'restore']);
 
-test('notification is not sent when server notification trigger is none', function () {
+test('success notification is sent with correct details', function (string $type) {
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+    $server = DatabaseServer::factory()->create([
+        'name' => 'Production DB',
+        'database_names' => ['myapp'],
+        'notification_trigger' => 'all',
+    ]);
+    $snapshot = notificationSnapshot($server);
+
+    if ($type === 'backup') {
+        app(NotificationService::class)->notifyBackupSuccess($snapshot);
+
+        $sent = sentChannelNotifications(BackupSuccessNotification::class);
+        expect($sent)->toHaveCount(1);
+        expect($sent->first()['notification']->snapshot->id)->toBe($snapshot->id);
+    } else {
+        $restore = notificationRestore($snapshot, $server);
+        app(NotificationService::class)->notifyRestoreSuccess($restore);
+
+        $sent = sentChannelNotifications(RestoreSuccessNotification::class);
+        expect($sent)->toHaveCount(1);
+        expect($sent->first()['notification']->restore->id)->toBe($restore->id);
+    }
+})->with(['backup', 'restore']);
+
+test('notification trigger controls which notifications are sent', function (string $trigger, string $event, bool $shouldSend) {
     NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
     $server = DatabaseServer::factory()->create([
         'database_names' => ['testdb'],
-        'notification_trigger' => 'none',
+        'notification_trigger' => $trigger,
     ]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
 
-    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+    if ($event === 'success') {
+        app(NotificationService::class)->notifyBackupSuccess($snapshot);
+    } else {
+        app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+    }
 
-    Notification::assertNothingSent();
-});
+    if ($shouldSend) {
+        expect(sentChannelNotifications(
+            $event === 'success' ? BackupSuccessNotification::class : BackupFailedNotification::class
+        ))->toHaveCount(1);
+    } else {
+        Notification::assertNothingSent();
+    }
+})->with([
+    'all + success' => ['all', 'success', true],
+    'all + failure' => ['all', 'failure', true],
+    'success + success' => ['success', 'success', true],
+    'success + failure' => ['success', 'failure', false],
+    'failure + failure' => ['failure', 'failure', true],
+    'failure + success' => ['failure', 'success', false],
+    'none + success' => ['none', 'success', false],
+    'none + failure' => ['none', 'failure', false],
+]);
 
 test('notification is not sent when no channels exist', function (string $type) {
     // No NotificationChannel records exist
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
 
     if ($type === 'backup') {
         app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
     } else {
-        $restore = createTestRestore($snapshot, $server);
+        $restore = notificationRestore($snapshot, $server);
         app(NotificationService::class)->notifyRestoreFailed($restore, new \Exception('Error'));
     }
 
@@ -133,7 +190,7 @@ test('notification is sent to channel when configured', function (string $factor
     );
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
 
     app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
 
@@ -169,7 +226,7 @@ test('send refreshes service configs from channel config before dispatching', fu
     ]);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
 
     app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
 
@@ -180,7 +237,7 @@ test('send refreshes service configs from channel config before dispatching', fu
 
 test('via method returns channels based on configured routes', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
 
     $notification = new BackupFailedNotification($snapshot, new \Exception('Error'));
 
@@ -215,18 +272,20 @@ test('via method returns channels based on configured routes', function () {
     expect($channels)->toBe([]);
 });
 
-test('backup and restore notifications render mail with correct details', function (string $type, string $expectedSubjectPrefix, string $serverFieldKey) {
+// --- Message rendering ---
+
+test('failure notifications render mail with correct details', function (string $type, string $expectedSubjectPrefix, string $serverFieldKey) {
     $server = DatabaseServer::factory()->create([
         'name' => 'Test Server',
         'database_names' => ['testdb'],
     ]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
     $exception = new \Exception('Test error');
 
     if ($type === 'backup') {
         $notification = new BackupFailedNotification($snapshot, $exception);
     } else {
-        $restore = createTestRestore($snapshot, $server);
+        $restore = notificationRestore($snapshot, $server);
         $notification = new RestoreFailedNotification($restore, $exception);
     }
 
@@ -239,12 +298,35 @@ test('backup and restore notifications render mail with correct details', functi
     'restore' => ['restore', "\u{1F6A8} Restore Failed", 'Target Server'],
 ]);
 
-test('notification renders channel correctly', function (Closure $assert) {
+test('success notifications render mail with correct details', function (string $type, string $expectedSubjectPrefix) {
+    $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+
+    if ($type === 'backup') {
+        $notification = new BackupSuccessNotification($snapshot);
+    } else {
+        $restore = notificationRestore($snapshot, $server);
+        $notification = new RestoreSuccessNotification($restore);
+    }
+
+    $message = $notification->getMessage();
+    expect($message)->toBeInstanceOf(NotificationMessage::class)
+        ->and($message->type)->toBe(NotificationType::Success);
+
+    $mail = $message->toMail();
+    expect($mail)->toBeInstanceOf(MailMessage::class)
+        ->and($mail->subject)->toContain($expectedSubjectPrefix);
+})->with([
+    'backup' => ['backup', 'Backup Succeeded'],
+    'restore' => ['restore', 'Restore Succeeded'],
+]);
+
+test('failure message renders every channel with error details', function (Closure $assert) {
     $server = DatabaseServer::factory()->create([
         'name' => 'Test Server',
         'database_names' => ['testdb'],
     ]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
     $notification = new BackupFailedNotification($snapshot, new \Exception('Test error'));
 
     $assert($notification);
@@ -252,7 +334,7 @@ test('notification renders channel correctly', function (Closure $assert) {
     'mail' => [function (BackupFailedNotification $notification) {
         $mail = $notification->toMail((object) []);
         expect($mail->subject)->toContain('Backup Failed')
-            ->and($mail->markdown)->toBe('mail.failed-notification')
+            ->and($mail->markdown)->toBe('mail.notification')
             ->and($mail->viewData['errorMessage'])->toBe('Test error');
     }],
     'slack' => [function (BackupFailedNotification $notification) {
@@ -301,11 +383,53 @@ test('notification renders channel correctly', function (Closure $assert) {
     }],
 ]);
 
+test('success message renders every channel without error details', function () {
+    $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+    $message = (new BackupSuccessNotification($snapshot))->getMessage();
+
+    expect($message->toMail())->toBeInstanceOf(MailMessage::class)
+        ->and($message->toSlack())->toBeInstanceOf(SlackMessage::class)
+        ->and($message->toDiscord())->toBeInstanceOf(DiscordMessage::class)
+        ->and($message->toTelegram('12345'))->toBeInstanceOf(TelegramMessage::class)
+        ->and($message->toPushover())->toBeInstanceOf(PushoverMessage::class);
+
+    // Gotify uses the success priority
+    expect($message->toGotify()['priority'])->toBe(4);
+
+    // Discord webhook uses the success colour
+    expect($message->toDiscordWebhook()['embeds'][0]['color'])->toBe(3066993);
+
+    // Webhook omits the error key for success
+    $webhook = $message->toWebhook('BackupSuccessNotification');
+    expect($webhook['event'])->toBe('BackupSuccessNotification')
+        ->and($webhook)->not->toHaveKey('error');
+});
+
+test('telegram notification sets message_thread_id only when a topic id is configured', function (string $topicId, ?int $expected) {
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+    $notification = new BackupFailedNotification($snapshot, new \Exception('Test error'));
+
+    $telegram = $notification->toTelegram((object) [
+        'routes' => ['telegram' => '123456'],
+        'channelConfig' => ['topic_id' => $topicId],
+    ]);
+
+    expect($telegram->getPayloadValue('chat_id'))->toBe('123456')
+        ->and($telegram->getPayloadValue('message_thread_id'))->toBe($expected);
+})->with([
+    'with topic id' => ['42', 42],
+    'without topic id' => ['', null],
+]);
+
+// --- Custom HTTP channels ---
+
 test('custom channel sends HTTP request', function (string $channelClass, array $channelConfig, Closure $assertRequest) {
     Http::fake();
 
     $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
     $notification = new BackupFailedNotification($snapshot, new \Exception('Test error'));
 
     $notifiable = new ChannelNotifiable(
@@ -344,7 +468,7 @@ test('custom channel throws on HTTP failure', function (string $channelClass, ar
     Http::fake(fn () => Http::response('Server Error', 500));
 
     $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
-    $snapshot = createTestSnapshot($server);
+    $snapshot = notificationSnapshot($server);
     $notification = new BackupFailedNotification($snapshot, new \Exception('Test error'));
 
     $notifiable = new ChannelNotifiable(
@@ -369,28 +493,37 @@ test('custom channel throws on HTTP failure', function (string $channelClass, ar
     ],
 ]);
 
-test('ProcessBackupJob sends notification when backup fails', function () {
+// --- Job failure hooks ---
+
+test('failed jobs send a failure notification', function (string $type) {
     NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production MySQL',
         'database_names' => ['myapp'],
     ]);
-    $snapshot = createTestSnapshot($server);
-
-    $job = new \App\Jobs\ProcessBackupJob($snapshot->id);
+    $snapshot = notificationSnapshot($server);
     $exception = new \Exception('Access denied for user');
 
-    // Call the failed method directly (simulating job failure)
-    $job->failed($exception);
+    if ($type === 'backup') {
+        (new \App\Jobs\ProcessBackupJob($snapshot->id))->failed($exception);
 
-    // Verify notification was sent
-    $sent = sentChannelNotifications(BackupFailedNotification::class);
-    expect($sent)->toHaveCount(1);
-    $notification = $sent->first()['notification'];
-    expect($notification->snapshot->id)->toBe($snapshot->id)
-        ->and($notification->exception->getMessage())->toBe('Access denied for user');
-});
+        $sent = sentChannelNotifications(BackupFailedNotification::class);
+        expect($sent)->toHaveCount(1);
+        expect($sent->first()['notification']->snapshot->id)->toBe($snapshot->id)
+            ->and($sent->first()['notification']->exception->getMessage())->toBe('Access denied for user');
+    } else {
+        $restore = notificationRestore($snapshot, $server);
+        (new \App\Jobs\ProcessRestoreJob($restore->id))->failed($exception);
+
+        $sent = sentChannelNotifications(RestoreFailedNotification::class);
+        expect($sent)->toHaveCount(1);
+        expect($sent->first()['notification']->restore->id)->toBe($restore->id)
+            ->and($sent->first()['notification']->exception->getMessage())->toBe('Access denied for user');
+    }
+})->with(['backup', 'restore']);
+
+// --- SnapshotsMissingNotification ---
 
 test('SnapshotsMissingNotification renders mail, slack and discord correctly', function () {
     $missingSnapshots = collect([
@@ -425,28 +558,4 @@ test('SnapshotsMissingNotification truncates file list beyond 10 items', functio
     expect($mail->viewData['errorMessage'])->toContain('backup-10.sql.gz')
         ->and($mail->viewData['errorMessage'])->not->toContain('backup-11.sql.gz')
         ->and($mail->viewData['errorMessage'])->toContain('... and 2 more');
-});
-
-test('ProcessRestoreJob sends notification when restore fails', function () {
-    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
-
-    $server = DatabaseServer::factory()->create([
-        'name' => 'Production MySQL',
-        'database_names' => ['myapp'],
-    ]);
-    $snapshot = createTestSnapshot($server);
-    $restore = createTestRestore($snapshot, $server);
-
-    $job = new \App\Jobs\ProcessRestoreJob($restore->id);
-    $exception = new \Exception('Connection refused');
-
-    // Call the failed method directly (simulating job failure)
-    $job->failed($exception);
-
-    // Verify notification was sent
-    $sent = sentChannelNotifications(RestoreFailedNotification::class);
-    expect($sent)->toHaveCount(1);
-    $notification = $sent->first()['notification'];
-    expect($notification->restore->id)->toBe($restore->id)
-        ->and($notification->exception->getMessage())->toBe('Connection refused');
 });

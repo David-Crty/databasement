@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackupJobStatus;
 use App\Facades\AppConfig;
 use App\Models\Agent;
 use App\Models\AgentJob;
@@ -39,7 +40,7 @@ test('fails agent jobs that exceeded max attempts', function () {
         ->and($job->error_message)->toContain('Max attempts');
 
     // BackupJob should be failed too
-    expect($job->snapshot->fresh()->job->status)->toBe('failed');
+    expect($job->snapshot->fresh()->job->status)->toBe(BackupJobStatus::Failed);
 });
 
 test('fails expired discovery jobs without a snapshot', function () {
@@ -84,7 +85,7 @@ test('fails backup jobs stuck in running state beyond timeout', function () {
         ->assertExitCode(0);
 
     $job->refresh();
-    expect($job->status)->toBe('failed')
+    expect($job->status)->toBe(BackupJobStatus::Failed)
         ->and($job->error_message)->toContain('stuck in running state');
 });
 
@@ -100,7 +101,7 @@ test('fails backup jobs stuck in pending state beyond timeout', function () {
         ->assertExitCode(0);
 
     $job->refresh();
-    expect($job->status)->toBe('failed')
+    expect($job->status)->toBe(BackupJobStatus::Failed)
         ->and($job->error_message)->toContain('stuck in pending state');
 });
 
@@ -117,7 +118,7 @@ test('does not touch running backup jobs within timeout', function () {
         ->assertExitCode(0);
 
     $job->refresh();
-    expect($job->status)->toBe('running');
+    expect($job->status)->toBe(BackupJobStatus::Running);
 });
 
 test('does not touch pending backup jobs within timeout', function () {
@@ -130,7 +131,7 @@ test('does not touch pending backup jobs within timeout', function () {
         ->assertExitCode(0);
 
     $job->refresh();
-    expect($job->status)->toBe('pending');
+    expect($job->status)->toBe(BackupJobStatus::Pending);
 });
 
 test('does not touch completed or failed backup jobs', function () {
@@ -152,8 +153,8 @@ test('does not touch completed or failed backup jobs', function () {
     $this->artisan('jobs:recover-stuck')
         ->assertExitCode(0);
 
-    expect($completedJob->fresh()->status)->toBe('completed')
-        ->and($failedJob->fresh()->status)->toBe('failed');
+    expect($completedJob->fresh()->status)->toBe(BackupJobStatus::Completed)
+        ->and($failedJob->fresh()->status)->toBe(BackupJobStatus::Failed);
 });
 
 test('outputs no stuck jobs message when nothing to recover', function () {

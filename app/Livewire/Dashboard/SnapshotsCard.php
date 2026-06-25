@@ -37,11 +37,11 @@ class SnapshotsCard extends Component
 
     private function loadData(): void
     {
-        $baseQuery = Snapshot::forCurrentOrg()->whereRelation('job', 'status', 'completed');
+        $baseQuery = Snapshot::forCurrentOrg()->completed();
 
         $this->totalSnapshots = $baseQuery->count();
         $this->verifiedSnapshots = (clone $baseQuery)->whereNotNull('file_verified_at')->count();
-        $this->missingSnapshots = (clone $baseQuery)->where('file_exists', false)->count();
+        $this->missingSnapshots = (clone $baseQuery)->fileMissing()->count();
     }
 
     public function placeholder(): View

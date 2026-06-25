@@ -2,6 +2,7 @@
 
 use App\Livewire\DatabaseServer\Index;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -122,4 +123,18 @@ test('user can toggle backups for a server from the index', function () {
         ->call('toggleBackupsEnabled', $server->id);
 
     expect($server->fresh()->backups_enabled)->toBeTrue();
+});
+
+test('index snapshot badge only counts completed snapshots', function () {
+    $user = User::factory()->create();
+    $server = DatabaseServer::factory()->create();
+
+    Snapshot::factory()->forServer($server)->completed()->create();
+    Snapshot::factory()->forServer($server)->completed()->create();
+    Snapshot::factory()->forServer($server)->failed()->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->assertSeeHtml('data-tip="View snapshots"')
+        ->assertSeeHtml('<span>2</span>');
 });

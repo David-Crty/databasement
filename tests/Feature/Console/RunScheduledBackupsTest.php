@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackupJobStatus;
 use App\Jobs\ProcessBackupJob;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
@@ -176,7 +177,7 @@ test('server unreachable during all/pattern listing produces a failed preflight 
     expect($failingSnapshot)->not->toBeNull()
         ->and($failingSnapshot->database_name)->toBe('(all databases)')
         ->and($failingSnapshot->method)->toBe('scheduled')
-        ->and($failingSnapshot->job->status)->toBe('failed')
+        ->and($failingSnapshot->job->status)->toBe(BackupJobStatus::Failed)
         ->and($failingSnapshot->job->error_message)->toBe('Connection refused');
 
     expect(Snapshot::where('database_server_id', $normalServer->id)->pluck('database_name')->sort()->values()->all())

@@ -10,6 +10,7 @@ use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -194,7 +195,10 @@ class Modal extends Component
     public function getSourceServerOptionsProperty(): array
     {
         return DatabaseServer::query()
-            ->whereHas('snapshots', fn ($q) => $q->whereHas('job', fn ($jq) => $jq->whereRaw('status = ?', ['completed'])))
+            ->whereHas('snapshots', function (Builder $q) {
+                /** @var Builder<Snapshot> $q */
+                $q->completed();
+            })
             ->where('database_type', '!=', DatabaseType::REDIS->value)
             ->orderBy('name')
             ->get(['id', 'name'])
@@ -213,8 +217,8 @@ class Modal extends Component
 
         return Snapshot::query()
             ->where('database_server_id', $this->sourceServerId)
-            ->whereHas('job', fn ($q) => $q->whereRaw('status = ?', ['completed']))
-            ->where('file_exists', true)
+            ->completed()
+            ->fileExists()
             ->distinct()
             ->orderBy('database_name')
             ->pluck('database_name')

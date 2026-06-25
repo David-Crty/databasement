@@ -20,6 +20,30 @@ class Organization extends Model
 
     use HasUlids;
 
+    /**
+     * When true, backup files on storage are preserved while cascading the
+     * deletion of the organization's servers and volumes (only DB records go).
+     */
+    public bool $skipFileCleanup = false;
+
+    protected static function booted(): void
+    {
+        // Cascade-delete owned resources through Eloquent so backup files and
+        // related jobs/restores are cleaned up. The database-level cascade on
+        // organization_id would remove the rows but skip these side effects.
+        static::deleting(function (Organization $organization) {
+            foreach ($organization->databaseServers()->withoutGlobalScope(OrganizationScope::class)->get() as $server) {
+                $server->skipFileCleanup = $organization->skipFileCleanup;
+                $server->delete();
+            }
+
+            foreach ($organization->volumes()->withoutGlobalScope(OrganizationScope::class)->get() as $volume) {
+                $volume->skipFileCleanup = $organization->skipFileCleanup;
+                $volume->delete();
+            }
+        });
+    }
+
     protected $fillable = [
         'name',
         'is_default',
@@ -78,15 +102,5 @@ class Organization extends Model
     public static function default(): self
     {
         return static::where('is_default', true)->firstOrFail();
-    }
-
-    /**
-     * Check if the organization has any resources (servers, volumes, agents).
-     */
-    public function hasResources(): bool
-    {
-        return $this->databaseServers()->withoutGlobalScope(OrganizationScope::class)->exists()
-            || $this->volumes()->withoutGlobalScope(OrganizationScope::class)->exists()
-            || $this->agents()->withoutGlobalScope(OrganizationScope::class)->exists();
     }
 }

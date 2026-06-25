@@ -9,6 +9,7 @@
  * Run with: php artisan test --filter=SftpDownloadTest
  */
 
+use App\Enums\BackupJobStatus;
 use App\Jobs\ProcessBackupJob;
 use App\Models\User;
 use App\Services\Backup\BackupJobFactory;
@@ -41,7 +42,7 @@ test('can download snapshot stored on SFTP volume via streamed route', function 
 
     $filesystem = $filesystemProvider->getForVolume($snapshot->volume);
 
-    expect($snapshot->job->status)->toBe('completed')
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($snapshot->file_size)->toBeGreaterThan(0)
         ->and($filesystem->fileExists($snapshot->filename))->toBeTrue();
 

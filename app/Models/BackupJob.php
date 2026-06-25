@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Contracts\BackupLogger;
+use App\Enums\BackupJobStatus;
 use App\Models\Scopes\OrganizationScope;
 use App\Services\CurrentOrganization;
 use App\Support\Formatters;
@@ -32,6 +33,7 @@ class BackupJob extends Model implements BackupLogger
     protected function casts(): array
     {
         return [
+            'status' => BackupJobStatus::class,
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
             'duration_ms' => 'integer',
@@ -59,6 +61,17 @@ class BackupJob extends Model implements BackupLogger
                         ->whereRaw('organization_id = ?', [$orgId]);
                 });
         });
+    }
+
+    /**
+     * Scope to jobs that are still in progress (pending or running).
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeInProgress(Builder $query): Builder
+    {
+        return $query->whereIn('status', [BackupJobStatus::Pending, BackupJobStatus::Running]);
     }
 
     /**
@@ -91,7 +104,7 @@ class BackupJob extends Model implements BackupLogger
     public function markCompleted(): void
     {
         $this->update([
-            'status' => 'completed',
+            'status' => BackupJobStatus::Completed,
             'completed_at' => now(),
             'duration_ms' => $this->calculateDuration(),
         ]);
@@ -103,7 +116,7 @@ class BackupJob extends Model implements BackupLogger
     public function markFailed(\Throwable $exception): void
     {
         $this->update([
-            'status' => 'failed',
+            'status' => BackupJobStatus::Failed,
             'completed_at' => now(),
             'duration_ms' => $this->calculateDuration(),
             'error_message' => $exception->getMessage(),
@@ -127,7 +140,7 @@ class BackupJob extends Model implements BackupLogger
     public function markRunning(): void
     {
         $this->update([
-            'status' => 'running',
+            'status' => BackupJobStatus::Running,
             'started_at' => now(),
         ]);
     }

@@ -4,6 +4,8 @@
 ])
 
 @php
+    $status = $status instanceof \BackedEnum ? $status->value : $status;
+
     [$badgeClass, $icon, $defaultLabel, $useSpinner] = match ($status) {
         'completed' => ['badge-success', 'o-check-circle', __('Completed'), false],
         'failed' => ['badge-error', 'o-x-circle', __('Failed'), false],

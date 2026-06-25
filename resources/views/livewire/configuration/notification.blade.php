@@ -97,6 +97,7 @@
             @elseif ($channelForm->type === 'telegram')
                 <x-password wire:model="channelForm.config_bot_token" :label="__('Bot Token')" :placeholder="$channelForm->has_config_bot_token ? '********' : ''" />
                 <x-input wire:model="channelForm.config_chat_id" :label="__('Chat ID')" required />
+                <x-input wire:model="channelForm.config_topic_id" :label="__('Topic ID')" :hint="__('Optional. The message thread ID for sending to a specific topic in a forum group.')" />
             @elseif ($channelForm->type === 'pushover')
                 <x-password wire:model="channelForm.config_token" :label="__('App Token')" :placeholder="$channelForm->has_config_token ? '********' : ''" />
                 <x-password wire:model="channelForm.config_user_key" :label="__('User Key')" :placeholder="$channelForm->has_config_user_key ? '********' : ''" />

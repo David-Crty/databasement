@@ -8,7 +8,7 @@
             <div class="grid gap-1 max-h-48 overflow-y-auto" style="grid-template-columns: repeat(auto-fill, 14px)">
                 @foreach($this->jobs as $job)
                     @php
-                        $colorClass = match($job->status) {
+                        $colorClass = match($job->status->value) {
                             'completed' => 'bg-success',
                             'failed' => 'bg-error',
                             'running' => 'bg-warning',
@@ -30,7 +30,7 @@
                         data-server="{{ $serverName }}"
                         data-database="{{ $databaseName }}"
                         data-type="{{ $jobType }}"
-                        data-status="{{ ucfirst($job->status) }}"
+                        data-status="{{ ucfirst($job->status->value) }}"
                         data-duration="{{ $job->getHumanDuration() ?? '' }}"
                         data-ago="{{ $job->created_at?->diffForHumans(short: true) ?? '' }}"
                         data-date="{{ $job->created_at ? \App\Support\Formatters::humanDate($job->created_at) : '' }}"

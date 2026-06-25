@@ -139,7 +139,7 @@ test('admin can create notification channels of various types', function (string
     'slack' => ['slack', ['config_webhook_url' => 'https://hooks.slack.com/services/test'], ['has_config_webhook_url' => true]],
     'discord' => ['discord', ['config_token' => 'bot-token', 'config_channel_id' => '123456'], ['has_config_token' => true, 'config_channel_id' => '123456']],
     'discord_webhook' => ['discord_webhook', ['config_url' => 'https://discord.com/api/webhooks/123/abc'], ['has_config_url' => true]],
-    'telegram' => ['telegram', ['config_bot_token' => 'bot-token', 'config_chat_id' => '-123456'], ['has_config_bot_token' => true, 'config_chat_id' => '-123456']],
+    'telegram' => ['telegram', ['config_bot_token' => 'bot-token', 'config_chat_id' => '-123456', 'config_topic_id' => '42'], ['has_config_bot_token' => true, 'config_chat_id' => '-123456', 'config_topic_id' => '42']],
     'pushover' => ['pushover', ['config_token' => 'app-token', 'config_user_key' => 'user-key'], ['has_config_token' => true, 'has_config_user_key' => true]],
     'gotify' => ['gotify', ['config_url' => 'https://gotify.example.com', 'config_token' => 'app-token'], ['config_url' => 'https://gotify.example.com', 'has_config_token' => true]],
     'webhook' => ['webhook', ['config_url' => 'https://webhook.example.com/notify'], ['config_url' => 'https://webhook.example.com/notify', 'has_config_secret' => false]],

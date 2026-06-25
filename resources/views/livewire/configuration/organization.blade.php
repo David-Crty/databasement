@@ -48,8 +48,9 @@
 
             @scope('cell_actions', $org)
                 @unless($org->is_default)
-                    <div class="text-right">
+                    <div class="flex justify-end flex-nowrap gap-1">
                         <x-button icon="o-pencil" class="btn-ghost btn-xs" wire:click="openEditModal('{{ $org->id }}')" :tooltip="__('Edit')" />
+                        <x-button icon="o-arrows-pointing-in" class="btn-ghost btn-xs" wire:click="openMergeModal('{{ $org->id }}')" :tooltip="__('Merge')" />
                         <x-button icon="o-trash" class="btn-ghost btn-xs text-error" wire:click="confirmDelete('{{ $org->id }}')" :tooltip="__('Delete')" />
                     </div>
                 @endunless
@@ -75,20 +76,36 @@
         </x-slot:actions>
     </x-modal>
 
+    {{-- Merge Modal --}}
+    <x-modal wire:model="showMergeModal" :title="__('Merge Organization')">
+        <x-alert icon="o-exclamation-triangle" class="alert-warning mb-4">
+            {{ __('All servers, volumes, agents, jobs and snapshots will be moved to the destination organization, and this organization will be deleted. This action cannot be undone.') }}
+        </x-alert>
+        <x-select
+            :label="__('Destination organization')"
+            wire:model="mergeDestinationId"
+            :options="$this->mergeDestinations()"
+            :placeholder="__('Select a destination')"
+        />
+        <x-slot:actions>
+            <x-button :label="__('Cancel')" @click="$wire.showMergeModal = false" />
+            <x-button :label="__('Merge')" class="btn-primary" wire:click="mergeOrganization" />
+        </x-slot:actions>
+    </x-modal>
+
     {{-- Delete Confirmation --}}
     <x-modal wire:model="showDeleteModal" :title="__('Delete Organization')">
-        @if($deleteOrgHasResources)
-            <x-alert icon="o-exclamation-triangle" class="alert-warning">
-                {{ __('This organization still has servers, volumes, or agents. Remove all resources before deleting it.') }}
-            </x-alert>
-        @else
-            <p>{{ __('Are you sure you want to delete this organization? This action cannot be undone.') }}</p>
-        @endif
+        <x-alert icon="o-exclamation-triangle" class="alert-warning">
+            {{ __('All servers, volumes, agents and snapshots in this organization will be permanently deleted. This action cannot be undone.') }}
+        </x-alert>
+
+        <label class="flex items-start gap-3 mt-4 cursor-pointer">
+            <input type="checkbox" wire:model="keepFiles" class="checkbox checkbox-sm mt-0.5" />
+            <span class="text-sm">{{ __('Keep backup files on storage (only delete database records)') }}</span>
+        </label>
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showDeleteModal = false" />
-            @unless($deleteOrgHasResources)
-                <x-button :label="__('Delete')" class="btn-error" wire:click="deleteOrganization" />
-            @endunless
+            <x-button :label="__('Delete')" class="btn-error" wire:click="deleteOrganization" spinner="deleteOrganization" />
         </x-slot:actions>
     </x-modal>
 </div>

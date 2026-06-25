@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackupJobStatus;
 use App\Enums\UserRole;
 use App\Jobs\ProcessRestoreJob;
 use App\Livewire\Restore\Modal;
@@ -65,7 +66,7 @@ test('from-server mode: queues restore job and dispatches restore-created', func
 
     expect($restore)->not->toBeNull()
         ->and($restore->schema_name)->toBe('restored_db')
-        ->and($restore->job->status)->toBe('pending');
+        ->and($restore->job->status)->toBe(BackupJobStatus::Pending);
 });
 
 test('rejects restore when the target server is agent-backed', function () {

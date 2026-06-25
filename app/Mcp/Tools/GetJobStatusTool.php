@@ -25,7 +25,7 @@ class GetJobStatusTool extends Tool
 
         $lines = [
             "Job ID: {$job->id}",
-            "Status: {$job->status}",
+            "Status: {$job->status->value}",
         ];
 
         if ($job->started_at) {

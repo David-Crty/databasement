@@ -22,9 +22,9 @@
             :sort-by="$sortBy"
             with-pagination
             :row-decoration="[
-                'bg-error/5' => fn ($snapshot) => $snapshot->job?->status === 'failed',
-                'bg-warning/5' => fn ($snapshot) => $snapshot->job?->status === 'running'
-                    || (! $snapshot->file_exists && $snapshot->job?->status === 'completed'),
+                'bg-error/5' => fn ($snapshot) => $snapshot->job?->status?->value === 'failed',
+                'bg-warning/5' => fn ($snapshot) => $snapshot->job?->status?->value === 'running'
+                    || (! $snapshot->file_exists && $snapshot->job?->status?->value === 'completed'),
             ]"
         >
             <x-slot:empty>
@@ -41,7 +41,7 @@
             </x-slot:empty>
 
             @scope('cell_subject', $snapshot)
-                @php $fileMissing = $snapshot->job?->status === 'completed' && ! $snapshot->file_exists; @endphp
+                @php $fileMissing = $snapshot->job?->status?->value === 'completed' && ! $snapshot->file_exists; @endphp
                 <div class="flex items-center gap-3 min-w-0">
                     <x-icon :name="$snapshot->database_type->icon()" class="w-6 h-6 shrink-0" />
                     <div class="min-w-0">
@@ -86,7 +86,7 @@
             @endscope
 
             @scope('cell_status', $snapshot)
-                @php $status = $snapshot->job?->status ?? 'pending'; $job = $snapshot->job; @endphp
+                @php $status = $snapshot->job?->status?->value ?? 'pending'; $job = $snapshot->job; @endphp
                 <x-job-status-indicator :status="$status" />
 
                 @if($status === 'running' && $job?->started_at)
@@ -111,7 +111,7 @@
 
             @scope('actions', $snapshot)
                 @php
-                    $status = $snapshot->job?->status;
+                    $status = $snapshot->job?->status?->value;
                     $job = $snapshot->job;
                     $canRestore = $status === 'completed' && $snapshot->file_exists && $snapshot->database_type !== \App\Enums\DatabaseType::REDIS;
                     $canDownload = $status === 'completed';

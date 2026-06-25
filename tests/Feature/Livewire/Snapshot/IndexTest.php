@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackupJobStatus;
 use App\Enums\UserRole;
 use App\Livewire\Snapshot\Index;
 use App\Models\BackupJob;
@@ -132,7 +133,7 @@ test('can cancel a pending backup job', function () {
 test('cannot cancel a non-pending job', function () {
     $snapshot = Snapshot::factory()->withFile()->create();
     // Default factory creates a completed job.
-    expect($snapshot->job->status)->toBe('completed');
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Completed);
 
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $snapshot->job->id)

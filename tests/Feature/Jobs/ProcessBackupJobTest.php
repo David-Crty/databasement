@@ -1,6 +1,7 @@
 <?php
 
 use App\Contracts\BackupLogger;
+use App\Enums\BackupJobStatus;
 use App\Facades\AppConfig;
 use App\Jobs\ProcessBackupJob;
 use App\Models\DatabaseServer;
@@ -61,7 +62,7 @@ test('handle builds config from models and updates snapshot on success', functio
     (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
 
     $snapshot->refresh();
-    expect($snapshot->job->status)->toBe('completed')
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($snapshot->filename)->toBe('prod-myapp-2024.sql.gz')
         ->and($snapshot->file_size)->toBe(2048)
         ->and($snapshot->checksum)->toBe('abc123def456')
@@ -136,7 +137,7 @@ test('handle marks job as failed and re-throws on execute failure', function () 
         ->toThrow(\App\Exceptions\ShellProcessFailed::class, 'Access denied for user');
 
     $snapshot->refresh();
-    expect($snapshot->job->status)->toBe('failed')
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
         ->and($snapshot->job->error_message)->toBe('Access denied for user')
         ->and($snapshot->job->completed_at)->not->toBeNull();
 });
