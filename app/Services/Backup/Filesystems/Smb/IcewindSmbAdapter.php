@@ -64,6 +64,10 @@ class IcewindSmbAdapter implements FilesystemAdapter
     public function write(string $path, string $contents, Config $config): void
     {
         $stream = fopen('php://temp', 'r+');
+        if ($stream === false) {
+            throw UnableToWriteFile::atLocation($path, 'Unable to open a temporary stream.');
+        }
+
         fwrite($stream, $contents);
         rewind($stream);
 

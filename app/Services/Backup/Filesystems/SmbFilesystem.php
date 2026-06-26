@@ -25,7 +25,7 @@ class SmbFilesystem implements FilesystemInterface
         }
 
         $auth = new BasicAuth(
-            $config['username'] ?? '',
+            $config['username'],
             $domain,
             $config['password'] ?? '',
         );
