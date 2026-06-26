@@ -8,69 +8,74 @@ Databasement uses a role-based access control system. Roles are assigned **per o
 
 ## User Roles
 
-| Role            | Scope  | Description                                                                |
-|-----------------|--------|----------------------------------------------------------------------------|
-| **Super Admin** | Global | Full access to all organizations, user deletion, and global configuration  |
-| **Admin**       | Org    | Full access within the org, including user management                      |
-| **Member**      | Org    | Can manage database servers, volumes, and backups, but cannot manage users |
-| **Viewer**      | Org    | Read-only access to view resources and monitor backup status               |
+| Role            | Scope  | Description                                                                            |
+|-----------------|--------|---------------------------------------------------------------------------------------|
+| **Super Admin** | Global | Full access to all organizations, user deletion, and global configuration             |
+| **Admin**       | Org    | Full access within the org, including user management                                 |
+| **Member**      | Org    | Can manage database servers, volumes, and backups, but cannot manage users            |
+| **Operator**    | Org    | Can run backups, restores, and downloads, but cannot edit configuration or manage users |
+| **Viewer**      | Org    | Read-only access to view resources and monitor backup status                          |
+
+Roles are ordered from most to least privileged: **Admin → Member → Operator → Viewer**. Each role can do everything the role below it can, plus more.
+
+The **Operator** role is for people who run backup operations but should not change infrastructure — for example, developers who trigger a backup before a deployment and restore if something goes wrong, while leaving server connection settings to your admins.
 
 ## Permissions by Resource
 
 ### Database Servers
 
-| Action            |    Viewer    |    Member    | Admin |
-|-------------------|:------------:|:------------:|:-----:|
-| View list         |      ✅       |      ✅       |   ✅   |
-| Create            |      ❌       |      ✅       |   ✅   |
-| Edit              |      ❌       |      ✅       |   ✅   |
-| Delete            |      ❌       |      ✅       |   ✅   |
-| Run backup        |      ❌       |      ✅       |   ✅   |
-| Restore to server |      ❌       |      ✅       |   ✅   |
-| Open Adminer      | configurable | configurable |   ✅   |
+| Action            |    Viewer    |   Operator   |    Member    | Admin |
+|-------------------|:------------:|:------------:|:------------:|:-----:|
+| View list         |      ✅       |      ✅       |      ✅       |   ✅   |
+| Create            |      ❌       |      ❌       |      ✅       |   ✅   |
+| Edit              |      ❌       |      ❌       |      ✅       |   ✅   |
+| Delete            |      ❌       |      ❌       |      ✅       |   ✅   |
+| Run backup        |      ❌       |      ✅       |      ✅       |   ✅   |
+| Restore to server |      ❌       |      ✅       |      ✅       |   ✅   |
+| Open Adminer      | configurable | configurable | configurable |   ✅   |
 
 Adminer access is enabled by default for Admins only. A Super Admin can change the threshold or disable the feature under **Configuration → Application**. See [Browsing Data with Adminer](./database-servers.md#browsing-data-with-adminer).
 
 ### Volumes
 
-| Action    | Viewer | Member | Admin |
-|-----------|:------:|:------:|:-----:|
-| View list |   ✅    |   ✅    |   ✅   |
-| Create    |   ❌    |   ✅    |   ✅   |
-| Edit      |   ❌    |   ✅    |   ✅   |
-| Delete    |   ❌    |   ✅    |   ✅   |
+| Action    | Viewer | Operator | Member | Admin |
+|-----------|:------:|:--------:|:------:|:-----:|
+| View list |   ✅    |    ✅     |   ✅    |   ✅   |
+| Create    |   ❌    |    ❌     |   ✅    |   ✅   |
+| Edit      |   ❌    |    ❌     |   ✅    |   ✅   |
+| Delete    |   ❌    |    ❌     |   ✅    |   ✅   |
 
 ### Agents
 
-| Action           | Viewer | Member | Admin |
-|------------------|:------:|:------:|:-----:|
-| View list        |   ✅    |   ✅    |   ✅   |
-| Create           |   ❌    |   ✅    |   ✅   |
-| Edit             |   ❌    |   ✅    |   ✅   |
-| Regenerate token |   ❌    |   ✅    |   ✅   |
-| Delete           |   ❌    |   ✅    |   ✅   |
+| Action           | Viewer | Operator | Member | Admin |
+|------------------|:------:|:--------:|:------:|:-----:|
+| View list        |   ✅    |    ✅     |   ✅    |   ✅   |
+| Create           |   ❌    |    ❌     |   ✅    |   ✅   |
+| Edit             |   ❌    |    ❌     |   ✅    |   ✅   |
+| Regenerate token |   ❌    |    ❌     |   ✅    |   ✅   |
+| Delete           |   ❌    |    ❌     |   ✅    |   ✅   |
 
 See [Remote Agents](./agents.md) for how agents back up databases in firewalled or isolated networks.
 
 ### Snapshots
 
-| Action       | Viewer | Member | Admin |
-|--------------|:------:|:------:|:-----:|
-| View list    |   ✅    |   ✅    |   ✅   |
-| View details |   ✅    |   ✅    |   ✅   |
-| Download     |   ❌    |   ✅    |   ✅   |
-| Delete       |   ❌    |   ✅    |   ✅   |
+| Action       | Viewer | Operator | Member | Admin |
+|--------------|:------:|:--------:|:------:|:-----:|
+| View list    |   ✅    |    ✅     |   ✅    |   ✅   |
+| View details |   ✅    |    ✅     |   ✅    |   ✅   |
+| Download     |   ❌    |    ✅     |   ✅    |   ✅   |
+| Delete       |   ❌    |    ❌     |   ✅    |   ✅   |
 
 ### Users
 
-| Action                       | Viewer | Member | Admin |
-|------------------------------|:------:|:------:|:-----:|
-| View list                    |   ✅    |   ✅    |   ✅   |
-| Invite new user              |   ❌    |   ❌    |   ✅   |
-| Edit user role               |   ❌    |   ❌    |   ✅   |
-| Delete user                  |   ❌    |   ❌    |   ✅*  |
-| Remove from organization     |   ❌    |   ❌    |   ✅   |
-| Copy invitation link         |   ❌    |   ❌    |   ✅   |
+| Action                       | Viewer | Operator | Member | Admin |
+|------------------------------|:------:|:--------:|:------:|:-----:|
+| View list                    |   ✅    |    ✅     |   ✅    |   ✅   |
+| Invite new user              |   ❌    |    ❌     |   ❌    |   ✅   |
+| Edit user role               |   ❌    |    ❌     |   ❌    |   ✅   |
+| Delete user                  |   ❌    |    ❌     |   ❌    |   ✅*  |
+| Remove from organization     |   ❌    |    ❌     |   ❌    |   ✅   |
+| Copy invitation link         |   ❌    |    ❌     |   ❌    |   ✅   |
 
 \* Org admins can only delete users who belong to their organization and no other. See restrictions below.
 
