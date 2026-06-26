@@ -154,4 +154,7 @@ test('buildExtraConfig folds type-specific fields into extra_config', function (
     'resets stale config on type change' => [
         ['database_type' => 'mysql', 'ssl_enabled' => true], ['auth_source' => 'records'], 'mongodb', ['ssl_enabled' => true],
     ],
+    'clears stale config on type change when no replacement keys are provided' => [
+        ['database_type' => 'mysql'], ['auth_source' => 'records'], 'mongodb', null,
+    ],
 ]);

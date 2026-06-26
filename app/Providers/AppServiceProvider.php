@@ -206,7 +206,7 @@ class AppServiceProvider extends ServiceProvider
 
             if (! empty($roleMapping['strict']) && ! $hasMapping) {
                 throw new \InvalidArgumentException(
-                    'OAUTH_OIDC_ROLE_STRICT is enabled but no role mappings are configured. Set at least one of: OAUTH_OIDC_ROLE_MAP_ADMIN, OAUTH_OIDC_ROLE_MAP_MEMBER, OAUTH_OIDC_ROLE_MAP_VIEWER'
+                    'OAUTH_OIDC_ROLE_STRICT is enabled but no role mappings are configured. Set at least one of: OAUTH_OIDC_ROLE_MAP_ADMIN, OAUTH_OIDC_ROLE_MAP_MEMBER, OAUTH_OIDC_ROLE_MAP_OPERATOR, OAUTH_OIDC_ROLE_MAP_VIEWER'
                 );
             }
         }

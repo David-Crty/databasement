@@ -61,7 +61,7 @@ test('throws exception when strict mode is enabled without any role mappings', f
     $provider = new AppServiceProvider(app());
 
     expect(fn () => $provider->performOAuthValidation())
-        ->toThrow(\InvalidArgumentException::class, 'OAUTH_OIDC_ROLE_STRICT is enabled but no role mappings are configured');
+        ->toThrow(\InvalidArgumentException::class, 'OAUTH_OIDC_ROLE_STRICT is enabled but no role mappings are configured. Set at least one of: OAUTH_OIDC_ROLE_MAP_ADMIN, OAUTH_OIDC_ROLE_MAP_MEMBER, OAUTH_OIDC_ROLE_MAP_OPERATOR, OAUTH_OIDC_ROLE_MAP_VIEWER');
 });
 
 test('does not throw when strict mode is enabled with role mappings', function () {
