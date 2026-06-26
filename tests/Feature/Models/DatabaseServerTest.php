@@ -110,3 +110,48 @@ test('requiresSftpTransfer returns correct value', function () {
         ->and($sqliteLocal->requiresSftpTransfer())->toBeFalse()
         ->and($mysqlWithSsh->requiresSftpTransfer())->toBeFalse();
 });
+
+test('buildExtraConfig folds type-specific fields into extra_config', function (
+    array $data,
+    ?array $existing,
+    ?string $previousType,
+    ?array $expected,
+) {
+    DatabaseServer::buildExtraConfig($data, $existing, $previousType);
+
+    expect($data['extra_config'])->toEqual($expected);
+
+    // Handled keys are always pulled out of $data.
+    foreach (['auth_source', 'dump_flags', 'dump_format', 'dump_privileges', 'ssl_enabled'] as $key) {
+        expect($data)->not->toHaveKey($key);
+    }
+})->with([
+    // [data, existing, previousType, expected extra_config]
+
+    'keeps type-specific string value' => [
+        ['database_type' => 'mongodb', 'auth_source' => 'records'], null, null, ['auth_source' => 'records'],
+    ],
+    'keeps custom dump_format constant' => [
+        ['database_type' => 'postgres', 'dump_format' => 'custom'], null, null, ['dump_format' => 'custom'],
+    ],
+    'keeps boolean flag when enabled' => [
+        ['database_type' => 'mysql', 'ssl_enabled' => true], null, null, ['ssl_enabled' => true],
+    ],
+    'drops field not relevant to the type' => [
+        ['database_type' => 'sqlite', 'dump_flags' => '--anything'], null, null, null,
+    ],
+    'folds multiple keys at once' => [
+        ['database_type' => 'postgres', 'dump_flags' => '-v', 'dump_format' => 'custom', 'dump_privileges' => true],
+        null, null,
+        ['dump_flags' => '-v', 'dump_format' => 'custom', 'dump_privileges' => true],
+    ],
+    'clears existing key when value no longer qualifies' => [
+        ['database_type' => 'mongodb', 'auth_source' => ''], ['auth_source' => 'records'], null, null,
+    ],
+    'preserves existing config when key absent from data' => [
+        ['database_type' => 'mongodb'], ['auth_source' => 'records'], null, ['auth_source' => 'records'],
+    ],
+    'resets stale config on type change' => [
+        ['database_type' => 'mysql', 'ssl_enabled' => true], ['auth_source' => 'records'], 'mongodb', ['ssl_enabled' => true],
+    ],
+]);
