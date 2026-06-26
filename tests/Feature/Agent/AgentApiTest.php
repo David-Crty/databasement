@@ -214,16 +214,16 @@ describe('job acknowledgement', function () {
 
 describe('archive upload (relay)', function () {
     // withToken()->call() does not forward the auth header (unlike postJson),
-    // so authenticate the agent guard directly and stream the raw body.
-    $upload = fn ($agent, string $jobId, string $query, string $content) => test()
-        ->actingAs($agent, 'sanctum')
+    // so pass the bearer token explicitly and stream the raw body.
+    $upload = fn (string $token, string $jobId, string $query, string $content) => test()
         ->call('POST', "/api/v1/agent/jobs/{$jobId}/upload?{$query}", [], [], [], [
             'CONTENT_TYPE' => 'application/octet-stream',
             'HTTP_ACCEPT' => 'application/json',
+            'HTTP_AUTHORIZATION' => "Bearer {$token}",
         ], $content);
 
     test('writes the uploaded archive to the volume and verifies integrity', function () use ($upload) {
-        ['agent' => $agent] = createAgentWithToken();
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
         $volume = \App\Models\Volume::factory()->local()->create();
         $snapshot = Snapshot::factory()->forServer($server)->create(['volume_id' => $volume->id]);
@@ -237,7 +237,7 @@ describe('archive upload (relay)', function () {
             'file_size' => strlen($content),
         ]);
 
-        $upload($agent, $agentJob->id, $query, $content)
+        $upload($token, $agentJob->id, $query, $content)
             ->assertOk()
             ->assertJsonPath('checksum', hash('sha256', $content))
             ->assertJsonPath('file_size', strlen($content));
@@ -251,7 +251,7 @@ describe('archive upload (relay)', function () {
     });
 
     test('rejects a checksum mismatch and fails the job', function () use ($upload) {
-        ['agent' => $agent] = createAgentWithToken();
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
         $volume = \App\Models\Volume::factory()->local()->create();
         $snapshot = Snapshot::factory()->forServer($server)->create(['volume_id' => $volume->id]);
@@ -264,13 +264,13 @@ describe('archive upload (relay)', function () {
             'file_size' => strlen($content),
         ]);
 
-        $upload($agent, $agentJob->id, $query, $content)->assertStatus(422);
+        $upload($token, $agentJob->id, $query, $content)->assertStatus(422);
 
         expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED);
     });
 
     test('rejects upload for a discovery job', function () use ($upload) {
-        ['agent' => $agent] = createAgentWithToken();
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
         $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
             'database_server_id' => $server->id,
@@ -278,7 +278,7 @@ describe('archive upload (relay)', function () {
 
         $query = http_build_query(['filename' => 'db.sql.gz']);
 
-        $upload($agent, $agentJob->id, $query, 'data')->assertStatus(422);
+        $upload($token, $agentJob->id, $query, 'data')->assertStatus(422);
     });
 });
 
