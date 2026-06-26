@@ -2,6 +2,7 @@
 
 namespace App\Services\Agent;
 
+use GuzzleHttp\Psr7\Utils;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -101,7 +102,7 @@ class AgentApiClient
             Http::withToken($this->token)
                 ->accept('application/json')
                 ->timeout($this->uploadTimeout)
-                ->withBody($stream, 'application/octet-stream')
+                ->withBody(Utils::streamFor($stream), 'application/octet-stream')
                 ->post("{$baseUrl}/api/v1/agent/jobs/{$jobId}/upload?{$query}")
                 ->throw();
         } finally {
