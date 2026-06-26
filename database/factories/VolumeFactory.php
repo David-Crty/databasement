@@ -94,6 +94,24 @@ class VolumeFactory extends Factory
     }
 
     /**
+     * Indicate that the volume is an SMB / Samba type.
+     */
+    public function smb(): static
+    {
+        return $this->state(fn () => [
+            'type' => 'smb',
+            'config' => [
+                'host' => 'fileserver.example.com',
+                'share' => 'backups',
+                'username' => 'backup-user',
+                'password' => 'test-password',
+                'domain' => 'WORKGROUP',
+                'root' => '/databasement',
+            ],
+        ]);
+    }
+
+    /**
      * Indicate that the volume is an FTP type.
      */
     public function ftp(): static

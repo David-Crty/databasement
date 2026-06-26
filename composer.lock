@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "eed8130d1568d10317ab71119369270d",
+    "content-hash": "d87cbef2cd7651dbe0cfe2dccffab724",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1820,6 +1820,78 @@
                 }
             ],
             "time": "2026-05-23T22:00:21+00:00"
+        },
+        {
+            "name": "icewind/smb",
+            "version": "3.8.1",
+            "source": {
+                "type": "git",
+                "url": "https://codeberg.org/icewind/SMB",
+                "reference": "97063a63b44edc6554966f6121679506b8d85103"
+            },
+            "require": {
+                "icewind/streams": ">=0.7.3",
+                "php": ">=8.2"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "v3.89.0",
+                "phpstan/phpstan": "^0.12.57",
+                "phpunit/phpunit": "10.5.58",
+                "psalm/phar": "6.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Icewind\\SMB\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Robin Appelman",
+                    "email": "robin@icewind.nl"
+                }
+            ],
+            "description": "php wrapper for smbclient and libsmbclient-php",
+            "time": "2025-11-13T16:17:19+00:00"
+        },
+        {
+            "name": "icewind/streams",
+            "version": "v0.7.8",
+            "source": {
+                "type": "git",
+                "url": "https://codeberg.org/icewind/streams",
+                "reference": "cb2bd3ed41b516efb97e06e8da35a12ef58ba48b"
+            },
+            "require": {
+                "php": ">=7.1"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^2",
+                "phpstan/phpstan": "^0.12",
+                "phpunit/phpunit": "^9"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Icewind\\Streams\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Robin Appelman",
+                    "email": "icewind@owncloud.com"
+                }
+            ],
+            "description": "A set of generic stream wrappers",
+            "time": "2024-12-05T14:36:22+00:00"
         },
         {
             "name": "jfcherng/php-color-output",
@@ -13609,5 +13681,5 @@
     "platform-dev": {
         "ext-zlib": "*"
     },
-    "plugin-api-version": "2.9.0"
+    "plugin-api-version": "2.6.0"
 }

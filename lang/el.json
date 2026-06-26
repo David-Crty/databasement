@@ -1,4 +1,10 @@
 {
+  "Share": "Κοινόχρηστος φάκελος",
+  "Domain / Workgroup": "Τομέας / Ομάδα εργασίας",
+  "e.g., fileserver.example.com": "π.χ., fileserver.example.com",
+  "e.g., backups": "π.χ., backups",
+  "e.g., /databasement": "π.χ., /databasement",
+  "Backups will be stored in the specified root directory inside the SMB share.": "Τα backups θα αποθηκεύονται στον καθορισμένο ριζικό κατάλογο εντός του κοινόχρηστου φακέλου SMB.",
   "(You)": "(Εσείς)",
   "(any database)": "(οποιαδήποτε Βάση Δεδομένων)",
   "(resolved today)": "(επιλύθηκε σήμερα)",

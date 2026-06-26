@@ -12,6 +12,7 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\Filesystems\FtpFilesystem;
 use App\Services\Backup\Filesystems\LocalFilesystem;
 use App\Services\Backup\Filesystems\SftpFilesystem;
+use App\Services\Backup\Filesystems\SmbFilesystem;
 use App\Services\Backup\ShellProcessor;
 use App\Services\CurrentOrganization;
 use Dedoc\Scramble\Scramble;
@@ -53,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
             $provider->add(new Awss3Filesystem);
             $provider->add(new SftpFilesystem);
             $provider->add(new FtpFilesystem);
+            $provider->add(new SmbFilesystem);
 
             return $provider;
         });

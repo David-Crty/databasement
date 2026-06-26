@@ -1,4 +1,10 @@
 {
+  "Share": "Recurso compartido",
+  "Domain / Workgroup": "Dominio / Grupo de trabajo",
+  "e.g., fileserver.example.com": "p. ej., fileserver.example.com",
+  "e.g., backups": "p. ej., backups",
+  "e.g., /databasement": "p. ej., /databasement",
+  "Backups will be stored in the specified root directory inside the SMB share.": "Los backups se almacenarán en el directorio raíz indicado dentro del recurso compartido SMB.",
   "(You)": "(Tú)",
   "(any database)": "(cualquier base de datos)",
   "(resolved today)": "(resuelto hoy)",

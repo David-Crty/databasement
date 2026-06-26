@@ -98,6 +98,50 @@ Standard FTP transmits credentials and data in plain text. Enable SSL for secure
 The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
+### Samba / SMB Storage
+
+SMB volumes store backups on a Windows file share or a Samba server (common on NAS appliances) — natively, without mounting anything on the host.
+
+| Field | Description |
+|-------|-------------|
+| **Host** | SMB server hostname or IP address |
+| **Share** | The share name (e.g., `backups`) |
+| **Username** | SMB username |
+| **Password** | SMB password |
+| **Domain / Workgroup** | Domain or workgroup (optional, default: `WORKGROUP`) |
+| **Root Directory** | Base path inside the share (e.g., `/databasement`) |
+
+:::note
+SMB support uses the `smbclient` extension bundled in the official Databasement Docker image. If you build a custom image, make sure the SMB client is installed. Connectivity is over SMB2/SMB3.
+:::
+
+:::tip
+The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
+:::
+
+### NFS Storage
+
+NFS does not have a dedicated volume type because there is no NFS client at the application layer — NFS is mounted by the operating system. To use an NFS export as a backup destination, **mount it where Databasement runs and point a [Local](#local-storage) volume at the mount path**.
+
+For example, with Docker Compose:
+
+```yaml
+services:
+  app:
+    volumes:
+      - backups-nfs:/backups
+
+volumes:
+  backups-nfs:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=nas.example.com,rw,nfsvers=4"
+      device: ":/export/backups"
+```
+
+Then create a **Local** volume with path `/backups`. The same approach works for mounting an SMB share via CIFS if you prefer mounting over the native SMB volume type.
+
 ## Connection Testing
 
 Before saving a volume, use the **Test Connection** button to verify:

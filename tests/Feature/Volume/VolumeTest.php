@@ -90,6 +90,27 @@ dataset('volume types', function () {
             'expectedField' => 'host',
             'expectedValue' => 'new-ftp.example.com',
         ],
+        'smb' => [
+            'type' => VolumeType::SMB,
+            'formData' => [
+                'host' => 'fileserver.example.com',
+                'share' => 'backups',
+                'username' => 'smb-user',
+                'password' => 'smb-password',
+                'domain' => 'WORKGROUP',
+                'root' => '/databasement',
+            ],
+            'expectedConfig' => [
+                'host' => 'fileserver.example.com',
+                'share' => 'backups',
+                'username' => 'smb-user',
+                'domain' => 'WORKGROUP',
+                'root' => '/databasement',
+            ],
+            'updateData' => ['host' => 'new-fileserver.example.com', 'password' => 'new-password'],
+            'expectedField' => 'host',
+            'expectedValue' => 'new-fileserver.example.com',
+        ],
     ];
 });
 

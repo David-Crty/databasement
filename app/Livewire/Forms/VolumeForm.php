@@ -31,6 +31,9 @@ class VolumeForm extends Form
     /** @var array<string, mixed> */
     public array $ftpConfig = [];
 
+    /** @var array<string, mixed> */
+    public array $smbConfig = [];
+
     // Connection test state
     public ?string $connectionTestMessage = null;
 

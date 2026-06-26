@@ -34,7 +34,8 @@ RUN install-php-extensions \
     pcov \
     ftp \
     sockets \
-    mongodb
+    mongodb \
+    smbclient
 
 COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 
