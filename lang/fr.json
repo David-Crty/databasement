@@ -374,6 +374,8 @@
   "Manual Restore Required": "Restauration manuelle requise",
   "Maximum number of seconds a backup or restore job can run before timing out.": "Nombre maximum de secondes pendant lesquelles une tâche de sauvegarde ou restauration peut s’exécuter avant expiration.",
   "Member": "Membre",
+  "Operator": "Opérateur",
+  "Run backups, restores and downloads, but cannot edit server configuration": "Lancer des backups, restores et téléchargements, sans pouvoir modifier la configuration du serveur",
   "Message": "Message",
   "Metadata": "Métadonnées",
   "Missing": "Manquant",

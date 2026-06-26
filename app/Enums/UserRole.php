@@ -6,6 +6,7 @@ enum UserRole: string
 {
     case Demo = 'demo';
     case Viewer = 'viewer';
+    case Operator = 'operator';
     case Member = 'member';
     case Admin = 'admin';
 
@@ -14,6 +15,7 @@ enum UserRole: string
         return match ($this) {
             self::Admin => __('Admin'),
             self::Member => __('Member'),
+            self::Operator => __('Operator'),
             self::Viewer => __('Viewer'),
             self::Demo => __('Demo'),
         };
@@ -24,6 +26,7 @@ enum UserRole: string
         return match ($this) {
             self::Admin => 'o-shield-check',
             self::Member => 'o-pencil-square',
+            self::Operator => 'o-play-circle',
             self::Viewer => 'o-eye',
             self::Demo => 'o-beaker',
         };
@@ -34,6 +37,7 @@ enum UserRole: string
         return match ($this) {
             self::Admin => 'badge-primary',
             self::Member => 'badge-info',
+            self::Operator => 'badge-accent',
             self::Viewer => 'badge-neutral',
             self::Demo => 'badge-ghost',
         };
@@ -46,7 +50,7 @@ enum UserRole: string
      */
     public static function assignable(): array
     {
-        return [self::Viewer, self::Member, self::Admin];
+        return [self::Viewer, self::Operator, self::Member, self::Admin];
     }
 
     /**
@@ -62,8 +66,9 @@ enum UserRole: string
         return match ($this) {
             self::Demo => 0,
             self::Viewer => 1,
-            self::Member => 2,
-            self::Admin => 3,
+            self::Operator => 2,
+            self::Member => 3,
+            self::Admin => 4,
         };
     }
 

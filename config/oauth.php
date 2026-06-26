@@ -20,7 +20,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | The role assigned to new users created via OAuth when no matching
-    | email exists in the database. Must be one of: viewer, member, admin
+    | email exists in the database. Must be one of: viewer, operator, member, admin
     |
     */
     'default_role' => env('OAUTH_DEFAULT_ROLE', 'member'),
@@ -77,7 +77,7 @@ return [
     |
     | Map OIDC group claims to Databasement roles. When at least one
     | ROLE_MAP is set, mapping is active. Roles are checked in priority
-    | order: admin > member > viewer. The first match wins.
+    | order: admin > member > operator > viewer. The first match wins.
     |
     | When strict mode is enabled, users without a matching group are
     | denied access entirely (even returning users).
@@ -87,6 +87,7 @@ return [
         'claim' => env('OAUTH_OIDC_ROLE_CLAIM', 'groups'),
         'admin' => env('OAUTH_OIDC_ROLE_MAP_ADMIN', ''),
         'member' => env('OAUTH_OIDC_ROLE_MAP_MEMBER', ''),
+        'operator' => env('OAUTH_OIDC_ROLE_MAP_OPERATOR', ''),
         'viewer' => env('OAUTH_OIDC_ROLE_MAP_VIEWER', ''),
         'strict' => env('OAUTH_OIDC_ROLE_STRICT', false),
     ],

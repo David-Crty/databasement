@@ -170,6 +170,21 @@ class User extends Authenticatable
         return in_array($this->currentOrgRole(), [UserRole::Admin, UserRole::Member]);
     }
 
+    /**
+     * Whether the user can run backup/restore/download operations.
+     * Operators sit between Viewer and Member: they can operate backups but
+     * cannot edit server configuration. Members and Admins can do everything
+     * an Operator can, so they are included here too.
+     */
+    public function canOperate(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return in_array($this->currentOrgRole(), [UserRole::Admin, UserRole::Member, UserRole::Operator]);
+    }
+
     public function canManageUsers(): bool
     {
         return $this->isAdmin();

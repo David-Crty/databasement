@@ -101,8 +101,8 @@ class OAuthService
         // Normalize to array and lowercase for case-insensitive matching
         $userGroups = array_map('mb_strtolower', (array) $claimValue);
 
-        // Check roles in priority order: admin > member > viewer
-        foreach ([UserRole::Admin, UserRole::Member, UserRole::Viewer] as $role) {
+        // Check roles in priority order: admin > member > operator > viewer
+        foreach ([UserRole::Admin, UserRole::Member, UserRole::Operator, UserRole::Viewer] as $role) {
             $configuredGroups = $this->parseGroupList(config("oauth.role_mapping.{$role->value}", ''));
 
             if ($configuredGroups !== [] && array_intersect($userGroups, $configuredGroups) !== []) {

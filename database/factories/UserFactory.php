@@ -96,6 +96,14 @@ class UserFactory extends Factory
     }
 
     /**
+     * Set the user's role in the default org to operator.
+     */
+    public function operator(): static
+    {
+        return $this->state(['role' => UserRole::Operator]);
+    }
+
+    /**
      * Set the user's role in the default org to viewer.
      */
     public function viewer(): static

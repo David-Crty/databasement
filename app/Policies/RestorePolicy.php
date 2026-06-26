@@ -28,12 +28,12 @@ class RestorePolicy
 
     /**
      * Determine whether the user can start a new restore or schedule one.
-     * Demo users can create both. Final authorization on the target server
-     * is still checked via DatabaseServerPolicy@restore.
+     * Operators (and above) plus demo users can create. Final authorization on
+     * the target server is still checked via DatabaseServerPolicy@restore.
      */
     public function create(User $user): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->canOperate();
     }
 
     /**
@@ -43,7 +43,7 @@ class RestorePolicy
      */
     public function update(User $user, ScheduledRestore $restore): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->canOperate();
     }
 
     /**
@@ -51,7 +51,7 @@ class RestorePolicy
      */
     public function delete(User $user, Restore|ScheduledRestore $restore): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->canOperate();
     }
 
     /**
@@ -59,6 +59,6 @@ class RestorePolicy
      */
     public function run(User $user, ScheduledRestore $restore): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->canOperate();
     }
 }

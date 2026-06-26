@@ -363,52 +363,61 @@ class DatabaseServer extends Model
         // Reset extra_config when type changes to avoid stale keys
         $extraConfig = ($previousType !== null && $previousType !== $type) ? [] : ($existingExtraConfig ?? []);
 
-        if (array_key_exists('auth_source', $data)) {
-            if ($type === DatabaseType::MONGODB->value && ($data['auth_source'] !== '' && $data['auth_source'] !== null)) {
-                $extraConfig['auth_source'] = $data['auth_source'];
-            } else {
-                unset($extraConfig['auth_source']);
-            }
-            unset($data['auth_source']);
-        }
+        self::pullExtraConfigKey($data, $extraConfig, 'auth_source',
+            fn ($v) => $type === DatabaseType::MONGODB->value && $v !== '' && $v !== null,
+            fn ($v) => $v,
+        );
 
-        if (array_key_exists('dump_flags', $data)) {
-            if ($type !== DatabaseType::SQLITE->value && ($data['dump_flags'] !== '' && $data['dump_flags'] !== null)) {
-                $extraConfig['dump_flags'] = $data['dump_flags'];
-            } else {
-                unset($extraConfig['dump_flags']);
-            }
-            unset($data['dump_flags']);
-        }
+        self::pullExtraConfigKey($data, $extraConfig, 'dump_flags',
+            fn ($v) => $type !== DatabaseType::SQLITE->value && $v !== '' && $v !== null,
+            fn ($v) => $v,
+        );
 
-        if (array_key_exists('dump_format', $data)) {
-            if ($type === DatabaseType::POSTGRESQL->value && $data['dump_format'] === 'custom') {
-                $extraConfig['dump_format'] = 'custom';
-            } else {
-                unset($extraConfig['dump_format']);
-            }
-            unset($data['dump_format']);
-        }
+        self::pullExtraConfigKey($data, $extraConfig, 'dump_format',
+            fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v === 'custom',
+            fn () => 'custom',
+        );
 
-        if (array_key_exists('dump_privileges', $data)) {
-            if ($type === DatabaseType::POSTGRESQL->value && $data['dump_privileges']) {
-                $extraConfig['dump_privileges'] = true;
-            } else {
-                unset($extraConfig['dump_privileges']);
-            }
-            unset($data['dump_privileges']);
-        }
+        self::pullExtraConfigKey($data, $extraConfig, 'dump_privileges',
+            fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v,
+            fn () => true,
+        );
 
-        if (array_key_exists('ssl_enabled', $data)) {
-            if ($type === DatabaseType::MYSQL->value && $data['ssl_enabled']) {
-                $extraConfig['ssl_enabled'] = true;
-            } else {
-                unset($extraConfig['ssl_enabled']);
-            }
-            unset($data['ssl_enabled']);
-        }
+        self::pullExtraConfigKey($data, $extraConfig, 'ssl_enabled',
+            fn ($v) => $type === DatabaseType::MYSQL->value && $v,
+            fn () => true,
+        );
 
         $data['extra_config'] = $extraConfig ?: null;
+    }
+
+    /**
+     * Pull a single field out of $data and fold it into $extraConfig.
+     *
+     * When the key is present in $data it is removed from $data and either
+     * stored in $extraConfig (using $store to derive the value) if $keep
+     * returns true, or cleared from $extraConfig otherwise. Keys absent from
+     * $data are left untouched.
+     *
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $extraConfig
+     * @param  callable(mixed): bool  $keep
+     * @param  callable(mixed): mixed  $store
+     */
+    private static function pullExtraConfigKey(array &$data, array &$extraConfig, string $key, callable $keep, callable $store): void
+    {
+        if (! array_key_exists($key, $data)) {
+            return;
+        }
+
+        $value = $data[$key];
+        unset($data[$key]);
+
+        if ($keep($value)) {
+            $extraConfig[$key] = $store($value);
+        } else {
+            unset($extraConfig[$key]);
+        }
     }
 
     /**

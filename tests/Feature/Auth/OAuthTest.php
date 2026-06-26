@@ -41,6 +41,7 @@ beforeEach(function () {
     Config::set('oauth.role_mapping.claim', 'groups');
     Config::set('oauth.role_mapping.admin', '');
     Config::set('oauth.role_mapping.member', '');
+    Config::set('oauth.role_mapping.operator', '');
     Config::set('oauth.role_mapping.viewer', '');
     Config::set('oauth.role_mapping.strict', false);
 });
@@ -282,6 +283,18 @@ test('oidc role mapping assigns member role from matching group', function () {
 
     $user = User::where('email', 'member@example.com')->first();
     expect($user->roleIn(\App\Models\Organization::default()))->toBe(UserRole::Member);
+});
+
+test('oidc role mapping assigns operator role from matching group', function () {
+    enableOidcProvider();
+    Config::set('oauth.role_mapping.operator', 'databasement-operators');
+
+    Socialite::fake('oidc', fakeOidcUser('oidc-op', 'operator@example.com', 'Operator', ['databasement-operators']));
+
+    $this->get(route('oauth.callback', 'oidc'));
+
+    $user = User::where('email', 'operator@example.com')->first();
+    expect($user->roleIn(\App\Models\Organization::default()))->toBe(UserRole::Operator);
 });
 
 test('oidc role mapping assigns viewer role from matching group', function () {

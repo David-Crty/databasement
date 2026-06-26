@@ -19,7 +19,7 @@ class UserForm extends Form
     public string $email = '';
 
     /** Per-org role (for the current org context) */
-    #[Validate('required|in:viewer,member,admin')]
+    #[Validate('required|in:viewer,operator,member,admin')]
     public string $role = UserRole::Member->value;
 
     /** Super admin flag (only super admins can set this) */
@@ -103,6 +103,7 @@ class UserForm extends Form
             'name' => $role->label(),
             'description' => match ($role) {
                 UserRole::Viewer => __('Read-only access to all resources'),
+                UserRole::Operator => __('Run backups, restores and downloads, but cannot edit server configuration'),
                 UserRole::Member => __('Full access except user management'),
                 UserRole::Admin => __('Full access including user management'),
                 default => '',

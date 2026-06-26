@@ -36,20 +36,21 @@ class SnapshotPolicy
 
     /**
      * Determine whether the user can download the snapshot.
-     * Demo users can download snapshots.
+     * Operators, Members, Admins and demo users can download.
      */
     public function download(User $user, Snapshot $snapshot): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->canOperate();
     }
 
     /**
      * Determine whether the user can use this snapshot as the source of a restore.
-     * Demo users can trigger restores. Final authorization on the target server
-     * is still checked separately via DatabaseServerPolicy@restore.
+     * Operators, Members, Admins and demo users can trigger restores. Final
+     * authorization on the target server is still checked separately via
+     * DatabaseServerPolicy@restore.
      */
     public function restoreFrom(User $user, Snapshot $snapshot): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->canOperate();
     }
 }

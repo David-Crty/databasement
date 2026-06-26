@@ -97,7 +97,7 @@ class DatabaseServerPolicy
 
     /**
      * Determine whether the user can run a backup.
-     * Demo users can trigger backups.
+     * Operators, Members, Admins and demo users can trigger backups.
      */
     public function backup(User $user, DatabaseServer $databaseServer): bool
     {
@@ -105,15 +105,15 @@ class DatabaseServerPolicy
             return false;
         }
 
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->canOperate();
     }
 
     /**
      * Determine whether the user can restore to a server.
-     * Demo users can trigger restores.
+     * Operators, Members, Admins and demo users can trigger restores.
      */
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->canOperate();
     }
 }

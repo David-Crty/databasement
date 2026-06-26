@@ -371,6 +371,8 @@
   "Manual Restore Required": "Απαιτείται χειροκίνητο Restore",
   "Maximum number of seconds a backup or restore job can run before timing out.": "Μέγιστος αριθμός δευτερολέπτων που μπορεί να εκτελεστεί μια εργασία backup ή restore πριν λήξει το χρονικό όριο.",
   "Member": "Μέλος",
+  "Operator": "Χειριστής",
+  "Run backups, restores and downloads, but cannot edit server configuration": "Εκτέλεση backup, restore και λήψεων, χωρίς δυνατότητα επεξεργασίας της διαμόρφωσης του διακομιστή",
   "Message": "Μήνυμα",
   "Metadata": "Μεταδεδομένα",
   "Missing": "Λείπει",
