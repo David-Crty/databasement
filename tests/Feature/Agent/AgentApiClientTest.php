@@ -112,6 +112,30 @@ describe('ack', function () {
     });
 });
 
+describe('upload', function () {
+    test('streams the archive to the upload endpoint with metadata in the query string', function () {
+        Http::fake();
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'fake-archive-bytes');
+
+        try {
+            $this->client->upload('job-1', $tmp, 'backups/db.sql.gz', 'sha256hash', 18);
+        } finally {
+            @unlink($tmp);
+        }
+
+        Http::assertSent(function ($request) {
+            return str_starts_with($request->url(), 'http://server.test/api/v1/agent/jobs/job-1/upload?')
+                && str_contains($request->url(), 'filename='.urlencode('backups/db.sql.gz'))
+                && str_contains($request->url(), 'checksum=sha256hash')
+                && str_contains($request->url(), 'file_size=18')
+                && $request->body() === 'fake-archive-bytes'
+                && $request->hasHeader('Authorization', 'Bearer test-token');
+        });
+    });
+});
+
 describe('fail', function () {
     test('sends error message and logs to fail endpoint', function () {
         Http::fake();

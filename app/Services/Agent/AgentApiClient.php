@@ -11,6 +11,7 @@ class AgentApiClient
     public function __construct(
         private string $url,
         private string $token,
+        private int $uploadTimeout = 3600,
     ) {}
 
     public function heartbeat(): void
@@ -74,6 +75,40 @@ class AgentApiClient
                 'checksum' => $checksum,
                 'logs' => $logs,
             ])->throw();
+    }
+
+    /**
+     * Relay the backup archive to the main server, which writes it to the
+     * target volume. Streams the file as a raw request body to avoid loading
+     * it into memory. The server finalizes the job (no separate ack needed).
+     */
+    public function upload(string $jobId, string $archivePath, string $filename, string $checksum, int $fileSize): void
+    {
+        $baseUrl = rtrim($this->url, '/');
+
+        $stream = fopen($archivePath, 'r');
+        if ($stream === false) {
+            throw new \RuntimeException("Failed to open archive for upload: {$archivePath}");
+        }
+
+        $query = http_build_query([
+            'filename' => $filename,
+            'checksum' => $checksum,
+            'file_size' => $fileSize,
+        ]);
+
+        try {
+            Http::withToken($this->token)
+                ->accept('application/json')
+                ->timeout($this->uploadTimeout)
+                ->withBody($stream, 'application/octet-stream')
+                ->post("{$baseUrl}/api/v1/agent/jobs/{$jobId}/upload?{$query}")
+                ->throw();
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
     }
 
     /**

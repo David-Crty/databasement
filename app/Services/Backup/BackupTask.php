@@ -39,11 +39,14 @@ class BackupTask
      * `ProcessBackupJob` delegates to this method.
      *
      * @param  callable|null  $onProgress  Called after dump, compression, and transfer steps
+     * @param  callable(string $archive, string $filename): void|null  $deliver  Overrides the
+     *                                                                            default volume transfer (used by the agent to relay the archive to the server)
      */
     public function execute(
         BackupConfig $config,
         BackupLogger $logger,
         ?callable $onProgress = null,
+        ?callable $deliver = null,
     ): BackupResult {
         $this->shellProcessor->setLogger($logger);
         $db = $config->database;
@@ -91,13 +94,21 @@ class BackupTask
             // Generate filename and transfer
             $humanFileSize = Formatters::humanFileSize($fileSize);
             $filename = $this->generateFilename($db->serverName, $config->databaseName, $db->databaseType->dumpExtension($dumpFormat), $compressor, $config->backupPath);
-            $logger->log("Transferring backup ({$humanFileSize}) to volume: {$config->volume->name}", 'info', [
+            $destinationLabel = $deliver !== null
+                ? "main server (volume: {$config->volume->name})"
+                : "volume: {$config->volume->name}";
+            $logger->log("Transferring backup ({$humanFileSize}) to {$destinationLabel}", 'info', [
                 'volume_type' => $config->volume->type,
+                'delivery_mode' => $config->deliveryMode,
                 'source' => $archive,
                 'destination' => $filename,
             ]);
             $transferStart = microtime(true);
-            $this->filesystemProvider->transferFromConfig($config->volume, $archive, $filename);
+            if ($deliver !== null) {
+                $deliver($archive, $filename);
+            } else {
+                $this->filesystemProvider->transferFromConfig($config->volume, $archive, $filename);
+            }
             $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
             $logger->log('Transfer completed successfully in '.$transferDuration, 'success');
 

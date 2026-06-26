@@ -49,6 +49,12 @@ class SyncBackupConfigurationsAction
                 $data = BackupForm::toPersistedData($entry);
                 $data['database_server_id'] = $server->id;
 
+                // Relaying through the server only applies to agent-backed
+                // servers; local execution already writes to server volumes.
+                if (empty($server->agent_id)) {
+                    $data['store_on_server'] = false;
+                }
+
                 $existingId = $entry['id'] ?? null;
 
                 /** @var array<string, mixed> $data */

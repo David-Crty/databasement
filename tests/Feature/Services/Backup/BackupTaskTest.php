@@ -503,3 +503,37 @@ test('execute prepends backup path with date variables to filename', function ()
     expect($result->filename)->toStartWith($expectedPrefix)
         ->and($result->filename)->toContain('Test-Server-myapp-');
 });
+
+test('execute calls the deliver callback instead of transferring to the volume', function () {
+    $mockProvider = buildMockDatabaseProvider();
+
+    // The volume transfer must be bypassed entirely when relaying.
+    test()->filesystemProvider->shouldNotReceive('transferFromConfig');
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+        new PostScriptRunner,
+    );
+
+    $config = buildBackupConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $delivered = [];
+
+    $result = $backupTask->execute(
+        $config,
+        new InMemoryBackupLogger,
+        deliver: function (string $archive, string $filename) use (&$delivered) {
+            // The archive still exists at delivery time (cleanup runs afterwards).
+            $delivered = ['filename' => $filename, 'exists' => is_file($archive)];
+        },
+    );
+
+    expect($delivered['exists'])->toBeTrue()
+        ->and($delivered['filename'])->toBe($result->filename)
+        ->and($result->checksum)->toMatch('/^[a-f0-9]{64}$/');
+});

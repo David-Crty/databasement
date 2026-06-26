@@ -23,21 +23,30 @@ class AgentJobPayloadBuilder
      *     backup_path: string,
      *     server_name: string,
      *     post_backup_script: string|null,
+     *     delivery_mode: string,
      * }
      */
     public function build(Snapshot $snapshot): array
     {
         $server = $snapshot->databaseServer;
+        $relayThroughServer = (bool) ($snapshot->backup->store_on_server ?? false);
 
         $config = new BackupConfig(
             database: DatabaseConnectionConfig::fromServer($server),
-            volume: VolumeConfig::fromVolume($snapshot->volume),
+            // When relaying through the server, the agent never touches the
+            // volume directly, so its credentials must not leave the server.
+            volume: $relayThroughServer
+                ? new VolumeConfig($snapshot->volume->type, $snapshot->volume->name, [])
+                : VolumeConfig::fromVolume($snapshot->volume),
             databaseName: $snapshot->database_name,
             workingDirectory: '',
             backupPath: $this->resolveBackupPath($snapshot->backup->path),
             compressionType: CompressionType::tryFrom(AppConfig::get('backup.compression') ?? ''),
             compressionLevel: AppConfig::get('backup.compression_level'),
             postBackupScript: AppConfig::get('backup.post_backup_script'),
+            deliveryMode: $relayThroughServer
+                ? BackupConfig::DELIVERY_SERVER
+                : BackupConfig::DELIVERY_AGENT,
         );
 
         return $config->toPayload();

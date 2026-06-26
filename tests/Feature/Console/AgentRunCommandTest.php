@@ -83,6 +83,47 @@ test('processes a job and calls ack on success', function () {
     );
 });
 
+test('relays the archive to the server when delivery_mode is server', function () {
+    $payload = $this->jobPayload;
+    $payload['payload']['delivery_mode'] = 'server';
+    $payload['payload']['volume']['config'] = []; // server strips credentials when relaying
+
+    Http::fake([
+        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/claim' => Http::response(['job' => $payload]),
+        '*/agent/jobs/job-123/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/job-123/upload*' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/job-123/ack' => Http::response(['status' => 'ok']),
+    ]);
+
+    $archive = tempnam(sys_get_temp_dir(), 'relay-archive');
+    file_put_contents($archive, 'archive-bytes');
+
+    $backupTask = $this->mock(BackupTask::class);
+    $backupTask->shouldReceive('execute')->once()->andReturnUsing(
+        function ($config, $logger, $onProgress = null, $deliver = null) use ($archive) {
+            expect($deliver)->not->toBeNull();
+            // The agent relays the archive to the server instead of writing to a volume.
+            $deliver($archive, 'backups/testdb.sql.gz');
+
+            return new BackupResult('backups/testdb.sql.gz', 13, hash('sha256', 'archive-bytes'));
+        }
+    );
+
+    $this->artisan('agent:run --once')
+        ->expectsOutputToContain('Job completed: backups/testdb.sql.gz')
+        ->assertSuccessful();
+
+    @unlink($archive);
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/upload')
+        && str_contains($request->url(), 'filename='.urlencode('backups/testdb.sql.gz'))
+    );
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/ack')
+        && $request['filename'] === 'backups/testdb.sql.gz'
+    );
+});
+
 test('calls fail endpoint when backup task throws', function () {
     Http::fake([
         '*/agent/heartbeat' => Http::response(['status' => 'ok']),

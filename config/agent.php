@@ -6,4 +6,6 @@ return [
     'token' => env('DATABASEMENT_AGENT_TOKEN'),
     'poll_interval' => max(1, (int) env('DATABASEMENT_AGENT_POLL_INTERVAL', 5)),
     'lease_duration' => 300, // 5 minutes
+    // Max seconds to wait when relaying a backup archive to the main server.
+    'upload_timeout' => max(60, (int) env('DATABASEMENT_AGENT_UPLOAD_TIMEOUT', 3600)),
 ];

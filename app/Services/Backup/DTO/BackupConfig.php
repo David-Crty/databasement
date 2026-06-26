@@ -6,6 +6,12 @@ use App\Enums\CompressionType;
 
 readonly class BackupConfig
 {
+    /** The agent writes the archive straight to the target volume. */
+    public const string DELIVERY_AGENT = 'agent';
+
+    /** The agent uploads the archive to the main server, which writes it to the volume. */
+    public const string DELIVERY_SERVER = 'server';
+
     public function __construct(
         public DatabaseConnectionConfig $database,
         public VolumeConfig $volume,
@@ -15,7 +21,17 @@ readonly class BackupConfig
         public ?CompressionType $compressionType = null,
         public ?int $compressionLevel = null,
         public ?string $postBackupScript = null,
+        public string $deliveryMode = self::DELIVERY_AGENT,
     ) {}
+
+    /**
+     * Whether the agent should relay the archive through the main server
+     * instead of writing it to the volume itself.
+     */
+    public function relaysThroughServer(): bool
+    {
+        return $this->deliveryMode === self::DELIVERY_SERVER;
+    }
 
     /**
      * Serialize to a self-contained agent payload.
@@ -27,6 +43,7 @@ readonly class BackupConfig
      *     backup_path: string,
      *     server_name: string,
      *     post_backup_script: string|null,
+     *     delivery_mode: string,
      * }
      */
     public function toPayload(): array
@@ -44,6 +61,7 @@ readonly class BackupConfig
             'backup_path' => $this->backupPath,
             'server_name' => $this->database->serverName,
             'post_backup_script' => $this->postBackupScript,
+            'delivery_mode' => $this->deliveryMode,
         ];
     }
 
@@ -57,6 +75,7 @@ readonly class BackupConfig
      *     backup_path?: string,
      *     server_name: string,
      *     post_backup_script?: string|null,
+     *     delivery_mode?: string,
      * }  $payload
      */
     public static function fromPayload(array $payload, string $workingDirectory): self
@@ -74,6 +93,7 @@ readonly class BackupConfig
                 : null,
             compressionLevel: $payload['compression']['level'] ?? null,
             postBackupScript: $payload['post_backup_script'] ?? null,
+            deliveryMode: $payload['delivery_mode'] ?? self::DELIVERY_AGENT,
         );
     }
 }

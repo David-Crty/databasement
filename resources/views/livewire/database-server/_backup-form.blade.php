@@ -349,6 +349,14 @@
                 </x-slot:append>
             </x-select>
 
+            @if($form->hasAgent())
+                <x-checkbox
+                    wire:model.live="form.backups.{{ $index }}.store_on_server"
+                    :label="__('Store on the main server')"
+                    :hint="__('The agent uploads the backup to this server, which writes it to the selected volume. Required for local volumes; keeps volume credentials off the agent.')"
+                />
+            @endif
+
             <div>
                 <x-input
                     wire:model.live.debounce.300ms="form.backups.{{ $index }}.path"

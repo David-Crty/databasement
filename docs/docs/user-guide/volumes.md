@@ -23,6 +23,10 @@ docker run -v /path/on/host:/backups davidcrty/databasement
 ```
 :::
 
+:::note Using a local volume with a remote agent
+A local volume lives on the Databasement server, so a [remote agent](./agents.md) can't write to it directly. To store agent backups on the server's local disk, enable **Store on the main server** on the backup configuration — the agent then streams the archive back to the server, which writes it to the volume. See [Where the backup is stored](./agents.md#where-the-backup-is-stored).
+:::
+
 ### S3 Storage
 
 S3 volumes store backups in AWS S3 or any S3-compatible object storage (MinIO, DigitalOcean Spaces, Backblaze B2, etc.). All credentials and settings are configured per-volume.

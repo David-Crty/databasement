@@ -24,10 +24,10 @@ flowchart TB
     Agent["Agent (agent:run)"]
     Vol["Volume (S3 / SFTP)"]
     Agent ==>|dump| DB
-    Agent ==>|upload| Vol
+    Agent ==>|"upload (direct)"| Vol
   end
 
-  Agent -. "outbound HTTPS only (poll → claim → report)" .-> Server["Databasement server"]
+  Agent -. "outbound HTTPS only (poll → claim → report, or relay upload)" .-> Server["Databasement server"]
 
   classDef agent fill:#dbeafe,stroke:#3b82f6,stroke-width:1.5px,color:#1e3a8a;
   classDef data fill:#ede9fe,stroke:#8b5cf6,stroke-width:1.5px,color:#4c1d95;
@@ -44,6 +44,21 @@ flowchart TB
 2. **Claim** — the server hands back a job describing the database, the schedule, and the destination volume.
 3. **Run** — the agent dumps the database (it reaches it on the local network) and uploads the snapshot to the volume.
 4. **Report** — the agent acknowledges the result (filename, size, checksum, logs) so the snapshot shows up in the UI like any other.
+
+## Where the backup is stored
+
+By default the agent writes the snapshot **directly to the destination volume** from its own network — so the volume must be reachable from the agent (S3-compatible, SFTP, or FTP), and the volume's credentials are sent to the agent as part of the job.
+
+Alternatively, enable **Store on the main server** on the backup configuration. The agent still dumps and compresses locally, but instead of writing to the volume it **streams the archive back to the Databasement server over the same outbound HTTPS connection**, and the server writes it to the chosen volume. This unlocks two things:
+
+- **Use the server's local volume** (or any volume only the server can reach) as the destination for an agent-backed server.
+- **Keep volume credentials off the agent entirely** — they never leave the server, even for S3/SFTP volumes.
+
+The server verifies the uploaded archive's checksum before recording the snapshot. The trade-off is bandwidth: the full backup travels agent → server, so for very large backups a directly reachable volume is more efficient.
+
+:::tip
+"Store on the main server" is the option to pick when you want agent backups to land on the **same machine** that runs Databasement (its local disk or a mounted volume).
+:::
 
 ## When to use an agent
 
@@ -74,5 +89,5 @@ The **Agents** page shows each agent's connection status, so you can confirm it'
 
 ## Constraints
 
-- **No local volume** — the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
+- **Volume must be reachable, or relayed** — by default the agent uploads from its own network, so the destination must be reachable from the agent (S3-compatible or SFTP/FTP). To use the server's local storage (or keep credentials off the agent), enable **Store on the main server** on the backup — see [Where the backup is stored](#where-the-backup-is-stored).
 - **Backups only** — restore is not available for agent-backed servers.
