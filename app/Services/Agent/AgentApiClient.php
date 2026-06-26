@@ -81,16 +81,15 @@ class AgentApiClient
     /**
      * Relay the backup archive to the main server, which writes it to the
      * target volume. Streams the file as a raw request body to avoid loading
-     * it into memory. The server finalizes the job (no separate ack needed).
+     * it into memory. The agent still acks afterwards to finalize the job.
      */
     public function upload(string $jobId, string $archivePath, string $filename, string $checksum, int $fileSize): void
     {
         $baseUrl = rtrim($this->url, '/');
 
-        $stream = fopen($archivePath, 'r');
-        if ($stream === false) {
-            throw new \RuntimeException("Failed to open archive for upload: {$archivePath}");
-        }
+        // The Guzzle stream owns the file handle and closes it once the request
+        // is sent — don't close it manually, or recorded/streamed reads break.
+        $body = Utils::streamFor(Utils::tryFopen($archivePath, 'r'));
 
         $query = http_build_query([
             'filename' => $filename,
@@ -98,18 +97,12 @@ class AgentApiClient
             'file_size' => $fileSize,
         ]);
 
-        try {
-            Http::withToken($this->token)
-                ->accept('application/json')
-                ->timeout($this->uploadTimeout)
-                ->withBody(Utils::streamFor($stream), 'application/octet-stream')
-                ->post("{$baseUrl}/api/v1/agent/jobs/{$jobId}/upload?{$query}")
-                ->throw();
-        } finally {
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
-        }
+        Http::withToken($this->token)
+            ->accept('application/json')
+            ->timeout($this->uploadTimeout)
+            ->withBody($body, 'application/octet-stream')
+            ->post("{$baseUrl}/api/v1/agent/jobs/{$jobId}/upload?{$query}")
+            ->throw();
     }
 
     /**

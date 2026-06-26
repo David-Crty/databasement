@@ -320,7 +320,7 @@ test('can create mysql database server with ssl_enabled', function () {
     expect($server->getExtraConfig('ssl_enabled'))->toBeTrue();
 });
 
-test('local volume options reflect use_agent state', function (bool $useAgent, bool $expectedDisabled) {
+test('local volumes are selectable regardless of use_agent state', function (bool $useAgent) {
     $user = User::factory()->create();
     $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
 
@@ -331,10 +331,12 @@ test('local volume options reflect use_agent state', function (bool $useAgent, b
     $options = $component->viewData('form')->getVolumeOptions();
     $local = collect($options)->firstWhere('id', $localVolume->id);
 
-    expect($local['disabled'])->toBe($expectedDisabled);
+    // Local volumes are never disabled: with an agent they require the
+    // per-backup "Store on the main server" relay, enforced by validation.
+    expect($local['disabled'])->toBeFalse();
 })->with([
-    'disabled when use_agent is true' => [true, true],
-    'enabled when use_agent is false' => [false, false],
+    'use_agent is true' => [true],
+    'use_agent is false' => [false],
 ]);
 
 test('toggling use_agent clears local volume but keeps remote volume', function (string $volumeType, string $expectedVolumeId) {
