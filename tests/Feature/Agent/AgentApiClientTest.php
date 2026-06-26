@@ -134,6 +134,41 @@ describe('upload', function () {
                 && $request->hasHeader('Authorization', 'Bearer test-token');
         });
     });
+
+    test('retries the upload on a transient server error', function () {
+        Http::fake([
+            '*/upload*' => Http::sequence()
+                ->push('boom', 500)
+                ->push(['status' => 'ok'], 200),
+        ]);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'data');
+
+        try {
+            $this->client->upload('job-1', $tmp, 'db.sql.gz', 'sum', 4);
+        } finally {
+            @unlink($tmp);
+        }
+
+        Http::assertSentCount(2);
+    });
+
+    test('does not retry the upload on a client error', function () {
+        Http::fake(['*/upload*' => Http::response('rejected', 422)]);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'data');
+
+        try {
+            expect(fn () => $this->client->upload('job-1', $tmp, 'db.sql.gz', 'sum', 4))
+                ->toThrow(\Illuminate\Http\Client\RequestException::class);
+        } finally {
+            @unlink($tmp);
+        }
+
+        Http::assertSentCount(1);
+    });
 });
 
 describe('fail', function () {

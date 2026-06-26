@@ -32,7 +32,12 @@ class AgentRunCommand extends Command
             return self::FAILURE;
         }
 
-        $client = new AgentApiClient($url, $token, (int) config('agent.upload_timeout', 3600));
+        $client = new AgentApiClient(
+            $url,
+            $token,
+            (int) config('agent.upload_timeout', 3600),
+            (int) config('agent.upload_retries', 3),
+        );
 
         $this->log('Databasement Agent starting...');
         $this->log("Server: {$url}");

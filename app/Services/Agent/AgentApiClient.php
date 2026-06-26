@@ -3,6 +3,8 @@
 namespace App\Services\Agent;
 
 use GuzzleHttp\Psr7\Utils;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -13,6 +15,7 @@ class AgentApiClient
         private string $url,
         private string $token,
         private int $uploadTimeout = 3600,
+        private int $uploadRetries = 3,
     ) {}
 
     public function heartbeat(): void
@@ -82,27 +85,47 @@ class AgentApiClient
      * Relay the backup archive to the main server, which writes it to the
      * target volume. Streams the file as a raw request body to avoid loading
      * it into memory. The agent still acks afterwards to finalize the job.
+     *
+     * The upload is idempotent (it overwrites the same filename), so transient
+     * network/5xx failures are retried; 4xx responses are not — they won't
+     * recover by retrying.
      */
     public function upload(string $jobId, string $archivePath, string $filename, string $checksum, int $fileSize): void
     {
         $baseUrl = rtrim($this->url, '/');
-
-        // The Guzzle stream owns the file handle and closes it once the request
-        // is sent — don't close it manually, or recorded/streamed reads break.
-        $body = Utils::streamFor(Utils::tryFopen($archivePath, 'r'));
-
         $query = http_build_query([
             'filename' => $filename,
             'checksum' => $checksum,
             'file_size' => $fileSize,
         ]);
 
-        Http::withToken($this->token)
-            ->accept('application/json')
-            ->timeout($this->uploadTimeout)
-            ->withBody($body, 'application/octet-stream')
-            ->post("{$baseUrl}/api/v1/agent/jobs/{$jobId}/upload?{$query}")
-            ->throw();
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                // Re-open the file each attempt so the body stream starts at 0.
+                // The Guzzle stream owns the handle and closes it after sending.
+                $body = Utils::streamFor(Utils::tryFopen($archivePath, 'r'));
+
+                Http::withToken($this->token)
+                    ->accept('application/json')
+                    ->timeout($this->uploadTimeout)
+                    ->withBody($body, 'application/octet-stream')
+                    ->post("{$baseUrl}/api/v1/agent/jobs/{$jobId}/upload?{$query}")
+                    ->throw();
+
+                return;
+            } catch (RequestException $e) {
+                // Only transient server errors are worth retrying.
+                if ($attempt >= $this->uploadRetries || ! $e->response->serverError()) {
+                    throw $e;
+                }
+            } catch (ConnectionException $e) {
+                if ($attempt >= $this->uploadRetries) {
+                    throw $e;
+                }
+            }
+
+            sleep($attempt); // linear backoff: 1s, 2s, ...
+        }
     }
 
     /**
