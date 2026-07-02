@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: hashFiles('coverage.xml') != ''
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: coverage
@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: hashFiles('junit.xml') != ''
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
