@@ -22,7 +22,7 @@ jobs:
         # SonarQube also needs the source tree (with full history) for
         # relevant analysis. Safe in this secret-bearing context because we
         # never execute the checked-out code — we only let the tools read it.
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_sha }}
