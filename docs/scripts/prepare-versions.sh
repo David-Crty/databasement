@@ -44,7 +44,7 @@ for MINOR in $MINORS; do
     # Older tags reference static assets as ../static/…, which no longer
     # resolves once the files are nested under versioned_docs/. Rewrite to
     # absolute static paths (served from docs/static of the current build).
-    grep -rl '\.\./static/' docs/docs 2>/dev/null | xargs -r sed -i 's#\.\./static/#/#g'
+    find docs/docs -type f \( -name '*.md' -o -name '*.mdx' \) -exec sed -i 's#\.\./static/#/#g' {} +
     (cd "$DOCS_DIR" && npx docusaurus docs:version "$MINOR")
 done
 
