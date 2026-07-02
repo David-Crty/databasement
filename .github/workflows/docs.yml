@@ -22,6 +22,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history + tags: prepare-versions.sh snapshots one docs
+          # version per 1.x minor from the latest patch tag of each minor
+          fetch-depth: 0
 
       - name: Extract version from tag
         id: version
@@ -37,6 +41,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Prepare versioned docs from tags
+        run: ./scripts/prepare-versions.sh
 
       - name: Build documentation
         run: npm run build
