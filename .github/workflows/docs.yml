@@ -51,9 +51,13 @@ jobs:
           DOCS_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+        # Clean deploy: removes stale docs files from the branch on every
+        # deploy, but never touches the Helm repository files
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/build
-          destination_dir: .
-          keep_files: true
+          folder: docs/build
+          branch: gh-pages
+          clean-exclude: |
+            charts/**
+            index.yaml
+            artifacthub-repo.yml
