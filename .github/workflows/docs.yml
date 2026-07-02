@@ -26,6 +26,9 @@ jobs:
           # Full history + tags: prepare-versions.sh snapshots one docs
           # version per 1.x minor from the latest patch tag of each minor
           fetch-depth: 0
+          # Keep the token out of .git/config while npm ci runs third-party
+          # scripts; the deploy action authenticates via its own token input
+          persist-credentials: false
 
       - name: Extract version from tag
         id: version
