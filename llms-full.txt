@@ -1872,7 +1872,7 @@ By default, auto-created OAuth users join the default organization. To assign th
 OAUTH_DEFAULT_ORGANIZATION_ID=01JA2B3C4D5E6F7G8H9J0KMNPQ  # Organization ULID
 ```
 
-You can find the organization ID in **Configuration > Organizations**. See the [Organizations guide](/user-guide/organizations) for more details on multi-org setups.
+You can find the organization ID in **Configuration > Organizations**. See the [Organizations guide](../../user-guide/organizations.md) for more details on multi-org setups.
 
 ### Auto-Link by Email
 
@@ -1960,7 +1960,7 @@ In Keycloak, go to your client > **Client scopes** > **databasement-dedicated** 
 | `OAUTH_OIDC_ROLE_MAP_VIEWER` | *(empty)* | IdP groups that map to the **viewer** role (comma-separated) |
 | `OAUTH_OIDC_ROLE_STRICT` | `false` | Deny login when no group matches (instead of using default role) |
 
-For local development OAuth testing, see the [Development Guide](/contributing/development#oauth--sso-testing).
+For local development OAuth testing, see the [Development Guide](../../contributing/development.md#oauth--sso-testing).
 
 ---
 
@@ -2080,11 +2080,11 @@ To restore a backup, go to **Snapshots**, find the snapshot you want to restore,
 
 ## Next Steps
 
-- [Managing Database Servers](/user-guide/database-servers)
-- [Configuring Backups](/user-guide/backups)
-- [Working with Snapshots](/user-guide/snapshots)
-- [Storage Volumes](/user-guide/volumes)
-- [Permissions](/user-guide/permissions)
+- [Managing Database Servers](./database-servers.md)
+- [Configuring Backups](./backups.md)
+- [Working with Snapshots](./snapshots.md)
+- [Storage Volumes](./volumes.md)
+- [Permissions](./permissions.md)
 
 ---
 
@@ -2726,7 +2726,7 @@ Databasement verifies daily that backup files still exist on their storage volum
 
 You can also trigger verification manually from the dashboard.
 
-See [Backup Configuration](/self-hosting/configuration/backup) for `BACKUP_VERIFY_FILES` and `BACKUP_VERIFY_FILES_CRON` settings.
+See [Backup Configuration](../self-hosting/configuration/backup.md) for `BACKUP_VERIFY_FILES` and `BACKUP_VERIFY_FILES_CRON` settings.
 
 ## Restore Process
 
