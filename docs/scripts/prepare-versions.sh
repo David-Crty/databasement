@@ -45,6 +45,12 @@ for MINOR in $MINORS; do
     # resolves once the files are nested under versioned_docs/. Rewrite to
     # absolute static paths (served from docs/static of the current build).
     find docs/docs -type f \( -name '*.md' -o -name '*.mdx' \) -exec sed -i 's#\.\./static/#/#g' {} +
+    # Older tags also contain absolute URL links (e.g. /user-guide/backups),
+    # which always resolve to the latest version. Rewrite them to absolute
+    # *file* paths (.md suffix) so Docusaurus resolves them within the
+    # snapshot's own version.
+    find docs/docs -type f \( -name '*.md' -o -name '*.mdx' \) -exec sed -i -E \
+        's@\]\((/(user-guide|self-hosting|contributing)/[A-Za-z0-9/_-]+)(#[^)]*)?\)@](\1.md\3)@g' {} +
     (cd "$DOCS_DIR" && npx docusaurus docs:version "$MINOR")
 done
 

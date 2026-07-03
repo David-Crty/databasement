@@ -12,7 +12,7 @@ Databasement verifies daily that backup files still exist on their storage volum
 
 You can also trigger verification manually from the dashboard.
 
-See [Backup Configuration](/self-hosting/configuration/backup) for `BACKUP_VERIFY_FILES` and `BACKUP_VERIFY_FILES_CRON` settings.
+See [Backup Configuration](../self-hosting/configuration/backup.md) for `BACKUP_VERIFY_FILES` and `BACKUP_VERIFY_FILES_CRON` settings.
 
 ## Restore Process
 

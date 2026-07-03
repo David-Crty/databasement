@@ -165,7 +165,7 @@ By default, auto-created OAuth users join the default organization. To assign th
 OAUTH_DEFAULT_ORGANIZATION_ID=01JA2B3C4D5E6F7G8H9J0KMNPQ  # Organization ULID
 ```
 
-You can find the organization ID in **Configuration > Organizations**. See the [Organizations guide](/user-guide/organizations) for more details on multi-org setups.
+You can find the organization ID in **Configuration > Organizations**. See the [Organizations guide](../../user-guide/organizations.md) for more details on multi-org setups.
 
 ### Auto-Link by Email
 
@@ -253,4 +253,4 @@ In Keycloak, go to your client > **Client scopes** > **databasement-dedicated** 
 | `OAUTH_OIDC_ROLE_MAP_VIEWER` | *(empty)* | IdP groups that map to the **viewer** role (comma-separated) |
 | `OAUTH_OIDC_ROLE_STRICT` | `false` | Deny login when no group matches (instead of using default role) |
 
-For local development OAuth testing, see the [Development Guide](/contributing/development#oauth--sso-testing).
+For local development OAuth testing, see the [Development Guide](../../contributing/development.md#oauth--sso-testing).
