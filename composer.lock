@@ -5266,16 +5266,16 @@
         },
         {
             "name": "phpstan/phpdoc-parser",
-            "version": "2.3.2",
+            "version": "2.3.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpdoc-parser.git",
-                "reference": "a004701b11273a26cd7955a61d67a7f1e525a45a"
+                "reference": "fb19eedd2bb67ff8cf7a5502ad329e701d6398a3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/a004701b11273a26cd7955a61d67a7f1e525a45a",
-                "reference": "a004701b11273a26cd7955a61d67a7f1e525a45a",
+                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/fb19eedd2bb67ff8cf7a5502ad329e701d6398a3",
+                "reference": "fb19eedd2bb67ff8cf7a5502ad329e701d6398a3",
                 "shasum": ""
             },
             "require": {
@@ -5307,9 +5307,9 @@
             "description": "PHPDoc parser with support for nullable, intersection and generic types",
             "support": {
                 "issues": "https://github.com/phpstan/phpdoc-parser/issues",
-                "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.2"
+                "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.3"
             },
-            "time": "2026-01-25T14:56:51+00:00"
+            "time": "2026-07-08T07:01:06+00:00"
         },
         {
             "name": "pragmarx/google2fa",
@@ -8558,20 +8558,20 @@
         },
         {
             "name": "symfony/property-access",
-            "version": "v8.0.8",
+            "version": "v8.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/property-access.git",
-                "reference": "704c7808116fcdd67327db7b17de56b8ef6169e4"
+                "reference": "9261ef060f26cc7b728f67f141ba19b98a6209a9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/property-access/zipball/704c7808116fcdd67327db7b17de56b8ef6169e4",
-                "reference": "704c7808116fcdd67327db7b17de56b8ef6169e4",
+                "url": "https://api.github.com/repos/symfony/property-access/zipball/9261ef060f26cc7b728f67f141ba19b98a6209a9",
+                "reference": "9261ef060f26cc7b728f67f141ba19b98a6209a9",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.4",
+                "php": ">=8.4.1",
                 "symfony/property-info": "^7.4.4|^8.0.4"
             },
             "require-dev": {
@@ -8615,7 +8615,7 @@
                 "reflection"
             ],
             "support": {
-                "source": "https://github.com/symfony/property-access/tree/v8.0.8"
+                "source": "https://github.com/symfony/property-access/tree/v8.1.0"
             },
             "funding": [
                 {
@@ -8635,24 +8635,24 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-03-30T15:14:47+00:00"
+            "time": "2026-05-29T05:06:50+00:00"
         },
         {
             "name": "symfony/property-info",
-            "version": "v8.0.8",
+            "version": "v8.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/property-info.git",
-                "reference": "c21711980653360d6ef5c26d0f9ca6f58a1135c6"
+                "reference": "4721e8c56d0cd2378e0ef9a9899f810008b859f7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/property-info/zipball/c21711980653360d6ef5c26d0f9ca6f58a1135c6",
-                "reference": "c21711980653360d6ef5c26d0f9ca6f58a1135c6",
+                "url": "https://api.github.com/repos/symfony/property-info/zipball/4721e8c56d0cd2378e0ef9a9899f810008b859f7",
+                "reference": "4721e8c56d0cd2378e0ef9a9899f810008b859f7",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.4",
+                "php": ">=8.4.1",
                 "symfony/string": "^7.4|^8.0",
                 "symfony/type-info": "^7.4.7|^8.0.7"
             },
@@ -8701,7 +8701,7 @@
                 "validator"
             ],
             "support": {
-                "source": "https://github.com/symfony/property-info/tree/v8.0.8"
+                "source": "https://github.com/symfony/property-info/tree/v8.1.0"
             },
             "funding": [
                 {
@@ -8721,7 +8721,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-03-30T15:14:47+00:00"
+            "time": "2026-05-29T05:06:50+00:00"
         },
         {
             "name": "symfony/routing",
@@ -8805,26 +8805,27 @@
         },
         {
             "name": "symfony/serializer",
-            "version": "v8.0.10",
+            "version": "v8.1.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/serializer.git",
-                "reference": "72ed7e1475790714f07c3a59bd01fd32cd022fdf"
+                "reference": "f911b744bc24658f435ea30439cfe536f0173a3a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/serializer/zipball/72ed7e1475790714f07c3a59bd01fd32cd022fdf",
-                "reference": "72ed7e1475790714f07c3a59bd01fd32cd022fdf",
+                "url": "https://api.github.com/repos/symfony/serializer/zipball/f911b744bc24658f435ea30439cfe536f0173a3a",
+                "reference": "f911b744bc24658f435ea30439cfe536f0173a3a",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.4",
+                "php": ">=8.4.1",
+                "symfony/deprecation-contracts": "^2.5|^3",
                 "symfony/polyfill-ctype": "^1.8"
             },
             "conflict": {
                 "phpdocumentor/reflection-docblock": "<5.2|>=7",
                 "phpdocumentor/type-resolver": "<1.5.1",
-                "symfony/property-access": "<7.4.2|>=8.0,<8.0.2",
+                "symfony/property-access": "<8.1",
                 "symfony/property-info": "<7.4",
                 "symfony/type-info": "<7.4"
             },
@@ -8843,7 +8844,7 @@
                 "symfony/http-kernel": "^7.4|^8.0",
                 "symfony/messenger": "^7.4|^8.0",
                 "symfony/mime": "^7.4|^8.0",
-                "symfony/property-access": "^7.4.2|^8.0.2",
+                "symfony/property-access": "^8.1",
                 "symfony/property-info": "^7.4|^8.0",
                 "symfony/translation-contracts": "^2.5|^3",
                 "symfony/type-info": "^7.4|^8.0",
@@ -8879,7 +8880,7 @@
             "description": "Handles serializing and deserializing data structures, including object graphs, into array structures or other formats like XML and JSON.",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/serializer/tree/v8.0.10"
+                "source": "https://github.com/symfony/serializer/tree/v8.1.1"
             },
             "funding": [
                 {
@@ -8899,7 +8900,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-04T13:41:39+00:00"
+            "time": "2026-06-27T09:05:56+00:00"
         },
         {
             "name": "symfony/service-contracts",
@@ -9255,20 +9256,20 @@
         },
         {
             "name": "symfony/type-info",
-            "version": "v8.0.9",
+            "version": "v8.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/type-info.git",
-                "reference": "08723aceb8c3271e8cb3db8b2565728b0c88e866"
+                "reference": "9f24df8a79781b9b9f030fea7dfd2f3bd1e7e7e7"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/type-info/zipball/08723aceb8c3271e8cb3db8b2565728b0c88e866",
-                "reference": "08723aceb8c3271e8cb3db8b2565728b0c88e866",
+                "url": "https://api.github.com/repos/symfony/type-info/zipball/9f24df8a79781b9b9f030fea7dfd2f3bd1e7e7e7",
+                "reference": "9f24df8a79781b9b9f030fea7dfd2f3bd1e7e7e7",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.4",
+                "php": ">=8.4.1",
                 "psr/container": "^1.1|^2.0"
             },
             "conflict": {
@@ -9313,7 +9314,7 @@
                 "type"
             ],
             "support": {
-                "source": "https://github.com/symfony/type-info/tree/v8.0.9"
+                "source": "https://github.com/symfony/type-info/tree/v8.1.0"
             },
             "funding": [
                 {
@@ -9333,7 +9334,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-04-29T15:02:55+00:00"
+            "time": "2026-05-29T05:06:50+00:00"
         },
         {
             "name": "symfony/uid",
@@ -9835,16 +9836,16 @@
         },
         {
             "name": "web-auth/webauthn-lib",
-            "version": "5.3.3",
+            "version": "5.3.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/web-auth/webauthn-lib.git",
-                "reference": "e6f656d6c6b29fa305382fe6a0a3be8177d177df"
+                "reference": "9e0986d999f4102e24ac8a598d3a80d98b56c19f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/web-auth/webauthn-lib/zipball/e6f656d6c6b29fa305382fe6a0a3be8177d177df",
-                "reference": "e6f656d6c6b29fa305382fe6a0a3be8177d177df",
+                "url": "https://api.github.com/repos/web-auth/webauthn-lib/zipball/9e0986d999f4102e24ac8a598d3a80d98b56c19f",
+                "reference": "9e0986d999f4102e24ac8a598d3a80d98b56c19f",
                 "shasum": ""
             },
             "require": {
@@ -9905,7 +9906,7 @@
                 "webauthn"
             ],
             "support": {
-                "source": "https://github.com/web-auth/webauthn-lib/tree/5.3.3"
+                "source": "https://github.com/web-auth/webauthn-lib/tree/5.3.5"
             },
             "funding": [
                 {
@@ -9917,7 +9918,7 @@
                     "type": "patreon"
                 }
             ],
-            "time": "2026-05-17T19:04:30+00:00"
+            "time": "2026-05-31T15:00:08+00:00"
         },
         {
             "name": "webmozart/assert",
