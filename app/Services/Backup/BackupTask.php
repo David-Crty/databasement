@@ -77,7 +77,7 @@ class BackupTask
             }
 
             // Compress
-            $compressor = $this->compressorFactory->make($config->compressionType, $config->compressionLevel);
+            $compressor = $this->compressorFactory->make($config->compressionType, $config->compressionLevel, $config->compressionMultithread);
             $archive = $compressor->compress($workingFile);
             $fileSize = filesize($archive);
             if ($fileSize === false) {

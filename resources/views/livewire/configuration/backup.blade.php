@@ -127,9 +127,31 @@
                         <x-select wire:model.live="form.compression" :options="$compressionOptions" :disabled="!$this->canManage" />
                     </x-config-row>
 
-                    <x-config-row :label="__('Compression Level')" :description="__('1-9 for gzip/encrypted, 1-19 for zstd.')">
-                        <x-input wire:model.blur="form.compression_level" type="number" min="1" max="19" :disabled="!$this->canManage" />
+                    @php
+                        $compressionType = \App\Enums\CompressionType::tryFrom($form->compression);
+                        $maxLevel = $compressionType?->maxLevel() ?? 19;
+                    @endphp
+
+                    <x-config-row :label="__('Compression Level')" :description="__('Higher levels compress smaller but run slower.')">
+                        <div class="flex items-center gap-4">
+                            <div class="flex-1">
+                                <x-range
+                                    wire:model.live.debounce.200ms="form.compression_level"
+                                    :min="1"
+                                    :max="$maxLevel"
+                                    class="range-primary range-xs"
+                                    :disabled="!$this->canManage"
+                                />
+                            </div>
+                            <span class="badge badge-neutral shrink-0 font-mono whitespace-nowrap tabular-nums">{{ $form->compression_level }} / {{ $maxLevel }}</span>
+                        </div>
                     </x-config-row>
+
+                    @if ($compressionType?->supportsMultithreading())
+                        <x-config-row :label="__('Multithreaded Compression')" :description="__('Use all available CPU cores to speed up compression.')">
+                            <x-toggle wire:model.live="form.compression_multithread" :disabled="!$this->canManage" />
+                        </x-config-row>
+                    @endif
 
                     <x-config-row :label="__('Job Timeout')" :description="__('Maximum number of seconds a backup or restore job can run before timing out.')">
                         <x-input wire:model.blur="form.job_timeout" type="number" min="60" max="86400" :disabled="!$this->canManage" />

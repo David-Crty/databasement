@@ -7,9 +7,9 @@ use App\Services\Backup\ShellProcessor;
 
 class ZstdCompressor extends BaseCompressor
 {
-    public function __construct(ShellProcessor $shellProcessor, int $level)
+    public function __construct(ShellProcessor $shellProcessor, int $level, bool $multithread = false)
     {
-        parent::__construct($shellProcessor, $level, minLevel: 1, maxLevel: 19);
+        parent::__construct($shellProcessor, $level, minLevel: 1, maxLevel: 19, multithread: $multithread);
     }
 
     public function getExtension(): string
@@ -20,7 +20,10 @@ class ZstdCompressor extends BaseCompressor
     public function getCompressCommandLine(string $inputPath): string
     {
         // --rm removes the original file after compression (like gzip does by default)
-        return sprintf('zstd -%d --rm %s', $this->getLevel(), escapeshellarg($inputPath));
+        // -T0 spreads compression across all available CPU cores
+        $threads = $this->isMultithreaded() ? ' -T0' : '';
+
+        return sprintf('zstd -%d%s --rm %s', $this->getLevel(), $threads, escapeshellarg($inputPath));
     }
 
     public function getDecompressCommandLine(string $outputPath): string

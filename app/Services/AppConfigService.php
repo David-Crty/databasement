@@ -18,6 +18,7 @@ class AppConfigService
         'backup.working_directory' => ['type' => 'string', 'is_sensitive' => false, 'default' => '/tmp/backups'],
         'backup.compression' => ['type' => 'string', 'is_sensitive' => false, 'default' => 'gzip'],
         'backup.compression_level' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 6],
+        'backup.compression_multithread' => ['type' => 'boolean', 'is_sensitive' => false, 'default' => false],
         'backup.job_timeout' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 7200],
         'backup.job_tries' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 3],
         'backup.job_backoff' => ['type' => 'integer', 'is_sensitive' => false, 'default' => 60],

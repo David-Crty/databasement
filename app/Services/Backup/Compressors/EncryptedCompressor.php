@@ -13,9 +13,10 @@ class EncryptedCompressor extends BaseCompressor
     public function __construct(
         ShellProcessor $shellProcessor,
         int $level,
-        private readonly ?string $password = null
+        private readonly ?string $password = null,
+        bool $multithread = false
     ) {
-        parent::__construct($shellProcessor, $level, minLevel: 1, maxLevel: 9);
+        parent::__construct($shellProcessor, $level, minLevel: 1, maxLevel: 9, multithread: $multithread);
     }
 
     public function decompress(string $compressedFile): string
@@ -39,6 +40,11 @@ class EncryptedCompressor extends BaseCompressor
         // 7z a -t7z -mx={level} -mhe=on -p{password} output.7z input
         // -mhe=on encrypts headers (file names)
         $command = sprintf('7z a -t7z -mx=%d -mhe=on', $this->getLevel());
+
+        // -mmt=on spreads compression across all available CPU cores
+        if ($this->isMultithreaded()) {
+            $command .= ' -mmt=on';
+        }
 
         if ($this->password !== null) {
             $command .= sprintf(' -p%s', escapeshellarg($this->password));

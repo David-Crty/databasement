@@ -46,6 +46,26 @@ test('saving backup config persists values', function () {
         ->and(AppConfig::get('backup.job_timeout'))->toBe(3600);
 });
 
+test('saving backup config persists multithreading toggle', function () {
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create())
+        ->test(Backup::class)
+        ->set('form.compression', 'zstd')
+        ->set('form.compression_multithread', true)
+        ->call('saveBackupConfig')
+        ->assertHasNoErrors();
+
+    expect(AppConfig::get('backup.compression_multithread'))->toBeTrue();
+});
+
+test('switching to gzip clamps the compression level to its ceiling', function () {
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create())
+        ->test(Backup::class)
+        ->set('form.compression', 'zstd')
+        ->set('form.compression_level', 19)
+        ->set('form.compression', 'gzip')
+        ->assertSet('form.compression_level', 9);
+});
+
 test('saving backup config persists post-backup and post-restore scripts', function () {
     Livewire::actingAs(User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create())
         ->test(Backup::class)

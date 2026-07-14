@@ -18,6 +18,7 @@ test('get returns default values', function () {
     expect(AppConfig::get('backup.working_directory'))->toBe('/tmp/backups')
         ->and(AppConfig::get('backup.compression'))->toBe('gzip')
         ->and(AppConfig::get('backup.compression_level'))->toBe(6)
+        ->and(AppConfig::get('backup.compression_multithread'))->toBeFalse()
         ->and(AppConfig::get('backup.job_timeout'))->toBe(7200)
         ->and(AppConfig::get('backup.job_tries'))->toBe(3)
         ->and(AppConfig::get('backup.job_backoff'))->toBe(60)
