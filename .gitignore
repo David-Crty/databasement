@@ -33,3 +33,4 @@ frankenphp
 .scribe
 
 coverage
+.env

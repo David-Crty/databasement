@@ -12,4 +12,15 @@ if [ -z "${APP_DISPLAY_TIMEZONE:-}" ] && [ -n "${TZ:-}" ] && [ "${TZ}" != "UTC" 
 fi
 export TZ=UTC
 
+# Fail fast when no application encryption key is configured. Databasement uses
+# APP_KEY to encrypt stored database credentials, SSH private keys and cloud
+# secrets, so it must be a unique, secret value per deployment (never the repo
+# default). Accept it either as a real environment variable or from .env.
+if [ -z "${APP_KEY:-}" ] && ! grep -qE '^APP_KEY=base64:' /app/.env 2>/dev/null; then
+    echo "ERROR: APP_KEY is not set." >&2
+    echo "Generate one with: docker run --rm davidcrty/databasement:latest php artisan key:generate --show" >&2
+    echo "Then pass it as the APP_KEY environment variable (or set it in .env)." >&2
+    exit 1
+fi
+
 exec "$@"
