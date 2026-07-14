@@ -146,6 +146,12 @@ ENV ENABLE_QUEUE_WORKER="false"
 ENV ENABLE_DATABASE_MIGRATION="true"
 ENV TZ="UTC"
 
+# supervisord drops to `application` via setuid without rewriting the environment,
+# so children would inherit root's HOME=/root (mode 0700). libpq treats a permission
+# error on $HOME/.postgresql/postgresql.crt as fatal to the TLS handshake, breaking
+# PostgreSQL connections over SSL.
+ENV HOME=/home/application
+
 HEALTHCHECK NONE
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["/usr/local/bin/start.sh"]
