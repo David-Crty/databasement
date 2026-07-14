@@ -39,6 +39,16 @@ make test-coverage                  # Run tests with coverage report
 
 Tests run in parallel by default using Pest's parallel testing feature. This significantly speeds up the test suite (~12-18s for 350+ tests). Use `make test-sequential` if you need to debug test order issues.
 
+#### Agent-Optimized Output (laravel/pao)
+
+When you run `make test` / `make phpstan` / `make lint-check`, output is compact JSON, not verbose logs. A passing run is one line:
+
+```json
+{"tool":"pest","result":"passed","tests":18,"passed":18,"assertions":79,"duration_ms":8657}
+```
+
+A failing run adds a `failures` array with the file, line, and message for each failure — that's the detail to act on. Set `PAO_DISABLE=1` to force verbose output if you need it.
+
 ### Test Strategy
 - Focus on testing business logic and behaviors
 - Do not test framework internals or trust that Laravel/Livewire works correctly
