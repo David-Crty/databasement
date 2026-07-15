@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\DatabaseSelectionMode;
+use App\Support\Formatters;
 use Database\Factories\BackupFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -93,34 +94,14 @@ class Backup extends Model
         $isSqlite = $this->databaseServer->database_type->value === 'sqlite';
 
         if ($isSqlite) {
-            $paths = $this->database_names ?? [];
-            if ($paths === []) {
-                return '';
-            }
-            $basenames = array_map('basename', $paths);
-
-            return count($basenames) <= 2
-                ? implode(', ', $basenames)
-                : $basenames[0].', +'.(count($basenames) - 1);
+            return Formatters::truncatedList(array_map('basename', $this->database_names ?? []), 2);
         }
 
         return match ($this->database_selection_mode) {
             DatabaseSelectionMode::All => __('All databases'),
-            DatabaseSelectionMode::Selected => $this->formatSelectedDatabases(),
+            DatabaseSelectionMode::Selected => Formatters::truncatedList($this->database_names ?? [], 2),
             DatabaseSelectionMode::Pattern => '/'.$this->database_include_pattern.'/',
         };
-    }
-
-    private function formatSelectedDatabases(): string
-    {
-        $names = $this->database_names ?? [];
-        if ($names === []) {
-            return '';
-        }
-
-        return count($names) <= 2
-            ? implode(', ', $names)
-            : $names[0].', +'.(count($names) - 1);
     }
 
     /**

@@ -52,7 +52,7 @@ test('display label truncates many selected databases', function () {
         'retention_days' => 14,
     ]);
 
-    expect($backup->getDisplayLabel())->toBe('Daily → S3 Prod · app_db, +2 · 14d');
+    expect($backup->getDisplayLabel())->toBe('Daily → S3 Prod · app_db, users_db +1 more · 14d');
 });
 
 test('display label with pattern selection', function () {
@@ -109,5 +109,5 @@ test('display label truncates many sqlite paths', function () {
         'retention_days' => 7,
     ]);
 
-    expect($backup->getDisplayLabel())->toBe('Daily → S3 Prod · app.sqlite, +2 · 7d');
+    expect($backup->getDisplayLabel())->toBe('Daily → S3 Prod · app.sqlite, cache.sqlite +1 more · 7d');
 });
