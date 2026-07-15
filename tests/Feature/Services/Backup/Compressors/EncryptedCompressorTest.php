@@ -21,7 +21,8 @@ test('encrypted command generation', function () {
 test('encrypted multithreading adds -mmt=on flag', function () {
     $compressor = new EncryptedCompressor($this->shellProcessor, 6, 'secret123', multithread: true);
 
-    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx=6 -mhe=on -mmt=on -p'secret123' '/path/to/dump.sql.7z' '/path/to/dump.sql'");
+    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx=6 -mhe=on -mmt=on -p'secret123' '/path/to/dump.sql.7z' '/path/to/dump.sql'")
+        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.7z'))->toBe("7z x -y -o'/path/to' -mmt=on -p'secret123' '/path/to/dump.sql.7z'");
 });
 
 test('encrypted compression level is clamped to valid range', function (int $inputLevel, int $expectedLevel) {

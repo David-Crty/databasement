@@ -29,6 +29,9 @@ class ZstdCompressor extends BaseCompressor
     public function getDecompressCommandLine(string $outputPath): string
     {
         // -d decompress, --rm removes the compressed file after decompression
-        return sprintf('zstd -d --rm %s', escapeshellarg($outputPath));
+        // -T0 spreads decompression across all available CPU cores
+        $threads = $this->isMultithreaded() ? ' -T0' : '';
+
+        return sprintf('zstd -d%s --rm %s', $threads, escapeshellarg($outputPath));
     }
 }

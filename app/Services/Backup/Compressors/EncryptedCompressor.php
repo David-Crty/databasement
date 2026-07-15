@@ -63,6 +63,11 @@ class EncryptedCompressor extends BaseCompressor
         // -y: assume Yes on all queries (overwrite files)
         $command = sprintf('7z x -y -o%s', escapeshellarg($outputDir));
 
+        // -mmt=on spreads decompression across all available CPU cores
+        if ($this->isMultithreaded()) {
+            $command .= ' -mmt=on';
+        }
+
         if ($this->password !== null) {
             $command .= sprintf(' -p%s', escapeshellarg($this->password));
         }

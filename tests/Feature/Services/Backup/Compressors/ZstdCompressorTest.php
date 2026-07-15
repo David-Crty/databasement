@@ -20,7 +20,8 @@ test('zstd command generation', function () {
 test('zstd multithreading adds -T0 flag', function () {
     $compressor = new ZstdCompressor($this->shellProcessor, 6, multithread: true);
 
-    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("zstd -6 -T0 --rm '/path/to/dump.sql'");
+    expect($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("zstd -6 -T0 --rm '/path/to/dump.sql'")
+        ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.zst'))->toBe("zstd -d -T0 --rm '/path/to/dump.sql.zst'");
 });
 
 test('zstd compression level is clamped to valid range', function (int $inputLevel, int $expectedLevel) {
