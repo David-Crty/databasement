@@ -124,15 +124,17 @@ use App\Enums\DatabaseType;
                                 required
                             />
 
-                            <x-input
-                                wire:model="form.port"
-                                label="{{ __('Port') }}"
-                                placeholder="{{ __('e.g., 3306') }}"
-                                type="number"
-                                min="1"
-                                max="65535"
-                                required
-                            />
+                            @unless($form->isMongodb() && $form->srv_enabled)
+                                <x-input
+                                    wire:model="form.port"
+                                    label="{{ __('Port') }}"
+                                    placeholder="{{ __('e.g., 3306') }}"
+                                    type="number"
+                                    min="1"
+                                    max="65535"
+                                    required
+                                />
+                            @endunless
                         </div>
 
                         <div class="grid gap-4 md:grid-cols-2">
@@ -160,6 +162,36 @@ use App\Enums\DatabaseType;
                                 label="{{ __('Authentication Database') }}"
                                 placeholder="admin"
                                 hint="{{ __('The database used to authenticate credentials') }}"
+                                type="text"
+                            />
+
+                            <div class="grid gap-4 md:grid-cols-2">
+                                <x-checkbox
+                                    wire:model.live="form.srv_enabled"
+                                    :label="__('Use DNS Seed List (SRV)')"
+                                    :hint="__('For MongoDB Atlas and clusters using mongodb+srv connection strings. The port is resolved from DNS.')"
+                                />
+
+                                <x-checkbox
+                                    wire:model="form.tls_enabled"
+                                    :label="__('Use TLS/SSL')"
+                                    :hint="__('Enable TLS for servers that require encrypted connections.')"
+                                />
+                            </div>
+
+                            <x-input
+                                wire:model="form.replica_set"
+                                :label="__('Replica Set')"
+                                placeholder="rs0"
+                                :hint="__('Optional. The replica set name for cluster connections.')"
+                                type="text"
+                            />
+
+                            <x-input
+                                wire:model="form.connection_options"
+                                :label="__('Connection Options')"
+                                placeholder="retryWrites=true&w=majority"
+                                :hint="__('Optional. Additional connection string parameters as key=value pairs.')"
                                 type="text"
                             />
                         @endif

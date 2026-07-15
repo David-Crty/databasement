@@ -102,8 +102,8 @@ test('makeForServer passes auth_source from extra_config for mongodb', function 
     $database = $factory->makeForServer($server, 'mydb', '127.0.0.1', 27017);
 
     $result = $database->dump('/tmp/dump.archive');
-    expect($result->command)->toContain("--authenticationDatabase='admin'")
-        ->toContain("--db='mydb'");
+    expect($result->command)->toContain('authSource=admin')
+        ->toContain('/mydb');
 });
 
 test('makeForServer passes ssl_enabled from extra_config for mysql', function () {
@@ -268,7 +268,7 @@ test('makeFromConfig builds correct config for MongoDB with source database', fu
     $result = $database->restore('/tmp/dump.archive');
     expect($result->command)->toContain("--nsFrom='sourcedb.*'")
         ->toContain("--nsTo='targetdb.*'")
-        ->toContain("--authenticationDatabase='myauth'");
+        ->toContain('authSource=myauth');
 });
 
 test('testConnectionForServer returns SSH failure', function () {

@@ -47,6 +47,15 @@ class DatabaseServerForm extends Form
 
     public string $auth_source = '';
 
+    // MongoDB advanced connection options (stored in extra_config).
+    public bool $srv_enabled = false;
+
+    public bool $tls_enabled = false;
+
+    public string $replica_set = '';
+
+    public string $connection_options = '';
+
     public string $dump_flags = '';
 
     public string $dump_format = 'plain';
@@ -437,6 +446,10 @@ class DatabaseServerForm extends Form
         $this->port = $server->port ?? 3306;
         $this->database_type = $server->database_type->value;
         $this->auth_source = $server->getExtraConfig('auth_source', '');
+        $this->srv_enabled = (bool) $server->getExtraConfig('srv_enabled', false);
+        $this->tls_enabled = (bool) $server->getExtraConfig('tls_enabled', false);
+        $this->replica_set = $server->getExtraConfig('replica_set', '');
+        $this->connection_options = $server->getExtraConfig('connection_options', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
         $this->dump_format = $server->getExtraConfig('dump_format', 'plain');
         $this->dump_privileges = (bool) $server->getExtraConfig('dump_privileges', false);
@@ -696,6 +709,10 @@ class DatabaseServerForm extends Form
 
         if ($type === DatabaseType::MONGODB) {
             $config['auth_source'] = $this->auth_source ?: 'admin';
+            $config['srv'] = $this->srv_enabled;
+            $config['tls'] = $this->tls_enabled;
+            $config['replica_set'] = $this->replica_set;
+            $config['connection_options'] = $this->connection_options;
         }
 
         if ($type === DatabaseType::MYSQL) {
@@ -976,10 +993,15 @@ class DatabaseServerForm extends Form
     {
         $rules = [
             'host' => 'required|string|max:255',
-            'port' => 'required|integer|min:1|max:65535',
+            // SRV connections resolve host/port from DNS, so no port is given.
+            'port' => $this->srv_enabled ? 'nullable|integer|min:1|max:65535' : 'required|integer|min:1|max:65535',
             'username' => 'nullable|string|max:255',
             'password' => 'nullable',
             'auth_source' => 'nullable|string|max:255',
+            'srv_enabled' => 'boolean',
+            'tls_enabled' => 'boolean',
+            'replica_set' => 'nullable|string|max:255',
+            'connection_options' => 'nullable|string|max:500',
             'ssh_enabled' => 'boolean',
         ];
 
@@ -1314,6 +1336,10 @@ class DatabaseServerForm extends Form
 
         if ($this->isMongodb()) {
             $extra['auth_source'] = $this->auth_source;
+            $extra['srv_enabled'] = $this->srv_enabled;
+            $extra['tls_enabled'] = $this->tls_enabled;
+            $extra['replica_set'] = $this->replica_set;
+            $extra['connection_options'] = $this->connection_options;
         }
 
         if ($this->isMysql() && $this->ssl_enabled) {

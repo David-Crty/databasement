@@ -323,6 +323,36 @@ test('can create mysql database server with ssl_enabled', function () {
     expect($server->getExtraConfig('ssl_enabled'))->toBeTrue();
 });
 
+test('can create mongodb server with advanced connection options', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Atlas Cluster')
+        ->set('form.database_type', 'mongodb')
+        ->set('form.host', 'cluster.example.mongodb.net')
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.srv_enabled', true)
+        ->set('form.tls_enabled', true)
+        ->set('form.replica_set', 'rs0')
+        ->set('form.connection_options', 'retryWrites=true&w=majority')
+        ->set('form.backups.0.database_names.0', 'myapp')
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $server = DatabaseServer::where('name', 'Atlas Cluster')->first();
+
+    expect($server->getExtraConfig('srv_enabled'))->toBeTrue()
+        ->and($server->getExtraConfig('tls_enabled'))->toBeTrue()
+        ->and($server->getExtraConfig('replica_set'))->toBe('rs0')
+        ->and($server->getExtraConfig('connection_options'))->toBe('retryWrites=true&w=majority');
+});
+
 test('local volume options reflect use_agent state', function (bool $useAgent, bool $expectedDisabled) {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
