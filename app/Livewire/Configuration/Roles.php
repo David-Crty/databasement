@@ -143,6 +143,12 @@ class Roles extends Component
             'roles' => $roles,
             'memberCounts' => $this->memberCounts(),
             'abilityGroups' => Ability::grouped(),
+            'headers' => [
+                ['key' => 'name', 'label' => __('Role')],
+                ['key' => 'abilities', 'label' => __('Abilities')],
+                ['key' => 'members', 'label' => __('Members'), 'class' => 'w-28 whitespace-nowrap'],
+                ['key' => 'actions', 'label' => '', 'class' => 'w-24 whitespace-nowrap'],
+            ],
         ]);
     }
 

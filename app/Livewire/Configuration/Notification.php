@@ -135,6 +135,12 @@ class Notification extends Component
         return view('livewire.configuration.notification', [
             'channelTypeOptions' => $this->getChannelTypeOptions(),
             'notificationChannels' => $this->notificationChannels(),
+            'headers' => [
+                ['key' => 'name', 'label' => __('Name')],
+                ['key' => 'type', 'label' => __('Type')],
+                ['key' => 'config', 'label' => __('Configuration')],
+                ['key' => 'actions', 'label' => '', 'class' => 'w-32 whitespace-nowrap'],
+            ],
         ]);
     }
 }

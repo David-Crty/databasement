@@ -15,92 +15,95 @@
 
     <div class="grid gap-6">
         <!-- Backup Schedules -->
-        <x-card :title="__('Backup Schedules')" :subtitle="__('Define cron schedules that database servers can use for automated backups.')" shadow class="min-w-0">
-            <div class="divide-y divide-base-200/80">
-                @forelse ($backupSchedules as $schedule)
-                    <x-config-row wire:key="schedule-{{ $schedule->id }}">
-                        <x-slot:label>
-                            <span class="inline-flex flex-wrap items-center gap-2">
-                                {{ $schedule->name }}
-                                @if ($schedule->backups_count > 0)
-                                    <x-popover>
-                                        <x-slot:trigger>
-                                            <span class="badge badge-outline badge-info cursor-default">
-                                                <x-icon name="o-server-stack" class="w-3 h-3" />
-                                                {{ trans_choice(':count server|:count servers', $schedule->backups_count) }}
-                                            </span>
-                                        </x-slot:trigger>
-                                        <x-slot:content>
-                                            {{ $schedule->backups->pluck('databaseServer.name')->join(', ') }}
-                                        </x-slot:content>
-                                    </x-popover>
-                                @endif
-                                @if ($schedule->scheduled_restores_count > 0)
-                                    <x-popover>
-                                        <x-slot:trigger>
-                                            <span class="badge badge-outline badge-info cursor-default">
-                                                <x-icon name="o-calendar" class="w-3 h-3" />
-                                                {{ trans_choice(':count scheduled restore|:count scheduled restores', $schedule->scheduled_restores_count) }}
-                                            </span>
-                                        </x-slot:trigger>
-                                        <x-slot:content>
-                                            {{ $schedule->scheduledRestores->pluck('name')->join(', ') }}
-                                        </x-slot:content>
-                                    </x-popover>
-                                @endif
-                            </span>
-                        </x-slot:label>
-                        <div class="flex flex-wrap items-center gap-3">
-                            <span class="badge badge-neutral shrink-0">
-                                <x-icon name="o-calendar-days" class="w-3 h-3" />
-                                {{ $schedule->expression }}
-                            </span>
-                            <span class="text-sm text-base-content/60 min-w-0">{{ \App\Support\Formatters::cronTranslation($schedule->expression) }}</span>
-                            @if ($this->canManage)
-                                <div class="flex items-center gap-0.5 shrink-0 ml-auto">
-                                    <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openScheduleModal('{{ $schedule->id }}')" :tooltip-left="__('Edit')" />
-                                    @if ($schedule->total_backups_count > 0 || $schedule->scheduled_restores_count > 0)
-                                        <x-popover>
-                                            <x-slot:trigger>
-                                                <x-button icon="o-trash" class="btn-ghost btn-sm opacity-40" disabled />
-                                            </x-slot:trigger>
-                                            <x-slot:content>
-                                                @if ($schedule->total_backups_count > 0 && $schedule->scheduled_restores_count > 0)
-                                                    {{ __('In use by servers and scheduled restores') }}
-                                                @elseif ($schedule->total_backups_count > 0)
-                                                    {{ __('In use by servers') }}
-                                                @else
-                                                    {{ __('In use by scheduled restores') }}
-                                                @endif
-                                            </x-slot:content>
-                                        </x-popover>
-                                    @else
-                                        <x-button icon="o-trash" class="btn-ghost btn-sm text-error hover:bg-error/10" wire:click="confirmDeleteSchedule('{{ $schedule->id }}')" :tooltip-left="__('Delete')" />
-                                    @endif
-                                </div>
-                            @endif
-                        </div>
-                    </x-config-row>
-                @empty
-                    <p class="text-sm text-base-content/50 py-4 text-center">{{ __('No backup schedules defined.') }}</p>
-                @endforelse
-            </div>
-
-            @if ($this->canManage)
-                <div class="flex items-center justify-end border-t border-base-200/60 pt-4 mt-4">
+        <x-card shadow class="min-w-0">
+            <x-card-heading :title="__('Backup Schedules')" :subtitle="__('Define cron schedules that database servers can use for automated backups.')">
+                @if ($this->canManage)
                     <x-button
                         :label="__('Add Schedule')"
                         icon="o-plus"
                         class="btn-primary btn-sm"
                         wire:click="openScheduleModal"
                     />
-                </div>
-            @endif
+                @endif
+            </x-card-heading>
+
+            <x-table :headers="$scheduleHeaders" :rows="$backupSchedules" show-empty-text :empty-text="__('No backup schedules defined.')">
+                @scope('cell_name', $schedule)
+                    <span class="font-medium">{{ $schedule->name }}</span>
+                @endscope
+
+                @scope('cell_expression', $schedule)
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="badge badge-neutral shrink-0 whitespace-nowrap font-mono">
+                            <x-icon name="o-calendar-days" class="w-3 h-3" />
+                            {{ $schedule->expression }}
+                        </span>
+                        <span class="text-sm text-base-content/60 whitespace-nowrap">{{ \App\Support\Formatters::cronTranslation($schedule->expression) }}</span>
+                    </div>
+                @endscope
+
+                @scope('cell_usage', $schedule)
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if ($schedule->backups_count > 0)
+                            <x-popover>
+                                <x-slot:trigger>
+                                    <span class="badge badge-outline badge-info cursor-default whitespace-nowrap">
+                                        <x-icon name="o-server-stack" class="w-3 h-3" />
+                                        {{ trans_choice(':count server|:count servers', $schedule->backups_count) }}
+                                    </span>
+                                </x-slot:trigger>
+                                <x-slot:content class="max-w-64">
+                                    {{ \App\Support\Formatters::truncatedList($schedule->backups->pluck('databaseServer.name')) }}
+                                </x-slot:content>
+                            </x-popover>
+                        @endif
+                        @if ($schedule->scheduled_restores_count > 0)
+                            <x-popover>
+                                <x-slot:trigger>
+                                    <span class="badge badge-outline badge-info cursor-default whitespace-nowrap">
+                                        <x-icon name="o-calendar" class="w-3 h-3" />
+                                        {{ trans_choice(':count scheduled restore|:count scheduled restores', $schedule->scheduled_restores_count) }}
+                                    </span>
+                                </x-slot:trigger>
+                                <x-slot:content class="max-w-64">
+                                    {{ \App\Support\Formatters::truncatedList($schedule->scheduledRestores->pluck('name')) }}
+                                </x-slot:content>
+                            </x-popover>
+                        @endif
+                    </div>
+                @endscope
+
+                @scope('cell_actions', $schedule)
+                    @if ($this->canManage)
+                        <div class="flex justify-end flex-nowrap gap-1">
+                            <x-button icon="o-pencil-square" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openScheduleModal('{{ $schedule->id }}')" :tooltip-left="__('Edit')" />
+                            @if ($schedule->total_backups_count > 0 || $schedule->scheduled_restores_count > 0)
+                                <x-popover>
+                                    <x-slot:trigger>
+                                        <x-button icon="o-trash" class="btn-ghost btn-xs opacity-40" disabled />
+                                    </x-slot:trigger>
+                                    <x-slot:content>
+                                        @if ($schedule->total_backups_count > 0 && $schedule->scheduled_restores_count > 0)
+                                            {{ __('In use by servers and scheduled restores') }}
+                                        @elseif ($schedule->total_backups_count > 0)
+                                            {{ __('In use by servers') }}
+                                        @else
+                                            {{ __('In use by scheduled restores') }}
+                                        @endif
+                                    </x-slot:content>
+                                </x-popover>
+                            @else
+                                <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDeleteSchedule('{{ $schedule->id }}')" :tooltip-left="__('Delete')" />
+                            @endif
+                        </div>
+                    @endif
+                @endscope
+            </x-table>
         </x-card>
 
         <!-- Backup Configuration (editable) -->
-        <x-card :title="__('Backup')" :subtitle="__('Backup and restore operation settings.')" shadow class="min-w-0">
-            <x-slot:menu>
+        <x-card shadow class="min-w-0">
+            <x-card-heading :title="__('Backup')" :subtitle="__('Backup and restore operation settings.')">
                 <x-button
                     :label="__('Documentation')"
                     icon="o-book-open"
@@ -108,7 +111,7 @@
                     external
                     class="btn-ghost btn-sm"
                 />
-            </x-slot:menu>
+            </x-card-heading>
 
             <form wire:submit="saveBackupConfig">
                 <div class="divide-y divide-base-200/80">

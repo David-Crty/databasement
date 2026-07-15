@@ -7,30 +7,24 @@
 
     @include('livewire.configuration._tabs', ['active' => 'organizations'])
 
-    <x-alert icon="o-information-circle" class="alert-info mb-4">
-        {{ __('Organizations let you group users, servers, and volumes into isolated workspaces.') }}
-        <x-slot:actions>
+    <x-card shadow class="min-w-0">
+        <x-card-heading :title="__('Organizations')" :subtitle="__('Organizations let you group users, servers, and volumes into isolated workspaces.')">
             <x-button
-                :label="__('Learn more')"
+                :label="__('Documentation')"
+                icon="o-book-open"
                 link="https://david-crty.github.io/databasement/user-guide/organizations"
                 external
-                icon="o-book-open"
-                class="btn-sm"
+                class="btn-ghost btn-sm"
             />
-        </x-slot:actions>
-    </x-alert>
+            @can('create', \App\Models\Organization::class)
+                <x-button :label="__('New Organization')" icon="o-plus" class="btn-primary btn-sm" wire:click="openCreateModal" />
+            @endcan
+        </x-card-heading>
 
-    @can('create', \App\Models\Organization::class)
-        <div class="flex justify-end mb-4">
-            <x-button :label="__('New Organization')" icon="o-plus" class="btn-primary" wire:click="openCreateModal" />
-        </div>
-    @endcan
-
-    <x-card shadow>
-        <x-table :headers="$headers" :rows="$organizations">
+        <x-table :headers="$headers" :rows="$organizations" show-empty-text :empty-text="__('No organizations yet.')">
             @scope('cell_name', $org)
                 <div class="flex items-center gap-2">
-                    {{ $org->name }}
+                    <span class="font-medium">{{ $org->name }}</span>
                     @if($org->is_default)
                         <x-popover>
                             <x-slot:trigger>
@@ -52,9 +46,9 @@
                 {{-- update/delete policies already return false for the default org and non-super-admins --}}
                 @can('update', $org)
                     <div class="flex justify-end flex-nowrap gap-1">
-                        <x-button icon="o-pencil" class="btn-ghost btn-xs" wire:click="openEditModal('{{ $org->id }}')" :tooltip="__('Edit')" />
-                        <x-button icon="o-arrows-pointing-in" class="btn-ghost btn-xs" wire:click="openMergeModal('{{ $org->id }}')" :tooltip="__('Merge')" />
-                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error" wire:click="confirmDelete('{{ $org->id }}')" :tooltip="__('Delete')" />
+                        <x-button icon="o-pencil" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openEditModal('{{ $org->id }}')" :tooltip-left="__('Edit')" />
+                        <x-button icon="o-arrows-pointing-in" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openMergeModal('{{ $org->id }}')" :tooltip-left="__('Merge')" />
+                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDelete('{{ $org->id }}')" :tooltip-left="__('Delete')" />
                     </div>
                 @endcan
             @endscope

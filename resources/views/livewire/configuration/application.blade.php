@@ -11,8 +11,8 @@
 
     @include('livewire.configuration._tabs', ['active' => 'application'])
 
-    <x-card :title="__('Application')" :subtitle="__('Environment variables controlling application behavior.')" shadow class="min-w-0">
-        <x-slot:menu>
+    <x-card shadow class="min-w-0">
+        <x-card-heading :title="__('Application')" :subtitle="__('Environment variables controlling application behavior.')">
             <x-button
                 :label="__('Documentation')"
                 icon="o-book-open"
@@ -20,7 +20,7 @@
                 external
                 class="btn-ghost btn-sm"
             />
-        </x-slot:menu>
+        </x-card-heading>
         @include('livewire.configuration._config-table', ['rows' => $appConfig])
 
         <form wire:submit="saveApplicationConfig" class="mt-4 border-t border-base-200/60 pt-4">

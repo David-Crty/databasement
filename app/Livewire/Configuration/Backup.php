@@ -208,6 +208,12 @@ class Backup extends Component
             'compressionOptions' => $this->getCompressionOptions(),
             'backupSchedules' => $this->backupSchedules(),
             'showDeprecatedBackupEnv' => config('app.has_deprecated_backup_env'),
+            'scheduleHeaders' => [
+                ['key' => 'name', 'label' => __('Name')],
+                ['key' => 'expression', 'label' => __('Schedule')],
+                ['key' => 'usage', 'label' => __('Used by')],
+                ['key' => 'actions', 'label' => '', 'class' => 'w-24 whitespace-nowrap'],
+            ],
         ]);
     }
 }

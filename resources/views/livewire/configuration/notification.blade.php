@@ -7,8 +7,8 @@
 
     @include('livewire.configuration._tabs', ['active' => 'notification'])
 
-    <x-card :title="__('Notification Channels')" :subtitle="__('Assign channels per database server to receive alerts on backup and restore events.')" shadow class="min-w-0">
-        <x-slot:menu>
+    <x-card shadow class="min-w-0">
+        <x-card-heading :title="__('Notification Channels')" :subtitle="__('Assign channels per database server to receive alerts on backup and restore events.')">
             <x-button
                 :label="__('Documentation')"
                 icon="o-book-open"
@@ -16,48 +16,46 @@
                 external
                 class="btn-ghost btn-sm"
             />
-        </x-slot:menu>
-
-        <div class="divide-y divide-base-200/80">
-            @forelse ($notificationChannels as $channel)
-                <x-config-row wire:key="channel-{{ $channel->id }}">
-                    <x-slot:label>
-                        <span class="inline-flex flex-wrap items-center gap-2">
-                            <x-icon :name="$channel->type->icon()" class="w-4 h-4 text-base-content/60" />
-                            {{ $channel->name }}
-                            <span class="badge badge-outline badge-sm">{{ $channel->type->label() }}</span>
-                        </span>
-                    </x-slot:label>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <span class="text-sm text-base-content/60 min-w-0">
-                            @foreach($channel->getConfigSummary() as $label => $value)
-                                {{ $label }}: {{ $value }}{{ !$loop->last ? ' · ' : '' }}
-                            @endforeach
-                        </span>
-                        @if ($this->canManage)
-                            <div class="flex items-center gap-0.5 shrink-0 ml-auto">
-                                <x-button icon="o-paper-airplane" class="btn-ghost btn-sm" wire:click="sendTestNotification('{{ $channel->id }}')" spinner="sendTestNotification('{{ $channel->id }}')" :tooltip-left="__('Test')" />
-                                <x-button icon="o-pencil-square" class="btn-ghost btn-sm" wire:click="openChannelModal('{{ $channel->id }}')" :tooltip-left="__('Edit')" />
-                                <x-button icon="o-trash" class="btn-ghost btn-sm text-error hover:bg-error/10" wire:click="confirmDeleteChannel('{{ $channel->id }}')" :tooltip-left="__('Delete')" />
-                            </div>
-                        @endif
-                    </div>
-                </x-config-row>
-            @empty
-                <p class="text-sm text-base-content/50 py-4 text-center">{{ __('No notification channels configured.') }}</p>
-            @endforelse
-        </div>
-
-        @if ($this->canManage)
-            <div class="flex items-center justify-end border-t border-base-200/60 pt-4 mt-4">
+            @if ($this->canManage)
                 <x-button
                     :label="__('Add Channel')"
                     icon="o-plus"
                     class="btn-primary btn-sm"
                     wire:click="openChannelModal"
                 />
-            </div>
-        @endif
+            @endif
+        </x-card-heading>
+
+        <x-table :headers="$headers" :rows="$notificationChannels" show-empty-text :empty-text="__('No notification channels configured.')">
+            @scope('cell_name', $channel)
+                <span class="font-medium">{{ $channel->name }}</span>
+            @endscope
+
+            @scope('cell_type', $channel)
+                <span class="badge badge-outline badge-sm whitespace-nowrap">
+                    <x-icon :name="$channel->type->icon()" class="w-3 h-3" />
+                    {{ $channel->type->label() }}
+                </span>
+            @endscope
+
+            @scope('cell_config', $channel)
+                <span class="text-sm text-base-content/60">
+                    @foreach($channel->getConfigSummary() as $label => $value)
+                        {{ $label }}: {{ $value }}{{ !$loop->last ? ' · ' : '' }}
+                    @endforeach
+                </span>
+            @endscope
+
+            @scope('cell_actions', $channel)
+                @if ($this->canManage)
+                    <div class="flex justify-end flex-nowrap gap-1">
+                        <x-button icon="o-paper-airplane" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="sendTestNotification('{{ $channel->id }}')" spinner="sendTestNotification('{{ $channel->id }}')" :tooltip-left="__('Test')" />
+                        <x-button icon="o-pencil-square" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openChannelModal('{{ $channel->id }}')" :tooltip-left="__('Edit')" />
+                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDeleteChannel('{{ $channel->id }}')" :tooltip-left="__('Delete')" />
+                    </div>
+                @endif
+            @endscope
+        </x-table>
     </x-card>
 
     <!-- Add/Edit Notification Channel Modal -->

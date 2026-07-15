@@ -7,71 +7,50 @@
 
     @include('livewire.configuration._tabs', ['active' => 'roles'])
 
-    <x-alert icon="o-information-circle" class="alert-info mb-4">
-        {{ __('Roles bundle abilities that control what users can do in each organization.') }}
-        <x-slot:actions>
+    <x-card shadow class="min-w-0">
+        <x-card-heading :title="__('Roles')" :subtitle="__('Roles bundle abilities that control what users can do.')">
             <x-button
-                :label="__('Learn more')"
+                :label="__('Documentation')"
+                icon="o-book-open"
                 link="https://david-crty.github.io/databasement/user-guide/permissions"
                 external
-                icon="o-book-open"
-                class="btn-sm"
+                class="btn-ghost btn-sm"
             />
-        </x-slot:actions>
-    </x-alert>
+            @can('create', \Silber\Bouncer\Database\Role::class)
+                <x-button :label="__('New role')" icon="o-plus" wire:click="openCreate" class="btn-primary btn-sm" />
+            @endcan
+        </x-card-heading>
 
-    @can('create', \Silber\Bouncer\Database\Role::class)
-        <div class="flex justify-end mb-4">
-            <x-button :label="__('New role')" icon="o-plus" wire:click="openCreate" class="btn-primary btn-sm" />
-        </div>
-    @endcan
+        <x-table :headers="$headers" :rows="$roles" show-empty-text :empty-text="__('No roles yet.')">
+            @scope('cell_name', $role)
+                <div class="font-medium">{{ $role->title ?: $role->name }}</div>
+                <div class="text-sm text-base-content/60 flex items-center gap-1">
+                    <code>{{ $role->name }}</code>
+                    @if($role->built_in)
+                        <x-badge :value="__('Built-in')" class="badge-ghost badge-xs whitespace-nowrap" />
+                    @endif
+                </div>
+            @endscope
 
-    <x-card shadow>
-        <div class="overflow-x-auto">
-            <table class="table table-default">
-                <thead>
-                    <tr>
-                        <th>{{ __('Role') }}</th>
-                        <th>{{ __('Abilities') }}</th>
-                        <th class="text-center w-28">{{ __('Members') }}</th>
-                        <th class="text-right w-28">{{ __('Actions') }}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($roles as $role)
-                        <tr wire:key="role-{{ $role->id }}">
-                            <td>
-                                <div class="font-medium">{{ $role->title ?: $role->name }}</div>
-                                <div class="text-sm text-base-content/60 flex items-center gap-1">
-                                    <code>{{ $role->name }}</code>
-                                    @if($role->built_in)
-                                        <x-badge :value="__('Built-in')" class="badge-ghost badge-xs whitespace-nowrap" />
-                                    @endif
-                                </div>
-                            </td>
-                            <td>
-                                <x-ability-badges :abilities="$role->abilities->pluck('name')->all()" />
-                            </td>
-                            <td class="text-center">{{ $memberCounts[$role->id] ?? 0 }}</td>
-                            <td>
-                                <div class="flex gap-2 justify-end">
-                                    @can('update', $role)
-                                        <x-button icon="o-pencil" wire:click="openEdit({{ $role->id }})" :tooltip="__('Edit')" class="btn-ghost btn-sm" />
-                                    @endcan
-                                    @can('delete', $role)
-                                        <x-button icon="o-trash" wire:click="confirmDelete({{ $role->id }})" :tooltip="__('Delete')" class="btn-ghost btn-sm text-error" />
-                                    @endcan
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="text-center text-base-content/50 py-8">{{ __('No roles yet.') }}</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+            @scope('cell_abilities', $role)
+                <x-ability-badges :abilities="$role->abilities->pluck('name')->all()" />
+            @endscope
+
+            @scope('cell_members', $role, $memberCounts)
+                {{ $memberCounts[$role->id] ?? 0 }}
+            @endscope
+
+            @scope('cell_actions', $role)
+                <div class="flex justify-end flex-nowrap gap-1">
+                    @can('update', $role)
+                        <x-button icon="o-pencil" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openEdit({{ $role->id }})" :tooltip-left="__('Edit')" />
+                    @endcan
+                    @can('delete', $role)
+                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDelete({{ $role->id }})" :tooltip-left="__('Delete')" />
+                    @endcan
+                </div>
+            @endscope
+        </x-table>
     </x-card>
 
     <!-- CREATE / EDIT MODAL -->
