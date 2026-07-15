@@ -225,100 +225,15 @@ make test-filter FILTER=test_can_create_database_server
 make test-filter FILTER=DatabaseServerTest
 ```
 
-### Adding a New Database Type
+### Extending the App (new database type, volume type, or notification channel)
 
-All database types implement `DatabaseInterface` and are resolved via `DatabaseProvider`. The provider centralizes type dispatch, so `BackupTask`, `RestoreTask`, and connection testing require no changes.
+These are rare, cross-cutting tasks with a fixed file-by-file checklist each. The step-by-step playbooks live in **[`docs/development/extending.md`](docs/development/extending.md)** to keep this file focused. **Read the matching section there before starting** — each lists every file to touch (core, UI, infrastructure, tests) plus architecture gotchas:
 
-#### Files to Update
+- **Adding a New Database Type** — `DatabaseInterface` + `DatabaseProvider`, dump/restore handlers, Docker/CI services, fixtures.
+- **Adding a New Volume Type** — `BaseConfig` connector + `FilesystemInterface`, `VolumeForm` property, Flysystem adapter, connection-test dataset. (`azure` / Azure Blob Storage is the newest worked example.)
+- **Adding a New Notification Channel** — `NotificationMessage` + `HasChannelRouting` delegation, `AppConfigService` keys, Configuration UI.
 
-**Core:**
-- `app/Enums/DatabaseType.php` - Add enum case, label, default port, `dumpExtension()`, DSN format in `buildDsn()`
-- `app/Services/Backup/Databases/{Type}Database.php` - Create handler implementing `DatabaseInterface` (`setConfig`, `dump`, `restore`, `prepareForRestore`, `listDatabases`, `testConnection`)
-- `app/Services/Backup/Databases/DatabaseProvider.php` - Add case to `make()` and config handling in `makeForServer()`
-- `app/Services/Backup/BackupJobFactory.php` - Add snapshot creation logic if different from default (e.g., instance-level types like Redis/SQLite)
-- `app/Livewire/Forms/DatabaseServerForm.php` - Validation rules, type helpers, UI behavior
-
-**UI:**
-- `resources/views/livewire/database-server/_form.blade.php` - Conditional fields for the type
-- `resources/views/livewire/database-server/restore-modal.blade.php` - If restore behavior differs
-
-**Infrastructure:**
-- `docker/php/Dockerfile` - Add extensions and CLI tools
-- `docker-compose.yml` - Add test database service
-- `.github/workflows/tests.yml` - Add CI service + system dependencies
-- `config/testing.php` - Add test database config with defaults
-
-**Tests & Fixtures:**
-- `database/factories/DatabaseServerFactory.php` - Add factory state
-- `database/seeders/DatabaseSeeder.php` - Add seeder entry
-- `tests/Feature/Services/Backup/Databases/{Type}DatabaseTest.php` - Handler unit tests
-- `tests/Integration/BackupRestoreTest.php` - Add to test dataset
-- `tests/Support/IntegrationTestHelpers.php` - Add config and helpers
-- `tests/Integration/fixtures/{type}-init.*` - Test fixture
-- `tests/Pest.php` - Update global datasets
-
-#### Architecture Notes
-
-- Types without PDO support (e.g., Redis) must throw in `buildDsn()`/`createPdo()` and handle connection testing via CLI in their `testConnection()` method
-- Types that backup the whole instance (e.g., Redis, SQLite) should short-circuit in `BackupJobFactory.createSnapshots()` to create a single snapshot
-
-### Adding a New Volume Type
-
-The volume system uses dynamic class resolution based on the type value. Use existing implementations (e.g., `SftpConfig`, `SftpFilesystem`) as templates.
-
-#### Files to Update
-
-**Core:**
-- `app/Enums/VolumeType.php` - Add enum case, update `label()`, `icon()`, `sensitiveFields()`, `configSummary()`
-- `app/Livewire/Volume/Connectors/{Type}Config.php` - Create class extending `BaseConfig` with `defaultConfig()`, `rules()`, `viewName()`
-- `resources/views/livewire/volume/connectors/{type}-config.blade.php` - Create form view (use `$readonly`, `$isEditing`)
-- `app/Services/Backup/Filesystems/{Type}Filesystem.php` - Create class implementing `FilesystemInterface`
-- `app/Providers/AppServiceProvider.php` - Register filesystem in `FilesystemProvider`
-
-**Tests:**
-- `database/factories/VolumeFactory.php` - Add factory state for the new type
-- `tests/Feature/Volume/VolumeTest.php` - Add to `volume types` dataset
-
-**Optional:**
-- `composer.json` - Add Flysystem adapter package if needed
-- `docker/php/Dockerfile` - Add PHP extensions if needed
-
-#### Architecture Notes
-
-- **Dynamic Resolution**: `VolumeType::configPropertyName()` returns `{type}Config` and `configClass()` resolves the class dynamically - no explicit mappings needed in `VolumeForm`
-- **Sensitive Fields**: Fields in `sensitiveFields()` are automatically encrypted in the database and masked in the browser
-- **Connection Testing**: Works automatically via `FilesystemProvider` if your filesystem implements `FilesystemInterface`
-- **BaseConfig**: All config components extend `BaseConfig` which handles mounting, validation, and rendering
-
-### Adding a New Notification Channel
-
-The notification system uses a delegation pattern: concrete notifications extend `BaseFailedNotification` or `BaseSuccessNotification` and inherit all channel support via the `HasChannelRouting` trait. A single `NotificationMessage` (driven by a `NotificationType` enum) renders every channel for both success and failure. Adding a new channel requires no changes to concrete notification classes.
-
-#### Files to Update
-
-**Core:**
-- `app/Notifications/NotificationMessage.php` - Add `to{Channel}()` rendering method (success/failure differences key off `$this->type` and `$this->hasError()`)
-- `app/Notifications/Concerns/HasChannelRouting.php` - Add `to{Channel}()` delegation method, add entry to `CHANNEL_MAP`
-- `app/Services/FailureNotificationService.php` - Add route to `getNotificationRoutes()`
-- `app/Services/AppConfigService.php` - Add keys to `AppConfigService::CONFIG` (each key defines its default, type, and sensitivity)
-
-**Custom Channels** (if not using an existing package):
-- `app/Notifications/Channels/{Channel}Channel.php` - Create class with `send()` method
-
-**Configuration UI:**
-- `app/Livewire/Forms/ConfigurationForm.php` - Add properties, load/save/rules logic
-- `app/Livewire/Configuration/Index.php` - Add to `getChannelOptions()`
-- `resources/views/livewire/configuration/index.blade.php` - Add conditional field section
-
-**Boot-time config** (if package reads from `config/services.php`):
-- `app/Providers/AppServiceProvider.php` - Register config from AppConfig at boot
-
-**Tests:**
-- `tests/Feature/Notifications/FailureNotificationTest.php` - Add rendering and routing tests
-- `tests/Feature/ConfigurationTest.php` - Add save/deselect/pre-select tests
-
-**Optional:**
-- `composer.json` - Add notification channel package if needed
+Adding a new **locale** is covered by the Localization section below (kept inline — that guidance applies to any translation work, not just new locales).
 
 ### Authorization (Roles & Abilities)
 

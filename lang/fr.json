@@ -771,5 +771,16 @@
   "Original database name in the snapshot": "Nom de la base de données d’origine dans le snapshot",
   "Snapshot file restored from the volume": "Fichier snapshot restauré depuis le volume",
   "Source volume name": "Nom du volume source",
-  "Copy ID": "Copier l’ID"
+  "Copy ID": "Copier l’ID",
+  "Storage Account Name": "Nom du compte de stockage",
+  "e.g., mystorageaccount": "ex. : moncomptestockage",
+  "Account Key": "Clé de compte",
+  "Container Name": "Nom du conteneur",
+  "e.g., backups": "ex. : backups",
+  "The prefix is prepended to all backup file paths in the container.": "Le préfixe est ajouté à tous les chemins de fichiers de Backup dans le conteneur.",
+  "Endpoint Suffix": "Suffixe du point de terminaison",
+  "Change only for sovereign clouds (e.g., core.usgovcloudapi.net, core.chinacloudapi.cn).": "À modifier uniquement pour les clouds souverains (ex. : core.usgovcloudapi.net, core.chinacloudapi.cn).",
+  "Backups will be stored as blobs in the specified container. The account key can be found under Access keys in your Azure Storage account.": "Les Backups seront stockés sous forme de blobs dans le conteneur spécifié. La clé de compte se trouve dans « Clés d’accès » de votre compte de stockage Azure.",
+  "Custom Blob Endpoint": "Point de terminaison Blob personnalisé",
+  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "Pour le stockage compatible Azure (émulateur Azurite, passerelles auto-hébergées). Remplace le suffixe du point de terminaison."
 }

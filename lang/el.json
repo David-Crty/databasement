@@ -766,5 +766,16 @@
   "Original database name in the snapshot": "Αρχικό όνομα βάσης δεδομένων στο snapshot",
   "Snapshot file restored from the volume": "Αρχείο snapshot που αποκαταστάθηκε από τον τόμο",
   "Source volume name": "Όνομα τόμου προέλευσης",
-  "Copy ID": "Αντιγραφή ID"
+  "Copy ID": "Αντιγραφή ID",
+  "Storage Account Name": "Όνομα λογαριασμού αποθήκευσης",
+  "e.g., mystorageaccount": "π.χ., mystorageaccount",
+  "Account Key": "Κλειδί λογαριασμού",
+  "Container Name": "Όνομα container",
+  "e.g., backups": "π.χ., backups",
+  "The prefix is prepended to all backup file paths in the container.": "Το πρόθεμα προτάσσεται σε όλες τις διαδρομές αρχείων Backup στο container.",
+  "Endpoint Suffix": "Κατάληξη endpoint",
+  "Change only for sovereign clouds (e.g., core.usgovcloudapi.net, core.chinacloudapi.cn).": "Αλλάξτε το μόνο για κυρίαρχα cloud (π.χ., core.usgovcloudapi.net, core.chinacloudapi.cn).",
+  "Backups will be stored as blobs in the specified container. The account key can be found under Access keys in your Azure Storage account.": "Τα Backups θα αποθηκεύονται ως blobs στο καθορισμένο container. Το κλειδί λογαριασμού βρίσκεται στα «Κλειδιά πρόσβασης» του λογαριασμού Azure Storage σας.",
+  "Custom Blob Endpoint": "Προσαρμοσμένο Blob endpoint",
+  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "Για αποθήκευση συμβατή με Azure (εξομοιωτής Azurite, self-hosted gateways). Υπερισχύει της κατάληξης endpoint."
 }

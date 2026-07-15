@@ -11,6 +11,7 @@ use App\Services\AppConfigService;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
+use App\Services\Backup\Filesystems\AzureFilesystem;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\Filesystems\FtpFilesystem;
 use App\Services\Backup\Filesystems\LocalFilesystem;
@@ -57,6 +58,7 @@ class AppServiceProvider extends ServiceProvider
             $provider->add(new Awss3Filesystem);
             $provider->add(new SftpFilesystem);
             $provider->add(new FtpFilesystem);
+            $provider->add(new AzureFilesystem);
 
             return $provider;
         });

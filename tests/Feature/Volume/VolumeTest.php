@@ -91,6 +91,27 @@ dataset('volume types', function () {
             'expectedField' => 'host',
             'expectedValue' => 'new-ftp.example.com',
         ],
+        'azure' => [
+            'type' => VolumeType::AZURE,
+            'formData' => [
+                'account_name' => 'mystorageaccount',
+                'account_key' => 'fake-account-key',
+                'container' => 'backups',
+                'prefix' => 'production/',
+                'endpoint_suffix' => 'core.windows.net',
+                'endpoint' => 'https://gateway.example.com/mystorageaccount',
+            ],
+            'expectedConfig' => [
+                'account_name' => 'mystorageaccount',
+                'container' => 'backups',
+                'prefix' => 'production/',
+                'endpoint_suffix' => 'core.windows.net',
+                'endpoint' => 'https://gateway.example.com/mystorageaccount',
+            ],
+            'updateData' => ['container' => 'new-container', 'prefix' => 'staging/'],
+            'expectedField' => 'container',
+            'expectedValue' => 'new-container',
+        ],
     ];
 });
 

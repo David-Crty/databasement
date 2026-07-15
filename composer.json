@@ -30,6 +30,7 @@
         "laravel/socialite": "^5.24",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.0",
+        "league/flysystem-azure-blob-storage": "^3.0",
         "league/flysystem-ftp": "^3.31",
         "league/flysystem-sftp-v3": "^3.31",
         "livewire/livewire": "^4.0",
