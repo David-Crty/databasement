@@ -7,6 +7,7 @@
   "1/week for N weeks": "1/εβδομάδα για N εβδομάδες",
   "2FA Recovery Codes": "Κωδικοί ανάκτησης 2FA",
   ":count jobs in the last 30 days": ":count εργασίες τις τελευταίες 30 ημέρες",
+  ":shown +:count more": ":shown +:count ακόμη",
   "A descriptive name to identify this token": "Ένα περιγραφικό όνομα για την αναγνώριση αυτού του token",
   "A friendly name to identify this server": "Ένα φιλικό όνομα για την αναγνώριση αυτού του server",
   "A new verification link has been sent to the email address you provided during registration.": "Ένας νέος σύνδεσμος επαλήθευσης στάλθηκε στη διεύθυνση email που δηλώσατε κατά την εγγραφή.",

@@ -7,6 +7,7 @@
   "1/week for N weeks": "1/semaine pendant N semaines",
   "2FA Recovery Codes": "Codes de récupération 2FA",
   ":count jobs in the last 30 days": ":count tâches au cours des 30 derniers jours",
+  ":shown +:count more": ":shown +:count de plus",
   "A descriptive name to identify this token": "Un nom descriptif pour identifier ce jeton",
   "A friendly name to identify this server": "Un nom convivial pour identifier ce serveur",
   "A new verification link has been sent to the email address you provided during registration.": "Un nouveau lien de vérification a été envoyé à l’adresse e-mail fournie lors de l’inscription.",

@@ -95,7 +95,7 @@ class Formatters
         $remaining = $names->count() - $limit;
 
         return $remaining > 0
-            ? $shown.' +'.$remaining.' '.__('more')
+            ? __(':shown +:count more', ['shown' => $shown, 'count' => $remaining])
             : $shown;
     }
 

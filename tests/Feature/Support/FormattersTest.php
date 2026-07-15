@@ -96,14 +96,14 @@ test('truncatedList joins names without a suffix when at or under the limit', fu
 
 test('truncatedList appends a "+N more" suffix when over the limit', function () {
     expect(Formatters::truncatedList(['a', 'b', 'c', 'd', 'e', 'f']))
-        ->toBe('a, b, c, d, e +1 '.__('more'))
+        ->toBe('a, b, c, d, e +1 more')
         ->and(Formatters::truncatedList(['a', 'b', 'c'], 1))
-        ->toBe('a +2 '.__('more'));
+        ->toBe('a +2 more');
 });
 
 test('truncatedList accepts a Collection', function () {
     expect(Formatters::truncatedList(collect(['a', 'b', 'c']), 2))
-        ->toBe('a, b +1 '.__('more'));
+        ->toBe('a, b +1 more');
 });
 
 test('resolveDatePlaceholders replaces year, month and day tokens zero-padded', function () {
