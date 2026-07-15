@@ -191,6 +191,16 @@ php artisan migrate:status # Check database migrations
 php artisan config:show database # View database configuration
 ```
 
+### Reset a User Password
+
+If you lose access to an account and email delivery is not configured (so the **Forgot password?** link cannot send a reset email), reset the password directly from the container. Run this from the directory that holds your `docker-compose.yml`:
+
+```bash
+docker compose exec app php artisan user:reset-password you@example.com
+```
+
+The command prompts for the new password (hidden input) and validates it against the app's password rules. Omit the email to be prompted for it as well.
+
 ### Get Help
 
 - Check the logs: `docker compose logs app`
