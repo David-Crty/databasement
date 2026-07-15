@@ -146,14 +146,16 @@ class MongodbDatabase implements DatabaseInterface
      *
      * The base form is `mongodb://user:pass@host:port/?authSource=X`
      * (authenticated) or `mongodb://host:port` (anonymous). Advanced options
-     * extend it: SRV switches the scheme (and drops the port), TLS/replica set
-     * add query params, and `connection_options` is appended verbatim.
+     * extend it: SRV switches the scheme (and drops the port), and
+     * `connection_options` is appended verbatim — that is where TLS, replica
+     * set and any other connection-string parameters go (e.g. `tls=true`,
+     * `replicaSet=rs0`).
      *
      * A non-empty `database` is written as the URI path. `mongodump` cannot
      * combine `--uri` with `--db`, so the dump scopes to a single database this
      * way; driver connections and `mongorestore` pass no database here.
      *
-     * @param  array{auth_source?: string, srv?: bool, tls?: bool, replica_set?: string, connection_options?: string, database?: string}  $options
+     * @param  array{auth_source?: string, srv?: bool, connection_options?: string, database?: string}  $options
      */
     public static function buildConnectionUri(string $host, ?int $port, string $user = '', string $pass = '', array $options = []): string
     {
@@ -171,12 +173,6 @@ class MongodbDatabase implements DatabaseInterface
         $params = [];
         if ($hasCredentials) {
             $params[] = 'authSource='.rawurlencode($options['auth_source'] ?? 'admin');
-        }
-        if (! empty($options['tls'])) {
-            $params[] = 'tls=true';
-        }
-        if (! empty($options['replica_set'])) {
-            $params[] = 'replicaSet='.rawurlencode($options['replica_set']);
         }
         if (! empty($options['connection_options'])) {
             $params[] = ltrim($options['connection_options'], '?&');
@@ -217,8 +213,6 @@ class MongodbDatabase implements DatabaseInterface
             [
                 'auth_source' => $this->authSource(),
                 'srv' => ! empty($this->config['srv']),
-                'tls' => ! empty($this->config['tls']),
-                'replica_set' => $this->config['replica_set'] ?? '',
                 'connection_options' => $this->config['connection_options'] ?? '',
                 'database' => $database ?? '',
             ],

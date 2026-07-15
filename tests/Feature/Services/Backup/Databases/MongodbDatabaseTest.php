@@ -46,42 +46,31 @@ function fakeCursor(object $response): object
     };
 }
 
-test('dump produces mongodump --uri archive command', function () {
+test('dump builds the mongodump --uri command scoping the database in the path', function (array $config, string $expectedUri) {
+    $this->db->setConfig($config);
+
     $result = $this->db->dump('/tmp/dump.archive');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("mongodump --uri='mongodb://mongo.example.com:27017/mydb' --archive='/tmp/dump.archive'");
-});
-
-test('dump embeds credentials in the uri', function () {
-    $this->db->setConfig([
-        'host' => 'mongo.example.com',
-        'port' => 27017,
-        'user' => 'admin',
-        'pass' => 'secret',
-        'database' => 'mydb',
-        'auth_source' => 'admin',
-    ]);
-
-    $result = $this->db->dump('/tmp/dump.archive');
-
-    expect($result->command)->toBe("mongodump --uri='mongodb://admin:secret@mongo.example.com:27017/mydb?authSource=admin' --archive='/tmp/dump.archive'");
-});
-
-test('dump uses custom auth_source in the uri', function () {
-    $this->db->setConfig([
-        'host' => 'mongo.example.com',
-        'port' => 27017,
-        'user' => 'appuser',
-        'pass' => 'secret',
-        'database' => 'mydb',
-        'auth_source' => 'myAuthDb',
-    ]);
-
-    $result = $this->db->dump('/tmp/dump.archive');
-
-    expect($result->command)->toContain('authSource=myAuthDb');
-});
+        ->and($result->command)->toBe("mongodump --uri='{$expectedUri}' --archive='/tmp/dump.archive'");
+})->with([
+    'anonymous' => [
+        ['host' => 'mongo.example.com', 'port' => 27017, 'user' => '', 'pass' => '', 'database' => 'mydb', 'auth_source' => 'admin'],
+        'mongodb://mongo.example.com:27017/mydb',
+    ],
+    'credentials' => [
+        ['host' => 'mongo.example.com', 'port' => 27017, 'user' => 'admin', 'pass' => 'secret', 'database' => 'mydb', 'auth_source' => 'admin'],
+        'mongodb://admin:secret@mongo.example.com:27017/mydb?authSource=admin',
+    ],
+    'srv scheme' => [
+        ['host' => 'cluster.example.mongodb.net', 'port' => null, 'user' => 'user', 'pass' => 'secret', 'database' => 'mydb', 'auth_source' => 'admin', 'srv' => true],
+        'mongodb+srv://user:secret@cluster.example.mongodb.net/mydb?authSource=admin',
+    ],
+    'connection options' => [
+        ['host' => 'host', 'port' => 27017, 'user' => 'user', 'pass' => 'secret', 'database' => 'mydb', 'auth_source' => 'admin', 'connection_options' => 'tls=true'],
+        'mongodb://user:secret@host:27017/mydb?authSource=admin&tls=true',
+    ],
+]);
 
 test('restore produces mongorestore --uri command with namespace mapping', function () {
     $this->db->setConfig([
@@ -107,82 +96,18 @@ test('restore uses same database for nsFrom when source_database not set', funct
         ->and($result->command)->toContain("--nsTo='mydb.*'");
 });
 
-test('buildConnectionUri preserves legacy authenticated output', function () {
-    $uri = MongodbDatabase::buildConnectionUri('host', 27017, 'user', 'secret', ['auth_source' => 'admin']);
-
-    expect($uri)->toBe('mongodb://user:secret@host:27017/?authSource=admin');
-});
-
-test('buildConnectionUri preserves legacy anonymous output', function () {
-    $uri = MongodbDatabase::buildConnectionUri('host', 27017);
-
-    expect($uri)->toBe('mongodb://host:27017');
-});
-
-test('buildConnectionUri url-encodes credentials', function () {
-    $uri = MongodbDatabase::buildConnectionUri('host', 27017, 'u@ser', 'p:ss/word', ['auth_source' => 'admin']);
-
-    expect($uri)->toBe('mongodb://u%40ser:p%3Ass%2Fword@host:27017/?authSource=admin');
-});
-
-test('buildConnectionUri uses SRV scheme and omits port', function () {
-    $uri = MongodbDatabase::buildConnectionUri('cluster.example.mongodb.net', null, 'user', 'secret', [
-        'auth_source' => 'admin',
-        'srv' => true,
-    ]);
-
-    expect($uri)->toBe('mongodb+srv://user:secret@cluster.example.mongodb.net/?authSource=admin');
-});
-
-test('buildConnectionUri appends tls, replica set and connection options', function () {
-    $uri = MongodbDatabase::buildConnectionUri('host', 27017, 'user', 'secret', [
-        'auth_source' => 'admin',
-        'tls' => true,
-        'replica_set' => 'rs0',
-        'connection_options' => 'retryWrites=true&w=majority',
-    ]);
-
-    expect($uri)->toBe('mongodb://user:secret@host:27017/?authSource=admin&tls=true&replicaSet=rs0&retryWrites=true&w=majority');
-});
-
-test('buildConnectionUri includes options without credentials', function () {
-    $uri = MongodbDatabase::buildConnectionUri('host', 27017, '', '', ['tls' => true]);
-
-    expect($uri)->toBe('mongodb://host:27017/?tls=true');
-});
-
-test('dump builds an SRV uri', function () {
-    $this->db->setConfig([
-        'host' => 'cluster.example.mongodb.net',
-        'port' => null,
-        'user' => 'user',
-        'pass' => 'secret',
-        'database' => 'mydb',
-        'auth_source' => 'admin',
-        'srv' => true,
-    ]);
-
-    $result = $this->db->dump('/tmp/dump.archive');
-
-    expect($result->command)->toBe("mongodump --uri='mongodb+srv://user:secret@cluster.example.mongodb.net/mydb?authSource=admin' --archive='/tmp/dump.archive'");
-});
-
-test('restore builds a tls uri', function () {
-    $this->db->setConfig([
-        'host' => 'host',
-        'port' => 27017,
-        'user' => 'user',
-        'pass' => 'secret',
-        'database' => 'targetdb',
-        'auth_source' => 'admin',
-        'source_database' => 'sourcedb',
-        'tls' => true,
-    ]);
-
-    $result = $this->db->restore('/tmp/dump.archive');
-
-    expect($result->command)->toBe("mongorestore --uri='mongodb://user:secret@host:27017/?authSource=admin&tls=true' --archive='/tmp/dump.archive' --nsFrom='sourcedb.*' --nsTo='targetdb.*' --drop");
-});
+test('buildConnectionUri builds the expected uri', function (?int $port, string $user, string $pass, array $options, string $expected) {
+    expect(MongodbDatabase::buildConnectionUri('host', $port, $user, $pass, $options))->toBe($expected);
+})->with([
+    'legacy authenticated output' => [27017, 'user', 'secret', ['auth_source' => 'admin'], 'mongodb://user:secret@host:27017/?authSource=admin'],
+    'custom auth source' => [27017, 'appuser', 'secret', ['auth_source' => 'myAuthDb'], 'mongodb://appuser:secret@host:27017/?authSource=myAuthDb'],
+    'auth source defaults to admin' => [27017, 'user', 'secret', [], 'mongodb://user:secret@host:27017/?authSource=admin'],
+    'legacy anonymous output' => [27017, '', '', [], 'mongodb://host:27017'],
+    'url-encoded credentials' => [27017, 'u@ser', 'p:ss/word', ['auth_source' => 'admin'], 'mongodb://u%40ser:p%3Ass%2Fword@host:27017/?authSource=admin'],
+    'srv scheme omits port' => [null, 'user', 'secret', ['auth_source' => 'admin', 'srv' => true], 'mongodb+srv://user:secret@host/?authSource=admin'],
+    'connection options appended verbatim' => [27017, 'user', 'secret', ['auth_source' => 'admin', 'connection_options' => 'tls=true&replicaSet=rs0&retryWrites=true&w=majority'], 'mongodb://user:secret@host:27017/?authSource=admin&tls=true&replicaSet=rs0&retryWrites=true&w=majority'],
+    'options without credentials' => [27017, '', '', ['connection_options' => 'tls=true'], 'mongodb://host:27017/?tls=true'],
+]);
 
 test('prepareForRestore is a no-op', function () {
     $logger = Mockery::mock(\App\Contracts\BackupLogger::class);

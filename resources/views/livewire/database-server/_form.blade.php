@@ -158,42 +158,31 @@ use App\Enums\DatabaseType;
 
                         @if($form->isMongodb())
                             <x-input
-                                wire:model="form.auth_source"
+                                wire:model.live.debounce.300ms="form.auth_source"
                                 label="{{ __('Authentication Database') }}"
                                 placeholder="admin"
                                 hint="{{ __('The database used to authenticate credentials') }}"
                                 type="text"
                             />
 
-                            <div class="grid gap-4 md:grid-cols-2">
-                                <x-checkbox
-                                    wire:model.live="form.srv_enabled"
-                                    :label="__('Use DNS Seed List (SRV)')"
-                                    :hint="__('For MongoDB Atlas and clusters using mongodb+srv connection strings. The port is resolved from DNS.')"
-                                />
+                            <x-checkbox
+                                wire:model.live="form.srv_enabled"
+                                :label="__('Use DNS Seed List (SRV)')"
+                                :hint="__('For MongoDB Atlas and clusters using mongodb+srv connection strings. The port is resolved from DNS.')"
+                            />
 
-                                <x-checkbox
-                                    wire:model="form.tls_enabled"
-                                    :label="__('Use TLS/SSL')"
-                                    :hint="__('Enable TLS for servers that require encrypted connections.')"
+                            <div>
+                                <x-input
+                                    wire:model.live.debounce.300ms="form.connection_options"
+                                    :label="__('Connection Options')"
+                                    placeholder="tls=true&replicaSet=rs0&retryWrites=true"
+                                    :hint="__('Optional. key=value parameters for the connection string — set TLS, replica set and anything else here (e.g. tls=true, replicaSet=rs0).')"
+                                    type="text"
                                 />
+                                <a href="https://www.mongodb.com/docs/manual/reference/connection-string-options/"
+                                   target="_blank" rel="noopener"
+                                   class="link link-primary text-xs">{{ __('MongoDB connection string options reference') }}</a>
                             </div>
-
-                            <x-input
-                                wire:model="form.replica_set"
-                                :label="__('Replica Set')"
-                                placeholder="rs0"
-                                :hint="__('Optional. The replica set name for cluster connections.')"
-                                type="text"
-                            />
-
-                            <x-input
-                                wire:model="form.connection_options"
-                                :label="__('Connection Options')"
-                                placeholder="retryWrites=true&w=majority"
-                                :hint="__('Optional. Additional connection string parameters as key=value pairs.')"
-                                type="text"
-                            />
                         @endif
 
                         @if($form->isMysql())

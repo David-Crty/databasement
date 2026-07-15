@@ -101,6 +101,8 @@ class ShellProcessor
             '/SSH_ASKPASS=[^\s]+/' => 'SSH_ASKPASS=***',
             // sqlpackage: /SourcePassword:'...' or /TargetPassword:'...' (escapeshellarg single-quotes the value)
             '#/(Source|Target)Password:(?:\'[^\']*\'|"[^"]*"|[^\s]+)#' => '/$1Password:***',
+            // MongoDB connection URI userinfo: mongodb://user:PASS@host or mongodb+srv://user:PASS@host
+            '#(mongodb(?:\+srv)?://[^:@\s/]+:)[^@\s]+@#' => '$1***@',
         ];
 
         foreach ($patterns as $pattern => $replacement) {

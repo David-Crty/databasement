@@ -13,6 +13,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\NotificationChannel;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\ShellProcessor;
 use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\CurrentOrganization;
 use App\Services\SshKeyGenerator;
@@ -49,10 +50,6 @@ class DatabaseServerForm extends Form
 
     // MongoDB advanced connection options (stored in extra_config).
     public bool $srv_enabled = false;
-
-    public bool $tls_enabled = false;
-
-    public string $replica_set = '';
 
     public string $connection_options = '';
 
@@ -447,8 +444,6 @@ class DatabaseServerForm extends Form
         $this->database_type = $server->database_type->value;
         $this->auth_source = $server->getExtraConfig('auth_source', '');
         $this->srv_enabled = (bool) $server->getExtraConfig('srv_enabled', false);
-        $this->tls_enabled = (bool) $server->getExtraConfig('tls_enabled', false);
-        $this->replica_set = $server->getExtraConfig('replica_set', '');
         $this->connection_options = $server->getExtraConfig('connection_options', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
         $this->dump_format = $server->getExtraConfig('dump_format', 'plain');
@@ -710,8 +705,6 @@ class DatabaseServerForm extends Form
         if ($type === DatabaseType::MONGODB) {
             $config['auth_source'] = $this->auth_source ?: 'admin';
             $config['srv'] = $this->srv_enabled;
-            $config['tls'] = $this->tls_enabled;
-            $config['replica_set'] = $this->replica_set;
             $config['connection_options'] = $this->connection_options;
         }
 
@@ -728,7 +721,10 @@ class DatabaseServerForm extends Form
             $provider = new DatabaseProvider;
             $database = $provider->makeConfigured($type, $config);
 
-            return $database->dump('/path/to/output')->command;
+            // Redact credentials so the preview matches what gets logged. For
+            // MongoDB the password lives in the URI userinfo, where the raw
+            // placeholder would otherwise render URL-encoded (e.g. %2A%2A…).
+            return (new ShellProcessor)->sanitize($database->dump('/path/to/output')->command);
         } catch (\Throwable) {
             return '';
         }
@@ -999,8 +995,6 @@ class DatabaseServerForm extends Form
             'password' => 'nullable',
             'auth_source' => 'nullable|string|max:255',
             'srv_enabled' => 'boolean',
-            'tls_enabled' => 'boolean',
-            'replica_set' => 'nullable|string|max:255',
             'connection_options' => 'nullable|string|max:500',
             'ssh_enabled' => 'boolean',
         ];
@@ -1337,8 +1331,6 @@ class DatabaseServerForm extends Form
         if ($this->isMongodb()) {
             $extra['auth_source'] = $this->auth_source;
             $extra['srv_enabled'] = $this->srv_enabled;
-            $extra['tls_enabled'] = $this->tls_enabled;
-            $extra['replica_set'] = $this->replica_set;
             $extra['connection_options'] = $this->connection_options;
         }
 
