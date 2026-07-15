@@ -9,7 +9,7 @@
         </div>
     </x-alert>
 
-    <x-tabs selected="docker-tab" label-class="tabs-sm">
+    <x-tabs wire:model="tokenModalTab" label-class="tabs-sm">
 
 
 

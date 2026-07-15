@@ -1884,16 +1884,16 @@
         },
         {
             "name": "jfcherng/php-diff",
-            "version": "6.16.2",
+            "version": "6.16.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/jfcherng/php-diff.git",
-                "reference": "7f46bcfc582e81769237d0b3f6b8a548efe8799d"
+                "reference": "6d7332b6080cdd50011a364b58f24c8d0cdeb5da"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jfcherng/php-diff/zipball/7f46bcfc582e81769237d0b3f6b8a548efe8799d",
-                "reference": "7f46bcfc582e81769237d0b3f6b8a548efe8799d",
+                "url": "https://api.github.com/repos/jfcherng/php-diff/zipball/6d7332b6080cdd50011a364b58f24c8d0cdeb5da",
+                "reference": "6d7332b6080cdd50011a364b58f24c8d0cdeb5da",
                 "shasum": ""
             },
             "require": {
@@ -1938,7 +1938,7 @@
             ],
             "support": {
                 "issues": "https://github.com/jfcherng/php-diff/issues",
-                "source": "https://github.com/jfcherng/php-diff/tree/6.16.2"
+                "source": "https://github.com/jfcherng/php-diff/tree/6.16.3"
             },
             "funding": [
                 {
@@ -1946,7 +1946,7 @@
                     "type": "custom"
                 }
             ],
-            "time": "2024-03-10T17:40:29+00:00"
+            "time": "2026-06-22T13:08:56+00:00"
         },
         {
             "name": "jfcherng/php-mb-string",
@@ -6192,16 +6192,16 @@
         },
         {
             "name": "robsontenorio/mary",
-            "version": "2.8.3",
+            "version": "2.9.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/robsontenorio/mary.git",
-                "reference": "e32a3ba1be5f1d86e4b7181004d7b606c025fbfc"
+                "reference": "a2e25107ca4a165394c7903b42cd955d3ef4925f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/robsontenorio/mary/zipball/e32a3ba1be5f1d86e4b7181004d7b606c025fbfc",
-                "reference": "e32a3ba1be5f1d86e4b7181004d7b606c025fbfc",
+                "url": "https://api.github.com/repos/robsontenorio/mary/zipball/a2e25107ca4a165394c7903b42cd955d3ef4925f",
+                "reference": "a2e25107ca4a165394c7903b42cd955d3ef4925f",
                 "shasum": ""
             },
             "require": {
@@ -6266,7 +6266,7 @@
             ],
             "support": {
                 "issues": "https://github.com/robsontenorio/mary/issues",
-                "source": "https://github.com/robsontenorio/mary/tree/2.8.3"
+                "source": "https://github.com/robsontenorio/mary/tree/2.9.3"
             },
             "funding": [
                 {
@@ -6274,7 +6274,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-05-21T18:42:50+00:00"
+            "time": "2026-07-10T15:57:52+00:00"
         },
         {
             "name": "silber/bouncer",

@@ -25,6 +25,7 @@ use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
@@ -103,6 +104,14 @@ class AppServiceProvider extends ServiceProvider
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
         $this->registerBouncer();
+
+        // Mary UI 2.9's <x-tab> references <x-mary-badge> internally, but its
+        // service provider only registers the `mary-` internal alias for a fixed
+        // subset of components (button/icon/modal/…) and omits badge. Because
+        // Blade resolves component tags at compile time, that unregistered alias
+        // breaks compilation of every <x-tab> when no component prefix is set (as
+        // here). Register the missing alias ourselves. Remove once Mary ships it.
+        Blade::component('mary-badge', \Mary\View\Components\Badge::class);
 
         Gate::policy(ScheduledRestore::class, RestorePolicy::class);
         Gate::policy(\Silber\Bouncer\Database\Role::class, RolePolicy::class);
