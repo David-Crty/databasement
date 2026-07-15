@@ -99,8 +99,9 @@ services:
 
   worker:
     image: davidcrty/databasement:1
-    container_name: databasement-worker
     restart: unless-stopped
+    deploy:
+      replicas: 1   # increase to run more backups in parallel
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
@@ -134,8 +135,9 @@ services:
 
   worker:
     image: davidcrty/databasement:1
-    container_name: databasement-worker
     restart: unless-stopped
+    deploy:
+      replicas: 1   # increase to run more backups in parallel
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
@@ -188,8 +190,9 @@ services:
 
   worker:
     image: davidcrty/databasement:1
-    container_name: databasement-worker
     restart: unless-stopped
+    deploy:
+      replicas: 1   # increase to run more backups in parallel
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:

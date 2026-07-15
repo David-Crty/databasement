@@ -169,8 +169,9 @@ services:
 
   worker:
     image: davidcrty/databasement:1
-    container_name: databasement-worker
     restart: unless-stopped
+    deploy:
+      replicas: 1   # increase to run more backups in parallel
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
@@ -204,8 +205,9 @@ services:
 
   worker:
     image: davidcrty/databasement:1
-    container_name: databasement-worker
     restart: unless-stopped
+    deploy:
+      replicas: 1   # increase to run more backups in parallel
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
@@ -258,8 +260,9 @@ services:
 
   worker:
     image: davidcrty/databasement:1
-    container_name: databasement-worker
     restart: unless-stopped
+    deploy:
+      replicas: 1   # increase to run more backups in parallel
     command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
@@ -1280,6 +1283,16 @@ See also [Docker Networking](../../user-guide/database-servers#docker-networking
 php artisan migrate:status # Check database migrations
 php artisan config:show database # View database configuration
 ```
+
+### Reset a User Password
+
+If you lose access to an account and email delivery is not configured (so the **Forgot password?** link cannot send a reset email), reset the password directly from the container. Run this from the directory that holds your `docker-compose.yml`:
+
+```bash
+docker compose exec app php artisan user:reset-password you@example.com
+```
+
+The command prompts for the new password (hidden input) and validates it against the app's password rules. Omit the email to be prompted for it as well.
 
 ### Get Help
 
