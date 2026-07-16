@@ -169,6 +169,29 @@ describe('upload', function () {
 
         Http::assertSentCount(1);
     });
+
+    test('runs the before-attempt hook once per attempt (lease refresh)', function () {
+        Http::fake([
+            '*/upload*' => Http::sequence()
+                ->push('boom', 500)
+                ->push(['status' => 'ok'], 200),
+        ]);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'data');
+
+        $attempts = 0;
+
+        try {
+            $this->client->upload('job-1', $tmp, 'db.sql.gz', 'sum', 4, function () use (&$attempts) {
+                $attempts++;
+            });
+        } finally {
+            @unlink($tmp);
+        }
+
+        expect($attempts)->toBe(2);
+    });
 });
 
 describe('fail', function () {

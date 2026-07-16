@@ -134,9 +134,17 @@ class AgentController extends Controller
             return response()->json(['message' => "Cannot heartbeat a job with status '{$agentJob->status}'."], 409);
         }
 
-        $validated = $request->validate(self::logRules());
+        $validated = $request->validate([
+            'lease_seconds' => 'nullable|integer|min:1',
+            ...self::logRules(),
+        ]);
 
-        $leaseDuration = max(1, (int) config('agent.lease_duration', 300));
+        $default = max(1, (int) config('agent.lease_duration', 300));
+        $max = max($default, (int) config('agent.max_lease_duration', $default));
+        $requested = (int) ($validated['lease_seconds'] ?? 0);
+        // Honor a longer agent-requested lease (e.g. for a long relay upload),
+        // never shorter than the default and never above the configured cap.
+        $leaseDuration = $requested > 0 ? min(max($requested, $default), $max) : $default;
         $agentJob->extendLease($leaseDuration);
 
         if (! empty($validated['logs']) && $agentJob->snapshot) {

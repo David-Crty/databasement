@@ -11,4 +11,11 @@ return [
     // How many times to attempt a relay upload before giving up (retries cover
     // transient network/5xx failures only).
     'upload_retries' => max(1, (int) env('DATABASEMENT_AGENT_UPLOAD_RETRIES', 3)),
+    // Upper bound for an agent-requested lease. Relay uploads can run for a
+    // whole upload_timeout, so the agent asks for a longer lease before each
+    // attempt to avoid being reclaimed mid-transfer; the server clamps it here.
+    'max_lease_duration' => (int) env(
+        'DATABASEMENT_AGENT_MAX_LEASE_DURATION',
+        max(600, (int) env('DATABASEMENT_AGENT_UPLOAD_TIMEOUT', 3600) + 300),
+    ),
 ];

@@ -113,16 +113,26 @@ class AgentRunCommand extends Command
             // When relaying through the server, the agent uploads the archive
             // instead of writing it to the volume itself. The server stores it
             // on the target volume; the existing ack flow still finalizes the job.
+            //
+            // A single upload attempt can run for up to upload_timeout, so we
+            // extend the lease to cover a whole attempt before each try — this
+            // keeps another agent from reclaiming the job mid-transfer.
+            $uploadLeaseSeconds = (int) config('agent.upload_timeout', 3600) + 60;
             $deliver = $config->relaysThroughServer()
-                ? function (string $archive, string $filename) use ($client, $job, $logger): void {
+                ? function (string $archive, string $filename) use ($client, $job, $logger, $uploadLeaseSeconds): void {
                     $checksum = hash_file('sha256', $archive);
                     $fileSize = filesize($archive);
                     if ($checksum === false || $fileSize === false) {
                         throw new \RuntimeException("Failed to read archive for upload: {$archive}");
                     }
-                    // Refresh the lease before a potentially long upload.
-                    $client->jobHeartbeat($job['id'], $logger->flush());
-                    $client->upload($job['id'], $archive, $filename, $checksum, $fileSize);
+                    $client->upload(
+                        $job['id'],
+                        $archive,
+                        $filename,
+                        $checksum,
+                        $fileSize,
+                        onBeforeAttempt: fn () => $client->jobHeartbeat($job['id'], $logger->flush(), $uploadLeaseSeconds),
+                    );
                 }
                 : null;
 

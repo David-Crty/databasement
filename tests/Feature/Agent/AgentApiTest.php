@@ -153,6 +153,31 @@ describe('job heartbeat', function () {
         expect($agentJob->lease_expires_at->isAfter(now()->addMinutes(2)))->toBeTrue();
     });
 
+    test('honors a longer requested lease for relay uploads', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", ['lease_seconds' => 1200])
+            ->assertOk();
+
+        // Requested 1200s (> 300s default, under the cap) should be honored.
+        expect($agentJob->fresh()->lease_expires_at->isAfter(now()->addMinutes(15)))->toBeTrue();
+    });
+
+    test('clamps a requested lease to the configured maximum', function () {
+        config(['agent.max_lease_duration' => 600]);
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", ['lease_seconds' => 99999])
+            ->assertOk();
+
+        // Capped at 600s, so the lease is well under the requested ~27h.
+        expect($agentJob->fresh()->lease_expires_at->isBefore(now()->addMinutes(11)))->toBeTrue();
+    });
+
     test('heartbeat appends logs to existing logs', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();

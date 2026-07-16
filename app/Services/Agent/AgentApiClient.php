@@ -56,10 +56,19 @@ class AgentApiClient
 
     /**
      * @param  array<int, array<string, mixed>>  $logs
+     * @param  int|null  $leaseSeconds  Request a specific lease length (clamped server-side)
      */
-    public function jobHeartbeat(string $jobId, array $logs = []): void
+    public function jobHeartbeat(string $jobId, array $logs = [], ?int $leaseSeconds = null): void
     {
-        $this->post("/agent/jobs/{$jobId}/heartbeat", empty($logs) ? [] : ['logs' => $logs])->throw();
+        $payload = [];
+        if (! empty($logs)) {
+            $payload['logs'] = $logs;
+        }
+        if ($leaseSeconds !== null) {
+            $payload['lease_seconds'] = $leaseSeconds;
+        }
+
+        $this->post("/agent/jobs/{$jobId}/heartbeat", $payload)->throw();
     }
 
     /**
@@ -90,7 +99,7 @@ class AgentApiClient
      * network/5xx failures are retried; 4xx responses are not — they won't
      * recover by retrying.
      */
-    public function upload(string $jobId, string $archivePath, string $filename, string $checksum, int $fileSize): void
+    public function upload(string $jobId, string $archivePath, string $filename, string $checksum, int $fileSize, ?callable $onBeforeAttempt = null): void
     {
         $baseUrl = rtrim($this->url, '/');
         $query = http_build_query([
@@ -100,6 +109,12 @@ class AgentApiClient
         ]);
 
         for ($attempt = 1; ; $attempt++) {
+            // Refresh the lease right before each attempt so a long or retried
+            // upload isn't reclaimed by another agent mid-transfer.
+            if ($onBeforeAttempt !== null) {
+                $onBeforeAttempt();
+            }
+
             try {
                 // Re-open the file each attempt so the body stream starts at 0.
                 // The Guzzle stream owns the handle and closes it after sending.
