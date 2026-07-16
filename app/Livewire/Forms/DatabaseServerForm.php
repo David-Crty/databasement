@@ -156,6 +156,25 @@ class DatabaseServerForm extends Form
             return;
         }
 
+        // Turning off "Store on the main server" makes a local volume invalid
+        // again for an agent-backed server, so clear it (mirrors the use_agent
+        // cleanup) instead of waiting for save-time validation to fail.
+        if (preg_match('/^backups\.(\d+)\.store_on_server$/', $property, $matches)
+            && $this->hasAgent()
+            && ! (bool) $value
+        ) {
+            $index = (int) $matches[1];
+            $volumeId = $this->backups[$index]['volume_id'] ?? '';
+
+            if ($volumeId !== ''
+                && \App\Models\Volume::whereKey($volumeId)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
+            ) {
+                $this->backups[$index]['volume_id'] = '';
+            }
+
+            return;
+        }
+
         // Clearing the comma-separated text input should clear the backing
         // array so stale values can't survive the save. Live-binding means
         // this fires while typing, so we only act on a full clear.

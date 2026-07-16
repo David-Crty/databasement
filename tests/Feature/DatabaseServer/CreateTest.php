@@ -358,6 +358,22 @@ test('toggling use_agent clears local volume but keeps remote volume', function 
     'keeps s3 volume' => ['s3', 'keep'],
 ]);
 
+test('turning off store_on_server clears a local volume for an agent-backed server', function () {
+    $user = User::factory()->create();
+    $agent = Agent::factory()->create();
+    $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', $agent->id)
+        ->set('form.backups.0.store_on_server', true)
+        ->set('form.backups.0.volume_id', $localVolume->id)
+        ->assertSet('form.backups.0.volume_id', $localVolume->id)
+        ->set('form.backups.0.store_on_server', false)
+        ->assertSet('form.backups.0.volume_id', '');
+});
+
 test('cannot create agent-backed server with local volume', function () {
     $user = User::factory()->create();
     $agent = Agent::factory()->create();
