@@ -192,6 +192,29 @@ describe('upload', function () {
 
         expect($attempts)->toBe(2);
     });
+
+    test('retries the upload after a transient connection failure', function () {
+        $calls = 0;
+        Http::fake(function () use (&$calls) {
+            $calls++;
+            if ($calls === 1) {
+                throw new \Illuminate\Http\Client\ConnectionException('Connection timed out');
+            }
+
+            return Http::response(['status' => 'ok'], 200);
+        });
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'data');
+
+        try {
+            $this->client->upload('job-1', $tmp, 'db.sql.gz', 'sum', 4);
+        } finally {
+            @unlink($tmp);
+        }
+
+        expect($calls)->toBe(2);
+    });
 });
 
 describe('fail', function () {
