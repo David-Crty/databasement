@@ -620,7 +620,7 @@
   "This is a secure area of the application. Please confirm your password before continuing.": "Esta es un área segura de la aplicación. Por favor, confirme su contraseña antes de continuar.",
   "This is the only administrator. The role cannot be changed.": "Este es el único administrador. El rol no se puede cambiar.",
   "This is the only time the public key will be shown. It is not stored — copy it before leaving this page.": "Esta es la única vez que se mostrará la clave pública. No se almacena — cópiala antes de salir de esta página.",
-  "This volume has existing snapshots. Only the name can be modified. Configuration changes are locked to protect backup integrity.": "Este volumen tiene snapshots existentes. Solo se puede modificar el nombre. Los cambios de configuración están bloqueados para proteger la integridad de los backups.",
+  "This volume has existing snapshots. Only the name and storage limit can be modified. Configuration changes are locked to protect backup integrity.": "Este volumen tiene snapshots existentes. Solo se pueden modificar el nombre y el límite de almacenamiento. Los cambios de configuración están bloqueados para proteger la integridad de los backups.",
   "Tiered retention": "Retención escalonada",
   "To customise the encryption key, check the": "Para personalizar la clave de cifrado, consulte la",
   "To finish enabling two-factor authentication, scan the QR code or enter the setup key in your authenticator app.": "Para terminar de habilitar la autenticación de dos factores, escanee el código QR o introduzca la clave de configuración en su aplicación de autenticación.",

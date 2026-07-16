@@ -50,6 +50,28 @@ test('humanFileSize formats megabytes and above', function () {
         ->and(Formatters::humanFileSize(1099511627777))->toBe('1 TB');
 });
 
+test('bytesToGb converts bytes to a trimmed GB string', function (?int $bytes, ?string $expected) {
+    expect(Formatters::bytesToGb($bytes))->toBe($expected);
+})->with([
+    'null passes through' => [null, null],
+    'whole GB' => [10 * (1024 ** 3), '10'],
+    'fractional GB' => [(int) (2.5 * (1024 ** 3)), '2.5'],
+    'sub-GB' => [(int) (0.5 * (1024 ** 3)), '0.5'],
+]);
+
+test('gbToBytes converts a GB value to whole bytes', function (int|float|string|null $gb, ?int $expected) {
+    expect(Formatters::gbToBytes($gb))->toBe($expected);
+})->with([
+    'null is no limit' => [null, null],
+    'blank is no limit' => ['', null],
+    'whole GB string' => ['10', 10 * (1024 ** 3)],
+    'fractional GB float' => [2.5, (int) (2.5 * (1024 ** 3))],
+]);
+
+test('gbToBytes and bytesToGb round-trip a fractional value', function () {
+    expect(Formatters::bytesToGb(Formatters::gbToBytes('7.25')))->toBe('7.25');
+});
+
 test('humanDate returns null for null input', function () {
     expect(Formatters::humanDate(null))->toBeNull();
 });

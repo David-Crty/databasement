@@ -544,26 +544,16 @@ test('execute aborts before upload when the backup would exceed the volume stora
         ->toThrow(\App\Exceptions\Backup\StorageQuotaExceededException::class);
 });
 
-test('execute uploads when the backup fits within the volume storage limit', function () {
+test('execute uploads when the backup fits within the limit or usage is unknown', function (?int $volumeUsedBytes, int $limit) {
+    // Fits under the limit, or (remote agent) usage is unknown — volumeUsedBytes
+    // is null so the limit cannot be enforced. Either way the upload proceeds.
     test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
     $backupTask = buildQuotaBackupTask();
-    $config = buildQuotaConfig(['max_storage_bytes' => 1024 ** 3], volumeUsedBytes: 0);
+    $config = buildQuotaConfig(['max_storage_bytes' => $limit], volumeUsedBytes: $volumeUsedBytes);
 
-    $result = $backupTask->execute($config, new InMemoryBackupLogger);
-
-    expect($result)->toBeInstanceOf(BackupResult::class);
-});
-
-test('execute skips the storage limit check when the current usage is unknown (agent)', function () {
-    // A remote agent cannot read the app database, so volumeUsedBytes is null
-    // and the limit is not enforced — the upload proceeds.
-    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
-
-    $backupTask = buildQuotaBackupTask();
-    $config = buildQuotaConfig(['max_storage_bytes' => 10], volumeUsedBytes: null);
-
-    $result = $backupTask->execute($config, new InMemoryBackupLogger);
-
-    expect($result)->toBeInstanceOf(BackupResult::class);
-});
+    expect($backupTask->execute($config, new InMemoryBackupLogger))->toBeInstanceOf(BackupResult::class);
+})->with([
+    'fits within limit' => [0, 1024 ** 3],
+    'usage unknown (agent)' => [null, 10],
+]);

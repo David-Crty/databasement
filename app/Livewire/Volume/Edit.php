@@ -37,7 +37,7 @@ class Edit extends Component
         $this->authorize('update', $this->form->volume);
 
         if ($this->hasSnapshots) {
-            $this->form->updateNameOnly();
+            $this->form->updateLockedVolume();
         } else {
             $this->form->update();
         }

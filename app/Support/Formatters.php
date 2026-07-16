@@ -52,6 +52,32 @@ class Formatters
     }
 
     /**
+     * Convert a byte count into a trimmed GB string for storage-limit form
+     * fields (e.g. 10737418240 => "10", 2684354560 => "2.5"). Null passes through.
+     */
+    public static function bytesToGb(?int $bytes): ?string
+    {
+        if ($bytes === null) {
+            return null;
+        }
+
+        return rtrim(rtrim(number_format($bytes / (1024 ** 3), 4, '.', ''), '0'), '.');
+    }
+
+    /**
+     * Convert a GB value (as entered in a form) into whole bytes. A blank or
+     * null value returns null (no limit).
+     */
+    public static function gbToBytes(int|float|string|null $gb): ?int
+    {
+        if ($gb === null || $gb === '') {
+            return null;
+        }
+
+        return (int) round((float) $gb * (1024 ** 3));
+    }
+
+    /**
      * Format a date/datetime into human-readable format
      * Output format: Dec 19, 2025, 16:44
      */

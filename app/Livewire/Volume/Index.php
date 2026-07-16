@@ -64,6 +64,7 @@ class Index extends Component
             ['key' => 'name', 'label' => __('Name'), 'class' => 'w-64'],
             ['key' => 'type', 'label' => __('Type'), 'class' => 'w-32'],
             ['key' => 'config', 'label' => __('Configuration'), 'sortable' => false],
+            ['key' => 'usage', 'label' => __('Usage'), 'sortable' => false, 'class' => 'w-40'],
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-40'],
         ];
     }

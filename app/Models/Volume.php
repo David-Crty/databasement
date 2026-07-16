@@ -110,6 +110,13 @@ class Volume extends Model
      */
     public function usedStorageBytes(): int
     {
+        // Prefer the aggregate eagerly loaded by VolumeQuery::buildFromParams so
+        // listing many volumes stays a single query instead of N+1; fall back to
+        // a direct sum when it wasn't loaded (e.g. a single volume in a job).
+        if (array_key_exists('used_storage_bytes', $this->attributes)) {
+            return (int) $this->attributes['used_storage_bytes'];
+        }
+
         return (int) $this->snapshots()->completed()->sum('file_size');
     }
 

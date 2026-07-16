@@ -617,7 +617,7 @@
   "This is a secure area of the application. Please confirm your password before continuing.": "Αυτή είναι μια ασφαλής περιοχή της εφαρμογής. Παρακαλώ επιβεβαιώστε τον κωδικό σας πριν συνεχίσετε.",
   "This is the only administrator. The role cannot be changed.": "Αυτός είναι ο μόνος διαχειριστής. Ο ρόλος δεν μπορεί να αλλαχθεί.",
   "This is the only time the public key will be shown. It is not stored — copy it before leaving this page.": "Αυτή είναι η μοναδική φορά που θα εμφανιστεί το δημόσιο κλειδί. Δεν αποθηκεύεται — αντιγράψτε το πριν φύγετε από αυτή τη σελίδα.",
-  "This volume has existing snapshots. Only the name can be modified. Configuration changes are locked to protect backup integrity.": "Αυτό το volume έχει υπάρχοντα snapshots. Μόνο το όνομα μπορεί να τροποποιηθεί. Οι αλλαγές ρύθμισης είναι κλειδωμένες για προστασία της ακεραιότητας backup.",
+  "This volume has existing snapshots. Only the name and storage limit can be modified. Configuration changes are locked to protect backup integrity.": "Αυτό το volume έχει υπάρχοντα snapshots. Μόνο το όνομα και το όριο αποθήκευσης μπορούν να τροποποιηθούν. Οι αλλαγές ρύθμισης είναι κλειδωμένες για προστασία της ακεραιότητας backup.",
   "Tiered retention": "Ιεραρχική διατήρηση",
   "To customise the encryption key, check the": "Για προσαρμογή του κλειδιού κρυπτογράφησης, ελέγξτε το",
   "To finish enabling two-factor authentication, scan the QR code or enter the setup key in your authenticator app.": "Για να ολοκληρώσετε την ενεργοποίηση ελέγχου ταυτότητας δύο παραγόντων, σαρώστε τον κωδικό QR ή εισάγετε το κλειδί εγκατάστασης στην εφαρμογή πιστοποίησης.",

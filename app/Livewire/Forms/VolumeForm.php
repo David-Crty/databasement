@@ -6,6 +6,7 @@ use App\Enums\VolumeType;
 use App\Models\Volume;
 use App\Services\CurrentOrganization;
 use App\Services\VolumeConnectionTester;
+use App\Support\Formatters;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 use Livewire\Form;
@@ -71,10 +72,7 @@ class VolumeForm extends Form
         $propertyName = $volumeType->configPropertyName();
         $this->{$propertyName} = array_merge($this->{$propertyName}, $decryptedConfig);
 
-        $maxStorageBytes = $volume->maxStorageBytes();
-        $this->maxStorageGb = $maxStorageBytes !== null
-            ? rtrim(rtrim(number_format($maxStorageBytes / (1024 ** 3), 4, '.', ''), '0'), '.')
-            : null;
+        $this->maxStorageGb = Formatters::bytesToGb($volume->maxStorageBytes());
     }
 
     /**
@@ -133,16 +131,18 @@ class VolumeForm extends Form
         ]);
     }
 
-    public function updateNameOnly(): void
+    /**
+     * Update a volume that is locked by existing snapshots: only the name and
+     * storage limit stay editable — the connector config is frozen because
+     * stored snapshots already depend on it.
+     */
+    public function updateLockedVolume(): void
     {
         $this->validate([
             'name' => ['required', 'string', 'max:255', 'unique:volumes,name,'.$this->volume->id],
             'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
         ]);
 
-        // The storage quota stays editable even when the volume is otherwise
-        // locked (has snapshots) — it only affects future pruning, not the
-        // stored connector config.
         $this->volume->update([
             'name' => $this->name,
             'config' => $this->applyMaxStorageToConfig($this->volume->config),
@@ -184,13 +184,13 @@ class VolumeForm extends Form
      */
     protected function applyMaxStorageToConfig(array $config): array
     {
-        if ($this->maxStorageGb === null || $this->maxStorageGb === '') {
+        $bytes = Formatters::gbToBytes($this->maxStorageGb);
+
+        if ($bytes === null) {
             unset($config['max_storage_bytes']);
-
-            return $config;
+        } else {
+            $config['max_storage_bytes'] = $bytes;
         }
-
-        $config['max_storage_bytes'] = (int) round((float) $this->maxStorageGb * (1024 ** 3));
 
         return $config;
     }

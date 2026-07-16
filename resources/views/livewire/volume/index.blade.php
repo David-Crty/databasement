@@ -78,6 +78,19 @@
                 @endforeach
             @endscope
 
+            @scope('cell_usage', $volume)
+                @php
+                    $usedBytes = $volume->usedStorageBytes();
+                    $limitBytes = $volume->maxStorageBytes();
+                @endphp
+                <div class="table-cell-primary {{ $limitBytes !== null && $usedBytes >= $limitBytes ? 'text-warning' : '' }}">
+                    {{ \App\Support\Formatters::humanFileSize($usedBytes) }}
+                </div>
+                @if($limitBytes !== null)
+                    <div class="text-sm text-base-content/70">{{ __('Limit') }}: {{ \App\Support\Formatters::bytesToGb($limitBytes) }} GB</div>
+                @endif
+            @endscope
+
             @scope('cell_created_at', $volume)
                 <div class="table-cell-primary">{{ \App\Support\Formatters::humanDate($volume->created_at) }}</div>
                 <div class="text-sm text-base-content/70">{{ $volume->created_at->diffForHumans() }}</div>
