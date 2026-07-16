@@ -142,6 +142,7 @@ return [
         'fr' => 'Français',
         'es' => 'Español',
         'el' => 'Ελληνικά',
+        'zh_TW' => '繁體中文',
     ],
 
     /*
