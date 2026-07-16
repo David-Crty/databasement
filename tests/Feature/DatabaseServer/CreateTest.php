@@ -374,6 +374,33 @@ test('turning off store_on_server clears a local volume for an agent-backed serv
         ->assertSet('form.backups.0.volume_id', '');
 });
 
+test('agent-backed server can keep a local volume when store_on_server is enabled', function () {
+    $user = User::factory()->create();
+    $agent = Agent::factory()->create();
+    $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Relay Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', $agent->id)
+        ->set('form.backups.0.store_on_server', true)
+        ->set('form.backups.0.volume_id', $localVolume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $backup = DatabaseServer::where('name', 'Relay Server')->firstOrFail()->backups()->firstOrFail();
+
+    expect($backup->store_on_server)->toBeTrue()
+        ->and($backup->volume_id)->toBe($localVolume->id);
+});
+
 test('cannot create agent-backed server with local volume', function () {
     $user = User::factory()->create();
     $agent = Agent::factory()->create();
