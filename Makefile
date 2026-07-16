@@ -8,7 +8,12 @@ NC     := \033[0m # No Color
 # Docker / PHP helpers
 DOCKER_COMPOSE := docker compose
 PHP_SERVICE    := app
-PHP_EXEC       := $(DOCKER_COMPOSE) exec --user application -T $(PHP_SERVICE)
+
+# Forward AI-agent env vars (Claude Code, Cursor, Gemini, ...) into the container so
+# laravel/pao detects the agent and emits compact JSON output instead of verbose logs.
+# `-e VAR` is only added when VAR is set on the host, avoiding empty-string false positives.
+AGENT_ENV := $(foreach v,CLAUDECODE CLAUDE_CODE AI_AGENT CURSOR_AGENT GEMINI_CLI PAO_DISABLE,$(if $($(v)),-e $(v)))
+PHP_EXEC  := $(DOCKER_COMPOSE) exec --user application -T $(AGENT_ENV) $(PHP_SERVICE)
 PHP_COMPOSER   := $(PHP_EXEC) composer
 PHP_ARTISAN    := $(PHP_EXEC) php artisan
 NPM_EXEC       := npm

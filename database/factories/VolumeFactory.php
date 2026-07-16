@@ -112,4 +112,22 @@ class VolumeFactory extends Factory
             ],
         ]);
     }
+
+    /**
+     * Indicate that the volume is an Azure Blob Storage type.
+     */
+    public function azure(): static
+    {
+        return $this->state(fn () => [
+            'type' => 'azure',
+            'config' => [
+                'account_name' => 'teststorageaccount',
+                'account_key' => 'test-account-key-'.fake()->slug(),
+                'container' => 'backup-'.fake()->slug(),
+                'prefix' => fake()->optional()->slug(),
+                'endpoint_suffix' => 'core.windows.net',
+                'endpoint' => '',
+            ],
+        ]);
+    }
 }

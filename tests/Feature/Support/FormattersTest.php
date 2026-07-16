@@ -83,6 +83,29 @@ test('humanDate renders in the configured display timezone', function () {
     expect(Formatters::humanDate($date))->toBe('Dec 20, 2025, 01:44');
 });
 
+test('truncatedList returns an empty string for no names', function () {
+    expect(Formatters::truncatedList([]))->toBe('');
+});
+
+test('truncatedList joins names without a suffix when at or under the limit', function () {
+    expect(Formatters::truncatedList(['alpha', 'beta', 'gamma']))
+        ->toBe('alpha, beta, gamma')
+        ->and(Formatters::truncatedList(['a', 'b', 'c', 'd', 'e']))
+        ->toBe('a, b, c, d, e');
+});
+
+test('truncatedList appends a "+N more" suffix when over the limit', function () {
+    expect(Formatters::truncatedList(['a', 'b', 'c', 'd', 'e', 'f']))
+        ->toBe('a, b, c, d, e +1 more')
+        ->and(Formatters::truncatedList(['a', 'b', 'c'], 1))
+        ->toBe('a +2 more');
+});
+
+test('truncatedList accepts a Collection', function () {
+    expect(Formatters::truncatedList(collect(['a', 'b', 'c']), 2))
+        ->toBe('a, b +1 more');
+});
+
 test('resolveDatePlaceholders replaces year, month and day tokens zero-padded', function () {
     $date = \Carbon\Carbon::create(2026, 3, 5);
 

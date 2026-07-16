@@ -20,6 +20,7 @@ readonly class BackupConfig
         public string $backupPath = '',
         public ?CompressionType $compressionType = null,
         public ?int $compressionLevel = null,
+        public ?bool $compressionMultithread = null,
         public ?string $postBackupScript = null,
         public string $deliveryMode = self::DELIVERY_AGENT,
     ) {}
@@ -39,7 +40,7 @@ readonly class BackupConfig
      * @return array{
      *     database: array<string, mixed>,
      *     volume: array<string, mixed>,
-     *     compression: array{type: string|null, level: int|null},
+     *     compression: array{type: string|null, level: int|null, multithread: bool|null},
      *     backup_path: string,
      *     server_name: string,
      *     post_backup_script: string|null,
@@ -57,6 +58,7 @@ readonly class BackupConfig
             'compression' => [
                 'type' => $this->compressionType?->value,
                 'level' => $this->compressionLevel,
+                'multithread' => $this->compressionMultithread,
             ],
             'backup_path' => $this->backupPath,
             'server_name' => $this->database->serverName,
@@ -71,7 +73,7 @@ readonly class BackupConfig
      * @param  array{
      *     database: array{type: string, host?: string, port?: int, username?: string, password?: string, extra_config?: array<string, mixed>|null, database_name: string},
      *     volume: array{type: string, name?: string, config?: array<string, mixed>},
-     *     compression: array{type: string|null, level: int|null},
+     *     compression: array{type: string|null, level: int|null, multithread?: bool|null},
      *     backup_path?: string,
      *     server_name: string,
      *     post_backup_script?: string|null,
@@ -92,6 +94,7 @@ readonly class BackupConfig
                 ? CompressionType::from($payload['compression']['type'])
                 : null,
             compressionLevel: $payload['compression']['level'] ?? null,
+            compressionMultithread: $payload['compression']['multithread'] ?? null,
             postBackupScript: $payload['post_backup_script'] ?? null,
             deliveryMode: $payload['delivery_mode'] ?? self::DELIVERY_AGENT,
         );

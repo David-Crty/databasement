@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Configuration;
 
-use App\Enums\UserRole;
 use App\Livewire\Forms\ConfigurationForm;
+use App\Models\DatabaseServer;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Computed;
@@ -11,6 +11,11 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Displays the environment variables that control application behavior
+ * (read-only) plus the one runtime-configurable application setting: the global
+ * Adminer toggle, which only super admins may change.
+ */
 #[Title('Configuration')]
 class Application extends Component
 {
@@ -23,30 +28,24 @@ class Application extends Component
         $this->form->loadFromConfig();
     }
 
+    /**
+     * The Adminer toggle is a global feature switch, governed by
+     * DatabaseServerPolicy@manageAdminer (super admins). The rest of the screen
+     * is read-only for everyone.
+     */
     #[Computed]
-    public function isAdmin(): bool
+    public function canManage(): bool
     {
-        return auth()->user()->isAdmin();
+        return auth()->user()->can('manageAdminer', DatabaseServer::class);
     }
 
     public function saveApplicationConfig(): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        abort_unless(auth()->user()->can('manageAdminer', DatabaseServer::class), Response::HTTP_FORBIDDEN);
 
         $this->form->saveApplication();
 
         $this->success(__('Application configuration saved.'));
-    }
-
-    /**
-     * @return array<int, array{id: string, name: string}>
-     */
-    public function getAdminerRoleOptions(): array
-    {
-        return array_map(
-            fn (UserRole $role) => ['id' => $role->value, 'name' => $role->label()],
-            UserRole::assignable(),
-        );
     }
 
     /**
@@ -90,7 +89,6 @@ class Application extends Component
         return view('livewire.configuration.application', [
             'headers' => $this->getHeaders(),
             'appConfig' => $this->getAppConfig(),
-            'adminerRoleOptions' => $this->getAdminerRoleOptions(),
         ]);
     }
 }

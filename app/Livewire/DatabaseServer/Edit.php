@@ -4,10 +4,10 @@ namespace App\Livewire\DatabaseServer;
 
 use App\Livewire\Forms\DatabaseServerForm;
 use App\Models\DatabaseServer;
+use App\Traits\BlocksDemoWrites;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -15,7 +15,7 @@ use Livewire\Component;
 #[Title('Edit Database Server')]
 class Edit extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, BlocksDemoWrites, Toast;
 
     public DatabaseServerForm $form;
 
@@ -33,15 +33,11 @@ class Edit extends Component
 
     public function save(): void
     {
-        if (Gate::denies('update', $this->form->server)) {
-            $this->warning(
-                title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: $this->returnUrl,
-                flashAs: 'demo_notice',
-            );
-
+        if ($this->blockedForDemo($this->returnUrl)) {
             return;
         }
+
+        $this->authorize('update', $this->form->server);
 
         if ($this->form->update()) {
             $this->success(

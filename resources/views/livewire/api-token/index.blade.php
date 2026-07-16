@@ -26,8 +26,8 @@
                             <div class="text-sm text-base-content/70">
                                 @if($token->tokenable)
                                     <span class="font-medium">{{ $token->tokenable->name }}</span>
-                                    @php $tokenRole = $token->tokenable->roleIn(app(\App\Services\CurrentOrganization::class)->model()); @endphp
-                                    <span class="badge badge-sm badge-ghost ml-1">{{ ($tokenRole ?? \App\Enums\UserRole::Member)->label() }}</span>
+                                    @php $tokenRole = $token->tokenable->currentOrgRoleName(); @endphp
+                                    <span class="badge badge-sm badge-ghost ml-1">{{ \Illuminate\Support\Str::headline($tokenRole) }}</span>
                                     &mdash;
                                 @endif
                                 {{ __('Created') }} {{ \App\Support\Formatters::humanDate($token->created_at) }}

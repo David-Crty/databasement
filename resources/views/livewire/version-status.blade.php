@@ -89,7 +89,7 @@
             </x-alert>
         @endif
 
-        <x-tabs selected="docker-compose-tab" label-class="tabs-sm">
+        <x-tabs wire:model="updateInstructionsTab" label-class="tabs-sm">
 
             {{-- Docker Compose tab --}}
             <x-tab name="docker-compose-tab" :label="__('Docker Compose')" icon="devicon.docker">

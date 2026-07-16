@@ -2,10 +2,10 @@
 
 namespace App\Actions\Fortify;
 
-use App\Enums\UserRole;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\DemoBackupService;
+use App\Services\Roles\AssignRoleToUserAction;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -63,8 +63,11 @@ class CreateNewUser implements CreatesNewUsers
             'invitation_accepted_at' => now(),
         ]);
 
-        // Attach to main org as admin
-        $user->organizations()->attach($defaultOrg->id, ['role' => UserRole::Admin->value]);
+        // Attach to main org and grant the Admin role (in addition to the
+        // super_admin flag). The assignment action seeds the global roles first,
+        // covering a fresh install where the seeder has not run.
+        $user->organizations()->attach($defaultOrg->id);
+        app(AssignRoleToUserAction::class)->execute($user, 'admin', $defaultOrg);
 
         if ($createDemoBackup) {
             try {

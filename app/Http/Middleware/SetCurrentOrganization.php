@@ -19,14 +19,17 @@ class SetCurrentOrganization
 
     public function handle(Request $request, Closure $next): Response
     {
+        // Clear any state left over from a previous request: the service is a
+        // singleton, so in worker runtimes (FrankenPHP worker mode / Octane) a
+        // guest request would otherwise inherit the prior user's resolved org.
+        $this->currentOrganization->reset();
+
         /** @var User|Agent|null $authenticatable */
         $authenticatable = $request->user();
 
         if ($authenticatable instanceof Agent) {
             $this->currentOrganization->set($authenticatable->organization);
         } elseif ($authenticatable instanceof User) {
-            $this->currentOrganization->reset();
-
             if ($request->is('api/*') || $request->is('mcp*')) {
                 $this->resolveApiOrganization($request, $authenticatable);
             } else {

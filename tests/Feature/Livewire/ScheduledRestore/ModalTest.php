@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Livewire\ScheduledRestore\Modal;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
@@ -13,7 +13,9 @@ use Mockery\MockInterface;
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
-    $this->user = User::factory()->create(['role' => UserRole::Admin]);
+    // Scheduled restores gate on operate-restores; the happy-path tests below
+    // act as the allow case for that ability.
+    $this->user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     actingAs($this->user);
 
     $this->mock(DatabaseProvider::class, function (MockInterface $mock) {
@@ -100,9 +102,8 @@ test('edits an existing scheduled restore', function () {
         ->backup_schedule_id->toBe($schedule2->id);
 });
 
-test('non-admin users cannot open the create modal', function () {
-    $viewer = User::factory()->create(['role' => UserRole::Viewer]);
-    actingAs($viewer);
+test('without operate-restores, opening the create modal is forbidden', function () {
+    actingAs(User::factory()->withAbilities([])->create());
 
     Livewire::test(Modal::class)
         ->call('open')

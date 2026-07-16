@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Enums\VolumeType;
 use App\Livewire\Volume\Create;
 use App\Livewire\Volume\Edit;
@@ -90,12 +91,34 @@ dataset('volume types', function () {
             'expectedField' => 'host',
             'expectedValue' => 'new-ftp.example.com',
         ],
+        'azure' => [
+            'type' => VolumeType::AZURE,
+            'formData' => [
+                'account_name' => 'mystorageaccount',
+                'account_key' => 'fake-account-key',
+                'container' => 'backups',
+                'prefix' => 'production/',
+                'endpoint_suffix' => 'core.windows.net',
+                'endpoint' => 'https://gateway.example.com/mystorageaccount',
+            ],
+            'expectedConfig' => [
+                'account_name' => 'mystorageaccount',
+                'container' => 'backups',
+                'prefix' => 'production/',
+                'endpoint_suffix' => 'core.windows.net',
+                'endpoint' => 'https://gateway.example.com/mystorageaccount',
+            ],
+            'updateData' => ['container' => 'new-container', 'prefix' => 'staging/'],
+            'expectedField' => 'container',
+            'expectedValue' => 'new-container',
+        ],
     ];
 });
 
 describe('volume creation', function () {
     test('can create volume with valid data', function (VolumeType $type, array $formData, array $expectedConfig, array $updateData, string $expectedField, mixed $expectedValue) {
-        $user = User::factory()->create();
+        // Allow case for manage-volumes: that ability alone enables a full create.
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $volumeName = "{$type->label()} Backup Storage";
         $configKey = $type->configPropertyName();
 
@@ -134,7 +157,7 @@ describe('volume creation', function () {
 
 describe('volume editing', function () {
     test('can edit volume', function (VolumeType $type, array $formData, array $expectedConfig, array $updateData, string $expectedField, mixed $expectedValue) {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $factoryState = $type->value;
         $volume = Volume::factory()->{$factoryState}()->create(['name' => "{$type->label()} Volume"]);
         $configKey = $type->configPropertyName();
@@ -155,7 +178,7 @@ describe('volume editing', function () {
     })->with('volume types');
 
     test('blank password on edit preserves existing password', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $volume = Volume::factory()->sftp()->create();
 
         $originalPassword = $volume->getDecryptedConfig()['password'];
@@ -176,7 +199,7 @@ describe('volume editing', function () {
     });
 
     test('blank secret_access_key on edit preserves existing value', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $volume = Volume::factory()->s3()->create();
 
         $originalSecret = $volume->getDecryptedConfig()['secret_access_key'];
@@ -199,7 +222,8 @@ describe('volume editing', function () {
 
 describe('volume listing', function () {
     test('displays volumes in index', function () {
-        $user = User::factory()->create();
+        // Viewing needs no ability — an org member with zero grants can list volumes.
+        $user = User::factory()->withAbilities([])->create();
         Volume::factory()->local()->create([
             'name' => 'Local Volume',
             'config' => ['path' => '/var/backups'],
@@ -218,7 +242,8 @@ describe('volume listing', function () {
     });
 
     test('can search volumes', function () {
-        $user = User::factory()->create();
+        // Viewing needs no ability — an org member with zero grants can list volumes.
+        $user = User::factory()->withAbilities([])->create();
         Volume::factory()->local()->create(['name' => 'Production Volume']);
         Volume::factory()->s3()->create(['name' => 'Development Volume']);
 
@@ -232,7 +257,7 @@ describe('volume listing', function () {
 
 describe('volume deletion', function () {
     test('can delete volume', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $volume = Volume::factory()->local()->create(['name' => 'Volume to Delete']);
 
         Livewire::actingAs($user)
@@ -248,7 +273,7 @@ describe('volume deletion', function () {
     });
 
     test('deleting volume cascades to snapshots, jobs, restores, and files', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
 
         // Create volume with temp directory
         $volume = Volume::factory()->local()->create();
@@ -305,7 +330,7 @@ describe('volume deletion', function () {
     });
 
     test('deleting volume with keepFiles preserves backup files', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
 
         // Create volume with temp directory
         $volume = Volume::factory()->local()->create();
@@ -349,7 +374,7 @@ describe('volume deletion', function () {
 
 describe('volume immutability', function () {
     test('volume with snapshots only allows name editing', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
 
         // Create a volume with a snapshot
         $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
@@ -381,7 +406,7 @@ describe('volume immutability', function () {
     });
 
     test('can edit volume without snapshots', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $volume = Volume::factory()->local()->create(['name' => 'Empty Volume']);
 
         // Verify volume has no snapshots
@@ -398,7 +423,7 @@ describe('volume immutability', function () {
 
 describe('connection testing', function () {
     test('can test local volume connection', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $tempDir = sys_get_temp_dir().'/volume-test-'.uniqid();
         mkdir($tempDir, 0755, true);
 
@@ -412,7 +437,7 @@ describe('connection testing', function () {
     });
 
     test('can test connection on edit using persisted password', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
 
         // Create SFTP volume with encrypted password
         $volume = Volume::factory()->sftp()->create([
@@ -460,5 +485,34 @@ describe('connection testing', function () {
 
         expect($component->get('form.connectionTestMessage'))->toBe('Connection successful!')
             ->and($component->get('form.connectionTestSuccess'))->toBeTrue();
+    });
+});
+
+describe('volume authorization', function () {
+    test('without manage-volumes, the create screen is forbidden', function () {
+        $user = User::factory()->withAllAbilitiesExcept(Ability::ManageVolumes->value)->create();
+
+        Livewire::actingAs($user)
+            ->test(Create::class)
+            ->assertForbidden();
+    });
+
+    test('without manage-volumes, the edit screen is forbidden', function () {
+        $user = User::factory()->withAllAbilitiesExcept(Ability::ManageVolumes->value)->create();
+        $volume = Volume::factory()->local()->create();
+
+        Livewire::actingAs($user)
+            ->test(Edit::class, ['volume' => $volume])
+            ->assertForbidden();
+    });
+
+    test('without manage-volumes, deleting a volume is forbidden', function () {
+        $user = User::factory()->withAllAbilitiesExcept(Ability::ManageVolumes->value)->create();
+        $volume = Volume::factory()->local()->create();
+
+        Livewire::actingAs($user)
+            ->test(Index::class)
+            ->call('confirmDelete', $volume->id)
+            ->assertForbidden();
     });
 });

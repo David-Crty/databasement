@@ -2,18 +2,21 @@
 
 namespace App\Livewire\User;
 
-use App\Enums\UserRole;
 use App\Livewire\Forms\UserForm;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\User;
 use App\Services\CurrentOrganization;
+use App\Services\Roles\AssignRoleToUserAction;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Silber\Bouncer\Database\Role;
 
 #[Title('Add User')]
 class Create extends Component
@@ -26,7 +29,7 @@ class Create extends Component
 
     public string $existingUserId = '';
 
-    public string $existingUserRole = UserRole::Member->value;
+    public string $existingUserRole = 'member';
 
     public bool $showCopyModal = false;
 
@@ -53,7 +56,7 @@ class Create extends Component
 
         $this->validate([
             'existingUserId' => 'required|exists:users,id',
-            'existingUserRole' => 'required|'.UserRole::validationRule(),
+            'existingUserRole' => ['required', Rule::in($this->assignableRoleNames())],
         ]);
 
         $user = User::findOrFail($this->existingUserId);
@@ -64,7 +67,11 @@ class Create extends Component
             return;
         }
 
-        $user->organizations()->attach($currentOrg->id(), ['role' => $this->existingUserRole]);
+        // Membership and role assignment must both succeed, or neither.
+        DB::transaction(function () use ($user, $currentOrg) {
+            $user->organizations()->attach($currentOrg->id());
+            app(AssignRoleToUserAction::class)->execute($user, $this->existingUserRole, $currentOrg->model());
+        });
 
         $this->success(
             title: __('User added to organization.'),
@@ -104,10 +111,28 @@ class Create extends Component
         return Organization::count() > 1;
     }
 
+    /**
+     * Role names assignable to an existing user (every role except the hidden
+     * Demo role). Mirrors the options shown in the form.
+     *
+     * @return list<string>
+     */
+    private function assignableRoleNames(): array
+    {
+        return array_values(
+            Role::query()
+                ->orderBy('id')
+                ->get()
+                ->map(fn (Role $role) => (string) $role->name)
+                ->all()
+        );
+    }
+
     public function render(): View
     {
         return view('livewire.user.create', [
             'roleOptions' => $this->form->roleOptions(),
+            'abilityGroups' => $this->form->abilityGroups(),
             'availableUsers' => $this->availableUsers(),
         ]);
     }

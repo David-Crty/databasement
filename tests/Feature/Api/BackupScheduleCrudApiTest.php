@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Models\BackupSchedule;
 use App\Models\User;
 
@@ -53,8 +54,9 @@ test('unauthenticated users cannot create backup schedules', function () {
         ->assertUnauthorized();
 });
 
-test('viewers cannot create backup schedules', function () {
-    $user = User::factory()->viewer()->create();
+test('without manage-backup-settings, creating a backup schedule is forbidden', function () {
+    // Necessity proof: holding every ability except manage-backup-settings must still be forbidden.
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageBackupSettings->value)->create();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/backup-schedules', [
@@ -65,7 +67,7 @@ test('viewers cannot create backup schedules', function () {
 });
 
 test('can create a backup schedule via api', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/backup-schedules', [
@@ -81,7 +83,7 @@ test('can create a backup schedule via api', function () {
 });
 
 test('store rejects invalid cron expression', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/backup-schedules', [
@@ -93,7 +95,7 @@ test('store rejects invalid cron expression', function () {
 });
 
 test('store rejects duplicate name', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create();
     BackupSchedule::factory()->create(['name' => 'Hourly']);
 
     $this->actingAs($user, 'sanctum')
@@ -114,8 +116,9 @@ test('unauthenticated users cannot update backup schedules', function () {
         ->assertUnauthorized();
 });
 
-test('viewers cannot update backup schedules', function () {
-    $user = User::factory()->viewer()->create();
+test('without manage-backup-settings, updating a backup schedule is forbidden', function () {
+    // Necessity proof: holding every ability except manage-backup-settings must still be forbidden.
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageBackupSettings->value)->create();
     $schedule = BackupSchedule::factory()->create();
 
     $this->actingAs($user, 'sanctum')
@@ -127,7 +130,7 @@ test('viewers cannot update backup schedules', function () {
 });
 
 test('can update a backup schedule via api', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create();
     $schedule = BackupSchedule::factory()->create();
 
     $response = $this->actingAs($user, 'sanctum')
@@ -142,7 +145,7 @@ test('can update a backup schedule via api', function () {
 });
 
 test('update allows keeping the same name', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create();
     $schedule = BackupSchedule::factory()->create(['name' => 'Hourly']);
 
     $this->actingAs($user, 'sanctum')
@@ -155,7 +158,7 @@ test('update allows keeping the same name', function () {
 });
 
 test('update returns validation errors', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create();
     $schedule = BackupSchedule::factory()->create();
 
     $this->actingAs($user, 'sanctum')
@@ -173,8 +176,9 @@ test('unauthenticated users cannot delete backup schedules', function () {
         ->assertUnauthorized();
 });
 
-test('viewers cannot delete backup schedules', function () {
-    $user = User::factory()->viewer()->create();
+test('without manage-backup-settings, deleting a backup schedule is forbidden', function () {
+    // Necessity proof: holding every ability except manage-backup-settings must still be forbidden.
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageBackupSettings->value)->create();
     $schedule = BackupSchedule::factory()->create();
 
     $this->actingAs($user, 'sanctum')
@@ -183,7 +187,7 @@ test('viewers cannot delete backup schedules', function () {
 });
 
 test('can delete a backup schedule via api', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create();
     $schedule = BackupSchedule::factory()->create();
 
     $this->actingAs($user, 'sanctum')

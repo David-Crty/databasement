@@ -26,12 +26,20 @@
     $resolvedName = $name ?? (empty($wireModelAttrs) ? null : reset($wireModelAttrs));
 
     $labelClasses = [
-        'relative rounded-lg transition-all px-3 py-3',
+        'group relative rounded-lg transition-shadow duration-300 ease-out px-3 py-3',
         $horizontal ? 'flex items-center gap-3 text-left' : 'flex flex-col items-center gap-1.5 text-center',
-        $active ? "bg-base-100 shadow-sm ring-1 {$activeRing}" : 'hover:bg-base-100/50',
+        $active ? "bg-base-100 shadow-sm ring-1 {$activeRing}" : 'hover:bg-base-100 hover:shadow-md',
         $disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
         'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-base-200',
     ];
+
+    // The check is shown for the active card, and faded in on hover for selectable
+    // (non-active, enabled) cards to hint they can be picked. Disabled cards keep it hidden.
+    $checkClasses = match (true) {
+        $active => $activeText,
+        $disabled => 'opacity-0',
+        default => 'text-base-content/30 opacity-0 group-hover:opacity-100',
+    };
 @endphp
 
 <label {{ $attributes->whereDoesntStartWith('wire:model')->merge(['class' => implode(' ', $labelClasses)]) }}>
@@ -56,9 +64,13 @@
         @if($hint)
             <span class="block text-xs mt-0.5 leading-snug {{ $active ? 'text-base-content/60' : 'text-base-content/40' }}">{{ $hint }}</span>
         @endif
+        @if(trim((string) $slot) !== '')
+            <span class="mt-1.5 block">{{ $slot }}</span>
+        @endif
     </span>
 
-    @if($active)
-        <x-icon name="s-check-circle" class="w-4 h-4 {{ $activeText }} {{ $horizontal ? 'shrink-0' : 'absolute top-2 right-2' }}" />
-    @endif
+    <x-icon
+        name="s-check-circle"
+        class="w-4 h-4 transition-opacity {{ $horizontal ? 'shrink-0' : 'absolute top-2 right-2' }} {{ $checkClasses }}"
+    />
 </label>

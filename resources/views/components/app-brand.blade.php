@@ -1,4 +1,4 @@
-<a href="/" wire:navigate>
+<a href="{{ url('/') }}" wire:navigate>
     <!-- Hidden when collapsed -->
     <div {{ $attributes->class(["hidden-when-collapsed"]) }}>
         <div class="flex items-center gap-3 w-fit">

@@ -5,7 +5,7 @@
         @endscope
 
         @scope('cell_value', $row)
-            <span class="font-mono text-sm text-base-content/80">{{ $row['value'] }}</span>
+            <span class="font-mono text-sm text-base-content/80 block max-w-36 truncate sm:max-w-64" title="{{ $row['value'] }}">{{ $row['value'] }}</span>
         @endscope
 
         @scope('cell_description', $row)

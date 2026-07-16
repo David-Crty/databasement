@@ -63,10 +63,10 @@
             @endscope
 
             @scope('cell_type', $volume)
-                <div class="flex items-center gap-2">
-                    <x-volume-type-icon :type="$volume->type" class="w-4 h-4" />
-                    <span>{{ $volume->getVolumeType()?->label() ?? $volume->type }}</span>
-                </div>
+                <span class="badge badge-ghost badge-sm gap-1 whitespace-nowrap">
+                    <x-volume-type-icon :type="$volume->type" class="w-3.5 h-3.5" />
+                    {{ $volume->getVolumeType()?->label() ?? $volume->type }}
+                </span>
             @endscope
 
             @scope('cell_config', $volume)

@@ -8,7 +8,8 @@ use App\Services\Backup\Databases\DatabaseProvider;
 use Livewire\Livewire;
 
 test('renders success status when connection succeeds', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can view connection status.
+    $user = User::factory()->withAbilities([])->create();
     $server = DatabaseServer::factory()->create();
 
     $this->mock(DatabaseProvider::class, function ($mock) use ($server) {
@@ -27,7 +28,8 @@ test('renders success status when connection succeeds', function () {
 });
 
 test('shows agent online when agent has recent heartbeat', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can view connection status.
+    $user = User::factory()->withAbilities([])->create();
     $agent = Agent::factory()->create(['last_heartbeat_at' => now()]);
     $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
 
@@ -43,7 +45,8 @@ test('shows agent online when agent has recent heartbeat', function () {
 });
 
 test('shows agent offline when agent has no recent heartbeat', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can view connection status.
+    $user = User::factory()->withAbilities([])->create();
     $agent = Agent::factory()->create(['last_heartbeat_at' => now()->subMinutes(5)]);
     $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
 
@@ -59,7 +62,8 @@ test('shows agent offline when agent has no recent heartbeat', function () {
 });
 
 test('renders error status when connection fails', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can view connection status.
+    $user = User::factory()->withAbilities([])->create();
     $server = DatabaseServer::factory()->create();
 
     $this->mock(DatabaseProvider::class, function ($mock) use ($server) {

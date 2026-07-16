@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Lorisleiva\CronTranslator\CronTranslator;
 
 class Formatters
@@ -79,6 +80,23 @@ class Formatters
         } catch (\Throwable) {
             return $fallback;
         }
+    }
+
+    /**
+     * Join names into a comma-separated list, keeping it short enough to fit in a
+     * popover: beyond $limit entries the rest collapse into a "+N more" suffix.
+     *
+     * @param  \Illuminate\Support\Collection<int, string>|array<int, string>  $names
+     */
+    public static function truncatedList(Collection|array $names, int $limit = 5): string
+    {
+        $names = Collection::make($names);
+        $shown = $names->take($limit)->join(', ');
+        $remaining = $names->count() - $limit;
+
+        return $remaining > 0
+            ? __(':shown +:count more', ['shown' => $shown, 'count' => $remaining])
+            : $shown;
     }
 
     /**

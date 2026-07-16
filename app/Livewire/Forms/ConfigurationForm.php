@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Forms;
 
-use App\Enums\UserRole;
+use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use Cron\CronExpression;
 use Livewire\Form;
@@ -12,14 +12,14 @@ class ConfigurationForm extends Form
     // Application settings
     public bool $adminer_enabled = false;
 
-    public string $adminer_role = 'admin';
-
     // Backup settings
     public string $working_directory = '';
 
     public string $compression = '';
 
     public int $compression_level = 6;
+
+    public bool $compression_multithread = false;
 
     public int $job_timeout = 7200;
 
@@ -42,13 +42,26 @@ class ConfigurationForm extends Form
 
     public string $schedule_expression = '';
 
+    /**
+     * Keep the compression level within the selected algorithm's ceiling when
+     * the algorithm changes (e.g. switching zstd → gzip drops 19 down to 9).
+     */
+    public function updatedCompression(string $value): void
+    {
+        $max = CompressionType::tryFrom($value)?->maxLevel();
+
+        if ($max !== null && $this->compression_level > $max) {
+            $this->compression_level = $max;
+        }
+    }
+
     public function loadFromConfig(): void
     {
         $this->adminer_enabled = (bool) AppConfig::get('app.adminer_enabled');
-        $this->adminer_role = (string) AppConfig::get('app.adminer_role');
         $this->working_directory = (string) AppConfig::get('backup.working_directory');
         $this->compression = (string) AppConfig::get('backup.compression');
         $this->compression_level = (int) AppConfig::get('backup.compression_level');
+        $this->compression_multithread = (bool) AppConfig::get('backup.compression_multithread');
         $this->job_timeout = (int) AppConfig::get('backup.job_timeout');
         $this->job_tries = (int) AppConfig::get('backup.job_tries');
         $this->job_backoff = (int) AppConfig::get('backup.job_backoff');
@@ -66,7 +79,6 @@ class ConfigurationForm extends Form
     {
         return [
             'adminer_enabled' => ['boolean'],
-            'adminer_role' => ['required', 'string', UserRole::validationRule()],
         ];
     }
 
@@ -74,14 +86,7 @@ class ConfigurationForm extends Form
     {
         $this->validate($this->applicationRules());
 
-        $appKeyMap = [
-            'adminer_enabled' => 'app.adminer_enabled',
-            'adminer_role' => 'app.adminer_role',
-        ];
-
-        foreach ($appKeyMap as $property => $configKey) {
-            AppConfig::set($configKey, $this->{$property});
-        }
+        AppConfig::set('app.adminer_enabled', $this->adminer_enabled);
     }
 
     /**
@@ -89,10 +94,13 @@ class ConfigurationForm extends Form
      */
     private function backupRules(): array
     {
+        $maxLevel = CompressionType::tryFrom($this->compression)?->maxLevel() ?? 19;
+
         return [
             'working_directory' => ['required', 'string', 'max:500', new \App\Rules\SafePath(allowAbsolute: true)],
             'compression' => ['required', 'string', 'in:gzip,zstd,encrypted'],
-            'compression_level' => ['required', 'integer', 'min:1', 'max:'.($this->compression === 'gzip' ? 9 : 19)],
+            'compression_level' => ['required', 'integer', 'min:1', 'max:'.$maxLevel],
+            'compression_multithread' => ['boolean'],
             'job_timeout' => ['required', 'integer', 'min:60', 'max:86400'],
             'job_tries' => ['required', 'integer', 'min:1', 'max:10'],
             'job_backoff' => ['required', 'integer', 'min:0', 'max:3600'],
@@ -135,6 +143,7 @@ class ConfigurationForm extends Form
             'working_directory' => 'backup.working_directory',
             'compression' => 'backup.compression',
             'compression_level' => 'backup.compression_level',
+            'compression_multithread' => 'backup.compression_multithread',
             'job_timeout' => 'backup.job_timeout',
             'job_tries' => 'backup.job_tries',
             'job_backoff' => 'backup.job_backoff',

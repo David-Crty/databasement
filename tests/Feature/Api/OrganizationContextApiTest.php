@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\UserRole;
 use App\Models\DatabaseServer;
 use App\Models\Organization;
 use App\Models\User;
@@ -109,7 +108,7 @@ describe('cross-org resource isolation', function () {
 
     test('member of multiple orgs can switch between them', function () {
         $user = User::factory()->create();
-        $user->organizations()->attach($this->otherOrg->id, ['role' => UserRole::Member]);
+        attachUserToOrg($user, $this->otherOrg, 'member');
 
         DatabaseServer::factory()->create(['name' => 'Main Server', 'organization_id' => $this->defaultOrg->id]);
         DatabaseServer::factory()->create(['name' => 'Other Server', 'organization_id' => $this->otherOrg->id]);

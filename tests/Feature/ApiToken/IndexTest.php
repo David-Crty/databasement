@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\UserRole;
 use App\Livewire\ApiToken\Index;
 use App\Models\User;
 use Livewire\Livewire;
@@ -37,12 +36,12 @@ test('can revoke an existing token', function () {
 });
 
 test('regular user cannot revoke another users token', function () {
-    $owner = User::factory()->create(['role' => UserRole::Member]);
-    $otherUser = User::factory()->create(['role' => UserRole::Member]);
+    $owner = User::factory()->create();
+    $otherUser = User::factory()->create();
     $token = $owner->createToken('Owner Token');
     $tokenId = $token->accessToken->id;
 
-    // Non-admin trying to delete another user's token should fail (token not found due to scoping)
+    // A non-super-admin trying to delete another user's token should fail (scoped out)
     Livewire::actingAs($otherUser)
         ->test(Index::class)
         ->call('confirmDelete', $tokenId)
@@ -52,13 +51,13 @@ test('regular user cannot revoke another users token', function () {
     expect($owner->tokens()->where('id', $tokenId)->exists())->toBeTrue();
 });
 
-test('admin can revoke any users token', function () {
-    $owner = User::factory()->create(['role' => UserRole::Member]);
-    $admin = User::factory()->create(['role' => UserRole::Admin]);
+test('super admin can revoke any users token', function () {
+    $owner = User::factory()->create();
+    $superAdmin = User::factory()->superAdmin()->create();
     $token = $owner->createToken('Owner Token');
     $tokenId = $token->accessToken->id;
 
-    Livewire::actingAs($admin)
+    Livewire::actingAs($superAdmin)
         ->test(Index::class)
         ->call('confirmDelete', $tokenId)
         ->call('deleteToken');
@@ -66,30 +65,31 @@ test('admin can revoke any users token', function () {
     expect($owner->tokens()->where('id', $tokenId)->exists())->toBeFalse();
 });
 
-test('admin sees all tokens with user info', function () {
-    $admin = User::factory()->create(['name' => 'Alice', 'role' => UserRole::Admin]);
-    $member = User::factory()->create(['name' => 'Bob', 'role' => UserRole::Member]);
-    $admin->createToken('Alice Token');
+test('super admin sees all tokens with user info', function () {
+    $superAdmin = User::factory()->superAdmin()->create(['name' => 'Alice']);
+    $member = User::factory()->create(['name' => 'Bob']);
+    $superAdmin->createToken('Alice Token');
     $member->createToken('Bob Token');
 
-    Livewire::actingAs($admin)
+    Livewire::actingAs($superAdmin)
         ->test(Index::class)
         ->assertSee('Alice Token')
         ->assertSee('Bob Token')
         ->assertSee('Alice')
         ->assertSee('Bob')
         ->assertSee('Admin')
-        ->assertSee('Member');
+        ->assertSee('Viewer');
 });
 
-test('non-admin only sees own tokens', function () {
-    $admin = User::factory()->create(['name' => 'Alice', 'role' => UserRole::Admin]);
-    $member = User::factory()->create(['name' => 'Bob', 'role' => UserRole::Member]);
-    $admin->createToken('Alice Token');
-    $member->createToken('Bob Token');
+test('org admin only sees own tokens', function () {
+    // Org admins are not privileged here — only super admins see every token.
+    $orgAdmin = User::factory()->create(['name' => 'Alice', 'role' => 'admin']);
+    $other = User::factory()->create(['name' => 'Bob']);
+    $orgAdmin->createToken('Alice Token');
+    $other->createToken('Bob Token');
 
-    Livewire::actingAs($member)
+    Livewire::actingAs($orgAdmin)
         ->test(Index::class)
-        ->assertSee('Bob Token')
-        ->assertDontSee('Alice Token');
+        ->assertSee('Alice Token')
+        ->assertDontSee('Bob Token');
 });

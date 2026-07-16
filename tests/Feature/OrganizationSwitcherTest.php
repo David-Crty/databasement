@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\UserRole;
 use App\Livewire\OrganizationSwitcher;
 use App\Models\Organization;
 use App\Models\User;
@@ -9,7 +8,7 @@ use Livewire\Livewire;
 test('user can switch to an organization they belong to', function () {
     $user = User::factory()->create();
     $otherOrg = Organization::factory()->create();
-    $user->organizations()->attach($otherOrg->id, ['role' => UserRole::Member]);
+    attachUserToOrg($user, $otherOrg, 'member');
 
     Livewire::actingAs($user)
         ->test(OrganizationSwitcher::class)

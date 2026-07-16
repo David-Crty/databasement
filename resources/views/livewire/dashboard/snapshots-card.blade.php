@@ -1,17 +1,6 @@
 <x-card>
     <div class="space-y-3">
-        {{-- Header: label + verify button --}}
-        <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">{{ __('Snapshots') }}</h3>
-            <x-button
-                icon="o-arrow-path"
-                label="{{ __('Verify') }}"
-                wire:click="verifyFiles"
-                spinner
-                class="btn-ghost btn-xs text-base-content/60"
-                :disabled="!auth()->user()->isAdmin()"
-            />
-        </div>
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/50">{{ __('Snapshots') }}</h3>
 
         {{-- Count + status badge --}}
         <div class="flex items-end justify-between">

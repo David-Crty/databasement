@@ -47,7 +47,7 @@
                     autofocus
                     autocomplete="email"
                     placeholder="email@example.com"
-                    value="{{ config('app.demo_mode') ? config('app.demo_user_email') : old('email') }}"
+                    value="{{ config('app.demo_mode') ? \App\Models\User::DEMO_EMAIL : old('email') }}"
                 />
 
                 <!-- Password -->

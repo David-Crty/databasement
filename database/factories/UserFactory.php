@@ -2,9 +2,11 @@
 
 namespace Database\Factories;
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\Roles\AssignRoleToUserAction;
+use App\Services\Roles\SyncUserAbilitiesAction;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -31,7 +33,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => static::$password ??= 'password',
             'super_admin' => false,
-            'role' => UserRole::Member, // Virtual — not a DB column; intercepted by newModel()
+            'role' => 'viewer', // Virtual — not a DB column; intercepted by newModel()
             'invitation_accepted_at' => now(),
             'remember_token' => Str::random(10),
             'two_factor_secret' => Str::random(10),
@@ -41,40 +43,50 @@ class UserFactory extends Factory
     }
 
     /**
-     * Intercept the virtual 'role' attribute before forceFill() tries to
-     * write it to the model. The value is stashed on {@see User::$pendingPivotRole}
-     * so that {@see configure()}'s afterCreating hook can attach the user to the
-     * org with the correct role.
+     * Intercept the virtual 'role' attribute before forceFill() tries to write
+     * it to the model. The value (a role name) is stashed on
+     * {@see User::$pendingRole} so that {@see configure()}'s afterCreating hook
+     * can assign the matching Bouncer role within the organization scope.
      *
      * @param  array<string, mixed>  $attributes
      */
     public function newModel(array $attributes = [])
     {
-        $role = $attributes['role'] ?? UserRole::Member;
+        $role = (string) ($attributes['role'] ?? 'viewer');
         unset($attributes['role']);
 
-        if (is_string($role)) {
-            $role = UserRole::from($role);
-        }
+        $abilities = $attributes['abilities'] ?? null;
+        unset($attributes['abilities']);
 
         $model = parent::newModel($attributes);
-        $model->pendingPivotRole = $role;
+        $model->pendingRole = $role;
+        $model->pendingAbilities = is_array($abilities) ? array_values($abilities) : null;
 
         return $model;
     }
 
     /**
-     * After creating, attach the user to the main org with the configured role.
+     * After creating, add the user to the default org and assign their role as a
+     * Bouncer assignment scoped to that org. The built-in roles already exist
+     * (seeded by migration), so this only assigns.
      */
     public function configure(): static
     {
         return $this->afterCreating(function (User $user) {
             $org = rescue(fn () => Organization::default(), fn () => Organization::factory()->default()->create());
-            $role = $user->pendingPivotRole ?? UserRole::Member;
-            $user->pendingPivotRole = null;
+            $role = $user->pendingRole ?? 'viewer';
+            $abilities = $user->pendingAbilities;
+            $user->pendingRole = null;
+            $user->pendingAbilities = null;
 
             if (! $user->organizations()->where('organization_id', $org->id)->exists()) {
-                $user->organizations()->attach($org->id, ['role' => $role->value]);
+                $user->organizations()->attach($org->id);
+            }
+
+            app(AssignRoleToUserAction::class)->execute($user, $role, $org);
+
+            if (is_array($abilities) && $abilities !== []) {
+                app(SyncUserAbilitiesAction::class)->execute($user, $abilities, $org);
             }
         });
     }
@@ -84,39 +96,36 @@ class UserFactory extends Factory
      */
     public function superAdmin(): static
     {
-        return $this->state(['super_admin' => true, 'role' => UserRole::Admin]);
+        return $this->state(['super_admin' => true, 'role' => 'admin']);
     }
 
     /**
-     * Set the user's role in the default org to admin.
+     * Grant exactly the given catalogue abilities to the user in the default org,
+     * on top of a baseline role that grants nothing (viewer). The user's effective
+     * abilities then equal precisely the ones listed — ideal for authorization
+     * tests that exercise a single ability in isolation. Pass an empty array (the
+     * default) for a user with no special abilities, used for "access denied"
+     * assertions.
+     *
+     * @param  list<string>  $abilities  ability names from the Ability catalogue
      */
-    public function admin(): static
+    public function withAbilities(array $abilities = []): static
     {
-        return $this->state(['role' => UserRole::Admin]);
+        return $this->state(['role' => 'viewer', 'abilities' => $abilities]);
     }
 
     /**
-     * Set the user's role in the default org to operator.
+     * Grant every catalogue ability EXCEPT the listed ones, on top of a baseline
+     * role that grants nothing (viewer). This is the stronger "access denied"
+     * actor for authorization deny cases: because the user holds every other
+     * ability and is still forbidden, it proves the guarded action is gated by
+     * precisely the excluded ability — not merely by an empty ability set.
+     *
+     * @param  string  ...$except  ability names withheld from the Ability catalogue
      */
-    public function operator(): static
+    public function withAllAbilitiesExcept(string ...$except): static
     {
-        return $this->state(['role' => UserRole::Operator]);
-    }
-
-    /**
-     * Set the user's role in the default org to viewer.
-     */
-    public function viewer(): static
-    {
-        return $this->state(['role' => UserRole::Viewer]);
-    }
-
-    /**
-     * Set the user's role in the default org to demo.
-     */
-    public function demo(): static
-    {
-        return $this->state(['role' => UserRole::Demo]);
+        return $this->withAbilities(array_values(array_diff(Ability::names(), $except)));
     }
 
     /**

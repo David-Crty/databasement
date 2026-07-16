@@ -8,49 +8,11 @@
 
     <x-card class="space-y-6">
         <form wire:submit="save" class="space-y-6">
-            <x-input
-                wire:model="form.name"
-                label="{{ __('Name') }}"
-                placeholder="{{ __('Full name') }}"
-                icon="o-user"
-                required
-            />
-
-            <x-input
-                wire:model="form.email"
-                label="{{ __('Email') }}"
-                type="email"
-                placeholder="{{ __('email@example.com') }}"
-                icon="o-envelope"
-                :disabled="$isOAuthUser"
-                :hint="$isOAuthUser ? __('Email cannot be changed for SSO/OAuth users.') : null"
-                required
-            />
-
-            @if($isSuperAdmin)
-                <x-checkbox
-                    wire:model="form.superAdmin"
-                    :label="__('Super Admin')"
-                    :hint="__('Super admins can access all organizations and manage global settings.')"
-                />
-            @endif
-
-            <div>
-                <label class="label label-text font-semibold mb-2">{{ __('Role in current organization') }}</label>
-                <x-radio-card-group class="grid-cols-1 sm:grid-cols-3" :label="__('Role')">
-                    @foreach($roleOptions as $option)
-                        <x-radio-card
-                            :active="$form->role === $option['id']"
-                            :icon="$option['icon']"
-                            :label="$option['name']"
-                            :hint="$option['description']"
-                            :value="$option['id']"
-                            horizontal
-                            wire:model.live="form.role"
-                        />
-                    @endforeach
-                </x-radio-card-group>
-            </div>
+            @include('livewire.user._form', [
+                'roleOptions' => $roleOptions,
+                'abilityGroups' => $abilityGroups,
+                'isOAuthUser' => $isOAuthUser,
+            ])
 
             <div class="bg-base-200 p-4 rounded-lg">
                 <h4 class="font-medium mb-2">{{ __('User Status') }}</h4>

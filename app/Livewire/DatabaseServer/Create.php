@@ -5,17 +5,17 @@ namespace App\Livewire\DatabaseServer;
 use App\Livewire\Forms\DatabaseServerForm;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
+use App\Traits\BlocksDemoWrites;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Title('Create Database Server')]
 class Create extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, BlocksDemoWrites, Toast;
 
     public DatabaseServerForm $form;
 
@@ -29,15 +29,11 @@ class Create extends Component
 
     public function save(): void
     {
-        if (Gate::denies('create', DatabaseServer::class)) {
-            $this->warning(
-                title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: route('database-servers.index'),
-                flashAs: 'demo_notice',
-            );
-
+        if ($this->blockedForDemo(route('database-servers.index'))) {
             return;
         }
+
+        $this->authorize('create', DatabaseServer::class);
 
         if ($this->form->store()) {
             $this->success(

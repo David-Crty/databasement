@@ -1,9 +1,21 @@
+import fs from 'fs';
+import path from 'path';
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
 const version = process.env.DOCS_VERSION;
 const isLocalBuild = process.env.DOCS_LOCAL === 'true';
+
+// Versioned builds: scripts/prepare-versions.sh snapshots one docs version per
+// 1.x minor from git tags. When versions.json exists, the latest minor is
+// served at the root path and older minors under /<minor>/. Local dev without
+// snapshots keeps the plain single-version behavior.
+const versionsFile = path.join(__dirname, 'versions.json');
+const versions: string[] = fs.existsSync(versionsFile)
+    ? JSON.parse(fs.readFileSync(versionsFile, 'utf8'))
+    : [];
+const isVersioned = versions.length > 0;
 
 const config: Config = {
     title: 'Databasement',
@@ -79,7 +91,20 @@ const config: Config = {
                 docs: {
                     sidebarPath: './sidebars.ts',
                     routeBasePath: '/',
-                    editUrl: 'https://github.com/David-Crty/databasement/tree/main/docs/',
+                    // Versioned snapshots are ephemeral (not in the repo), so
+                    // always point "Edit this page" at the docs source on main.
+                    editUrl: ({docPath}) =>
+                        `https://github.com/David-Crty/databasement/tree/main/docs/docs/${docPath}`,
+                    ...(isVersioned ? {
+                        includeCurrentVersion: false,
+                        lastVersion: versions[0],
+                        versions: {
+                            [versions[0]]: {
+                                label: `${versions[0]} (latest)`,
+                                path: '',
+                            },
+                        },
+                    } : {}),
                 },
                 blog: false,
                 theme: {
@@ -114,7 +139,10 @@ const config: Config = {
                     position: 'left',
                     label: 'User Guide',
                 },
-                ...(version ? [{
+                ...(isVersioned ? [{
+                    type: 'docsVersionDropdown' as const,
+                    position: 'right' as const,
+                }] : version ? [{
                     type: 'html' as const,
                     position: 'right' as const,
                     value: `<span class="badge badge--secondary">v${version}</span>`,

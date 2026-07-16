@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -71,8 +72,8 @@ test('unauthenticated users cannot create volumes', function () {
         ->assertUnauthorized();
 });
 
-test('viewers cannot create volumes', function () {
-    $user = User::factory()->viewer()->create();
+test('without manage-volumes, creating a volume via api is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageVolumes->value)->create();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/volumes/local', [
@@ -83,7 +84,7 @@ test('viewers cannot create volumes', function () {
 });
 
 test('can create volume and sensitive fields are hidden', function (array $data) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson($data['endpoint'], $data['payload']);
@@ -132,8 +133,8 @@ test('unauthenticated users cannot delete volumes', function () {
         ->assertUnauthorized();
 });
 
-test('viewers cannot delete volumes', function () {
-    $user = User::factory()->viewer()->create();
+test('without manage-volumes, deleting a volume via api is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageVolumes->value)->create();
     $volume = Volume::factory()->create();
 
     $this->actingAs($user, 'sanctum')
@@ -142,7 +143,7 @@ test('viewers cannot delete volumes', function () {
 });
 
 test('can delete a volume via api', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
     $volume = Volume::factory()->create();
 
     $this->actingAs($user, 'sanctum')

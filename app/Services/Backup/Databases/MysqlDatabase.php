@@ -22,7 +22,6 @@ class MysqlDatabase implements DatabaseInterface
         '--single-transaction', // Consistent snapshot for InnoDB without locking
         '--routines',           // Include stored procedures and functions
         '--add-drop-table',     // Add DROP TABLE before each CREATE TABLE
-        '--complete-insert',    // Use complete INSERT statements with column names
         '--hex-blob',           // Encode binary data as hex for safer transport
         '--quote-names',        // Quote identifiers with backticks
     ];

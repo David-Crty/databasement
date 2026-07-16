@@ -15,18 +15,20 @@ class CompressorFactory
     /**
      * Create a compressor instance based on configuration.
      */
-    public function make(?CompressionType $type = null, ?int $level = null): CompressorInterface
+    public function make(?CompressionType $type = null, ?int $level = null, ?bool $multithread = null): CompressorInterface
     {
         $type = $type ?? CompressionType::from(AppConfig::get('backup.compression'));
         $level = $level ?? (int) AppConfig::get('backup.compression_level');
+        $multithread = $multithread ?? (bool) AppConfig::get('backup.compression_multithread');
 
         return match ($type) {
             CompressionType::GZIP => new GzipCompressor($this->shellProcessor, $level),
-            CompressionType::ZSTD => new ZstdCompressor($this->shellProcessor, $level),
+            CompressionType::ZSTD => new ZstdCompressor($this->shellProcessor, $level, $multithread),
             CompressionType::ENCRYPTED => new EncryptedCompressor(
                 $this->shellProcessor,
                 $level,
-                $this->getEncryptionKey()
+                $this->getEncryptionKey(),
+                $multithread
             ),
         };
     }

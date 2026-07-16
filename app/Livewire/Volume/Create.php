@@ -4,17 +4,17 @@ namespace App\Livewire\Volume;
 
 use App\Livewire\Forms\VolumeForm;
 use App\Models\Volume;
+use App\Traits\BlocksDemoWrites;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Title('Create Volume')]
 class Create extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, BlocksDemoWrites, Toast;
 
     public VolumeForm $form;
 
@@ -25,15 +25,11 @@ class Create extends Component
 
     public function save(): void
     {
-        if (Gate::denies('create', Volume::class)) {
-            $this->warning(
-                title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: route('volumes.index'),
-                flashAs: 'demo_notice'
-            );
-
+        if ($this->blockedForDemo(route('volumes.index'))) {
             return;
         }
+
+        $this->authorize('create', Volume::class);
 
         $this->form->store();
 

@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Jobs\ProcessBackupJob;
 use App\Jobs\ProcessRestoreJob;
 use App\Mcp\Servers\DatabasementServer;
@@ -83,7 +83,7 @@ test('list snapshots filters by server', function () {
 
 test('trigger backup dispatches job', function () {
     Queue::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
     $server = createDatabaseServer(['database_names' => ['testdb']]);
 
     $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
@@ -96,8 +96,8 @@ test('trigger backup dispatches job', function () {
     Queue::assertPushed(ProcessBackupJob::class);
 });
 
-test('trigger backup rejects viewer users', function () {
-    $user = User::factory()->create(['role' => UserRole::Viewer]);
+test('trigger backup is rejected without the run-backups ability', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::RunBackups->value)->create();
     $server = createDatabaseServer();
 
     $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
@@ -109,7 +109,7 @@ test('trigger backup rejects viewer users', function () {
 
 test('trigger restore dispatches job', function () {
     Queue::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     $server = createDatabaseServer(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($server)->create();
 
@@ -142,8 +142,8 @@ test('trigger restore rejects type mismatch', function () {
     Queue::assertNothingPushed();
 });
 
-test('trigger restore rejects viewer users', function () {
-    $user = User::factory()->create(['role' => UserRole::Viewer]);
+test('trigger restore is rejected without the operate-restores ability', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::OperateRestores->value)->create();
     $server = createDatabaseServer(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($server)->create();
 
@@ -232,7 +232,7 @@ test('list snapshots includes snapshot details', function () {
 
 test('trigger backup returns snapshot ids', function () {
     Queue::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
     $server = createDatabaseServer(['database_names' => ['db1', 'db2']]);
 
     $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
@@ -270,7 +270,7 @@ test('trigger backup rejects server without backup config', function () {
 
 test('trigger backup targets a specific backup id when provided', function () {
     Queue::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
     $server = createDatabaseServer(['database_type' => 'mysql']);
 
     // Add a second backup on a weekly schedule so there are two to choose from
@@ -371,7 +371,7 @@ test('web mcp route requires authentication', function () {
 test('list organizations shows user orgs with active indicator', function () {
     $user = User::factory()->create();
     $otherOrg = Organization::factory()->create(['name' => 'Other Org']);
-    $user->organizations()->attach($otherOrg->id, ['role' => UserRole::Member]);
+    attachUserToOrg($user, $otherOrg, 'member');
 
     $response = DatabasementServer::actingAs($user)->tool(ListOrganizationsTool::class);
 

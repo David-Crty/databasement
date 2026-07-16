@@ -8,12 +8,14 @@ use App\Models\User;
 class OrganizationPolicy
 {
     /**
-     * Determine whether the user can view any organizations.
-     * Only super admins can view the organizations management page.
+     * Determine whether the user can view the organizations page.
+     * Every org member can view it (read-only); the component scopes the list
+     * to the member's own organizations, while super admins see all. Mutating
+     * organizations remains super-admin-only (create/update/delete).
      */
     public function viewAny(User $user): bool
     {
-        return $user->isSuperAdmin();
+        return true;
     }
 
     /**

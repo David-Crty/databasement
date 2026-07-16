@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Facades\AppConfig;
 use App\Models\DatabaseServer;
 use App\Models\User;
@@ -33,41 +33,40 @@ class DatabaseServerPolicy
      */
     public function viewForm(User $user, ?DatabaseServer $databaseServer = null): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->can(Ability::ManageDatabaseServers->value);
     }
 
     /**
      * Determine whether the user can create models.
-     * Viewers and demo users cannot create.
      */
     public function create(User $user): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageDatabaseServers->value);
     }
 
     /**
      * Determine whether the user can update the model.
-     * Viewers and demo users cannot update.
      */
     public function update(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageDatabaseServers->value);
     }
 
     /**
      * Determine whether the user can delete the model.
-     * Viewers and demo users cannot delete.
      */
     public function delete(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageDatabaseServers->value);
     }
 
     /**
      * Determine whether the user can open the Adminer database browser.
-     * Requires the feature to be enabled and the user to meet the configured minimum role.
-     * Server compatibility (database type, SSH) is checked separately via DatabaseServer::supportsAdminer().
-     * Demo users get access when read-only demo credentials are configured (see AdminerController).
+     * Requires the feature to be enabled globally (app.adminer_enabled) and the
+     * user to hold the use-adminer ability, or to be the demo user (which
+     * connects with the read-only demo credentials substituted in
+     * AdminerController). Server compatibility (database type, SSH) is checked
+     * separately via DatabaseServer::supportsAdminer().
      */
     public function adminer(User $user): bool
     {
@@ -75,29 +74,22 @@ class DatabaseServerPolicy
             return false;
         }
 
-        if ($user->isDemo()) {
-            return config('services.adminer.demo_username') !== null
-                && config('services.adminer.demo_password') !== null;
-        }
+        return $user->isDemo() || $user->can(Ability::UseAdminer->value);
+    }
 
-        $requiredRole = UserRole::tryFrom((string) AppConfig::get('app.adminer_role'));
-
-        if ($requiredRole === null) {
-            return false;
-        }
-
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        $currentRole = $user->currentOrgRole();
-
-        return $currentRole !== null && $currentRole->meetsMinimum($requiredRole);
+    /**
+     * Determine whether the user can change the global Adminer feature switch
+     * (app.adminer_enabled) on the Application configuration screen. This is a
+     * truly global, app-wide concern — not a per-org catalogue ability — so it
+     * is reserved for super admins.
+     */
+    public function manageAdminer(User $user): bool
+    {
+        return $user->isSuperAdmin();
     }
 
     /**
      * Determine whether the user can run a backup.
-     * Operators, Members, Admins and demo users can trigger backups.
      */
     public function backup(User $user, DatabaseServer $databaseServer): bool
     {
@@ -105,15 +97,14 @@ class DatabaseServerPolicy
             return false;
         }
 
-        return $user->isDemo() || $user->canOperate();
+        return $user->isDemo() || $user->can(Ability::RunBackups->value);
     }
 
     /**
      * Determine whether the user can restore to a server.
-     * Operators, Members, Admins and demo users can trigger restores.
      */
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->isDemo() || $user->canOperate();
+        return $user->isDemo() || $user->can(Ability::OperateRestores->value);
     }
 }

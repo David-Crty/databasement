@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Models\Volume;
@@ -7,7 +8,8 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 
 test('can download snapshot from local storage', function () {
-    $user = User::factory()->create();
+    // Allow case for download-snapshots: that ability alone enables a download.
+    $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
 
     $volume = Volume::factory()->local()->create();
     $tempDir = $volume->config['path'];
@@ -38,7 +40,7 @@ test('can download snapshot from local storage', function () {
 });
 
 test('download returns 404 when local file is missing', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
 
     $volume = Volume::factory()->local()->create();
 
@@ -63,7 +65,7 @@ test('download returns 404 when local file is missing', function () {
 });
 
 test('can download snapshot from s3 storage redirects to presigned url', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
 
     $volume = Volume::factory()->s3()->create();
 
@@ -100,7 +102,7 @@ test('can download snapshot from s3 storage redirects to presigned url', functio
 });
 
 test('s3 download presigned url includes volume prefix in key path', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
 
     $volume = Volume::factory()->create([
         'type' => 's3',
@@ -134,6 +136,23 @@ test('s3 download presigned url includes volume prefix in key path', function ()
         ->get(route('snapshots.download', $snapshot));
 
     $response->assertRedirectContains('https://127.0.0.1:9022/my-backup-bucket/backups/production/myapp-backup-2024-01-13.sql.gz');
+});
+
+test('without download-snapshots, downloading is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::DownloadSnapshots->value)->create();
+
+    $volume = Volume::factory()->local()->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+    $server->backups->first()->update(['volume_id' => $volume->id]);
+
+    $snapshot = app(BackupJobFactory::class)
+        ->createSnapshots($server->backups->first(), 'manual', $user->id)[0];
+    $snapshot->update(['filename' => 'test-backup.sql.gz', 'file_size' => 1024]);
+    $snapshot->job->markCompleted();
+
+    $this->actingAs($user)
+        ->get(route('snapshots.download', $snapshot))
+        ->assertForbidden();
 });
 
 test('guests cannot download snapshots', function () {

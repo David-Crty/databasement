@@ -39,6 +39,16 @@ make test-coverage                  # Run tests with coverage report
 
 Tests run in parallel by default using Pest's parallel testing feature. This significantly speeds up the test suite (~12-18s for 350+ tests). Use `make test-sequential` if you need to debug test order issues.
 
+#### Agent-Optimized Output (laravel/pao)
+
+When you run `make test` / `make phpstan` / `make lint-check`, output is compact JSON, not verbose logs. A passing run is one line:
+
+```json
+{"tool":"pest","result":"passed","tests":18,"passed":18,"assertions":79,"duration_ms":8657}
+```
+
+A failing run adds a `failures` array with the file, line, and message for each failure — that's the detail to act on. Set `PAO_DISABLE=1` to force verbose output if you need it.
+
 ### Test Strategy
 - Focus on testing business logic and behaviors
 - Do not test framework internals or trust that Laravel/Livewire works correctly
@@ -215,100 +225,37 @@ make test-filter FILTER=test_can_create_database_server
 make test-filter FILTER=DatabaseServerTest
 ```
 
-### Adding a New Database Type
+### Extending the App (new database type, volume type, or notification channel)
 
-All database types implement `DatabaseInterface` and are resolved via `DatabaseProvider`. The provider centralizes type dispatch, so `BackupTask`, `RestoreTask`, and connection testing require no changes.
+These are rare, cross-cutting tasks with a fixed file-by-file checklist each. The step-by-step playbooks live in **[`docs/development/extending.md`](docs/development/extending.md)** to keep this file focused. **Read the matching section there before starting** — each lists every file to touch (core, UI, infrastructure, tests) plus architecture gotchas:
 
-#### Files to Update
+- **Adding a New Database Type** — `DatabaseInterface` + `DatabaseProvider`, dump/restore handlers, Docker/CI services, fixtures.
+- **Adding a New Volume Type** — `BaseConfig` connector + `FilesystemInterface`, `VolumeForm` property, Flysystem adapter, connection-test dataset. (`azure` / Azure Blob Storage is the newest worked example.)
+- **Adding a New Notification Channel** — `NotificationMessage` + `HasChannelRouting` delegation, `AppConfigService` keys, Configuration UI.
 
-**Core:**
-- `app/Enums/DatabaseType.php` - Add enum case, label, default port, `dumpExtension()`, DSN format in `buildDsn()`
-- `app/Services/Backup/Databases/{Type}Database.php` - Create handler implementing `DatabaseInterface` (`setConfig`, `dump`, `restore`, `prepareForRestore`, `listDatabases`, `testConnection`)
-- `app/Services/Backup/Databases/DatabaseProvider.php` - Add case to `make()` and config handling in `makeForServer()`
-- `app/Services/Backup/BackupJobFactory.php` - Add snapshot creation logic if different from default (e.g., instance-level types like Redis/SQLite)
-- `app/Livewire/Forms/DatabaseServerForm.php` - Validation rules, type helpers, UI behavior
+Adding a new **locale** is covered by the Localization section below (kept inline — that guidance applies to any translation work, not just new locales).
 
-**UI:**
-- `resources/views/livewire/database-server/_form.blade.php` - Conditional fields for the type
-- `resources/views/livewire/database-server/restore-modal.blade.php` - If restore behavior differs
+### Authorization (Roles & Abilities)
 
-**Infrastructure:**
-- `docker/php/Dockerfile` - Add extensions and CLI tools
-- `docker-compose.yml` - Add test database service
-- `.github/workflows/tests.yml` - Add CI service + system dependencies
-- `config/testing.php` - Add test database config with defaults
+Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bouncer). **Role and ability definitions are global; only role assignments are scoped per organization** (the tenant is `Organization`, a ULID model). So a user can be an Admin in one org and a Viewer in another, while the roles themselves (and what each grants) are shared across the whole app.
 
-**Tests & Fixtures:**
-- `database/factories/DatabaseServerFactory.php` - Add factory state
-- `database/seeders/DatabaseSeeder.php` - Add seeder entry
-- `tests/Feature/Services/Backup/Databases/{Type}DatabaseTest.php` - Handler unit tests
-- `tests/Integration/BackupRestoreTest.php` - Add to test dataset
-- `tests/Support/IntegrationTestHelpers.php` - Add config and helpers
-- `tests/Integration/fixtures/{type}-init.*` - Test fixture
-- `tests/Pest.php` - Update global datasets
-
-#### Architecture Notes
-
-- Types without PDO support (e.g., Redis) must throw in `buildDsn()`/`createPdo()` and handle connection testing via CLI in their `testConnection()` method
-- Types that backup the whole instance (e.g., Redis, SQLite) should short-circuit in `BackupJobFactory.createSnapshots()` to create a single snapshot
-
-### Adding a New Volume Type
-
-The volume system uses dynamic class resolution based on the type value. Use existing implementations (e.g., `SftpConfig`, `SftpFilesystem`) as templates.
-
-#### Files to Update
-
-**Core:**
-- `app/Enums/VolumeType.php` - Add enum case, update `label()`, `icon()`, `sensitiveFields()`, `configSummary()`
-- `app/Livewire/Volume/Connectors/{Type}Config.php` - Create class extending `BaseConfig` with `defaultConfig()`, `rules()`, `viewName()`
-- `resources/views/livewire/volume/connectors/{type}-config.blade.php` - Create form view (use `$readonly`, `$isEditing`)
-- `app/Services/Backup/Filesystems/{Type}Filesystem.php` - Create class implementing `FilesystemInterface`
-- `app/Providers/AppServiceProvider.php` - Register filesystem in `FilesystemProvider`
-
-**Tests:**
-- `database/factories/VolumeFactory.php` - Add factory state for the new type
-- `tests/Feature/Volume/VolumeTest.php` - Add to `volume types` dataset
-
-**Optional:**
-- `composer.json` - Add Flysystem adapter package if needed
-- `docker/php/Dockerfile` - Add PHP extensions if needed
-
-#### Architecture Notes
-
-- **Dynamic Resolution**: `VolumeType::configPropertyName()` returns `{type}Config` and `configClass()` resolves the class dynamically - no explicit mappings needed in `VolumeForm`
-- **Sensitive Fields**: Fields in `sensitiveFields()` are automatically encrypted in the database and masked in the browser
-- **Connection Testing**: Works automatically via `FilesystemProvider` if your filesystem implements `FilesystemInterface`
-- **BaseConfig**: All config components extend `BaseConfig` which handles mounting, validation, and rendering
-
-### Adding a New Notification Channel
-
-The notification system uses a delegation pattern: concrete notifications extend `BaseFailedNotification` or `BaseSuccessNotification` and inherit all channel support via the `HasChannelRouting` trait. A single `NotificationMessage` (driven by a `NotificationType` enum) renders every channel for both success and failure. Adding a new channel requires no changes to concrete notification classes.
-
-#### Files to Update
-
-**Core:**
-- `app/Notifications/NotificationMessage.php` - Add `to{Channel}()` rendering method (success/failure differences key off `$this->type` and `$this->hasError()`)
-- `app/Notifications/Concerns/HasChannelRouting.php` - Add `to{Channel}()` delegation method, add entry to `CHANNEL_MAP`
-- `app/Services/FailureNotificationService.php` - Add route to `getNotificationRoutes()`
-- `app/Services/AppConfigService.php` - Add keys to `AppConfigService::CONFIG` (each key defines its default, type, and sensitivity)
-
-**Custom Channels** (if not using an existing package):
-- `app/Notifications/Channels/{Channel}Channel.php` - Create class with `send()` method
-
-**Configuration UI:**
-- `app/Livewire/Forms/ConfigurationForm.php` - Add properties, load/save/rules logic
-- `app/Livewire/Configuration/Index.php` - Add to `getChannelOptions()`
-- `resources/views/livewire/configuration/index.blade.php` - Add conditional field section
-
-**Boot-time config** (if package reads from `config/services.php`):
-- `app/Providers/AppServiceProvider.php` - Register config from AppConfig at boot
-
-**Tests:**
-- `tests/Feature/Notifications/FailureNotificationTest.php` - Add rendering and routing tests
-- `tests/Feature/ConfigurationTest.php` - Add save/deselect/pre-select tests
-
-**Optional:**
-- `composer.json` - Add notification channel package if needed
+- **Scope model**: this is Bouncer's "scoped relations, global role abilities" mode — `Bouncer::scope()->to($org->id)->onlyRelations()->dontScopeRoleAbilities()`. `onlyRelations()` keeps the roles/abilities entities global, `dontScopeRoleAbilities()` keeps the role→ability grants global, and `to($org->id)` scopes only the user↔role assignments (`assigned_roles.scope`). **All three flags must always be applied together** — mixing them is what makes the read path (`$user->can()`) return wrong results. Centralized in `App\Support\BouncerScope` (`apply($orgId)` for the request scope, `ensureFlags()` for definition writes that must not disturb the active scope). The `ScopeBouncer` middleware applies it per request; tests do so in `setupOrgContext()`.
+- **Ability catalogue**: a fixed, code-defined enum `app/Enums/Ability.php` — eleven abilities in two groups (`Operations`: run-backups, download-snapshots, delete-snapshots, operate-restores, use-adminer; `Configuration`: manage-database-servers, manage-volumes, manage-agents, manage-backup-settings, manage-notifications, manage-users). Viewing needs no ability (read access comes from org membership). To add one: add the enum case (plus `label()`/`description()`/`group()`), grant it to the relevant built-in roles in the role-seeding migration's `builtInRoles()` map, enforce it in the policy, add the (role, ability) rows to `RoleAbilityMatrixTest`, and add an allow/deny pair at the resource's enforcement boundary (see the testing convention below).
+- **Built-in roles**: there is **no `UserRole` enum**. The built-in roles (admin/member/operator/viewer) and their default ability grants are defined literally in `database/migrations/2026_06_26_160000_migrate_organization_roles_to_bouncer.php` (`builtInRoles()`), which is the sole seeder. There is **no `demo` role** (see the demo-mode note below). A `roles.built_in` boolean column marks them; it is the runtime source of truth for "is this a protected built-in" (`$role->built_in`, used by `RolePolicy@delete`, `DeleteRoleAction` and the Roles screen). There is no `SeedRolesAction`/`BouncerSeeder` — `RefreshDatabase`/`migrate:fresh` seed roles via the migration, and the factory only *assigns* by role-name string.
+- **Enforcement**: policies call `$user->can('ability-name')`. Super admins bypass catalogue abilities via a `Gate::before` in `AppServiceProvider::registerBouncer()` (scoped to catalogue ability names only, so `UserPolicy`'s self/last-super-admin guards still apply).
+- **Config screens authorize through policies, not inline ability/super-admin checks.** Every `Configuration/*` screen gates on a policy method (`$user->can('<action>', <Model>::class)`); the policy method delegates to the governing catalogue ability (or `isSuperAdmin()` for global concerns). This keeps the components uniform with the model-backed screens (Roles/Orgs) even where the "settings" have no dedicated model — the check is attached to a related model's policy. Super admins keep access via the `Gate::before` catalogue bypass (for ability-backed methods) or the `isSuperAdmin()` method body (for global ones).
+- **Backup / Notification** are still governed by the `manage-backup-settings` / `manage-notifications` catalogue abilities, but via policies: `BackupSchedulePolicy@manageSettings` (the settings form + cleanup/verify) plus `@create/@update/@delete` (schedule CRUD, shared with the API), and `NotificationChannelPolicy@manage` (channel CRUD + test). Both screens are **viewable by every org member**; forms render read-only for users without the ability (`canManage` computed → `:disabled` inputs / hidden buttons) and every write action calls `abort_unless($user->can('<action>', <Model>::class), 403)`.
+- **`Configuration/Application`**: mostly displays env-driven values (APP_DEBUG, timezone, trusted proxies) read-only, plus one runtime setting — the global `app.adminer_enabled` toggle. Viewable by every member; only **super admins** may change it, via `DatabaseServerPolicy@manageAdminer` (`canManage` = `can('manageAdminer', DatabaseServer::class)` → `isSuperAdmin()`; `saveApplicationConfig` `abort_unless(...)`). `DatabaseServerPolicy@adminer` (the separate *use* gate) is two-level: the global `app.adminer_enabled` switch **and** the per-role `use-adminer` ability (or the demo bypass) — disabling the switch blocks Adminer for everyone regardless of ability.
+- **Still super-admin-only to *modify* (not catalogue abilities)**: authentication/SSO, role management, and organizations. The `Configuration/Authentication`, `Roles` and `Organizations` screens are all **viewable by every org member** (read-only for non-super-admins; write actions gated); there is **no** view-blocking `mount()` guard on any of them — every configuration tab now renders the same way (viewable, mutations gated). Auth write actions use `abort_unless($user->isSuperAdmin(), 403)`; Roles and Organizations use their registered policies (see below).
+- **Organizations screen** (`app/Livewire/Configuration/Organization.php`): viewable by all members but the org list is **scoped** — super admins see every org, other members see only the orgs they belong to (so the page never discloses other tenants' names or cross-tenant resource counts). `OrganizationPolicy::viewAny` is `true`; `create`/`update`/`delete` are `isSuperAdmin()` (with `update`/`delete` also returning false for the default org). The blade gates the manage UI with `@can('create'|'update', …)` — `@can('update', $org)` conveniently encodes both the super-admin and non-default checks — and each write action calls `$this->authorize(...)`.
+- **Runtime mutations**: the Roles screen lives under **Configuration → Roles** (`app/Livewire/Configuration/Roles.php`, route `configuration.roles`); it is **viewable by all members** (read-only role → ability mapping, shown as badges) but **mutating roles is reserved for super admins**, enforced by `RolePolicy` (registered against Bouncer's `Silber\Bouncer\Database\Role` in `AppServiceProvider` — there is no custom `App\Models\Role`). `viewAny` is `true`; `create`/`update` are `isSuperAdmin()`; `delete` is `isSuperAdmin() && ! $role->built_in` (so built-in roles are policy-protected from deletion, and the delete button is hidden via `@can('delete', $role)`). The component calls `$this->authorize('create'|'update'|'delete', …)`; the blade gates with `@can`. Mutations run through single-purpose actions in `app/Services/Roles/` (`CreateRoleAction`, `UpdateRoleAction`, `DeleteRoleAction` operate on global definitions; `AssignRoleToUserAction` writes the per-org assignment and restores the caller's scope). Each refreshes Bouncer's cache (`Bouncer::refresh()`/`refreshFor()`) so changes apply immediately.
+- **Direct user abilities**: the user form (`app/Livewire/Forms/UserForm.php`) can grant abilities to a user *on top of* their role, per-org, via `SyncUserAbilitiesAction` (stored as user-scoped rows in `permissions`; read with `User::directAbilitiesIn($org)`). These are additive — effective abilities = role abilities + direct abilities. Setting them requires the `manage-users` ability (`UserForm::syncAbilities` gates on `can(manage-users)`; the `_abilities` toggle grid is shown via `@can('manage-users')`). This is deliberate: a `manage-users` holder can already reach every catalogue ability by assigning the Admin role, so granting direct abilities — including to themselves — adds no privilege beyond that. Granting `super_admin` stays separately gated (the form's super-admin checkbox is `isSuperAdmin()`-only), and the accepted self-escalation is documented in `docs/user-guide/permissions.md` and locked by a test in `UserAbilitiesTest`. The toggle grid is the shared `resources/views/components/ability-toggles.blade.php`, reused by the Roles screen; `Ability::grouped()` provides the grouped catalogue.
+- **Role helpers on `User`**: `roleNameIn($org)` / `roleNamesIn($org)` (role names assigned in an org), `isAdmin()` (super admin or org `admin`), `isDemo()` (demo mode is enabled **and** the email is `User::DEMO_EMAIL` — not a role). There is no `roleIn()`/`canOperate()` — check the specific ability instead.
+- **Demo mode**: there is no `demo` role. When `app.demo_mode` is on, `DemoModeMiddleware` lazily creates the demo user (`User::DEMO_EMAIL`, a fixed const) and assigns it the **`viewer`** role; `User::isDemo()` keys off demo-mode + that email, fully decoupled from roles. The demo user is read-only on config (the `BlocksDemoWrites` trait short-circuits Create/Edit saves with a `demo_notice`) but **can run backups/restores** because those policies grant `$user->isDemo() || $user->can(...)` (`DatabaseServerPolicy@backup/@restore`, `RestorePolicy@create/update/delete/run`). It's also blocked from profile/password/2FA settings by the middleware.
+- **Testing authorization (by ability, never role)**: roles are runtime-editable, so permission tests **actor and name by ability, never role**. Three `UserFactory` actors, all on a no-grant `viewer` baseline + per-org direct abilities: `withAbilities([X])` proves X is *sufficient* (happy path); `withAllAbilitiesExcept(X)` proves X is *necessary* (deny case — holds every other ability and is still forbidden, far stronger than an empty grant); `withAbilities([])` is the zero-ability actor for pure-view tests (viewing needs no ability). Cover each guarded boundary (Livewire / HTTP / API) with an allow + deny pair **named for the ability** — e.g. `manage-volumes allows …` / `without manage-volumes, … is forbidden` — never `org admin can …`. Don't gate permission tests on `->viewer()` / `->create(['role' => …])`; role/super-admin helpers remain only for super-admin-scoped screens (organizations/auth/roles, `isAdmin`/`isSuperAdmin`), demo behaviour (`isDemo`), and the role→ability seed guardrail `RoleAbilityMatrixTest`. A test that 422s on validation before `authorize()` needs no specific actor.
+- **ULID gotcha**: `users.id` is a BIGINT, but the Bouncer *scope* is an `Organization` ULID, so the `scope` columns in the published Bouncer migration are `string(26)` (see `database/migrations/*_create_bouncer_tables.php`). The column carries the org id on `assigned_roles` and stays null on the global roles/abilities rows; `roles.name` is uniquely indexed (global). The user/role entity morphs stay BIGINT.
+- **Important**: do **not** register a custom `App\Models\Role` extending Bouncer's model — it breaks Livewire v4 component hydration. Use Bouncer's `Role` directly; PHPStan column/property errors for it (including `built_in`) are ignored via `phpstan.neon`.
+- **Extension points (not yet implemented)**: resource-scoped abilities (`->to('manage', $backup)`) — the object morph columns are already widened to string for this.
 
 ### Working with Livewire Components
 

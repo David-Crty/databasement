@@ -38,14 +38,14 @@ class Backup extends Component
     }
 
     #[Computed]
-    public function isAdmin(): bool
+    public function canManage(): bool
     {
-        return auth()->user()->isAdmin();
+        return auth()->user()->can('manageSettings', BackupSchedule::class);
     }
 
     public function saveBackupConfig(): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        abort_unless(auth()->user()->can('manageSettings', BackupSchedule::class), Response::HTTP_FORBIDDEN);
 
         $this->form->saveBackup();
 
@@ -54,7 +54,7 @@ class Backup extends Component
 
     public function runCleanup(): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        abort_unless(auth()->user()->can('manageSettings', BackupSchedule::class), Response::HTTP_FORBIDDEN);
 
         CleanupExpiredSnapshotsJob::dispatch();
 
@@ -63,7 +63,7 @@ class Backup extends Component
 
     public function runVerifyFiles(): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        abort_unless(auth()->user()->can('manageSettings', BackupSchedule::class), Response::HTTP_FORBIDDEN);
 
         VerifySnapshotFileJob::dispatch(app(CurrentOrganization::class)->id());
 
@@ -88,7 +88,12 @@ class Backup extends Component
 
     public function saveSchedule(): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        $schedule = $this->editingScheduleId ? BackupSchedule::findOrFail($this->editingScheduleId) : null;
+
+        abort_unless(
+            auth()->user()->can($schedule ? 'update' : 'create', $schedule ?? BackupSchedule::class),
+            Response::HTTP_FORBIDDEN,
+        );
 
         $uniqueRule = Rule::unique('backup_schedules', 'name')
             ->when($this->editingScheduleId, fn ($rule) => $rule->ignore($this->editingScheduleId));
@@ -98,8 +103,7 @@ class Backup extends Component
 
         $this->form->validate($rules);
 
-        if ($this->editingScheduleId) {
-            $schedule = BackupSchedule::findOrFail($this->editingScheduleId);
+        if ($schedule) {
             $schedule->update([
                 'name' => $this->form->schedule_name,
                 'expression' => $this->form->schedule_expression,
@@ -126,8 +130,6 @@ class Backup extends Component
 
     public function deleteSchedule(): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
         if (! $this->deleteScheduleId) {
             return;
         }
@@ -136,6 +138,8 @@ class Backup extends Component
             'backups as total_backups_count',
             'scheduledRestores as scheduled_restores_count',
         ])->findOrFail($this->deleteScheduleId);
+
+        abort_unless(auth()->user()->can('delete', $schedule), Response::HTTP_FORBIDDEN);
 
         if ((int) $schedule->getAttribute('total_backups_count') > 0) {
             $this->error(__('Cannot delete a schedule that is in use by database servers.'));
@@ -204,6 +208,12 @@ class Backup extends Component
             'compressionOptions' => $this->getCompressionOptions(),
             'backupSchedules' => $this->backupSchedules(),
             'showDeprecatedBackupEnv' => config('app.has_deprecated_backup_env'),
+            'scheduleHeaders' => [
+                ['key' => 'name', 'label' => __('Name')],
+                ['key' => 'expression', 'label' => __('Schedule')],
+                ['key' => 'usage', 'label' => __('Used by')],
+                ['key' => 'actions', 'label' => '', 'class' => 'w-24 whitespace-nowrap'],
+            ],
         ]);
     }
 }

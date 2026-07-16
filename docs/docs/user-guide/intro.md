@@ -63,8 +63,8 @@ To restore a backup, go to **Snapshots**, find the snapshot you want to restore,
 
 ## Next Steps
 
-- [Managing Database Servers](/user-guide/database-servers)
-- [Configuring Backups](/user-guide/backups)
-- [Working with Snapshots](/user-guide/snapshots)
-- [Storage Volumes](/user-guide/volumes)
-- [Permissions](/user-guide/permissions)
+- [Managing Database Servers](./database-servers.md)
+- [Configuring Backups](./backups.md)
+- [Working with Snapshots](./snapshots.md)
+- [Storage Volumes](./volumes.md)
+- [Permissions](./permissions.md)

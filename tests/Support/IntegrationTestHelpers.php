@@ -205,7 +205,7 @@ class IntegrationTestHelpers
             $server->port,
             $server->username,
             $server->getDecryptedPassword(),
-            $server->getExtraConfig('auth_source', 'admin'),
+            ['auth_source' => $server->getExtraConfig('auth_source', 'admin')],
         );
 
         return new MongoClient($uri);

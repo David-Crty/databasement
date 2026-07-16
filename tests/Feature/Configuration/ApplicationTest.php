@@ -1,13 +1,11 @@
 <?php
 
-use App\Enums\UserRole;
-use App\Facades\AppConfig;
 use App\Livewire\Configuration\Application;
 use App\Models\User;
 use Livewire\Livewire;
 
 test('configuration route redirects to application tab', function () {
-    $user = User::factory()->create(['role' => UserRole::Admin]);
+    $user = User::factory()->superAdmin()->create();
 
     $this->actingAs($user)
         ->get('/configuration')
@@ -15,7 +13,7 @@ test('configuration route redirects to application tab', function () {
 });
 
 test('application page displays environment variables', function () {
-    $user = User::factory()->create(['role' => UserRole::Admin]);
+    $user = User::factory()->superAdmin()->create();
 
     Livewire::actingAs($user)
         ->test(Application::class)
@@ -25,28 +23,27 @@ test('application page displays environment variables', function () {
         ->assertSee('TRUSTED_PROXIES');
 });
 
-test('application page displays adminer settings', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+test('viewing the application settings needs no ability (read-only for everyone)', function () {
+    Livewire::actingAs(User::factory()->withAbilities([])->create())
         ->test(Application::class)
-        ->assertSet('form.adminer_enabled', true)
-        ->assertSet('form.adminer_role', 'admin')
-        ->assertSee('Database Browser');
+        ->assertOk()
+        ->assertSee('APP_DEBUG');
 });
 
-test('saving application config persists adminer settings', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+test('super admin can toggle the global Adminer setting', function () {
+    $admin = User::factory()->superAdmin()->create();
+
+    Livewire::actingAs($admin)
         ->test(Application::class)
-        ->set('form.adminer_enabled', true)
-        ->set('form.adminer_role', 'member')
+        ->set('form.adminer_enabled', false)
         ->call('saveApplicationConfig')
         ->assertHasNoErrors();
 
-    expect(AppConfig::get('app.adminer_enabled'))->toBe(true)
-        ->and(AppConfig::get('app.adminer_role'))->toBe('member');
+    expect((bool) \App\Facades\AppConfig::get('app.adminer_enabled'))->toBeFalse();
 });
 
-test('non-admin cannot save application config', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Member]))
+test('a non-super-admin cannot save the application settings', function () {
+    Livewire::actingAs(User::factory()->withAbilities([])->create())
         ->test(Application::class)
         ->call('saveApplicationConfig')
         ->assertForbidden();

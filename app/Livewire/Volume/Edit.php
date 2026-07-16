@@ -4,17 +4,17 @@ namespace App\Livewire\Volume;
 
 use App\Livewire\Forms\VolumeForm;
 use App\Models\Volume;
+use App\Traits\BlocksDemoWrites;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Title('Edit Volume')]
 class Edit extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, BlocksDemoWrites, Toast;
 
     public VolumeForm $form;
 
@@ -30,15 +30,11 @@ class Edit extends Component
 
     public function save(): void
     {
-        if (Gate::denies('update', $this->form->volume)) {
-            $this->warning(
-                title: __('Demo mode is enabled. Changes cannot be saved.'),
-                redirectTo: route('volumes.index'),
-                flashAs: 'demo_notice',
-            );
-
+        if ($this->blockedForDemo(route('volumes.index'))) {
             return;
         }
+
+        $this->authorize('update', $this->form->volume);
 
         if ($this->hasSnapshots) {
             $this->form->updateNameOnly();

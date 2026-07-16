@@ -106,10 +106,35 @@ function setupOrgContext(): \App\Models\Organization
         ['name' => 'Default'],
     );
 
+    // The global built-in Bouncer roles (and their abilities) are seeded by
+    // migration, so they already exist here for ability checks to resolve.
+
     $currentOrg = app(\App\Services\CurrentOrganization::class);
     $currentOrg->set($org);
 
+    // Component/unit tests don't run the ScopeBouncer middleware, so set the
+    // scope here. Disable caching for deterministic checks; the dedicated
+    // "takes effect without redeploy" test re-enables it to verify refresh().
+    \Silber\Bouncer\BouncerFacade::dontCache();
+    \App\Support\BouncerScope::apply($org->id);
+
     return $org;
+}
+
+/**
+ * Add a user to an organization with the given role, assigned as a scoped
+ * Bouncer role (replaces the old organization_user.role pivot in test setup).
+ */
+function attachUserToOrg(
+    \App\Models\User $user,
+    \App\Models\Organization $org,
+    string $role = 'member',
+): void {
+    if (! $user->organizations()->where('organization_id', $org->id)->exists()) {
+        $user->organizations()->attach($org->id);
+    }
+
+    app(\App\Services\Roles\AssignRoleToUserAction::class)->execute($user, $role, $org);
 }
 
 function dailySchedule(): \App\Models\BackupSchedule

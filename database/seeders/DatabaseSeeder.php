@@ -25,6 +25,9 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Default'],
         );
 
+        // Built-in roles and their abilities are seeded by migration, so they
+        // already exist here for the factory to assign within the org scope.
+
         // Users (all with password "password", no 2FA)
         User::factory()->withoutTwoFactor()->superAdmin()->create([
             'name' => 'Admin User',
@@ -36,9 +39,10 @@ class DatabaseSeeder extends Seeder
             'email' => 'member@example.com',
         ]);
 
-        User::factory()->withoutTwoFactor()->viewer()->create([
+        User::factory()->withoutTwoFactor()->create([
             'name' => 'Viewer User',
             'email' => 'viewer@example.com',
+            'role' => 'viewer',
         ]);
 
         // Shared volume and schedule

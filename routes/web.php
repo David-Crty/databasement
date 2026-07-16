@@ -66,6 +66,9 @@ Route::middleware(['auth'])->group(function () {
         ->name('configuration.notification');
     Route::livewire('configuration/authentication', \App\Livewire\Configuration\Authentication::class)
         ->name('configuration.authentication');
+    // Roles - management gated by the manage-roles ability in the component
+    Route::livewire('configuration/roles', \App\Livewire\Configuration\Roles::class)
+        ->name('configuration.roles');
     Route::livewire('configuration/organizations', \App\Livewire\Configuration\Organization::class)
         ->name('configuration.organizations');
 

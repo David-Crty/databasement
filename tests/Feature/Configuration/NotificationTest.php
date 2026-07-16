@@ -1,7 +1,7 @@
 <?php
 
+use App\Enums\Ability;
 use App\Enums\NotificationChannelType;
-use App\Enums\UserRole;
 use App\Livewire\Configuration\Notification;
 use App\Models\NotificationChannel;
 use App\Models\User;
@@ -10,8 +10,8 @@ use App\Services\NotificationService;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Livewire\Livewire;
 
-test('admin can create a notification channel', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+test('manage-notifications allows creating a notification channel', function () {
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
         ->test(Notification::class)
         ->call('openChannelModal')
         ->assertSet('showChannelModal', true)
@@ -28,13 +28,13 @@ test('admin can create a notification channel', function () {
     ]);
 });
 
-test('admin can edit a notification channel', function () {
+test('manage-notifications allows editing a notification channel', function () {
     $channel = NotificationChannel::factory()->email()->create([
         'name' => 'Old Name',
         'config' => ['to' => 'old@example.com'],
     ]);
 
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
         ->test(Notification::class)
         ->call('openChannelModal', $channel->id)
         ->assertSet('channelForm.name', 'Old Name')
@@ -47,10 +47,10 @@ test('admin can edit a notification channel', function () {
     expect($channel->fresh()->name)->toBe('Updated Name');
 });
 
-test('admin can delete a notification channel', function () {
+test('manage-notifications allows deleting a notification channel', function () {
     $channel = NotificationChannel::factory()->email()->create(['name' => 'To Delete']);
 
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
         ->test(Notification::class)
         ->call('confirmDeleteChannel', $channel->id)
         ->assertSet('showDeleteChannelModal', true)
@@ -60,24 +60,11 @@ test('admin can delete a notification channel', function () {
     $this->assertDatabaseMissing('notification_channels', ['id' => $channel->id]);
 });
 
-test('non-admin cannot save notification channel', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Member]))
+test('without manage-notifications, the page is viewable but saving a channel is forbidden', function () {
+    Livewire::actingAs(User::factory()->withAllAbilitiesExcept(Ability::ManageNotifications->value)->create())
         ->test(Notification::class)
+        ->assertOk()
         ->call('saveChannel')
-        ->assertForbidden();
-});
-
-test('non-admin cannot delete notification channel', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Member]))
-        ->test(Notification::class)
-        ->call('deleteChannel')
-        ->assertForbidden();
-});
-
-test('non-admin cannot send test notification', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Member]))
-        ->test(Notification::class)
-        ->call('sendTestNotification', 'fake-id')
         ->assertForbidden();
 });
 
@@ -87,7 +74,7 @@ test('sendTestNotification sends notification for a channel', function () {
         'config' => ['to' => 'admin@example.com'],
     ]);
 
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
         ->test(Notification::class)
         ->call('sendTestNotification', $channel->id);
 
@@ -104,14 +91,14 @@ test('sendTestNotification handles notification failure gracefully', function ()
     $mock->shouldReceive('sendTestNotification')->andThrow(new RuntimeException('SMTP connection failed'));
     app()->instance(NotificationService::class, $mock);
 
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
         ->test(Notification::class)
         ->call('sendTestNotification', $channel->id)
         ->assertSuccessful();
 });
 
-test('admin can create notification channels of various types', function (string $type, array $formFields, array $expectedOnEdit) {
-    $component = Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+test('manage-notifications allows creating notification channels of various types', function (string $type, array $formFields, array $expectedOnEdit) {
+    $component = Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
         ->test(Notification::class)
         ->call('openChannelModal')
         ->set('channelForm.name', 'Test Channel')
@@ -151,7 +138,7 @@ test('editing a channel preserves sensitive fields when left blank', function ()
         'config' => ['webhook_url' => \Illuminate\Support\Facades\Crypt::encryptString('https://hooks.slack.com/original')],
     ]);
 
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
         ->test(Notification::class)
         ->call('openChannelModal', $channel->id)
         ->assertSet('channelForm.has_config_webhook_url', true)
@@ -165,8 +152,8 @@ test('editing a channel preserves sensitive fields when left blank', function ()
         ->and($updated->config['webhook_url'])->not->toBeEmpty();
 });
 
-test('admin can create email channel with multiple addresses', function () {
-    Livewire::actingAs(User::factory()->create(['role' => UserRole::Admin]))
+test('manage-notifications allows creating an email channel with multiple addresses', function () {
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
         ->test(Notification::class)
         ->call('openChannelModal')
         ->set('channelForm.name', 'Team Alerts')

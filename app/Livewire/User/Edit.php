@@ -44,7 +44,7 @@ class Edit extends Component
     {
         return view('livewire.user.edit', [
             'roleOptions' => $this->form->roleOptions(),
-            'isSuperAdmin' => auth()->user()->isSuperAdmin(),
+            'abilityGroups' => $this->form->abilityGroups(),
             'isOAuthUser' => $this->form->user->isOAuth(),
         ]);
     }

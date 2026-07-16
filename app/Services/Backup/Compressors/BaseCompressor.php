@@ -10,7 +10,8 @@ abstract class BaseCompressor implements CompressorInterface
         protected readonly ShellProcessor $shellProcessor,
         private readonly int $level,
         private readonly int $minLevel,
-        private readonly int $maxLevel
+        private readonly int $maxLevel,
+        private readonly bool $multithread = false
     ) {}
 
     public function compress(string $inputPath): string
@@ -61,5 +62,10 @@ abstract class BaseCompressor implements CompressorInterface
     protected function getLevel(): int
     {
         return max($this->minLevel, min($this->maxLevel, $this->level));
+    }
+
+    protected function isMultithreaded(): bool
+    {
+        return $this->multithread;
     }
 }

@@ -13,6 +13,10 @@ test('login screen can be rendered', function () {
 });
 
 test('login redirects to register when no users exist', function () {
+    // Guard against an ambient DEMO_MODE=true, which would make the login page
+    // lazily create the demo user and break the "no users" precondition.
+    config(['app.demo_mode' => false]);
+
     $response = $this->get(route('login'));
 
     $response->assertRedirect(route('register'));

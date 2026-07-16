@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Livewire\DatabaseServer\Create;
 use App\Models\Agent;
 use App\Models\DatabaseServer;
@@ -9,7 +10,7 @@ use App\Services\Backup\Databases\DatabaseProvider;
 use Livewire\Livewire;
 
 test('can create database server', function (array $config) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     $component = Livewire::actingAs($user)
@@ -67,7 +68,9 @@ test('can create database server', function (array $config) {
 })->with('database server configs');
 
 test('can create database server with backups disabled', function () {
-    $user = User::factory()->create();
+    // Acts as the allow case for manage-database-servers: a user whose only
+    // grant is that ability can complete a create end-to-end.
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     Livewire::actingAs($user)
         ->test(Create::class)
@@ -97,7 +100,7 @@ test('can create database server with backups disabled', function () {
 });
 
 test('can create database server with retention policy', function (array $config) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     $component = Livewire::actingAs($user)
@@ -131,7 +134,7 @@ test('can create database server with retention policy', function (array $config
 })->with('retention policies');
 
 test('cannot create database server with GFS retention when all tiers are empty', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'GFS Validation Test Volume']);
 
     Livewire::actingAs($user)
@@ -158,7 +161,7 @@ test('cannot create database server with GFS retention when all tiers are empty'
 });
 
 test('can test database connection', function (bool $success, string $message) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $mock = Mockery::mock(DatabaseProvider::class);
     $mock->shouldReceive('testConnectionForServer')
@@ -182,7 +185,7 @@ test('can test database connection', function (bool $success, string $message) {
 ]);
 
 test('path-based connection test fails without database paths', function (string $type, string $expectedMessage) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $component = $type === 'firebird'
         ? Livewire::actingAs($user)
@@ -205,7 +208,7 @@ test('path-based connection test fails without database paths', function (string
 ]);
 
 test('path-based connection test succeeds with valid database path', function (string $type, string $path) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $mock = Mockery::mock(DatabaseProvider::class);
     $mock->shouldReceive('testConnectionForServer')
@@ -235,7 +238,7 @@ test('path-based connection test succeeds with valid database path', function (s
 ]);
 
 test('sqlite test connection reports failure', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $mock = Mockery::mock(DatabaseProvider::class);
     $mock->shouldReceive('testConnectionForServer')
@@ -253,7 +256,7 @@ test('sqlite test connection reports failure', function () {
 });
 
 test('can add and remove SQLite database paths', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     Livewire::actingAs($user)
         ->test(Create::class)
@@ -269,7 +272,7 @@ test('can add and remove SQLite database paths', function () {
 });
 
 test('can create database server with dump flags', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     Livewire::actingAs($user)
@@ -296,7 +299,7 @@ test('can create database server with dump flags', function () {
 });
 
 test('can create mysql database server with ssl_enabled', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     Livewire::actingAs($user)
@@ -320,8 +323,51 @@ test('can create mysql database server with ssl_enabled', function () {
     expect($server->getExtraConfig('ssl_enabled'))->toBeTrue();
 });
 
+test('can create mongodb server with advanced connection options', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Atlas Cluster')
+        ->set('form.database_type', 'mongodb')
+        ->set('form.host', 'cluster.example.mongodb.net')
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.srv_enabled', true)
+        ->set('form.connection_options', 'tls=true&replicaSet=rs0&retryWrites=true&w=majority')
+        ->set('form.backups.0.database_names.0', 'myapp')
+        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $server = DatabaseServer::where('name', 'Atlas Cluster')->first();
+
+    expect($server->getExtraConfig('srv_enabled'))->toBeTrue()
+        ->and($server->getExtraConfig('connection_options'))->toBe('tls=true&replicaSet=rs0&retryWrites=true&w=majority');
+});
+
+test('mongodb dump command preview masks the uri password cleanly', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $form = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mongodb')
+        ->viewData('form');
+
+    $preview = $form->getDumpCommandPreview();
+
+    // The password sits in the URI userinfo, so it must be redacted to *** and
+    // never leak the URL-encoded placeholder (%2A) or the raw asterisk mask.
+    expect($preview)->toContain('mongodb://user:***@hostname')
+        ->and($preview)->not->toContain('%2A')
+        ->and($preview)->not->toContain('********');
+});
+
 test('local volumes are selectable regardless of use_agent state', function (bool $useAgent) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
 
     $component = Livewire::actingAs($user)
@@ -340,7 +386,7 @@ test('local volumes are selectable regardless of use_agent state', function (boo
 ]);
 
 test('toggling use_agent clears local volume but keeps remote volume', function (string $volumeType, string $expectedVolumeId) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = match ($volumeType) {
         's3' => Volume::factory()->s3()->create(['name' => 'Test Vol']),
         default => Volume::factory()->local()->create(['name' => 'Test Vol']),
@@ -359,7 +405,7 @@ test('toggling use_agent clears local volume but keeps remote volume', function 
 ]);
 
 test('turning off store_on_server clears a local volume for an agent-backed server', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $agent = Agent::factory()->create();
     $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
 
@@ -375,7 +421,7 @@ test('turning off store_on_server clears a local volume for an agent-backed serv
 });
 
 test('agent-backed server can keep a local volume when store_on_server is enabled', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $agent = Agent::factory()->create();
     $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
 
@@ -402,7 +448,7 @@ test('agent-backed server can keep a local volume when store_on_server is enable
 });
 
 test('cannot create agent-backed server with local volume', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $agent = Agent::factory()->create();
     $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
 
@@ -425,7 +471,7 @@ test('cannot create agent-backed server with local volume', function () {
 });
 
 test('backup summary is incomplete until volume and schedule are set, then renders the full plan', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Prod Backups']);
 
     $component = Livewire::actingAs($user)
@@ -462,7 +508,7 @@ test('backup summary is incomplete until volume and schedule are set, then rende
 });
 
 test('retention summary text adapts to each retention policy', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $component = Livewire::actingAs($user)
         ->test(Create::class)
@@ -497,7 +543,7 @@ test('retention summary text adapts to each retention policy', function () {
 });
 
 test('backup summary reports incomplete when retention settings are blank', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Prod Backups']);
 
     $component = Livewire::actingAs($user)
@@ -533,7 +579,7 @@ test('backup summary reports incomplete when retention settings are blank', func
 });
 
 test('can create a server with multiple backup configurations', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume1 = Volume::factory()->local()->create(['name' => 'Primary Volume']);
     $volume2 = Volume::factory()->local()->create(['name' => 'Secondary Volume']);
     $daily = dailySchedule();
@@ -587,7 +633,7 @@ test('can create a server with multiple backup configurations', function () {
 });
 
 test('cannot remove the last remaining backup card', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     Livewire::actingAs($user)
         ->test(Create::class)
@@ -595,4 +641,12 @@ test('cannot remove the last remaining backup card', function () {
         ->assertCount('form.backups', 1)
         ->call('removeBackup', 0)
         ->assertCount('form.backups', 1);
+});
+
+test('without manage-database-servers, the create screen is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageDatabaseServers->value)->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->assertForbidden();
 });

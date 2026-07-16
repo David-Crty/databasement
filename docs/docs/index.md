@@ -3,7 +3,7 @@ sidebar_position: 0
 slug: /
 ---
 
-![Databasement Banner](../static/img/banner-v2.png)
+![Databasement Banner](/img/banner-v2.png)
 
 # Databasement Documentation
 

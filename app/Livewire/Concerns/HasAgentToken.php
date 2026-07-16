@@ -8,6 +8,8 @@ trait HasAgentToken
 {
     public bool $showTokenModal = false;
 
+    public string $tokenModalTab = 'docker-tab';
+
     #[Locked]
     public ?string $newToken = null;
 

@@ -13,6 +13,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\NotificationChannel;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\ShellProcessor;
 use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\CurrentOrganization;
 use App\Services\SshKeyGenerator;
@@ -46,6 +47,11 @@ class DatabaseServerForm extends Form
     public string $password = '';
 
     public string $auth_source = '';
+
+    // MongoDB advanced connection options (stored in extra_config).
+    public bool $srv_enabled = false;
+
+    public string $connection_options = '';
 
     public string $dump_flags = '';
 
@@ -458,6 +464,8 @@ class DatabaseServerForm extends Form
         $this->port = $server->port ?? 3306;
         $this->database_type = $server->database_type->value;
         $this->auth_source = $server->getExtraConfig('auth_source', '');
+        $this->srv_enabled = (bool) $server->getExtraConfig('srv_enabled', false);
+        $this->connection_options = $server->getExtraConfig('connection_options', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
         $this->dump_format = $server->getExtraConfig('dump_format', 'plain');
         $this->dump_privileges = (bool) $server->getExtraConfig('dump_privileges', false);
@@ -717,6 +725,8 @@ class DatabaseServerForm extends Form
 
         if ($type === DatabaseType::MONGODB) {
             $config['auth_source'] = $this->auth_source ?: 'admin';
+            $config['srv'] = $this->srv_enabled;
+            $config['connection_options'] = $this->connection_options;
         }
 
         if ($type === DatabaseType::MYSQL) {
@@ -732,7 +742,10 @@ class DatabaseServerForm extends Form
             $provider = new DatabaseProvider;
             $database = $provider->makeConfigured($type, $config);
 
-            return $database->dump('/path/to/output')->command;
+            // Redact credentials so the preview matches what gets logged. For
+            // MongoDB the password lives in the URI userinfo, where the raw
+            // placeholder would otherwise render URL-encoded (e.g. %2A%2A…).
+            return (new ShellProcessor)->sanitize($database->dump('/path/to/output')->command);
         } catch (\Throwable) {
             return '';
         }
@@ -1001,10 +1014,13 @@ class DatabaseServerForm extends Form
     {
         $rules = [
             'host' => 'required|string|max:255',
-            'port' => 'required|integer|min:1|max:65535',
+            // SRV connections resolve host/port from DNS, so no port is given.
+            'port' => $this->srv_enabled ? 'nullable|integer|min:1|max:65535' : 'required|integer|min:1|max:65535',
             'username' => 'nullable|string|max:255',
             'password' => 'nullable',
             'auth_source' => 'nullable|string|max:255',
+            'srv_enabled' => 'boolean',
+            'connection_options' => 'nullable|string|max:500',
             'ssh_enabled' => 'boolean',
         ];
 
@@ -1339,6 +1355,8 @@ class DatabaseServerForm extends Form
 
         if ($this->isMongodb()) {
             $extra['auth_source'] = $this->auth_source;
+            $extra['srv_enabled'] = $this->srv_enabled;
+            $extra['connection_options'] = $this->connection_options;
         }
 
         if ($this->isMysql() && $this->ssl_enabled) {

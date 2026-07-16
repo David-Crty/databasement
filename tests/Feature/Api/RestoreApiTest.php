@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -14,8 +15,9 @@ test('unauthenticated users cannot trigger a restore', function () {
     $response->assertUnauthorized();
 });
 
-test('viewer users cannot trigger a restore', function () {
-    $user = User::factory()->viewer()->create();
+test('without operate-restores, triggering a restore via api is forbidden', function () {
+    // Necessity proof: holding every ability except operate-restores must still be forbidden.
+    $user = User::factory()->withAllAbilitiesExcept(Ability::OperateRestores->value)->create();
     $server = DatabaseServer::factory()->create();
     $snapshot = Snapshot::factory()->forServer($server)->create();
 
@@ -31,7 +33,8 @@ test('viewer users cannot trigger a restore', function () {
 test('authenticated users can trigger a restore', function () {
     Queue::fake();
 
-    $user = User::factory()->create();
+    // operate-restores alone is sufficient to trigger a restore.
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($server)->create();
 
@@ -73,7 +76,9 @@ test('restore requires snapshot_id and schema_name', function () {
 test('restore rejects incompatible snapshot database type', function () {
     Queue::fake();
 
-    $user = User::factory()->create();
+    // The type-mismatch check runs after the restore policy gate, so the actor
+    // needs operate-restores to reach it.
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     $mysqlServer = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $postgresServer = DatabaseServer::factory()->create(['database_type' => 'postgres']);
     $snapshot = Snapshot::factory()->forServer($postgresServer)->create();
