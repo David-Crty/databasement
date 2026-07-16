@@ -87,6 +87,24 @@ use App\Enums\VolumeType;
         @endif
     </div>
 
+    <!-- Storage Limit -->
+    <x-hr />
+
+    <div class="space-y-4">
+        <h3 class="text-lg font-semibold">{{ __('Storage Limit') }}</h3>
+
+        <x-input
+            wire:model="form.maxStorageGb"
+            label="{{ __('Maximum storage (GB)') }}"
+            hint="{{ __('Optional. A backup that would push this volume’s total size over the limit fails before uploading — no snapshots are deleted automatically. Free up space by removing old snapshots. Leave empty for no limit.') }}"
+            placeholder="{{ __('e.g., 10') }}"
+            type="number"
+            step="0.001"
+            min="0"
+            suffix="GB"
+        />
+    </div>
+
     <!-- Submit Button -->
     <div class="flex items-center justify-end gap-3 pt-4">
         <x-button class="btn-ghost" link="{{ route($cancelRoute) }}" wire:navigate>

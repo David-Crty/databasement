@@ -3,6 +3,7 @@
 namespace App\Services\Backup;
 
 use App\Contracts\BackupLogger;
+use App\Exceptions\Backup\StorageQuotaExceededException;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Concerns\UsesSshTunnel;
@@ -88,6 +89,11 @@ class BackupTask
                 $onProgress();
             }
 
+            // Fail before uploading if this backup would push the volume past
+            // its configured storage limit. Nothing is deleted — freeing space
+            // is left to the user.
+            $this->assertWithinStorageQuota($config, $fileSize, $logger);
+
             // Generate filename and transfer
             $humanFileSize = Formatters::humanFileSize($fileSize);
             $filename = $this->generateFilename($db->serverName, $config->databaseName, $db->databaseType->dumpExtension($dumpFormat), $compressor, $config->backupPath);
@@ -144,6 +150,45 @@ class BackupTask
                 FilesystemSupport::cleanupDirectory($config->workingDirectory);
             }
         }
+    }
+
+    /**
+     * Abort the backup before upload when the target volume has a storage limit
+     * and this backup would exceed it. Skipped when no limit is set or the
+     * current usage is unknown (remote agents).
+     *
+     * @throws StorageQuotaExceededException
+     */
+    private function assertWithinStorageQuota(BackupConfig $config, int $fileSize, BackupLogger $logger): void
+    {
+        $limit = $config->volume->config['max_storage_bytes'] ?? null;
+
+        if ($limit === null || $config->volumeUsedBytes === null) {
+            return;
+        }
+
+        $limit = (int) $limit;
+        $projected = $config->volumeUsedBytes + $fileSize;
+
+        if ($projected <= $limit) {
+            return;
+        }
+
+        $message = __('Storage limit reached for volume ":volume". This backup (:size) would bring total usage to :projected, over the :limit limit. The file was not uploaded — free up space by deleting old snapshots.', [
+            'volume' => $config->volume->name,
+            'size' => Formatters::humanFileSize($fileSize),
+            'projected' => Formatters::humanFileSize($projected),
+            'limit' => Formatters::humanFileSize($limit),
+        ]);
+
+        $logger->log($message, 'error', [
+            'volume' => $config->volume->name,
+            'used_bytes' => $config->volumeUsedBytes,
+            'file_size' => $fileSize,
+            'limit_bytes' => $limit,
+        ]);
+
+        throw new StorageQuotaExceededException($message);
     }
 
     /**

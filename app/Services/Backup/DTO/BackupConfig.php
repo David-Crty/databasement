@@ -16,6 +16,11 @@ readonly class BackupConfig
         public ?int $compressionLevel = null,
         public ?bool $compressionMultithread = null,
         public ?string $postBackupScript = null,
+        // Bytes currently stored on the target volume. Set app-side so the
+        // upload can be pre-checked against the volume's storage limit. Null
+        // (e.g. remote agents, which cannot read the app database) skips the
+        // check.
+        public ?int $volumeUsedBytes = null,
     ) {}
 
     /**

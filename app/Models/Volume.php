@@ -92,6 +92,28 @@ class Volume extends Model
     }
 
     /**
+     * The configured storage limit for this volume in bytes, or null when the
+     * volume has no limit. Stored under the config's `max_storage_bytes` key.
+     * A backup that would push the volume past this limit is failed before
+     * upload; nothing is pruned automatically.
+     */
+    public function maxStorageBytes(): ?int
+    {
+        $value = $this->config['max_storage_bytes'] ?? null;
+
+        return $value !== null ? (int) $value : null;
+    }
+
+    /**
+     * Total size in bytes of the completed snapshots currently stored on this
+     * volume — the baseline a new backup is added to when checking the limit.
+     */
+    public function usedStorageBytes(): int
+    {
+        return (int) $this->snapshots()->completed()->sum('file_size');
+    }
+
+    /**
      * Get the volume type enum.
      */
     public function getVolumeType(): VolumeType

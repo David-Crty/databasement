@@ -206,3 +206,41 @@ test('handle uses empty backupPath when the snapshot is orphaned (backup removed
 
     expect($capturedPath)->toBe('');
 });
+
+test('handle passes the current volume usage to the backup config', function () {
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->with(
+            // No completed snapshots yet, so the volume reports zero usage.
+            Mockery::on(fn (BackupConfig $config) => $config->volumeUsedBytes === 0),
+            Mockery::type(BackupLogger::class),
+        )
+        ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123'));
+
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    expect($snapshot->fresh()->job->status)->toBe(BackupJobStatus::Completed);
+});
+
+test('handle fails without retry when the volume storage limit is exceeded', function () {
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->andThrow(new \App\Exceptions\Backup\StorageQuotaExceededException('Storage limit reached for volume "R2 Bucket".'));
+
+    // Unlike an ordinary failure, the quota failure is not re-thrown — that is
+    // what stops the queue from retrying a backup that can never fit.
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    $snapshot->refresh();
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
+        ->and($snapshot->job->error_message)->toBe('Storage limit reached for volume "R2 Bucket".')
+        ->and($snapshot->job->completed_at)->not->toBeNull();
+});

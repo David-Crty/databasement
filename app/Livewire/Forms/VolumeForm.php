@@ -18,6 +18,10 @@ class VolumeForm extends Form
 
     public string $type = 'local';
 
+    // Optional storage quota for the volume, entered in GB. Empty = no limit.
+    // Stored under the `max_storage_bytes` key of the volume's config JSON.
+    public ?string $maxStorageGb = null;
+
     // Config arrays for each volume type (initialized from connector defaults in constructor)
     /** @var array<string, mixed> */
     public array $localConfig = [];
@@ -66,6 +70,11 @@ class VolumeForm extends Form
         $decryptedConfig = $volumeType->maskSensitiveFields($volume->getDecryptedConfig());
         $propertyName = $volumeType->configPropertyName();
         $this->{$propertyName} = array_merge($this->{$propertyName}, $decryptedConfig);
+
+        $maxStorageBytes = $volume->maxStorageBytes();
+        $this->maxStorageGb = $maxStorageBytes !== null
+            ? rtrim(rtrim(number_format($maxStorageBytes / (1024 ** 3), 4, '.', ''), '0'), '.')
+            : null;
     }
 
     /**
@@ -76,6 +85,7 @@ class VolumeForm extends Form
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', 'in:'.implode(',', array_column(VolumeType::cases(), 'value'))],
+            'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
         ];
 
         // Merge rules from all connector classes
@@ -127,10 +137,15 @@ class VolumeForm extends Form
     {
         $this->validate([
             'name' => ['required', 'string', 'max:255', 'unique:volumes,name,'.$this->volume->id],
+            'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
         ]);
 
+        // The storage quota stays editable even when the volume is otherwise
+        // locked (has snapshots) — it only affects future pruning, not the
+        // stored connector config.
         $this->volume->update([
             'name' => $this->name,
+            'config' => $this->applyMaxStorageToConfig($this->volume->config),
         ]);
     }
 
@@ -155,7 +170,29 @@ class VolumeForm extends Form
         $volumeType = VolumeType::from($this->type);
         $persistedConfig = $this->volume !== null ? $this->volume->config : [];
 
-        return $volumeType->encryptSensitiveFields($this->getActiveConfig(), $persistedConfig);
+        $config = $volumeType->encryptSensitiveFields($this->getActiveConfig(), $persistedConfig);
+
+        return $this->applyMaxStorageToConfig($config);
+    }
+
+    /**
+     * Store the storage quota (GB from the form, in bytes) under the config's
+     * `max_storage_bytes` key, or remove it when the field is left empty.
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    protected function applyMaxStorageToConfig(array $config): array
+    {
+        if ($this->maxStorageGb === null || $this->maxStorageGb === '') {
+            unset($config['max_storage_bytes']);
+
+            return $config;
+        }
+
+        $config['max_storage_bytes'] = (int) round((float) $this->maxStorageGb * (1024 ** 3));
+
+        return $config;
     }
 
     public function testConnection(): void

@@ -220,6 +220,66 @@ describe('volume editing', function () {
     });
 });
 
+describe('volume storage limit', function () {
+    test('storage limit entered in GB is saved as bytes in config', function () {
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+
+        Livewire::actingAs($user)
+            ->test(Create::class)
+            ->set('form.name', 'Quota Volume')
+            ->set('form.type', 'local')
+            ->set('form.localConfig.path', '/var/backups')
+            ->set('form.maxStorageGb', '10')
+            ->call('save')
+            ->assertRedirect(route('volumes.index'));
+
+        $volume = Volume::where('name', 'Quota Volume')->firstOrFail();
+        expect($volume->maxStorageBytes())->toBe(10 * (1024 ** 3));
+    });
+
+    test('the stored storage limit is shown back in GB when editing', function () {
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+        $volume = Volume::factory()->local()->create();
+        $volume->update(['config' => [...$volume->config, 'max_storage_bytes' => 2 * (1024 ** 3)]]);
+
+        Livewire::actingAs($user)
+            ->test(Edit::class, ['volume' => $volume])
+            ->assertSet('form.maxStorageGb', '2');
+    });
+
+    test('the storage limit stays editable on a volume locked by its snapshots', function () {
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+        $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+        $volume = $server->backups->first()->volume;
+        app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual');
+
+        expect($volume->hasSnapshots())->toBeTrue();
+
+        Livewire::actingAs($user)
+            ->test(Edit::class, ['volume' => $volume])
+            ->assertSet('hasSnapshots', true)
+            ->set('form.maxStorageGb', '5')
+            ->call('save')
+            ->assertRedirect(route('volumes.index'));
+
+        expect($volume->refresh()->maxStorageBytes())->toBe(5 * (1024 ** 3));
+    });
+
+    test('clearing the storage limit removes it from config', function () {
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+        $volume = Volume::factory()->local()->create();
+        $volume->update(['config' => [...$volume->config, 'max_storage_bytes' => 3 * (1024 ** 3)]]);
+
+        Livewire::actingAs($user)
+            ->test(Edit::class, ['volume' => $volume])
+            ->set('form.maxStorageGb', '')
+            ->call('save')
+            ->assertRedirect(route('volumes.index'));
+
+        expect($volume->refresh()->maxStorageBytes())->toBeNull();
+    });
+});
+
 describe('volume listing', function () {
     test('displays volumes in index', function () {
         // Viewing needs no ability — an org member with zero grants can list volumes.
