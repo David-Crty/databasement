@@ -268,8 +268,9 @@ class AgentController extends Controller
             }
 
             if (! empty($validated['checksum']) && ! hash_equals($validated['checksum'], $checksum)) {
-                $agentJob->markFailed('Uploaded archive checksum mismatch.');
-
+                // Reject the upload but leave the job non-terminal so the agent's
+                // follow-up /fail call can drive the full failure lifecycle
+                // (agent job + backup job + notification) consistently.
                 return response()->json(['message' => 'Checksum mismatch — upload rejected.'], 422);
             }
 

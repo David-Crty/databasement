@@ -291,7 +291,9 @@ describe('archive upload (relay)', function () {
 
         $upload($token, $agentJob->id, $query, $content)->assertStatus(422);
 
-        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED);
+        // The job must stay non-terminal so the agent's follow-up /fail call
+        // can finalize the whole lifecycle (job + backup job + notification).
+        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_CLAIMED);
     });
 
     test('rejects upload for a discovery job', function () use ($upload) {
