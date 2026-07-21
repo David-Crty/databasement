@@ -24,38 +24,38 @@ class NotificationService
 {
     public function notifyBackupFailed(Snapshot $snapshot, \Throwable $exception): void
     {
-        $this->notifyServer(
+        $this->safely(fn () => $this->notifyServer(
             $snapshot->databaseServer,
             'failure',
             new BackupFailedNotification($snapshot, $exception),
-        );
+        ));
     }
 
     public function notifyBackupSuccess(Snapshot $snapshot): void
     {
-        $this->notifyServer(
+        $this->safely(fn () => $this->notifyServer(
             $snapshot->databaseServer,
             'success',
             new BackupSuccessNotification($snapshot),
-        );
+        ));
     }
 
     public function notifyRestoreFailed(Restore $restore, \Throwable $exception): void
     {
-        $this->notifyServer(
+        $this->safely(fn () => $this->notifyServer(
             $restore->targetServer,
             'failure',
             new RestoreFailedNotification($restore, $exception),
-        );
+        ));
     }
 
     public function notifyRestoreSuccess(Restore $restore): void
     {
-        $this->notifyServer(
+        $this->safely(fn () => $this->notifyServer(
             $restore->targetServer,
             'success',
             new RestoreSuccessNotification($restore),
-        );
+        ));
     }
 
     private function notifyServer(DatabaseServer $server, string $event, Notification $notification): void
@@ -73,16 +73,18 @@ class NotificationService
      */
     public function notifySnapshotsMissing(Collection $missingSnapshots, Collection $affectedServerIds): void
     {
-        $channels = DatabaseServer::whereIn('id', $affectedServerIds)
-            ->get()
-            ->filter(fn (DatabaseServer $server) => $server->shouldNotifyOn('failure'))
-            ->flatMap(fn (DatabaseServer $server) => $server->resolveNotificationChannels())
-            ->unique('id');
+        $this->safely(function () use ($missingSnapshots, $affectedServerIds) {
+            $channels = DatabaseServer::whereIn('id', $affectedServerIds)
+                ->get()
+                ->filter(fn (DatabaseServer $server) => $server->shouldNotifyOn('failure'))
+                ->flatMap(fn (DatabaseServer $server) => $server->resolveNotificationChannels())
+                ->unique('id');
 
-        $this->sendToChannels(
-            new SnapshotsMissingNotification($missingSnapshots), // @phpstan-ignore argument.type
-            $channels,
-        );
+            $this->sendToChannels(
+                new SnapshotsMissingNotification($missingSnapshots), // @phpstan-ignore argument.type
+                $channels,
+            );
+        });
     }
 
     /**
@@ -100,6 +102,24 @@ class NotificationService
         $exception = new \Exception('SQLSTATE[HY000] [2002] Connection refused (This is a test notification)');
 
         $this->sendToChannel(new BackupFailedNotification($snapshot, $exception), $channel);
+    }
+
+    /**
+     * Notifications must never block or fail the operation that triggered
+     * them: any error building or dispatching one (channel resolution, DB
+     * reads, notification construction) is logged and swallowed. Per-channel
+     * send errors are additionally isolated in sendToChannels so one broken
+     * channel cannot block the remaining ones.
+     */
+    private function safely(\Closure $callback): void
+    {
+        try {
+            $callback();
+        } catch (\Throwable $e) {
+            Log::warning('Notification dispatch failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

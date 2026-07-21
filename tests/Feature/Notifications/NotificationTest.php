@@ -208,6 +208,24 @@ test('notification is sent to channel when configured', function (string $factor
     'webhook' => ['webhook', ['url' => 'https://webhook.example.com/hook', 'secret' => 'my-secret'], WebhookChannel::class, 'webhook'],
 ]);
 
+test('notification dispatch errors never escape the service', function () {
+    Log::spy();
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+    // A snapshot with no databaseServer relation (e.g. server since deleted)
+    // makes notifyServer fail before any channel send — that error must be
+    // swallowed so it cannot mark a completed job as failed or escape into
+    // scheduler/request execution.
+    $snapshot = new Snapshot(['database_name' => 'orphan_db']);
+
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+
+    Notification::assertNothingSent();
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message) => $message === 'Notification dispatch failed')
+        ->once();
+});
+
 test('a failing channel is logged and does not block the remaining channels', function () {
     Log::spy();
 
