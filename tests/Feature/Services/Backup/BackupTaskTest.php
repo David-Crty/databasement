@@ -557,3 +557,20 @@ test('execute uploads when the backup fits within the limit or usage is unknown'
     'fits within limit' => [0, 1024 ** 3],
     'usage unknown (agent)' => [null, 10],
 ]);
+
+test('execute uploads and returns a warning when over the limit in notify-only mode', function () {
+    // Over the limit but notify-only: the upload still happens and the result
+    // carries the overage message so the job can notify the user.
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = buildQuotaBackupTask();
+    $config = buildQuotaConfig(
+        ['max_storage_bytes' => 10, 'max_storage_notify_only' => true],
+        volumeUsedBytes: 9,
+    );
+
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
+
+    expect($result)->toBeInstanceOf(BackupResult::class)
+        ->and($result->storageWarning)->toContain('R2 Bucket');
+});

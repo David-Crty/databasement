@@ -23,6 +23,10 @@ class VolumeForm extends Form
     // Stored under the `max_storage_bytes` key of the volume's config JSON.
     public ?string $maxStorageGb = null;
 
+    // When true, reaching the limit only sends a notification instead of failing
+    // the backup. Stored under the `max_storage_notify_only` config key.
+    public bool $storageLimitNotifyOnly = false;
+
     // Config arrays for each volume type (initialized from connector defaults in constructor)
     /** @var array<string, mixed> */
     public array $localConfig = [];
@@ -73,6 +77,7 @@ class VolumeForm extends Form
         $this->{$propertyName} = array_merge($this->{$propertyName}, $decryptedConfig);
 
         $this->maxStorageGb = Formatters::bytesToGb($volume->maxStorageBytes());
+        $this->storageLimitNotifyOnly = $volume->storageLimitIsNotifyOnly();
     }
 
     /**
@@ -84,6 +89,7 @@ class VolumeForm extends Form
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', 'in:'.implode(',', array_column(VolumeType::cases(), 'value'))],
             'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
+            'storageLimitNotifyOnly' => ['boolean'],
         ];
 
         // Merge rules from all connector classes
@@ -141,6 +147,7 @@ class VolumeForm extends Form
         $this->validate([
             'name' => ['required', 'string', 'max:255', 'unique:volumes,name,'.$this->volume->id],
             'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
+            'storageLimitNotifyOnly' => ['boolean'],
         ]);
 
         $this->volume->update([
@@ -177,7 +184,9 @@ class VolumeForm extends Form
 
     /**
      * Store the storage quota (GB from the form, in bytes) under the config's
-     * `max_storage_bytes` key, or remove it when the field is left empty.
+     * `max_storage_bytes` key, along with the notify-only flag. Both keys are
+     * removed when the limit field is left empty (the flag is meaningless
+     * without a limit).
      *
      * @param  array<string, mixed>  $config
      * @return array<string, mixed>
@@ -187,9 +196,17 @@ class VolumeForm extends Form
         $bytes = Formatters::gbToBytes($this->maxStorageGb);
 
         if ($bytes === null) {
-            unset($config['max_storage_bytes']);
+            unset($config['max_storage_bytes'], $config['max_storage_notify_only']);
+
+            return $config;
+        }
+
+        $config['max_storage_bytes'] = $bytes;
+
+        if ($this->storageLimitNotifyOnly) {
+            $config['max_storage_notify_only'] = true;
         } else {
-            $config['max_storage_bytes'] = $bytes;
+            unset($config['max_storage_notify_only']);
         }
 
         return $config;

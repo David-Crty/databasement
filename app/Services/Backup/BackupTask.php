@@ -89,10 +89,11 @@ class BackupTask
                 $onProgress();
             }
 
-            // Fail before uploading if this backup would push the volume past
-            // its configured storage limit. Nothing is deleted — freeing space
-            // is left to the user.
-            $this->assertWithinStorageQuota($config, $fileSize, $logger);
+            // Enforce the volume's storage limit before uploading. In block mode
+            // this throws and the backup fails; in notify-only mode it returns a
+            // warning message and the upload proceeds. Nothing is deleted —
+            // freeing space is left to the user.
+            $storageWarning = $this->assertWithinStorageQuota($config, $fileSize, $logger);
 
             // Generate filename and transfer
             $humanFileSize = Formatters::humanFileSize($fileSize);
@@ -141,7 +142,7 @@ class BackupTask
                 ],
             );
 
-            return new BackupResult($filename, $fileSize, $checksum);
+            return new BackupResult($filename, $fileSize, $checksum, $storageWarning);
         } finally {
             $this->closeSshTunnel($logger);
 
@@ -153,25 +154,54 @@ class BackupTask
     }
 
     /**
-     * Abort the backup before upload when the target volume has a storage limit
-     * and this backup would exceed it. Skipped when no limit is set or the
-     * current usage is unknown (remote agents).
+     * Enforce the target volume's storage limit before upload when this backup
+     * would exceed it. Skipped (returns null) when no limit is set or the current
+     * usage is unknown (remote agents).
+     *
+     * In block mode (default) this throws and the file is never uploaded. In
+     * notify-only mode it logs a warning and returns the message so the caller
+     * can notify the user while still uploading the backup.
+     *
+     * @return string|null The overage message when notify-only mode is on and the
+     *                     limit was exceeded; null otherwise.
      *
      * @throws StorageQuotaExceededException
      */
-    private function assertWithinStorageQuota(BackupConfig $config, int $fileSize, BackupLogger $logger): void
+    private function assertWithinStorageQuota(BackupConfig $config, int $fileSize, BackupLogger $logger): ?string
     {
         $limit = $config->volume->config['max_storage_bytes'] ?? null;
 
         if ($limit === null || $config->volumeUsedBytes === null) {
-            return;
+            return null;
         }
 
         $limit = (int) $limit;
         $projected = $config->volumeUsedBytes + $fileSize;
 
         if ($projected <= $limit) {
-            return;
+            return null;
+        }
+
+        $notifyOnly = (bool) ($config->volume->config['max_storage_notify_only'] ?? false);
+
+        $context = [
+            'volume' => $config->volume->name,
+            'used_bytes' => $config->volumeUsedBytes,
+            'file_size' => $fileSize,
+            'limit_bytes' => $limit,
+        ];
+
+        if ($notifyOnly) {
+            $message = __('Storage limit reached for volume ":volume". This backup (:size) brings total usage to :projected, over the :limit limit. The backup was still uploaded (notify-only) — free up space by deleting old snapshots.', [
+                'volume' => $config->volume->name,
+                'size' => Formatters::humanFileSize($fileSize),
+                'projected' => Formatters::humanFileSize($projected),
+                'limit' => Formatters::humanFileSize($limit),
+            ]);
+
+            $logger->log($message, 'warning', $context);
+
+            return $message;
         }
 
         $message = __('Storage limit reached for volume ":volume". This backup (:size) would bring total usage to :projected, over the :limit limit. The file was not uploaded — free up space by deleting old snapshots.', [
@@ -181,12 +211,7 @@ class BackupTask
             'limit' => Formatters::humanFileSize($limit),
         ]);
 
-        $logger->log($message, 'error', [
-            'volume' => $config->volume->name,
-            'used_bytes' => $config->volumeUsedBytes,
-            'file_size' => $fileSize,
-            'limit_bytes' => $limit,
-        ]);
+        $logger->log($message, 'error', $context);
 
         throw new StorageQuotaExceededException($message);
     }

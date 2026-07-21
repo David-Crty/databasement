@@ -89,6 +89,12 @@ class ProcessBackupJob implements ShouldQueue
 
             try {
                 app(NotificationService::class)->notifyBackupSuccess($snapshot);
+
+                // Notify-only storage limit: the backup was uploaded despite
+                // exceeding the volume's limit — alert every configured channel.
+                if ($result->storageWarning !== null) {
+                    app(NotificationService::class)->notifyStorageLimitWarning($snapshot, $result->storageWarning);
+                }
             } catch (\Throwable $notificationException) {
                 Log::warning('Backup success notification failed', [
                     'snapshot_id' => $this->snapshotId,

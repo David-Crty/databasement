@@ -94,14 +94,25 @@ class Volume extends Model
     /**
      * The configured storage limit for this volume in bytes, or null when the
      * volume has no limit. Stored under the config's `max_storage_bytes` key.
-     * A backup that would push the volume past this limit is failed before
-     * upload; nothing is pruned automatically.
+     * When the limit would be exceeded a backup is either failed before upload
+     * or merely warned about, depending on {@see self::storageLimitIsNotifyOnly()}.
+     * Nothing is pruned automatically.
      */
     public function maxStorageBytes(): ?int
     {
         $value = $this->config['max_storage_bytes'] ?? null;
 
         return $value !== null ? (int) $value : null;
+    }
+
+    /**
+     * Whether reaching the storage limit only sends a notification instead of
+     * blocking the backup. Stored under the config's `max_storage_notify_only`
+     * key; only meaningful when a limit is set.
+     */
+    public function storageLimitIsNotifyOnly(): bool
+    {
+        return (bool) ($this->config['max_storage_notify_only'] ?? false);
     }
 
     /**

@@ -249,3 +249,20 @@ test('handle fails without retry when the volume storage limit is exceeded', fun
         ->and($snapshot->job->error_message)->toBe('Storage limit reached for volume "R2 Bucket".')
         ->and($snapshot->job->completed_at)->not->toBeNull();
 });
+
+test('handle completes and notifies all channels when the limit is exceeded in notify-only mode', function () {
+    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123', storageWarning: 'Storage limit reached for volume "R2 Bucket".'));
+
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    expect($snapshot->fresh()->job->status)->toBe(BackupJobStatus::Completed);
+    Notification::assertSentTimes(\App\Notifications\StorageLimitWarningNotification::class, 1);
+});

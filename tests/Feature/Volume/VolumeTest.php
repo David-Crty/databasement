@@ -266,6 +266,35 @@ describe('volume storage limit', function () {
 
         expect($volume->refresh()->maxStorageBytes())->toBe(5 * (1024 ** 3));
     });
+
+    test('the notify-only flag round-trips and is dropped when the limit is cleared', function () {
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+
+        Livewire::actingAs($user)
+            ->test(Create::class)
+            ->set('form.name', 'Notify Volume')
+            ->set('form.type', 'local')
+            ->set('form.localConfig.path', '/var/backups')
+            ->set('form.maxStorageGb', '10')
+            ->set('form.storageLimitNotifyOnly', true)
+            ->call('save')
+            ->assertRedirect(route('volumes.index'));
+
+        $volume = Volume::where('name', 'Notify Volume')->firstOrFail();
+        expect($volume->storageLimitIsNotifyOnly())->toBeTrue();
+
+        // Reopens with the flag set; clearing the limit drops both config keys.
+        Livewire::actingAs($user)
+            ->test(Edit::class, ['volume' => $volume])
+            ->assertSet('form.storageLimitNotifyOnly', true)
+            ->set('form.maxStorageGb', '')
+            ->call('save')
+            ->assertRedirect(route('volumes.index'));
+
+        $volume->refresh();
+        expect($volume->maxStorageBytes())->toBeNull()
+            ->and($volume->config)->not->toHaveKey('max_storage_notify_only');
+    });
 });
 
 describe('volume listing', function () {

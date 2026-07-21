@@ -13,6 +13,7 @@ use App\Notifications\ChannelNotifiable;
 use App\Notifications\RestoreFailedNotification;
 use App\Notifications\RestoreSuccessNotification;
 use App\Notifications\SnapshotsMissingNotification;
+use App\Notifications\StorageLimitWarningNotification;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
@@ -52,6 +53,19 @@ class NotificationService
             $restore->targetServer,
             'success',
             new RestoreSuccessNotification($restore),
+        );
+    }
+
+    /**
+     * A backup exceeded its volume's storage limit but was uploaded anyway
+     * (notify-only mode). Volumes are installation-wide, so this alerts every
+     * configured channel rather than the source server's channels.
+     */
+    public function notifyStorageLimitWarning(Snapshot $snapshot, string $message): void
+    {
+        $this->sendToChannels(
+            new StorageLimitWarningNotification($snapshot, $message),
+            NotificationChannel::all(),
         );
     }
 
