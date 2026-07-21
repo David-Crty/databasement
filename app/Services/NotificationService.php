@@ -162,7 +162,7 @@ class NotificationService
         // instanceof guard skips this when the facade is faked (tests), where
         // no real drivers are ever resolved.
         if (in_array($type, [NotificationChannelType::Discord, NotificationChannelType::Telegram, NotificationChannelType::Pushover], true)) {
-            $manager = app(ChannelManager::class);
+            $manager = NotificationFacade::getFacadeRoot();
 
             if ($manager instanceof ChannelManager) {
                 $manager->forgetDrivers();

@@ -283,11 +283,11 @@ test('token refresh drops cached channel drivers so token changes apply without 
     // The ChannelManager caches drivers per process; the service must forget
     // them when refreshing a token-based channel (Discord/Telegram/Pushover),
     // otherwise the long-running queue worker keeps clients built with the
-    // first token it saw. The facade stays faked, so binding a manager mock
-    // only intercepts the forgetDrivers call.
+    // first token it saw.
     $manager = Mockery::mock(\Illuminate\Notifications\ChannelManager::class);
     $manager->shouldReceive('forgetDrivers')->atLeast()->once();
-    app()->instance(\Illuminate\Notifications\ChannelManager::class, $manager);
+    $manager->shouldReceive('send');
+    Notification::swap($manager);
 
     NotificationChannel::factory()->discord()->create([
         'config' => ['token' => 'discord-db-token', 'channel_id' => '111'],
