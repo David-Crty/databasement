@@ -153,6 +153,31 @@ describe('job heartbeat', function () {
         expect($agentJob->lease_expires_at->isAfter(now()->addMinutes(2)))->toBeTrue();
     });
 
+    test('honors a longer requested lease for relay uploads', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", ['lease_seconds' => 1200])
+            ->assertOk();
+
+        // Requested 1200s (> 300s default, under the cap) should be honored.
+        expect($agentJob->fresh()->lease_expires_at->isAfter(now()->addMinutes(15)))->toBeTrue();
+    });
+
+    test('clamps a requested lease to the configured maximum', function () {
+        config(['agent.max_lease_duration' => 600]);
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", ['lease_seconds' => 99999])
+            ->assertOk();
+
+        // Capped at 600s, so the lease is well under the requested ~27h.
+        expect($agentJob->fresh()->lease_expires_at->isBefore(now()->addMinutes(11)))->toBeTrue();
+    });
+
     test('heartbeat appends logs to existing logs', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
@@ -209,6 +234,78 @@ describe('job acknowledgement', function () {
         expect($backupJob->status)->toBe(BackupJobStatus::Completed)
             ->and($backupJob->logs)->toHaveCount(2)
             ->and($backupJob->logs[0]['message'])->toBe('Starting backup for database: testdb');
+    });
+});
+
+describe('archive upload (relay)', function () {
+    // withToken()->call() does not forward the auth header (unlike postJson),
+    // so pass the bearer token explicitly and stream the raw body.
+    $upload = fn (string $token, string $jobId, string $query, string $content) => test()
+        ->call('POST', "/api/v1/agent/jobs/{$jobId}/upload?{$query}", [], [], [], [
+            'CONTENT_TYPE' => 'application/octet-stream',
+            'HTTP_ACCEPT' => 'application/json',
+            'HTTP_AUTHORIZATION' => "Bearer {$token}",
+        ], $content);
+
+    test('writes the uploaded archive to the volume and verifies integrity', function () use ($upload) {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
+        $volume = \App\Models\Volume::factory()->local()->create();
+        $snapshot = Snapshot::factory()->forServer($server)->create(['volume_id' => $volume->id]);
+        $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
+
+        $content = 'fake-archive-bytes';
+        $filename = 'backups/db.sql.gz';
+        $query = http_build_query([
+            'filename' => $filename,
+            'checksum' => hash('sha256', $content),
+            'file_size' => strlen($content),
+        ]);
+
+        $upload($token, $agentJob->id, $query, $content)
+            ->assertOk()
+            ->assertJsonPath('checksum', hash('sha256', $content))
+            ->assertJsonPath('file_size', strlen($content));
+
+        $stored = $volume->config['path'].'/'.$filename;
+        expect(is_file($stored))->toBeTrue()
+            ->and(file_get_contents($stored))->toBe($content);
+
+        // Upload only transfers — finalization stays with ack.
+        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_CLAIMED);
+    });
+
+    test('rejects a checksum mismatch and fails the job', function () use ($upload) {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
+        $volume = \App\Models\Volume::factory()->local()->create();
+        $snapshot = Snapshot::factory()->forServer($server)->create(['volume_id' => $volume->id]);
+        $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
+
+        $content = 'fake-archive-bytes';
+        $query = http_build_query([
+            'filename' => 'db.sql.gz',
+            'checksum' => 'definitely-not-the-real-checksum',
+            'file_size' => strlen($content),
+        ]);
+
+        $upload($token, $agentJob->id, $query, $content)->assertStatus(422);
+
+        // The job must stay non-terminal so the agent's follow-up /fail call
+        // can finalize the whole lifecycle (job + backup job + notification).
+        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_CLAIMED);
+    });
+
+    test('rejects upload for a discovery job', function () use ($upload) {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
+        $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
+            'database_server_id' => $server->id,
+        ]);
+
+        $query = http_build_query(['filename' => 'db.sql.gz']);
+
+        $upload($token, $agentJob->id, $query, 'data')->assertStatus(422);
     });
 });
 
@@ -327,6 +424,7 @@ describe('ownership checks', function () {
     })->with([
         'heartbeat' => ['heartbeat', []],
         'ack' => ['ack', ['filename' => 'test.sql.gz', 'file_size' => 123]],
+        'upload' => ['upload', []],
         'fail' => ['fail', ['error_message' => 'Error']],
     ]);
 
@@ -479,6 +577,7 @@ describe('job state guards', function () {
     })->with([
         'heartbeat' => ['heartbeat'],
         'ack' => ['ack'],
+        'upload' => ['upload'],
         'fail' => ['fail'],
         'discovered-databases' => ['discovered-databases'],
     ]);

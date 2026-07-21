@@ -1,4 +1,8 @@
 {
+  "Local volumes can only be used with remote agents when \"Store on the main server\" is enabled.": "Los volúmenes locales solo pueden usarse con agentes remotos cuando «Almacenar en el servidor principal» está activado.",
+  "Store on the main server": "Almacenar en el servidor principal",
+  "The agent uploads the backup to this server, which writes it to the selected volume. Required for local volumes; keeps volume credentials off the agent.": "El agente sube el backup a este servidor, que lo escribe en el volumen seleccionado. Necesario para volúmenes locales; mantiene las credenciales del volumen fuera del agente.",
+  "requires storing on the main server": "requiere almacenar en el servidor principal",
   "(You)": "(Tú)",
   "(any database)": "(cualquier base de datos)",
   "(resolved today)": "(resuelto hoy)",

@@ -112,6 +112,111 @@ describe('ack', function () {
     });
 });
 
+describe('upload', function () {
+    test('streams the archive to the upload endpoint with metadata in the query string', function () {
+        Http::fake();
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'fake-archive-bytes');
+
+        try {
+            $this->client->upload('job-1', $tmp, 'backups/db.sql.gz', 'sha256hash', 18);
+        } finally {
+            @unlink($tmp);
+        }
+
+        Http::assertSent(function ($request) {
+            return str_starts_with($request->url(), 'http://server.test/api/v1/agent/jobs/job-1/upload?')
+                && str_contains($request->url(), 'filename='.urlencode('backups/db.sql.gz'))
+                && str_contains($request->url(), 'checksum=sha256hash')
+                && str_contains($request->url(), 'file_size=18')
+                && $request->body() === 'fake-archive-bytes'
+                && $request->hasHeader('Authorization', 'Bearer test-token');
+        });
+    });
+
+    test('retries the upload on a transient server error', function () {
+        Http::fake([
+            '*/upload*' => Http::sequence()
+                ->push('boom', 500)
+                ->push(['status' => 'ok'], 200),
+        ]);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'data');
+
+        try {
+            $this->client->upload('job-1', $tmp, 'db.sql.gz', 'sum', 4);
+        } finally {
+            @unlink($tmp);
+        }
+
+        Http::assertSentCount(2);
+    });
+
+    test('does not retry the upload on a client error', function () {
+        Http::fake(['*/upload*' => Http::response('rejected', 422)]);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'data');
+
+        try {
+            expect(fn () => $this->client->upload('job-1', $tmp, 'db.sql.gz', 'sum', 4))
+                ->toThrow(\Illuminate\Http\Client\RequestException::class);
+        } finally {
+            @unlink($tmp);
+        }
+
+        Http::assertSentCount(1);
+    });
+
+    test('runs the before-attempt hook once per attempt (lease refresh)', function () {
+        Http::fake([
+            '*/upload*' => Http::sequence()
+                ->push('boom', 500)
+                ->push(['status' => 'ok'], 200),
+        ]);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'data');
+
+        $attempts = 0;
+
+        try {
+            $this->client->upload('job-1', $tmp, 'db.sql.gz', 'sum', 4, function () use (&$attempts) {
+                $attempts++;
+            });
+        } finally {
+            @unlink($tmp);
+        }
+
+        expect($attempts)->toBe(2);
+    });
+
+    test('retries the upload after a transient connection failure', function () {
+        $calls = 0;
+        Http::fake(function () use (&$calls) {
+            $calls++;
+            if ($calls === 1) {
+                throw new \Illuminate\Http\Client\ConnectionException('Connection timed out');
+            }
+
+            return Http::response(['status' => 'ok'], 200);
+        });
+
+        $tmp = tempnam(sys_get_temp_dir(), 'upload-test');
+        file_put_contents($tmp, 'data');
+
+        try {
+            $this->client->upload('job-1', $tmp, 'db.sql.gz', 'sum', 4);
+        } finally {
+            @unlink($tmp);
+        }
+
+        expect($calls)->toBe(2);
+    });
+});
+
 describe('fail', function () {
     test('sends error message and logs to fail endpoint', function () {
         Http::fake();

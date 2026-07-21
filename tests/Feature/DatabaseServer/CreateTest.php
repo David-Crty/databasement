@@ -366,7 +366,7 @@ test('mongodb dump command preview masks the uri password cleanly', function () 
         ->and($preview)->not->toContain('********');
 });
 
-test('local volume options reflect use_agent state', function (bool $useAgent, bool $expectedDisabled) {
+test('local volumes are selectable regardless of use_agent state', function (bool $useAgent) {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
 
@@ -377,10 +377,12 @@ test('local volume options reflect use_agent state', function (bool $useAgent, b
     $options = $component->viewData('form')->getVolumeOptions();
     $local = collect($options)->firstWhere('id', $localVolume->id);
 
-    expect($local['disabled'])->toBe($expectedDisabled);
+    // Local volumes are never disabled: with an agent they require the
+    // per-backup "Store on the main server" relay, enforced by validation.
+    expect($local['disabled'])->toBeFalse();
 })->with([
-    'disabled when use_agent is true' => [true, true],
-    'enabled when use_agent is false' => [false, false],
+    'use_agent is true' => [true],
+    'use_agent is false' => [false],
 ]);
 
 test('toggling use_agent clears local volume but keeps remote volume', function (string $volumeType, string $expectedVolumeId) {
@@ -401,6 +403,49 @@ test('toggling use_agent clears local volume but keeps remote volume', function 
     'clears local volume' => ['local', 'clear'],
     'keeps s3 volume' => ['s3', 'keep'],
 ]);
+
+test('turning off store_on_server clears a local volume for an agent-backed server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create();
+    $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', $agent->id)
+        ->set('form.backups.0.store_on_server', true)
+        ->set('form.backups.0.volume_id', $localVolume->id)
+        ->assertSet('form.backups.0.volume_id', $localVolume->id)
+        ->set('form.backups.0.store_on_server', false)
+        ->assertSet('form.backups.0.volume_id', '');
+});
+
+test('agent-backed server can keep a local volume when store_on_server is enabled', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create();
+    $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Relay Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', $agent->id)
+        ->set('form.backups.0.store_on_server', true)
+        ->set('form.backups.0.volume_id', $localVolume->id)
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $backup = DatabaseServer::where('name', 'Relay Server')->firstOrFail()->backups()->firstOrFail();
+
+    expect($backup->store_on_server)->toBeTrue()
+        ->and($backup->volume_id)->toBe($localVolume->id);
+});
 
 test('cannot create agent-backed server with local volume', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();

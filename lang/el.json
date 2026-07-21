@@ -1,4 +1,8 @@
 {
+  "Local volumes can only be used with remote agents when \"Store on the main server\" is enabled.": "Οι τοπικοί τόμοι μπορούν να χρησιμοποιηθούν με απομακρυσμένους πράκτορες μόνο όταν είναι ενεργοποιημένη η επιλογή «Αποθήκευση στον κύριο διακομιστή».",
+  "Store on the main server": "Αποθήκευση στον κύριο διακομιστή",
+  "The agent uploads the backup to this server, which writes it to the selected volume. Required for local volumes; keeps volume credentials off the agent.": "Ο πράκτορας ανεβάζει το backup σε αυτόν τον διακομιστή, ο οποίος το γράφει στον επιλεγμένο τόμο. Απαιτείται για τοπικούς τόμους· διατηρεί τα διαπιστευτήρια του τόμου εκτός του πράκτορα.",
+  "requires storing on the main server": "απαιτεί αποθήκευση στον κύριο διακομιστή",
   "(You)": "(Εσείς)",
   "(any database)": "(οποιαδήποτε Βάση Δεδομένων)",
   "(resolved today)": "(επιλύθηκε σήμερα)",

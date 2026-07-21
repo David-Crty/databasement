@@ -1,4 +1,8 @@
 {
+  "Local volumes can only be used with remote agents when \"Store on the main server\" is enabled.": "Les volumes locaux ne peuvent être utilisés avec des agents distants que si « Stocker sur le serveur principal » est activé.",
+  "Store on the main server": "Stocker sur le serveur principal",
+  "The agent uploads the backup to this server, which writes it to the selected volume. Required for local volumes; keeps volume credentials off the agent.": "L’agent téléverse le backup vers ce serveur, qui l’écrit sur le volume sélectionné. Nécessaire pour les volumes locaux ; conserve les identifiants du volume hors de l’agent.",
+  "requires storing on the main server": "nécessite un stockage sur le serveur principal",
   "(You)": "(Vous)",
   "(any database)": "(toute base de données)",
   "(resolved today)": "(résolu aujourd’hui)",

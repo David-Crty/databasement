@@ -36,6 +36,7 @@ class Backup extends Model
     protected $fillable = [
         'database_server_id',
         'volume_id',
+        'store_on_server',
         'path',
         'backup_schedule_id',
         'retention_days',
@@ -52,6 +53,7 @@ class Backup extends Model
     {
         return [
             'database_selection_mode' => DatabaseSelectionMode::class,
+            'store_on_server' => 'boolean',
             'database_names' => 'array',
             'retention_days' => 'integer',
             'gfs_keep_daily' => 'integer',

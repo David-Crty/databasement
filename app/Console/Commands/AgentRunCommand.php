@@ -32,7 +32,12 @@ class AgentRunCommand extends Command
             return self::FAILURE;
         }
 
-        $client = new AgentApiClient($url, $token);
+        $client = new AgentApiClient(
+            $url,
+            $token,
+            (int) config('agent.upload_timeout', 3600),
+            (int) config('agent.upload_retries', 3),
+        );
 
         $this->log('Databasement Agent starting...');
         $this->log("Server: {$url}");
@@ -105,10 +110,37 @@ class AgentRunCommand extends Command
             $workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $job['id']);
             $config = BackupConfig::fromPayload($payload, $workingDirectory); // @phpstan-ignore argument.type
 
+            // When relaying through the server, the agent uploads the archive
+            // instead of writing it to the volume itself. The server stores it
+            // on the target volume; the existing ack flow still finalizes the job.
+            //
+            // A single upload attempt can run for up to upload_timeout, so we
+            // extend the lease to cover a whole attempt before each try — this
+            // keeps another agent from reclaiming the job mid-transfer.
+            $uploadLeaseSeconds = (int) config('agent.upload_timeout', 3600) + 60;
+            $deliver = $config->relaysThroughServer()
+                ? function (string $archive, string $filename) use ($client, $job, $logger, $uploadLeaseSeconds): void {
+                    $checksum = hash_file('sha256', $archive);
+                    $fileSize = filesize($archive);
+                    if ($checksum === false || $fileSize === false) {
+                        throw new \RuntimeException("Failed to read archive for upload: {$archive}");
+                    }
+                    $client->upload(
+                        $job['id'],
+                        $archive,
+                        $filename,
+                        $checksum,
+                        $fileSize,
+                        onBeforeAttempt: fn () => $client->jobHeartbeat($job['id'], $logger->flush(), $uploadLeaseSeconds),
+                    );
+                }
+                : null;
+
             $result = $backupTask->execute(
                 $config,
                 $logger,
                 onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
+                deliver: $deliver,
             );
 
             $client->ack($job['id'], $result->filename, $result->fileSize, $result->checksum, $logger->flush());

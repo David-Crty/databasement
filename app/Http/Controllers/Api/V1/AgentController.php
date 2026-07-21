@@ -9,7 +9,9 @@ use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Services\Agent\AgentJobPayloadBuilder;
 use App\Services\Backup\BackupJobFactory;
+use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\NotificationService;
+use App\Support\FilesystemSupport;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -132,9 +134,17 @@ class AgentController extends Controller
             return response()->json(['message' => "Cannot heartbeat a job with status '{$agentJob->status}'."], 409);
         }
 
-        $validated = $request->validate(self::logRules());
+        $validated = $request->validate([
+            'lease_seconds' => 'nullable|integer|min:1',
+            ...self::logRules(),
+        ]);
 
-        $leaseDuration = max(1, (int) config('agent.lease_duration', 300));
+        $default = max(1, (int) config('agent.lease_duration', 300));
+        $max = max($default, (int) config('agent.max_lease_duration', $default));
+        $requested = (int) ($validated['lease_seconds'] ?? 0);
+        // Honor a longer agent-requested lease (e.g. for a long relay upload),
+        // never shorter than the default and never above the configured cap.
+        $leaseDuration = $requested > 0 ? min(max($requested, $default), $max) : $default;
         $agentJob->extendLease($leaseDuration);
 
         if (! empty($validated['logs']) && $agentJob->snapshot) {
@@ -194,6 +204,89 @@ class AgentController extends Controller
         $backupJob->markCompleted();
 
         return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Receive a relayed backup archive.
+     *
+     * Streams the agent-uploaded archive to the job's target volume (so the
+     * agent can store backups on the main server's volumes without holding
+     * any volume credentials). Verifies integrity, then leaves finalization
+     * to the regular `ack` call.
+     */
+    public function upload(Request $request, AgentJob $agentJob, FilesystemProvider $filesystemProvider): JsonResponse
+    {
+        /** @var Agent $agent */
+        $agent = $request->user();
+
+        if ($agentJob->agent_id !== $agent->id) {
+            return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
+        }
+
+        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
+            return response()->json(['message' => "Cannot upload for a job with status '{$agentJob->status}'."], 409);
+        }
+
+        if ($agentJob->type !== AgentJob::TYPE_BACKUP || ! $agentJob->snapshot) {
+            return response()->json(['message' => 'Only backup jobs can receive uploads.'], 422);
+        }
+
+        $validated = $request->validate([
+            'filename' => 'required|string|max:1000',
+            'checksum' => 'nullable|string|max:255',
+            'file_size' => 'nullable|integer|min:0',
+        ]);
+
+        $snapshot = $agentJob->snapshot;
+        $workingDirectory = FilesystemSupport::createWorkingDirectory('upload', $agentJob->id);
+        $tempPath = $workingDirectory.'/'.basename($validated['filename']);
+
+        try {
+            // Stream the raw request body to a temp file (avoids loading the
+            // whole archive into memory).
+            $input = $request->getContent(true);
+            $out = fopen($tempPath, 'w');
+            if ($out === false) {
+                throw new RuntimeException("Failed to open temp file for upload: {$tempPath}");
+            }
+            try {
+                if (stream_copy_to_stream($input, $out) === false) {
+                    throw new RuntimeException('Failed to write uploaded archive to disk.');
+                }
+            } finally {
+                fclose($out);
+                if (is_resource($input)) {
+                    fclose($input);
+                }
+            }
+
+            // Verify integrity against what the agent claims it sent.
+            $size = filesize($tempPath);
+            $checksum = hash_file('sha256', $tempPath);
+            if ($size === false || $checksum === false) {
+                throw new RuntimeException('Failed to read uploaded archive.');
+            }
+
+            if (! empty($validated['checksum']) && ! hash_equals($validated['checksum'], $checksum)) {
+                // Reject the upload but leave the job non-terminal so the agent's
+                // follow-up /fail call can drive the full failure lifecycle
+                // (agent job + backup job + notification) consistently.
+                return response()->json(['message' => 'Checksum mismatch — upload rejected.'], 422);
+            }
+
+            // Write to the real volume using the server's credentials.
+            $filesystemProvider->transfer($snapshot->volume, $tempPath, $validated['filename']);
+
+            return response()->json([
+                'status' => 'ok',
+                'file_size' => $size,
+                'checksum' => $checksum,
+            ]);
+        } finally {
+            if (is_dir($workingDirectory)) {
+                FilesystemSupport::cleanupDirectory($workingDirectory);
+            }
+        }
     }
 
     /**

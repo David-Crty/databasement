@@ -33,6 +33,7 @@ final class BackupForm
         return [
             'id' => null,
             'volume_id' => '',
+            'store_on_server' => false,
             'path' => '',
             'backup_schedule_id' => $defaultScheduleId ?? '',
             'retention_policy' => Backup::RETENTION_DAYS,
@@ -57,6 +58,7 @@ final class BackupForm
         return [
             'id' => $backup->id,
             'volume_id' => $backup->volume_id,
+            'store_on_server' => (bool) $backup->store_on_server,
             'path' => $backup->path ?? '',
             'backup_schedule_id' => $backup->backup_schedule_id ?? '',
             'retention_policy' => $backup->retention_policy ?? Backup::RETENTION_DAYS,
@@ -84,6 +86,7 @@ final class BackupForm
 
         $data = [
             'volume_id' => $entry['volume_id'] ?? '',
+            'store_on_server' => (bool) ($entry['store_on_server'] ?? false),
             'path' => ! empty($entry['path']) ? $entry['path'] : null,
             'backup_schedule_id' => $entry['backup_schedule_id'] ?? '',
             'retention_policy' => $retentionPolicy,
@@ -197,18 +200,25 @@ final class BackupForm
     ): array {
         $prefix = "backups.{$index}.";
 
+        $storeOnServer = (bool) ($entry['store_on_server'] ?? false);
+
         $rules = [
             $prefix.'volume_id' => [
                 'required',
                 Rule::exists('volumes', 'id')->where('organization_id', app(CurrentOrganization::class)->id()),
-                function (string $attribute, mixed $value, \Closure $fail) use ($isAgent): void {
+                function (string $attribute, mixed $value, \Closure $fail) use ($isAgent, $storeOnServer): void {
+                    // Local volumes live on the main server. They only work with
+                    // a remote agent when the agent relays the archive back to
+                    // the server (store_on_server).
                     if ($isAgent
+                        && ! $storeOnServer
                         && Volume::whereKey($value)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
                     ) {
-                        $fail(__('Local volumes cannot be used with remote agents.'));
+                        $fail(__('Local volumes can only be used with remote agents when "Store on the main server" is enabled.'));
                     }
                 },
             ],
+            $prefix.'store_on_server' => 'boolean',
             $prefix.'path' => ['nullable', 'string', 'max:255', new SafePath],
             $prefix.'backup_schedule_id' => 'required|exists:backup_schedules,id',
             $prefix.'retention_policy' => 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES),

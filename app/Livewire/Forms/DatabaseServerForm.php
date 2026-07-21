@@ -162,6 +162,25 @@ class DatabaseServerForm extends Form
             return;
         }
 
+        // Turning off "Store on the main server" makes a local volume invalid
+        // again for an agent-backed server, so clear it (mirrors the use_agent
+        // cleanup) instead of waiting for save-time validation to fail.
+        if (preg_match('/^backups\.(\d+)\.store_on_server$/', $property, $matches)
+            && $this->hasAgent()
+            && ! (bool) $value
+        ) {
+            $index = (int) $matches[1];
+            $volumeId = $this->backups[$index]['volume_id'] ?? '';
+
+            if ($volumeId !== ''
+                && \App\Models\Volume::whereKey($volumeId)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
+            ) {
+                $this->backups[$index]['volume_id'] = '';
+            }
+
+            return;
+        }
+
         // Clearing the comma-separated text input should clear the backing
         // array so stale values can't survive the save. Live-binding means
         // this fires while typing, so we only act on a full clear.
@@ -288,11 +307,13 @@ class DatabaseServerForm extends Form
             $this->agent_id = null;
         }
 
-        // Clear volume selection(s) if they were local (incompatible with agents)
+        // Clear local volume selection(s) when switching to an agent, unless
+        // the backup relays through the server (which supports local volumes).
         if ($this->use_agent) {
             foreach ($this->backups as $index => $backup) {
                 $volumeId = $backup['volume_id'] ?? '';
                 if ($volumeId !== ''
+                    && empty($backup['store_on_server'])
                     && \App\Models\Volume::whereKey($volumeId)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
                 ) {
                     $this->backups[$index]['volume_id'] = '';
@@ -824,14 +845,18 @@ class DatabaseServerForm extends Form
     public function getVolumeOptions(): array
     {
         return $this->getAllVolumes()->map(function ($v) {
+            // Local volumes live on the main server. With an agent they're only
+            // reachable when the backup relays through the server, so we no
+            // longer disable them — the per-backup "Store on the main server"
+            // toggle and validation enforce that requirement.
             $isLocalWithAgent = $this->use_agent && $v->getVolumeType() === \App\Enums\VolumeType::LOCAL;
 
             return [
                 'id' => $v->id,
                 'name' => $isLocalWithAgent
-                    ? "{$v->name} ({$v->type}) — ".__('not available for remote agents')
+                    ? "{$v->name} ({$v->type}) — ".__('requires storing on the main server')
                     : "{$v->name} ({$v->type})",
-                'disabled' => $isLocalWithAgent,
+                'disabled' => false,
             ];
         })->toArray();
     }
