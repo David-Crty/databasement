@@ -154,14 +154,7 @@ class BackupJobFactory
         ]);
         $snapshot->job->markFailed($exception);
 
-        try {
-            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
-        } catch (\Throwable $notificationException) {
-            Log::warning('Pre-flight failure notification failed', [
-                'snapshot_id' => $snapshot->id,
-                'error' => $notificationException->getMessage(),
-            ]);
-        }
+        app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
     }
 
     /**

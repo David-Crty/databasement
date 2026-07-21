@@ -22,6 +22,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Slack\SlackMessage;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use NotificationChannels\Discord\DiscordChannel;
 use NotificationChannels\Discord\DiscordMessage;
@@ -207,6 +208,48 @@ test('notification is sent to channel when configured', function (string $factor
     'webhook' => ['webhook', ['url' => 'https://webhook.example.com/hook', 'secret' => 'my-secret'], WebhookChannel::class, 'webhook'],
 ]);
 
+test('notification dispatch errors never escape the service', function () {
+    Log::spy();
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+    // A snapshot with no databaseServer relation (e.g. server since deleted)
+    // makes notifyServer fail before any channel send — that error must be
+    // swallowed so it cannot mark a completed job as failed or escape into
+    // scheduler/request execution.
+    $snapshot = new Snapshot(['database_name' => 'orphan_db']);
+
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+
+    Notification::assertNothingSent();
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message) => $message === 'Notification dispatch failed')
+        ->once();
+});
+
+test('a failing channel is logged and does not block the remaining channels', function () {
+    Log::spy();
+
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'first@example.com']]);
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'second@example.com']]);
+
+    // First channel's send blows up (e.g. unreachable SMTP host); the second
+    // must still be attempted and the error must not escape the service.
+    Notification::shouldReceive('send')
+        ->once()
+        ->andThrow(new \Symfony\Component\Mailer\Exception\TransportException('Connection could not be established'))
+        ->ordered();
+    Notification::shouldReceive('send')->once()->ordered();
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Backup failed'));
+
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message) => $message === 'Notification send failed')
+        ->once();
+});
+
 test('send refreshes service configs from channel config before dispatching', function () {
     NotificationChannel::factory()->pushover()->create([
         'config' => ['token' => 'app-token-fresh', 'user_key' => 'user-key-123'],
@@ -233,6 +276,45 @@ test('send refreshes service configs from channel config before dispatching', fu
     // After sending, the service should have refreshed config from channel records
     $sent = sentChannelNotifications(BackupFailedNotification::class);
     expect($sent)->toHaveCount(3);
+});
+
+test('discord client resolves with the token from channel config', function () {
+    // The Discord provider captures services.discord.token at boot (null here,
+    // since tokens live in the DB) — without rebinding, resolving the client
+    // throws an unresolvable-dependency error.
+    NotificationChannel::factory()->discord()->create([
+        'config' => ['token' => 'discord-db-token', 'channel_id' => '123456789'],
+    ]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+
+    $discord = app(\NotificationChannels\Discord\Discord::class);
+    $token = (new ReflectionProperty($discord, 'token'))->getValue($discord);
+
+    expect($token)->toBe('discord-db-token');
+});
+
+test('token refresh drops cached channel drivers so token changes apply without a worker restart', function () {
+    // The ChannelManager caches drivers per process; the service must forget
+    // them when refreshing a token-based channel (Discord/Telegram/Pushover),
+    // otherwise the long-running queue worker keeps clients built with the
+    // first token it saw.
+    $manager = Mockery::mock(\Illuminate\Notifications\ChannelManager::class);
+    $manager->shouldReceive('forgetDrivers')->atLeast()->once();
+    $manager->shouldReceive('send');
+    Notification::swap($manager);
+
+    NotificationChannel::factory()->discord()->create([
+        'config' => ['token' => 'discord-db-token', 'channel_id' => '111'],
+    ]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
 });
 
 test('via method returns channels based on configured routes', function () {
