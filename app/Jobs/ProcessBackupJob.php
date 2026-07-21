@@ -133,6 +133,13 @@ class ProcessBackupJob implements ShouldQueue
             return;
         }
 
-        app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
+        try {
+            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
+        } catch (\Throwable $notificationException) {
+            Log::warning('Backup failure notification failed', [
+                'snapshot_id' => $this->snapshotId,
+                'error' => $notificationException->getMessage(),
+            ]);
+        }
     }
 }
