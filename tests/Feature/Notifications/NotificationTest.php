@@ -260,6 +260,25 @@ test('send refreshes service configs from channel config before dispatching', fu
     expect($sent)->toHaveCount(3);
 });
 
+test('discord client resolves with the token from channel config', function () {
+    // The Discord provider captures services.discord.token at boot (null here,
+    // since tokens live in the DB) — without rebinding, resolving the client
+    // throws an unresolvable-dependency error.
+    NotificationChannel::factory()->discord()->create([
+        'config' => ['token' => 'discord-db-token', 'channel_id' => '123456789'],
+    ]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+
+    $discord = app(\NotificationChannels\Discord\Discord::class);
+    $token = (new ReflectionProperty($discord, 'token'))->getValue($discord);
+
+    expect($token)->toBe('discord-db-token');
+});
+
 test('via method returns channels based on configured routes', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = notificationSnapshot($server);

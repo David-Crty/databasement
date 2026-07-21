@@ -17,6 +17,7 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
+use NotificationChannels\Discord\Discord;
 
 class NotificationService
 {
@@ -147,10 +148,26 @@ class NotificationService
     private function refreshVendorServiceConfig(NotificationChannelType $type, array $config): void
     {
         match ($type) {
-            NotificationChannelType::Discord => config(['services.discord.token' => $config['token'] ?? null]),
+            NotificationChannelType::Discord => $this->refreshDiscordToken($config['token'] ?? null),
             NotificationChannelType::Telegram => config(['services.telegram-bot-api.token' => $config['bot_token'] ?? null]),
             NotificationChannelType::Pushover => config(['services.pushover.token' => $config['token'] ?? null]),
             default => null,
         };
+    }
+
+    /**
+     * Unlike the Telegram/Pushover providers (which read config lazily at
+     * resolve time), the Discord provider captures the token once at boot
+     * via a contextual binding — with no token in services config at boot,
+     * resolving the channel throws an unresolvable-dependency error. So the
+     * binding itself must be re-registered with the channel's token.
+     */
+    private function refreshDiscordToken(?string $token): void
+    {
+        config(['services.discord.token' => $token]);
+
+        app()->when(Discord::class)
+            ->needs('$token')
+            ->give($token);
     }
 }
