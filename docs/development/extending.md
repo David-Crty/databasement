@@ -17,10 +17,12 @@ All database types implement `DatabaseInterface` and are resolved via `DatabaseP
 - `app/Services/Backup/Databases/{Type}Database.php` - Create handler implementing `DatabaseInterface` (`setConfig`, `dump`, `restore`, `prepareForRestore`, `listDatabases`, `testConnection`)
 - `app/Services/Backup/Databases/DatabaseProvider.php` - Add case to `make()` and config handling in `makeForServer()`
 - `app/Services/Backup/BackupJobFactory.php` - Add snapshot creation logic if different from default (e.g., instance-level types like Redis/SQLite)
-- `app/Livewire/Forms/DatabaseServerForm.php` - Validation rules, type helpers, UI behavior
+- `app/Livewire/Forms/Connection/ConnectionRules.php` - Wire the enum case in `for()`: reuse `ClientServerConnectionRules` for host/port/credential types, or add a `{Type}ConnectionRules` subclass for type-specific rules, extra_config, dump-preview config, or field defaults
+- `app/Livewire/Forms/DatabaseServerForm.php` - Shared form behavior only (type helpers, UI behavior); per-type validation lives in the connection rules classes
 
 **UI:**
-- `resources/views/livewire/database-server/_form.blade.php` - Conditional fields for the type
+- `resources/views/livewire/database-server/connection/{type}.blade.php` - Connection fields partial, resolved by convention from the `DatabaseType` value; `@include` the shared `_client-server-fields` partial and add type-specific fields
+- `resources/views/livewire/database-server/_form.blade.php` - Only for changes outside the connection section (dump config, section gating)
 - `resources/views/livewire/database-server/restore-modal.blade.php` - If restore behavior differs
 
 **Infrastructure:**

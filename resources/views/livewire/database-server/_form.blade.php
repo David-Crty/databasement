@@ -106,93 +106,13 @@ use App\Enums\DatabaseType;
                     </x-radio-card-group>
                 </div>
 
-                @if($form->database_type)
+                @php $selectedType = DatabaseType::tryFrom($form->database_type); @endphp
+                @if($selectedType)
                     @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
 
-                    @if($form->isSqlite())
-                        {{-- SQLite file paths now live on each backup configuration below.
-                             SQLite needs no host/port/credentials here; connection testing
-                             reads the paths from the first backup card. --}}
-                    @else
-                        <!-- Client-server database connection fields -->
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <x-input
-                                wire:model="form.host"
-                                label="{{ __('Host') }}"
-                                placeholder="{{ __('e.g., localhost or 192.168.1.100') }}"
-                                type="text"
-                                required
-                            />
-
-                            @unless($form->isMongodb() && $form->srv_enabled)
-                                <x-input
-                                    wire:model="form.port"
-                                    label="{{ __('Port') }}"
-                                    placeholder="{{ __('e.g., 3306') }}"
-                                    type="number"
-                                    min="1"
-                                    max="65535"
-                                    required
-                                />
-                            @endunless
-                        </div>
-
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <x-input
-                                wire:model="form.username"
-                                label="{{ __('Username') }}"
-                                placeholder="{{ $form->hasOptionalCredentials() ? __('Optional (for authenticated servers)') : __('Database username') }}"
-                                type="text"
-                                :required="!$form->hasOptionalCredentials()"
-                                autocomplete="off"
-                            />
-
-                            <x-password
-                                wire:model="form.password"
-                                label="{{ __('Password') }}"
-                                placeholder="{{ $isEdit ? __('Leave blank to keep current') : __('Database password') }}"
-                                :required="!$isEdit && !$form->hasOptionalCredentials()"
-                                autocomplete="off"
-                            />
-                        </div>
-
-                        @if($form->isMongodb())
-                            <x-input
-                                wire:model.live.debounce.300ms="form.auth_source"
-                                label="{{ __('Authentication Database') }}"
-                                placeholder="admin"
-                                hint="{{ __('The database used to authenticate credentials') }}"
-                                type="text"
-                            />
-
-                            <x-checkbox
-                                wire:model.live="form.srv_enabled"
-                                :label="__('Use DNS Seed List (SRV)')"
-                                :hint="__('For MongoDB Atlas and clusters using mongodb+srv connection strings. The port is resolved from DNS.')"
-                            />
-
-                            <div>
-                                <x-input
-                                    wire:model.live.debounce.300ms="form.connection_options"
-                                    :label="__('Connection Options')"
-                                    placeholder="tls=true&replicaSet=rs0&retryWrites=true"
-                                    :hint="__('Optional. key=value parameters for the connection string — set TLS, replica set and anything else here (e.g. tls=true, replicaSet=rs0).')"
-                                    type="text"
-                                />
-                                <a href="https://www.mongodb.com/docs/manual/reference/connection-string-options/"
-                                   target="_blank" rel="noopener"
-                                   class="link link-primary text-xs">{{ __('MongoDB connection string options reference') }}</a>
-                            </div>
-                        @endif
-
-                        @if($form->isMysql())
-                            <x-checkbox
-                                wire:model.live="form.ssl_enabled"
-                                :label="__('Use SSL')"
-                                :hint="__('Required for servers that enforce TLS, such as Amazon RDS with require_secure_transport. The server certificate is not verified.')"
-                            />
-                        @endif
-                    @endif
+                    {{-- Type-specific connection fields, resolved by convention
+                         from the DatabaseType value (like volume connectors). --}}
+                    @include('livewire.database-server.connection.' . $selectedType->value, ['form' => $form, 'isEdit' => $isEdit])
 
                     @if($form->supportsDumpFlags())
                         <x-collapse class="mt-2" :open="$form->dump_config_open">

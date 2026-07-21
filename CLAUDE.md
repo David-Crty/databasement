@@ -229,7 +229,7 @@ make test-filter FILTER=DatabaseServerTest
 
 These are rare, cross-cutting tasks with a fixed file-by-file checklist each. The step-by-step playbooks live in **[`docs/development/extending.md`](docs/development/extending.md)** to keep this file focused. **Read the matching section there before starting** — each lists every file to touch (core, UI, infrastructure, tests) plus architecture gotchas:
 
-- **Adding a New Database Type** — `DatabaseInterface` + `DatabaseProvider`, dump/restore handlers, Docker/CI services, fixtures.
+- **Adding a New Database Type** — `DatabaseInterface` + `DatabaseProvider`, dump/restore handlers, a `ConnectionRules` case in `app/Livewire/Forms/Connection/` plus a `connection/{type}.blade.php` partial for the form's connection section, Docker/CI services, fixtures.
 - **Adding a New Volume Type** — `BaseConfig` connector + `FilesystemInterface`, `VolumeForm` property, Flysystem adapter, connection-test dataset. (`azure` / Azure Blob Storage is the newest worked example.)
 - **Adding a New Notification Channel** — `NotificationMessage` + `HasChannelRouting` delegation, `AppConfigService` keys, Configuration UI.
 
