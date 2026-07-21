@@ -13,6 +13,7 @@ use App\Notifications\ChannelNotifiable;
 use App\Notifications\RestoreFailedNotification;
 use App\Notifications\RestoreSuccessNotification;
 use App\Notifications\SnapshotsMissingNotification;
+use Illuminate\Notifications\ChannelManager;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -153,6 +154,20 @@ class NotificationService
             NotificationChannelType::Pushover => config(['services.pushover.token' => $config['token'] ?? null]),
             default => null,
         };
+
+        // The ChannelManager caches resolved channel drivers per process, so in
+        // the long-running queue worker a cached driver keeps the API client
+        // (and token) it was first built with. Drop the cache so the next send
+        // resolves a fresh client from the config/bindings set above. The
+        // instanceof guard skips this when the facade is faked (tests), where
+        // no real drivers are ever resolved.
+        if (in_array($type, [NotificationChannelType::Discord, NotificationChannelType::Telegram, NotificationChannelType::Pushover], true)) {
+            $manager = app(ChannelManager::class);
+
+            if ($manager instanceof ChannelManager) {
+                $manager->forgetDrivers();
+            }
+        }
     }
 
     /**

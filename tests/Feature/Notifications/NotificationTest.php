@@ -279,6 +279,26 @@ test('discord client resolves with the token from channel config', function () {
     expect($token)->toBe('discord-db-token');
 });
 
+test('token refresh drops cached channel drivers so token changes apply without a worker restart', function () {
+    // The ChannelManager caches drivers per process; the service must forget
+    // them when refreshing a token-based channel (Discord/Telegram/Pushover),
+    // otherwise the long-running queue worker keeps clients built with the
+    // first token it saw. The facade stays faked, so binding a manager mock
+    // only intercepts the forgetDrivers call.
+    $manager = Mockery::mock(\Illuminate\Notifications\ChannelManager::class);
+    $manager->shouldReceive('forgetDrivers')->atLeast()->once();
+    app()->instance(\Illuminate\Notifications\ChannelManager::class, $manager);
+
+    NotificationChannel::factory()->discord()->create([
+        'config' => ['token' => 'discord-db-token', 'channel_id' => '111'],
+    ]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Error'));
+});
+
 test('via method returns channels based on configured routes', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $snapshot = notificationSnapshot($server);
