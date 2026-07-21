@@ -15,6 +15,7 @@ use App\Notifications\RestoreSuccessNotification;
 use App\Notifications\SnapshotsMissingNotification;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 class NotificationService
@@ -105,7 +106,16 @@ class NotificationService
     private function sendToChannels(Notification $notification, iterable $channels): void
     {
         foreach ($channels as $channel) {
-            $this->sendToChannel($notification, $channel);
+            try {
+                $this->sendToChannel($notification, $channel);
+            } catch (\Throwable $e) {
+                Log::warning('Notification send failed', [
+                    'channel_id' => $channel->id,
+                    'channel_type' => $channel->type->value,
+                    'notification' => get_class($notification),
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 

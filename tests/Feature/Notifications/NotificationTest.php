@@ -22,6 +22,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Slack\SlackMessage;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use NotificationChannels\Discord\DiscordChannel;
 use NotificationChannels\Discord\DiscordMessage;
@@ -206,6 +207,30 @@ test('notification is sent to channel when configured', function (string $factor
     'discordWebhook' => ['discordWebhook', ['url' => 'https://discord.com/api/webhooks/123/abc'], DiscordWebhookChannel::class, 'discord_webhook'],
     'webhook' => ['webhook', ['url' => 'https://webhook.example.com/hook', 'secret' => 'my-secret'], WebhookChannel::class, 'webhook'],
 ]);
+
+test('a failing channel is logged and does not block the remaining channels', function () {
+    Log::spy();
+
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'first@example.com']]);
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'second@example.com']]);
+
+    // First channel's send blows up (e.g. unreachable SMTP host); the second
+    // must still be attempted and the error must not escape the service.
+    Notification::shouldReceive('send')
+        ->once()
+        ->andThrow(new \Symfony\Component\Mailer\Exception\TransportException('Connection could not be established'))
+        ->ordered();
+    Notification::shouldReceive('send')->once()->ordered();
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = notificationSnapshot($server);
+
+    app(NotificationService::class)->notifyBackupFailed($snapshot, new \Exception('Backup failed'));
+
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message) => $message === 'Notification send failed')
+        ->once();
+});
 
 test('send refreshes service configs from channel config before dispatching', function () {
     NotificationChannel::factory()->pushover()->create([

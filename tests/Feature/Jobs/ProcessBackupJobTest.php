@@ -170,29 +170,6 @@ test('failed method sends notification', function () {
     Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
 });
 
-test('failed method swallows notification errors so the failure is not lost', function () {
-    Log::spy();
-
-    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
-
-    // Simulate an unreachable SMTP host: the notification send throws.
-    $mockNotifier = Mockery::mock(\App\Services\NotificationService::class);
-    $mockNotifier->shouldReceive('notifyBackupFailed')
-        ->once()
-        ->andThrow(new \Symfony\Component\Mailer\Exception\TransportException('Connection could not be established'));
-    app()->instance(\App\Services\NotificationService::class, $mockNotifier);
-
-    $job = new ProcessBackupJob($snapshot->id);
-
-    // The mail failure must not escape failed().
-    $job->failed(new \Exception('Backup failed: connection timeout'));
-
-    Log::shouldHaveReceived('warning')
-        ->withArgs(fn (string $message) => $message === 'Backup failure notification failed')
-        ->once();
-});
-
 test('handle uses empty backupPath when the snapshot is orphaned (backup removed)', function () {
     $server = createDatabaseServer([
         'host' => 'db.example.com',
