@@ -1,8 +1,8 @@
 {{--
     Shared user fields for the invite (create) and edit forms. Both bind to the
-    component's `$form` (UserForm). Differences are passed in:
+    component's `$form` (App\Livewire\User\Form). Differences are passed in:
 
-      $roleOptions   — role picker options (see UserForm::roleOptions())
+      $roleOptions   — role picker options (see Form::roleOptions())
       $abilityGroups — grouped ability catalogue for the direct-abilities grid
       $isOAuthUser   — when true, the email is locked (SSO-managed). Defaults false.
 --}}

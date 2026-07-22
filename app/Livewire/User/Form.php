@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\User;
 
 use App\Enums\Ability;
 use App\Models\Organization;
@@ -10,10 +10,9 @@ use App\Services\Roles\AssignRoleToUserAction;
 use App\Services\Roles\SyncUserAbilitiesAction;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Validate;
-use Livewire\Form;
 use Silber\Bouncer\Database\Role;
 
-class UserForm extends Form
+class Form extends \Livewire\Form
 {
     public ?User $user = null;
 

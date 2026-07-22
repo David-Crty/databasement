@@ -3,7 +3,6 @@
 namespace App\Livewire\Configuration;
 
 use App\Enums\NotificationChannelType;
-use App\Livewire\Forms\NotificationChannelForm;
 use App\Models\NotificationChannel;
 use App\Services\NotificationService;
 use App\Traits\Toast;

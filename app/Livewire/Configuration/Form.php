@@ -1,13 +1,12 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\Configuration;
 
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use Cron\CronExpression;
-use Livewire\Form;
 
-class ConfigurationForm extends Form
+class Form extends \Livewire\Form
 {
     // Application settings
     public bool $adminer_enabled = false;

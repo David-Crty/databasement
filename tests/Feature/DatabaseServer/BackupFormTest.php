@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\DatabaseSelectionMode;
-use App\Livewire\Forms\BackupForm;
+use App\Livewire\DatabaseServer\BackupForm;
 use Illuminate\Validation\ValidationException;
 
 test('validatePatternMode throws when the include pattern is not a valid regex', function () {

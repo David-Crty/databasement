@@ -1,7 +1,7 @@
 @php
     use App\Enums\DatabaseSelectionMode;
     use App\Enums\DatabaseType;
-    use App\Livewire\Forms\BackupForm;
+    use App\Livewire\DatabaseServer\BackupForm;
     use App\Models\Backup;
 
     /** @var array<string, mixed> $backup */

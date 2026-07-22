@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Volume;
 
-use App\Livewire\Forms\VolumeForm;
 use App\Models\Volume;
 use App\Traits\BlocksDemoWrites;
 use App\Traits\Toast;
@@ -16,7 +15,7 @@ class Edit extends Component
 {
     use AuthorizesRequests, BlocksDemoWrites, Toast;
 
-    public VolumeForm $form;
+    public Form $form;
 
     public bool $hasSnapshots = false;
 

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Livewire\Forms\Connection;
+namespace App\Livewire\DatabaseServer\Connection;
 
-use App\Livewire\Forms\DatabaseServerForm;
+use App\Livewire\DatabaseServer\Form;
 
 /**
  * Default rules for networked databases that authenticate with
@@ -10,7 +10,7 @@ use App\Livewire\Forms\DatabaseServerForm;
  */
 class ClientServerConnectionRules extends ConnectionRules
 {
-    public function rules(DatabaseServerForm $form): array
+    public function rules(Form $form): array
     {
         return [
             'host' => 'required|string|max:255',
@@ -20,7 +20,7 @@ class ClientServerConnectionRules extends ConnectionRules
         ];
     }
 
-    public function testConnectionRules(DatabaseServerForm $form): array
+    public function testConnectionRules(Form $form): array
     {
         // Same fields as the full validation, but a password is required when
         // creating (an existing server can fall back to its stored password).

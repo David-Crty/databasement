@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Livewire\Forms\Connection;
+namespace App\Livewire\DatabaseServer\Connection;
 
-use App\Livewire\Forms\DatabaseServerForm;
+use App\Livewire\DatabaseServer\Form;
 
 class MysqlConnectionRules extends ClientServerConnectionRules
 {
-    public function extraConfig(DatabaseServerForm $form): array
+    public function extraConfig(Form $form): array
     {
         return $form->ssl_enabled ? ['ssl_enabled' => true] : [];
     }
 
-    public function dumpPreviewConfig(DatabaseServerForm $form): array
+    public function dumpPreviewConfig(Form $form): array
     {
         return ['ssl_enabled' => $form->ssl_enabled];
     }

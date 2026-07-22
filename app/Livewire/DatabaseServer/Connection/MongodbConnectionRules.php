@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Livewire\Forms\Connection;
+namespace App\Livewire\DatabaseServer\Connection;
 
-use App\Livewire\Forms\DatabaseServerForm;
+use App\Livewire\DatabaseServer\Form;
 
 class MongodbConnectionRules extends ClientServerConnectionRules
 {
-    public function rules(DatabaseServerForm $form): array
+    public function rules(Form $form): array
     {
         return array_merge(parent::rules($form), [
             'port' => $this->portRule($form),
@@ -17,7 +17,7 @@ class MongodbConnectionRules extends ClientServerConnectionRules
         ]);
     }
 
-    public function testConnectionRules(DatabaseServerForm $form): array
+    public function testConnectionRules(Form $form): array
     {
         return [
             'host' => 'required|string|max:255',
@@ -28,14 +28,14 @@ class MongodbConnectionRules extends ClientServerConnectionRules
     /**
      * SRV connections resolve host/port from DNS, so no port is given.
      */
-    private function portRule(DatabaseServerForm $form): string
+    private function portRule(Form $form): string
     {
         return $form->srv_enabled
             ? 'nullable|integer|min:1|max:65535'
             : 'required|integer|min:1|max:65535';
     }
 
-    public function extraConfig(DatabaseServerForm $form): array
+    public function extraConfig(Form $form): array
     {
         return [
             'auth_source' => $form->auth_source,
@@ -44,7 +44,7 @@ class MongodbConnectionRules extends ClientServerConnectionRules
         ];
     }
 
-    public function dumpPreviewConfig(DatabaseServerForm $form): array
+    public function dumpPreviewConfig(Form $form): array
     {
         return [
             'auth_source' => $form->auth_source ?: 'admin',
@@ -53,7 +53,7 @@ class MongodbConnectionRules extends ClientServerConnectionRules
         ];
     }
 
-    public function applyDefaults(DatabaseServerForm $form): void
+    public function applyDefaults(Form $form): void
     {
         if ($form->auth_source === '') {
             $form->auth_source = 'admin';

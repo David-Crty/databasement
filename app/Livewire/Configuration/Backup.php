@@ -4,7 +4,6 @@ namespace App\Livewire\Configuration;
 
 use App\Jobs\CleanupExpiredSnapshotsJob;
 use App\Jobs\VerifySnapshotFileJob;
-use App\Livewire\Forms\ConfigurationForm;
 use App\Models\BackupSchedule;
 use App\Services\CurrentOrganization;
 use App\Traits\Toast;
@@ -21,7 +20,7 @@ class Backup extends Component
 {
     use Toast;
 
-    public ConfigurationForm $form;
+    public Form $form;
 
     // Schedule modal state
     public bool $showScheduleModal = false;

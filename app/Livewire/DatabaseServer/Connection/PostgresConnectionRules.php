@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Livewire\Forms\Connection;
+namespace App\Livewire\DatabaseServer\Connection;
 
-use App\Livewire\Forms\DatabaseServerForm;
+use App\Livewire\DatabaseServer\Form;
 
 class PostgresConnectionRules extends ClientServerConnectionRules
 {
-    public function dumpPreviewConfig(DatabaseServerForm $form): array
+    public function dumpPreviewConfig(Form $form): array
     {
         return [
             'dump_format' => $form->dump_format,

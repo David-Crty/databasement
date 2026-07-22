@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\DatabaseServer;
 
 use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;

@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Configuration;
 
-use App\Livewire\Forms\ConfigurationForm;
 use App\Models\DatabaseServer;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
@@ -21,7 +20,7 @@ class Application extends Component
 {
     use Toast;
 
-    public ConfigurationForm $form;
+    public Form $form;
 
     public function mount(): void
     {

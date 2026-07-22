@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\Configuration;
 
 use App\Enums\NotificationChannelType;
 use App\Models\NotificationChannel;

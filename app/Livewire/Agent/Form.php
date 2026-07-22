@@ -1,12 +1,11 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\Agent;
 
 use App\Models\Agent;
 use App\Services\CurrentOrganization;
-use Livewire\Form;
 
-class AgentForm extends Form
+class Form extends \Livewire\Form
 {
     public ?Agent $agent = null;
 

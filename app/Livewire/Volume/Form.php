@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\Volume;
 
 use App\Enums\VolumeType;
 use App\Models\Volume;
@@ -9,9 +9,8 @@ use App\Services\VolumeConnectionTester;
 use App\Support\Formatters;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
-use Livewire\Form;
 
-class VolumeForm extends Form
+class Form extends \Livewire\Form
 {
     public ?Volume $volume = null;
 

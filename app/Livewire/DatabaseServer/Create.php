@@ -2,7 +2,6 @@
 
 namespace App\Livewire\DatabaseServer;
 
-use App\Livewire\Forms\DatabaseServerForm;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Traits\BlocksDemoWrites;
@@ -17,7 +16,7 @@ class Create extends Component
 {
     use AuthorizesRequests, BlocksDemoWrites, Toast;
 
-    public DatabaseServerForm $form;
+    public Form $form;
 
     public function mount(): void
     {

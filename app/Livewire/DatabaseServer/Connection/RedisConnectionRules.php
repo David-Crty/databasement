@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Livewire\Forms\Connection;
+namespace App\Livewire\DatabaseServer\Connection;
 
-use App\Livewire\Forms\DatabaseServerForm;
+use App\Livewire\DatabaseServer\Form;
 
 /**
  * Redis servers may run without AUTH, so credentials are optional and the
@@ -10,14 +10,14 @@ use App\Livewire\Forms\DatabaseServerForm;
  */
 class RedisConnectionRules extends ClientServerConnectionRules
 {
-    public function rules(DatabaseServerForm $form): array
+    public function rules(Form $form): array
     {
         return array_merge(parent::rules($form), [
             'username' => 'nullable|string|max:255',
         ]);
     }
 
-    public function testConnectionRules(DatabaseServerForm $form): array
+    public function testConnectionRules(Form $form): array
     {
         return [
             'host' => 'required|string|max:255',

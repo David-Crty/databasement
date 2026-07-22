@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Livewire\Forms\Connection;
+namespace App\Livewire\DatabaseServer\Connection;
 
 use App\Enums\DatabaseType;
-use App\Livewire\Forms\DatabaseServerForm;
+use App\Livewire\DatabaseServer\Form;
 
 /**
- * Per-database-type connection knowledge for {@see DatabaseServerForm}:
+ * Per-database-type connection knowledge for {@see Form}:
  * validation rules, connection-test rules, extra_config payloads and field
  * defaults.
  *
@@ -31,25 +31,25 @@ abstract class ConnectionRules
 
     /**
      * Validation rules for the connection fields during full-form validation.
-     * Shared rules (SSH tunnel, base fields) stay in DatabaseServerForm.
+     * Shared rules (SSH tunnel, base fields) stay in Form.
      *
      * @return array<string, mixed>
      */
-    abstract public function rules(DatabaseServerForm $form): array;
+    abstract public function rules(Form $form): array;
 
     /**
      * Validation rules for the standalone "Test Connection" action.
      *
      * @return array<string, mixed>
      */
-    abstract public function testConnectionRules(DatabaseServerForm $form): array;
+    abstract public function testConnectionRules(Form $form): array;
 
     /**
      * Type-specific extra_config payload used for in-memory connection tests.
      *
      * @return array<string, mixed>
      */
-    public function extraConfig(DatabaseServerForm $form): array
+    public function extraConfig(Form $form): array
     {
         return [];
     }
@@ -59,7 +59,7 @@ abstract class ConnectionRules
      *
      * @return array<string, mixed>
      */
-    public function dumpPreviewConfig(DatabaseServerForm $form): array
+    public function dumpPreviewConfig(Form $form): array
     {
         return [];
     }
@@ -67,5 +67,5 @@ abstract class ConnectionRules
     /**
      * Field defaults applied when the user switches the form to this type.
      */
-    public function applyDefaults(DatabaseServerForm $form): void {}
+    public function applyDefaults(Form $form): void {}
 }

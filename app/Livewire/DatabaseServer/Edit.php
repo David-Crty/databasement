@@ -2,7 +2,6 @@
 
 namespace App\Livewire\DatabaseServer;
 
-use App\Livewire\Forms\DatabaseServerForm;
 use App\Models\DatabaseServer;
 use App\Traits\BlocksDemoWrites;
 use App\Traits\Toast;
@@ -17,7 +16,7 @@ class Edit extends Component
 {
     use AuthorizesRequests, BlocksDemoWrites, Toast;
 
-    public DatabaseServerForm $form;
+    public Form $form;
 
     #[Locked]
     public string $returnUrl = '';

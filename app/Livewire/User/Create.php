@@ -2,7 +2,6 @@
 
 namespace App\Livewire\User;
 
-use App\Livewire\Forms\UserForm;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\User;
@@ -23,7 +22,7 @@ class Create extends Component
 {
     use AuthorizesRequests, Toast;
 
-    public UserForm $form;
+    public Form $form;
 
     public string $mode = 'invite';
 

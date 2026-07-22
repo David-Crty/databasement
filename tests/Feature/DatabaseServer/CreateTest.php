@@ -434,7 +434,7 @@ test('backup summary is incomplete until volume and schedule are set, then rende
         ->set('form.database_type', 'mysql')
         ->set('form.connectionTestSuccess', true);
 
-    $isComplete = fn () => \App\Livewire\Forms\BackupForm::isComplete(
+    $isComplete = fn () => \App\Livewire\DatabaseServer\BackupForm::isComplete(
         $component->get('form')->backups[0],
         \App\Enums\DatabaseType::MYSQL,
     );
@@ -469,7 +469,7 @@ test('retention summary text adapts to each retention policy', function () {
         ->test(Create::class)
         ->set('form.database_type', 'mysql');
 
-    $summary = fn () => \App\Livewire\Forms\BackupForm::retentionSummary(
+    $summary = fn () => \App\Livewire\DatabaseServer\BackupForm::retentionSummary(
         $component->get('form')->backups[0],
     );
 
@@ -509,7 +509,7 @@ test('backup summary reports incomplete when retention settings are blank', func
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.database_selection_mode', 'all');
 
-    $isComplete = fn () => \App\Livewire\Forms\BackupForm::isComplete(
+    $isComplete = fn () => \App\Livewire\DatabaseServer\BackupForm::isComplete(
         $component->get('form')->backups[0],
         \App\Enums\DatabaseType::MYSQL,
     );

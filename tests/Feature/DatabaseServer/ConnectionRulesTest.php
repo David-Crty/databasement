@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\DatabaseType;
-use App\Livewire\Forms\Connection\ConnectionRules;
+use App\Livewire\DatabaseServer\Connection\ConnectionRules;
 
 test('every database type resolves connection rules and a connection partial', function () {
     foreach (DatabaseType::cases() as $type) {

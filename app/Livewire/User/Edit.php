@@ -2,7 +2,6 @@
 
 namespace App\Livewire\User;
 
-use App\Livewire\Forms\UserForm;
 use App\Models\User;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
@@ -15,7 +14,7 @@ class Edit extends Component
 {
     use AuthorizesRequests, Toast;
 
-    public UserForm $form;
+    public Form $form;
 
     public function mount(User $user): void
     {

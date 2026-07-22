@@ -1,12 +1,12 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\DatabaseServer;
 
 use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
 use App\Exceptions\Backup\EncryptionException;
-use App\Livewire\Forms\Connection\ConnectionRules;
+use App\Livewire\DatabaseServer\Connection\ConnectionRules;
 use App\Models\Agent;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
@@ -22,9 +22,8 @@ use App\Services\SshTunnelService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Livewire\Form;
 
-class DatabaseServerForm extends Form
+class Form extends \Livewire\Form
 {
     /**
      * Connection timeout (seconds) for interactive form lookups like
