@@ -9,9 +9,9 @@
 
 <x-input
     wire:model.live.debounce.300ms="form.auth_source"
-    label="{{ __('Authentication Database') }}"
+    :label="__('Authentication Database')"
     placeholder="admin"
-    hint="{{ __('The database used to authenticate credentials') }}"
+    :hint="__('The database used to authenticate credentials')"
     type="text"
 />
 

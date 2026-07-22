@@ -274,6 +274,7 @@ Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bounc
 - Select pattern: Use `:options` prop with array format `[['id' => 'value', 'name' => 'Label']]`
 - Alert pattern: Use `class="alert-success"`, `class="alert-error"`, etc.
 - Form components: `<x-input>`, `<x-password>`, `<x-select>`, `<x-checkbox>`, etc.
+- Translated attributes: always use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"` — interpolation double-encodes special characters (see "Avoiding HTML Encoding Artifacts" below)
 - Documentation: https://mary-ui.com/docs/components/button
 
 ### Resource Index Pages
