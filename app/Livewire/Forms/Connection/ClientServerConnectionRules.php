@@ -20,7 +20,7 @@ class ClientServerConnectionRules extends ConnectionRules
         ];
     }
 
-    public function testRules(DatabaseServerForm $form): array
+    public function testConnectionRules(DatabaseServerForm $form): array
     {
         // Same fields as the full validation, but a password is required when
         // creating (an existing server can fall back to its stored password).

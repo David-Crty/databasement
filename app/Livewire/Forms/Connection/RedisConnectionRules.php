@@ -17,7 +17,7 @@ class RedisConnectionRules extends ClientServerConnectionRules
         ]);
     }
 
-    public function testRules(DatabaseServerForm $form): array
+    public function testConnectionRules(DatabaseServerForm $form): array
     {
         return [
             'host' => 'required|string|max:255',

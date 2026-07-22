@@ -17,7 +17,7 @@ class SqliteConnectionRules extends ConnectionRules
         return [];
     }
 
-    public function testRules(DatabaseServerForm $form): array
+    public function testConnectionRules(DatabaseServerForm $form): array
     {
         return $form->ssh_enabled ? $form->getSshValidationRules() : [];
     }

@@ -42,7 +42,7 @@ abstract class ConnectionRules
      *
      * @return array<string, mixed>
      */
-    abstract public function testRules(DatabaseServerForm $form): array;
+    abstract public function testConnectionRules(DatabaseServerForm $form): array;
 
     /**
      * Type-specific extra_config payload used for in-memory connection tests.

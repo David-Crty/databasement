@@ -1077,7 +1077,7 @@ class DatabaseServerForm extends Form
                 ]);
             }
 
-            $rules = $this->connectionRules()->testRules($this);
+            $rules = $this->connectionRules()->testConnectionRules($this);
             if ($rules !== []) {
                 $this->validate($rules);
             }
