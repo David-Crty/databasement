@@ -21,6 +21,8 @@ Ensure the Databasement container has write access to the specified path. You ma
 ```bash
 docker run -v /path/on/host:/backups davidcrty/databasement
 ```
+
+In multi-container setups (Docker Compose, Kubernetes), where the web server and the queue worker run as separate containers, the backup path must be mounted into **both** — the worker writes snapshots, and the web container reads them to serve downloads. The path (and every directory above it) must also be readable by the web container's application user: the worker often runs as root, so a host directory with `0700` root-only permissions lets backups succeed while downloads fail with a 404.
 :::
 
 ### S3 Storage
@@ -97,6 +99,50 @@ Standard FTP transmits credentials and data in plain text. Enable SSL for secure
 :::tip
 The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
+
+### Samba / SMB Storage
+
+SMB volumes store backups on a Windows file share or a Samba server (common on NAS appliances) — natively, without mounting anything on the host.
+
+| Field | Description |
+|-------|-------------|
+| **Host** | SMB server hostname or IP address |
+| **Share** | The share name (e.g., `backups`) |
+| **Username** | SMB username |
+| **Password** | SMB password |
+| **Domain / Workgroup** | Domain or workgroup (optional, default: `WORKGROUP`) |
+| **Root Directory** | Base path inside the share (e.g., `/databasement`) |
+
+:::note
+SMB support is built into the Databasement Docker image and connects over SMB2/SMB3 — no host mounts or extra packages needed.
+:::
+
+:::tip
+The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
+:::
+
+### NFS Storage
+
+NFS does not have a dedicated volume type because there is no NFS client at the application layer — NFS is mounted by the operating system. To use an NFS export as a backup destination, **mount it where Databasement runs and point a [Local](#local-storage) volume at the mount path**.
+
+For example, with Docker Compose:
+
+```yaml
+services:
+  app:
+    volumes:
+      - backups-nfs:/backups
+
+volumes:
+  backups-nfs:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: "addr=nas.example.com,rw,nfsvers=4"
+      device: ":/export/backups"
+```
+
+Then create a **Local** volume with path `/backups`. The same approach works for mounting an SMB share via CIFS if you prefer mounting over the native SMB volume type.
 
 ## Connection Testing
 
