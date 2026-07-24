@@ -8,6 +8,8 @@ use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\Volume;
+use App\Services\Roles\AssignRoleToUserAction;
+use App\Services\Roles\SyncUserAbilitiesAction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -104,7 +106,9 @@ class OrganizationMergeService
 
     /**
      * Union the source members into the destination, preserving the role each
-     * user already holds in the destination. Returns the number of members added.
+     * user already holds in the destination. Members new to the destination
+     * carry over their source role and any direct ability grants. Returns the
+     * number of members added.
      */
     private function mergeMembers(Organization $source, Organization $destination): int
     {
@@ -112,14 +116,21 @@ class OrganizationMergeService
 
         $added = 0;
 
-        foreach ($source->users()->withPivot('role')->get() as $user) {
+        foreach ($source->users()->get() as $user) {
             if (in_array($user->id, $existingUserIds, true)) {
                 continue;
             }
 
-            $destination->users()->attach($user->id, [
-                'role' => $user->pivot->role, // @phpstan-ignore property.notFound
-            ]);
+            $destination->users()->attach($user->id);
+
+            $role = $user->roleNameIn($source) ?? 'viewer';
+            app(AssignRoleToUserAction::class)->execute($user, $role, $destination);
+
+            $directAbilities = $user->directAbilitiesIn($source);
+
+            if ($directAbilities !== []) {
+                app(SyncUserAbilitiesAction::class)->execute($user, $directAbilities, $destination);
+            }
 
             $added++;
         }

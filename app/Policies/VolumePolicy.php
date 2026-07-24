@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Ability;
 use App\Models\User;
 use App\Models\Volume;
 
@@ -31,7 +32,7 @@ class VolumePolicy
      */
     public function viewForm(User $user, ?Volume $volume = null): bool
     {
-        return $user->isDemo() || $user->canPerformActions();
+        return $user->isDemo() || $user->can(Ability::ManageVolumes->value);
     }
 
     /**
@@ -40,7 +41,7 @@ class VolumePolicy
      */
     public function create(User $user): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageVolumes->value);
     }
 
     /**
@@ -49,7 +50,7 @@ class VolumePolicy
      */
     public function update(User $user, Volume $volume): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageVolumes->value);
     }
 
     /**
@@ -58,6 +59,6 @@ class VolumePolicy
      */
     public function delete(User $user, Volume $volume): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageVolumes->value);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Models\User;
@@ -12,7 +13,8 @@ test('unauthenticated users cannot list scheduled restores', function () {
 });
 
 test('can list scheduled restores via api', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — any org member can read scheduled restores.
+    $user = User::factory()->withAbilities([])->create();
     [$source, $target] = createRestoreServerPair();
 
     ScheduledRestore::factory()->create([
@@ -32,7 +34,8 @@ test('can list scheduled restores via api', function () {
 // ─── Show ────────────────────────────────────────────────────────────────────
 
 test('can view a scheduled restore via api', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — any org member can read a scheduled restore.
+    $user = User::factory()->withAbilities([])->create();
     [$source, $target] = createRestoreServerPair();
     $schedule = dailySchedule();
 
@@ -53,7 +56,8 @@ test('can view a scheduled restore via api', function () {
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 test('can create a scheduled restore via api', function () {
-    $user = User::factory()->create();
+    // operate-restores alone is sufficient to schedule a restore.
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     [$source, $target] = createRestoreServerPair();
     $schedule = dailySchedule();
 
@@ -98,8 +102,9 @@ test('store rejects mismatched server types', function () {
         ->assertJsonValidationErrors(['target_server_id']);
 });
 
-test('viewers cannot create scheduled restores', function () {
-    $user = User::factory()->viewer()->create();
+test('without operate-restores, creating a scheduled restore via api is forbidden', function () {
+    // Necessity proof: holding every ability except operate-restores must still be forbidden.
+    $user = User::factory()->withAllAbilitiesExcept(Ability::OperateRestores->value)->create();
     [$source, $target] = createRestoreServerPair();
     $schedule = dailySchedule();
 
@@ -118,7 +123,8 @@ test('viewers cannot create scheduled restores', function () {
 // ─── Update ──────────────────────────────────────────────────────────────────
 
 test('can update a scheduled restore via api', function () {
-    $user = User::factory()->create();
+    // operate-restores alone is sufficient to update a scheduled restore.
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     [$source, $target] = createRestoreServerPair();
     $schedule1 = dailySchedule();
     $schedule2 = weeklySchedule();
@@ -147,7 +153,8 @@ test('can update a scheduled restore via api', function () {
 // ─── Destroy ─────────────────────────────────────────────────────────────────
 
 test('can delete a scheduled restore via api', function () {
-    $user = User::factory()->create();
+    // operate-restores alone is sufficient to delete a scheduled restore.
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     [$source, $target] = createRestoreServerPair();
 
     $scheduled = ScheduledRestore::factory()->create([
@@ -167,7 +174,8 @@ test('can delete a scheduled restore via api', function () {
 test('can trigger a scheduled restore run via api', function () {
     Artisan::spy();
 
-    $user = User::factory()->create();
+    // operate-restores alone is sufficient to run a scheduled restore.
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     [$source, $target] = createRestoreServerPair();
 
     $scheduled = ScheduledRestore::factory()->create([
@@ -184,8 +192,9 @@ test('can trigger a scheduled restore run via api', function () {
         ->once();
 });
 
-test('viewers cannot trigger a scheduled restore', function () {
-    $user = User::factory()->viewer()->create();
+test('without operate-restores, triggering a scheduled restore via api is forbidden', function () {
+    // Necessity proof: holding every ability except operate-restores must still be forbidden.
+    $user = User::factory()->withAllAbilitiesExcept(Ability::OperateRestores->value)->create();
     [$source, $target] = createRestoreServerPair();
 
     $scheduled = ScheduledRestore::factory()->create([

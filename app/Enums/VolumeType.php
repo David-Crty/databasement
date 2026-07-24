@@ -8,6 +8,7 @@ enum VolumeType: string
     case S3 = 's3';
     case SFTP = 'sftp';
     case FTP = 'ftp';
+    case AZURE = 'azure';
     case SMB = 'smb';
 
     public function label(): string
@@ -17,6 +18,7 @@ enum VolumeType: string
             self::S3 => 'Amazon S3',
             self::SFTP => 'SFTP / SSH',
             self::FTP => 'FTP',
+            self::AZURE => 'Azure Blob Storage',
             self::SMB => 'Samba / SMB',
         };
     }
@@ -31,6 +33,7 @@ enum VolumeType: string
             self::S3 => 'o-cloud',
             self::SFTP => 'o-lock-closed',
             self::FTP => 'o-arrow-up-tray',
+            self::AZURE => 'o-server-stack',
             self::SMB => 'o-server',
         };
     }
@@ -74,6 +77,7 @@ enum VolumeType: string
             self::LOCAL => [],
             self::S3 => ['secret_access_key'],
             self::SFTP, self::FTP, self::SMB => ['password'],
+            self::AZURE => ['account_key'],
         };
     }
 
@@ -182,6 +186,11 @@ enum VolumeType: string
                 'User' => $config['username'] ?? '',
                 'Root' => $config['root'] ?? '/',
                 'SSL' => ! empty($config['ssl']) ? 'Yes' : null,
+            ]),
+            self::AZURE => array_filter([
+                'Account' => $config['account_name'] ?? '',
+                'Container' => $config['container'] ?? '',
+                'Prefix' => $config['prefix'] ?? null,
             ]),
             self::SMB => array_filter([
                 'Host' => $config['host'] ?? '',

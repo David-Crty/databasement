@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\User;
@@ -13,8 +14,8 @@ test('unauthenticated users cannot create database servers', function () {
         ->assertUnauthorized();
 });
 
-test('viewers cannot create database servers', function () {
-    $user = User::factory()->viewer()->create();
+test('without manage-database-servers, creating a server via api is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageDatabaseServers->value)->create();
     $volume = Volume::factory()->local()->create();
     $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
 
@@ -37,7 +38,7 @@ test('viewers cannot create database servers', function () {
 });
 
 test('can create a mysql database server via api', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();
     $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
 
@@ -77,7 +78,7 @@ test('can create a mysql database server via api', function () {
 });
 
 test('can create a server with backups disabled', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -97,7 +98,7 @@ test('can create a server with backups disabled', function () {
 });
 
 test('store normalizes redis selection mode to all', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -112,7 +113,7 @@ test('store normalizes redis selection mode to all', function () {
 });
 
 test('store normalizes sqlite selection mode to selected', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -126,7 +127,7 @@ test('store normalizes sqlite selection mode to selected', function () {
 });
 
 test('store moves auth_source and dump_flags to extra_config', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -144,7 +145,7 @@ test('store moves auth_source and dump_flags to extra_config', function () {
 });
 
 test('update preserves extra_config when keys are not sent', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create([
         'database_type' => 'mysql',
         'extra_config' => ['dump_flags' => '--single-transaction'],
@@ -172,7 +173,7 @@ test('update preserves extra_config when keys are not sent', function () {
 });
 
 test('password is not in store response', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -226,7 +227,7 @@ test('cannot create an agent-backed server with a local volume', function () {
 });
 
 test('can create a server with backup config including gfs retention', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();
     $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
 
@@ -265,8 +266,8 @@ test('unauthenticated users cannot update database servers', function () {
         ->assertUnauthorized();
 });
 
-test('viewers cannot update database servers', function () {
-    $user = User::factory()->viewer()->create();
+test('without manage-database-servers, updating a server via api is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageDatabaseServers->value)->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $volume = Volume::factory()->local()->create();
     $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
@@ -290,7 +291,7 @@ test('viewers cannot update database servers', function () {
 });
 
 test('can update a database server via api', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $volume = Volume::factory()->local()->create();
     $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
@@ -319,7 +320,7 @@ test('can update a database server via api', function () {
 });
 
 test('blank password keeps existing password on update', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create([
         'database_type' => 'mysql',
         'password' => 'original-password',
@@ -349,7 +350,7 @@ test('blank password keeps existing password on update', function () {
 });
 
 test('update syncs backup configuration', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
     $newVolume = Volume::factory()->local()->create();
     $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
@@ -393,8 +394,8 @@ test('unauthenticated users cannot delete database servers', function () {
         ->assertUnauthorized();
 });
 
-test('viewers cannot delete database servers', function () {
-    $user = User::factory()->viewer()->create();
+test('without manage-database-servers, deleting a server via api is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageDatabaseServers->value)->create();
     $server = DatabaseServer::factory()->create();
 
     $this->actingAs($user, 'sanctum')
@@ -403,7 +404,7 @@ test('viewers cannot delete database servers', function () {
 });
 
 test('can delete a database server via api', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create();
 
     $this->actingAs($user, 'sanctum')
@@ -634,7 +635,7 @@ test('store rejects pattern mode with an invalid regex', function () {
 // ─── Trigger backup endpoint ─────────────────────────────────────────────────
 
 test('backup endpoint returns 422 when the requested backup id does not exist on the server', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
     $server = DatabaseServer::factory()->create();
 
     $this->actingAs($user, 'sanctum')
@@ -645,7 +646,7 @@ test('backup endpoint returns 422 when the requested backup id does not exist on
 
 test('backup endpoint uses the first backup when no backup_id is provided', function () {
     \Illuminate\Support\Facades\Queue::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
     $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
     $backup = $server->backups->first();
 

@@ -10,7 +10,7 @@ test('throws exception for invalid oauth default role', function () {
     $provider = new AppServiceProvider(app());
 
     expect(fn () => $provider->performOAuthValidation())
-        ->toThrow(\InvalidArgumentException::class, "Invalid OAUTH_DEFAULT_ROLE 'invalid_role'. Must be one of: viewer, operator, member, admin");
+        ->toThrow(\InvalidArgumentException::class, "Invalid OAUTH_DEFAULT_ROLE 'invalid_role'. Must be one of: admin, member, operator, viewer");
 });
 
 test('throws exception when enabled provider is missing credentials', function () {

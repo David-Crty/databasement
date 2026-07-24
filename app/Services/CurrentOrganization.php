@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Enums\UserRole;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Support\Facades\Cookie;
@@ -49,9 +48,10 @@ class CurrentOrganization
     }
 
     /**
-     * Get the current user's role in the current org (null for super_admin without membership).
+     * Get the current user's role name in the current org (null for super_admin
+     * without membership, or a user with no assigned role).
      */
-    public function userRole(): ?UserRole
+    public function userRoleName(): ?string
     {
         $user = auth()->user();
 
@@ -59,7 +59,7 @@ class CurrentOrganization
             return null;
         }
 
-        return $user->roleIn($this->organization);
+        return $user->roleNameIn($this->organization);
     }
 
     /**
@@ -77,7 +77,7 @@ class CurrentOrganization
             return true;
         }
 
-        return $this->userRole() === UserRole::Admin;
+        return $this->userRoleName() === 'admin';
     }
 
     /**

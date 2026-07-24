@@ -9,24 +9,44 @@ use App\Models\User;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
-use function Pest\Laravel\actingAs;
-use function Pest\Laravel\get;
+test('any org member can view the organizations page read-only', function () {
+    $user = User::factory()->create();
 
-test('non-super-admin cannot access organizations page', function () {
-    $user = User::factory()->admin()->create();
-    actingAs($user);
+    Livewire::actingAs($user)
+        ->test(Organization::class)
+        ->assertOk()
+        ->assertSee('Default')
+        ->assertDontSee('New Organization');
+});
 
-    get(route('configuration.organizations'))
+test('a non-super-admin sees only their own organizations, not other tenants', function () {
+    $user = User::factory()->create(); // member of the default org only
+    OrganizationModel::factory()->create(['name' => 'Secret Tenant']);
+
+    Livewire::actingAs($user)
+        ->test(Organization::class)
+        ->assertSee('Default')
+        ->assertDontSee('Secret Tenant');
+});
+
+test('a non-super-admin cannot mutate organizations', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Organization::class)
+        ->call('createOrganization')
         ->assertForbidden();
 });
 
-test('super admin can access organizations page', function () {
+test('super admin can access organizations page and sees all tenants', function () {
     $admin = User::factory()->superAdmin()->create();
+    OrganizationModel::factory()->create(['name' => 'Other Tenant']);
 
     Livewire::actingAs($admin)
         ->test(Organization::class)
         ->assertOk()
-        ->assertSee('Default');
+        ->assertSee('Default')
+        ->assertSee('Other Tenant');
 });
 
 test('super admin can create an organization', function () {

@@ -17,11 +17,30 @@ use App\Enums\VolumeType;
             required
         />
 
+        <x-input
+            wire:model.live.debounce="form.maxStorageGb"
+            :label="__('Maximum storage (GB)')"
+            :hint="__('Optional. A backup that would push this volume’s total size over the limit is rejected before uploading — no snapshots are deleted automatically. Free up space by removing old snapshots, or enable notify-only to keep backing up. Leave empty for no limit.')"
+            :placeholder="__('e.g., 10')"
+            type="number"
+            step="0.1"
+            min="0"
+            suffix="GB"
+        />
+
+        @if (filled($form->maxStorageGb))
+            <x-checkbox
+                wire:model="form.storageLimitNotifyOnly"
+                :label="__('When the storage limit is reached, only notify — don’t block backups')"
+                :hint="__('Upload the backup anyway and send a notification instead of failing it.')"
+            />
+        @endif
+
         <!-- Storage Type Selection (immutable after creation) -->
         @php $typeDisabled = $readonly || $form->volume !== null; @endphp
         <div>
             <label class="label label-text font-semibold mb-2">{{ __('Storage Type') }}</label>
-            <x-radio-card-group class="grid-cols-2 sm:grid-cols-4" :label="__('Storage Type')">
+            <x-radio-card-group class="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" :label="__('Storage Type')">
                 @foreach(VolumeType::cases() as $volumeType)
                     <x-radio-card
                         :active="$form->type === $volumeType->value"

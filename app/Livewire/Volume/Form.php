@@ -1,22 +1,30 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\Volume;
 
 use App\Enums\VolumeType;
 use App\Models\Volume;
 use App\Services\CurrentOrganization;
 use App\Services\VolumeConnectionTester;
+use App\Support\Formatters;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
-use Livewire\Form;
 
-class VolumeForm extends Form
+class Form extends \Livewire\Form
 {
     public ?Volume $volume = null;
 
     public string $name = '';
 
     public string $type = 'local';
+
+    // Optional storage quota for the volume, entered in GB. Empty = no limit.
+    // Stored under the `max_storage_bytes` key of the volume's config JSON.
+    public ?string $maxStorageGb = null;
+
+    // When true, reaching the limit only sends a notification instead of failing
+    // the backup. Stored under the `max_storage_notify_only` config key.
+    public bool $storageLimitNotifyOnly = false;
 
     // Config arrays for each volume type (initialized from connector defaults in constructor)
     /** @var array<string, mixed> */
@@ -30,6 +38,9 @@ class VolumeForm extends Form
 
     /** @var array<string, mixed> */
     public array $ftpConfig = [];
+
+    /** @var array<string, mixed> */
+    public array $azureConfig = [];
 
     /** @var array<string, mixed> */
     public array $smbConfig = [];
@@ -66,6 +77,9 @@ class VolumeForm extends Form
         $decryptedConfig = $volumeType->maskSensitiveFields($volume->getDecryptedConfig());
         $propertyName = $volumeType->configPropertyName();
         $this->{$propertyName} = array_merge($this->{$propertyName}, $decryptedConfig);
+
+        $this->maxStorageGb = Formatters::bytesToGb($volume->maxStorageBytes());
+        $this->storageLimitNotifyOnly = $volume->storageLimitIsNotifyOnly();
     }
 
     /**
@@ -76,6 +90,8 @@ class VolumeForm extends Form
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', 'in:'.implode(',', array_column(VolumeType::cases(), 'value'))],
+            'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
+            'storageLimitNotifyOnly' => ['boolean'],
         ];
 
         // Merge rules from all connector classes
@@ -123,14 +139,22 @@ class VolumeForm extends Form
         ]);
     }
 
-    public function updateNameOnly(): void
+    /**
+     * Update a volume that is locked by existing snapshots: only the name and
+     * storage limit stay editable — the connector config is frozen because
+     * stored snapshots already depend on it.
+     */
+    public function updateLockedVolume(): void
     {
         $this->validate([
             'name' => ['required', 'string', 'max:255', 'unique:volumes,name,'.$this->volume->id],
+            'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
+            'storageLimitNotifyOnly' => ['boolean'],
         ]);
 
         $this->volume->update([
             'name' => $this->name,
+            'config' => $this->applyMaxStorageToConfig($this->volume->config),
         ]);
     }
 
@@ -155,7 +179,39 @@ class VolumeForm extends Form
         $volumeType = VolumeType::from($this->type);
         $persistedConfig = $this->volume !== null ? $this->volume->config : [];
 
-        return $volumeType->encryptSensitiveFields($this->getActiveConfig(), $persistedConfig);
+        $config = $volumeType->encryptSensitiveFields($this->getActiveConfig(), $persistedConfig);
+
+        return $this->applyMaxStorageToConfig($config);
+    }
+
+    /**
+     * Store the storage quota (GB from the form, in bytes) under the config's
+     * `max_storage_bytes` key, along with the notify-only flag. Both keys are
+     * removed when the limit field is left empty (the flag is meaningless
+     * without a limit).
+     *
+     * @param  array<string, mixed>  $config
+     * @return array<string, mixed>
+     */
+    protected function applyMaxStorageToConfig(array $config): array
+    {
+        $bytes = Formatters::gbToBytes($this->maxStorageGb);
+
+        if ($bytes === null) {
+            unset($config['max_storage_bytes'], $config['max_storage_notify_only']);
+
+            return $config;
+        }
+
+        $config['max_storage_bytes'] = $bytes;
+
+        if ($this->storageLimitNotifyOnly) {
+            $config['max_storage_notify_only'] = true;
+        } else {
+            unset($config['max_storage_notify_only']);
+        }
+
+        return $config;
     }
 
     public function testConnection(): void

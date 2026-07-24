@@ -186,6 +186,8 @@ class DatabaseProvider
         }
 
         $dbConfig['auth_source'] = $extra['auth_source'] ?? 'admin';
+        $dbConfig['srv'] = ! empty($extra['srv_enabled']);
+        $dbConfig['connection_options'] = $extra['connection_options'] ?? '';
         if ($sourceDatabaseName !== null) {
             $dbConfig['source_database'] = $sourceDatabaseName;
         }

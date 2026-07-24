@@ -9,6 +9,7 @@
  * Run with: php artisan test --filter=SftpDownloadTest
  */
 
+use App\Enums\Ability;
 use App\Enums\BackupJobStatus;
 use App\Jobs\ProcessBackupJob;
 use App\Models\User;
@@ -17,7 +18,7 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use Tests\Support\IntegrationTestHelpers;
 
 test('can download snapshot stored on SFTP volume via streamed route', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
     $backupJobFactory = app(BackupJobFactory::class);
     $filesystemProvider = app(FilesystemProvider::class);
 

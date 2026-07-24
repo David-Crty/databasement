@@ -2,12 +2,16 @@
 
 namespace App\Providers;
 
+use App\Enums\Ability;
 use App\Models\ScheduledRestore;
+use App\Models\User;
 use App\Policies\RestorePolicy;
+use App\Policies\RolePolicy;
 use App\Services\AppConfigService;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
+use App\Services\Backup\Filesystems\AzureFilesystem;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\Filesystems\FtpFilesystem;
 use App\Services\Backup\Filesystems\LocalFilesystem;
@@ -22,11 +26,13 @@ use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
 use Illuminate\Routing\Route;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Silber\Bouncer\BouncerFacade as Bouncer;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
 class AppServiceProvider extends ServiceProvider
@@ -54,6 +60,7 @@ class AppServiceProvider extends ServiceProvider
             $provider->add(new Awss3Filesystem);
             $provider->add(new SftpFilesystem);
             $provider->add(new FtpFilesystem);
+            $provider->add(new AzureFilesystem);
             $provider->add(new SmbFilesystem);
 
             return $provider;
@@ -98,8 +105,18 @@ class AppServiceProvider extends ServiceProvider
         $this->warnDeprecatedEnvVars();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
+        $this->registerBouncer();
+
+        // Mary UI 2.9's <x-tab> references <x-mary-badge> internally, but its
+        // service provider only registers the `mary-` internal alias for a fixed
+        // subset of components (button/icon/modal/…) and omits badge. Because
+        // Blade resolves component tags at compile time, that unregistered alias
+        // breaks compilation of every <x-tab> when no component prefix is set (as
+        // here). Register the missing alias ourselves. Remove once Mary ships it.
+        Blade::component('mary-badge', \Mary\View\Components\Badge::class);
 
         Gate::policy(ScheduledRestore::class, RestorePolicy::class);
+        Gate::policy(\Silber\Bouncer\Database\Role::class, RolePolicy::class);
 
         Scramble::configure()
             ->routes(fn (Route $route) => Str::startsWith($route->uri, 'api/') && ! Str::startsWith($route->uri, 'api/v1/agent'))
@@ -118,6 +135,41 @@ class AppServiceProvider extends ServiceProvider
                     }
                 }
             });
+    }
+
+    /**
+     * Wire Bouncer into the application.
+     *
+     * Role and ability definitions are global (runtime-editable under
+     * Configuration → Roles); only role assignments are scoped per organization,
+     * so a user can be an Admin in one org and a Viewer in another. The
+     * per-request scope is set by the ScopeBouncer middleware; the global
+     * built-in roles (and their abilities) are seeded by migration.
+     */
+    private function registerBouncer(): void
+    {
+        // Agent mode runs a single CLI command with no database and never
+        // authorizes UI requests.
+        if (config('agent.enabled')) {
+            return;
+        }
+
+        Bouncer::cache();
+
+        // Super admins bypass the catalogue abilities. A blanket Gate::before
+        // returning true for everything can't be used: UserPolicy has guards
+        // that must also constrain super admins (no self-delete, last super
+        // admin). So this only short-circuits the catalogue abilities; the
+        // policy abilities (create/update/delete/...) keep their own super-admin
+        // handling. A Gate::before that returns null defers to Bouncer's grant
+        // resolution — unlike a Gate::define, which would shadow it.
+        Gate::before(function (?User $user, string $ability): ?bool {
+            if ($user?->isSuperAdmin() && in_array($ability, Ability::names(), true)) {
+                return true;
+            }
+
+            return null;
+        });
     }
 
     /**
@@ -166,7 +218,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function performOAuthValidation(): void
     {
-        $validRoles = array_map(fn (\App\Enums\UserRole $r) => $r->value, \App\Enums\UserRole::assignable());
+        // OIDC role mapping only ever targets the built-in roles (the env keys
+        // are OAUTH_OIDC_ROLE_MAP_ADMIN/MEMBER/OPERATOR/VIEWER), so validate
+        // against those names without a per-request roles query.
+        $validRoles = ['admin', 'member', 'operator', 'viewer'];
         $defaultRole = config('oauth.default_role');
 
         if ($defaultRole && ! in_array($defaultRole, $validRoles)) {
@@ -199,8 +254,8 @@ class AppServiceProvider extends ServiceProvider
         if (config('oauth.providers.oidc.enabled', false)) {
             $roleMapping = config('oauth.role_mapping', []);
             $hasMapping = false;
-            foreach (\App\Enums\UserRole::assignable() as $role) {
-                if (trim((string) ($roleMapping[$role->value] ?? '')) !== '') {
+            foreach ($validRoles as $role) {
+                if (trim((string) ($roleMapping[$role] ?? '')) !== '') {
                     $hasMapping = true;
                     break;
                 }

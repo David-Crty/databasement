@@ -50,6 +50,28 @@ test('humanFileSize formats megabytes and above', function () {
         ->and(Formatters::humanFileSize(1099511627777))->toBe('1 TB');
 });
 
+test('bytesToGb converts bytes to a trimmed GB string', function (?int $bytes, ?string $expected) {
+    expect(Formatters::bytesToGb($bytes))->toBe($expected);
+})->with([
+    'null passes through' => [null, null],
+    'whole GB' => [10 * (1024 ** 3), '10'],
+    'fractional GB' => [(int) (2.5 * (1024 ** 3)), '2.5'],
+    'sub-GB' => [(int) (0.5 * (1024 ** 3)), '0.5'],
+]);
+
+test('gbToBytes converts a GB value to whole bytes', function (int|float|string|null $gb, ?int $expected) {
+    expect(Formatters::gbToBytes($gb))->toBe($expected);
+})->with([
+    'null is no limit' => [null, null],
+    'blank is no limit' => ['', null],
+    'whole GB string' => ['10', 10 * (1024 ** 3)],
+    'fractional GB float' => [2.5, (int) (2.5 * (1024 ** 3))],
+]);
+
+test('gbToBytes and bytesToGb round-trip a fractional value', function () {
+    expect(Formatters::bytesToGb(Formatters::gbToBytes('7.25')))->toBe('7.25');
+});
+
 test('humanDate returns null for null input', function () {
     expect(Formatters::humanDate(null))->toBeNull();
 });
@@ -81,6 +103,29 @@ test('humanDate renders in the configured display timezone', function () {
     $date = \Carbon\Carbon::create(2025, 12, 19, 16, 44, 0, 'UTC');
 
     expect(Formatters::humanDate($date))->toBe('Dec 20, 2025, 01:44');
+});
+
+test('truncatedList returns an empty string for no names', function () {
+    expect(Formatters::truncatedList([]))->toBe('');
+});
+
+test('truncatedList joins names without a suffix when at or under the limit', function () {
+    expect(Formatters::truncatedList(['alpha', 'beta', 'gamma']))
+        ->toBe('alpha, beta, gamma')
+        ->and(Formatters::truncatedList(['a', 'b', 'c', 'd', 'e']))
+        ->toBe('a, b, c, d, e');
+});
+
+test('truncatedList appends a "+N more" suffix when over the limit', function () {
+    expect(Formatters::truncatedList(['a', 'b', 'c', 'd', 'e', 'f']))
+        ->toBe('a, b, c, d, e +1 more')
+        ->and(Formatters::truncatedList(['a', 'b', 'c'], 1))
+        ->toBe('a +2 more');
+});
+
+test('truncatedList accepts a Collection', function () {
+    expect(Formatters::truncatedList(collect(['a', 'b', 'c']), 2))
+        ->toBe('a, b +1 more');
 });
 
 test('resolveDatePlaceholders replaces year, month and day tokens zero-padded', function () {

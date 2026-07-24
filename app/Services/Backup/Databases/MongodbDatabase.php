@@ -30,11 +30,12 @@ class MongodbDatabase implements DatabaseInterface
 
     public function dump(string $outputPath): DatabaseOperationResult
     {
+        // Everything (host, port, credentials, advanced options) is carried by
+        // the connection URI. `--uri` is mutually exclusive with `--db`, so the
+        // dump is scoped by putting the database in the URI path.
         $parts = [
             'mongodump',
-            ...$this->buildBaseArgs(),
-            ...$this->buildAuthFlags(),
-            '--db='.escapeshellarg($this->config['database']),
+            '--uri='.escapeshellarg($this->connectionUri($this->config['database'])),
         ];
 
         if (! empty($this->config['dump_flags'])) {
@@ -53,8 +54,7 @@ class MongodbDatabase implements DatabaseInterface
 
         $parts = [
             'mongorestore',
-            ...$this->buildBaseArgs(),
-            ...$this->buildAuthFlags(),
+            '--uri='.escapeshellarg($this->connectionUri()),
             '--archive='.escapeshellarg($inputPath),
             '--nsFrom='.escapeshellarg("{$sourceDb}.*"),
             '--nsTo='.escapeshellarg("{$targetDb}.*"),
@@ -142,61 +142,81 @@ class MongodbDatabase implements DatabaseInterface
     }
 
     /**
-     * Build the base host/port arguments.
-     *
-     * @return array<string>
-     */
-    private function buildBaseArgs(): array
-    {
-        return [
-            '--host='.escapeshellarg($this->config['host']),
-            '--port='.escapeshellarg((string) $this->config['port']),
-        ];
-    }
-
-    /**
-     * Build authentication flags for MongoDB CLI tools.
-     *
-     * @return array<string>
-     */
-    private function buildAuthFlags(): array
-    {
-        $user = $this->config['user'] ?? '';
-        $pass = $this->config['pass'] ?? '';
-
-        if (empty($user) || empty($pass)) {
-            return [];
-        }
-
-        return [
-            '--username='.escapeshellarg($user),
-            '--password='.escapeshellarg($pass),
-            '--authenticationDatabase='.escapeshellarg($this->authSource()),
-        ];
-    }
-
-    /**
      * Build a MongoDB connection URI.
+     *
+     * The base form is `mongodb://user:pass@host:port/?authSource=X`
+     * (authenticated) or `mongodb://host:port` (anonymous). Advanced options
+     * extend it: SRV switches the scheme (and drops the port), and
+     * `connection_options` is appended verbatim — that is where TLS, replica
+     * set and any other connection-string parameters go (e.g. `tls=true`,
+     * `replicaSet=rs0`).
+     *
+     * A non-empty `database` is written as the URI path. `mongodump` cannot
+     * combine `--uri` with `--db`, so the dump scopes to a single database this
+     * way; driver connections and `mongorestore` pass no database here.
+     *
+     * @param  array{auth_source?: string, srv?: bool, connection_options?: string, database?: string}  $options
      */
-    public static function buildConnectionUri(string $host, int $port, string $user = '', string $pass = '', string $authSource = 'admin'): string
+    public static function buildConnectionUri(string $host, ?int $port, string $user = '', string $pass = '', array $options = []): string
     {
-        if (! empty($user) && ! empty($pass)) {
-            return sprintf(
-                'mongodb://%s:%s@%s:%d/?authSource=%s',
-                rawurlencode($user),
-                rawurlencode($pass),
-                $host,
-                $port,
-                rawurlencode($authSource),
-            );
+        $srv = ! empty($options['srv']);
+        $scheme = $srv ? 'mongodb+srv' : 'mongodb';
+        $hostPart = $srv ? $host : sprintf('%s:%d', $host, (int) $port);
+
+        $hasCredentials = ! empty($user) && ! empty($pass);
+        $credentials = $hasCredentials
+            ? rawurlencode($user).':'.rawurlencode($pass).'@'
+            : '';
+
+        // authSource is only meaningful when authenticating, matching the
+        // historical behaviour of the anonymous URI carrying no query string.
+        $params = [];
+        if ($hasCredentials) {
+            $params[] = 'authSource='.rawurlencode($options['auth_source'] ?? 'admin');
+        }
+        if (! empty($options['connection_options'])) {
+            $params[] = ltrim($options['connection_options'], '?&');
         }
 
-        return sprintf('mongodb://%s:%d', $host, $port);
+        $path = ! empty($options['database']) ? '/'.rawurlencode($options['database']) : '';
+
+        $uri = sprintf('%s://%s%s', $scheme, $credentials, $hostPart);
+
+        if ($params !== []) {
+            // A slash is required before the query string; the database path
+            // provides it when present, otherwise fall back to a bare slash.
+            $uri .= ($path !== '' ? $path : '/').'?'.implode('&', $params);
+        } else {
+            $uri .= $path;
+        }
+
+        return $uri;
     }
 
     private function authSource(): string
     {
         return $this->config['auth_source'] ?? 'admin';
+    }
+
+    /**
+     * Build the connection URI from the current config (driver + CLI `--uri`).
+     *
+     * @param  string|null  $database  Scopes the URI to a single database (dump only)
+     */
+    private function connectionUri(?string $database = null): string
+    {
+        return self::buildConnectionUri(
+            $this->config['host'],
+            isset($this->config['port']) ? (int) $this->config['port'] : null,
+            $this->config['user'] ?? '',
+            $this->config['pass'] ?? '',
+            [
+                'auth_source' => $this->authSource(),
+                'srv' => ! empty($this->config['srv']),
+                'connection_options' => $this->config['connection_options'] ?? '',
+                'database' => $database ?? '',
+            ],
+        );
     }
 
     /**
@@ -207,13 +227,7 @@ class MongodbDatabase implements DatabaseInterface
      */
     protected function createManager()
     {
-        $uri = self::buildConnectionUri(
-            $this->config['host'],
-            (int) $this->config['port'],
-            $this->config['user'] ?? '',
-            $this->config['pass'] ?? '',
-            $this->authSource(),
-        );
+        $uri = $this->connectionUri();
 
         $timeoutMs = (int) ($this->config['connect_timeout'] ?? 10) * 1000;
 

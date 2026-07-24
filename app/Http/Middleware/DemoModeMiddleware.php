@@ -2,9 +2,9 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\UserRole;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\Roles\AssignRoleToUserAction;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -50,12 +50,13 @@ class DemoModeMiddleware
 
     /**
      * Create the demo user if it doesn't exist.
-     * Attaches to main org with demo role.
+     * Attaches to the main org with the viewer role; demo-specific access
+     * (and read-only restrictions) is enforced via isDemo(), not a role.
      */
     protected function ensureDemoUserExists(): void
     {
         $user = User::firstOrCreate(
-            ['email' => config('app.demo_user_email')],
+            ['email' => User::DEMO_EMAIL],
             [
                 'name' => 'Demo User',
                 'password' => bcrypt(config('app.demo_user_password')),
@@ -63,8 +64,8 @@ class DemoModeMiddleware
             ]
         );
 
-        $user->organizations()->syncWithoutDetaching([
-            Organization::default()->id => ['role' => UserRole::Demo->value],
-        ]);
+        $org = Organization::default();
+        $user->organizations()->syncWithoutDetaching([$org->id]);
+        app(AssignRoleToUserAction::class)->execute($user, 'viewer', $org);
     }
 }

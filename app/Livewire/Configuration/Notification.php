@@ -3,7 +3,6 @@
 namespace App\Livewire\Configuration;
 
 use App\Enums\NotificationChannelType;
-use App\Livewire\Forms\NotificationChannelForm;
 use App\Models\NotificationChannel;
 use App\Services\NotificationService;
 use App\Traits\Toast;
@@ -31,14 +30,14 @@ class Notification extends Component
     public bool $showDeleteChannelModal = false;
 
     #[Computed]
-    public function isAdmin(): bool
+    public function canManage(): bool
     {
-        return auth()->user()->isAdmin();
+        return auth()->user()->can('manage', NotificationChannel::class);
     }
 
     public function openChannelModal(?string $channelId = null): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        abort_unless(auth()->user()->can('manage', NotificationChannel::class), Response::HTTP_FORBIDDEN);
 
         $this->channelForm->resetFields();
         $this->editingChannelId = $channelId;
@@ -53,7 +52,7 @@ class Notification extends Component
 
     public function saveChannel(): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        abort_unless(auth()->user()->can('manage', NotificationChannel::class), Response::HTTP_FORBIDDEN);
 
         if ($this->editingChannelId) {
             $this->channelForm->channel = NotificationChannel::findOrFail($this->editingChannelId);
@@ -77,7 +76,7 @@ class Notification extends Component
 
     public function deleteChannel(): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        abort_unless(auth()->user()->can('manage', NotificationChannel::class), Response::HTTP_FORBIDDEN);
 
         if (! $this->deleteChannelId) {
             return;
@@ -92,7 +91,7 @@ class Notification extends Component
 
     public function sendTestNotification(string $channelId): void
     {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
+        abort_unless(auth()->user()->can('manage', NotificationChannel::class), Response::HTTP_FORBIDDEN);
 
         $channel = NotificationChannel::findOrFail($channelId);
 
@@ -135,6 +134,12 @@ class Notification extends Component
         return view('livewire.configuration.notification', [
             'channelTypeOptions' => $this->getChannelTypeOptions(),
             'notificationChannels' => $this->notificationChannels(),
+            'headers' => [
+                ['key' => 'name', 'label' => __('Name')],
+                ['key' => 'type', 'label' => __('Type')],
+                ['key' => 'config', 'label' => __('Configuration')],
+                ['key' => 'actions', 'label' => '', 'class' => 'w-32 whitespace-nowrap'],
+            ],
         ]);
     }
 }

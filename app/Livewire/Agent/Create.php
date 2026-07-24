@@ -3,7 +3,6 @@
 namespace App\Livewire\Agent;
 
 use App\Livewire\Concerns\HasAgentToken;
-use App\Livewire\Forms\AgentForm;
 use App\Models\Agent;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
@@ -16,7 +15,7 @@ class Create extends Component
 {
     use AuthorizesRequests, HasAgentToken, Toast;
 
-    public AgentForm $form;
+    public Form $form;
 
     public function mount(): void
     {

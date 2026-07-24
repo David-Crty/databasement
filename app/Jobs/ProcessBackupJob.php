@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Exceptions\Backup\StorageQuotaExceededException;
 use App\Facades\AppConfig;
 use App\Models\Snapshot;
 use App\Services\Backup\BackupTask;
@@ -72,6 +73,7 @@ class ProcessBackupJob implements ShouldQueue
                 workingDirectory: FilesystemSupport::createWorkingDirectory('backup', $snapshot->id),
                 backupPath: $backupPath,
                 postBackupScript: AppConfig::get('backup.post_backup_script'),
+                volumeUsedBytes: $snapshot->volume->usedStorageBytes(),
             );
 
             $result = $backupTask->execute($config, $job);
@@ -85,13 +87,12 @@ class ProcessBackupJob implements ShouldQueue
 
             $job->markCompleted();
 
-            try {
-                app(NotificationService::class)->notifyBackupSuccess($snapshot);
-            } catch (\Throwable $notificationException) {
-                Log::warning('Backup success notification failed', [
-                    'snapshot_id' => $this->snapshotId,
-                    'error' => $notificationException->getMessage(),
-                ]);
+            app(NotificationService::class)->notifyBackupSuccess($snapshot);
+
+            // Notify-only storage limit: the backup was uploaded despite
+            // exceeding the volume's limit, so alert every configured channel.
+            if ($result->storageWarning !== null) {
+                app(NotificationService::class)->notifyStorageLimitWarning($snapshot, $result->storageWarning);
             }
 
             Log::info('Backup completed successfully', [
@@ -99,6 +100,16 @@ class ProcessBackupJob implements ShouldQueue
                 'database_server_id' => $databaseServer->id,
                 'method' => $snapshot->method,
             ]);
+        } catch (StorageQuotaExceededException $e) {
+            // The volume is over its storage limit. Retrying cannot help — the
+            // limit won't move on its own — so fail immediately (no retry). The
+            // custom message reaches the user via the failure notification.
+            $job->log("Backup failed: {$e->getMessage()}", 'error', [
+                'exception' => get_class($e),
+            ]);
+            $job->markFailed($e);
+
+            $this->fail($e);
         } catch (\Throwable $e) {
             $job->log("Backup failed: {$e->getMessage()}", 'error', [
                 'exception' => get_class($e),

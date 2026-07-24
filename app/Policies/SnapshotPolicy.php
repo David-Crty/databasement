@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Ability;
 use App\Models\Snapshot;
 use App\Models\User;
 
@@ -27,30 +28,29 @@ class SnapshotPolicy
 
     /**
      * Determine whether the user can delete the model.
-     * Viewers and demo users cannot delete.
+     * Requires the delete-snapshots ability.
      */
     public function delete(User $user, Snapshot $snapshot): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::DeleteSnapshots->value);
     }
 
     /**
      * Determine whether the user can download the snapshot.
-     * Operators, Members, Admins and demo users can download.
+     * Requires the download-snapshots ability.
      */
     public function download(User $user, Snapshot $snapshot): bool
     {
-        return $user->isDemo() || $user->canOperate();
+        return $user->can(Ability::DownloadSnapshots->value);
     }
 
     /**
      * Determine whether the user can use this snapshot as the source of a restore.
-     * Operators, Members, Admins and demo users can trigger restores. Final
-     * authorization on the target server is still checked separately via
-     * DatabaseServerPolicy@restore.
+     * Requires the operate-restores ability. Final authorization on the target
+     * server is still checked separately via DatabaseServerPolicy@restore.
      */
     public function restoreFrom(User $user, Snapshot $snapshot): bool
     {
-        return $user->isDemo() || $user->canOperate();
+        return $user->can(Ability::OperateRestores->value);
     }
 }

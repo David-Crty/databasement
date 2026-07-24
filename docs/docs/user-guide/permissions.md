@@ -4,94 +4,71 @@ sidebar_position: 9
 
 # Permissions
 
-Databasement uses a role-based access control system. Roles are assigned **per organization** — a user can have different roles in different organizations. See [Organizations](./organizations.md) for details on multi-org setup.
+Databasement uses role-based access control built on [Bouncer](https://github.com/JosephSilber/bouncer). A **role** grants a set of **abilities**. Roles and their abilities are **global** (shared across the whole application); only the **assignment** of a role to a user is **per organization**.
 
-## User Roles
+## Roles are per organization
 
-| Role            | Scope  | Description                                                                            |
-|-----------------|--------|---------------------------------------------------------------------------------------|
-| **Super Admin** | Global | Full access to all organizations, user deletion, and global configuration             |
-| **Admin**       | Org    | Full access within the org, including user management                                 |
-| **Member**      | Org    | Can manage database servers, volumes, and backups, but cannot manage users            |
-| **Operator**    | Org    | Can run backups, restores, and downloads, but cannot edit configuration or manage users |
-| **Viewer**      | Org    | Read-only access to view resources and monitor backup status                          |
+Each user has one role **per organization** they belong to, so the same person can be an **Admin** in one org and a **Viewer** in another. Roles are assigned from the **Users** screen of the organization you are currently working in (requires the `manage-users` ability). See [Organizations](./organizations.md) for multi-org setup.
 
-Roles are ordered from most to least privileged: **Admin → Member → Operator → Viewer**. Each role can do everything the role below it can, plus more.
+Viewing resources (servers, volumes, snapshots, agents, schedules, restores) needs no ability — read access comes with membership. Everything else is gated by the abilities below.
 
-The **Operator** role is for people who run backup operations but should not change infrastructure — for example, developers who trigger a backup before a deployment and restore if something goes wrong, while leaving server connection settings to your admins.
+## Super admins
 
-## Permissions by Resource
+The first/owner user is a **super admin**. Super admins:
 
-### Database Servers
+- Bypass every ability check, in **every** organization.
+- Manage the globally scoped settings that no ability covers: **authentication / SSO**, **role management** (Configuration → Roles), and **organizations**.
+- Are the only ones who can grant **super admin** to another user.
 
-| Action            |    Viewer    |   Operator   |    Member    | Admin |
-|-------------------|:------------:|:------------:|:------------:|:-----:|
-| View list         |      ✅       |      ✅       |      ✅       |   ✅   |
-| Create            |      ❌       |      ❌       |      ✅       |   ✅   |
-| Edit              |      ❌       |      ❌       |      ✅       |   ✅   |
-| Delete            |      ❌       |      ❌       |      ✅       |   ✅   |
-| Run backup        |      ❌       |      ✅       |      ✅       |   ✅   |
-| Restore to server |      ❌       |      ✅       |      ✅       |   ✅   |
-| Open Adminer      | configurable | configurable | configurable |   ✅   |
+Everyone can *view* those global screens read-only; only super admins can change them.
 
-Adminer access is enabled by default for Admins only. A Super Admin can change the threshold or disable the feature under **Configuration → Application**. See [Browsing Data with Adminer](./database-servers.md#browsing-data-with-adminer).
+## Abilities
 
-### Volumes
+The catalogue is fixed and code-defined. Toggle any ability on any role under **Configuration → Roles** — changes apply immediately, everywhere.
 
-| Action    | Viewer | Operator | Member | Admin |
-|-----------|:------:|:--------:|:------:|:-----:|
-| View list |   ✅    |    ✅     |   ✅    |   ✅   |
-| Create    |   ❌    |    ❌     |   ✅    |   ✅   |
-| Edit      |   ❌    |    ❌     |   ✅    |   ✅   |
-| Delete    |   ❌    |    ❌     |   ✅    |   ✅   |
+| Ability | Grants |
+|---------|--------|
+| `run-backups` | Run backups on demand |
+| `download-snapshots` | Download snapshot files |
+| `delete-snapshots` | Delete snapshots and cancel pending backup jobs |
+| `operate-restores` | Restore from snapshots and manage scheduled restores |
+| `use-adminer` | Open the Adminer database browser |
+| `manage-database-servers` | Create, edit and delete database server connections |
+| `manage-volumes` | Create, edit and delete storage volumes |
+| `manage-agents` | Create, edit, delete and regenerate tokens for remote agents |
+| `manage-backup-settings` | Configure backup settings and schedules; run cleanup and verification |
+| `manage-notifications` | Create, edit, delete and test notification channels |
+| `manage-users` | Invite, edit and remove users in the organization |
 
-### Agents
+:::note Abilities apply to the whole organization
+An ability covers **all** resources of its type in the organization — for example, `manage-database-servers` grants access to *every* server in the org, not a specific one. Narrowing an ability to a single resource (such as letting someone manage just one database) is not possible today, but may land in a future release.
+:::
 
-| Action           | Viewer | Operator | Member | Admin |
-|------------------|:------:|:--------:|:------:|:-----:|
-| View list        |   ✅    |    ✅     |   ✅    |   ✅   |
-| Create           |   ❌    |    ❌     |   ✅    |   ✅   |
-| Edit             |   ❌    |    ❌     |   ✅    |   ✅   |
-| Regenerate token |   ❌    |    ❌     |   ✅    |   ✅   |
-| Delete           |   ❌    |    ❌     |   ✅    |   ✅   |
+:::note `manage-users` is the most powerful org ability
+Its holder can grant any ability to anyone in the org. Give `manage-users` only to people you trust with the whole organization.
+:::
 
-See [Remote Agents](./agents.md) for how agents back up databases in firewalled or isolated networks.
+## Default role abilities
 
-### Snapshots
+These are the **seeded defaults** for the built-in roles. They are fully editable at runtime, and you can create custom roles or grant extra abilities to individual users — so real access may differ.
 
-| Action       | Viewer | Operator | Member | Admin |
-|--------------|:------:|:--------:|:------:|:-----:|
-| View list    |   ✅    |    ✅     |   ✅    |   ✅   |
-| View details |   ✅    |    ✅     |   ✅    |   ✅   |
-| Download     |   ❌    |    ✅     |   ✅    |   ✅   |
-| Delete       |   ❌    |    ❌     |   ✅    |   ✅   |
+| Ability | Viewer | Operator | Member | Admin |
+|---------|:------:|:--------:|:------:|:-----:|
+| `run-backups` | ❌ | ✅ | ✅ | ✅ |
+| `download-snapshots` | ❌ | ✅ | ✅ | ✅ |
+| `delete-snapshots` | ❌ | ❌ | ✅ | ✅ |
+| `operate-restores` | ❌ | ✅ | ✅ | ✅ |
+| `use-adminer` | ❌ | ❌ | ✅ | ✅ |
+| `manage-database-servers` | ❌ | ❌ | ✅ | ✅ |
+| `manage-volumes` | ❌ | ❌ | ✅ | ✅ |
+| `manage-agents` | ❌ | ❌ | ✅ | ✅ |
+| `manage-backup-settings` | ❌ | ❌ | ❌ | ✅ |
+| `manage-notifications` | ❌ | ❌ | ❌ | ✅ |
+| `manage-users` | ❌ | ❌ | ❌ | ✅ |
 
-### Users
+In short: **Viewer** reads only; **Operator** also runs backups, restores and downloads; **Member** adds full resource and config management; **Admin** adds user management and backup/notification settings.
 
-| Action                       | Viewer | Operator | Member | Admin |
-|------------------------------|:------:|:--------:|:------:|:-----:|
-| View list                    |   ✅    |    ✅     |   ✅    |   ✅   |
-| Invite new user              |   ❌    |    ❌     |   ❌    |   ✅   |
-| Edit user role               |   ❌    |    ❌     |   ❌    |   ✅   |
-| Delete user                  |   ❌    |    ❌     |   ❌    |   ✅*  |
-| Remove from organization     |   ❌    |    ❌     |   ❌    |   ✅   |
-| Copy invitation link         |   ❌    |    ❌     |   ❌    |   ✅   |
+## User deletion
 
-\* Org admins can only delete users who belong to their organization and no other. See restrictions below.
-
-## Special Rules
-
-### User Deletion
-
-**Super admins** can delete any user, with these restrictions:
-
-- Cannot delete yourself
-- Cannot delete the last super admin
-
-**Org admins** can delete a user only when all of the following are true:
-
-- The target user is not a super admin
-- The target user belongs to the admin's current organization
-- The target user belongs to **only one organization** (the admin's org)
-
-If the target user belongs to multiple organizations, admins can **remove them from the organization** instead of deleting them entirely.
+- **Super admins** can delete any user, except themselves and the last super admin.
+- **Org admins** (`manage-users`) can delete a user only if that user is not a super admin and belongs to **only** their organization. If the user belongs to multiple orgs, remove them from the org instead.

@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Livewire\ScheduledRestore\Index;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
@@ -11,7 +11,9 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
-    $this->user = User::factory()->create(['role' => UserRole::Admin]);
+    // Scheduled restores gate on operate-restores; the happy-path tests below
+    // act as the allow case for that ability.
+    $this->user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     actingAs($this->user);
 });
 
@@ -63,9 +65,8 @@ test('deleteScheduledRestore removes the record', function () {
     expect(ScheduledRestore::find($scheduled->id))->toBeNull();
 });
 
-test('non-admin users cannot create scheduled restores', function () {
-    $viewer = User::factory()->create(['role' => UserRole::Viewer]);
-    actingAs($viewer);
+test('without operate-restores, creating a scheduled restore is forbidden', function () {
+    actingAs(User::factory()->withAbilities([])->create());
 
     Livewire::test(Index::class)
         ->call('openCreate')

@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Ability;
 use App\Models\Restore;
 use App\Models\ScheduledRestore;
 use App\Models\User;
@@ -28,12 +29,12 @@ class RestorePolicy
 
     /**
      * Determine whether the user can start a new restore or schedule one.
-     * Operators (and above) plus demo users can create. Final authorization on
-     * the target server is still checked via DatabaseServerPolicy@restore.
+     * Requires the operate-restores ability. Final authorization on the target
+     * server is still checked via DatabaseServerPolicy@restore.
      */
     public function create(User $user): bool
     {
-        return $user->isDemo() || $user->canOperate();
+        return $user->isDemo() || $user->can(Ability::OperateRestores->value);
     }
 
     /**
@@ -43,7 +44,7 @@ class RestorePolicy
      */
     public function update(User $user, ScheduledRestore $restore): bool
     {
-        return $user->isDemo() || $user->canOperate();
+        return $user->isDemo() || $user->can(Ability::OperateRestores->value);
     }
 
     /**
@@ -51,7 +52,7 @@ class RestorePolicy
      */
     public function delete(User $user, Restore|ScheduledRestore $restore): bool
     {
-        return $user->isDemo() || $user->canOperate();
+        return $user->isDemo() || $user->can(Ability::OperateRestores->value);
     }
 
     /**
@@ -59,6 +60,6 @@ class RestorePolicy
      */
     public function run(User $user, ScheduledRestore $restore): bool
     {
-        return $user->isDemo() || $user->canOperate();
+        return $user->isDemo() || $user->can(Ability::OperateRestores->value);
     }
 }

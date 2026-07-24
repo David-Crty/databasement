@@ -5,6 +5,7 @@ use App\Enums\BackupJobStatus;
 use App\Facades\AppConfig;
 use App\Jobs\ProcessBackupJob;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupConfig;
@@ -205,4 +206,63 @@ test('handle uses empty backupPath when the snapshot is orphaned (backup removed
     (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
 
     expect($capturedPath)->toBe('');
+});
+
+test('handle passes the volume used storage (completed snapshots only) to the backup config', function () {
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $backup = $server->backups->first();
+
+    // One completed 500-byte snapshot already sits on the volume; the pending
+    // snapshot being backed up must not count toward usage.
+    Snapshot::factory()->forServer($server)->create(['file_size' => 500]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($backup, 'manual')[0];
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->with(
+            Mockery::on(fn (BackupConfig $config) => $config->volumeUsedBytes === 500),
+            Mockery::type(BackupLogger::class),
+        )
+        ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123'));
+
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    expect($snapshot->fresh()->job->status)->toBe(BackupJobStatus::Completed);
+});
+
+test('handle fails without retry when the volume storage limit is exceeded', function () {
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->andThrow(new \App\Exceptions\Backup\StorageQuotaExceededException('Storage limit reached for volume "R2 Bucket".'));
+
+    // Unlike an ordinary failure, the quota failure is not re-thrown — that is
+    // what stops the queue from retrying a backup that can never fit.
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    $snapshot->refresh();
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
+        ->and($snapshot->job->error_message)->toBe('Storage limit reached for volume "R2 Bucket".')
+        ->and($snapshot->job->completed_at)->not->toBeNull();
+});
+
+test('handle completes and notifies all channels when the limit is exceeded in notify-only mode', function () {
+    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123', storageWarning: 'Storage limit reached for volume "R2 Bucket".'));
+
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    expect($snapshot->fresh()->job->status)->toBe(BackupJobStatus::Completed);
+    Notification::assertSentTimes(\App\Notifications\StorageLimitWarningNotification::class, 1);
 });

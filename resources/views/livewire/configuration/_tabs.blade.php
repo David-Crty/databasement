@@ -15,10 +15,12 @@
        role="tab" @class(['tab', 'tab-active' => $active === 'authentication'])>
         {{ __('Authentication') }}
     </a>
-    @if(auth()->user()->isSuperAdmin())
-        <a href="{{ route('configuration.organizations') }}" wire:navigate
-           role="tab" @class(['tab', 'tab-active' => $active === 'organizations'])>
-            {{ __('Organizations') }}
-        </a>
-    @endif
+    <a href="{{ route('configuration.roles') }}" wire:navigate
+       role="tab" @class(['tab', 'tab-active' => $active === 'roles'])>
+        {{ __('Roles') }}
+    </a>
+    <a href="{{ route('configuration.organizations') }}" wire:navigate
+       role="tab" @class(['tab', 'tab-active' => $active === 'organizations'])>
+        {{ __('Organizations') }}
+    </a>
 </div>

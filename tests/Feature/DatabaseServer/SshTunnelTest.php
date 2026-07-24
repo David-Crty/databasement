@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Livewire\DatabaseServer\Create;
 use App\Livewire\DatabaseServer\Edit;
 use App\Models\DatabaseServer;
@@ -12,7 +13,7 @@ use Livewire\Livewire;
 uses(RefreshDatabase::class);
 
 test('can create database server with SSH tunnel (password auth)', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     Livewire::actingAs($user)
@@ -56,7 +57,7 @@ test('can create database server with SSH tunnel (password auth)', function () {
 });
 
 test('can create database server with SSH tunnel (key auth)', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     $privateKey = "-----BEGIN OPENSSH PRIVATE KEY-----\ntest_key_content\n-----END OPENSSH PRIVATE KEY-----";
@@ -95,7 +96,7 @@ test('can create database server with SSH tunnel (key auth)', function () {
 });
 
 test('can create database server using existing SSH config', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     // Create existing SSH config
@@ -163,7 +164,7 @@ test('SSH config model provides accessor methods', function () {
 });
 
 test('SSH section is shown for SQLite with SFTP label', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     Livewire::actingAs($user)
         ->test(Create::class)
@@ -172,7 +173,7 @@ test('SSH section is shown for SQLite with SFTP label', function () {
 });
 
 test('can create SQLite server with SSH config for remote access', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     Livewire::actingAs($user)
@@ -205,7 +206,7 @@ test('can create SQLite server with SSH config for remote access', function () {
 });
 
 test('updating database server preserves SSH config when not changed', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->withSshTunnel()->create([
         'database_names' => ['mydb'],
     ]);
@@ -227,7 +228,7 @@ test('updating database server preserves SSH config when not changed', function 
 });
 
 test('disabling SSH tunnel clears SSH config link', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->withSshTunnel()->create([
         'database_names' => ['mydb'],
     ]);
@@ -246,7 +247,7 @@ test('disabling SSH tunnel clears SSH config link', function () {
 });
 
 test('generateSshKey populates private and public key fields with a comment derived from server name', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $component = Livewire::actingAs($user)
         ->test(Create::class)
@@ -263,7 +264,7 @@ test('generateSshKey populates private and public key fields with a comment deri
 });
 
 test('generateSshKey falls back to host when name is empty', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $component = Livewire::actingAs($user)
         ->test(Create::class)
@@ -277,7 +278,7 @@ test('generateSshKey falls back to host when name is empty', function () {
 });
 
 test('generateSshKey is a no-op when auth type is password', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     Livewire::actingAs($user)
         ->test(Create::class)
@@ -291,7 +292,7 @@ test('generateSshKey is a no-op when auth type is password', function () {
 test('generateSshKey replaces any existing key in the form', function () {
     // The blade uses wire:confirm to require explicit user approval before
     // overwriting; the action itself should perform the overwrite once called.
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $component = Livewire::actingAs($user)
         ->test(Create::class)
@@ -307,7 +308,7 @@ test('generateSshKey replaces any existing key in the form', function () {
 });
 
 test('testSshConnection calls form method', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->withSshTunnel()->create();
 
     // Calling testSshConnection should update form state

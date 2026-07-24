@@ -19,7 +19,7 @@ class AgentJobPayloadBuilder
      * @return array{
      *     database: array<string, mixed>,
      *     volume: array<string, mixed>,
-     *     compression: array{type: string|null, level: int|null},
+     *     compression: array{type: string|null, level: int|null, multithread: bool|null},
      *     backup_path: string,
      *     server_name: string,
      *     post_backup_script: string|null,
@@ -37,6 +37,7 @@ class AgentJobPayloadBuilder
             backupPath: $this->resolveBackupPath($snapshot->backup->path),
             compressionType: CompressionType::tryFrom(AppConfig::get('backup.compression') ?? ''),
             compressionLevel: AppConfig::get('backup.compression_level'),
+            compressionMultithread: (bool) AppConfig::get('backup.compression_multithread'),
             postBackupScript: AppConfig::get('backup.post_backup_script'),
         );
 

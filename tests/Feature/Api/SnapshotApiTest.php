@@ -9,7 +9,8 @@ test('unauthenticated users cannot access snapshots api', function () {
 });
 
 test('authenticated users can list snapshots via api', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — any org member can read the snapshots API.
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
@@ -37,7 +38,7 @@ test('authenticated users can list snapshots via api', function () {
 });
 
 test('authenticated users can filter snapshots by database name', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server1 = DatabaseServer::factory()->create(['database_names' => ['production_db']]);
@@ -55,7 +56,7 @@ test('authenticated users can filter snapshots by database name', function () {
 });
 
 test('authenticated users can filter snapshots by database server id', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server1 = DatabaseServer::factory()->create(['database_names' => ['db_one']]);
@@ -73,7 +74,7 @@ test('authenticated users can filter snapshots by database server id', function 
 });
 
 test('authenticated users can filter snapshots by database type', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $mysqlServer = DatabaseServer::factory()->create([
@@ -97,7 +98,7 @@ test('authenticated users can filter snapshots by database type', function () {
 });
 
 test('authenticated users can get a specific snapshot', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);

@@ -2,15 +2,23 @@
 
 namespace App\Services;
 
-use App\Enums\UserRole;
 use App\Models\OAuthIdentity;
 use App\Models\Organization;
 use App\Models\User;
+use App\Services\Roles\AssignRoleToUserAction;
 use Illuminate\Support\Facades\DB;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 
 class OAuthService
 {
+    /**
+     * Built-in role names in descending privilege order. Used to resolve and
+     * validate OIDC group → role mappings, which only ever target built-in roles.
+     *
+     * @var list<string>
+     */
+    private const ASSIGNABLE_ROLES = ['admin', 'member', 'operator', 'viewer'];
+
     /**
      * Find or create a user from OAuth data.
      */
@@ -44,7 +52,7 @@ class OAuthService
      *
      * @throws \RuntimeException when no user can be found or created
      */
-    private function findOrCreateLocalUser(SocialiteUser $socialiteUser, string $provider, ?UserRole $resolvedRole): User
+    private function findOrCreateLocalUser(SocialiteUser $socialiteUser, string $provider, ?string $resolvedRole): User
     {
         $existingUser = $socialiteUser->getEmail()
             ? User::where('email', $socialiteUser->getEmail())->first()
@@ -80,7 +88,7 @@ class OAuthService
      * Returns the mapped role if a match is found, null if mapping is
      * inactive or no match, or throws if strict mode denies access.
      */
-    private function resolveOidcRole(SocialiteUser $socialiteUser, string $provider): ?UserRole
+    private function resolveOidcRole(SocialiteUser $socialiteUser, string $provider): ?string
     {
         if ($provider !== 'oidc') {
             return null;
@@ -102,8 +110,8 @@ class OAuthService
         $userGroups = array_map('mb_strtolower', (array) $claimValue);
 
         // Check roles in priority order: admin > member > operator > viewer
-        foreach ([UserRole::Admin, UserRole::Member, UserRole::Operator, UserRole::Viewer] as $role) {
-            $configuredGroups = $this->parseGroupList(config("oauth.role_mapping.{$role->value}", ''));
+        foreach (self::ASSIGNABLE_ROLES as $role) {
+            $configuredGroups = $this->parseGroupList(config("oauth.role_mapping.{$role}", ''));
 
             if ($configuredGroups !== [] && array_intersect($userGroups, $configuredGroups) !== []) {
                 return $role;
@@ -133,14 +141,14 @@ class OAuthService
      * Sync user role from OIDC claims.
      * Updates role in the user's default org (main org or configured OIDC org).
      */
-    private function syncUserRole(User $user, SocialiteUser $socialiteUser, string $provider, ?UserRole $resolvedRole = null): void
+    private function syncUserRole(User $user, SocialiteUser $socialiteUser, string $provider, ?string $resolvedRole = null): void
     {
         $role = $resolvedRole ?? $this->resolveOidcRole($socialiteUser, $provider);
 
         if ($role !== null) {
             $org = $this->resolveDefaultOrganization();
             if ($user->belongsToOrganization($org)) {
-                $user->organizations()->updateExistingPivot($org->id, ['role' => $role->value]);
+                app(AssignRoleToUserAction::class)->execute($user, $role, $org);
             }
         }
     }
@@ -150,8 +158,8 @@ class OAuthService
      */
     private function isRoleMappingConfigured(): bool
     {
-        foreach (UserRole::assignable() as $role) {
-            if (trim((string) config("oauth.role_mapping.{$role->value}", '')) !== '') {
+        foreach (self::ASSIGNABLE_ROLES as $role) {
+            if (trim((string) config("oauth.role_mapping.{$role}", '')) !== '') {
                 return true;
             }
         }
@@ -180,11 +188,15 @@ class OAuthService
      * Create a new user from OAuth data.
      * Auto-attaches to the default org (main or OIDC-configured org).
      */
-    private function createUser(SocialiteUser $socialiteUser, ?UserRole $resolvedRole = null): User
+    private function createUser(SocialiteUser $socialiteUser, ?string $resolvedRole = null): User
     {
-        $role = $resolvedRole
-            ?? UserRole::tryFrom(config('oauth.default_role', 'member'))
-            ?? UserRole::Member;
+        $configuredRole = (string) config('oauth.default_role', 'member');
+
+        if (! in_array($configuredRole, self::ASSIGNABLE_ROLES, true)) {
+            $configuredRole = 'member';
+        }
+
+        $role = $resolvedRole ?? $configuredRole;
 
         $user = new User([
             'name' => $socialiteUser->getName() ?? $socialiteUser->getNickname() ?? 'OAuth User',
@@ -197,9 +209,10 @@ class OAuthService
         $user->email_verified_at = now();
         $user->save();
 
-        // Attach to default org
+        // Attach to default org and assign the resolved role.
         $org = $this->resolveDefaultOrganization();
-        $user->organizations()->attach($org->id, ['role' => $role->value]);
+        $user->organizations()->attach($org->id);
+        app(AssignRoleToUserAction::class)->execute($user, $role, $org);
 
         return $user;
     }

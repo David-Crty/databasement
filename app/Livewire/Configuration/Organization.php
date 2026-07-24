@@ -49,17 +49,26 @@ class Organization extends Component
     }
 
     /**
+     * Super admins see every organization; other members see only the ones they
+     * belong to, so the page never discloses other tenants' names or counts.
+     *
      * @return Collection<int, OrganizationModel>
      */
     #[Computed]
     public function organizations(): Collection
     {
+        $user = auth()->user();
+
         return OrganizationModel::withCount([
             'users',
             'databaseServers' => fn ($q) => $q->withoutGlobalScope(OrganizationScope::class),
             'volumes' => fn ($q) => $q->withoutGlobalScope(OrganizationScope::class),
             'agents' => fn ($q) => $q->withoutGlobalScope(OrganizationScope::class),
         ])
+            ->when(
+                ! $user->isSuperAdmin(),
+                fn ($q) => $q->whereIn('id', $user->organizations()->pluck('organizations.id')),
+            )
             ->orderByDesc('is_default')
             ->orderBy('name')
             ->get();

@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Livewire\User\Edit;
 use App\Models\OAuthIdentity;
 use App\Models\Organization;
@@ -23,40 +23,40 @@ describe('access control', function () {
         get(route('users.edit', $user))->assertOk();
     });
 
-    test('org admin can edit non-super-admin users in their org', function () {
-        $orgAdmin = User::factory()->admin()->create();
-        actingAs($orgAdmin);
+    test('manage-users allows editing non-super-admin users in the org', function () {
+        $user = User::factory()->withAbilities([Ability::ManageUsers->value])->create();
+        actingAs($user);
 
-        $user = User::factory()->create();
+        $target = User::factory()->create();
 
-        get(route('users.edit', $user))->assertOk();
+        get(route('users.edit', $target))->assertOk();
     });
 
-    test('org admin cannot edit super admin users', function () {
-        $orgAdmin = User::factory()->admin()->create();
-        actingAs($orgAdmin);
+    test('manage-users does not allow editing super admin users', function () {
+        $user = User::factory()->withAbilities([Ability::ManageUsers->value])->create();
+        actingAs($user);
 
         get(route('users.edit', $this->admin))->assertForbidden();
     });
 
-    test('org admin cannot edit users outside their org', function () {
-        $orgAdmin = User::factory()->admin()->create();
+    test('manage-users does not allow editing users outside the org', function () {
+        $orgAdmin = User::factory()->withAbilities([Ability::ManageUsers->value])->create();
         actingAs($orgAdmin);
 
         $otherOrg = Organization::factory()->create();
         $outsideUser = User::factory()->create();
-        $outsideUser->organizations()->sync([$otherOrg->id => ['role' => UserRole::Member]]);
+        $outsideUser->organizations()->sync([$otherOrg->id]);
+        attachUserToOrg($outsideUser, $otherOrg, 'member');
 
         get(route('users.edit', $outsideUser))->assertForbidden();
     });
 
-    test('non-admin cannot edit users', function (string $role) {
-        $user = User::factory()->create(['role' => $role]);
+    test('without manage-users, editing a user is forbidden', function () {
         $target = User::factory()->create();
-        actingAs($user);
+        actingAs(User::factory()->withAllAbilitiesExcept(Ability::ManageUsers->value)->create());
 
         get(route('users.edit', $target))->assertForbidden();
-    })->with(['member', 'viewer']);
+    });
 });
 
 test('can update user name email and role', function () {
@@ -65,20 +65,20 @@ test('can update user name email and role', function () {
     $user = User::factory()->create([
         'name' => 'Original Name',
         'email' => 'original@example.com',
-        'role' => UserRole::Member,
+        'role' => 'member',
     ]);
 
     Livewire::test(Edit::class, ['user' => $user])
         ->set('form.name', 'Updated Name')
         ->set('form.email', 'updated@example.com')
-        ->set('form.role', UserRole::Viewer->value)
+        ->set('form.role', 'viewer')
         ->call('save')
         ->assertRedirect(route('users.index'));
 
     $user->refresh();
     expect($user->name)->toBe('Updated Name')
         ->and($user->email)->toBe('updated@example.com')
-        ->and($user->roleIn(Organization::default()))->toBe(UserRole::Viewer);
+        ->and($user->roleNameIn(Organization::default()))->toBe('viewer');
 });
 
 test('cannot remove last super admin', function () {
@@ -102,26 +102,28 @@ test('can demote super admin when multiple exist', function () {
     expect(User::where('super_admin', true)->count())->toBe(2);
 
     Livewire::test(Edit::class, ['user' => $anotherAdmin])
-        ->set('form.role', UserRole::Member->value)
+        ->set('form.role', 'member')
+        ->set('form.superAdmin', false)
         ->call('save')
         ->assertRedirect(route('users.index'));
 
     $anotherAdmin->refresh();
-    expect($anotherAdmin->roleIn(Organization::default()))->toBe(UserRole::Member);
+    expect($anotherAdmin->roleNameIn(Organization::default()))->toBe('member')
+        ->and($anotherAdmin->super_admin)->toBeFalse();
 });
 
 test('can promote user to admin', function () {
     actingAs($this->admin);
 
-    $member = User::factory()->create(['role' => UserRole::Member]);
+    $member = User::factory()->create(['role' => 'member']);
 
     Livewire::test(Edit::class, ['user' => $member])
-        ->set('form.role', UserRole::Admin->value)
+        ->set('form.role', 'admin')
         ->call('save')
         ->assertRedirect(route('users.index'));
 
     $member->refresh();
-    expect($member->roleIn(Organization::default()))->toBe(UserRole::Admin);
+    expect($member->roleNameIn(Organization::default()))->toBe('admin');
 });
 
 test('oauth user email field is disabled', function () {

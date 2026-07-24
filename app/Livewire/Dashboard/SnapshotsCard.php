@@ -2,22 +2,15 @@
 
 namespace App\Livewire\Dashboard;
 
-use App\Jobs\VerifySnapshotFileJob;
 use App\Models\Snapshot;
-use App\Services\CurrentOrganization;
-use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
-use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\On;
 use Livewire\Component;
-use Symfony\Component\HttpFoundation\Response;
 
 #[Lazy]
 class SnapshotsCard extends Component
 {
-    use Toast;
-
     public int $totalSnapshots = 0;
 
     public int $verifiedSnapshots = 0;
@@ -47,25 +40,6 @@ class SnapshotsCard extends Component
     public function placeholder(): View
     {
         return view('components.lazy-placeholder', ['type' => 'stats']);
-    }
-
-    public function verifyFiles(): void
-    {
-        abort_unless(auth()->user()->isAdmin(), Response::HTTP_FORBIDDEN);
-
-        $currentOrg = app(CurrentOrganization::class);
-        $lockKey = 'verify-snapshot-files:'.$currentOrg->id();
-        $lock = Cache::lock($lockKey, 300);
-
-        if (! $lock->get()) {
-            $this->warning(__('File verification is already running.'));
-
-            return;
-        }
-
-        VerifySnapshotFileJob::dispatch($currentOrg->id());
-
-        $this->success(__('File verification job dispatched.'));
     }
 
     public function render(): View

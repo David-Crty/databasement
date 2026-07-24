@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Lorisleiva\CronTranslator\CronTranslator;
 
 class Formatters
@@ -51,6 +52,32 @@ class Formatters
     }
 
     /**
+     * Convert a byte count into a trimmed GB string for storage-limit form
+     * fields (e.g. 10737418240 => "10", 2684354560 => "2.5"). Null passes through.
+     */
+    public static function bytesToGb(?int $bytes): ?string
+    {
+        if ($bytes === null) {
+            return null;
+        }
+
+        return rtrim(rtrim(number_format($bytes / (1024 ** 3), 4, '.', ''), '0'), '.');
+    }
+
+    /**
+     * Convert a GB value (as entered in a form) into whole bytes. A blank or
+     * null value returns null (no limit).
+     */
+    public static function gbToBytes(int|float|string|null $gb): ?int
+    {
+        if ($gb === null || $gb === '') {
+            return null;
+        }
+
+        return (int) round((float) $gb * (1024 ** 3));
+    }
+
+    /**
      * Format a date/datetime into human-readable format
      * Output format: Dec 19, 2025, 16:44
      */
@@ -79,6 +106,23 @@ class Formatters
         } catch (\Throwable) {
             return $fallback;
         }
+    }
+
+    /**
+     * Join names into a comma-separated list, keeping it short enough to fit in a
+     * popover: beyond $limit entries the rest collapse into a "+N more" suffix.
+     *
+     * @param  \Illuminate\Support\Collection<int, string>|array<int, string>  $names
+     */
+    public static function truncatedList(Collection|array $names, int $limit = 5): string
+    {
+        $names = Collection::make($names);
+        $shown = $names->take($limit)->join(', ');
+        $remaining = $names->count() - $limit;
+
+        return $remaining > 0
+            ? __(':shown +:count more', ['shown' => $shown, 'count' => $remaining])
+            : $shown;
     }
 
     /**

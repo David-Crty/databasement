@@ -4,7 +4,7 @@
         use App\Enums\DatabaseType;
         use App\Enums\NotificationChannelSelection;
         use App\Enums\NotificationTrigger;
-        use App\Livewire\Forms\BackupForm;
+        use App\Livewire\DatabaseServer\BackupForm;
 
         $sshConfig = $server->sshConfig;
         $agent = $server->agent;

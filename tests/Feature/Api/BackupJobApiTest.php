@@ -9,7 +9,8 @@ test('unauthenticated users cannot access jobs api', function () {
 });
 
 test('authenticated users can list jobs via api', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — any org member can read the jobs API.
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
@@ -37,7 +38,7 @@ test('authenticated users can list jobs via api', function () {
 });
 
 test('authenticated users can filter jobs by status', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
@@ -57,7 +58,7 @@ test('authenticated users can filter jobs by status', function () {
 });
 
 test('authenticated users can filter jobs by type', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
@@ -72,7 +73,7 @@ test('authenticated users can filter jobs by type', function () {
 });
 
 test('authenticated users can sort jobs', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
@@ -91,7 +92,7 @@ test('authenticated users can sort jobs', function () {
 });
 
 test('authenticated users can get a specific job', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);

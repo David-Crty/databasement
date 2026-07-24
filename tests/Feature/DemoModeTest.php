@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Livewire\DatabaseServer\Create as DatabaseServerCreate;
 use App\Livewire\DatabaseServer\Edit as DatabaseServerEdit;
 use App\Livewire\DatabaseServer\Index as DatabaseServerIndex;
@@ -15,7 +15,10 @@ use App\Services\Backup\BackupJobFactory;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->demoUser = User::factory()->create(['role' => UserRole::Demo]);
+    $this->demoUser = User::factory()->create([
+        'email' => User::DEMO_EMAIL,
+        'role' => 'viewer',
+    ]);
     config(['app.demo_mode' => true]);
 });
 
@@ -151,6 +154,18 @@ test('demo user can trigger restore', function () {
     expect($this->demoUser->can('restore', $server))->toBeTrue();
 });
 
+test('demo user gets adminer via the isDemo bypass, not a role ability', function () {
+    // The demo user is a plain viewer that lacks the use-adminer ability...
+    expect($this->demoUser->can(Ability::UseAdminer->value))->toBeFalse()
+        // ...yet DatabaseServerPolicy@adminer grants access through the isDemo() bypass.
+        ->and($this->demoUser->can('adminer', DatabaseServer::class))->toBeTrue();
+
+    // Proof the grant is demo-specific: an equally ability-less non-demo viewer is denied.
+    $viewer = User::factory()->create();
+    expect($viewer->isDemo())->toBeFalse()
+        ->and($viewer->can('adminer', DatabaseServer::class))->toBeFalse();
+});
+
 test('demo user can manage scheduled restores', function () {
     [$source, $target] = createRestoreServerPair('mysql');
     $scheduledRestore = createScheduledRestore(['source' => $source, 'target' => $target]);
@@ -223,7 +238,7 @@ test('first admin can register even when demo mode is enabled', function () {
     // User should be authenticated as the new admin (not demo user)
     $this->assertAuthenticated();
     expect(auth()->user()->email)->toBe('admin@example.com')
-        ->and(auth()->user()->roleIn(\App\Models\Organization::default()))->toBe(UserRole::Admin)
+        ->and(auth()->user()->roleNameIn(\App\Models\Organization::default()))->toBe('admin')
         ->and(auth()->user()->isDemo())->toBeFalse();
 
     // Should be able to access dashboard
@@ -235,24 +250,19 @@ test('demo user is created when visiting login page in demo mode', function () {
     User::query()->delete();
 
     // Create an admin so registration is closed
-    User::factory()->create(['role' => UserRole::Admin]);
+    User::factory()->create(['role' => 'admin']);
 
-    config([
-        'app.demo_mode' => true,
-        'app.demo_user_email' => 'auto-demo@example.com',
-        'app.demo_user_password' => 'demopass',
-    ]);
+    config(['app.demo_mode' => true]);
 
     // Demo user should not exist yet
-    $this->assertDatabaseMissing('users', ['email' => 'auto-demo@example.com']);
+    $this->assertDatabaseMissing('users', ['email' => User::DEMO_EMAIL]);
 
     // Visit login page
     $this->get(route('login'))->assertOk();
 
-    // Demo user should now exist
-    $this->assertDatabaseHas('users', [
-        'email' => 'auto-demo@example.com',
-    ]);
-    $demoUser = User::where('email', 'auto-demo@example.com')->first();
-    expect($demoUser->roleIn(\App\Models\Organization::default()))->toBe(UserRole::Demo);
+    // Demo user should now exist with the viewer role and be recognized as demo
+    $this->assertDatabaseHas('users', ['email' => User::DEMO_EMAIL]);
+    $demoUser = User::where('email', User::DEMO_EMAIL)->first();
+    expect($demoUser->roleNameIn(\App\Models\Organization::default()))->toBe('viewer')
+        ->and($demoUser->isDemo())->toBeTrue();
 });

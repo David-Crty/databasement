@@ -1,5 +1,9 @@
 <div>
-    <x-header :title="__('Edit Agent')" :subtitle="__('Update agent configuration')" size="text-2xl" separator class="mb-6" />
+    <x-header :title="__('Edit Agent')" :subtitle="__('Update agent configuration')" size="text-2xl" separator class="mb-6">
+        <x-slot:actions>
+            <x-button :label="__('Back')" link="{{ route('agents.index') }}" wire:navigate icon="o-arrow-left" class="btn-ghost" />
+        </x-slot:actions>
+    </x-header>
 
 
     <x-card class="space-y-6">

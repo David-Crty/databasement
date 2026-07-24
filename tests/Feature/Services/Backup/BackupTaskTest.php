@@ -503,3 +503,74 @@ test('execute prepends backup path with date variables to filename', function ()
     expect($result->filename)->toStartWith($expectedPrefix)
         ->and($result->filename)->toContain('Test-Server-myapp-');
 });
+
+function buildQuotaBackupTask(): BackupTask
+{
+    return new BackupTask(
+        buildMockDatabaseProvider(),
+        test()->shellProcessor,
+        test()->filesystemProvider,
+        test()->compressorFactory,
+        test()->sshTunnelService,
+        new PostScriptRunner,
+    );
+}
+
+/**
+ * @param  array<string, mixed>  $volumeConfig
+ */
+function buildQuotaConfig(array $volumeConfig, ?int $volumeUsedBytes): BackupConfig
+{
+    $workingDirectory = test()->tempDir.'/quota-test-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    return new BackupConfig(
+        database: buildDbConfig(),
+        volume: new VolumeConfig(type: 'local', name: 'R2 Bucket', config: $volumeConfig),
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+        volumeUsedBytes: $volumeUsedBytes,
+    );
+}
+
+test('execute aborts before upload when the backup would exceed the volume storage limit', function () {
+    // The upload must never be attempted once the quota is blown.
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->never();
+
+    $backupTask = buildQuotaBackupTask();
+    $config = buildQuotaConfig(['max_storage_bytes' => 10], volumeUsedBytes: 9);
+
+    expect(fn () => $backupTask->execute($config, new InMemoryBackupLogger))
+        ->toThrow(\App\Exceptions\Backup\StorageQuotaExceededException::class);
+});
+
+test('execute uploads when the backup fits within the limit or usage is unknown', function (?int $volumeUsedBytes, int $limit) {
+    // Fits under the limit, or (remote agent) usage is unknown — volumeUsedBytes
+    // is null so the limit cannot be enforced. Either way the upload proceeds.
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = buildQuotaBackupTask();
+    $config = buildQuotaConfig(['max_storage_bytes' => $limit], volumeUsedBytes: $volumeUsedBytes);
+
+    expect($backupTask->execute($config, new InMemoryBackupLogger))->toBeInstanceOf(BackupResult::class);
+})->with([
+    'fits within limit' => [0, 1024 ** 3],
+    'usage unknown (agent)' => [null, 10],
+]);
+
+test('execute uploads and returns a warning when over the limit in notify-only mode', function () {
+    // Over the limit but notify-only: the upload still happens and the result
+    // carries the overage message so the job can notify the user.
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = buildQuotaBackupTask();
+    $config = buildQuotaConfig(
+        ['max_storage_bytes' => 10, 'max_storage_notify_only' => true],
+        volumeUsedBytes: 9,
+    );
+
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
+
+    expect($result)->toBeInstanceOf(BackupResult::class)
+        ->and($result->storageWarning)->toContain('R2 Bucket');
+});

@@ -21,3 +21,21 @@ parameters:
     ignoreErrors:
         - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder.*::allowedFilters\(\)#'
         - '#should return .* but returns .* \$this\(.*\)#'
+        # Bouncer's vendor Role model has no IDE-helper metadata, so its known
+        # columns are unknown to static analysis. Listed explicitly so genuine
+        # typos on other properties are still reported.
+        - '#Access to an undefined property Silber\\Bouncer\\Database\\Role::\$(id|name|title|scope|abilities|built_in)\b#'
+        # Writes to Role can't be column-checked (no metadata). Scoped to the
+        # exact call sites so the same mistakes elsewhere still surface.
+        -
+            message: '#Builder<Silber\\Bouncer\\Database\\Role>::where\(\) expects .*, ''name'' given\.#'
+            path: app/Livewire/Configuration/Roles.php
+            count: 1
+        -
+            message: '#Builder<Silber\\Bouncer\\Database\\Role>::create\(\) expects array<model property of Silber\\Bouncer\\Database\\Role, mixed>, array<string, string> given\.#'
+            path: app/Services/Roles/CreateRoleAction.php
+            count: 1
+        -
+            message: '#Model::update\(\) expects array<model property of Silber\\Bouncer\\Database\\Role, mixed>, array<string, string> given\.#'
+            path: app/Services/Roles/UpdateRoleAction.php
+            count: 1

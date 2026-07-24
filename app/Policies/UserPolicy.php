@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Ability;
 use App\Models\User;
 use App\Services\CurrentOrganization;
 
@@ -9,11 +10,11 @@ class UserPolicy
 {
     /**
      * Determine whether the user can view any models.
-     * Only super admins and org admins can access the user list.
+     * Only users who can manage users (and super admins) can access the list.
      */
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->can(Ability::ManageUsers->value);
     }
 
     /**
@@ -27,20 +28,16 @@ class UserPolicy
 
     /**
      * Determine whether the user can create models.
-     * Super admins and org admins can create new users.
      */
     public function create(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        return app(CurrentOrganization::class)->isOrgAdmin();
+        return $user->can(Ability::ManageUsers->value);
     }
 
     /**
      * Determine whether the user can update the model.
-     * Super admins can update any user. Org admins can update users in their org.
+     * Super admins can update any user. User managers can update non-super-admin
+     * users in their current organization.
      */
     public function update(User $user, User $model): bool
     {
@@ -50,7 +47,7 @@ class UserPolicy
 
         $currentOrg = app(CurrentOrganization::class);
 
-        return $currentOrg->isOrgAdmin()
+        return $user->can(Ability::ManageUsers->value)
             && ! $model->isSuperAdmin()
             && $model->belongsToOrganization($currentOrg->model());
     }
@@ -58,7 +55,7 @@ class UserPolicy
     /**
      * Determine whether the user can delete the model.
      * Super admins can delete any user (except self).
-     * Org admins can delete non-SA users in their org.
+     * User managers can delete non-super-admin users in their org.
      * Business rules (last SA, multi-org) are checked at action time.
      */
     public function delete(User $user, User $model): bool
@@ -73,7 +70,7 @@ class UserPolicy
 
         $currentOrg = app(CurrentOrganization::class);
 
-        return $currentOrg->isOrgAdmin()
+        return $user->can(Ability::ManageUsers->value)
             && ! $model->isSuperAdmin()
             && $model->belongsToOrganization($currentOrg->model());
     }
@@ -96,12 +93,15 @@ class UserPolicy
             return true;
         }
 
-        return app(CurrentOrganization::class)->isOrgAdmin();
+        $currentOrg = app(CurrentOrganization::class);
+
+        return $user->can(Ability::ManageUsers->value)
+            && $model->belongsToOrganization($currentOrg->model());
     }
 
     /**
      * Determine whether the user can copy the invitation link.
-     * Super admins and org admins can copy invitation links for pending users.
+     * Available for pending users to those who can manage users.
      */
     public function copyInvitationLink(User $user, User $model): bool
     {
@@ -115,23 +115,16 @@ class UserPolicy
 
         $currentOrg = app(CurrentOrganization::class);
 
-        return $currentOrg->isOrgAdmin()
+        return $user->can(Ability::ManageUsers->value)
             && ! $model->isSuperAdmin()
             && $model->belongsToOrganization($currentOrg->model());
     }
 
     /**
      * Determine whether the user can attach/detach users in the current org.
-     * Super admins and org admins can manage org membership.
      */
     public function manageOrgMembership(User $user): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
-        $currentOrg = app(CurrentOrganization::class);
-
-        return $currentOrg->isOrgAdmin();
+        return $user->can(Ability::ManageUsers->value);
     }
 }

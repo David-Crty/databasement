@@ -46,17 +46,13 @@
             @endscope
 
             @scope('cell_role', $user)
-                @php
-                    $currentOrg = app(\App\Services\CurrentOrganization::class);
-                    $orgRole = $user->roleIn($currentOrg->model());
-                    $displayRole = $orgRole ?? \App\Enums\UserRole::Member;
-                @endphp
+                @php($roleName = $user->currentOrgRoleName())
                 <div class="flex flex-wrap items-center gap-1">
                     @if($user->isSuperAdmin())
-                        <x-badge value="Super Admin" icon="o-star" class="badge-warning whitespace-nowrap" />
+                        <x-badge :value="__('Super Admin')" icon="o-star" class="badge-warning whitespace-nowrap" />
                     @endif
-                    @if($orgRole)
-                        <x-badge :value="$displayRole->label()" :icon="$displayRole->icon()" class="{{ $displayRole->badgeClass() }}" />
+                    @if($roleName)
+                        <x-badge :value="\Illuminate\Support\Str::headline($roleName)" icon="o-user-group" class="badge-neutral" />
                     @endif
                 </div>
             @endscope

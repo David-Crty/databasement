@@ -22,7 +22,7 @@ jobs:
         # SonarQube also needs the source tree (with full history) for
         # relevant analysis. Safe in this secret-bearing context because we
         # never execute the checked-out code — we only let the tools read it.
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_sha }}
@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: hashFiles('coverage.xml') != ''
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: coverage
@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: hashFiles('junit.xml') != ''
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -76,6 +76,17 @@ jobs:
           override_commit: ${{ github.event.workflow_run.head_sha }}
           override_branch: ${{ github.event.workflow_run.head_branch }}
           override_pr: ${{ steps.pr.outputs.number }}
+
+      - name: Upload coverage to Codacy
+        # No commit override needed: the reporter reads the triggering
+        # commit from the workflow_run event payload (head_sha), so the
+        # coverage is attributed to the right commit even though this
+        # workflow runs detached from the original push/PR.
+        if: hashFiles('coverage.xml') != ''
+        uses: codacy/codacy-coverage-reporter-action@v1
+        with:
+          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
+          coverage-reports: coverage.xml
 
       - name: SonarQube Scan (main)
         # Analyse the main branch, using the coverage.xml and junit.xml

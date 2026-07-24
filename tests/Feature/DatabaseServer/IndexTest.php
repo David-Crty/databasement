@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Livewire\DatabaseServer\Index;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -7,7 +8,8 @@ use App\Models\User;
 use Livewire\Livewire;
 
 test('displays database servers in table', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can list servers.
+    $user = User::factory()->withAbilities([])->create();
 
     DatabaseServer::factory()->create([
         'name' => 'Production MySQL Server',
@@ -21,7 +23,8 @@ test('displays database servers in table', function () {
 });
 
 test('shows empty state when no servers exist', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can list servers.
+    $user = User::factory()->withAbilities([])->create();
 
     Livewire::actingAs($user)
         ->test(Index::class)
@@ -29,7 +32,8 @@ test('shows empty state when no servers exist', function () {
 });
 
 test('can search database servers', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can list servers.
+    $user = User::factory()->withAbilities([])->create();
 
     DatabaseServer::factory()->create(['name' => 'Production MySQL']);
     DatabaseServer::factory()->create(['name' => 'Development PostgreSQL']);
@@ -42,7 +46,8 @@ test('can search database servers', function () {
 });
 
 test('can sort by column', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can list servers.
+    $user = User::factory()->withAbilities([])->create();
 
     $component = Livewire::actingAs($user)
         ->test(Index::class);
@@ -58,7 +63,8 @@ test('can sort by column', function () {
 });
 
 test('displays pagination when many servers exist', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can list servers.
+    $user = User::factory()->withAbilities([])->create();
     DatabaseServer::factory()->count(15)->create();
 
     $component = Livewire::actingAs($user)
@@ -68,7 +74,7 @@ test('displays pagination when many servers exist', function () {
 });
 
 test('can delete database server', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['name' => 'Test Server']);
 
     Livewire::actingAs($user)
@@ -86,7 +92,7 @@ test('can delete database server', function () {
 test('runBackupAll dispatches backup jobs for all backup configs on the server', function () {
     \Illuminate\Support\Facades\Queue::fake();
 
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
     $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
 
     // Add a second backup config with its own selected database
@@ -109,7 +115,7 @@ test('runBackupAll dispatches backup jobs for all backup configs on the server',
 });
 
 test('user can toggle backups for a server from the index', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['backups_enabled' => true]);
 
     Livewire::actingAs($user)
@@ -126,7 +132,8 @@ test('user can toggle backups for a server from the index', function () {
 });
 
 test('index snapshot badge only counts completed snapshots', function () {
-    $user = User::factory()->create();
+    // Viewing needs no ability — an org member with zero grants can list servers.
+    $user = User::factory()->withAbilities([])->create();
     $server = DatabaseServer::factory()->create();
 
     Snapshot::factory()->forServer($server)->completed()->create();

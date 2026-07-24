@@ -2,7 +2,6 @@
 
 namespace App\Livewire\User;
 
-use App\Enums\UserRole;
 use App\Models\User;
 use App\Services\CurrentOrganization;
 use App\Support\Formatters;
@@ -14,6 +13,7 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Silber\Bouncer\Database\Role;
 
 #[Title('Users')]
 class Index extends Component
@@ -99,10 +99,14 @@ class Index extends Component
      */
     public function roleFilterOptions(): array
     {
-        return array_map(fn (UserRole $role) => [
-            'id' => $role->value,
-            'name' => $role->label(),
-        ], UserRole::assignable());
+        return Role::query()
+            ->orderBy('id')
+            ->get()
+            ->map(fn (Role $role) => [
+                'id' => (string) $role->name,
+                'name' => (string) ($role->title ?: $role->name),
+            ])
+            ->all();
     }
 
     /**
@@ -235,7 +239,14 @@ class Index extends Component
                 });
             })
             ->when($this->roleFilter !== '', function ($query) use ($currentOrg) {
-                $query->whereHas('organizations', fn ($q) => $q->whereRaw('organization_id = ? and role = ?', [$currentOrg->id(), $this->roleFilter]));
+                $query->whereExists(function ($q) use ($currentOrg) {
+                    $q->from('assigned_roles')
+                        ->join('roles', 'roles.id', '=', 'assigned_roles.role_id')
+                        ->whereColumn('assigned_roles.entity_id', 'users.id')
+                        ->where('assigned_roles.entity_type', (new User)->getMorphClass())
+                        ->where('assigned_roles.scope', $currentOrg->id())
+                        ->where('roles.name', $this->roleFilter);
+                });
             })
             ->when($this->statusFilter !== '', function ($query) {
                 if ($this->statusFilter === 'active') {

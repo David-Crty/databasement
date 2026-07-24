@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\UserRole;
 use App\Jobs\DeleteOrganizationJob;
 use App\Models\DatabaseServer;
 use App\Models\Organization;
@@ -71,7 +70,7 @@ test('job preserves backup files when keepFiles is set', function () {
 test('job removes memberships but keeps the user accounts', function () {
     $org = Organization::factory()->create();
     $member = User::factory()->create();
-    $member->organizations()->attach($org->id, ['role' => UserRole::Member]);
+    attachUserToOrg($member, $org, 'member');
 
     (new DeleteOrganizationJob($org->id))->handle(app(OrganizationMergeService::class));
 

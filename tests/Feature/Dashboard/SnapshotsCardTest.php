@@ -1,17 +1,14 @@
 <?php
 
-use App\Enums\UserRole;
-use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Dashboard\SnapshotsCard;
 use App\Models\DatabaseServer;
 use App\Models\User;
 use App\Services\Backup\BackupJobFactory;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 test('snapshots card calculates correct total', function () {
-    $user = User::factory()->create();
+    // The dashboard is viewable by any org member — no ability required.
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
@@ -33,7 +30,7 @@ test('snapshots card calculates correct total', function () {
 });
 
 test('snapshots card shows missing snapshots count', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
@@ -57,7 +54,7 @@ test('snapshots card shows missing snapshots count', function () {
 });
 
 test('snapshots card shows all verified when no snapshots are missing', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([])->create();
     $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
@@ -75,47 +72,4 @@ test('snapshots card shows all verified when no snapshots are missing', function
         ->assertSet('verifiedSnapshots', 2)
         ->assertSet('missingSnapshots', 0)
         ->assertSee('All verified');
-});
-
-test('verify files button dispatches verification job', function () {
-    Queue::fake();
-
-    $admin = User::factory()->create(['role' => UserRole::Admin]);
-
-    Livewire::withoutLazyLoading()
-        ->actingAs($admin)
-        ->test(SnapshotsCard::class)
-        ->call('verifyFiles');
-
-    Queue::assertPushed(VerifySnapshotFileJob::class, 1);
-});
-
-test('verify files button prevents rapid re-dispatch via cache lock', function () {
-    Queue::fake();
-
-    $admin = User::factory()->create(['role' => UserRole::Admin]);
-
-    $org = \App\Models\Organization::default();
-    Cache::lock('verify-snapshot-files:'.$org->id, 300)->get();
-
-    Livewire::withoutLazyLoading()
-        ->actingAs($admin)
-        ->test(SnapshotsCard::class)
-        ->call('verifyFiles');
-
-    Queue::assertNothingPushed();
-});
-
-test('non-admin cannot dispatch verification job', function () {
-    Queue::fake();
-
-    $user = User::factory()->create();
-
-    Livewire::withoutLazyLoading()
-        ->actingAs($user)
-        ->test(SnapshotsCard::class)
-        ->call('verifyFiles')
-        ->assertForbidden();
-
-    Queue::assertNothingPushed();
 });

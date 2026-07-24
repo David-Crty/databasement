@@ -1,9 +1,10 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Livewire\User\Create;
 use App\Models\Organization;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -20,19 +21,18 @@ describe('access control', function () {
         get(route('users.create'))->assertOk();
     });
 
-    test('org admin can access create page', function () {
-        $orgAdmin = User::factory()->admin()->create();
+    test('manage-users allows access to the create page', function () {
+        $orgAdmin = User::factory()->withAbilities([Ability::ManageUsers->value])->create();
         actingAs($orgAdmin);
 
         get(route('users.create'))->assertOk();
     });
 
-    test('non-admin cannot access create page', function (string $role) {
-        $user = User::factory()->create(['role' => $role]);
-        actingAs($user);
+    test('without manage-users, the create page is forbidden', function () {
+        actingAs(User::factory()->withAllAbilitiesExcept(Ability::ManageUsers->value)->create());
 
         get(route('users.create'))->assertForbidden();
-    })->with(['member', 'viewer']);
+    });
 });
 
 describe('invite new user', function () {
@@ -42,7 +42,7 @@ describe('invite new user', function () {
         Livewire::test(Create::class)
             ->set('form.name', 'New User')
             ->set('form.email', 'newuser@example.com')
-            ->set('form.role', UserRole::Member->value)
+            ->set('form.role', 'member')
             ->call('save')
             ->assertSet('showCopyModal', true)
             ->assertSet('invitationUrl', fn ($url) => str_contains($url, '/invitation/'));
@@ -50,7 +50,7 @@ describe('invite new user', function () {
         $user = User::where('email', 'newuser@example.com')->first();
         expect($user)->not->toBeNull()
             ->and($user->name)->toBe('New User')
-            ->and($user->roleIn(Organization::default()))->toBe(UserRole::Member)
+            ->and($user->roleNameIn(Organization::default()))->toBe('member')
             ->and($user->invitation_token)->not->toBeNull()
             ->and($user->password)->toBeNull();
     });
@@ -61,7 +61,7 @@ describe('invite new user', function () {
         Livewire::test(Create::class)
             ->set('form.name', 'New Super Admin')
             ->set('form.email', 'superadmin@example.com')
-            ->set('form.role', UserRole::Admin->value)
+            ->set('form.role', 'admin')
             ->set('form.superAdmin', true)
             ->call('save');
 
@@ -70,13 +70,13 @@ describe('invite new user', function () {
     });
 
     test('non-super-admin cannot set super admin flag', function () {
-        $orgAdmin = User::factory()->admin()->create();
+        $orgAdmin = User::factory()->withAbilities([Ability::ManageUsers->value])->create();
         actingAs($orgAdmin);
 
         Livewire::test(Create::class)
             ->set('form.name', 'Attempted Super')
             ->set('form.email', 'attempted@example.com')
-            ->set('form.role', UserRole::Admin->value)
+            ->set('form.role', 'admin')
             ->set('form.superAdmin', true)
             ->call('save');
 
@@ -91,16 +91,27 @@ describe('add existing user', function () {
 
         $otherOrg = Organization::factory()->create();
         $existingUser = User::factory()->create();
-        // Move user to other org only (detach from main)
-        $existingUser->organizations()->sync([$otherOrg->id => ['role' => UserRole::Member]]);
+        // Move user to other org only, and clear the factory's default-org role
+        // assignment (organizations()->sync() only touches the pivot, not the
+        // scoped Bouncer role) so the final check validates addExisting(), not a
+        // leftover viewer grant.
+        $existingUser->organizations()->sync([$otherOrg->id]);
+        DB::table('assigned_roles')
+            ->where('entity_id', $existingUser->getKey())
+            ->where('entity_type', $existingUser->getMorphClass())
+            ->where('scope', Organization::default()->id)
+            ->delete();
+        attachUserToOrg($existingUser, $otherOrg, 'member');
+
+        expect($existingUser->roleNameIn(Organization::default()))->toBeNull();
 
         Livewire::test(Create::class)
             ->set('existingUserId', $existingUser->id)
-            ->set('existingUserRole', UserRole::Viewer->value)
+            ->set('existingUserRole', 'viewer')
             ->call('addExisting')
             ->assertHasNoErrors();
 
-        expect($existingUser->roleIn(Organization::default()))->toBe(UserRole::Viewer);
+        expect($existingUser->roleNameIn(Organization::default()))->toBe('viewer');
     });
 
     test('rejects adding user already in organization', function () {
@@ -110,7 +121,7 @@ describe('add existing user', function () {
 
         Livewire::test(Create::class)
             ->set('existingUserId', $existingUser->id)
-            ->set('existingUserRole', UserRole::Member->value)
+            ->set('existingUserRole', 'member')
             ->call('addExisting')
             ->assertHasErrors('existingUserId');
     });

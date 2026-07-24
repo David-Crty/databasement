@@ -45,6 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\EnsureUserIsActive::class,
             \App\Http\Middleware\SetCurrentOrganization::class,
+            \App\Http\Middleware\ScopeBouncer::class,
             \App\Http\Middleware\SetLocale::class,
         ]);
         $middleware->api(prepend: [
@@ -52,6 +53,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->api(append: [
             \App\Http\Middleware\SetCurrentOrganization::class,
+            \App\Http\Middleware\ScopeBouncer::class,
         ]);
         $middleware->preventRequestForgery(except: [
             'adminer',

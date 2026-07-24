@@ -3,7 +3,6 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,9 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Sanctum\HasApiTokens;
+use Silber\Bouncer\Database\HasRolesAndAbilities;
 
 /**
  * @mixin IdeHelperUser
@@ -21,7 +22,14 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable, TwoFactorAuthenticatable;
+    use HasApiTokens, HasFactory, HasRolesAndAbilities, Notifiable, TwoFactorAuthenticatable;
+
+    /**
+     * The email address of the demo user. In demo mode the account with this
+     * exact address is the read-only demo user (see isDemo()); there is no
+     * dedicated "demo" role.
+     */
+    public const DEMO_EMAIL = 'demo@example.com';
 
     /**
      * The attributes that are mass assignable.
@@ -64,8 +72,19 @@ class User extends Authenticatable
         ];
     }
 
-    /** Transient property used by UserFactory to propagate the pivot role. */
-    public ?UserRole $pendingPivotRole = null;
+    /**
+     * Transient role name used by UserFactory to assign a Bouncer role after the
+     * user is created. Not persisted to the database.
+     */
+    public ?string $pendingRole = null;
+
+    /**
+     * Transient list of catalogue ability names used by UserFactory to grant
+     * direct (per-org) abilities after the user is created. Not persisted.
+     *
+     * @var list<string>|null
+     */
+    public ?array $pendingAbilities = null;
 
     /**
      * Get the user's initials
@@ -100,7 +119,7 @@ class User extends Authenticatable
      */
     public function organizations(): BelongsToMany
     {
-        return $this->belongsToMany(Organization::class)->withPivot('role')->withTimestamps();
+        return $this->belongsToMany(Organization::class)->withTimestamps();
     }
 
     public function isSuperAdmin(): bool
@@ -108,36 +127,54 @@ class User extends Authenticatable
         return $this->super_admin;
     }
 
-    /** @var array<string, UserRole|null> */
-    private array $cachedRoles = [];
-
     /**
-     * @return $this
+     * The name of the role assigned to the user in an organization (built-in or
+     * custom), or null if none.
      */
-    public function refresh(): static
+    public function roleNameIn(Organization $organization): ?string
     {
-        $this->cachedRoles = [];
-
-        return parent::refresh();
+        return $this->roleNamesIn($organization)[0] ?? null;
     }
 
     /**
-     * Get the user's role in a specific organization.
+     * Names of every role (built-in and custom) the user is assigned in an org.
+     *
+     * @return list<string>
      */
-    public function roleIn(Organization $organization): ?UserRole
+    public function roleNamesIn(Organization $organization): array
     {
-        if (! isset($this->cachedRoles[$organization->id])) {
-            if ($this->relationLoaded('organizations')) {
-                $match = $this->organizations->firstWhere('id', $organization->id);
-                $pivotRole = $match?->pivot?->role; // @phpstan-ignore property.notFound
-            } else {
-                $pivot = $this->organizations()->wherePivot('organization_id', $organization->id)->first();
-                $pivotRole = $pivot?->pivot?->role; // @phpstan-ignore property.notFound
-            }
-            $this->cachedRoles[$organization->id] = $pivotRole ? UserRole::tryFrom($pivotRole) : null;
-        }
+        return array_values(
+            DB::table('assigned_roles')
+                ->join('roles', 'roles.id', '=', 'assigned_roles.role_id')
+                ->where('assigned_roles.entity_id', $this->getKey())
+                ->where('assigned_roles.entity_type', $this->getMorphClass())
+                ->where('assigned_roles.scope', $organization->id)
+                ->pluck('roles.name')
+                ->map(fn ($name) => (string) $name)
+                ->all()
+        );
+    }
 
-        return $this->cachedRoles[$organization->id];
+    /**
+     * Names of the abilities granted directly to the user (not via a role) in an
+     * organization. These are additive: a user's effective abilities are their
+     * role's abilities plus these.
+     *
+     * @return list<string>
+     */
+    public function directAbilitiesIn(Organization $organization): array
+    {
+        return array_values(
+            DB::table('permissions')
+                ->join('abilities', 'abilities.id', '=', 'permissions.ability_id')
+                ->where('permissions.entity_id', $this->getKey())
+                ->where('permissions.entity_type', $this->getMorphClass())
+                ->where('permissions.forbidden', false)
+                ->where('permissions.scope', $organization->id)
+                ->pluck('abilities.name')
+                ->map(fn ($name) => (string) $name)
+                ->all()
+        );
     }
 
     /**
@@ -149,50 +186,26 @@ class User extends Authenticatable
     }
 
     /**
-     * Get the user's role in the current org context.
+     * Get the user's role name in the current org context.
      */
-    public function currentOrgRole(): ?UserRole
+    public function currentOrgRoleName(): ?string
     {
-        return $this->roleIn(app(\App\Services\CurrentOrganization::class)->model());
+        return $this->roleNameIn(app(\App\Services\CurrentOrganization::class)->model());
     }
 
     public function isAdmin(): bool
     {
-        return $this->isSuperAdmin() || $this->currentOrgRole() === UserRole::Admin;
-    }
-
-    public function canPerformActions(): bool
-    {
-        if ($this->isSuperAdmin()) {
-            return true;
-        }
-
-        return in_array($this->currentOrgRole(), [UserRole::Admin, UserRole::Member]);
+        return $this->isSuperAdmin() || $this->currentOrgRoleName() === 'admin';
     }
 
     /**
-     * Whether the user can run backup/restore/download operations.
-     * Operators sit between Viewer and Member: they can operate backups but
-     * cannot edit server configuration. Members and Admins can do everything
-     * an Operator can, so they are included here too.
+     * Whether this is the demo account: demo mode must be enabled and the email
+     * must match the fixed demo address. Deliberately independent of roles —
+     * there is no "demo" role.
      */
-    public function canOperate(): bool
-    {
-        if ($this->isSuperAdmin()) {
-            return true;
-        }
-
-        return in_array($this->currentOrgRole(), [UserRole::Admin, UserRole::Member, UserRole::Operator]);
-    }
-
-    public function canManageUsers(): bool
-    {
-        return $this->isAdmin();
-    }
-
     public function isDemo(): bool
     {
-        return $this->currentOrgRole() === UserRole::Demo;
+        return config('app.demo_mode') === true && $this->email === self::DEMO_EMAIL;
     }
 
     public function isPending(): bool

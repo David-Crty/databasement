@@ -1,7 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
-use App\Facades\AppConfig;
+use App\Enums\Ability;
 use App\Jobs\ProcessBackupJob;
 use App\Livewire\DatabaseServer\Index;
 use App\Models\Backup;
@@ -14,8 +13,10 @@ beforeEach(function () {
     Queue::fake();
 });
 
-test('runBackup triggers backup for a specific backup configuration', function () {
-    $user = User::factory()->create(['role' => UserRole::Admin]);
+// --- runBackup (run-backups) ---
+
+test('run-backups allows triggering a backup for a specific configuration', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
     $server = DatabaseServer::factory()->withoutBackups()->create();
     $backup = Backup::factory()->for($server)->selected(['test_db'])->create();
 
@@ -26,21 +27,8 @@ test('runBackup triggers backup for a specific backup configuration', function (
     Queue::assertPushed(ProcessBackupJob::class, 1);
 });
 
-test('runBackup includes backup display label in success toast', function () {
-    $user = User::factory()->create(['role' => UserRole::Admin]);
-    $server = DatabaseServer::factory()->withoutBackups()->create();
-    $backup = Backup::factory()->for($server)->selected(['test_db'])->create();
-
-    Livewire::actingAs($user)
-        ->test(Index::class)
-        ->call('runBackup', $backup->id);
-
-    // Verify a backup job was created
-    Queue::assertPushed(ProcessBackupJob::class, 1);
-});
-
-test('runBackup fails with authorization error if user is viewer', function () {
-    $user = User::factory()->create(['role' => UserRole::Viewer]);
+test('without run-backups, runBackup is forbidden', function () {
+    $user = User::factory()->withAbilities([])->create();
     $server = DatabaseServer::factory()->withoutBackups()->create();
     $backup = Backup::factory()->for($server)->selected(['test_db'])->create();
 
@@ -50,38 +38,67 @@ test('runBackup fails with authorization error if user is viewer', function () {
         ->assertForbidden();
 });
 
-// --- openAdminer ---
+// --- delete (manage-database-servers) ---
 
-test('openAdminer is forbidden when adminer is disabled', function () {
-    AppConfig::set('app.adminer_enabled', false);
+test('manage-database-servers allows deleting a server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create();
 
-    $user = User::factory()->create(['role' => UserRole::Admin]);
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('confirmDelete', $server->id)
+        ->assertSet('showDeleteModal', true)
+        ->call('delete');
+
+    $this->assertDatabaseMissing('database_servers', ['id' => $server->id]);
+});
+
+test('without manage-database-servers, deleting a server is forbidden', function () {
+    $user = User::factory()->withAbilities([])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('confirmDelete', $server->id)
+        ->assertForbidden();
+});
+
+test('without manage-database-servers, toggling backups is forbidden', function () {
+    $user = User::factory()->withAbilities([])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('toggleBackupsEnabled', $server->id)
+        ->assertForbidden();
+});
+
+// --- restore (operate-restores) ---
+
+test('operate-restores allows starting a restore from a server', function () {
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'mysql']);
 
     Livewire::actingAs($user)
         ->test(Index::class)
-        ->call('openAdminer', $server->id)
-        ->assertForbidden();
+        ->call('confirmRestore', $server->id)
+        ->assertDispatched('open-restore-modal', mode: 'from-server', targetServerId: $server->id);
 });
 
-test('openAdminer is forbidden for users below required role', function () {
-    AppConfig::set('app.adminer_enabled', true);
-    AppConfig::set('app.adminer_role', 'admin');
-
-    $user = User::factory()->create(['role' => UserRole::Member]);
+test('without operate-restores, starting a restore is forbidden', function () {
+    $user = User::factory()->withAbilities([])->create();
     $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'mysql']);
 
     Livewire::actingAs($user)
         ->test(Index::class)
-        ->call('openAdminer', $server->id)
+        ->call('confirmRestore', $server->id)
         ->assertForbidden();
 });
 
-test('openAdminer dispatches modal for users meeting required role', function () {
-    AppConfig::set('app.adminer_enabled', true);
-    AppConfig::set('app.adminer_role', 'member');
+// --- openAdminer (use-adminer) ---
 
-    $user = User::factory()->create(['role' => UserRole::Member]);
+test('use-adminer allows opening the Adminer modal', function () {
+    $user = User::factory()->withAbilities([Ability::UseAdminer->value])->create();
     $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'mysql']);
 
     Livewire::actingAs($user)
@@ -90,10 +107,30 @@ test('openAdminer dispatches modal for users meeting required role', function ()
         ->assertDispatched('open-adminer-modal');
 });
 
-test('openAdminer is forbidden for unsupported database types', function (string $factoryState) {
-    AppConfig::set('app.adminer_enabled', true);
+test('without use-adminer, openAdminer is forbidden', function () {
+    $user = User::factory()->withAbilities([])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'mysql']);
 
-    $user = User::factory()->create(['role' => UserRole::Admin]);
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('openAdminer', $server->id)
+        ->assertForbidden();
+});
+
+test('when Adminer is globally disabled, openAdminer is forbidden even with use-adminer', function () {
+    \App\Facades\AppConfig::set('app.adminer_enabled', false);
+
+    $user = User::factory()->withAbilities([Ability::UseAdminer->value])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'mysql']);
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('openAdminer', $server->id)
+        ->assertForbidden();
+});
+
+test('openAdminer is forbidden for unsupported database types', function (string $factoryState) {
+    $user = User::factory()->withAbilities([Ability::UseAdminer->value])->create();
     $server = DatabaseServer::factory()->{$factoryState}()->withoutBackups()->create();
 
     Livewire::actingAs($user)
@@ -106,9 +143,7 @@ test('openAdminer is forbidden for unsupported database types', function (string
 ]);
 
 test('openAdminer is forbidden for servers using SSH', function () {
-    AppConfig::set('app.adminer_enabled', true);
-
-    $user = User::factory()->create(['role' => UserRole::Admin]);
+    $user = User::factory()->withAbilities([Ability::UseAdminer->value])->create();
     $server = DatabaseServer::factory()->withSshTunnel()->withoutBackups()->create(['database_type' => 'mysql']);
 
     Livewire::actingAs($user)

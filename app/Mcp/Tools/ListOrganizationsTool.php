@@ -27,9 +27,9 @@ class ListOrganizationsTool extends Tool
             return Response::text('You are not a member of any organization.');
         }
 
-        $lines = $orgs->map(function ($org) use ($currentOrgId) {
+        $lines = $orgs->map(function ($org) use ($currentOrgId, $user) {
             $active = $org->id === $currentOrgId ? ' **(active)**' : '';
-            $role = $org->pivot->role ?? 'unknown';
+            $role = $user->roleNameIn($org) ?? 'unknown';
 
             return "- **{$org->name}** (ID: {$org->id}){$active}\n  Role: {$role}".($org->is_default ? ' | Default organization' : '');
         });

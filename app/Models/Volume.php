@@ -92,6 +92,46 @@ class Volume extends Model
     }
 
     /**
+     * The configured storage limit for this volume in bytes, or null when the
+     * volume has no limit. Stored under the config's `max_storage_bytes` key.
+     * When the limit would be exceeded a backup is either failed before upload
+     * or merely warned about, depending on {@see self::storageLimitIsNotifyOnly()}.
+     * Nothing is pruned automatically.
+     */
+    public function maxStorageBytes(): ?int
+    {
+        $value = $this->config['max_storage_bytes'] ?? null;
+
+        return $value !== null ? (int) $value : null;
+    }
+
+    /**
+     * Whether reaching the storage limit only sends a notification instead of
+     * blocking the backup. Stored under the config's `max_storage_notify_only`
+     * key; only meaningful when a limit is set.
+     */
+    public function storageLimitIsNotifyOnly(): bool
+    {
+        return (bool) ($this->config['max_storage_notify_only'] ?? false);
+    }
+
+    /**
+     * Total size in bytes of the completed snapshots currently stored on this
+     * volume — the baseline a new backup is added to when checking the limit.
+     */
+    public function usedStorageBytes(): int
+    {
+        // Prefer the aggregate eagerly loaded by VolumeQuery::buildFromParams so
+        // listing many volumes stays a single query instead of N+1; fall back to
+        // a direct sum when it wasn't loaded (e.g. a single volume in a job).
+        if (array_key_exists('used_storage_bytes', $this->attributes)) {
+            return (int) $this->attributes['used_storage_bytes'];
+        }
+
+        return (int) $this->snapshots()->completed()->sum('file_size');
+    }
+
+    /**
      * Get the volume type enum.
      */
     public function getVolumeType(): VolumeType

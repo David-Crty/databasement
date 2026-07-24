@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Livewire\Agent\Create;
 use App\Livewire\Agent\Edit;
 use App\Livewire\Agent\Index;
@@ -10,8 +10,8 @@ use App\Models\User;
 use Livewire\Livewire;
 
 describe('agent index', function () {
-    test('lists agents with search', function () {
-        $user = User::factory()->create();
+    test('any member can list agents without an ability', function () {
+        $user = User::factory()->withAbilities([])->create();
         Agent::factory()->create(['name' => 'Production Agent']);
         Agent::factory()->create(['name' => 'Staging Agent']);
 
@@ -25,8 +25,8 @@ describe('agent index', function () {
             ->assertDontSee('Staging Agent');
     });
 
-    test('can delete an agent', function () {
-        $user = User::factory()->create();
+    test('manage-agents allows deleting an agent', function () {
+        $user = User::factory()->withAbilities([Ability::ManageAgents->value])->create();
         $agent = Agent::factory()->create();
 
         Livewire::actingAs($user)
@@ -39,7 +39,7 @@ describe('agent index', function () {
     });
 
     test('deleting agent with servers shows warning count', function () {
-        $user = User::factory()->create();
+        $user = User::factory()->withAbilities([Ability::ManageAgents->value])->create();
         $agent = Agent::factory()->create();
         DatabaseServer::factory()->create(['agent_id' => $agent->id]);
 
@@ -49,8 +49,8 @@ describe('agent index', function () {
             ->assertSet('deleteServerCount', 1);
     });
 
-    test('viewers cannot delete agents', function () {
-        $user = User::factory()->create(['role' => UserRole::Viewer]);
+    test('without manage-agents cannot delete an agent', function () {
+        $user = User::factory()->withAllAbilitiesExcept(Ability::ManageAgents->value)->create();
         $agent = Agent::factory()->create();
 
         Livewire::actingAs($user)
@@ -61,8 +61,8 @@ describe('agent index', function () {
 });
 
 describe('agent creation', function () {
-    test('can create agent with token and dismiss modal', function () {
-        $user = User::factory()->create();
+    test('manage-agents allows creating an agent with a token', function () {
+        $user = User::factory()->withAbilities([Ability::ManageAgents->value])->create();
 
         Livewire::actingAs($user)
             ->test(Create::class)
@@ -78,16 +78,8 @@ describe('agent creation', function () {
             ->and($agent->tokens)->toHaveCount(1);
     });
 
-    test('demo users cannot create agents', function () {
-        $user = User::factory()->create(['role' => UserRole::Demo]);
-
-        Livewire::actingAs($user)
-            ->test(Create::class)
-            ->assertForbidden();
-    });
-
-    test('viewers cannot create agents', function () {
-        $user = User::factory()->create(['role' => UserRole::Viewer]);
+    test('without manage-agents cannot open the create screen', function () {
+        $user = User::factory()->withAllAbilitiesExcept(Ability::ManageAgents->value)->create();
 
         Livewire::actingAs($user)
             ->test(Create::class)
@@ -96,8 +88,8 @@ describe('agent creation', function () {
 });
 
 describe('agent editing', function () {
-    test('can edit agent name', function () {
-        $user = User::factory()->create();
+    test('manage-agents allows editing an agent name', function () {
+        $user = User::factory()->withAbilities([Ability::ManageAgents->value])->create();
         $agent = Agent::factory()->create(['name' => 'Old Name']);
 
         Livewire::actingAs($user)
@@ -108,8 +100,8 @@ describe('agent editing', function () {
         expect($agent->fresh()->name)->toBe('New Name');
     });
 
-    test('can regenerate token and dismiss modal', function () {
-        $user = User::factory()->create();
+    test('manage-agents allows regenerating a token', function () {
+        $user = User::factory()->withAbilities([Ability::ManageAgents->value])->create();
         $agent = Agent::factory()->create();
         $agent->createToken('agent');
 
@@ -122,12 +114,11 @@ describe('agent editing', function () {
             ->assertSet('showTokenModal', false)
             ->assertSet('newToken', null);
 
-        // Old token should be revoked, new one created
         expect($agent->fresh()->tokens)->toHaveCount(1);
     });
 
-    test('viewers cannot edit agents', function () {
-        $user = User::factory()->create(['role' => UserRole::Viewer]);
+    test('without manage-agents cannot edit an agent', function () {
+        $user = User::factory()->withAllAbilitiesExcept(Ability::ManageAgents->value)->create();
         $agent = Agent::factory()->create();
 
         Livewire::actingAs($user)

@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Livewire\Forms;
+namespace App\Livewire\DatabaseServer;
 
 use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
 use App\Exceptions\Backup\EncryptionException;
+use App\Livewire\DatabaseServer\Connection\ConnectionRules;
 use App\Models\Agent;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
@@ -13,6 +14,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\NotificationChannel;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\ShellProcessor;
 use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\CurrentOrganization;
 use App\Services\SshKeyGenerator;
@@ -20,9 +22,8 @@ use App\Services\SshTunnelService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
-use Livewire\Form;
 
-class DatabaseServerForm extends Form
+class Form extends \Livewire\Form
 {
     /**
      * Connection timeout (seconds) for interactive form lookups like
@@ -46,6 +47,11 @@ class DatabaseServerForm extends Form
     public string $password = '';
 
     public string $auth_source = '';
+
+    // MongoDB advanced connection options (stored in extra_config).
+    public bool $srv_enabled = false;
+
+    public string $connection_options = '';
 
     public string $dump_flags = '';
 
@@ -251,10 +257,15 @@ class DatabaseServerForm extends Form
             }
         }
 
-        // Pre-fill auth_source for MongoDB
-        if ($value === 'mongodb' && $this->auth_source === '') {
-            $this->auth_source = 'admin';
-        }
+        $this->connectionRules()->applyDefaults($this);
+    }
+
+    /**
+     * Per-type connection rules strategy for the currently selected type.
+     */
+    private function connectionRules(): ConnectionRules
+    {
+        return ConnectionRules::for(DatabaseType::tryFrom($this->database_type));
     }
 
     /**
@@ -437,6 +448,8 @@ class DatabaseServerForm extends Form
         $this->port = $server->port ?? 3306;
         $this->database_type = $server->database_type->value;
         $this->auth_source = $server->getExtraConfig('auth_source', '');
+        $this->srv_enabled = (bool) $server->getExtraConfig('srv_enabled', false);
+        $this->connection_options = $server->getExtraConfig('connection_options', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
         $this->dump_format = $server->getExtraConfig('dump_format', 'plain');
         $this->dump_privileges = (bool) $server->getExtraConfig('dump_privileges', false);
@@ -619,22 +632,6 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Check if current database type is Microsoft SQL Server.
-     */
-    public function isMssql(): bool
-    {
-        return $this->database_type === 'mssql';
-    }
-
-    /**
-     * Check if current database type is MySQL/MariaDB (the only type with the SSL toggle).
-     */
-    public function isMysql(): bool
-    {
-        return $this->database_type === 'mysql';
-    }
-
-    /**
      * Check if current database type is PostgreSQL.
      */
     public function isPostgresql(): bool
@@ -694,24 +691,16 @@ class DatabaseServerForm extends Form
             'pass' => '********',
         ];
 
-        if ($type === DatabaseType::MONGODB) {
-            $config['auth_source'] = $this->auth_source ?: 'admin';
-        }
-
-        if ($type === DatabaseType::MYSQL) {
-            $config['ssl_enabled'] = $this->ssl_enabled;
-        }
-
-        if ($type === DatabaseType::POSTGRESQL) {
-            $config['dump_format'] = $this->dump_format;
-            $config['dump_privileges'] = $this->dump_privileges;
-        }
+        $config = array_merge($config, $this->connectionRules()->dumpPreviewConfig($this));
 
         try {
             $provider = new DatabaseProvider;
             $database = $provider->makeConfigured($type, $config);
 
-            return $database->dump('/path/to/output')->command;
+            // Redact credentials so the preview matches what gets logged. For
+            // MongoDB the password lives in the URI userinfo, where the raw
+            // placeholder would otherwise render URL-encoded (e.g. %2A%2A…).
+            return (new ShellProcessor)->sanitize($database->dump('/path/to/output')->command);
         } catch (\Throwable) {
             return '';
         }
@@ -852,14 +841,12 @@ class DatabaseServerForm extends Form
             }
         }
 
-        if ($this->isSqlite()) {
-            $rules = array_merge($rules, $this->getSqliteValidationRules());
-        } elseif ($this->isRedis()) {
-            $rules = array_merge($rules, $this->getRedisValidationRules());
-        } elseif ($this->isMongodb()) {
-            $rules = array_merge($rules, $this->getMongodbValidationRules());
-        } else {
-            $rules = array_merge($rules, $this->getClientServerValidationRules());
+        $rules = array_merge($rules, $this->connectionRules()->rules($this));
+
+        $rules['ssh_enabled'] = 'boolean';
+        if ($this->ssh_enabled) {
+            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
+            $rules = array_merge($rules, $this->getSshValidationRules());
         }
 
         $validated = $this->validate($rules);
@@ -902,93 +889,6 @@ class DatabaseServerForm extends Form
             )],
             'notification_channel_ids.*' => ['string', 'exists:notification_channels,id'],
         ];
-    }
-
-    /**
-     * @return array<string, string>
-     */
-    private function getSqliteValidationRules(): array
-    {
-        $rules = [
-            'ssh_enabled' => 'boolean',
-        ];
-
-        if ($this->ssh_enabled) {
-            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
-            $rules = array_merge($rules, $this->getSshValidationRules());
-        }
-
-        return $rules;
-    }
-
-    /**
-     * Get client-server database validation rules.
-     *
-     * @return array<string, mixed>
-     */
-    private function getClientServerValidationRules(): array
-    {
-        $rules = [
-            'host' => 'required|string|max:255',
-            'port' => 'required|integer|min:1|max:65535',
-            'username' => 'required|string|max:255',
-            'password' => 'nullable',
-            'ssh_enabled' => 'boolean',
-        ];
-
-        if ($this->ssh_enabled) {
-            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
-            $rules = array_merge($rules, $this->getSshValidationRules());
-        }
-
-        return $rules;
-    }
-
-    /**
-     * Get Redis-specific validation rules.
-     *
-     * @return array<string, mixed>
-     */
-    private function getRedisValidationRules(): array
-    {
-        $rules = [
-            'host' => 'required|string|max:255',
-            'port' => 'required|integer|min:1|max:65535',
-            'username' => 'nullable|string|max:255',
-            'password' => 'nullable',
-            'ssh_enabled' => 'boolean',
-        ];
-
-        if ($this->ssh_enabled) {
-            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
-            $rules = array_merge($rules, $this->getSshValidationRules());
-        }
-
-        return $rules;
-    }
-
-    /**
-     * Get MongoDB-specific validation rules.
-     *
-     * @return array<string, mixed>
-     */
-    private function getMongodbValidationRules(): array
-    {
-        $rules = [
-            'host' => 'required|string|max:255',
-            'port' => 'required|integer|min:1|max:65535',
-            'username' => 'nullable|string|max:255',
-            'password' => 'nullable',
-            'auth_source' => 'nullable|string|max:255',
-            'ssh_enabled' => 'boolean',
-        ];
-
-        if ($this->ssh_enabled) {
-            $rules['ssh_config_mode'] = 'required|string|in:existing,create';
-            $rules = array_merge($rules, $this->getSshValidationRules());
-        }
-
-        return $rules;
     }
 
     public function store(): bool
@@ -1166,37 +1066,19 @@ class DatabaseServerForm extends Form
 
         // Validate only the connection-related fields
         try {
-            if ($this->isSqlite()) {
-                $this->normalizeDatabaseNames();
-                if ($this->collectDatabasePaths() === []) {
-                    throw ValidationException::withMessages([
-                        'form.backups' => __('Add at least one SQLite database path before testing the connection.'),
-                    ]);
-                }
-                if ($this->ssh_enabled) {
-                    $this->validate($this->getSshValidationRules());
-                }
-            } elseif ($this->hasOptionalCredentials()) {
-                $this->validate([
-                    'host' => 'required|string|max:255',
-                    'port' => 'required|integer|min:1|max:65535',
-                ]);
-            } else {
-                $this->validate([
-                    'host' => 'required|string|max:255',
-                    'port' => 'required|integer|min:1|max:65535',
-                    'username' => 'required|string|max:255',
-                    'password' => ($this->server === null ? 'required|string|max:255' : 'nullable'),
-                ]);
+            $this->normalizeDatabaseNames();
 
-                if ($this->isFirebird()) {
-                    $this->normalizeDatabaseNames();
-                    if ($this->collectDatabasePaths() === []) {
-                        throw ValidationException::withMessages([
-                            'form.backups' => __('Add at least one Firebird database path before testing the connection.'),
-                        ]);
-                    }
-                }
+            if ($this->identifiesDatabasesByPath() && $this->collectDatabasePaths() === []) {
+                throw ValidationException::withMessages([
+                    'form.backups' => __('Add at least one :type database path before testing the connection.', [
+                        'type' => DatabaseType::from($this->database_type)->label(),
+                    ]),
+                ]);
+            }
+
+            $rules = $this->connectionRules()->testConnectionRules($this);
+            if ($rules !== []) {
+                $this->validate($rules);
             }
         } catch (ValidationException $e) {
             $this->testingConnection = false;
@@ -1310,15 +1192,7 @@ class DatabaseServerForm extends Form
      */
     private function buildExtraConfigForTest(): ?array
     {
-        $extra = [];
-
-        if ($this->isMongodb()) {
-            $extra['auth_source'] = $this->auth_source;
-        }
-
-        if ($this->isMysql() && $this->ssl_enabled) {
-            $extra['ssl_enabled'] = true;
-        }
+        $extra = $this->connectionRules()->extraConfig($this);
 
         return $extra === [] ? null : $extra;
     }
@@ -1421,11 +1295,12 @@ class DatabaseServerForm extends Form
     }
 
     /**
-     * Get SSH validation rules.
+     * Get SSH validation rules. Public so per-type connection rules
+     * (e.g. SQLite over SFTP) can include them in their test rules.
      *
      * @return array<string, string>
      */
-    private function getSshValidationRules(): array
+    public function getSshValidationRules(): array
     {
         $rules = [
             'ssh_host' => 'required|string|max:255',

@@ -82,14 +82,7 @@ class ProcessRestoreJob implements ShouldQueue
 
             $job->markCompleted();
 
-            try {
-                app(NotificationService::class)->notifyRestoreSuccess($restore);
-            } catch (\Throwable $notificationException) {
-                Log::warning('Restore success notification failed', [
-                    'restore_id' => $this->restoreId,
-                    'error' => $notificationException->getMessage(),
-                ]);
-            }
+            app(NotificationService::class)->notifyRestoreSuccess($restore);
 
             Log::info('Restore completed successfully', [
                 'restore_id' => $this->restoreId,

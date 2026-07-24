@@ -106,72 +106,13 @@ use App\Enums\DatabaseType;
                     </x-radio-card-group>
                 </div>
 
-                @if($form->database_type)
+                @php $selectedType = DatabaseType::tryFrom($form->database_type); @endphp
+                @if($selectedType)
                     @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
 
-                    @if($form->isSqlite())
-                        {{-- SQLite file paths now live on each backup configuration below.
-                             SQLite needs no host/port/credentials here; connection testing
-                             reads the paths from the first backup card. --}}
-                    @else
-                        <!-- Client-server database connection fields -->
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <x-input
-                                wire:model="form.host"
-                                label="{{ __('Host') }}"
-                                placeholder="{{ __('e.g., localhost or 192.168.1.100') }}"
-                                type="text"
-                                required
-                            />
-
-                            <x-input
-                                wire:model="form.port"
-                                label="{{ __('Port') }}"
-                                placeholder="{{ __('e.g., 3306') }}"
-                                type="number"
-                                min="1"
-                                max="65535"
-                                required
-                            />
-                        </div>
-
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <x-input
-                                wire:model="form.username"
-                                label="{{ __('Username') }}"
-                                placeholder="{{ $form->hasOptionalCredentials() ? __('Optional (for authenticated servers)') : __('Database username') }}"
-                                type="text"
-                                :required="!$form->hasOptionalCredentials()"
-                                autocomplete="off"
-                            />
-
-                            <x-password
-                                wire:model="form.password"
-                                label="{{ __('Password') }}"
-                                placeholder="{{ $isEdit ? __('Leave blank to keep current') : __('Database password') }}"
-                                :required="!$isEdit && !$form->hasOptionalCredentials()"
-                                autocomplete="off"
-                            />
-                        </div>
-
-                        @if($form->isMongodb())
-                            <x-input
-                                wire:model="form.auth_source"
-                                label="{{ __('Authentication Database') }}"
-                                placeholder="admin"
-                                hint="{{ __('The database used to authenticate credentials') }}"
-                                type="text"
-                            />
-                        @endif
-
-                        @if($form->isMysql())
-                            <x-checkbox
-                                wire:model.live="form.ssl_enabled"
-                                :label="__('Use SSL')"
-                                :hint="__('Required for servers that enforce TLS, such as Amazon RDS with require_secure_transport. The server certificate is not verified.')"
-                            />
-                        @endif
-                    @endif
+                    {{-- Type-specific connection fields, resolved by convention
+                         from the DatabaseType value (like volume connectors). --}}
+                    @include('livewire.database-server.connection.' . $selectedType->value, ['form' => $form, 'isEdit' => $isEdit])
 
                     @if($form->supportsDumpFlags())
                         <x-collapse class="mt-2" :open="$form->dump_config_open">

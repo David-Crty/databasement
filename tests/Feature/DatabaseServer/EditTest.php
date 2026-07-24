@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Livewire\DatabaseServer\Edit;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
@@ -11,7 +11,7 @@ use App\Models\Volume;
 use Livewire\Livewire;
 
 test('can edit database server', function (array $config) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
     $schedule = dailySchedule();
 
@@ -93,7 +93,7 @@ test('can edit database server', function (array $config) {
 })->with('database server configs');
 
 test('can change retention policy', function (array $config) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
     $schedule = dailySchedule();
 
@@ -138,7 +138,9 @@ test('can change retention policy', function (array $config) {
 })->with('retention policies');
 
 test('disabling backups preserves backup config when snapshots exist', function () {
-    $user = User::factory()->create();
+    // Acts as the allow case for manage-database-servers: a user whose only
+    // grant is that ability can edit and save a server.
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create([
         'name' => 'Server With Snapshots',
         'backups_enabled' => true,
@@ -166,7 +168,7 @@ test('disabling backups preserves backup config when snapshots exist', function 
 });
 
 test('loadDatabases calls form method for non-SQLite servers', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create([
         'database_type' => 'mysql',
     ]);
@@ -180,7 +182,7 @@ test('loadDatabases calls form method for non-SQLite servers', function () {
 });
 
 test('loadDatabases skips for SQLite servers', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->sqlite()->create();
 
     Livewire::actingAs($user)
@@ -191,7 +193,7 @@ test('loadDatabases skips for SQLite servers', function () {
 });
 
 test('can add and remove SQLite database paths', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->sqlite()->create();
 
     Livewire::actingAs($user)
@@ -206,7 +208,7 @@ test('can add and remove SQLite database paths', function () {
 });
 
 test('refreshVolumes can be called without error', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create();
 
     // Just verify the method doesn't throw - testing toast dispatch is framework behavior
@@ -217,7 +219,7 @@ test('refreshVolumes can be called without error', function () {
 });
 
 test('redirects to show page when arriving from show page', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create();
     $showUrl = route('database-servers.show', $server);
 
@@ -230,7 +232,7 @@ test('redirects to show page when arriving from show page', function () {
 });
 
 test('falls back to index when the previous url is unsafe', function (Closure $previousUrl) {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create();
 
     session()->setPreviousUrl($previousUrl($server));
@@ -246,7 +248,7 @@ test('falls back to index when the previous url is unsafe', function (Closure $p
 ]);
 
 test('pattern mode filters available databases and auto-loads on switch', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create();
 
     $component = Livewire::actingAs($user)
@@ -272,8 +274,8 @@ test('pattern mode filters available databases and auto-loads on switch', functi
         ->toBe(['prod_users', 'prod_orders']);
 });
 
-test('admin can select notification channels for a database server', function () {
-    $admin = User::factory()->create(['role' => UserRole::Admin]);
+test('manage-database-servers allows selecting notification channels for a database server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $email = NotificationChannel::factory()->email()->create(['name' => 'Zebra Alerts']);
     $slack = NotificationChannel::factory()->slack()->create(['name' => 'Alpha Slack']);
@@ -281,7 +283,7 @@ test('admin can select notification channels for a database server', function ()
 
     $server = DatabaseServer::factory()->create(['name' => 'Prod DB', 'database_names' => ['myapp']]);
 
-    $component = Livewire::actingAs($admin)
+    $component = Livewire::actingAs($user)
         ->test(Edit::class, ['server' => $server])
         ->set('form.notification_channel_selection', 'selected');
 
@@ -305,7 +307,7 @@ test('admin can select notification channels for a database server', function ()
 });
 
 test('selected notification channel selection requires at least one channel', function (string $trigger) {
-    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $admin = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     NotificationChannel::factory()->email()->create();
     $server = DatabaseServer::factory()->create(['database_names' => ['myapp']]);
 
@@ -323,7 +325,7 @@ test('selected notification channel selection requires at least one channel', fu
 ]);
 
 test('notification channel selection is not required when trigger is disabled', function () {
-    $admin = User::factory()->create(['role' => UserRole::Admin]);
+    $admin = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     NotificationChannel::factory()->email()->create();
     $server = DatabaseServer::factory()->create(['database_names' => ['myapp']]);
 
@@ -340,7 +342,7 @@ test('notification channel selection is not required when trigger is disabled', 
 });
 
 test('edit hydrates multiple backup configurations', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->withBackups(2)->create();
 
     expect($server->backups()->count())->toBe(2);
@@ -355,7 +357,7 @@ test('edit hydrates multiple backup configurations', function () {
 });
 
 test('save creates a second backup row when a card is added', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();
     $schedule = dailySchedule();
     $server = DatabaseServer::factory()->create();
@@ -378,7 +380,7 @@ test('save creates a second backup row when a card is added', function () {
 });
 
 test('removing a backup card orphans existing snapshots without deleting them', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->withBackups(2)->create();
     $server->load('backups');
     $toRemove = $server->backups[1];
@@ -401,4 +403,13 @@ test('removing a backup card orphans existing snapshots without deleting them', 
     expect(Backup::find($toRemove->id))->toBeNull()
         ->and(Snapshot::find($snapshot->id))->not->toBeNull()
         ->and(Snapshot::find($snapshot->id)->backup_id)->toBeNull();
+});
+
+test('without manage-database-servers, the edit screen is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageDatabaseServers->value)->create();
+    $server = DatabaseServer::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->assertForbidden();
 });

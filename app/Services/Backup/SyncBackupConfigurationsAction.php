@@ -2,7 +2,7 @@
 
 namespace App\Services\Backup;
 
-use App\Livewire\Forms\BackupForm;
+use App\Livewire\DatabaseServer\BackupForm;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use Illuminate\Support\Facades\DB;

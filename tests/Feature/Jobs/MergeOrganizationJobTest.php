@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\UserRole;
 use App\Jobs\MergeOrganizationJob;
 use App\Models\Agent;
 use App\Models\BackupJob;
@@ -32,14 +31,14 @@ test('job merges a fully populated source into a destination with overlapping me
     // - destinationOnly: must be left untouched.
     // - conflicting: member of both with different roles -> destination role wins.
     $sourceOnly = User::factory()->create();
-    $sourceOnly->organizations()->attach($source->id, ['role' => UserRole::Member]);
+    attachUserToOrg($sourceOnly, $source, 'member');
 
     $destinationOnly = User::factory()->create();
-    $destinationOnly->organizations()->attach($destination->id, ['role' => UserRole::Member]);
+    attachUserToOrg($destinationOnly, $destination, 'member');
 
     $conflicting = User::factory()->create();
-    $conflicting->organizations()->attach($source->id, ['role' => UserRole::Admin]);
-    $conflicting->organizations()->attach($destination->id, ['role' => UserRole::Viewer]);
+    attachUserToOrg($conflicting, $source, 'admin');
+    attachUserToOrg($conflicting, $destination, 'viewer');
 
     new MergeOrganizationJob($source->id, $destination->id, $sourceOnly->id)
         ->handle(app(OrganizationMergeService::class));
@@ -62,13 +61,13 @@ test('job merges a fully populated source into a destination with overlapping me
     // The snapshot followed its server (it has no organization_id of its own).
 
     // Members are unioned; the conflicting user keeps the destination role.
-    $members = $destination->fresh()->users()->withPivot('role')->get();
+    $members = $destination->fresh()->users()->get();
 
     expect($members->pluck('id')->sort()->values()->all())
         ->toBe(collect([$sourceOnly->id, $destinationOnly->id, $conflicting->id])->sort()->values()->all())
-        ->and($members->firstWhere('id', $sourceOnly->id)->pivot->role)->toBe(UserRole::Member->value)
-        ->and($members->firstWhere('id', $destinationOnly->id)->pivot->role)->toBe(UserRole::Member->value)
-        ->and($members->firstWhere('id', $conflicting->id)->pivot->role)->toBe(UserRole::Viewer->value)
+        ->and($sourceOnly->fresh()->roleNameIn($destination))->toBe('member')
+        ->and($destinationOnly->fresh()->roleNameIn($destination))->toBe('member')
+        ->and($conflicting->fresh()->roleNameIn($destination))->toBe('viewer')
         ->and(Organization::find($source->id))->toBeNull();
 });
 

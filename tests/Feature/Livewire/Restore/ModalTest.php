@@ -1,7 +1,7 @@
 <?php
 
+use App\Enums\Ability;
 use App\Enums\BackupJobStatus;
-use App\Enums\UserRole;
 use App\Jobs\ProcessRestoreJob;
 use App\Livewire\Restore\Modal;
 use App\Models\BackupJob;
@@ -17,7 +17,9 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
-    $this->user = User::factory()->create(['role' => UserRole::Admin]);
+    // Restores gate on operate-restores; the happy-path tests below act as the
+    // allow case for that ability.
+    $this->user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     actingAs($this->user);
 
     // Avoid real connection attempts when listing existing databases.
@@ -363,18 +365,16 @@ test('cannot mutate selectedSnapshotId from the client', function () {
 // Authorization
 // ============================================================================
 
-test('viewer cannot start a restore from-restore-index mode', function () {
-    $viewer = User::factory()->create(['role' => UserRole::Viewer]);
-    actingAs($viewer);
+test('without operate-restores, starting a restore in from-restore-index mode is forbidden', function () {
+    actingAs(User::factory()->withAbilities([])->create());
 
     Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-restore-index')
         ->assertForbidden();
 });
 
-test('viewer cannot start a restore from-server mode', function () {
-    $viewer = User::factory()->create(['role' => UserRole::Viewer]);
-    actingAs($viewer);
+test('without operate-restores, starting a restore in from-server mode is forbidden', function () {
+    actingAs(User::factory()->withAbilities([])->create());
 
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
 
@@ -383,9 +383,8 @@ test('viewer cannot start a restore from-server mode', function () {
         ->assertForbidden();
 });
 
-test('viewer cannot start a restore from-snapshot mode', function () {
-    $viewer = User::factory()->create(['role' => UserRole::Viewer]);
-    actingAs($viewer);
+test('without operate-restores, starting a restore in from-snapshot mode is forbidden', function () {
+    actingAs(User::factory()->withAbilities([])->create());
 
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();

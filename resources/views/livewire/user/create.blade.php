@@ -31,46 +31,10 @@
 
         @if($mode === 'invite')
             <form wire:submit="save" class="space-y-6">
-                <x-input
-                    wire:model="form.name"
-                    :label="__('Name')"
-                    :placeholder="__('Full name')"
-                    icon="o-user"
-                    required
-                />
-
-                <x-input
-                    wire:model="form.email"
-                    :label="__('Email')"
-                    type="email"
-                    placeholder="email@example.com"
-                    icon="o-envelope"
-                    required
-                />
-
-                @if(auth()->user()->isSuperAdmin())
-                    <x-checkbox
-                        wire:model="form.superAdmin"
-                        :label="__('Super Admin')"
-                        :hint="__('Super admins can access all organizations and manage global settings.')"
-                    />
-                @endif
-
-                <div>
-                    <x-radio-card-group class="grid-cols-1 sm:grid-cols-3" :label="__('Role in current organization')">
-                        @foreach($roleOptions as $option)
-                            <x-radio-card
-                                :active="$form->role === $option['id']"
-                                :icon="$option['icon']"
-                                :label="$option['name']"
-                                :hint="$option['description']"
-                                :value="$option['id']"
-                                horizontal
-                                wire:model.live="form.role"
-                            />
-                        @endforeach
-                    </x-radio-card-group>
-                </div>
+                @include('livewire.user._form', [
+                    'roleOptions' => $roleOptions,
+                    'abilityGroups' => $abilityGroups,
+                ])
 
                 <div class="flex justify-end gap-3">
                     <x-button :label="__('Cancel')" link="{{ route('users.index') }}" wire:navigate />
@@ -88,21 +52,11 @@
                     required
                 />
 
-                <div>
-                    <x-radio-card-group class="grid-cols-1 sm:grid-cols-3" :label="__('Role in current organization')">
-                        @foreach($roleOptions as $option)
-                            <x-radio-card
-                                :active="$existingUserRole === $option['id']"
-                                :icon="$option['icon']"
-                                :label="$option['name']"
-                                :hint="$option['description']"
-                                :value="$option['id']"
-                                horizontal
-                                wire:model.live="existingUserRole"
-                            />
-                        @endforeach
-                    </x-radio-card-group>
-                </div>
+                @include('livewire.user._role-cards', [
+                    'roleOptions' => $roleOptions,
+                    'selected' => $existingUserRole,
+                    'model' => 'existingUserRole',
+                ])
 
                 <div class="flex justify-end gap-3">
                     <x-button :label="__('Cancel')" link="{{ route('users.index') }}" wire:navigate />

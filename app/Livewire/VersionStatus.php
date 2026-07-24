@@ -17,6 +17,8 @@ class VersionStatus extends Component
 
     public bool $showModal = false;
 
+    public string $updateInstructionsTab = 'docker-compose-tab';
+
     public string $dockerComposeCommand = "docker compose pull\ndocker compose up -d";
 
     public string $helmCommand = "helm repo update\nhelm upgrade databasement databasement/databasement";

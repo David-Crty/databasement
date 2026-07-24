@@ -21,7 +21,14 @@ jobs:
         working-directory: docs
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+        with:
+          # Full history + tags: prepare-versions.sh snapshots one docs
+          # version per 1.x minor from the latest patch tag of each minor
+          fetch-depth: 0
+          # Keep the token out of .git/config while npm ci runs third-party
+          # scripts; the deploy action authenticates via its own token input
+          persist-credentials: false
 
       - name: Extract version from tag
         id: version
@@ -38,15 +45,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prepare versioned docs from tags
+        run: ./scripts/prepare-versions.sh
+
       - name: Build documentation
         run: npm run build
         env:
           DOCS_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Deploy to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+        # Clean deploy: removes stale docs files from the branch on every
+        # deploy, but never touches the Helm repository files
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/build
-          destination_dir: .
-          keep_files: true
+          folder: docs/build
+          branch: gh-pages
+          clean-exclude: |
+            charts/**
+            index.yaml
+            artifacthub-repo.yml

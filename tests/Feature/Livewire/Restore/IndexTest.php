@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\UserRole;
+use App\Enums\Ability;
 use App\Livewire\Restore\Index;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
@@ -12,7 +12,9 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
-    $this->user = User::factory()->create(['role' => UserRole::Admin]);
+    // Restores gate on operate-restores; the happy-path tests below act as the
+    // allow case for that ability.
+    $this->user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
     actingAs($this->user);
 });
 
@@ -160,7 +162,7 @@ test('?job= from another org renders the logs modal with source/target server co
     // the source/target server context in the logs modal, plus a warning that
     // the job belongs to a different org.
     $otherOrg = \App\Models\Organization::factory()->create(['name' => 'OtherOrg']);
-    $this->user->organizations()->attach($otherOrg->id, ['role' => UserRole::Member]);
+    attachUserToOrg($this->user, $otherOrg, 'member');
 
     $current = app(\App\Services\CurrentOrganization::class);
     $current->set($otherOrg);
@@ -202,9 +204,8 @@ test('?job= from another org is forbidden when the user is not a member of that 
         ->assertForbidden();
 });
 
-test('viewer cannot open the new restore modal', function () {
-    $viewer = User::factory()->create(['role' => UserRole::Viewer]);
-    actingAs($viewer);
+test('without operate-restores, opening a new restore is forbidden', function () {
+    actingAs(User::factory()->withAbilities([])->create());
 
     Livewire::test(Index::class)
         ->call('openNewRestore')

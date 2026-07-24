@@ -20,6 +20,8 @@ test('sanitizes sensitive patterns', function (string $input, string $expectedTo
     'MYSQL_PWD env var' => ['MYSQL_PWD=secret123 mysqldump failed', 'MYSQL_PWD=***', 'secret123'],
     'sqlpackage source password' => ["sqlpackage /Action:Export /SourcePassword:'secret123' /SourceDatabaseName:'db'", '/SourcePassword:***', 'secret123'],
     'sqlpackage target password' => ["sqlpackage /Action:Import /TargetPassword:'secret123' /TargetDatabaseName:'db'", '/TargetPassword:***', 'secret123'],
+    'mongodb uri password' => ["mongodump --uri='mongodb://admin:secret123@mongo-prod.example.com:27017/mydb?authSource=admin'", 'mongodb://admin:***@', 'secret123'],
+    'mongodb+srv uri password' => ["mongodump --uri='mongodb+srv://admin:secret123@cluster0.abcde.mongodb.net/mydb?retryWrites=true'", 'mongodb+srv://admin:***@', 'secret123'],
 ]);
 
 test('preserves non-sensitive patterns', function (string $input, string $expectedToContain) {

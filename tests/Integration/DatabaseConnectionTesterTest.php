@@ -3,10 +3,11 @@
 /**
  * Integration tests for DatabaseProvider::testConnectionForServer() with real databases.
  *
- * These tests require MySQL and PostgreSQL containers to be running.
+ * These tests require the database containers (MySQL, PostgreSQL, Redis, MongoDB, MSSQL, Firebird) to be running.
  * Run with: php artisan test --group=integration
  */
 
+use App\Enums\DatabaseType;
 use App\Facades\AppConfig;
 use App\Models\DatabaseServer;
 use App\Services\Backup\Databases\DatabaseProvider;
@@ -17,13 +18,12 @@ test('connection succeeds', function (string $databaseType) {
 
     if ($databaseType === 'sqlite') {
         IntegrationTestHelpers::createTestSqliteDatabase($config['host']);
-    } elseif ($databaseType === 'redis') {
-        // Redis doesn't need test data for connection testing
-    } else {
+    } elseif (in_array($databaseType, ['mysql', 'postgres', 'firebird'], true)) {
         // Create unique database for this parallel process
         $server = IntegrationTestHelpers::createDatabaseServer($databaseType);
         IntegrationTestHelpers::loadTestData($databaseType, $server);
     }
+    // Redis, MongoDB and MSSQL test the connection at server level - no test data needed
 
     $testServer = DatabaseServer::forConnectionTest([
         'database_type' => $databaseType,
@@ -36,6 +36,7 @@ test('connection succeeds', function (string $databaseType) {
             'firebird' => [$config['database']],
             default => null,
         },
+        'extra_config' => isset($config['auth_source']) ? ['auth_source' => $config['auth_source']] : null,
     ]);
 
     $result = app(DatabaseProvider::class)->testConnectionForServer($testServer);
@@ -44,10 +45,10 @@ test('connection succeeds', function (string $databaseType) {
         ->and($result['message'])->toBe('Connection successful');
 
     // Cleanup external database
-    if ($databaseType !== 'sqlite' && $databaseType !== 'redis') {
+    if (isset($server)) {
         IntegrationTestHelpers::dropDatabase($databaseType, $server, $config['database']);
     }
-})->with(['mysql', 'postgres', 'sqlite', 'redis', 'firebird']);
+})->with(array_column(DatabaseType::cases(), 'value'));
 
 test('connection fails with invalid credentials', function (string $databaseType) {
     $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);

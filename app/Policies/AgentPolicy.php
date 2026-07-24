@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\Ability;
 use App\Models\Agent;
 use App\Models\User;
 
@@ -31,7 +32,7 @@ class AgentPolicy
      */
     public function create(User $user): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageAgents->value);
     }
 
     /**
@@ -40,7 +41,7 @@ class AgentPolicy
      */
     public function update(User $user, Agent $agent): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageAgents->value);
     }
 
     /**
@@ -49,6 +50,6 @@ class AgentPolicy
      */
     public function delete(User $user, Agent $agent): bool
     {
-        return $user->canPerformActions();
+        return $user->can(Ability::ManageAgents->value);
     }
 }

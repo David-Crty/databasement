@@ -63,10 +63,10 @@
             @endscope
 
             @scope('cell_type', $volume)
-                <div class="flex items-center gap-2">
-                    <x-volume-type-icon :type="$volume->type" class="w-4 h-4" />
-                    <span>{{ $volume->getVolumeType()?->label() ?? $volume->type }}</span>
-                </div>
+                <span class="badge badge-ghost badge-sm gap-1 whitespace-nowrap">
+                    <x-volume-type-icon :type="$volume->type" class="w-3.5 h-3.5" />
+                    {{ $volume->getVolumeType()?->label() ?? $volume->type }}
+                </span>
             @endscope
 
             @scope('cell_config', $volume)
@@ -76,6 +76,19 @@
                         @if(count($summary) > 1){{ $label }}: @endif{{ $value }}
                     </div>
                 @endforeach
+            @endscope
+
+            @scope('cell_usage', $volume)
+                @php
+                    $usedBytes = $volume->usedStorageBytes();
+                    $limitBytes = $volume->maxStorageBytes();
+                @endphp
+                <div class="table-cell-primary {{ $limitBytes !== null && $usedBytes >= $limitBytes ? 'text-warning' : '' }}">
+                    {{ \App\Support\Formatters::humanFileSize($usedBytes) }}
+                </div>
+                @if($limitBytes !== null)
+                    <div class="text-sm text-base-content/70">{{ __('Limit') }}: {{ \App\Support\Formatters::bytesToGb($limitBytes) }} GB</div>
+                @endif
             @endscope
 
             @scope('cell_created_at', $volume)

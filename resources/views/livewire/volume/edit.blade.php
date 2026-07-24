@@ -1,10 +1,14 @@
 <div>
-    <x-header title="{{ __('Edit Volume') }}" subtitle="{{ __('Update storage volume configuration') }}" size="text-2xl" separator class="mb-6" />
+    <x-header title="{{ __('Edit Volume') }}" subtitle="{{ __('Update storage volume configuration') }}" size="text-2xl" separator class="mb-6">
+        <x-slot:actions>
+            <x-button :label="__('Back')" link="{{ route('volumes.index') }}" wire:navigate icon="o-arrow-left" class="btn-ghost" />
+        </x-slot:actions>
+    </x-header>
 
 
     @if($hasSnapshots)
         <x-alert class="alert-warning mb-6" icon="o-lock-closed">
-            {{ __('This volume has existing snapshots. Only the name can be modified. Configuration changes are locked to protect backup integrity.') }}
+            {{ __('This volume has existing snapshots. Only the name and storage limit can be modified. Configuration changes are locked to protect backup integrity.') }}
         </x-alert>
     @endif
 

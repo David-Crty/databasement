@@ -142,6 +142,7 @@ return [
         'fr' => 'Français',
         'es' => 'Español',
         'el' => 'Ελληνικά',
+        'zh_TW' => '繁體中文',
     ],
 
     /*
@@ -233,7 +234,6 @@ return [
     */
 
     'demo_mode' => env('DEMO_MODE', false),
-    'demo_user_email' => env('DEMO_USER_EMAIL', 'demo@example.com'),
     'demo_user_password' => env('DEMO_USER_PASSWORD', 'demo'),
 
 ];

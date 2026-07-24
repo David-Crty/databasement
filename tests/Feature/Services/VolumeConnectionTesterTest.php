@@ -101,6 +101,18 @@ dataset('remote volume types', function () {
             'identifierField' => 'host',
             'identifierValue' => 'ftp.example.com',
         ],
+        'azure' => [
+            'type' => VolumeType::AZURE,
+            'config' => [
+                'account_name' => 'teststorageaccount',
+                'account_key' => 'test-account-key',
+                'container' => 'test-container',
+                'prefix' => '',
+                'endpoint_suffix' => 'core.windows.net',
+            ],
+            'identifierField' => 'container',
+            'identifierValue' => 'test-container',
+        ],
     ];
 });
 
