@@ -25,7 +25,7 @@ class TriggerBackupTool extends Tool
         ]);
 
         /** @var DatabaseServer $server */
-        $server = DatabaseServer::with(['backups.volume', 'backups.backupSchedule'])->findOrFail($validated['database_server_id']);
+        $server = DatabaseServer::with(['backups.volumes', 'backups.backupSchedule'])->findOrFail($validated['database_server_id']);
 
         if (! $request->user()?->can('backup', $server)) {
             return Response::error('Permission denied. You do not have permission to trigger backups.');

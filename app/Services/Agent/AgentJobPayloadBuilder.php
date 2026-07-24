@@ -18,7 +18,8 @@ class AgentJobPayloadBuilder
      *
      * @return array{
      *     database: array<string, mixed>,
-     *     volume: array<string, mixed>,
+     *     volume?: array<string, mixed>,
+     *     volumes: list<array<string, mixed>>,
      *     compression: array{type: string|null, level: int|null, multithread: bool|null},
      *     backup_path: string,
      *     server_name: string,
@@ -31,7 +32,9 @@ class AgentJobPayloadBuilder
 
         $config = new BackupConfig(
             database: DatabaseConnectionConfig::fromServer($server),
-            volume: VolumeConfig::fromVolume($snapshot->volume),
+            volumes: array_values($snapshot->files->map(
+                fn ($file) => VolumeConfig::fromVolume($file->volume),
+            )->all()),
             databaseName: $snapshot->database_name,
             workingDirectory: '',
             backupPath: $this->resolveBackupPath($snapshot->backup->path),

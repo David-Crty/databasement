@@ -38,14 +38,13 @@ test('can edit database server', function (array $config) {
     $server = DatabaseServer::create($serverData);
     Backup::create([
         'database_server_id' => $server->id,
-        'volume_id' => $volume->id,
         'backup_schedule_id' => $schedule->id,
         'retention_days' => 7,
         'database_selection_mode' => $config['type'] === 'redis'
             ? \App\Enums\DatabaseSelectionMode::All->value
             : \App\Enums\DatabaseSelectionMode::Selected->value,
         'database_names' => $backupDatabaseNames,
-    ]);
+    ])->volumes()->attach($volume);
 
     $component = Livewire::actingAs($user)
         ->test(Edit::class, ['server' => $server])
@@ -110,13 +109,12 @@ test('can change retention policy', function (array $config) {
     // Start with forever retention (no specific retention days)
     Backup::create([
         'database_server_id' => $server->id,
-        'volume_id' => $volume->id,
         'backup_schedule_id' => $schedule->id,
         'retention_policy' => Backup::RETENTION_FOREVER,
         'retention_days' => null,
         'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
         'database_names' => ['myapp'],
-    ]);
+    ])->volumes()->attach($volume);
 
     $component = Livewire::actingAs($user)
         ->test(Edit::class, ['server' => $server])
@@ -366,7 +364,7 @@ test('save creates a second backup row when a card is added', function () {
         ->test(Edit::class, ['server' => $server])
         ->call('addBackup')
         ->assertCount('form.backups', 2)
-        ->set('form.backups.1.volume_id', $volume->id)
+        ->set('form.backups.1.volume_ids', [$volume->id])
         ->set('form.backups.1.backup_schedule_id', $schedule->id)
         ->set('form.backups.1.retention_policy', 'days')
         ->set('form.backups.1.retention_days', 30)

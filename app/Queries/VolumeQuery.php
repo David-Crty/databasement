@@ -2,7 +2,7 @@
 
 namespace App\Queries;
 
-use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Models\Volume;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,8 +53,8 @@ class VolumeQuery
 
         return Volume::query()
             // Eager-load each volume's used storage
-            ->withSum(['snapshots as used_storage_bytes' => function (Builder $query): void {
-                /** @var Builder<Snapshot> $query */
+            ->withSum(['snapshotFiles as used_storage_bytes' => function (Builder $query): void {
+                /** @var Builder<SnapshotFile> $query */
                 $query->completed();
             }], 'file_size')
             ->when($search, function (Builder $query) use ($search) {

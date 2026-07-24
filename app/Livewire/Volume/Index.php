@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Volume;
 
+use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Queries\VolumeQuery;
 use App\Traits\Toast;
@@ -76,7 +77,12 @@ class Index extends Component
         $this->authorize('delete', $volume);
 
         $this->deleteId = $id;
-        $this->deleteSnapshotCount = $volume->snapshots()->count();
+        // Only snapshots whose sole remaining copy lives on this volume are
+        // deleted with it; multi-volume snapshots survive.
+        $this->deleteSnapshotCount = Snapshot::query()
+            ->whereHas('files', fn ($q) => $q->whereRaw('volume_id = ?', [$volume->id]))
+            ->whereDoesntHave('files', fn ($q) => $q->whereRaw('volume_id != ?', [$volume->id]))
+            ->count();
         $this->keepFiles = false;
         $this->showDeleteModal = true;
     }

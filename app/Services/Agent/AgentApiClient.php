@@ -58,9 +58,10 @@ class AgentApiClient
     }
 
     /**
+     * @param  array<int, array<string, mixed>>  $volumeResults  Per-volume upload outcomes
      * @param  array<int, array<string, mixed>>  $logs
      */
-    public function ack(string $jobId, string $filename, int $fileSize, string $checksum, array $logs = []): void
+    public function ack(string $jobId, string $filename, int $fileSize, string $checksum, array $volumeResults = [], array $logs = []): void
     {
         $baseUrl = rtrim($this->url, '/');
 
@@ -72,17 +73,24 @@ class AgentApiClient
                 'filename' => $filename,
                 'file_size' => $fileSize,
                 'checksum' => $checksum,
+                'volumes' => $volumeResults,
                 'logs' => $logs,
             ])->throw();
     }
 
     /**
      * @param  array<int, array<string, mixed>>  $logs
+     * @param  array<int, array<string, mixed>>  $volumeResults  Per-volume upload outcomes,
+     *                                                           so partially-successful runs
+     *                                                           still record their good copies
      */
-    public function fail(string $jobId, string $errorMessage, array $logs = []): void
+    public function fail(string $jobId, string $errorMessage, array $logs = [], array $volumeResults = [], ?string $filename = null, ?int $fileSize = null): void
     {
         $this->post("/agent/jobs/{$jobId}/fail", [
             'error_message' => Str::limit($errorMessage, 10000, ''),
+            'volumes' => $volumeResults,
+            'filename' => $filename,
+            'file_size' => $fileSize,
             'logs' => $logs,
         ])->throw();
     }

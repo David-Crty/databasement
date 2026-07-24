@@ -177,7 +177,6 @@ class IntegrationTestHelpers
 
         $data = [
             'database_server_id' => $server->id,
-            'volume_id' => $volume->id,
             'backup_schedule_id' => $schedule->id,
         ];
 
@@ -192,7 +191,10 @@ class IntegrationTestHelpers
             $data['database_names'] = $paths;
         }
 
-        return Backup::create($data);
+        $backup = Backup::create($data);
+        $backup->volumes()->attach($volume);
+
+        return $backup;
     }
 
     /**

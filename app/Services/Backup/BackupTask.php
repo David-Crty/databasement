@@ -3,13 +3,17 @@
 namespace App\Services\Backup;
 
 use App\Contracts\BackupLogger;
+use App\Enums\SnapshotFileStatus;
 use App\Exceptions\Backup\StorageQuotaExceededException;
+use App\Exceptions\Backup\VolumeTransferException;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Concerns\UsesSshTunnel;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\VolumeConfig;
+use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
@@ -89,24 +93,15 @@ class BackupTask
                 $onProgress();
             }
 
-            // Enforce the volume's storage limit before uploading. In block mode
-            // this throws and the backup fails; in notify-only mode it returns a
-            // warning message and the upload proceeds. Nothing is deleted —
-            // freeing space is left to the user.
-            $storageWarning = $this->assertWithinStorageQuota($config, $fileSize, $logger);
-
-            // Generate filename and transfer
+            // Generate the filename once — the same archive is uploaded to
+            // every target volume under the same name.
             $humanFileSize = Formatters::humanFileSize($fileSize);
             $filename = $this->generateFilename($db->serverName, $config->databaseName, $db->databaseType->dumpExtension($dumpFormat), $compressor, $config->backupPath);
-            $logger->log("Transferring backup ({$humanFileSize}) to volume: {$config->volume->name}", 'info', [
-                'volume_type' => $config->volume->type,
-                'source' => $archive,
-                'destination' => $filename,
-            ]);
-            $transferStart = microtime(true);
-            $this->filesystemProvider->transferFromConfig($config->volume, $archive, $filename);
-            $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
-            $logger->log('Transfer completed successfully in '.$transferDuration, 'success');
+
+            $volumeResults = [];
+            foreach ($config->volumes as $volume) {
+                $volumeResults[] = $this->transferToVolume($volume, $archive, $filename, $fileSize, $humanFileSize, $logger);
+            }
 
             if ($onProgress !== null) {
                 $onProgress();
@@ -116,6 +111,22 @@ class BackupTask
             $checksum = hash_file('sha256', $archive);
             if ($checksum === false) {
                 throw new \RuntimeException("Failed to calculate checksum for: {$archive}");
+            }
+
+            $result = new BackupResult($filename, $fileSize, $checksum, $volumeResults);
+
+            // Any failed upload fails the whole job — but only after every
+            // volume was attempted, so the successful copies are recorded.
+            if ($result->hasFailures()) {
+                $failedNames = array_map(
+                    fn (VolumeTransferResult $failure) => $failure->volumeName,
+                    $result->failedResults(),
+                );
+
+                throw new VolumeTransferException(
+                    $result,
+                    __('Upload failed for volume(s): :volumes', ['volumes' => implode(', ', $failedNames)]),
+                );
             }
 
             $logger->log('Backup completed successfully', 'success', [
@@ -138,11 +149,14 @@ class BackupTask
                     'BACKUP_FILENAME' => $filename,
                     'BACKUP_FILE_SIZE' => (string) $fileSize,
                     'BACKUP_CHECKSUM' => $checksum,
-                    'BACKUP_VOLUME_NAME' => $config->volume->name,
+                    'BACKUP_VOLUME_NAME' => implode(', ', array_map(
+                        fn (VolumeConfig $volume) => $volume->name,
+                        $config->volumes,
+                    )),
                 ],
             );
 
-            return new BackupResult($filename, $fileSize, $checksum, $storageWarning);
+            return $result;
         } finally {
             $this->closeSshTunnel($logger);
 
@@ -154,7 +168,66 @@ class BackupTask
     }
 
     /**
-     * Enforce the target volume's storage limit before upload when this backup
+     * Upload the archive to one target volume, converting quota blocks and
+     * transfer errors into a per-volume result instead of aborting the run —
+     * every volume gets its attempt before the caller decides to fail the job.
+     */
+    private function transferToVolume(
+        VolumeConfig $volume,
+        string $archive,
+        string $filename,
+        int $fileSize,
+        string $humanFileSize,
+        BackupLogger $logger,
+    ): VolumeTransferResult {
+        try {
+            $storageWarning = $this->assertWithinStorageQuota($volume, $fileSize, $logger);
+        } catch (StorageQuotaExceededException $e) {
+            return new VolumeTransferResult(
+                volumeId: $volume->id,
+                volumeName: $volume->name,
+                status: SnapshotFileStatus::Failed,
+                error: $e->getMessage(),
+                quotaExceeded: true,
+            );
+        }
+
+        $logger->log("Transferring backup ({$humanFileSize}) to volume: {$volume->name}", 'info', [
+            'volume_type' => $volume->type,
+            'source' => $archive,
+            'destination' => $filename,
+        ]);
+
+        $transferStart = microtime(true);
+
+        try {
+            $this->filesystemProvider->transferFromConfig($volume, $archive, $filename);
+        } catch (\Throwable $e) {
+            $logger->log("Transfer to volume {$volume->name} failed: {$e->getMessage()}", 'error', [
+                'exception' => get_class($e),
+            ]);
+
+            return new VolumeTransferResult(
+                volumeId: $volume->id,
+                volumeName: $volume->name,
+                status: SnapshotFileStatus::Failed,
+                error: $e->getMessage(),
+            );
+        }
+
+        $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
+        $logger->log('Transfer completed successfully in '.$transferDuration, 'success');
+
+        return new VolumeTransferResult(
+            volumeId: $volume->id,
+            volumeName: $volume->name,
+            status: SnapshotFileStatus::Completed,
+            storageWarning: $storageWarning,
+        );
+    }
+
+    /**
+     * Enforce a target volume's storage limit before upload when this backup
      * would exceed it. Skipped (returns null) when no limit is set or the current
      * usage is unknown (remote agents).
      *
@@ -167,33 +240,33 @@ class BackupTask
      *
      * @throws StorageQuotaExceededException
      */
-    private function assertWithinStorageQuota(BackupConfig $config, int $fileSize, BackupLogger $logger): ?string
+    private function assertWithinStorageQuota(VolumeConfig $volume, int $fileSize, BackupLogger $logger): ?string
     {
-        $limit = $config->volume->config['max_storage_bytes'] ?? null;
+        $limit = $volume->config['max_storage_bytes'] ?? null;
 
-        if ($limit === null || $config->volumeUsedBytes === null) {
+        if ($limit === null || $volume->usedBytes === null) {
             return null;
         }
 
         $limit = (int) $limit;
-        $projected = $config->volumeUsedBytes + $fileSize;
+        $projected = $volume->usedBytes + $fileSize;
 
         if ($projected <= $limit) {
             return null;
         }
 
-        $notifyOnly = (bool) ($config->volume->config['max_storage_notify_only'] ?? false);
+        $notifyOnly = (bool) ($volume->config['max_storage_notify_only'] ?? false);
 
         $context = [
-            'volume' => $config->volume->name,
-            'used_bytes' => $config->volumeUsedBytes,
+            'volume' => $volume->name,
+            'used_bytes' => $volume->usedBytes,
             'file_size' => $fileSize,
             'limit_bytes' => $limit,
         ];
 
         if ($notifyOnly) {
             $message = __('Storage limit reached for volume ":volume". This backup (:size) brings total usage to :projected, over the :limit limit. The backup was still uploaded (notify-only) — free up space by deleting old snapshots.', [
-                'volume' => $config->volume->name,
+                'volume' => $volume->name,
                 'size' => Formatters::humanFileSize($fileSize),
                 'projected' => Formatters::humanFileSize($projected),
                 'limit' => Formatters::humanFileSize($limit),
@@ -205,7 +278,7 @@ class BackupTask
         }
 
         $message = __('Storage limit reached for volume ":volume". This backup (:size) would bring total usage to :projected, over the :limit limit. The file was not uploaded — free up space by deleting old snapshots.', [
-            'volume' => $config->volume->name,
+            'volume' => $volume->name,
             'size' => Formatters::humanFileSize($fileSize),
             'projected' => Formatters::humanFileSize($projected),
             'limit' => Formatters::humanFileSize($limit),

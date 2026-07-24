@@ -54,6 +54,13 @@
                         </div>
                         <div class="flex items-center gap-2 mt-1 flex-wrap">
                             <x-id-popover :id="$snapshot->id" />
+                            @php $volumeNames = $snapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed)->pluck('volume.name')->filter(); @endphp
+                            @if($volumeNames->isNotEmpty())
+                                <span class="inline-flex items-center gap-1 text-xs text-base-content/50">
+                                    <x-icon name="o-server-stack" class="w-3 h-3" />
+                                    {{ $volumeNames->implode(', ') }}
+                                </span>
+                            @endif
                             @if($fileMissing)
                                 <x-popover>
                                     <x-slot:trigger>
@@ -114,7 +121,8 @@
                     $status = $snapshot->job?->status?->value;
                     $job = $snapshot->job;
                     $canRestore = $status === 'completed' && $snapshot->file_exists && $snapshot->database_type !== \App\Enums\DatabaseType::REDIS;
-                    $canDownload = $status === 'completed';
+                    $downloadFiles = $snapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed);
+                    $canDownload = $status === 'completed' && $downloadFiles->isNotEmpty();
                     $canDelete = in_array($status, ['completed', 'failed'], true);
                     $canCancel = $status === 'pending' && $job;
                     $hasLogs = ! empty($job?->logs);
@@ -133,13 +141,23 @@
 
                     @if($canDownload)
                         @can('download', $snapshot)
-                            <x-button
-                                icon="o-arrow-down-tray"
-                                :link="route('snapshots.download', $snapshot)"
-                                external
-                                :tooltip="__('Download')"
-                                class="btn-ghost btn-sm text-primary"
-                            />
+                            @if($downloadFiles->count() > 1)
+                                {{-- Stored on several volumes: open the copy picker --}}
+                                <x-button
+                                    icon="o-arrow-down-tray"
+                                    wire:click="openDownloadModal('{{ $snapshot->id }}')"
+                                    :tooltip="__('Download')"
+                                    class="btn-ghost btn-sm text-primary"
+                                />
+                            @else
+                                <x-button
+                                    icon="o-arrow-down-tray"
+                                    :link="route('snapshots.download', $snapshot)"
+                                    external
+                                    :tooltip="__('Download')"
+                                    class="btn-ghost btn-sm text-primary"
+                                />
+                            @endif
                         @endcan
                     @endif
 
@@ -179,6 +197,43 @@
     </x-card>
 
     @include('partials.job-logs-modal')
+
+    <x-modal wire:model="showDownloadModal" :title="__('Download Snapshot')" class="backdrop-blur">
+        @if($this->downloadSnapshot)
+            <p class="text-sm text-base-content/70">
+                {{ __('This snapshot is stored on several volumes. Choose which copy to download.') }}
+            </p>
+
+            <div class="mt-4 space-y-2">
+                @foreach($this->downloadSnapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed) as $file)
+                    <a
+                        href="{{ route('snapshots.download', [$this->downloadSnapshot, 'file' => $file->id]) }}"
+                        target="_blank"
+                        class="flex items-center justify-between gap-3 rounded-lg border border-base-300 px-4 py-3 hover:border-primary hover:bg-base-200/40 transition-colors"
+                    >
+                        <span class="flex items-center gap-2 min-w-0">
+                            <x-icon name="o-server-stack" class="w-4 h-4 shrink-0 text-base-content/60" />
+                            <span class="truncate font-medium">{{ $file->volume->name }}</span>
+                            <span class="text-xs text-base-content/50">({{ $file->volume->type }})</span>
+                        </span>
+                        <span class="flex items-center gap-2 shrink-0">
+                            @unless($file->file_exists)
+                                <span class="badge badge-warning badge-xs gap-1">
+                                    <x-icon name="o-exclamation-triangle" class="w-3 h-3" />
+                                    {{ __('File missing') }}
+                                </span>
+                            @endunless
+                            <x-icon name="o-arrow-down-tray" class="w-4 h-4 text-primary" />
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+        @endif
+
+        <x-slot:actions>
+            <x-button :label="__('Close')" @click="$wire.showDownloadModal = false" />
+        </x-slot:actions>
+    </x-modal>
 
     @if($cancelJobId)
         <x-delete-confirmation-modal

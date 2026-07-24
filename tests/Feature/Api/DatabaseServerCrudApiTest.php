@@ -223,7 +223,7 @@ test('cannot create an agent-backed server with a local volume', function () {
             ]],
         ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors(['backups.0.volume_id']);
+        ->assertJsonValidationErrors(['backups.0.volume_ids']);
 });
 
 test('can create a server with backup config including gfs retention', function () {
@@ -371,7 +371,7 @@ test('update syncs backup configuration', function () {
         ]);
 
     $server->refresh();
-    expect($server->backups->first()->volume_id)->toBe($newVolume->id)
+    expect($server->backups->first()->volumes->first()->id)->toBe($newVolume->id)
         ->and($server->backups->first()->retention_policy)->toBe('forever');
 });
 

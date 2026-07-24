@@ -45,7 +45,7 @@ class Show extends Component
         $server->load([
             'sshConfig',
             'agent',
-            'backups.volume',
+            'backups.volumes',
             'backups.backupSchedule',
             'notificationChannels',
         ]);
@@ -59,7 +59,7 @@ class Show extends Component
     {
         $this->authorize('backup', $this->server);
 
-        $this->server->load(['backups.volume', 'backups.backupSchedule']);
+        $this->server->load(['backups.volumes', 'backups.backupSchedule']);
 
         $this->triggerAllBackups($this->server, $action);
     }

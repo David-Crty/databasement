@@ -31,7 +31,7 @@ class SnapshotController extends Controller
      */
     public function show(Snapshot $snapshot): SnapshotResource
     {
-        $snapshot->load(['databaseServer', 'backup', 'volume', 'triggeredBy', 'job']);
+        $snapshot->load(['databaseServer', 'backup', 'files.volume', 'triggeredBy', 'job']);
 
         return new SnapshotResource($snapshot);
     }

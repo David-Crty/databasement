@@ -2,7 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\SnapshotFileStatus;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -38,11 +40,24 @@ class SnapshotResource extends JsonResource
                 'id' => $this->databaseServer->id,
                 'name' => $this->databaseServer->name,
             ]),
-            'volume' => $this->whenLoaded('volume', fn () => [
-                'id' => $this->volume->id,
-                'name' => $this->volume->name,
-                'type' => $this->volume->type,
-            ]),
+            'volumes' => $this->whenLoaded('files', fn () => $this->files->map(fn (SnapshotFile $file) => [
+                'id' => $file->volume->id,
+                'name' => $file->volume->name,
+                'type' => $file->volume->type,
+                'status' => $file->status,
+                'file_exists' => $file->file_exists,
+            ])->all()),
+            // Deprecated: single-volume key (first available copy) kept for
+            // v1 API backward compatibility.
+            'volume' => $this->whenLoaded('files', function () {
+                $file = $this->files->firstWhere('status', SnapshotFileStatus::Completed) ?? $this->files->first();
+
+                return $file === null ? null : [
+                    'id' => $file->volume->id,
+                    'name' => $file->volume->name,
+                    'type' => $file->volume->type,
+                ];
+            }),
             'triggered_by' => $this->whenLoaded('triggeredBy', fn () => $this->triggeredBy ? [
                 'id' => $this->triggeredBy->id,
                 'name' => $this->triggeredBy->name,

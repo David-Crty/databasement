@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SnapshotFileStatus;
 use App\Enums\VolumeType;
 use App\Models\Scopes\OrganizationScope;
 use Database\Factories\VolumeFactory;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Crypt;
 
@@ -38,9 +40,40 @@ class Volume extends Model
         });
 
         static::deleting(function (Volume $volume) {
-            foreach ($volume->snapshots as $snapshot) {
-                $snapshot->skipFileCleanup = $volume->skipFileCleanup;
-                $snapshot->delete();
+            // Remove this volume's copies (deleting their files unless asked
+            // not to). Restores pointing at a removed copy get their
+            // snapshot_file_id nulled by the FK.
+            $files = $volume->snapshotFiles()->get();
+            foreach ($files as $file) {
+                if (! $volume->skipFileCleanup && $file->status === SnapshotFileStatus::Completed) {
+                    $file->deleteFromVolume();
+                }
+                $file->delete();
+            }
+
+            // Snapshots left without any copy follow the volume (legacy
+            // cascade semantics); multi-volume snapshots survive with their
+            // remaining copies.
+            foreach ($files->pluck('snapshot_id')->unique() as $snapshotId) {
+                $snapshot = Snapshot::query()->whereKey($snapshotId)->first();
+                if ($snapshot === null) {
+                    continue;
+                }
+
+                if ($snapshot->files()->doesntExist()) {
+                    $snapshot->skipFileCleanup = true;
+                    $snapshot->delete();
+                } else {
+                    $snapshot->recomputeFileExists();
+                }
+            }
+
+            // Backup configs that only targeted this volume follow it too;
+            // multi-volume configs just lose one target.
+            foreach ($volume->backups as $backup) {
+                if ($backup->volumes()->whereKeyNot($volume->id)->doesntExist()) {
+                    $backup->delete();
+                }
             }
         });
     }
@@ -68,27 +101,29 @@ class Volume extends Model
     }
 
     /**
-     * @return HasMany<Backup, Volume>
+     * @return BelongsToMany<Backup, Volume>
      */
-    public function backups(): HasMany
+    public function backups(): BelongsToMany
     {
-        return $this->hasMany(Backup::class);
+        return $this->belongsToMany(Backup::class);
     }
 
     /**
-     * @return HasMany<Snapshot, Volume>
+     * The snapshot copies stored on this volume.
+     *
+     * @return HasMany<SnapshotFile, Volume>
      */
-    public function snapshots(): HasMany
+    public function snapshotFiles(): HasMany
     {
-        return $this->hasMany(Snapshot::class);
+        return $this->hasMany(SnapshotFile::class);
     }
 
     /**
-     * Check if volume has any snapshots (making it immutable).
+     * Check if volume has any snapshot copies (making it immutable).
      */
     public function hasSnapshots(): bool
     {
-        return $this->snapshots()->exists();
+        return $this->snapshotFiles()->exists();
     }
 
     /**
@@ -128,7 +163,7 @@ class Volume extends Model
             return (int) $this->attributes['used_storage_bytes'];
         }
 
-        return (int) $this->snapshots()->completed()->sum('file_size');
+        return (int) $this->snapshotFiles()->completed()->sum('file_size');
     }
 
     /**

@@ -16,8 +16,7 @@ beforeEach(function () {
 
 test('display label with all databases and days retention', function () {
     $server = DatabaseServer::factory()->withoutBackups()->create();
-    $backup = Backup::factory()->for($server)->create([
-        'volume_id' => $this->volume->id,
+    $backup = Backup::factory()->for($server)->withVolumes($this->volume)->create([
         'backup_schedule_id' => $this->schedule->id,
         'database_selection_mode' => DatabaseSelectionMode::All,
         'retention_policy' => 'days',
@@ -29,8 +28,7 @@ test('display label with all databases and days retention', function () {
 
 test('display label with selected databases', function () {
     $server = DatabaseServer::factory()->withoutBackups()->create();
-    $backup = Backup::factory()->for($server)->create([
-        'volume_id' => $this->volume->id,
+    $backup = Backup::factory()->for($server)->withVolumes($this->volume)->create([
         'backup_schedule_id' => $this->schedule->id,
         'database_selection_mode' => DatabaseSelectionMode::Selected,
         'database_names' => ['app_db', 'users_db'],
@@ -43,8 +41,7 @@ test('display label with selected databases', function () {
 
 test('display label truncates many selected databases', function () {
     $server = DatabaseServer::factory()->withoutBackups()->create();
-    $backup = Backup::factory()->for($server)->create([
-        'volume_id' => $this->volume->id,
+    $backup = Backup::factory()->for($server)->withVolumes($this->volume)->create([
         'backup_schedule_id' => $this->schedule->id,
         'database_selection_mode' => DatabaseSelectionMode::Selected,
         'database_names' => ['app_db', 'users_db', 'logs_db'],
@@ -57,8 +54,7 @@ test('display label truncates many selected databases', function () {
 
 test('display label with pattern selection', function () {
     $server = DatabaseServer::factory()->withoutBackups()->create();
-    $backup = Backup::factory()->for($server)->create([
-        'volume_id' => $this->volume->id,
+    $backup = Backup::factory()->for($server)->withVolumes($this->volume)->create([
         'backup_schedule_id' => $this->schedule->id,
         'database_selection_mode' => DatabaseSelectionMode::Pattern,
         'database_include_pattern' => '^prod_',
@@ -70,8 +66,7 @@ test('display label with pattern selection', function () {
 
 test('display label with GFS retention', function () {
     $server = DatabaseServer::factory()->withoutBackups()->create();
-    $backup = Backup::factory()->for($server)->create([
-        'volume_id' => $this->volume->id,
+    $backup = Backup::factory()->for($server)->withVolumes($this->volume)->create([
         'backup_schedule_id' => $this->schedule->id,
         'database_selection_mode' => DatabaseSelectionMode::All,
         'retention_policy' => 'gfs',
@@ -86,8 +81,7 @@ test('display label with GFS retention', function () {
 
 test('display label with sqlite paths', function () {
     $server = DatabaseServer::factory()->withoutBackups()->sqlite()->create();
-    $backup = Backup::factory()->for($server)->create([
-        'volume_id' => $this->volume->id,
+    $backup = Backup::factory()->for($server)->withVolumes($this->volume)->create([
         'backup_schedule_id' => $this->schedule->id,
         'database_selection_mode' => DatabaseSelectionMode::Selected,
         'database_names' => ['/data/app.sqlite', '/data/cache.sqlite'],
@@ -100,8 +94,7 @@ test('display label with sqlite paths', function () {
 
 test('display label truncates many sqlite paths', function () {
     $server = DatabaseServer::factory()->withoutBackups()->sqlite()->create();
-    $backup = Backup::factory()->for($server)->create([
-        'volume_id' => $this->volume->id,
+    $backup = Backup::factory()->for($server)->withVolumes($this->volume)->create([
         'backup_schedule_id' => $this->schedule->id,
         'database_selection_mode' => DatabaseSelectionMode::Selected,
         'database_names' => ['/data/app.sqlite', '/data/cache.sqlite', '/data/logs.sqlite'],

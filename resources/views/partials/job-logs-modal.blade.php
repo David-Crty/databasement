@@ -86,13 +86,15 @@
                             </div>
                         @endif
 
-                        {{-- Volume Type --}}
-                        @if($snapshot->volume)
-                            <div class="badge badge-outline gap-1.5">
-                                <x-volume-type-icon :type="$snapshot->volume->type" class="w-3.5 h-3.5" />
-                                {{ $snapshot->volume->getVolumeType()?->label() ?? $snapshot->volume->type }}
-                            </div>
-                        @endif
+                        {{-- Volume Type(s) --}}
+                        @foreach($snapshot->files as $file)
+                            @if($file->volume)
+                                <div class="badge badge-outline gap-1.5">
+                                    <x-volume-type-icon :type="$file->volume->type" class="w-3.5 h-3.5" />
+                                    {{ $file->volume->getVolumeType()?->label() ?? $file->volume->type }}
+                                </div>
+                            @endif
+                        @endforeach
 
                         {{-- Agent: only for backup jobs that ran through a remote agent --}}
                         @if($this->selectedJob->snapshot?->getAgentName())

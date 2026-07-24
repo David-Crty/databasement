@@ -17,6 +17,7 @@ test('job is configured with correct queue and settings', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
@@ -55,6 +56,7 @@ test('handle builds config from models and marks job completed', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($sourceServer->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'file_size' => 2048, 'compression_type' => CompressionType::GZIP]);
+    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $targetServer, 'restored_db');
@@ -70,7 +72,7 @@ test('handle builds config from models and marks job completed', function () {
                 && $config->snapshotFileSize === 2048
                 && $config->snapshotDatabaseName === 'sourcedb'
                 && $config->schemaName === 'restored_db'
-                && $config->snapshotVolume->name === $snapshot->volume->name
+                && $config->snapshotVolume->name === $snapshot->files()->first()->volume->name
                 && str_contains($config->workingDirectory, 'restore-')
             ),
             Mockery::any(), // BackupLogger (the job itself)
@@ -102,6 +104,7 @@ test('handle marks job as failed and re-throws on execute failure', function () 
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($sourceServer->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
+    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $targetServer, 'restored_db');
@@ -127,6 +130,7 @@ test('job can be dispatched to queue', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
@@ -145,6 +149,7 @@ test('failed method sends notification', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
@@ -155,4 +160,57 @@ test('failed method sends notification', function () {
     $job->failed($exception);
 
     Notification::assertSentTimes(\App\Notifications\RestoreFailedNotification::class, 1);
+});
+
+test('handle reads from the copy chosen on the restore', function () {
+    $sourceServer = createDatabaseServer(['database_type' => 'mysql', 'database_names' => ['sourcedb']]);
+    $targetServer = createDatabaseServer(['database_type' => 'mysql', 'database_names' => ['targetdb']]);
+
+    $backup = $sourceServer->backups->first();
+    $secondVolume = \App\Models\Volume::factory()->local()->create(['name' => 'Second Copy']);
+    $backup->volumes()->attach($secondVolume);
+
+    $factory = app(BackupJobFactory::class);
+    $snapshot = $factory->createSnapshots($backup->fresh(), 'manual')[0];
+    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
+    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz']);
+    $snapshot->job->markCompleted();
+
+    $chosenFile = $snapshot->files()->whereRelation('volume', 'name', 'Second Copy')->firstOrFail();
+
+    $restore = $factory->createRestore($snapshot, $targetServer, 'restored_db', snapshotFileId: $chosenFile->id);
+
+    $mockRestoreTask = Mockery::mock(RestoreTask::class);
+    $mockRestoreTask->shouldReceive('execute')
+        ->once()
+        ->with(
+            Mockery::on(fn (RestoreConfig $config) => $config->snapshotVolume->name === 'Second Copy'),
+            Mockery::any(),
+        );
+
+    (new ProcessRestoreJob($restore->id))->handle($mockRestoreTask);
+
+    expect($restore->fresh()->job->status)->toBe(BackupJobStatus::Completed);
+});
+
+test('handle fails when no copy of the snapshot exists on any volume', function () {
+    $server = createDatabaseServer(['database_type' => 'mysql', 'database_names' => ['sourcedb']]);
+
+    $factory = app(BackupJobFactory::class);
+    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
+    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz']);
+    $snapshot->job->markCompleted();
+
+    $restore = $factory->createRestore($snapshot, $server, 'restored_db');
+
+    // Every copy has since gone missing from its volume.
+    $snapshot->files()->update(['file_exists' => false]);
+
+    $mockRestoreTask = Mockery::mock(RestoreTask::class);
+    $mockRestoreTask->shouldReceive('execute')->never();
+
+    (new ProcessRestoreJob($restore->id))->handle($mockRestoreTask);
+
+    expect($restore->fresh()->job->status)->toBe(BackupJobStatus::Failed);
 });

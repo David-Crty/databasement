@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Enums\SnapshotFileStatus;
 use App\Models\Snapshot;
 use App\Support\Formatters;
 use Illuminate\Contracts\View\View;
@@ -20,8 +21,10 @@ class StorageDistributionChart extends Component
     {
         /** @var \Illuminate\Support\Collection<int, object{name: string, total_size: int}> $storageByVolume */
         $storageByVolume = Snapshot::forCurrentOrg()
-            ->join('volumes', 'snapshots.volume_id', '=', 'volumes.id')
-            ->selectRaw('volumes.name, SUM(snapshots.file_size) as total_size')
+            ->join('snapshot_files', 'snapshot_files.snapshot_id', '=', 'snapshots.id')
+            ->where('snapshot_files.status', SnapshotFileStatus::Completed)
+            ->join('volumes', 'snapshot_files.volume_id', '=', 'volumes.id')
+            ->selectRaw('volumes.name, SUM(snapshot_files.file_size) as total_size')
             ->groupBy('volumes.id', 'volumes.name')
             ->orderByDesc('total_size')
             ->get();

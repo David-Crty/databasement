@@ -19,7 +19,7 @@ class ListDatabaseServersTool extends Tool
     {
         $query = DatabaseServer::query()->with([
             'backups' => fn ($q) => $q->orderBy('id'),
-            'backups.volume',
+            'backups.volumes',
             'backups.backupSchedule',
         ]);
 

@@ -51,6 +51,11 @@ class Index extends Component
 
     public bool $keepFiles = false;
 
+    #[Locked]
+    public ?string $downloadSnapshotId = null;
+
+    public bool $showDownloadModal = false;
+
     public function updatingSearch(): void
     {
         $this->resetPage();
@@ -107,7 +112,7 @@ class Index extends Component
         // The job-view policy already gates access to this data.
         return BackupJob::with([
             'snapshot.databaseServer' => fn ($q) => $q->withoutGlobalScopes(),
-            'snapshot.volume' => fn ($q) => $q->withoutGlobalScopes(),
+            'snapshot.files.volume' => fn ($q) => $q->withoutGlobalScopes(),
             'snapshot.triggeredBy',
         ])->find($this->selectedJobId);
     }
@@ -158,6 +163,28 @@ class Index extends Component
             ->map(fn (DatabaseType $t) => ['id' => $t->value, 'name' => $t->label()])
             ->values()
             ->all();
+    }
+
+    /**
+     * Open the volume picker for a snapshot stored on several volumes.
+     */
+    public function openDownloadModal(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('download', $snapshot);
+
+        $this->downloadSnapshotId = $snapshotId;
+        $this->showDownloadModal = true;
+    }
+
+    public function getDownloadSnapshotProperty(): ?Snapshot
+    {
+        if (! $this->downloadSnapshotId) {
+            return null;
+        }
+
+        return Snapshot::with('files.volume')->find($this->downloadSnapshotId);
     }
 
     public function confirmDeleteSnapshot(string $snapshotId): void

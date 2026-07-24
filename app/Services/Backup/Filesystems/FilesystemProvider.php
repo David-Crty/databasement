@@ -4,7 +4,7 @@ namespace App\Services\Backup\Filesystems;
 
 use App\Enums\VolumeType;
 use App\Exceptions\Backup\FilesystemException;
-use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Models\Volume;
 use App\Services\Backup\DTO\VolumeConfig;
 use League\Flysystem\Filesystem;
@@ -74,10 +74,10 @@ class FilesystemProvider
         $this->writeToFilesystem($filesystem, $source, $destination);
     }
 
-    public function download(Snapshot $snapshot, string $destination): void
+    public function download(SnapshotFile $file, string $destination): void
     {
-        $filesystem = $this->getForVolume($snapshot->volume);
-        $this->readFromFilesystem($filesystem, $snapshot->filename, $destination);
+        $filesystem = $this->getForVolume($file->volume);
+        $this->readFromFilesystem($filesystem, $file->storedFilename(), $destination);
     }
 
     /**

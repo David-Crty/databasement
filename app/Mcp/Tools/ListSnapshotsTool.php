@@ -19,7 +19,7 @@ class ListSnapshotsTool extends Tool
         $limit = min((int) ($request->get('limit') ?? 20), 100);
 
         $query = Snapshot::query()
-            ->with(['databaseServer', 'volume', 'job'])
+            ->with(['databaseServer', 'files.volume', 'job'])
             ->orderByDesc('created_at');
 
         $serverId = $request->get('database_server_id');
@@ -39,9 +39,11 @@ class ListSnapshotsTool extends Tool
             $date = $snapshot->created_at?->toDateTimeString() ?? 'unknown';
             $server = $snapshot->databaseServer->name;
 
+            $volumes = $snapshot->files->pluck('volume.name')->filter()->implode(', ');
+
             return "- **{$snapshot->database_name}** on {$server} (ID: {$snapshot->id})\n"
                 ."  Status: {$status} | Size: {$size} | Date: {$date}\n"
-                ."  Type: {$snapshot->database_type->label()} | Volume: {$snapshot->volume->name}";
+                ."  Type: {$snapshot->database_type->label()} | Volume: {$volumes}";
         });
 
         return Response::text("Snapshots ({$snapshots->count()}):\n\n".implode("\n\n", $lines->all()));

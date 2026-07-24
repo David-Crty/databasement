@@ -273,7 +273,7 @@ describe('volume storage limit', function () {
     test('the storage limit stays editable on a volume locked by its snapshots', function () {
         $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-        $volume = $server->backups->first()->volume;
+        $volume = $server->backups->first()->volumes->first();
         app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual');
 
         expect($volume->hasSnapshots())->toBeTrue();
@@ -333,7 +333,7 @@ describe('volume listing', function () {
 
         // A capped volume with a completed 3 GB snapshot exercises the Usage column.
         $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-        $cappedVolume = $server->backups->first()->volume;
+        $cappedVolume = $server->backups->first()->volumes->first();
         $cappedVolume->update(['config' => [...$cappedVolume->config, 'max_storage_bytes' => 10 * (1024 ** 3)]]);
         Snapshot::factory()->forServer($server)->create(['file_size' => 3 * (1024 ** 3)]);
 
@@ -393,7 +393,7 @@ describe('volume deletion', function () {
 
         // Create server with backup using our volume
         $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-        $server->backups->first()->update(['volume_id' => $volume->id]);
+        $server->backups->first()->volumes()->sync([$volume->id]);
 
         // Create snapshot with real file
         $factory = app(BackupJobFactory::class);
@@ -403,6 +403,7 @@ describe('volume deletion', function () {
             'filename' => $backupFilename,
             'file_size' => filesize($backupFilePath),
         ]);
+        $snapshot->files()->update(['status' => 'completed', 'filename' => $backupFilename]);
         $snapshot->job->markCompleted();
         $snapshotJobId = $snapshot->job->id;
 
@@ -450,7 +451,7 @@ describe('volume deletion', function () {
 
         // Create server with backup using our volume
         $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-        $server->backups->first()->update(['volume_id' => $volume->id]);
+        $server->backups->first()->volumes()->sync([$volume->id]);
 
         // Create snapshot with real file
         $factory = app(BackupJobFactory::class);
@@ -460,6 +461,7 @@ describe('volume deletion', function () {
             'filename' => $backupFilename,
             'file_size' => filesize($backupFilePath),
         ]);
+        $snapshot->files()->update(['status' => 'completed', 'filename' => $backupFilename]);
         $snapshot->job->markCompleted();
 
         $backupJobId = $snapshot->backup_job_id;
@@ -485,7 +487,7 @@ describe('volume immutability', function () {
 
         // Create a volume with a snapshot
         $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-        $volume = $server->backups->first()->volume;
+        $volume = $server->backups->first()->volumes->first();
 
         $factory = app(BackupJobFactory::class);
         $factory->createSnapshots($server->backups->first(), 'manual');

@@ -64,10 +64,10 @@ class NotificationService
      * (notify-only mode). Volumes are installation-wide, so this alerts every
      * configured channel rather than the source server's channels.
      */
-    public function notifyStorageLimitWarning(Snapshot $snapshot, string $message): void
+    public function notifyStorageLimitWarning(Snapshot $snapshot, string $message, string $volumeName): void
     {
         $this->safely(fn () => $this->sendToChannels(
-            new StorageLimitWarningNotification($snapshot, $message),
+            new StorageLimitWarningNotification($snapshot, $message, $volumeName),
             NotificationChannel::all(),
         ));
     }

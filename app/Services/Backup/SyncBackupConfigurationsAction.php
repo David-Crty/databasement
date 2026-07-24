@@ -50,14 +50,19 @@ class SyncBackupConfigurationsAction
                 $data['database_server_id'] = $server->id;
 
                 $existingId = $entry['id'] ?? null;
+                $volumeIds = array_values(array_filter((array) ($entry['volume_ids'] ?? [])));
 
                 /** @var array<string, mixed> $data */
                 if ($existingId !== null) {
-                    $existing->get($existingId)->update($data);
+                    $backup = $existing->get($existingId);
+                    $backup->update($data);
                     $submittedIds[] = $existingId;
                 } else {
-                    $submittedIds[] = Backup::create($data)->id;
+                    $backup = Backup::create($data);
+                    $submittedIds[] = $backup->id;
                 }
+
+                $backup->volumes()->sync($volumeIds);
             }
 
             $toDelete = array_diff($existing->keys()->all(), $submittedIds);

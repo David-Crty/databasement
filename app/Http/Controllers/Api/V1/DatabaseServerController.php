@@ -47,7 +47,7 @@ class DatabaseServerController extends Controller
      */
     public function show(DatabaseServer $databaseServer): DatabaseServerResource
     {
-        $databaseServer->load(['backups.volume', 'backups.backupSchedule']);
+        $databaseServer->load(['backups.volumes', 'backups.backupSchedule']);
 
         return new DatabaseServerResource($databaseServer);
     }
@@ -79,7 +79,7 @@ class DatabaseServerController extends Controller
         $server = DatabaseServer::create($validated);
         $this->syncBackupConfigurations($server, $backupsPayload, $hasBackupsPayload);
 
-        $server->load(['backups.volume', 'backups.backupSchedule']);
+        $server->load(['backups.volumes', 'backups.backupSchedule']);
 
         return (new DatabaseServerResource($server))
             ->response()
@@ -113,7 +113,7 @@ class DatabaseServerController extends Controller
         $databaseServer->update($validated);
         $this->syncBackupConfigurations($databaseServer, $backupsPayload, $hasBackupsPayload);
 
-        $databaseServer->load(['backups.volume', 'backups.backupSchedule']);
+        $databaseServer->load(['backups.volumes', 'backups.backupSchedule']);
 
         return new DatabaseServerResource($databaseServer);
     }
@@ -161,7 +161,7 @@ class DatabaseServerController extends Controller
     {
         $this->authorize('backup', $databaseServer);
 
-        $databaseServer->load(['backups.volume', 'backups.backupSchedule']);
+        $databaseServer->load(['backups.volumes', 'backups.backupSchedule']);
 
         $backupId = $request->query('backup_id');
 

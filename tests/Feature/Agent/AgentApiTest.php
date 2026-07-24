@@ -210,6 +210,87 @@ describe('job acknowledgement', function () {
             ->and($backupJob->logs)->toHaveCount(2)
             ->and($backupJob->logs[0]['message'])->toBe('Starting backup for database: testdb');
     });
+
+    test('ack records per-volume results on a multi-volume snapshot', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+
+        $volumeA = \App\Models\Volume::factory()->s3()->create();
+        $volumeB = \App\Models\Volume::factory()->s3()->create();
+        $snapshot = \App\Models\Snapshot::factory()->onVolumes($volumeA, $volumeB)->create(['filename' => '']);
+        $snapshot->files()->update(['status' => 'pending']);
+        $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", [
+                'filename' => 'multi.sql.gz',
+                'file_size' => 2048,
+                'checksum' => 'sha',
+                'volumes' => [
+                    ['volume_id' => $volumeA->id, 'status' => 'completed'],
+                    ['volume_id' => $volumeB->id, 'status' => 'completed'],
+                ],
+            ])
+            ->assertOk();
+
+        $snapshot->refresh();
+        expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
+            ->and($snapshot->files()->completed()->count())->toBe(2)
+            ->and($snapshot->files->pluck('filename')->unique()->all())->toBe(['multi.sql.gz']);
+    });
+
+    test('legacy ack without volume results fails a multi-volume job but completes a single-volume one', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+
+        // Multi-volume snapshot acked by an old agent: only the first copy was
+        // uploaded, so the job fails and the remaining copy is marked failed.
+        $volumeA = \App\Models\Volume::factory()->s3()->create();
+        $volumeB = \App\Models\Volume::factory()->s3()->create();
+        $snapshot = \App\Models\Snapshot::factory()->onVolumes($volumeA, $volumeB)->create(['filename' => '']);
+        $snapshot->files()->update(['status' => 'pending']);
+        $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", [
+                'filename' => 'legacy.sql.gz',
+                'file_size' => 1024,
+            ])
+            ->assertOk();
+
+        $snapshot->refresh();
+        expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
+            ->and($snapshot->files()->completed()->count())->toBe(1)
+            ->and($snapshot->files()->where('status', 'failed')->first()->error)
+            ->toContain('update the agent');
+    });
+
+    test('fail with per-volume results records the successful copies', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+
+        $volumeA = \App\Models\Volume::factory()->s3()->create();
+        $volumeB = \App\Models\Volume::factory()->s3()->create();
+        $snapshot = \App\Models\Snapshot::factory()->onVolumes($volumeA, $volumeB)->create(['filename' => '']);
+        $snapshot->files()->update(['status' => 'pending']);
+        $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/fail", [
+                'error_message' => 'Upload failed for volume(s): B',
+                'filename' => 'partial.sql.gz',
+                'file_size' => 4096,
+                'volumes' => [
+                    ['volume_id' => $volumeA->id, 'status' => 'completed'],
+                    ['volume_id' => $volumeB->id, 'status' => 'failed', 'error' => 'S3 unreachable'],
+                ],
+            ])
+            ->assertOk();
+
+        $snapshot->refresh();
+        expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
+            ->and($snapshot->filename)->toBe('partial.sql.gz')
+            ->and($snapshot->files()->completed()->first()->volume_id)->toBe($volumeA->id)
+            ->and($snapshot->files()->completed()->first()->filename)->toBe('partial.sql.gz')
+            ->and($snapshot->files()->where('status', 'failed')->first()->error)->toBe('S3 unreachable');
+    });
 });
 
 describe('job failure', function () {
@@ -374,7 +455,7 @@ describe('discovery jobs', function () {
             'agent_id' => $agent->id,
             'database_selection_mode' => 'all',
         ]);
-        $server->load('backups.volume');
+        $server->load('backups.volumes');
         $backup = $server->backups->first();
 
         $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([

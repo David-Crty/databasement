@@ -6,6 +6,7 @@ use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;
+use App\Enums\SnapshotFileStatus;
 use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Models\BackupJob;
@@ -101,16 +102,15 @@ class BackupJobFactory
         ?int $triggeredByUserId = null
     ): Snapshot {
         $server = $backup->databaseServer;
-        $volume = $backup->volume;
+        $volumes = $backup->volumes;
 
-        $snapshot = DB::transaction(function () use ($backup, $server, $volume, $databaseName, $method, $triggeredByUserId) {
+        $snapshot = DB::transaction(function () use ($backup, $server, $volumes, $databaseName, $method, $triggeredByUserId) {
             $job = BackupJob::create(['status' => BackupJobStatus::Pending]);
 
-            return Snapshot::create([
+            $snapshot = Snapshot::create([
                 'backup_job_id' => $job->id,
                 'database_server_id' => $server->id,
                 'backup_id' => $backup->id,
-                'volume_id' => $volume->id,
                 'filename' => '',
                 'file_size' => 0,
                 'checksum' => null,
@@ -119,12 +119,23 @@ class BackupJobFactory
                 'database_type' => $server->database_type,
                 'compression_type' => CompressionType::from(AppConfig::get('backup.compression')),
                 'method' => $method,
-                'metadata' => Snapshot::generateMetadata($server, $databaseName, $volume),
+                'metadata' => Snapshot::generateMetadata($server, $databaseName, $volumes),
                 'triggered_by_user_id' => $triggeredByUserId,
             ]);
+
+            // The run's target volumes are frozen here — editing the backup
+            // config later must not change what an in-flight run uploads to.
+            foreach ($volumes as $volume) {
+                $snapshot->files()->create([
+                    'volume_id' => $volume->id,
+                    'status' => SnapshotFileStatus::Pending,
+                ]);
+            }
+
+            return $snapshot;
         });
 
-        $snapshot->load(['job', 'volume', 'databaseServer']);
+        $snapshot->load(['job', 'files.volume', 'databaseServer']);
 
         return $snapshot;
     }
@@ -171,11 +182,20 @@ class BackupJobFactory
         ?int $triggeredByUserId = null,
         array $options = [],
         ?string $scheduledRestoreId = null,
+        ?string $snapshotFileId = null,
     ): Restore {
         $snapshot->loadMissing('job');
-        if ($snapshot->job->status !== BackupJobStatus::Completed || $snapshot->filename === '') {
+        if ($snapshot->job->status !== BackupJobStatus::Completed
+            || $snapshot->files()->completed()->fileExists()->doesntExist()) {
             throw ValidationException::withMessages([
                 'snapshot_id' => 'Snapshot is not completed and cannot be restored.',
+            ]);
+        }
+
+        if ($snapshotFileId !== null
+            && $snapshot->files()->completed()->whereKey($snapshotFileId)->doesntExist()) {
+            throw ValidationException::withMessages([
+                'snapshot_file_id' => 'The selected source copy does not belong to this snapshot.',
             ]);
         }
 
@@ -191,12 +211,13 @@ class BackupJobFactory
             ]);
         }
 
-        $restore = DB::transaction(function () use ($snapshot, $targetServer, $schemaName, $options, $triggeredByUserId, $scheduledRestoreId) {
+        $restore = DB::transaction(function () use ($snapshot, $targetServer, $schemaName, $options, $triggeredByUserId, $scheduledRestoreId, $snapshotFileId) {
             $job = BackupJob::create(['status' => BackupJobStatus::Pending]);
 
             return Restore::create([
                 'backup_job_id' => $job->id,
                 'snapshot_id' => $snapshot->id,
+                'snapshot_file_id' => $snapshotFileId,
                 'target_server_id' => $targetServer->id,
                 'schema_name' => $schemaName,
                 'options' => $options ?: null,
@@ -205,7 +226,7 @@ class BackupJobFactory
             ]);
         });
 
-        $restore->load(['job', 'snapshot.volume', 'snapshot.databaseServer', 'targetServer']);
+        $restore->load(['job', 'snapshot.files.volume', 'snapshot.databaseServer', 'targetServer']);
 
         return $restore;
     }

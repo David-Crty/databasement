@@ -16,17 +16,19 @@ test('storage distribution chart builds doughnut chart data grouped by volume', 
     $volume2 = Volume::factory()->create(['name' => 'volume-two']);
 
     $server1 = DatabaseServer::factory()->create(['database_names' => ['db1']]);
-    $server1->backups->first()->update(['volume_id' => $volume1->id]);
+    $server1->backups->first()->volumes()->sync([$volume1->id]);
 
     $server2 = DatabaseServer::factory()->create(['database_names' => ['db2']]);
-    $server2->backups->first()->update(['volume_id' => $volume2->id]);
+    $server2->backups->first()->volumes()->sync([$volume2->id]);
 
     // Create snapshots on different volumes
     $snapshots1 = $factory->createSnapshots($server1->backups->first(), 'manual', $user->id);
     $snapshots1[0]->update(['file_size' => 1024 * 1024 * 100]); // 100 MB
+    $snapshots1[0]->files()->update(['status' => 'completed', 'file_size' => 1024 * 1024 * 100]);
 
     $snapshots2 = $factory->createSnapshots($server2->backups->first(), 'manual', $user->id);
     $snapshots2[0]->update(['file_size' => 1024 * 1024 * 50]); // 50 MB
+    $snapshots2[0]->files()->update(['status' => 'completed', 'file_size' => 1024 * 1024 * 50]);
 
     $component = Livewire::withoutLazyLoading()
         ->actingAs($user)
@@ -57,10 +59,11 @@ test('storage distribution chart labels include formatted size', function () {
 
     $volume = Volume::factory()->create(['name' => 'my-storage']);
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
-    $server->backups->first()->update(['volume_id' => $volume->id]);
+    $server->backups->first()->volumes()->sync([$volume->id]);
 
     $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshots[0]->update(['file_size' => 1024 * 1024 * 256]); // 256 MB
+    $snapshots[0]->files()->update(['status' => 'completed', 'file_size' => 1024 * 1024 * 256]);
 
     $component = Livewire::withoutLazyLoading()
         ->actingAs($user)

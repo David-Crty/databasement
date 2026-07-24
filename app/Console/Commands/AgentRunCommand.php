@@ -2,12 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Exceptions\Backup\VolumeTransferException;
 use App\Models\DatabaseServer;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Agent\AgentAuthenticationException;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\BackupConfig;
+use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Services\Backup\InMemoryBackupLogger;
 use App\Support\FilesystemSupport;
 use Illuminate\Console\Command;
@@ -111,13 +113,42 @@ class AgentRunCommand extends Command
                 onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
             );
 
-            $client->ack($job['id'], $result->filename, $result->fileSize, $result->checksum, $logger->flush());
+            $client->ack(
+                $job['id'],
+                $result->filename,
+                $result->fileSize,
+                $result->checksum,
+                $this->volumeResultPayloads($result->volumeResults),
+                $logger->flush(),
+            );
             $this->log("Job completed: {$result->filename}");
+        } catch (VolumeTransferException $e) {
+            // Some uploads may have succeeded — report the per-volume
+            // outcomes so the app records the good copies before failing.
+            $logger->log("Backup failed: {$e->getMessage()}", 'error');
+            $this->log("Job failed: {$e->getMessage()}", 'error');
+            $client->fail(
+                $job['id'],
+                $e->getMessage(),
+                $logger->flush(),
+                $this->volumeResultPayloads($e->result->volumeResults),
+                $e->result->filename,
+                $e->result->fileSize,
+            );
         } catch (\Throwable $e) {
             $logger->log("Backup failed: {$e->getMessage()}", 'error');
             $this->log("Job failed: {$e->getMessage()}", 'error');
             $client->fail($job['id'], $e->getMessage(), $logger->flush());
         }
+    }
+
+    /**
+     * @param  list<VolumeTransferResult>  $volumeResults
+     * @return array<int, array<string, mixed>>
+     */
+    private function volumeResultPayloads(array $volumeResults): array
+    {
+        return array_map(fn (VolumeTransferResult $volumeResult) => $volumeResult->toPayload(), $volumeResults);
     }
 
     /**

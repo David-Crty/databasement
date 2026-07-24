@@ -141,7 +141,7 @@ class Index extends Component
 
     public function runBackup(string $backupId, TriggerBackupAction $action): void
     {
-        $backup = Backup::with(['databaseServer', 'volume', 'backupSchedule'])->findOrFail($backupId);
+        $backup = Backup::with(['databaseServer', 'volumes', 'backupSchedule'])->findOrFail($backupId);
 
         $this->authorize('backup', $backup->databaseServer);
 
@@ -159,7 +159,7 @@ class Index extends Component
 
     public function runBackupAll(string $serverId, TriggerBackupAction $action): void
     {
-        $server = DatabaseServer::with(['backups.volume', 'backups.backupSchedule'])->findOrFail($serverId);
+        $server = DatabaseServer::with(['backups.volumes', 'backups.backupSchedule'])->findOrFail($serverId);
 
         $this->authorize('backup', $server);
 

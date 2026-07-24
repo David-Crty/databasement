@@ -112,7 +112,7 @@ class Index extends Component
         // The job-view policy already gates access to this data.
         return BackupJob::with([
             'restore.snapshot.databaseServer' => fn ($q) => $q->withoutGlobalScopes(),
-            'restore.snapshot.volume' => fn ($q) => $q->withoutGlobalScopes(),
+            'restore.snapshot.files.volume' => fn ($q) => $q->withoutGlobalScopes(),
             'restore.targetServer' => fn ($q) => $q->withoutGlobalScopes(),
             'restore.triggeredBy',
         ])->find($this->selectedJobId);

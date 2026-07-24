@@ -6,9 +6,7 @@ use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Enums\DatabaseType;
 use App\Models\Scopes\OrganizationScope;
-use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\CurrentOrganization;
-use App\Support\FilesystemSupport;
 use App\Support\Formatters;
 use Database\Factories\SnapshotFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,6 +15,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 /**
  * @mixin IdeHelperSnapshot
@@ -34,7 +33,6 @@ class Snapshot extends Model
         'backup_job_id',
         'database_server_id',
         'backup_id',
-        'volume_id',
         'filename',
         'file_size',
         'file_exists',
@@ -64,11 +62,12 @@ class Snapshot extends Model
 
     /**
      * Generate metadata array for a snapshot.
-     * Sensitive fields (passwords) are excluded from the volume config.
+     * Sensitive fields (passwords) are excluded from the volume configs.
      *
-     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volume: array{type: string, config: array<string, mixed>}, agent?: array{name: string}, dump_format?: string, dump_privileges?: bool}
+     * @param  Collection<int, Volume>  $volumes
+     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volumes: list<array{id: string, type: string, config: array<string, mixed>}>, agent?: array{name: string}, dump_format?: string, dump_privileges?: bool}
      */
-    public static function generateMetadata(DatabaseServer $server, string $databaseName, Volume $volume): array
+    public static function generateMetadata(DatabaseServer $server, string $databaseName, Collection $volumes): array
     {
         $sshTunnel = ['enabled' => false];
         if ($server->requiresSshTunnel() && $server->sshConfig !== null) {
@@ -90,10 +89,11 @@ class Snapshot extends Model
                 'database_name' => $databaseName,
                 'ssh_tunnel' => $sshTunnel,
             ],
-            'volume' => [
+            'volumes' => array_values($volumes->map(fn (Volume $volume) => [
+                'id' => $volume->id,
                 'type' => $volume->type,
                 'config' => $volume->getSafeConfig(),
-            ],
+            ])->all()),
         ];
 
         // Record the agent name when the backup runs through a remote agent,
@@ -134,16 +134,35 @@ class Snapshot extends Model
     }
 
     /**
-     * Get volume info from metadata.
+     * Get volume info from metadata (first volume for multi-volume snapshots).
+     * Falls back to the legacy single `volume` key for older snapshots.
      *
-     * @return array{type: string|null, config: array<string, mixed>|null}
+     * @return array<string, mixed>
      */
     public function getVolumeMetadata(): array
     {
-        return $this->metadata['volume'] ?? [
+        return $this->getVolumesMetadata()[0] ?? [
             'type' => null,
             'config' => null,
         ];
+    }
+
+    /**
+     * Get all volume infos from metadata, wrapping the legacy single `volume`
+     * key for snapshots created before multi-volume support.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getVolumesMetadata(): array
+    {
+        $volumes = $this->metadata['volumes'] ?? null;
+        if (is_array($volumes)) {
+            return array_values($volumes);
+        }
+
+        $legacy = $this->metadata['volume'] ?? null;
+
+        return is_array($legacy) ? [$legacy] : [];
     }
 
     /**
@@ -156,11 +175,16 @@ class Snapshot extends Model
 
     protected static function booted(): void
     {
-        // Delete the backup file, associated restores and job when snapshot is deleted
+        // Delete the backup files, associated restores and job when snapshot is deleted
         static::deleting(function (Snapshot $snapshot) {
             if (! $snapshot->skipFileCleanup) {
-                $snapshot->deleteBackupFile();
+                $snapshot->deleteBackupFiles();
             }
+
+            // The copy rows would cascade at the DB level, but delete them
+            // explicitly so the restores' snapshot_file_id nullOnDelete fires
+            // consistently across drivers.
+            $snapshot->files()->delete();
 
             // Delete restores first (this triggers their booted method to delete their jobs)
             foreach ($snapshot->restores as $restore) {
@@ -205,11 +229,20 @@ class Snapshot extends Model
     }
 
     /**
-     * @return BelongsTo<Volume, Snapshot>
+     * @return HasMany<SnapshotFile, Snapshot>
      */
-    public function volume(): BelongsTo
+    public function files(): HasMany
     {
-        return $this->belongsTo(Volume::class);
+        return $this->hasMany(SnapshotFile::class);
+    }
+
+    /**
+     * The copy a restore or download should read from when the user didn't
+     * pick one: the first successfully uploaded copy still present on its volume.
+     */
+    public function primaryFile(): ?SnapshotFile
+    {
+        return $this->files()->completed()->fileExists()->oldest('id')->first();
     }
 
     /**
@@ -245,42 +278,30 @@ class Snapshot extends Model
     }
 
     /**
-     * Delete the backup file from the volume
+     * Delete every stored copy of the backup file from its volume.
+     * Returns true when at least one file was deleted.
      */
-    public function deleteBackupFile(): bool
+    public function deleteBackupFiles(): bool
     {
-        // Skip if no filename (backup file was never created)
-        if (empty($this->filename)) {
-            return false;
+        $deleted = false;
+
+        foreach ($this->files()->completed()->get() as $file) {
+            $deleted = $file->deleteFromVolume() || $deleted;
         }
 
-        try {
-            // Get the filesystem for this volume
-            $filesystemProvider = app(FilesystemProvider::class);
-            $filesystem = $filesystemProvider->getForVolume($this->volume);
+        return $deleted;
+    }
 
-            // Delete the file if it exists
-            if ($filesystem->fileExists($this->filename)) {
-                $filesystem->delete($this->filename);
-
-                FilesystemSupport::deleteEmptyParentDirectories($filesystem, $this->filename, [
-                    'snapshot_id' => $this->id,
-                ]);
-
-                return true;
-            }
-
-            return false;
-        } catch (\Exception $e) {
-            // Log the error but don't throw to prevent deletion cascade failure
-            logger()->error('Failed to delete backup file for snapshot', [
-                'snapshot_id' => $this->id,
-                'filename' => $this->filename,
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
+    /**
+     * Recompute the aggregate `file_exists` flag ("at least one copy still
+     * exists") from the per-volume copy rows. Kept as a column so listing
+     * scopes and badges don't need a join.
+     */
+    public function recomputeFileExists(): void
+    {
+        $this->update([
+            'file_exists' => $this->files()->completed()->fileExists()->exists(),
+        ]);
     }
 
     /**

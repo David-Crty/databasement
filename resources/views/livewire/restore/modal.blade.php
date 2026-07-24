@@ -142,6 +142,17 @@
             @if($this->isConfigureStep())
                 @php($snapshot = $this->selectedSnapshot)
                 <div class="space-y-4">
+                    {{-- Multi-volume snapshots: pick which stored copy to read from --}}
+                    @if(count($this->sourceFileOptions) > 1)
+                        <x-select
+                            :label="__('Restore from volume')"
+                            wire:model="selectedSnapshotFileId"
+                            :options="$this->sourceFileOptions"
+                            :hint="__('This snapshot is stored on several volumes; choose which copy to read from.')"
+                            icon="o-server-stack"
+                        />
+                    @endif
+
                     @include('livewire.restore._destination-step', [
                         'targetLocked' => $mode->targetServerLocked(),
                         'snapshotPreservesPrivileges' => (bool) ($snapshot?->metadata['dump_privileges'] ?? false),

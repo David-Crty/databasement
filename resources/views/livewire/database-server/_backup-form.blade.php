@@ -322,13 +322,14 @@
                 </span>
             </div>
 
-            <x-select
-                wire:model.live="form.backups.{{ $index }}.volume_id"
-                :label="__('Storage Volume')"
+            <x-choices-offline
+                wire:model.live="form.backups.{{ $index }}.volume_ids"
+                :label="__('Storage Volumes')"
                 :options="$volumeOptions"
-                placeholder="{{ __('Select a storage volume') }}"
-                placeholder-value=""
+                placeholder="{{ __('Select one or more storage volumes') }}"
+                :hint="__('The database is dumped once and uploaded to every selected volume')"
                 icon="o-server-stack"
+                searchable
                 required
             >
                 <x-slot:append>
@@ -347,7 +348,7 @@
                         external
                     />
                 </x-slot:append>
-            </x-select>
+            </x-choices-offline>
 
             <div>
                 <x-input

@@ -44,7 +44,7 @@ class ProcessRestoreJob implements ShouldQueue
      */
     public function handle(RestoreTask $restoreTask): void
     {
-        $restore = Restore::with(['job', 'snapshot.volume', 'snapshot.databaseServer', 'targetServer.sshConfig'])
+        $restore = Restore::with(['job', 'snapshot.files.volume', 'snapshot.databaseServer', 'snapshotFile.volume', 'targetServer.sshConfig'])
             ->findOrFail($this->restoreId);
         $targetServer = $restore->targetServer;
         $snapshot = $restore->snapshot;
@@ -61,10 +61,25 @@ class ProcessRestoreJob implements ShouldQueue
             $attemptInfo = $this->job ? " (attempt {$this->attempts()}/{$this->tries})" : '';
             $job->log("Starting restore operation{$attemptInfo}", 'info');
 
+            // Read from the copy the user picked, or auto-pick the first
+            // copy still present on its volume.
+            $sourceFile = $restore->snapshotFile ?? $snapshot->primaryFile();
+            if ($sourceFile === null) {
+                $exception = new \RuntimeException('No existing copy of this snapshot is available on any volume.');
+                $job->log("Restore failed: {$exception->getMessage()}", 'error');
+                $job->markFailed($exception);
+
+                $this->fail($exception);
+
+                return;
+            }
+
+            $job->log("Reading snapshot from volume: {$sourceFile->volume->name}", 'info');
+
             $config = new RestoreConfig(
                 targetServer: DatabaseConnectionConfig::fromServer($targetServer),
-                snapshotVolume: VolumeConfig::fromVolume($snapshot->volume),
-                snapshotFilename: $snapshot->filename,
+                snapshotVolume: VolumeConfig::fromVolume($sourceFile->volume),
+                snapshotFilename: $sourceFile->storedFilename(),
                 snapshotFileSize: $snapshot->file_size,
                 snapshotCompressionType: $snapshot->compression_type,
                 snapshotDatabaseType: $snapshot->database_type,

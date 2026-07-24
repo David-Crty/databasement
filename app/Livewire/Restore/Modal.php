@@ -9,6 +9,7 @@ use App\Livewire\Concerns\InteractsWithTargetDatabases;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Queries\SnapshotQuery;
 use App\Services\Backup\BackupJobFactory;
 use App\Traits\Toast;
@@ -34,6 +35,12 @@ class Modal extends Component
 
     #[Locked]
     public ?string $selectedSnapshotId = null;
+
+    /**
+     * Which stored copy to read from when the snapshot lives on several
+     * volumes; null = auto-pick (single-copy snapshots).
+     */
+    public ?string $selectedSnapshotFileId = null;
 
     public int $currentStep = 1;
 
@@ -68,7 +75,8 @@ class Modal extends Component
     public function openModal(string $mode = 'from-server', ?string $targetServerId = null, ?string $snapshotId = null, ?string $restoreId = null): void
     {
         $this->reset([
-            'targetServer', 'targetServerId', 'selectedSnapshotId', 'schemaName', 'forceDatabase',
+            'targetServer', 'targetServerId', 'selectedSnapshotId', 'selectedSnapshotFileId',
+            'schemaName', 'forceDatabase',
             'ownerUser', 'currentStep', 'existingDatabases', 'snapshotSearch',
             'serverFilter', 'dbTypeFilter',
         ]);
@@ -115,6 +123,7 @@ class Modal extends Component
 
         $this->selectedSnapshotId = $snapshotId;
         $this->dbTypeFilter = $snapshot->database_type->value;
+        $this->defaultSnapshotFile();
 
         return true;
     }
@@ -146,6 +155,10 @@ class Modal extends Component
         $this->authorize('restore', $target);
 
         $this->selectedSnapshotId = $snapshot->id;
+        $this->selectedSnapshotFileId = $restore->snapshot_file_id;
+        if ($this->selectedSnapshotFileId === null) {
+            $this->defaultSnapshotFile();
+        }
         $this->dbTypeFilter = $snapshot->database_type->value;
         $this->targetServer = $target;
         $this->targetServerId = $target->id;
@@ -162,6 +175,7 @@ class Modal extends Component
     {
         $snapshot = Snapshot::findOrFail($snapshotId);
         $this->selectedSnapshotId = $snapshotId;
+        $this->defaultSnapshotFile();
 
         if ($this->mode === RestoreModalMode::FromRestoreIndex) {
             // Need to pick target server next.
@@ -236,7 +250,46 @@ class Modal extends Component
             $this->selectedSnapshotId = null;
         }
 
+        $this->selectedSnapshotFileId = null;
+
         $this->currentStep--;
+    }
+
+    /**
+     * Preselect the source copy: the first available one when the snapshot is
+     * stored on several volumes, null (auto) for single-copy snapshots.
+     */
+    protected function defaultSnapshotFile(): void
+    {
+        $options = $this->getSourceFileOptionsProperty();
+
+        $this->selectedSnapshotFileId = count($options) > 1 ? $options[0]['id'] : null;
+    }
+
+    /**
+     * Selectable source copies for the chosen snapshot (one per volume the
+     * file still exists on). The picker only renders when there is a choice.
+     *
+     * @return list<array{id: string, name: string}>
+     */
+    public function getSourceFileOptionsProperty(): array
+    {
+        if (! $this->selectedSnapshotId) {
+            return [];
+        }
+
+        return array_values(SnapshotFile::query()
+            ->where('snapshot_id', $this->selectedSnapshotId)
+            ->completed()
+            ->fileExists()
+            ->with('volume')
+            ->oldest('id')
+            ->get()
+            ->map(fn (SnapshotFile $file) => [
+                'id' => $file->id,
+                'name' => $file->volume->name,
+            ])
+            ->all());
     }
 
     /**
@@ -287,6 +340,7 @@ class Modal extends Component
                 schemaName: $this->schemaName,
                 triggeredByUserId: is_int($userId) ? $userId : null,
                 options: $this->buildOptions(),
+                snapshotFileId: $this->selectedSnapshotFileId,
             );
 
             ProcessRestoreJob::dispatch($restore->id);

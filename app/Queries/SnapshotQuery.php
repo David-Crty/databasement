@@ -15,7 +15,7 @@ class SnapshotQuery
     private const RELATIONSHIPS = [
         'databaseServer',
         'backup',
-        'volume',
+        'files.volume',
         'triggeredBy',
         'job',
     ];
