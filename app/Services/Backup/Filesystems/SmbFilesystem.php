@@ -36,8 +36,7 @@ class SmbFilesystem implements FilesystemInterface
             ->createServer($config['host'], $auth)
             ->getShare($config['share']);
 
-        // Support both 'root' (from config/backup.php) and 'prefix' (from Volume database)
-        $root = trim($config['root'] ?? $config['prefix'] ?? '', '/');
+        $root = $this->resolveRoot($config);
 
         // The adapter auto-creates parent directories inside the root, but never
         // the root itself — create it here so fresh volumes are writable.
@@ -46,7 +45,17 @@ class SmbFilesystem implements FilesystemInterface
         return new Filesystem(new SmbAdapter($share, $root));
     }
 
-    private function ensureRootDirectoryExists(IShare $share, string $root): void
+    /**
+     * Support both 'root' (from config/backup.php) and 'prefix' (from Volume database).
+     *
+     * @param  array<string, mixed>  $config
+     */
+    protected function resolveRoot(array $config): string
+    {
+        return trim($config['root'] ?? $config['prefix'] ?? '', '/');
+    }
+
+    protected function ensureRootDirectoryExists(IShare $share, string $root): void
     {
         if ($root === '') {
             return;
