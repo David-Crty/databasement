@@ -93,6 +93,7 @@
   "Backup file is missing from volume": "Το αρχείο backup λείπει από το volume",
   "Backup file not found on volume": "Το αρχείο backup δεν βρέθηκε στο volume",
   "Backup file not found.": "Το αρχείο backup δεν βρέθηκε.",
+  "Backup file not found or not readable by the web server. Ensure the volume path is mounted into the web container and readable by the application user.": "Το αρχείο backup δεν βρέθηκε ή δεν είναι αναγνώσιμο από τον web server. Βεβαιωθείτε ότι η διαδρομή του volume είναι προσαρτημένη στο web container και αναγνώσιμη από τον χρήστη της εφαρμογής.",
   "Backup schedule deleted.": "Το χρονοδιάγραμμα backup διαγράφηκε.",
   "Backup schedule saved.": "Το χρονοδιάγραμμα backup αποθηκεύτηκε.",
   "Backups enabled successfully!": "Τα backup ενεργοποιήθηκαν επιτυχώς!",

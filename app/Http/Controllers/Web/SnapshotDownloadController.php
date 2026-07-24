@@ -39,7 +39,11 @@ class SnapshotDownloadController extends Controller
         $volumeRoot = $snapshot->volume->config['path'] ?? $snapshot->volume->config['root'] ?? '';
         $fullPath = rtrim($volumeRoot, '/').'/'.$snapshot->filename;
 
-        abort_unless(file_exists($fullPath), 404, __('Backup file not found.'));
+        abort_unless(
+            is_file($fullPath) && is_readable($fullPath),
+            404,
+            __('Backup file not found or not readable by the web server. Ensure the volume path is mounted into the web container and readable by the application user.')
+        );
 
         return response()->download($fullPath, basename($snapshot->filename));
     }

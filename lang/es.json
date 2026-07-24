@@ -96,6 +96,7 @@
   "Backup file is missing from volume": "Falta el archivo de backup en el volumen",
   "Backup file not found on volume": "Archivo de backup no encontrado en el volumen",
   "Backup file not found.": "Archivo de backup no encontrado.",
+  "Backup file not found or not readable by the web server. Ensure the volume path is mounted into the web container and readable by the application user.": "Archivo de backup no encontrado o no legible por el servidor web. Asegúrese de que la ruta del volumen esté montada en el contenedor web y de que el usuario de la aplicación pueda leerla.",
   "Backup schedule deleted.": "Programación de backup eliminada.",
   "Backup schedule saved.": "Programación de backup guardada.",
   "Backups enabled successfully!": "Backups activados correctamente.",

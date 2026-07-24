@@ -21,6 +21,8 @@ Ensure the Databasement container has write access to the specified path. You ma
 ```bash
 docker run -v /path/on/host:/backups davidcrty/databasement
 ```
+
+In multi-container setups (Docker Compose, Kubernetes), where the web server and the queue worker run as separate containers, the backup path must be mounted into **both** — the worker writes snapshots, and the web container reads them to serve downloads. The path (and every directory above it) must also be readable by the web container's application user: the worker often runs as root, so a host directory with `0700` root-only permissions lets backups succeed while downloads fail with a 404.
 :::
 
 ### S3 Storage

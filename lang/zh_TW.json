@@ -96,6 +96,7 @@
   "Backup file is missing from volume": "儲存空間中缺少 Backup 檔案",
   "Backup file not found on volume": "在儲存空間中找不到 Backup 檔案",
   "Backup file not found.": "找不到 Backup 檔案。",
+  "Backup file not found or not readable by the web server. Ensure the volume path is mounted into the web container and readable by the application user.": "找不到 Backup 檔案，或網頁伺服器無法讀取。請確認儲存空間路徑已掛載至網頁容器，且應用程式使用者具有讀取權限。",
   "Backup schedule deleted.": "Backup 排程已刪除。",
   "Backup schedule saved.": "Backup 排程已儲存。",
   "Backups enabled successfully!": "Backup 已成功啟用！",

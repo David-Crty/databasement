@@ -79,3 +79,19 @@ test('transfer writes file to volume configured path', function () {
     expect(file_exists($expectedPath))->toBeTrue()
         ->and(file_get_contents($expectedPath))->toBe($sourceContent);
 });
+
+test('local writes create world-readable files and traversable directories', function () {
+    // The worker (often root) writes snapshots that the web server user must
+    // read back to serve downloads — see GitHub issue #461.
+    $volume = Volume::factory()->local()->create();
+    $tempDir = $volume->config['path'];
+
+    $filesystem = $this->filesystemProvider->getForVolume($volume);
+    $filesystem->write('nested/dir/backup.sql.gz', 'content');
+
+    $dirPerms = fileperms($tempDir.'/nested/dir') & 0777;
+    $filePerms = fileperms($tempDir.'/nested/dir/backup.sql.gz') & 0777;
+
+    expect($dirPerms)->toBe(0755)
+        ->and($filePerms)->toBe(0644);
+});

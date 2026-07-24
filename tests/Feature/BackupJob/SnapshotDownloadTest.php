@@ -62,6 +62,7 @@ test('download returns 404 when local file is missing', function () {
         ->get(route('snapshots.download', $snapshot));
 
     $response->assertNotFound();
+    expect($response->exception->getMessage())->toContain('readable by the application user');
 });
 
 test('can download snapshot from s3 storage redirects to presigned url', function () {
