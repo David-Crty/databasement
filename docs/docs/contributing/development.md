@@ -194,6 +194,41 @@ Assign the agent to a database server (set `agent_id`) and run a backup. Agent-b
 Use `--network databasement_default` so `app:2226`, `postgres:5432`, and `rustfs:9000` resolve by name. Alternatively use `--network host` with `DATABASEMENT_URL=http://localhost:2226`, but then the server host and S3 endpoint must also be reachable from the host network.
 :::
 
+## SMB Volume Testing
+
+Databasement includes a commented-out Samba service in `docker-compose.yml` for testing SMB volumes locally.
+
+### 1. Enable the Samba Service
+
+Uncomment the `samba` service (and the `samba-data` entry in the `volumes` block) in `docker-compose.yml`, then start it:
+
+```bash
+docker compose up samba -d
+```
+
+### 2. Create an SMB Volume
+
+Create a volume in the UI (**Volumes → Add Volume → Samba / SMB**) with:
+
+| Field | Value |
+|-------|-------|
+| Host | `samba` |
+| Share | `backups` |
+| Username | `smbuser` |
+| Password | `smbpass` |
+| Domain / Workgroup | *(leave empty)* |
+| Root Directory | `/databasement` |
+
+Use **Test Connection** to verify, then run a backup targeting the volume. Files land in the `samba-data` Docker volume under the share:
+
+```bash
+docker compose exec samba ls -la /shares/backups/databasement
+```
+
+:::note
+The share is configured with `force user = root` so writes succeed regardless of the Docker volume's ownership. The app container reaches the server by service name (`samba`) over the compose network.
+:::
+
 ## Git Hooks
 
 Pre-commit hooks (via Husky) automatically run:

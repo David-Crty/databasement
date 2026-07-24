@@ -2,9 +2,11 @@
 
 namespace App\Services\Backup\Filesystems;
 
-use App\Services\Backup\Filesystems\Smb\IcewindSmbAdapter;
 use Icewind\SMB\BasicAuth;
+use Icewind\SMB\Exception\AlreadyExistsException;
+use Icewind\SMB\IShare;
 use Icewind\SMB\ServerFactory;
+use Jerodev\Flysystem\Smb\SmbAdapter;
 use League\Flysystem\Filesystem;
 
 class SmbFilesystem implements FilesystemInterface
@@ -15,7 +17,7 @@ class SmbFilesystem implements FilesystemInterface
     }
 
     /**
-     * @param  array{host: string, share: string, username: string, password?: string|null, domain?: string|null, root?: string}  $config
+     * @param  array{host: string, share: string, username: string, password?: string|null, domain?: string|null, root?: string, prefix?: string}  $config
      */
     public function get(array $config): Filesystem
     {
@@ -34,6 +36,31 @@ class SmbFilesystem implements FilesystemInterface
             ->createServer($config['host'], $auth)
             ->getShare($config['share']);
 
-        return new Filesystem(new IcewindSmbAdapter($share, $config['root'] ?? '/'));
+        // Support both 'root' (from config/backup.php) and 'prefix' (from Volume database)
+        $root = trim($config['root'] ?? $config['prefix'] ?? '', '/');
+
+        // The adapter auto-creates parent directories inside the root, but never
+        // the root itself — create it here so fresh volumes are writable.
+        $this->ensureRootDirectoryExists($share, $root);
+
+        return new Filesystem(new SmbAdapter($share, $root));
+    }
+
+    private function ensureRootDirectoryExists(IShare $share, string $root): void
+    {
+        if ($root === '') {
+            return;
+        }
+
+        $current = '';
+        foreach (explode('/', $root) as $segment) {
+            $current = $current === '' ? $segment : "{$current}/{$segment}";
+
+            try {
+                $share->mkdir($current);
+            } catch (AlreadyExistsException) {
+                // Directory already present — keep going.
+            }
+        }
     }
 }

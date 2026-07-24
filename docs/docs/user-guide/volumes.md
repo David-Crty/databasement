@@ -112,7 +112,7 @@ SMB volumes store backups on a Windows file share or a Samba server (common on N
 | **Root Directory** | Base path inside the share (e.g., `/databasement`) |
 
 :::note
-SMB support uses the `smbclient` extension bundled in the official Databasement Docker image. If you build a custom image, make sure the SMB client is installed. Connectivity is over SMB2/SMB3.
+SMB support uses the `libsmbclient-php` (`smbclient`) extension bundled in the official Databasement Docker image. If you build a custom image, install that extension (preferred) or the `smbclient` CLI binary — the SMB layer auto-detects whichever is available, but the extension reports errors much more reliably. Connectivity is over SMB2/SMB3.
 :::
 
 :::tip

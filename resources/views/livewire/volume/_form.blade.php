@@ -40,7 +40,7 @@ use App\Enums\VolumeType;
         @php $typeDisabled = $readonly || $form->volume !== null; @endphp
         <div>
             <label class="label label-text font-semibold mb-2">{{ __('Storage Type') }}</label>
-            <x-radio-card-group class="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" :label="__('Storage Type')">
+            <x-radio-card-group class="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" :label="__('Storage Type')">
                 @foreach(VolumeType::cases() as $volumeType)
                     <x-radio-card
                         :active="$form->type === $volumeType->value"

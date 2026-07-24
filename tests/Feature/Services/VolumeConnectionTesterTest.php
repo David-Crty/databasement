@@ -113,6 +113,19 @@ dataset('remote volume types', function () {
             'identifierField' => 'container',
             'identifierValue' => 'test-container',
         ],
+        'smb' => [
+            'type' => VolumeType::SMB,
+            'config' => [
+                'host' => 'fileserver.example.com',
+                'share' => 'backups',
+                'username' => 'smb-user',
+                'password' => 'test-password',
+                'domain' => 'WORKGROUP',
+                'root' => '/databasement',
+            ],
+            'identifierField' => 'host',
+            'identifierValue' => 'fileserver.example.com',
+        ],
     ];
 });
 

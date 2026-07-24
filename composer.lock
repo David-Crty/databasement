@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "56c0444982ebba9f7386234845263401",
+    "content-hash": "97fc86171ae21d8c78b03412ffac2e0e",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -1822,6 +1822,146 @@
                 }
             ],
             "time": "2026-06-23T13:02:23+00:00"
+        },
+        {
+            "name": "icewind/smb",
+            "version": "3.8.1",
+            "source": {
+                "type": "git",
+                "url": "https://codeberg.org/icewind/SMB",
+                "reference": "97063a63b44edc6554966f6121679506b8d85103"
+            },
+            "require": {
+                "icewind/streams": ">=0.7.3",
+                "php": ">=8.2"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "v3.89.0",
+                "phpstan/phpstan": "^0.12.57",
+                "phpunit/phpunit": "10.5.58",
+                "psalm/phar": "6.*"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Icewind\\SMB\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Robin Appelman",
+                    "email": "robin@icewind.nl"
+                }
+            ],
+            "description": "php wrapper for smbclient and libsmbclient-php",
+            "time": "2025-11-13T16:17:19+00:00"
+        },
+        {
+            "name": "icewind/streams",
+            "version": "v0.7.8",
+            "source": {
+                "type": "git",
+                "url": "https://codeberg.org/icewind/streams",
+                "reference": "cb2bd3ed41b516efb97e06e8da35a12ef58ba48b"
+            },
+            "require": {
+                "php": ">=7.1"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^2",
+                "phpstan/phpstan": "^0.12",
+                "phpunit/phpunit": "^9"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Icewind\\Streams\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Robin Appelman",
+                    "email": "icewind@owncloud.com"
+                }
+            ],
+            "description": "A set of generic stream wrappers",
+            "time": "2024-12-05T14:36:22+00:00"
+        },
+        {
+            "name": "jerodev/flysystem-v3-smb-adapter",
+            "version": "1.2.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/jerodev/flysystem-v3-smb-adapter.git",
+                "reference": "0fb5ef955c60f98fed5817d4a56efc6553f21dbf"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/jerodev/flysystem-v3-smb-adapter/zipball/0fb5ef955c60f98fed5817d4a56efc6553f21dbf",
+                "reference": "0fb5ef955c60f98fed5817d4a56efc6553f21dbf",
+                "shasum": ""
+            },
+            "require": {
+                "icewind/smb": "^3.5",
+                "league/flysystem": "^3.0",
+                "php": ">=8.0.2"
+            },
+            "require-dev": {
+                "illuminate/filesystem": "^9.0",
+                "illuminate/support": "^9.0",
+                "jerodev/code-styles": "dev-master",
+                "league/flysystem-adapter-test-utilities": "^3.0",
+                "orchestra/testbench": "^7.7",
+                "phpstan/phpstan": "^1.4",
+                "phpunit/phpunit": "^9.5"
+            },
+            "suggest": {
+                "ext-smbclient": "Required to use this package"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Jerodev\\Flysystem\\Smb\\LaravelSmbAdapterProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Jerodev\\Flysystem\\Smb\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "jerodev",
+                    "email": "jeroen@deviaene.eu"
+                }
+            ],
+            "description": "SMB adapter for Flysystem v3",
+            "keywords": [
+                "Flysystem",
+                "filesystem",
+                "laravel",
+                "samba",
+                "smb"
+            ],
+            "support": {
+                "issues": "https://github.com/jerodev/flysystem-v3-smb-adapter/issues",
+                "source": "https://github.com/jerodev/flysystem-v3-smb-adapter/tree/1.2.1"
+            },
+            "time": "2026-03-24T10:54:17+00:00"
         },
         {
             "name": "jfcherng/php-color-output",

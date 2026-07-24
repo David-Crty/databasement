@@ -165,6 +165,19 @@ services:
       timeout: 5s
       retries: 5
 
+# Samba server for local SMB volume testing (host: samba, share: backups, user: smbuser/smbpass)
+#  samba:
+#    image: ghcr.io/servercontainers/samba:latest
+#    container_name: databasement-samba
+#    environment:
+#      ACCOUNT_smbuser: smbpass
+#      UID_smbuser: "1000"
+#      # force user = root so the share is writable regardless of the volume's ownership
+#      SAMBA_VOLUME_CONFIG_backups: "[backups]; path=/shares/backups; valid users = smbuser; guest ok = no; read only = no; browseable = yes; force user = root"
+#      SAMBA_CONF_LOG_LEVEL: "1"
+#    volumes:
+#      - samba-data:/shares/backups
+
 # SFTP server for local testing
 #  sftp:
 #    image: atmoz/sftp
@@ -230,3 +243,4 @@ volumes:
   mssql-data:
   firebird-data:
   ftp-data:
+  samba-data:
