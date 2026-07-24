@@ -64,6 +64,30 @@ test('download returns 404 when local file is missing', function () {
     $response->assertNotFound();
 });
 
+test('download explains when the volume path is not accessible from the web server', function () {
+    $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
+
+    // A path that exists in the worker container but not here — e.g. a host
+    // directory only mounted into the worker service (GitHub issue #461).
+    $volume = Volume::factory()->local()->create([
+        'config' => ['path' => '/nonexistent/backup-storage'],
+    ]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+    $server->backups->first()->update(['volume_id' => $volume->id]);
+
+    $snapshot = app(BackupJobFactory::class)
+        ->createSnapshots($server->backups->first(), 'manual', $user->id)[0];
+    $snapshot->update(['filename' => 'test-backup.sql.gz', 'file_size' => 1024]);
+    $snapshot->job->markCompleted();
+
+    $response = $this->actingAs($user)
+        ->get(route('snapshots.download', $snapshot));
+
+    $response->assertNotFound();
+    expect($response->exception->getMessage())->toContain('not accessible from the web server');
+});
+
 test('can download snapshot from s3 storage redirects to presigned url', function () {
     $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
 

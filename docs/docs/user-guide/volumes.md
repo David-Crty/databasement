@@ -23,6 +23,10 @@ docker run -v /path/on/host:/backups davidcrty/databasement
 ```
 :::
 
+:::warning Multi-container setups (Docker Compose, Kubernetes)
+When the web server and the queue worker run as separate containers, the backup path must be mounted into **both** — the worker writes snapshots, and the web container reads them to serve downloads. The path (and every directory above it) must also be readable by the web container's application user: the worker often runs as root, so a host directory with `0700` root-only permissions lets backups succeed while downloads fail with a 404.
+:::
+
 ### S3 Storage
 
 S3 volumes store backups in AWS S3 or any S3-compatible object storage (MinIO, DigitalOcean Spaces, Backblaze B2, etc.). All credentials and settings are configured per-volume.
