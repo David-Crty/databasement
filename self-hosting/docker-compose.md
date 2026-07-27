@@ -258,6 +258,9 @@ Open http://localhost:2226 in your browser.
 To expose your Databasement instance with HTTPS, you can use Traefik as a reverse proxy. For detailed instructions on
 how to configure Traefik with Docker, please refer to
 the [official Traefik documentation](https://doc.traefik.io/traefik/expose/docker/).
+
+The image listens on port `2226`. Because it also inherits ports from its FrankenPHP base, point Traefik at `2226`
+explicitly with `traefik.http.services.<name>.loadbalancer.server.port=2226` so it routes to the right one.
 :::
 
 ## Custom User ID (PUID/PGID)
