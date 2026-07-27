@@ -53,6 +53,31 @@ test('first user can create demo backup during registration', function () {
     $this->assertAuthenticated();
 });
 
+test('registration screen renders validation errors inline for each field', function () {
+    // Guards the Mary `error-field` wiring: without it the plain-POST form
+    // silently swallows validation errors (issue #481).
+    $response = $this->from(route('register'))
+        ->followingRedirects()
+        ->post(route('register.store'), [
+            'name' => 'Jane Doe',
+            'email' => 'not-an-email',
+            'password' => 'short',
+            'password_confirmation' => 'mismatch',
+        ]);
+
+    $response->assertOk()
+        // Each field's message is rendered inline (Mary emits `text-error` divs).
+        ->assertSee('The email field must be a valid email address.')
+        ->assertSee('The password field must be at least 8 characters.')
+        ->assertSee('The password field confirmation does not match.')
+        // Non-secret fields keep their old input; passwords are never repopulated.
+        ->assertSee('value="Jane Doe"', escape: false)
+        ->assertSee('value="not-an-email"', escape: false)
+        ->assertDontSee('value="short"', escape: false);
+
+    $this->assertGuest();
+});
+
 // Registration closed after first user (blocked)
 test('registration screen returns 401 when users exist', function () {
     User::factory()->create();

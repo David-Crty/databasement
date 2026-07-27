@@ -14,6 +14,7 @@
 
             <x-password
                 name="password"
+                error-field="password"
                 label="{{ __('Password') }}"
                 required
                 autocomplete="current-password"
