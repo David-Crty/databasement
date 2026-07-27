@@ -49,7 +49,6 @@
             <!-- Confirm Password -->
             <x-password
                 name="password_confirmation"
-                error-field="password_confirmation"
                 label="{{ __('Confirm password') }}"
                 required
                 autocomplete="new-password"
