@@ -143,6 +143,9 @@ WORKDIR /app
 
 ENV WEB_DOCUMENT_ROOT=/app/public
 ENV SERVER_NAME=":2226"
+
+# FrankenPHP listens on 2226; declare it so reverse proxies pick the right port.
+EXPOSE 2226/tcp
 ENV ENABLE_QUEUE_WORKER="false"
 ENV ENABLE_DATABASE_MIGRATION="true"
 ENV TZ="UTC"
