@@ -14,6 +14,8 @@
             <!-- Name -->
             <x-input
                 name="name"
+                error-field="name"
+                :value="old('name')"
                 label="{{ __('Name') }}"
                 type="text"
                 required
@@ -25,6 +27,8 @@
             <!-- Email Address -->
             <x-input
                 name="email"
+                error-field="email"
+                :value="old('email')"
                 label="{{ __('Email address') }}"
                 type="email"
                 required
@@ -35,6 +39,7 @@
             <!-- Password -->
             <x-password
                 name="password"
+                error-field="password"
                 label="{{ __('Password') }}"
                 required
                 autocomplete="new-password"

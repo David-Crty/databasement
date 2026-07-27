@@ -17,7 +17,8 @@
             <!-- Email Address -->
             <x-input
                 name="email"
-                value="{{ request('email') }}"
+                error-field="email"
+                :value="old('email', request('email'))"
                 label="{{ __('Email') }}"
                 type="email"
                 required
@@ -27,6 +28,7 @@
             <!-- Password -->
             <x-password
                 name="password"
+                error-field="password"
                 label="{{ __('Password') }}"
                 required
                 autocomplete="new-password"

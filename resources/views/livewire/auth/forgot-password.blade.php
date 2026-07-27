@@ -15,6 +15,8 @@
             <!-- Email Address -->
             <x-input
                 name="email"
+                error-field="email"
+                :value="old('email')"
                 label="{{ __('Email Address') }}"
                 type="email"
                 required
