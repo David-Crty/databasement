@@ -374,7 +374,7 @@ class DatabaseServer extends Model
             ['dump_flags',          fn ($v) => $type !== DatabaseType::SQLITE->value && $v !== '' && $v !== null,  fn ($v) => $v],
             ['dump_format',         fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v === 'custom',       fn () => 'custom'],
             ['dump_privileges',     fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v,                    fn () => true],
-            ['ssl_enabled',         fn ($v) => $type === DatabaseType::MYSQL->value && $v,                         fn () => true],
+            ['ssl_enabled',         fn ($v) => in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value], true) && $v, fn () => true],
         ];
 
         foreach ($rules as [$key, $keep, $store]) {

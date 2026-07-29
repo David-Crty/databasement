@@ -137,6 +137,9 @@ test('buildExtraConfig folds type-specific fields into extra_config', function (
     'keeps boolean flag when enabled' => [
         ['database_type' => 'mysql', 'ssl_enabled' => true], null, null, ['ssl_enabled' => true],
     ],
+    'keeps ssl_enabled for postgres' => [
+        ['database_type' => 'postgres', 'ssl_enabled' => true], null, null, ['ssl_enabled' => true],
+    ],
     'drops field not relevant to the type' => [
         ['database_type' => 'sqlite', 'dump_flags' => '--anything'], null, null, null,
     ],

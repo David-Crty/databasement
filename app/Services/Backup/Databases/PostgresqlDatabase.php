@@ -60,6 +60,19 @@ class PostgresqlDatabase implements DatabaseInterface
         $this->config = $config;
     }
 
+    /**
+     * Environment prefix that forces TLS when the server is configured to use SSL.
+     *
+     * Emits `PGSSLMODE=require ` (encrypted, server certificate not verified),
+     * consumed by every libpq-based tool below (pg_dump, pg_restore, psql). An
+     * empty string leaves libpq at its default (`prefer`), which negotiates TLS
+     * opportunistically but silently falls back to plaintext.
+     */
+    private function sslEnvPrefix(): string
+    {
+        return ! empty($this->config['ssl_enabled']) ? 'PGSSLMODE=require ' : '';
+    }
+
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $options = $this->withPrivilegeOptions(self::DUMP_OPTIONS);
@@ -74,7 +87,8 @@ class PostgresqlDatabase implements DatabaseInterface
 
         // Flags must come before the database name (last positional argument)
         $command = sprintf(
-            'PGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s%s %s',
+            '%sPGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s%s %s',
+            $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
             implode(' ', $options),
             escapeshellarg($this->config['host']),
@@ -93,7 +107,8 @@ class PostgresqlDatabase implements DatabaseInterface
     {
         if (($this->config['dump_format'] ?? 'plain') === 'custom') {
             return new DatabaseOperationResult(command: sprintf(
-                'PGPASSWORD=%s pg_restore %s --host=%s --port=%s --username=%s --dbname=%s %s',
+                '%sPGPASSWORD=%s pg_restore %s --host=%s --port=%s --username=%s --dbname=%s %s',
+                $this->sslEnvPrefix(),
                 escapeshellarg($this->config['pass']),
                 implode(' ', $this->withPrivilegeOptions(self::RESTORE_CUSTOM_FORMAT_OPTIONS)),
                 escapeshellarg($this->config['host']),
@@ -105,7 +120,8 @@ class PostgresqlDatabase implements DatabaseInterface
         }
 
         return new DatabaseOperationResult(command: sprintf(
-            'PGPASSWORD=%s psql --host=%s --port=%s --username=%s %s -f %s',
+            '%sPGPASSWORD=%s psql --host=%s --port=%s --username=%s %s -f %s',
+            $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
@@ -274,6 +290,11 @@ class PostgresqlDatabase implements DatabaseInterface
     {
         $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s', $this->config['host'], $this->config['port'], $database);
 
+        if (! empty($this->config['ssl_enabled'])) {
+            // Force TLS without verifying the server certificate, matching the CLI's PGSSLMODE.
+            $dsn .= ';sslmode=require';
+        }
+
         $timeout = (int) ($this->config['connect_timeout'] ?? 30);
         $dsn .= ';connect_timeout='.$timeout;
 
@@ -286,7 +307,8 @@ class PostgresqlDatabase implements DatabaseInterface
     private function getQueryCommand(string $query): string
     {
         return sprintf(
-            'PGPASSWORD=%s psql --host=%s --port=%s --user=%s %s -t -c %s',
+            '%sPGPASSWORD=%s psql --host=%s --port=%s --user=%s %s -t -c %s',
+            $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),

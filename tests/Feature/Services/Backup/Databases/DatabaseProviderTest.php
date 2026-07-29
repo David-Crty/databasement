@@ -141,6 +141,22 @@ test('makeFromConfig passes ssl_enabled from extra_config for mysql', function (
         ->not->toContain('--skip_ssl');
 });
 
+test('makeFromConfig passes ssl_enabled from extra_config for postgres', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::POSTGRESQL,
+        serverName: 'PG Server',
+        host: 'pg.example.com',
+        port: 5432,
+        username: 'postgres',
+        password: 'secret',
+        extraConfig: ['ssl_enabled' => true],
+    );
+
+    $database = (new DatabaseProvider)->makeFromConfig($config, 'myapp', 'pg.example.com', 5432);
+
+    expect($database->dump('/tmp/test.sql')->command)->toStartWith('PGSSLMODE=require ');
+});
+
 test('makeFromConfig passes dump_privileges from extra_config for postgres', function () {
     $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
         databaseType: DatabaseType::POSTGRESQL,
