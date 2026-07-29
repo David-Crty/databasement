@@ -185,7 +185,14 @@ class AgentController extends Controller
             'file_size' => $validated['file_size'],
         ]);
 
-        $this->applyVolumeResults($snapshot, $validated['volumes'] ?? null, $validated['filename'], (int) $validated['file_size']);
+        // An empty volumes array carries no outcomes — treat it like a legacy
+        // (null) payload rather than a silent success, mirroring the fail() path.
+        $this->applyVolumeResults(
+            $snapshot,
+            ! empty($validated['volumes']) ? $validated['volumes'] : null,
+            $validated['filename'],
+            (int) $validated['file_size'],
+        );
 
         $backupJob = $snapshot->job;
         if (! empty($validated['logs'])) {

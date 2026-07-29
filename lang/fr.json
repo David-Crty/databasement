@@ -595,7 +595,7 @@
   "Storage Type": "Type de stockage",
   "Storage Volumes": "Volumes de stockage",
   "The database is dumped once and uploaded to every selected volume": "La base de données est exportée une seule fois puis envoyée vers chaque volume sélectionné",
-  "Restore from volume": "Restaurer depuis le volume",
+  "Restore from volume": "Restore depuis le volume",
   "This snapshot is stored on several volumes; choose which copy to read from.": "Ce snapshot est stocké sur plusieurs volumes ; choisissez la copie à utiliser.",
   "Download Snapshot": "Télécharger le snapshot",
   "This snapshot is stored on several volumes. Choose which copy to download.": "Ce snapshot est stocké sur plusieurs volumes. Choisissez la copie à télécharger.",

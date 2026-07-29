@@ -485,8 +485,8 @@ class Form extends \Livewire\Form
             $this->ssh_config_id = null;
         }
 
-        // Load backup configurations
-        $backups = $server->backups()->get();
+        // Load backup configurations (eager-load volumes; fromModel() reads them)
+        $backups = $server->backups()->with('volumes')->get();
 
         if ($backups->isEmpty()) {
             $this->backups = [BackupForm::defaults()];

@@ -104,6 +104,10 @@ class BackupJobFactory
         $server = $backup->databaseServer;
         $volumes = $backup->volumes;
 
+        if ($volumes->isEmpty()) {
+            throw new \RuntimeException("Backup [{$backup->id}] has no target volumes; nothing to back up to.");
+        }
+
         $snapshot = DB::transaction(function () use ($backup, $server, $volumes, $databaseName, $method, $triggeredByUserId) {
             $job = BackupJob::create(['status' => BackupJobStatus::Pending]);
 
@@ -193,9 +197,9 @@ class BackupJobFactory
         }
 
         if ($snapshotFileId !== null
-            && $snapshot->files()->completed()->whereKey($snapshotFileId)->doesntExist()) {
+            && $snapshot->files()->completed()->fileExists()->whereKey($snapshotFileId)->doesntExist()) {
             throw ValidationException::withMessages([
-                'snapshot_file_id' => 'The selected source copy does not belong to this snapshot.',
+                'snapshot_file_id' => 'The selected source copy is not available for restore.',
             ]);
         }
 

@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @mixin IdeHelperVolume
@@ -40,41 +41,45 @@ class Volume extends Model
         });
 
         static::deleting(function (Volume $volume) {
-            // Remove this volume's copies (deleting their files unless asked
-            // not to). Restores pointing at a removed copy get their
-            // snapshot_file_id nulled by the FK.
             $files = $volume->snapshotFiles()->get();
-            foreach ($files as $file) {
-                if (! $volume->skipFileCleanup && $file->status === SnapshotFileStatus::Completed) {
-                    $file->deleteFromVolume();
-                }
-                $file->delete();
-            }
+            $snapshotIds = $files->pluck('snapshot_id')->unique()->all();
 
-            // Snapshots left without any copy follow the volume (legacy
-            // cascade semantics); multi-volume snapshots survive with their
-            // remaining copies.
-            foreach ($files->pluck('snapshot_id')->unique() as $snapshotId) {
-                $snapshot = Snapshot::query()->whereKey($snapshotId)->first();
-                if ($snapshot === null) {
-                    continue;
+            // Cascade atomically so a mid-cascade failure can't leave orphaned
+            // rows or half-reconciled snapshots.
+            DB::transaction(function () use ($volume, $files, $snapshotIds) {
+                foreach ($files as $file) {
+                    if (! $volume->skipFileCleanup && $file->status === SnapshotFileStatus::Completed) {
+                        $file->deleteFromVolume();
+                    }
+                    $file->delete();
                 }
 
-                if ($snapshot->files()->doesntExist()) {
-                    $snapshot->skipFileCleanup = true;
-                    $snapshot->delete();
-                } else {
-                    $snapshot->recomputeFileExists();
-                }
-            }
+                // Snapshots left without any copy follow the volume (legacy
+                // cascade); multi-volume snapshots survive with their remaining
+                // copies. Batch the lookups instead of querying per snapshot.
+                $snapshots = Snapshot::query()->whereKey($snapshotIds)->get();
+                $snapshotIdsWithFiles = SnapshotFile::query()
+                    ->whereIn('snapshot_id', $snapshotIds)
+                    ->distinct()
+                    ->pluck('snapshot_id')
+                    ->all();
 
-            // Backup configs that only targeted this volume follow it too;
-            // multi-volume configs just lose one target.
-            foreach ($volume->backups as $backup) {
-                if ($backup->volumes()->whereKeyNot($volume->id)->doesntExist()) {
-                    $backup->delete();
+                foreach ($snapshots as $snapshot) {
+                    if (in_array($snapshot->id, $snapshotIdsWithFiles, true)) {
+                        $snapshot->recomputeFileExists();
+                    } else {
+                        $snapshot->skipFileCleanup = true;
+                        $snapshot->delete();
+                    }
                 }
-            }
+
+                // Backup configs that only targeted this volume follow it too.
+                foreach ($volume->backups()->with('volumes:id')->get() as $backup) {
+                    if (! $backup->volumes->contains(fn (Volume $other) => $other->id !== $volume->id)) {
+                        $backup->delete();
+                    }
+                }
+            });
         });
     }
 
@@ -163,7 +168,7 @@ class Volume extends Model
             return (int) $this->attributes['used_storage_bytes'];
         }
 
-        return (int) $this->snapshotFiles()->completed()->sum('file_size');
+        return (int) $this->snapshotFiles()->completed()->fileExists()->sum('file_size');
     }
 
     /**

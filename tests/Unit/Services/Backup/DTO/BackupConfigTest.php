@@ -69,7 +69,8 @@ test('fromPayload wraps a legacy single-volume payload', function () {
 
     expect($config->volumes)->toHaveCount(1)
         ->and($config->volumes[0]->type)->toBe('s3')
-        ->and($config->volumes[0]->name)->toBe('Bucket');
+        ->and($config->volumes[0]->name)->toBe('Bucket')
+        ->and($config->volumes[0]->config)->toBe(['bucket' => 'b']);
 });
 
 test('toPayload includes server_name and database_name in database section', function () {

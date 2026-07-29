@@ -595,7 +595,7 @@
   "Storage Type": "儲存類型",
   "Storage Volumes": "儲存磁碟區",
   "The database is dumped once and uploaded to every selected volume": "資料庫只匯出一次，並上傳至每個選定的磁碟區",
-  "Restore from volume": "從磁碟區還原",
+  "Restore from volume": "從磁碟區 Restore",
   "This snapshot is stored on several volumes; choose which copy to read from.": "此 snapshot 儲存在多個磁碟區；請選擇要讀取的副本。",
   "Download Snapshot": "下載 snapshot",
   "This snapshot is stored on several volumes. Choose which copy to download.": "此 snapshot 儲存在多個磁碟區。請選擇要下載的副本。",

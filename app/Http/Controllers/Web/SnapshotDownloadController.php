@@ -28,7 +28,7 @@ class SnapshotDownloadController extends Controller
         // absent, the first available copy is used.
         $fileId = $request->query('file');
         $file = is_string($fileId) && $fileId !== ''
-            ? $snapshot->files()->completed()->with('volume')->findOrFail($fileId)
+            ? $snapshot->files()->completed()->fileExists()->with('volume')->findOrFail($fileId)
             : $snapshot->primaryFile();
 
         abort_if($file === null, 404, __('Backup file not found.'));

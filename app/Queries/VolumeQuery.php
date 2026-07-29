@@ -55,7 +55,7 @@ class VolumeQuery
             // Eager-load each volume's used storage
             ->withSum(['snapshotFiles as used_storage_bytes' => function (Builder $query): void {
                 /** @var Builder<SnapshotFile> $query */
-                $query->completed();
+                $query->completed()->fileExists();
             }], 'file_size')
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);

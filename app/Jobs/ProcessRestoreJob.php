@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\SnapshotFileStatus;
 use App\Facades\AppConfig;
 use App\Models\Restore;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
@@ -63,9 +64,25 @@ class ProcessRestoreJob implements ShouldQueue
 
             // Read from the copy the user picked, or auto-pick the first
             // copy still present on its volume.
-            $sourceFile = $restore->snapshotFile ?? $snapshot->primaryFile();
-            if ($sourceFile === null) {
-                $exception = new \RuntimeException('No existing copy of this snapshot is available on any volume.');
+            $sourceFile = $restore->snapshot_file_id !== null
+                ? $restore->snapshotFile
+                : $snapshot->primaryFile();
+
+            // A user-picked copy must still belong to this snapshot, have
+            // finished uploading, and exist on its volume — otherwise fail
+            // rather than silently reading a different volume. With no pick,
+            // primaryFile() already returns only an available copy (or null).
+            $explicitCopyInvalid = $restore->snapshot_file_id !== null && (
+                $sourceFile === null
+                || $sourceFile->snapshot_id !== $snapshot->id
+                || $sourceFile->status !== SnapshotFileStatus::Completed
+                || ! $sourceFile->file_exists
+            );
+
+            if ($sourceFile === null || $explicitCopyInvalid) {
+                $exception = new \RuntimeException($explicitCopyInvalid
+                    ? 'The selected copy of this snapshot is no longer available on its volume.'
+                    : 'No existing copy of this snapshot is available on any volume.');
                 $job->log("Restore failed: {$exception->getMessage()}", 'error');
                 $job->markFailed($exception);
 

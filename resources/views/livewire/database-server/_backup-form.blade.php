@@ -326,7 +326,7 @@
                 wire:model.live="form.backups.{{ $index }}.volume_ids"
                 :label="__('Storage Volumes')"
                 :options="$volumeOptions"
-                placeholder="{{ __('Select one or more storage volumes') }}"
+                :placeholder="__('Select one or more storage volumes')"
                 :hint="__('The database is dumped once and uploaded to every selected volume')"
                 icon="o-server-stack"
                 searchable

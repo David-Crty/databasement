@@ -32,7 +32,9 @@ class AgentJobPayloadBuilder
 
         $config = new BackupConfig(
             database: DatabaseConnectionConfig::fromServer($server),
-            volumes: array_values($snapshot->files->map(
+            // Ordered by copy id so the first payload volume matches
+            // Snapshot::primaryFile() and the legacy ack() fallback.
+            volumes: array_values($snapshot->files->sortBy('id')->map(
                 fn ($file) => VolumeConfig::fromVolume($file->volume),
             )->all()),
             databaseName: $snapshot->database_name,

@@ -155,8 +155,14 @@ class Modal extends Component
         $this->authorize('restore', $target);
 
         $this->selectedSnapshotId = $snapshot->id;
-        $this->selectedSnapshotFileId = $restore->snapshot_file_id;
-        if ($this->selectedSnapshotFileId === null) {
+
+        // The saved copy may have vanished since the original run (deleted,
+        // failed, or its file removed); only reuse it if it's still an
+        // available option, otherwise fall back to auto-selection.
+        $validFileIds = array_column($this->getSourceFileOptionsProperty(), 'id');
+        if ($restore->snapshot_file_id !== null && in_array($restore->snapshot_file_id, $validFileIds, true)) {
+            $this->selectedSnapshotFileId = $restore->snapshot_file_id;
+        } else {
             $this->defaultSnapshotFile();
         }
         $this->dbTypeFilter = $snapshot->database_type->value;

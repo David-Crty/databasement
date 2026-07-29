@@ -121,7 +121,7 @@ class SnapshotFile extends Model
             }
 
             return false;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Log the error but don't throw to prevent deletion cascade failure
             logger()->error('Failed to delete backup file for snapshot', [
                 'snapshot_id' => $this->snapshot_id,

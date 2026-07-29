@@ -39,6 +39,8 @@ class SnapshotFileFactory extends Factory
         return $this->state(fn () => [
             'status' => SnapshotFileStatus::Failed,
             'error' => $error ?? 'Upload failed',
+            'file_exists' => false,
+            'file_verified_at' => null,
         ]);
     }
 

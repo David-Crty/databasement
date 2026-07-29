@@ -592,7 +592,7 @@
   "Storage Type": "Τύπος αποθήκευσης",
   "Storage Volumes": "Τόμοι αποθήκευσης",
   "The database is dumped once and uploaded to every selected volume": "Η βάση δεδομένων εξάγεται μία φορά και μεταφορτώνεται σε κάθε επιλεγμένο τόμο",
-  "Restore from volume": "Επαναφορά από τον τόμο",
+  "Restore from volume": "Restore από τον τόμο",
   "This snapshot is stored on several volumes; choose which copy to read from.": "Αυτό το snapshot είναι αποθηκευμένο σε πολλούς τόμους· επιλέξτε ποιο αντίγραφο θα χρησιμοποιηθεί.",
   "Download Snapshot": "Λήψη snapshot",
   "This snapshot is stored on several volumes. Choose which copy to download.": "Αυτό το snapshot είναι αποθηκευμένο σε πολλούς τόμους. Επιλέξτε ποιο αντίγραφο θα κατεβάσετε.",
