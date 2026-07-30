@@ -107,7 +107,7 @@ class DatabaseProvider
             $dbConfig['dump_flags'] = $extra['dump_flags'];
         }
 
-        if ($config->databaseType === DatabaseType::MYSQL && ! empty($extra['ssl_enabled'])) {
+        if (in_array($config->databaseType, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true) && ! empty($extra['ssl_enabled'])) {
             $dbConfig['ssl_enabled'] = true;
         }
 

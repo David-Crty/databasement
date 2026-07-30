@@ -124,6 +124,83 @@ test('restore falls back to psql when dump_format is absent', function () {
         ->and($result->command)->toContain('-f ');
 });
 
+test('dump prefixes PGSSLMODE=require when ssl_enabled is true', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'ssl_enabled' => true,
+    ]);
+
+    $result = $db->dump('/tmp/dump.sql');
+
+    expect($result->command)->toStartWith("PGSSLMODE=require PGPASSWORD='pg_secret' pg_dump ");
+});
+
+test('plain restore prefixes PGSSLMODE=require when ssl_enabled is true', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'ssl_enabled' => true,
+    ]);
+
+    $result = $db->restore('/tmp/restore.sql');
+
+    expect($result->command)->toStartWith("PGSSLMODE=require PGPASSWORD='pg_secret' psql ");
+});
+
+test('custom-format restore prefixes PGSSLMODE=require when ssl_enabled is true', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'dump_format' => 'custom',
+        'ssl_enabled' => true,
+    ]);
+
+    $result = $db->restore('/tmp/snapshot.sql');
+
+    expect($result->command)->toStartWith("PGSSLMODE=require PGPASSWORD='pg_secret' pg_restore ");
+});
+
+test('dump and restore omit PGSSLMODE when ssl_enabled is absent', function () {
+    expect($this->db->dump('/tmp/dump.sql')->command)->not->toContain('PGSSLMODE')
+        ->and($this->db->restore('/tmp/restore.sql')->command)->not->toContain('PGSSLMODE');
+});
+
+test('testConnection query command carries PGSSLMODE=require when ssl_enabled is true', function () {
+    Process::preventStrayProcesses();
+    Process::fake([
+        'PGSSLMODE=require*version*' => Process::result(output: 'PostgreSQL 16.2'),
+        'PGSSLMODE=require*ssl*' => Process::result(output: 'yes'),
+    ]);
+
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'ssl_enabled' => true,
+    ]);
+
+    $result = $db->testConnection();
+
+    expect($result['success'])->toBeTrue();
+    Process::assertRan(fn ($process) => str_starts_with($process->command, 'PGSSLMODE=require PGPASSWORD='));
+});
+
 test('listDatabases returns databases excluding managed-service internals but keeps postgres', function () {
     $pdoStatement = Mockery::mock(\PDOStatement::class);
     $pdoStatement->shouldReceive('fetchAll')
