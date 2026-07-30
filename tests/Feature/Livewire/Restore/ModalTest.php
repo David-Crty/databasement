@@ -393,3 +393,71 @@ test('without operate-restores, starting a restore in from-snapshot mode is forb
         ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
         ->assertForbidden();
 });
+
+// ============================================================================
+// multi-volume source selection
+// ============================================================================
+
+test('source volume select is preset and the chosen copy lands on the restore', function () {
+    Queue::fake();
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+
+    $volumeA = \App\Models\Volume::factory()->local()->create(['name' => 'Volume A']);
+    $volumeB = \App\Models\Volume::factory()->local()->create(['name' => 'Volume B']);
+    $snapshot = Snapshot::factory()->forServer($source)->onVolumes($volumeA, $volumeB)->create();
+
+    $fileB = $snapshot->files()->where('volume_id', $volumeB->id)->firstOrFail();
+
+    $component = Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id);
+
+    // Preselected to the first copy, both options offered.
+    expect($component->get('selectedSnapshotFileId'))->not->toBeNull()
+        ->and(collect($component->instance()->sourceFileOptions)->pluck('name')->all())
+        ->toBe(['Volume A', 'Volume B']);
+
+    $component
+        ->assertSee('Restore from volume')
+        ->set('selectedSnapshotFileId', $fileB->id)
+        ->set('schemaName', 'restored_db')
+        ->call('restore')
+        ->assertDispatched('restore-created');
+
+    $restore = Restore::where('snapshot_id', $snapshot->id)->firstOrFail();
+    expect($restore->snapshot_file_id)->toBe($fileB->id);
+});
+
+test('source volume select is hidden for single-copy snapshots', function () {
+    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->assertSet('selectedSnapshotFileId', null)
+        ->assertDontSee('Restore from volume');
+});
+
+test('rejects a source copy that does not belong to the selected snapshot', function () {
+    Queue::fake();
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
+
+    $foreignFile = Snapshot::factory()->create()->files()->firstOrFail();
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('selectedSnapshotFileId', $foreignFile->id)
+        ->set('schemaName', 'restored_db')
+        ->call('restore')
+        ->assertHasErrors(['snapshot_file_id']);
+
+    Queue::assertNothingPushed();
+});

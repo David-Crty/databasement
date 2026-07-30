@@ -23,6 +23,27 @@ class SaveDatabaseServerRequest extends FormRequest
     }
 
     /**
+     * Accept the legacy single `volume_id` key by normalizing it into
+     * `volume_ids` (deprecated — kept for v1 API backward compatibility).
+     */
+    protected function prepareForValidation(): void
+    {
+        $backups = $this->input('backups');
+
+        if (! is_array($backups)) {
+            return;
+        }
+
+        foreach ($backups as $index => $backup) {
+            if (is_array($backup) && ! array_key_exists('volume_ids', $backup) && isset($backup['volume_id'])) {
+                $backups[$index]['volume_ids'] = [$backup['volume_id']];
+            }
+        }
+
+        $this->merge(['backups' => $backups]);
+    }
+
+    /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
@@ -73,7 +94,8 @@ class SaveDatabaseServerRequest extends FormRequest
 
         if ($backupsEnabled) {
             $rules['backups'] = 'required|array|min:1';
-            $rules['backups.*.volume_id'] = 'required|exists:volumes,id';
+            $rules['backups.*.volume_ids'] = 'required|array|min:1';
+            $rules['backups.*.volume_ids.*'] = ['required', Rule::exists('volumes', 'id')->where('organization_id', app(CurrentOrganization::class)->id())];
             $rules['backups.*.path'] = ['nullable', 'string', 'max:255', new SafePath];
             $rules['backups.*.backup_schedule_id'] = 'required|exists:backup_schedules,id';
             $rules['backups.*.retention_policy'] = 'required|string|in:'.implode(',', Backup::RETENTION_POLICIES);
@@ -133,9 +155,9 @@ class SaveDatabaseServerRequest extends FormRequest
     private function validateBackupEntry(Validator $validator, int $index, array $backup, bool $isAgent): void
     {
         if ($isAgent) {
-            $volumeId = $backup['volume_id'] ?? null;
-            if ($volumeId !== null && Volume::whereKey($volumeId)->where('type', VolumeType::LOCAL->value)->exists()) {
-                $validator->errors()->add("backups.{$index}.volume_id", 'Local volumes cannot be used with remote agents.');
+            $volumeIds = array_filter((array) ($backup['volume_ids'] ?? []));
+            if ($volumeIds !== [] && Volume::whereIn('id', $volumeIds)->where('type', VolumeType::LOCAL->value)->exists()) {
+                $validator->errors()->add("backups.{$index}.volume_ids", 'Local volumes cannot be used with remote agents.');
             }
         }
 

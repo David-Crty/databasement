@@ -20,16 +20,17 @@ class StorageLimitWarningNotification extends Notification
     public function __construct(
         public Snapshot $snapshot,
         public string $warning,
+        public string $volumeName,
     ) {}
 
     public function getMessage(): NotificationMessage
     {
         return new NotificationMessage(
             type: NotificationType::Failure,
-            title: '⚠️ '.__('Storage limit reached on volume: :volume', ['volume' => $this->snapshot->volume->name]),
+            title: '⚠️ '.__('Storage limit reached on volume: :volume', ['volume' => $this->volumeName]),
             body: __('A backup of ":server" on volume ":volume" exceeded its storage limit. It was still uploaded because the volume is set to notify only: free up space to stay within the limit.', [
                 'server' => $this->snapshot->databaseServer->name,
-                'volume' => $this->snapshot->volume->name,
+                'volume' => $this->volumeName,
             ]),
             actionText: '🔗 '.__('View Job Details'),
             actionUrl: route('snapshots.index', ['job' => $this->snapshot->backup_job_id]),
@@ -37,7 +38,7 @@ class StorageLimitWarningNotification extends Notification
             fields: [
                 __('Server') => $this->snapshot->databaseServer->name,
                 __('Database') => $this->snapshot->database_name ?? __('Unknown'),
-                __('Volume') => $this->snapshot->volume->name,
+                __('Volume') => $this->volumeName,
             ],
             errorMessage: $this->warning,
             errorLabel: '⚠️ '.__('Storage Details'),

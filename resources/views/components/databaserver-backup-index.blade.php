@@ -11,7 +11,9 @@
     </span>
     <span class="max-sm:hidden text-xs font-semibold text-base-content truncate shrink min-w-0">
         <span class="text-base-content/30 text-[0.625rem]">→</span>
-        <x-volume-type-icon :type="$backup->volume->type" class="w-3 h-3 text-primary/80" />
+        @if($backup->volumes->isNotEmpty())
+            <x-volume-type-icon :type="$backup->volumes->first()->type" class="w-3 h-3 text-primary/80" />
+        @endif
         {{ \Illuminate\Support\Str::limit($label['volume'], 30) }}
     </span>
     @if($label['databases'])

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SnapshotFileStatus;
 use App\Livewire\Dashboard\SnapshotsCard;
 use App\Models\DatabaseServer;
 use App\Models\User;
@@ -38,7 +39,7 @@ test('snapshots card shows missing snapshots count', function () {
     // Create 2 snapshots with missing files
     for ($i = 0; $i < 2; $i++) {
         $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
-        $snapshots[0]->update(['file_exists' => false, 'file_verified_at' => now()]);
+        $snapshots[0]->files()->update(['status' => SnapshotFileStatus::Completed, 'file_exists' => false, 'file_verified_at' => now()]);
         $snapshots[0]->job->markCompleted();
     }
 
@@ -62,7 +63,7 @@ test('snapshots card shows all verified when no snapshots are missing', function
     // Create 2 verified snapshots (file exists)
     for ($i = 0; $i < 2; $i++) {
         $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
-        $snapshots[0]->update(['file_exists' => true, 'file_verified_at' => now()]);
+        $snapshots[0]->files()->update(['status' => SnapshotFileStatus::Completed, 'file_verified_at' => now()]);
         $snapshots[0]->job->markCompleted();
     }
 

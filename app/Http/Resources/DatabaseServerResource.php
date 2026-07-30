@@ -55,7 +55,9 @@ class DatabaseServerResource extends JsonResource
                     'expression' => $backup->backupSchedule->expression,
                 ]
                 : null,
-            'volume_id' => $backup->volume_id,
+            'volume_ids' => $backup->volumes->pluck('id')->all(),
+            // Deprecated: single-volume key kept for v1 API backward compatibility.
+            'volume_id' => $backup->volumes->first()?->id,
             'path' => $backup->path,
             'retention_policy' => $backup->retention_policy,
             'retention_days' => $backup->retention_days,

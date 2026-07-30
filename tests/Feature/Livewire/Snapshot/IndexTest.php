@@ -7,6 +7,7 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\User;
+use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use Livewire\Livewire;
 
@@ -238,4 +239,44 @@ test('clear resets all filters', function () {
         ->assertSet('serverFilter', '')
         ->assertSet('dbTypeFilter', '')
         ->assertSet('fileMissing', '');
+});
+
+test('download-snapshots allows opening the copy picker for a multi-volume snapshot', function () {
+    $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
+
+    $volumeA = Volume::factory()->local()->create(['name' => 'Primary Local']);
+    $volumeB = Volume::factory()->local()->create(['name' => 'Offsite Local']);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+    $server->backups->first()->volumes()->sync([$volumeA->id, $volumeB->id]);
+
+    $snapshot = app(BackupJobFactory::class)
+        ->createSnapshots($server->backups->first()->fresh(), 'manual', $user->id)[0];
+    $snapshot->update(['filename' => 'multi.sql.gz']);
+    $snapshot->files()->update(['status' => \App\Enums\SnapshotFileStatus::Completed]);
+    $snapshot->job->markCompleted();
+
+    $fileOnA = $snapshot->files()->where('volume_id', $volumeA->id)->firstOrFail();
+    $fileOnB = $snapshot->files()->where('volume_id', $volumeB->id)->firstOrFail();
+
+    // Both copies are offered, each linking to its own volume's download.
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('openDownloadModal', $snapshot->id)
+        ->assertSet('showDownloadModal', true)
+        ->assertSet('downloadSnapshotId', $snapshot->id)
+        ->assertSee('Primary Local')
+        ->assertSee('Offsite Local')
+        ->assertSee(route('snapshots.download', [$snapshot, 'file' => $fileOnA->id]), false)
+        ->assertSee(route('snapshots.download', [$snapshot, 'file' => $fileOnB->id]), false);
+});
+
+test('without download-snapshots, opening the copy picker is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::DownloadSnapshots->value)->create();
+    $snapshot = Snapshot::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('openDownloadModal', $snapshot->id)
+        ->assertForbidden();
 });

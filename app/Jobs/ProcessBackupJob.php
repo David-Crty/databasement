@@ -2,11 +2,14 @@
 
 namespace App\Jobs;
 
-use App\Exceptions\Backup\StorageQuotaExceededException;
+use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\VolumeTransferException;
 use App\Facades\AppConfig;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupConfig;
+use App\Services\Backup\DTO\BackupResult;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\NotificationService;
@@ -45,7 +48,7 @@ class ProcessBackupJob implements ShouldQueue
      */
     public function handle(BackupTask $backupTask): void
     {
-        $snapshot = Snapshot::with(['job', 'volume', 'backup', 'databaseServer.sshConfig'])->findOrFail($this->snapshotId);
+        $snapshot = Snapshot::with(['job', 'files.volume', 'backup', 'databaseServer.sshConfig'])->findOrFail($this->snapshotId);
         $databaseServer = $snapshot->databaseServer;
         $job = $snapshot->job;
 
@@ -66,33 +69,36 @@ class ProcessBackupJob implements ShouldQueue
                 ? ($snapshot->backup->path ?? '')
                 : '';
 
+            // The snapshot's own file rows are the source of truth for the
+            // run's targets. On a retry, copies that already uploaded
+            // successfully are skipped instead of re-uploaded.
+            $targetFiles = $snapshot->files->filter(
+                fn (SnapshotFile $file) => $file->status !== SnapshotFileStatus::Completed,
+            )->whenEmpty(fn () => $snapshot->files);
+
             $config = new BackupConfig(
                 database: DatabaseConnectionConfig::fromServer($databaseServer),
-                volume: VolumeConfig::fromVolume($snapshot->volume),
+                volumes: array_values($targetFiles->map(
+                    fn (SnapshotFile $file) => VolumeConfig::fromVolume($file->volume, $file->volume->usedStorageBytes()),
+                )->all()),
                 databaseName: $snapshot->database_name,
                 workingDirectory: FilesystemSupport::createWorkingDirectory('backup', $snapshot->id),
                 backupPath: $backupPath,
                 postBackupScript: AppConfig::get('backup.post_backup_script'),
-                volumeUsedBytes: $snapshot->volume->usedStorageBytes(),
             );
 
             $result = $backupTask->execute($config, $job);
 
-            $snapshot->update([
-                'filename' => $result->filename,
-                'file_size' => $result->fileSize,
-                'checksum' => $result->checksum,
-                'file_verified_at' => now(),
-            ]);
+            $this->persistResult($snapshot, $result);
 
             $job->markCompleted();
 
             app(NotificationService::class)->notifyBackupSuccess($snapshot);
 
             // Notify-only storage limit: the backup was uploaded despite
-            // exceeding the volume's limit, so alert every configured channel.
-            if ($result->storageWarning !== null) {
-                app(NotificationService::class)->notifyStorageLimitWarning($snapshot, $result->storageWarning);
+            // exceeding a volume's limit, so alert every configured channel.
+            foreach ($result->storageWarnings() as $warning) {
+                app(NotificationService::class)->notifyStorageLimitWarning($snapshot, $warning->storageWarning ?? '', $warning->volumeName);
             }
 
             Log::info('Backup completed successfully', [
@@ -100,16 +106,26 @@ class ProcessBackupJob implements ShouldQueue
                 'database_server_id' => $databaseServer->id,
                 'method' => $snapshot->method,
             ]);
-        } catch (StorageQuotaExceededException $e) {
-            // The volume is over its storage limit. Retrying cannot help — the
-            // limit won't move on its own — so fail immediately (no retry). The
-            // custom message reaches the user via the failure notification.
+        } catch (VolumeTransferException $e) {
+            // At least one upload failed. The successful copies are still
+            // recorded so their files stay tracked, then the job is failed.
+            $this->persistResult($snapshot, $e->result);
+
             $job->log("Backup failed: {$e->getMessage()}", 'error', [
                 'exception' => get_class($e),
             ]);
             $job->markFailed($e);
 
-            $this->fail($e);
+            if ($e->allFailuresAreQuota()) {
+                // Over-quota volumes won't free up on their own — fail
+                // immediately (no retry). The custom message reaches the user
+                // via the failure notification.
+                $this->fail($e);
+
+                return;
+            }
+
+            throw $e;
         } catch (\Throwable $e) {
             $job->log("Backup failed: {$e->getMessage()}", 'error', [
                 'exception' => get_class($e),
@@ -119,6 +135,40 @@ class ProcessBackupJob implements ShouldQueue
             $job->markFailed($e);
 
             throw $e;
+        }
+    }
+
+    /**
+     * Persist the archive fields and per-volume upload outcomes onto the
+     * snapshot and its copy rows.
+     */
+    private function persistResult(Snapshot $snapshot, BackupResult $result): void
+    {
+        $snapshot->update([
+            'filename' => $result->filename,
+            'file_size' => $result->fileSize,
+            'checksum' => $result->checksum,
+        ]);
+
+        foreach ($result->volumeResults as $volumeResult) {
+            $file = $snapshot->files->firstWhere('volume_id', $volumeResult->volumeId);
+            if ($file === null) {
+                continue;
+            }
+
+            if ($volumeResult->status === SnapshotFileStatus::Completed) {
+                $file->update([
+                    'status' => SnapshotFileStatus::Completed,
+                    'file_exists' => true,
+                    'file_verified_at' => now(),
+                    'error' => null,
+                ]);
+            } else {
+                $file->update([
+                    'status' => SnapshotFileStatus::Failed,
+                    'error' => $volumeResult->error,
+                ]);
+            }
         }
     }
 

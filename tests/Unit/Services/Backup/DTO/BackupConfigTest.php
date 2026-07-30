@@ -16,11 +16,11 @@ test('toPayload and fromPayload are symmetric', function () {
             username: 'root',
             password: 'secret',
         ),
-        volume: new VolumeConfig(
+        volumes: [new VolumeConfig(
             type: 'local',
             name: 'Local',
             config: ['path' => '/backups'],
-        ),
+        )],
         databaseName: 'myapp',
         workingDirectory: '/tmp/work',
         backupPath: 'backups/2026/02',
@@ -37,9 +37,10 @@ test('toPayload and fromPayload are symmetric', function () {
         ->and($restored->database->host)->toBe('db.example.com')
         ->and($restored->database->password)->toBe('secret')
         ->and($restored->database->serverName)->toBe('Prod Server')
-        ->and($restored->volume->type)->toBe('local')
-        ->and($restored->volume->name)->toBe('Local')
-        ->and($restored->volume->config)->toBe(['path' => '/backups'])
+        ->and($restored->volumes)->toHaveCount(1)
+        ->and($restored->volumes[0]->type)->toBe('local')
+        ->and($restored->volumes[0]->name)->toBe('Local')
+        ->and($restored->volumes[0]->config)->toBe(['path' => '/backups'])
         ->and($restored->databaseName)->toBe('myapp')
         ->and($restored->workingDirectory)->toBe('/tmp/restored')
         ->and($restored->backupPath)->toBe('backups/2026/02')
@@ -47,6 +48,29 @@ test('toPayload and fromPayload are symmetric', function () {
         ->and($restored->compressionLevel)->toBe(6)
         ->and($restored->compressionMultithread)->toBeTrue()
         ->and($restored->postBackupScript)->toBe('/usr/local/bin/notify.sh');
+});
+
+test('fromPayload wraps a legacy single-volume payload', function () {
+    // Payloads created before multi-volume support (still queued in
+    // agent_jobs) only carry the single `volume` key.
+    $config = BackupConfig::fromPayload([
+        'database' => [
+            'type' => 'mysql',
+            'host' => 'db.example.com',
+            'port' => 3306,
+            'username' => 'root',
+            'password' => 'secret',
+            'database_name' => 'myapp',
+        ],
+        'volume' => ['type' => 's3', 'name' => 'Bucket', 'config' => ['bucket' => 'b']],
+        'compression' => ['type' => null, 'level' => null],
+        'server_name' => 'Prod Server',
+    ], '/tmp/work');
+
+    expect($config->volumes)->toHaveCount(1)
+        ->and($config->volumes[0]->type)->toBe('s3')
+        ->and($config->volumes[0]->name)->toBe('Bucket')
+        ->and($config->volumes[0]->config)->toBe(['bucket' => 'b']);
 });
 
 test('toPayload includes server_name and database_name in database section', function () {
@@ -59,7 +83,7 @@ test('toPayload includes server_name and database_name in database section', fun
             username: 'admin',
             password: 'pass',
         ),
-        volume: new VolumeConfig(type: 's3', name: 'Bucket', config: []),
+        volumes: [new VolumeConfig(type: 's3', name: 'Bucket', config: [])],
         databaseName: 'analytics',
         workingDirectory: '/tmp/work',
     );

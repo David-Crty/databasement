@@ -40,7 +40,7 @@ test('days retention deletes expired snapshots and files, skips pending and rece
     updateFirstBackup($server, ['retention_days' => 7]);
 
     $expiredCompleted = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
-    $volumePath = $expiredCompleted->volume->config['path'];
+    $volumePath = $expiredCompleted->files()->firstOrFail()->volume->config['path'];
     $expiredFilePath = $volumePath.'/'.$expiredCompleted->filename;
 
     $recentCompleted = createSnapshot($server, 'completed', now()->subDays(3), 'app_db');
@@ -68,7 +68,7 @@ test('deleting a snapshot prunes empty parent folders and stops at the first non
     updateFirstBackup($server, ['retention_days' => 7]);
 
     $snapshot = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
-    $volumePath = $snapshot->volume->config['path'];
+    $volumePath = $snapshot->files()->firstOrFail()->volume->config['path'];
 
     // Move the backup file into the folder under test, mirroring a path with date placeholders.
     // An empty folder means the snapshot lives directly in the volume root.
@@ -76,6 +76,7 @@ test('deleting a snapshot prunes empty parent folders and stops at the first non
         $newFilename = $folder.'/'.$snapshot->filename;
         mkdir($volumePath.'/'.$folder, 0755, true);
         rename($volumePath.'/'.$snapshot->filename, $volumePath.'/'.$newFilename);
+        $snapshot->update(['filename' => $newFilename]);
         $snapshot->update(['filename' => $newFilename]);
     } else {
         $newFilename = $snapshot->filename;
@@ -151,6 +152,7 @@ test('snapshot is still deleted when pruning empty parent folders throws', funct
 
     $snapshot = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
     $snapshot->update(['filename' => '2026_06_15/backup.sql.gz']);
+    $snapshot->update(['filename' => '2026_06_15/backup.sql.gz']);
 
     // The file is removed fine, but the volume blows up while pruning the now-empty folder.
     $filesystem = Mockery::mock(Filesystem::class);
@@ -182,7 +184,7 @@ test('dry-run mode does not delete snapshots', function () {
     updateFirstBackup($server, ['retention_days' => 7]);
 
     $expiredSnapshot = createSnapshot($server, 'completed', now()->subDays(10));
-    $volumePath = $expiredSnapshot->volume->config['path'];
+    $volumePath = $expiredSnapshot->files()->firstOrFail()->volume->config['path'];
     $filePath = $volumePath.'/'.$expiredSnapshot->filename;
 
     $result = app(SnapshotCleanupService::class)->run(dryRun: true);

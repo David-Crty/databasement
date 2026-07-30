@@ -64,12 +64,13 @@
                 </div>
 
                 {{-- File missing warning --}}
-                @if($snapshot && !$snapshot->file_exists)
+                @if($snapshot && $snapshot->hasMissingFile())
+                    @php $lastVerifiedAt = $snapshot->lastVerifiedAt(); @endphp
                     <x-alert class="alert-warning" icon="o-exclamation-triangle">
                         {{ __('Backup file is missing from volume') }}
-                        @if($snapshot->file_verified_at)
+                        @if($lastVerifiedAt)
                             <span class="text-base-content/70">
-                                — {{ __('checked') }} {{ \App\Support\Formatters::humanDate($snapshot->file_verified_at) }} ({{ $snapshot->file_verified_at->diffForHumans() }})
+                                — {{ __('checked') }} {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }} ({{ $lastVerifiedAt->diffForHumans() }})
                             </span>
                         @endif
                     </x-alert>
@@ -86,13 +87,15 @@
                             </div>
                         @endif
 
-                        {{-- Volume Type --}}
-                        @if($snapshot->volume)
-                            <div class="badge badge-outline gap-1.5">
-                                <x-volume-type-icon :type="$snapshot->volume->type" class="w-3.5 h-3.5" />
-                                {{ $snapshot->volume->getVolumeType()?->label() ?? $snapshot->volume->type }}
-                            </div>
-                        @endif
+                        {{-- Volume Type(s) --}}
+                        @foreach($snapshot->files as $file)
+                            @if($file->volume)
+                                <div class="badge badge-outline gap-1.5">
+                                    <x-volume-type-icon :type="$file->volume->type" class="w-3.5 h-3.5" />
+                                    {{ $file->volume->getVolumeType()?->label() ?? $file->volume->type }}
+                                </div>
+                            @endif
+                        @endforeach
 
                         {{-- Agent: only for backup jobs that ran through a remote agent --}}
                         @if($this->selectedJob->snapshot?->getAgentName())

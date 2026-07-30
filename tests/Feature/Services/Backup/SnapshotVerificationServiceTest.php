@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SnapshotFileStatus;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Snapshot;
@@ -33,8 +34,8 @@ test('sets file_exists to true when file exists on volume', function () {
     makeService($mockProvider)->run();
 
     $snapshot->refresh();
-    expect($snapshot->file_exists)->toBeTrue()
-        ->and($snapshot->file_verified_at)->not->toBeNull();
+    expect($snapshot->hasExistingFile())->toBeTrue()
+        ->and($snapshot->lastVerifiedAt())->not->toBeNull();
 });
 
 test('sets file_exists to false when file is missing from volume', function () {
@@ -54,12 +55,12 @@ test('sets file_exists to false when file is missing from volume', function () {
     makeService($mockProvider)->run();
 
     $snapshot->refresh();
-    expect($snapshot->file_exists)->toBeFalse()
-        ->and($snapshot->file_verified_at)->not->toBeNull();
+    expect($snapshot->hasExistingFile())->toBeFalse()
+        ->and($snapshot->lastVerifiedAt())->not->toBeNull();
 });
 
 test('handles filesystem errors gracefully without changing file_exists', function () {
-    $snapshot = Snapshot::factory()->create(['file_exists' => true]);
+    $snapshot = Snapshot::factory()->fileVerified()->create();
 
     $mockProvider = Mockery::mock(FilesystemProvider::class);
     $mockProvider->shouldReceive('getForVolume')
@@ -69,8 +70,8 @@ test('handles filesystem errors gracefully without changing file_exists', functi
     makeService($mockProvider)->run();
 
     $snapshot->refresh();
-    expect($snapshot->file_exists)->toBeTrue()
-        ->and($snapshot->file_verified_at)->not->toBeNull();
+    expect($snapshot->hasExistingFile())->toBeTrue()
+        ->and($snapshot->lastVerifiedAt())->not->toBeNull();
 });
 
 test('verifies all completed snapshots', function () {
@@ -82,6 +83,7 @@ test('verifies all completed snapshots', function () {
     // Set filenames and mark completed
     foreach ($snapshots as $snapshot) {
         $snapshot->update(['filename' => fake()->slug().'.sql.gz']);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
         $snapshot->job->markCompleted();
     }
 
@@ -99,13 +101,13 @@ test('verifies all completed snapshots', function () {
 
     foreach ($snapshots as $snapshot) {
         $snapshot->refresh();
-        expect($snapshot->file_exists)->toBeTrue()
-            ->and($snapshot->file_verified_at)->not->toBeNull();
+        expect($snapshot->hasExistingFile())->toBeTrue()
+            ->and($snapshot->lastVerifiedAt())->not->toBeNull();
     }
 
     // Skipped snapshot should remain unverified
     $skippedSnapshots[0]->refresh();
-    expect($skippedSnapshots[0]->file_verified_at)->toBeNull();
+    expect($skippedSnapshots[0]->lastVerifiedAt())->toBeNull();
 });
 
 test('sends notification when newly missing files are detected in bulk mode', function () {
@@ -116,7 +118,8 @@ test('sends notification when newly missing files are detected in bulk mode', fu
     $server = DatabaseServer::factory()->create(['database_names' => ['prod_db']]);
     $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $snapshot = $snapshots[0];
-    $snapshot->update(['filename' => 'backup.sql.gz', 'file_exists' => true]);
+    $snapshot->update(['filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $mockFilesystem = Mockery::mock(Filesystem::class);
@@ -139,7 +142,8 @@ test('does not send notification when no new files are missing', function () {
     $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $snapshot = $snapshots[0];
     // Already marked as missing — not newly missing
-    $snapshot->update(['filename' => 'backup.sql.gz', 'file_exists' => false]);
+    $snapshot->update(['filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'file_exists' => false]);
     $snapshot->job->markCompleted();
 
     $mockFilesystem = Mockery::mock(Filesystem::class);

@@ -236,7 +236,7 @@
                                 @php
                                     $entry = $backup->toArray();
                                     $summaryWhat = BackupForm::selectionSummary($entry, $server->database_type);
-                                    $summaryWhere = $backup->volume?->name;
+                                    $summaryWhere = $backup->volumes->pluck('name')->implode(', ') ?: null;
                                     $summaryWhen = $backup->backupSchedule
                                         ? \App\Support\Formatters::cronTranslation($backup->backupSchedule->expression).' ('.$backup->backupSchedule->name.')'
                                         : null;
@@ -282,8 +282,8 @@
                                                 {{ __('Where') }}
                                             </dt>
                                             <dd class="font-semibold text-base-content inline-flex items-center gap-1.5">
-                                                @if($backup->volume)
-                                                    <x-volume-type-icon :type="$backup->volume->type" class="w-3.5 h-3.5 opacity-70" />
+                                                @if($backup->volumes->isNotEmpty())
+                                                    <x-volume-type-icon :type="$backup->volumes->first()->type" class="w-3.5 h-3.5 opacity-70" />
                                                 @endif
                                                 <span>{{ $summaryWhere }}@if($backup->path)<span class="text-base-content/50 font-normal font-mono text-xs"> / {{ $backup->path }}</span>@endif</span>
                                             </dd>

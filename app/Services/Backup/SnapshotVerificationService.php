@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\SnapshotFileStatus;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\Snapshot;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -60,40 +61,51 @@ class SnapshotVerificationService
 
     private function verifySnapshot(string $snapshotId): void
     {
-        $snapshot = Snapshot::with(['volume', 'databaseServer'])->find($snapshotId);
+        $snapshot = Snapshot::with(['files.volume', 'databaseServer'])->find($snapshotId);
 
         if (! $snapshot) {
             return;
         }
 
-        try {
-            $filesystem = $this->filesystemProvider->getForVolume($snapshot->volume);
-            $exists = $filesystem->fileExists($snapshot->filename);
+        $wasPreviouslyExisting = $snapshot->hasExistingFile();
 
-            $wasPreviouslyExisting = $snapshot->file_exists;
+        // Check each stored copy on its own volume; an unreachable volume only
+        // stamps the copy's verification timestamp without changing its state.
+        foreach ($snapshot->files as $file) {
+            if ($file->status !== SnapshotFileStatus::Completed) {
+                continue;
+            }
 
-            $snapshot->update([
-                'file_exists' => $exists,
-                'file_verified_at' => now(),
-            ]);
+            try {
+                $filesystem = $this->filesystemProvider->getForVolume($file->volume);
+                $exists = $filesystem->fileExists($file->storedFilename());
 
-            if (! $exists && $wasPreviouslyExisting) {
-                $this->newlyMissing->push([
-                    'server' => $snapshot->databaseServer->name,
-                    'database' => $snapshot->database_name,
-                    'filename' => $snapshot->filename,
-                    'database_server_id' => $snapshot->database_server_id,
+                $file->update([
+                    'file_exists' => $exists,
+                    'file_verified_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Failed to verify snapshot file existence', [
+                    'snapshot_id' => $snapshotId,
+                    'volume' => $file->volume->name,
+                    'filename' => $file->storedFilename(),
+                    'error' => $e->getMessage(),
+                ]);
+
+                $file->update([
+                    'file_verified_at' => now(),
                 ]);
             }
-        } catch (\Throwable $e) {
-            Log::warning('Failed to verify snapshot file existence', [
-                'snapshot_id' => $snapshotId,
-                'filename' => $snapshot->filename,
-                'error' => $e->getMessage(),
-            ]);
+        }
 
-            $snapshot->update([
-                'file_verified_at' => now(),
+        // A snapshot only counts as newly missing once no copy is left on any
+        // volume — losing one copy while another remains is not a data loss.
+        if ($wasPreviouslyExisting && ! $snapshot->hasExistingFile()) {
+            $this->newlyMissing->push([
+                'server' => $snapshot->databaseServer->name,
+                'database' => $snapshot->database_name,
+                'filename' => $snapshot->filename,
+                'database_server_id' => $snapshot->database_server_id,
             ]);
         }
     }

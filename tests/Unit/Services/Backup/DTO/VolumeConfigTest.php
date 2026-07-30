@@ -10,6 +10,7 @@ test('toPayload serializes volume config', function () {
     );
 
     expect($config->toPayload())->toBe([
+        'id' => null,
         'type' => 's3',
         'name' => 'Production Bucket',
         'config' => ['bucket' => 'my-backups', 'region' => 'us-east-1'],

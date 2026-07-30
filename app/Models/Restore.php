@@ -24,6 +24,7 @@ class Restore extends Model
     protected $fillable = [
         'backup_job_id',
         'snapshot_id',
+        'snapshot_file_id',
         'target_server_id',
         'schema_name',
         'options',
@@ -55,6 +56,17 @@ class Restore extends Model
     public function snapshot(): BelongsTo
     {
         return $this->belongsTo(Snapshot::class);
+    }
+
+    /**
+     * The specific snapshot copy this restore reads from; null = auto-pick
+     * the first available copy at run time.
+     *
+     * @return BelongsTo<SnapshotFile, Restore>
+     */
+    public function snapshotFile(): BelongsTo
+    {
+        return $this->belongsTo(SnapshotFile::class);
     }
 
     /**

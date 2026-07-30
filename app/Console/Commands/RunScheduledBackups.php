@@ -30,7 +30,7 @@ class RunScheduledBackups extends Command
             return self::FAILURE;
         }
 
-        $backups = Backup::with(['databaseServer', 'volume', 'backupSchedule'])
+        $backups = Backup::with(['databaseServer', 'volumes', 'backupSchedule'])
             ->whereRelation('databaseServer', 'backups_enabled', true)
             ->where('backup_schedule_id', $schedule->id)
             ->get();

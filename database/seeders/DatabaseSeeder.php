@@ -180,7 +180,6 @@ class DatabaseSeeder extends Seeder
 
         // Backup configurations (database_selection_mode lives on Backup now)
         $backupDefaults = [
-            'volume_id' => $volume->id,
             'backup_schedule_id' => $dailySchedule->id,
             'retention_policy' => Backup::RETENTION_DAYS,
             'retention_days' => 30,
@@ -190,28 +189,27 @@ class DatabaseSeeder extends Seeder
         foreach ([$mysql, $redis, $mongodb, $mssql] as $server) {
             Backup::create(array_merge($backupDefaults, [
                 'database_server_id' => $server->id,
-            ]));
+            ]))->volumes()->attach($volume);
         }
 
         // PostgreSQL backs up to the rustfs S3 volume (local S3 testing)
         Backup::create(array_merge($backupDefaults, [
             'database_server_id' => $postgres->id,
-            'volume_id' => $s3Volume->id,
-        ]));
+        ]))->volumes()->attach($s3Volume);
 
         // SQLite backup uses 'selected' mode with explicit file paths
         Backup::create(array_merge($backupDefaults, [
             'database_server_id' => $sqlite->id,
             'database_selection_mode' => 'selected',
             'database_names' => [$sqlitePath],
-        ]));
+        ]))->volumes()->attach($volume);
 
         // Firebird backup uses 'selected' mode with explicit file paths
         Backup::create(array_merge($backupDefaults, [
             'database_server_id' => $firebird->id,
             'database_selection_mode' => 'selected',
             'database_names' => [$firebirdPath],
-        ]));
+        ]))->volumes()->attach($volume);
     }
 
     /**

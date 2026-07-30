@@ -18,7 +18,7 @@ test('can create database server', function (array $config) {
         ->set('form.name', $config['name'])
         ->set('form.database_type', $config['type'])
         ->set('form.description', 'Test database')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14);
 
@@ -61,9 +61,13 @@ test('can create database server', function (array $config) {
 
     $this->assertDatabaseHas('backups', [
         'database_server_id' => $server->id,
-        'volume_id' => $volume->id,
         'backup_schedule_id' => dailySchedule()->id,
         'retention_days' => 14,
+    ]);
+
+    $this->assertDatabaseHas('backup_volume', [
+        'backup_id' => $server->backups->first()->id,
+        'volume_id' => $volume->id,
     ]);
 })->with('database server configs');
 
@@ -112,7 +116,7 @@ test('can create database server with retention policy', function (array $config
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
         ->set('form.backups.0.database_names.0', 'myapp_production')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_policy', $config['policy']);
 
@@ -128,9 +132,14 @@ test('can create database server with retention policy', function (array $config
     $server = DatabaseServer::where('name', 'Test Server')->first();
 
     $this->assertDatabaseHas('backups', array_merge(
-        ['database_server_id' => $server->id, 'volume_id' => $volume->id],
+        ['database_server_id' => $server->id],
         $config['expected_backup']
     ));
+
+    $this->assertDatabaseHas('backup_volume', [
+        'backup_id' => $server->backups()->first()->id,
+        'volume_id' => $volume->id,
+    ]);
 })->with('retention policies');
 
 test('cannot create database server with GFS retention when all tiers are empty', function () {
@@ -146,7 +155,7 @@ test('cannot create database server with GFS retention when all tiers are empty'
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
         ->set('form.backups.0.database_names.0', 'myapp_production')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_policy', 'gfs')
         ->set('form.backups.0.gfs_keep_daily', null)
@@ -285,7 +294,7 @@ test('can create database server with dump flags', function () {
         ->set('form.password', 'secret123')
         ->set('form.dump_flags', '--no-tablespaces --column-statistics=0')
         ->set('form.backups.0.database_names.0', 'myapp')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         ->call('save')
@@ -312,7 +321,7 @@ test('can create mysql database server with ssl_enabled', function () {
         ->set('form.password', 'secret123')
         ->set('form.ssl_enabled', true)
         ->set('form.backups.0.database_names.0', 'myapp')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         ->call('save')
@@ -337,7 +346,7 @@ test('can create mongodb server with advanced connection options', function () {
         ->set('form.srv_enabled', true)
         ->set('form.connection_options', 'tls=true&replicaSet=rs0&retryWrites=true&w=majority')
         ->set('form.backups.0.database_names.0', 'myapp')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         ->call('save')
@@ -390,13 +399,13 @@ test('toggling use_agent clears local volume but keeps remote volume', function 
         default => Volume::factory()->local()->create(['name' => 'Test Vol']),
     };
 
-    $expected = $expectedVolumeId === 'keep' ? $volume->id : '';
+    $expected = $expectedVolumeId === 'keep' ? [$volume->id] : [];
 
     Livewire::actingAs($user)
         ->test(Create::class)
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.use_agent', true)
-        ->assertSet('form.backups.0.volume_id', $expected);
+        ->assertSet('form.backups.0.volume_ids', $expected);
 })->with([
     'clears local volume' => ['local', 'clear'],
     'keeps s3 volume' => ['s3', 'keep'],
@@ -417,10 +426,10 @@ test('cannot create agent-backed server with local volume', function () {
         ->set('form.password', 'secret123')
         ->set('form.use_agent', true)
         ->set('form.agent_id', $agent->id)
-        ->set('form.backups.0.volume_id', $localVolume->id)
+        ->set('form.backups.0.volume_ids', [$localVolume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->call('save')
-        ->assertHasErrors(['form.backups.0.volume_id']);
+        ->assertHasErrors(['form.backups.0.volume_ids.0']);
 
     $this->assertDatabaseMissing('database_servers', ['name' => 'Agent Server']);
 });
@@ -445,7 +454,7 @@ test('backup summary is incomplete until volume and schedule are set, then rende
 
     // Fill everything required for the summary
     $component
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.database_selection_mode', 'all')
         ->set('form.backups.0.retention_policy', 'days')
@@ -505,7 +514,7 @@ test('backup summary reports incomplete when retention settings are blank', func
         ->test(Create::class)
         ->set('form.database_type', 'mysql')
         ->set('form.connectionTestSuccess', true)
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.database_selection_mode', 'all');
 
@@ -548,7 +557,7 @@ test('can create a server with multiple backup configurations', function () {
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret')
-        ->set('form.backups.0.volume_id', $volume1->id)
+        ->set('form.backups.0.volume_ids', [$volume1->id])
         ->set('form.backups.0.backup_schedule_id', $daily->id)
         ->set('form.backups.0.retention_policy', 'days')
         ->set('form.backups.0.retention_days', 14)
@@ -557,7 +566,7 @@ test('can create a server with multiple backup configurations', function () {
         ->set('form.backups.0.database_names_input', 'critical_db')
         ->call('addBackup')
         ->assertCount('form.backups', 2)
-        ->set('form.backups.1.volume_id', $volume2->id)
+        ->set('form.backups.1.volume_ids', [$volume2->id])
         ->set('form.backups.1.backup_schedule_id', $weekly->id)
         ->set('form.backups.1.retention_policy', 'gfs')
         ->set('form.backups.1.gfs_keep_daily', 7)
@@ -574,13 +583,13 @@ test('can create a server with multiple backup configurations', function () {
 
     /** @var \App\Models\Backup $daily */
     $dailyBackup = $server->backups->firstWhere('backup_schedule_id', $daily->id);
-    expect($dailyBackup->volume_id)->toBe($volume1->id)
+    expect($dailyBackup->volumes->pluck('id')->all())->toBe([$volume1->id])
         ->and($dailyBackup->retention_policy)->toBe('days')
         ->and($dailyBackup->retention_days)->toBe(14)
         ->and($dailyBackup->database_names)->toBe(['critical_db']);
 
     $weeklyBackup = $server->backups->firstWhere('backup_schedule_id', $weekly->id);
-    expect($weeklyBackup->volume_id)->toBe($volume2->id)
+    expect($weeklyBackup->volumes->pluck('id')->all())->toBe([$volume2->id])
         ->and($weeklyBackup->retention_policy)->toBe('gfs')
         ->and($weeklyBackup->gfs_keep_daily)->toBe(7)
         ->and($weeklyBackup->gfs_keep_weekly)->toBe(4)

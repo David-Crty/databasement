@@ -26,7 +26,7 @@ class DatabaseServerQuery
     public static function make(): QueryBuilder
     {
         return QueryBuilder::for(DatabaseServer::class)
-            ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
+            ->with(['backups.volumes', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
             ->allowedFilters(
                 AllowedFilter::partial('name'),
                 AllowedFilter::partial('host'),
@@ -56,7 +56,7 @@ class DatabaseServerQuery
         $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
 
         return DatabaseServer::query()
-            ->with(['backups.volume', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
+            ->with(['backups.volumes', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
             ->withCount(['snapshots' => function (Builder $q) {
                 /** @var Builder<Snapshot> $q */
                 return $q->completed();

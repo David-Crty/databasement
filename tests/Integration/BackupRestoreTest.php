@@ -60,7 +60,7 @@ test('mysql backup and restore workflow', function (string $compression, string 
     $this->volume = IntegrationTestHelpers::createVolume('mysql');
     $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('mysql');
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backups.volume');
+    $this->databaseServer->load('backups.volumes');
 
     IntegrationTestHelpers::loadTestData('mysql', $this->databaseServer);
 
@@ -73,7 +73,7 @@ test('mysql backup and restore workflow', function (string $compression, string 
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
-    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->files()->firstOrFail()->volume);
 
     expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
@@ -118,7 +118,7 @@ test('postgres backup and restore workflow', function (?string $dumpFormat) {
         ]);
     }
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backups.volume');
+    $this->databaseServer->load('backups.volumes');
 
     IntegrationTestHelpers::loadTestData('postgres', $this->databaseServer);
 
@@ -131,7 +131,7 @@ test('postgres backup and restore workflow', function (?string $dumpFormat) {
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
-    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->files()->firstOrFail()->volume);
 
     $expectedDumpExt = $dumpFormat === 'custom' ? 'dump' : 'sql';
     expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
@@ -170,7 +170,7 @@ test('backup with extra dump flags succeeds', function (string $type, string $fl
         ),
     ]);
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backups.volume');
+    $this->databaseServer->load('backups.volumes');
 
     // Load test data
     IntegrationTestHelpers::loadTestData($type, $this->databaseServer);
@@ -205,7 +205,7 @@ test('sqlite backup and restore workflow', function () {
     $this->volume = IntegrationTestHelpers::createVolume('sqlite');
     $this->databaseServer = IntegrationTestHelpers::createSqliteDatabaseServer($sourceSqlitePath);
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backups.volume');
+    $this->databaseServer->load('backups.volumes');
 
     // Run backup
     $snapshots = $this->backupJobFactory->createSnapshots(
@@ -218,7 +218,7 @@ test('sqlite backup and restore workflow', function () {
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
-    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->files()->firstOrFail()->volume);
 
     expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
@@ -256,7 +256,7 @@ test('mongodb backup and restore workflow', function () {
     $this->volume = IntegrationTestHelpers::createVolume('mongodb');
     $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('mongodb');
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backups.volume');
+    $this->databaseServer->load('backups.volumes');
 
     // Load test data
     IntegrationTestHelpers::loadMongodbTestData($this->databaseServer);
@@ -271,7 +271,7 @@ test('mongodb backup and restore workflow', function () {
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
-    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->files()->firstOrFail()->volume);
 
     expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
@@ -298,7 +298,7 @@ test('mssql backup and restore workflow', function () {
     $this->volume = IntegrationTestHelpers::createVolume('mssql');
     $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('mssql');
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backups.volume');
+    $this->databaseServer->load('backups.volumes');
 
     // Load test data (resets the target database and runs the fixture script)
     IntegrationTestHelpers::loadTestData('mssql', $this->databaseServer);
@@ -313,7 +313,7 @@ test('mssql backup and restore workflow', function () {
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
-    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->files()->firstOrFail()->volume);
 
     expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
@@ -342,7 +342,7 @@ test('redis backup workflow', function () {
     $this->volume = IntegrationTestHelpers::createVolume('redis');
     $this->databaseServer = IntegrationTestHelpers::createRedisDatabaseServer();
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backups.volume');
+    $this->databaseServer->load('backups.volumes');
 
     // Load test data
     IntegrationTestHelpers::loadRedisTestData($this->databaseServer);
@@ -357,7 +357,7 @@ test('redis backup workflow', function () {
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
-    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->files()->firstOrFail()->volume);
 
     expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)
@@ -371,7 +371,7 @@ test('firebird backup and restore workflow', function () {
     $this->volume = IntegrationTestHelpers::createVolume('firebird');
     $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('firebird');
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
-    $this->databaseServer->load('backups.volume');
+    $this->databaseServer->load('backups.volumes');
 
     // Load test data
     IntegrationTestHelpers::loadTestData('firebird', $this->databaseServer);
@@ -386,7 +386,7 @@ test('firebird backup and restore workflow', function () {
     $this->snapshot->refresh();
     $this->snapshot->load('job');
 
-    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->volume);
+    $filesystem = $this->filesystemProvider->getForVolume($this->snapshot->files()->firstOrFail()->volume);
 
     expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($this->snapshot->file_size)->toBeGreaterThan(0)

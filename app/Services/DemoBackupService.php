@@ -73,13 +73,12 @@ class DemoBackupService
 
         Backup::create([
             'database_server_id' => $databaseServer->id,
-            'volume_id' => $volume->id,
             'backup_schedule_id' => $dailySchedule->id,
             'retention_days' => 14,
             'database_selection_mode' => DatabaseSelectionMode::Selected->value,
             'database_names' => $backupDatabaseNames,
-        ]);
+        ])->volumes()->attach($volume);
 
-        return $databaseServer->load('backups.volume');
+        return $databaseServer->load('backups.volumes');
     }
 }

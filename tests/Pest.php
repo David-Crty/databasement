@@ -162,7 +162,7 @@ function createDatabaseServer(array $attributes = []): \App\Models\DatabaseServe
 {
     return \App\Models\DatabaseServer::factory()
         ->create($attributes)
-        ->load('backups.volume');
+        ->load('backups.volumes');
 }
 
 /**

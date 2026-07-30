@@ -23,7 +23,6 @@ class BackupFactory extends Factory
     {
         return [
             'database_server_id' => DatabaseServer::factory()->withoutBackups(),
-            'volume_id' => fn () => Volume::factory()->local()->create()->id,
             'path' => null,
             'backup_schedule_id' => fn () => BackupSchedule::firstOrCreate(
                 ['name' => 'Daily'],
@@ -38,6 +37,29 @@ class BackupFactory extends Factory
             'database_names' => null,
             'database_include_pattern' => null,
         ];
+    }
+
+    /**
+     * Configure the model factory — every backup targets at least one volume.
+     * {@see withVolumes()} replaces the default local volume.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Backup $backup) {
+            if ($backup->volumes()->doesntExist()) {
+                $backup->volumes()->attach(Volume::factory()->local()->create());
+            }
+        });
+    }
+
+    /**
+     * State: upload to these specific volumes (replaces the default local volume).
+     */
+    public function withVolumes(Volume ...$volumes): static
+    {
+        return $this->afterCreating(function (Backup $backup) use ($volumes) {
+            $backup->volumes()->sync(collect($volumes)->pluck('id')->all());
+        });
     }
 
     /**

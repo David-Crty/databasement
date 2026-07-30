@@ -296,11 +296,18 @@ class Form extends \Livewire\Form
         // Clear volume selection(s) if they were local (incompatible with agents)
         if ($this->use_agent) {
             foreach ($this->backups as $index => $backup) {
-                $volumeId = $backup['volume_id'] ?? '';
-                if ($volumeId !== ''
-                    && \App\Models\Volume::whereKey($volumeId)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
-                ) {
-                    $this->backups[$index]['volume_id'] = '';
+                $volumeIds = array_values(array_filter((array) ($backup['volume_ids'] ?? [])));
+                if ($volumeIds === []) {
+                    continue;
+                }
+
+                $localIds = \App\Models\Volume::whereIn('id', $volumeIds)
+                    ->where('type', \App\Enums\VolumeType::LOCAL->value)
+                    ->pluck('id')
+                    ->all();
+
+                if ($localIds !== []) {
+                    $this->backups[$index]['volume_ids'] = array_values(array_diff($volumeIds, $localIds));
                 }
             }
         }
@@ -478,8 +485,8 @@ class Form extends \Livewire\Form
             $this->ssh_config_id = null;
         }
 
-        // Load backup configurations
-        $backups = $server->backups()->get();
+        // Load backup configurations (eager-load volumes; fromModel() reads them)
+        $backups = $server->backups()->with('volumes')->get();
 
         if ($backups->isEmpty()) {
             $this->backups = [BackupForm::defaults()];

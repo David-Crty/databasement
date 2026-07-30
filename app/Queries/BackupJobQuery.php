@@ -105,7 +105,10 @@ class BackupJobQuery
                 self::applyServerFilter($query, $serverFilter);
             })
             ->when($fileMissing, function (Builder $query) {
-                $query->whereHas('snapshot', fn (Builder $q) => $q->whereRaw('file_exists = ?', [false]));
+                $query->whereHas('snapshot', function (Builder $query): void {
+                    /** @var Builder<Snapshot> $query */
+                    $query->fileMissing();
+                });
             });
 
         $direction = Formatters::sortDirection($sortDirection);

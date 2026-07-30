@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
@@ -35,7 +36,6 @@ class Backup extends Model
 
     protected $fillable = [
         'database_server_id',
-        'volume_id',
         'path',
         'backup_schedule_id',
         'retention_days',
@@ -70,7 +70,7 @@ class Backup extends Model
     {
         $parts = [
             'schedule' => $this->backupSchedule->name,
-            'volume' => $this->volume->name,
+            'volume' => $this->volumes->pluck('name')->implode(', '),
             'databases' => $this->getDatabaseSummary(),
             'retention' => $this->getRetentionSummary(),
         ];
@@ -125,11 +125,14 @@ class Backup extends Model
     }
 
     /**
-     * @return BelongsTo<Volume, Backup>
+     * The storage volumes this backup uploads to. The database is dumped once
+     * per run and the archive is transferred to every attached volume.
+     *
+     * @return BelongsToMany<Volume, Backup>
      */
-    public function volume(): BelongsTo
+    public function volumes(): BelongsToMany
     {
-        return $this->belongsTo(Volume::class);
+        return $this->belongsToMany(Volume::class);
     }
 
     /**

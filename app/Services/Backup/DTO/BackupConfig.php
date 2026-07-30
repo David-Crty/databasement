@@ -6,9 +6,14 @@ use App\Enums\CompressionType;
 
 readonly class BackupConfig
 {
+    /**
+     * @param  list<VolumeConfig>  $volumes  Target volumes. The database is
+     *                                       dumped once and the archive is
+     *                                       uploaded to each of them.
+     */
     public function __construct(
         public DatabaseConnectionConfig $database,
-        public VolumeConfig $volume,
+        public array $volumes,
         public string $databaseName,
         public string $workingDirectory,
         public string $backupPath = '',
@@ -16,19 +21,18 @@ readonly class BackupConfig
         public ?int $compressionLevel = null,
         public ?bool $compressionMultithread = null,
         public ?string $postBackupScript = null,
-        // Bytes currently stored on the target volume. Set app-side so the
-        // upload can be pre-checked against the volume's storage limit. Null
-        // (e.g. remote agents, which cannot read the app database) skips the
-        // check.
-        public ?int $volumeUsedBytes = null,
     ) {}
 
     /**
      * Serialize to a self-contained agent payload.
      *
+     * The legacy single `volume` key (first volume) is kept alongside
+     * `volumes` so agents that predate multi-volume support keep working.
+     *
      * @return array{
      *     database: array<string, mixed>,
-     *     volume: array<string, mixed>,
+     *     volume?: array<string, mixed>,
+     *     volumes: list<array<string, mixed>>,
      *     compression: array{type: string|null, level: int|null, multithread: bool|null},
      *     backup_path: string,
      *     server_name: string,
@@ -37,12 +41,12 @@ readonly class BackupConfig
      */
     public function toPayload(): array
     {
-        return [
+        $payload = [
             'database' => [
                 ...$this->database->toPayload(),
                 'database_name' => $this->databaseName,
             ],
-            'volume' => $this->volume->toPayload(),
+            'volumes' => array_map(fn (VolumeConfig $volume) => $volume->toPayload(), $this->volumes),
             'compression' => [
                 'type' => $this->compressionType?->value,
                 'level' => $this->compressionLevel,
@@ -52,14 +56,22 @@ readonly class BackupConfig
             'server_name' => $this->database->serverName,
             'post_backup_script' => $this->postBackupScript,
         ];
+
+        if ($this->volumes !== []) {
+            $payload['volume'] = $this->volumes[0]->toPayload();
+        }
+
+        return $payload;
     }
 
     /**
-     * Reconstruct from an agent payload.
+     * Reconstruct from an agent payload. Payloads created before multi-volume
+     * support (still queued in agent_jobs) only carry the single `volume` key.
      *
      * @param  array{
      *     database: array{type: string, host?: string, port?: int, username?: string, password?: string, extra_config?: array<string, mixed>|null, database_name: string},
-     *     volume: array{type: string, name?: string, config?: array<string, mixed>},
+     *     volume?: array{type: string, name?: string, config?: array<string, mixed>},
+     *     volumes?: list<array{type: string, name?: string, config?: array<string, mixed>}>,
      *     compression: array{type: string|null, level: int|null, multithread?: bool|null},
      *     backup_path?: string,
      *     server_name: string,
@@ -70,9 +82,15 @@ readonly class BackupConfig
     {
         $dbConfig = $payload['database'];
 
+        $volumePayloads = $payload['volumes']
+            ?? (isset($payload['volume']) ? [$payload['volume']] : []);
+
         return new self(
             database: DatabaseConnectionConfig::fromPayload($dbConfig, $payload['server_name']),
-            volume: VolumeConfig::fromPayload($payload['volume']),
+            volumes: array_map(
+                fn (array $volumePayload) => VolumeConfig::fromPayload($volumePayload),
+                $volumePayloads,
+            ),
             databaseName: $dbConfig['database_name'],
             workingDirectory: $workingDirectory,
             backupPath: $payload['backup_path'] ?? '',

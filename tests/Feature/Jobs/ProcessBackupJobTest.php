@@ -2,6 +2,8 @@
 
 use App\Contracts\BackupLogger;
 use App\Enums\BackupJobStatus;
+use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\VolumeTransferException;
 use App\Facades\AppConfig;
 use App\Jobs\ProcessBackupJob;
 use App\Models\DatabaseServer;
@@ -10,6 +12,7 @@ use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\VolumeTransferResult;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -53,7 +56,7 @@ test('handle builds config from models and updates snapshot on success', functio
                 && $config->database->host === 'db.example.com'
                 && $config->database->port === 3306
                 && $config->database->username === 'root'
-                && $config->volume->name === $snapshot->volume->name
+                && $config->volumes[0]->name === $snapshot->files->first()->volume->name
                 && str_contains($config->workingDirectory, 'backup-')
             ),
             Mockery::type(BackupLogger::class),
@@ -66,8 +69,7 @@ test('handle builds config from models and updates snapshot on success', functio
     expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($snapshot->filename)->toBe('prod-myapp-2024.sql.gz')
         ->and($snapshot->file_size)->toBe(2048)
-        ->and($snapshot->checksum)->toBe('abc123def456')
-        ->and($snapshot->file_verified_at)->not->toBeNull();
+        ->and($snapshot->checksum)->toBe('abc123def456');
 });
 
 test('handle passes backup path from model to config', function () {
@@ -221,7 +223,7 @@ test('handle passes the volume used storage (completed snapshots only) to the ba
     $mockBackupTask->shouldReceive('execute')
         ->once()
         ->with(
-            Mockery::on(fn (BackupConfig $config) => $config->volumeUsedBytes === 500),
+            Mockery::on(fn (BackupConfig $config) => $config->volumes[0]->usedBytes === 500),
             Mockery::type(BackupLogger::class),
         )
         ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123'));
@@ -235,10 +237,20 @@ test('handle fails without retry when the volume storage limit is exceeded', fun
     $server = createDatabaseServer(['database_names' => ['myapp']]);
     $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
 
+    $quotaResult = new BackupResult('myapp.sql.gz', 2048, 'abc123', [
+        new VolumeTransferResult(
+            volumeId: $snapshot->files->first()->volume_id,
+            volumeName: 'R2 Bucket',
+            status: SnapshotFileStatus::Failed,
+            error: 'Storage limit reached for volume "R2 Bucket".',
+            quotaExceeded: true,
+        ),
+    ]);
+
     $mockBackupTask = Mockery::mock(BackupTask::class);
     $mockBackupTask->shouldReceive('execute')
         ->once()
-        ->andThrow(new \App\Exceptions\Backup\StorageQuotaExceededException('Storage limit reached for volume "R2 Bucket".'));
+        ->andThrow(new VolumeTransferException($quotaResult, 'Storage limit reached for volume "R2 Bucket".'));
 
     // Unlike an ordinary failure, the quota failure is not re-thrown — that is
     // what stops the queue from retrying a backup that can never fit.
@@ -259,10 +271,109 @@ test('handle completes and notifies all channels when the limit is exceeded in n
     $mockBackupTask = Mockery::mock(BackupTask::class);
     $mockBackupTask->shouldReceive('execute')
         ->once()
-        ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123', storageWarning: 'Storage limit reached for volume "R2 Bucket".'));
+        ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123', [
+            new VolumeTransferResult(
+                volumeId: $snapshot->files->first()->volume_id,
+                volumeName: 'R2 Bucket',
+                status: SnapshotFileStatus::Completed,
+                storageWarning: 'Storage limit reached for volume "R2 Bucket".',
+            ),
+        ]));
 
     (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
 
     expect($snapshot->fresh()->job->status)->toBe(BackupJobStatus::Completed);
     Notification::assertSentTimes(\App\Notifications\StorageLimitWarningNotification::class, 1);
+});
+
+test('handle uploads once and records a completed file row per target volume', function () {
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $backup = $server->backups->first();
+    $secondVolume = \App\Models\Volume::factory()->local()->create();
+    $backup->volumes()->attach($secondVolume);
+
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($backup->fresh(), 'manual')[0];
+    expect($snapshot->files)->toHaveCount(2);
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->with(
+            Mockery::on(fn (BackupConfig $config) => count($config->volumes) === 2),
+            Mockery::type(BackupLogger::class),
+        )
+        ->andReturnUsing(fn (BackupConfig $config) => new BackupResult('myapp.sql.gz', 2048, 'abc123', array_map(
+            fn ($volume) => new VolumeTransferResult(
+                volumeId: $volume->id,
+                volumeName: $volume->name,
+                status: SnapshotFileStatus::Completed,
+            ),
+            $config->volumes,
+        )));
+
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    $snapshot->refresh();
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
+        ->and($snapshot->files()->completed()->count())->toBe(2)
+        ->and($snapshot->filename)->toBe('myapp.sql.gz')
+        ->and($snapshot->hasExistingFile())->toBeTrue();
+});
+
+test('handle records the successful copy and fails the job when one upload fails', function () {
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $backup = $server->backups->first();
+    $secondVolume = \App\Models\Volume::factory()->local()->create();
+    $backup->volumes()->attach($secondVolume);
+
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($backup->fresh(), 'manual')[0];
+    [$goodFile, $badFile] = [$snapshot->files[0], $snapshot->files[1]];
+
+    $result = new BackupResult('myapp.sql.gz', 2048, 'abc123', [
+        new VolumeTransferResult(volumeId: $goodFile->volume_id, volumeName: 'good', status: SnapshotFileStatus::Completed),
+        new VolumeTransferResult(volumeId: $badFile->volume_id, volumeName: 'bad', status: SnapshotFileStatus::Failed, error: 'S3 unreachable'),
+    ]);
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->andThrow(new VolumeTransferException($result, 'Upload failed for volume(s): bad'));
+
+    expect(fn () => (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask))
+        ->toThrow(VolumeTransferException::class);
+
+    $snapshot->refresh();
+    expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
+        ->and($goodFile->fresh()->status)->toBe(SnapshotFileStatus::Completed)
+        ->and($snapshot->filename)->toBe('myapp.sql.gz')
+        ->and($badFile->fresh()->status)->toBe(SnapshotFileStatus::Failed)
+        ->and($badFile->fresh()->error)->toBe('S3 unreachable')
+        ->and($snapshot->hasExistingFile())->toBeTrue();
+});
+
+test('handle retries only the copies that have not completed yet', function () {
+    $server = createDatabaseServer(['database_names' => ['myapp']]);
+    $backup = $server->backups->first();
+    $secondVolume = \App\Models\Volume::factory()->local()->create();
+    $backup->volumes()->attach($secondVolume);
+
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($backup->fresh(), 'manual')[0];
+    [$doneFile, $pendingFile] = [$snapshot->files[0], $snapshot->files[1]];
+    $doneFile->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'myapp.sql.gz']);
+
+    $mockBackupTask = Mockery::mock(BackupTask::class);
+    $mockBackupTask->shouldReceive('execute')
+        ->once()
+        ->with(
+            Mockery::on(fn (BackupConfig $config) => count($config->volumes) === 1
+                && $config->volumes[0]->id === $pendingFile->volume_id),
+            Mockery::type(BackupLogger::class),
+        )
+        ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123', [
+            new VolumeTransferResult(volumeId: $pendingFile->volume_id, volumeName: 'v', status: SnapshotFileStatus::Completed),
+        ]));
+
+    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
+
+    expect($snapshot->fresh()->files()->completed()->count())->toBe(2);
 });

@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\SnapshotFileStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Services\Agent\AgentJobPayloadBuilder;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\NotificationService;
@@ -173,6 +175,7 @@ class AgentController extends Controller
             'filename' => 'required|string|max:1000',
             'file_size' => 'required|integer|min:0',
             'checksum' => 'nullable|string|max:255',
+            ...self::volumeResultRules(),
             ...self::logRules(),
         ]);
 
@@ -181,7 +184,13 @@ class AgentController extends Controller
             'filename' => $validated['filename'],
             'file_size' => $validated['file_size'],
         ]);
-        $snapshot->markCompleted($validated['checksum'] ?? null);
+
+        // An empty volumes array carries no outcomes — treat it like a legacy
+        // (null) payload rather than a silent success, mirroring the fail() path.
+        $this->applyVolumeResults(
+            $snapshot,
+            ! empty($validated['volumes']) ? $validated['volumes'] : null,
+        );
 
         $backupJob = $snapshot->job;
         if (! empty($validated['logs'])) {
@@ -191,9 +200,95 @@ class AgentController extends Controller
         }
 
         $agentJob->markCompleted();
-        $backupJob->markCompleted();
+
+        // Whole-job-fails rule: an ack that leaves failed copies (or targets a
+        // legacy agent couldn't upload to) fails the backup job even though
+        // the agent finished its part.
+        if ($snapshot->files()->where('status', SnapshotFileStatus::Failed)->exists()) {
+            $exception = new RuntimeException(
+                'Some volume uploads failed. If this backup targets multiple volumes, make sure the agent is up to date — older agents only upload to the first volume.',
+            );
+            $backupJob->log("Backup failed: {$exception->getMessage()}", 'error');
+            $backupJob->markFailed($exception);
+
+            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
+        } else {
+            $snapshot->markCompleted($validated['checksum'] ?? null);
+            $backupJob->markCompleted();
+        }
 
         return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Shared validation rules for per-volume upload results.
+     *
+     * @return array<string, string>
+     */
+    private static function volumeResultRules(): array
+    {
+        return [
+            'volumes' => 'nullable|array|max:100',
+            'volumes.*.volume_id' => 'nullable|string|max:26',
+            'volumes.*.status' => sprintf(
+                'required_with:volumes|string|in:%s,%s',
+                SnapshotFileStatus::Completed->value,
+                SnapshotFileStatus::Failed->value,
+            ),
+            'volumes.*.error' => 'nullable|string|max:10000',
+        ];
+    }
+
+    /**
+     * Persist per-volume upload outcomes onto the snapshot's copy rows.
+     *
+     * A null $volumeResults means the agent predates multi-volume support:
+     * its single reported result applies to the first copy, and any further
+     * targets were never uploaded, so they are marked failed.
+     *
+     * @param  list<array{volume_id?: string|null, status: string, error?: string|null}>|null  $volumeResults
+     */
+    private function applyVolumeResults(Snapshot $snapshot, ?array $volumeResults): void
+    {
+        $files = $snapshot->files()->get();
+
+        if ($volumeResults === null) {
+            $volumeResults = [['volume_id' => $files->first()?->volume_id, 'status' => SnapshotFileStatus::Completed->value]];
+
+            foreach ($files->skip(1) as $staleFile) {
+                $staleFile->update([
+                    'status' => SnapshotFileStatus::Failed,
+                    'error' => 'Agent version does not support multiple volumes; update the agent.',
+                ]);
+            }
+        }
+
+        foreach ($volumeResults as $volumeResult) {
+            $volumeId = $volumeResult['volume_id'] ?? null;
+
+            // Legacy payloads carry no volume id — fall back to the first
+            // still-pending copy (pre-migration snapshots have exactly one).
+            $file = $files->firstWhere('volume_id', $volumeId)
+                ?? ($volumeId === null ? $files->firstWhere('status', SnapshotFileStatus::Pending) : null);
+
+            if ($file === null) {
+                continue;
+            }
+
+            if ($volumeResult['status'] === SnapshotFileStatus::Completed->value) {
+                $file->update([
+                    'status' => SnapshotFileStatus::Completed,
+                    'file_exists' => true,
+                    'file_verified_at' => now(),
+                    'error' => null,
+                ]);
+            } else {
+                $file->update([
+                    'status' => SnapshotFileStatus::Failed,
+                    'error' => $volumeResult['error'] ?? 'Upload failed',
+                ]);
+            }
+        }
     }
 
     /**
@@ -216,6 +311,9 @@ class AgentController extends Controller
 
         $validated = $request->validate([
             'error_message' => 'required|string|max:10000',
+            'filename' => 'nullable|string|max:1000',
+            'file_size' => 'nullable|integer|min:0',
+            ...self::volumeResultRules(),
             ...self::logRules(),
         ]);
 
@@ -225,6 +323,19 @@ class AgentController extends Controller
         if ($agentJob->snapshot) {
             $snapshot = $agentJob->snapshot;
             $backupJob = $snapshot->job;
+
+            // Partial failure: record the copies that did upload so their
+            // files stay tracked (deletable, restorable) despite the failure.
+            if (! empty($validated['volumes'])) {
+                if (($validated['filename'] ?? '') !== '') {
+                    $snapshot->update([
+                        'filename' => $validated['filename'],
+                        'file_size' => $validated['file_size'] ?? 0,
+                    ]);
+                }
+
+                $this->applyVolumeResults($snapshot, $validated['volumes']);
+            }
             if (! empty($validated['logs'])) {
                 $backupJob->update([
                     'logs' => array_merge($backupJob->logs ?? [], $validated['logs']),
@@ -281,7 +392,7 @@ class AgentController extends Controller
 
         /** @var Backup|null $backup */
         $backup = $backupId !== null
-            ? Backup::with(['databaseServer', 'volume'])
+            ? Backup::with(['databaseServer', 'volumes'])
                 ->where('id', $backupId)
                 ->where('database_server_id', $server->id)
                 ->first()

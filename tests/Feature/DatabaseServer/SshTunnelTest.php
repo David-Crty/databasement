@@ -25,7 +25,7 @@ test('can create database server with SSH tunnel (password auth)', function () {
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
         ->set('form.backups.0.database_names.0', 'myapp_production')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         // SSH tunnel config
@@ -71,7 +71,7 @@ test('can create database server with SSH tunnel (key auth)', function () {
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
         ->set('form.backups.0.database_names.0', 'myapp_production')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         // SSH tunnel config
@@ -114,7 +114,7 @@ test('can create database server using existing SSH config', function () {
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
         ->set('form.backups.0.database_names.0', 'myapp_production')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         // Use existing SSH config
@@ -181,7 +181,7 @@ test('can create SQLite server with SSH config for remote access', function () {
         ->set('form.name', 'Remote SQLite via SFTP')
         ->set('form.database_type', 'sqlite')
         ->set('form.backups.0.database_names.0', '/data/remote.sqlite')
-        ->set('form.backups.0.volume_id', $volume->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         // SSH config for SFTP

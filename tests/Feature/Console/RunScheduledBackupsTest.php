@@ -310,9 +310,8 @@ test('runs both backup configs when a server has two on the same schedule', func
 
     // Attach a second backup config on the same schedule (different volume)
     $volume2 = \App\Models\Volume::factory()->local()->create();
-    $backup2 = \App\Models\Backup::factory()->for($server)->create([
+    $backup2 = \App\Models\Backup::factory()->for($server)->withVolumes($volume2)->create([
         'backup_schedule_id' => $schedule->id,
-        'volume_id' => $volume2->id,
         'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
         'database_names' => ['shared_db'],
     ]);
@@ -337,9 +336,8 @@ test('runs only backups matching the given schedule when the server has multiple
     $dailyBackup->update(['backup_schedule_id' => $dailySchedule->id]);
 
     $volume2 = \App\Models\Volume::factory()->local()->create();
-    \App\Models\Backup::factory()->for($server)->create([
+    \App\Models\Backup::factory()->for($server)->withVolumes($volume2)->create([
         'backup_schedule_id' => $weeklySchedule->id,
-        'volume_id' => $volume2->id,
         'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
         'database_names' => ['prod_db'],
     ]);

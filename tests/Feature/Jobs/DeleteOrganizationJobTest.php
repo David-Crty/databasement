@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SnapshotFileStatus;
 use App\Jobs\DeleteOrganizationJob;
 use App\Models\DatabaseServer;
 use App\Models\Organization;
@@ -28,14 +29,15 @@ function seedOrganizationSnapshot(Organization $org): string
     ]);
 
     $backup = $server->backups->first();
-    $backup->update(['volume_id' => $volume->id]);
+    $backup->volumes()->sync([$volume->id]);
     // Preload the org-scoped relations so the factory resolves them regardless
     // of the resolved organization context during the test.
     $backup->setRelation('databaseServer', $server);
-    $backup->setRelation('volume', $volume);
+    $backup->setRelation('volumes', new \Illuminate\Database\Eloquent\Collection([$volume]));
 
     $snapshot = app(BackupJobFactory::class)->createSnapshots($backup, 'manual')[0];
     $snapshot->update(['filename' => $backupFilename, 'file_size' => filesize($backupFilePath)]);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     // The queue worker runs with no resolved organization (CLI context), so the

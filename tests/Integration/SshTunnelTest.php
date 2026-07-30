@@ -69,7 +69,7 @@ test('MySQL backup and restore through SSH tunnel', function () {
     $tunneledServer = IntegrationTestHelpers::createDatabaseServerWithSshTunnel('mysql');
     $volume = IntegrationTestHelpers::createVolume('mysql');
     $tunneledBackup = IntegrationTestHelpers::createBackup($tunneledServer, $volume);
-    $tunneledServer->load('backups.volume');
+    $tunneledServer->load('backups.volumes');
 
     // Load test data via direct connection
     IntegrationTestHelpers::loadTestData('mysql', $this->directServer);
@@ -83,7 +83,7 @@ test('MySQL backup and restore through SSH tunnel', function () {
     $snapshot->refresh();
     $snapshot->load('job');
 
-    $filesystem = $filesystemProvider->getForVolume($snapshot->volume);
+    $filesystem = $filesystemProvider->getForVolume($snapshot->files()->firstOrFail()->volume);
 
     expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($snapshot->file_size)->toBeGreaterThan(0)

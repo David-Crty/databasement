@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SnapshotFileStatus;
 use App\Enums\VolumeType;
 use App\Models\Scopes\OrganizationScope;
 use Database\Factories\VolumeFactory;
@@ -9,8 +10,10 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @mixin IdeHelperVolume
@@ -38,10 +41,41 @@ class Volume extends Model
         });
 
         static::deleting(function (Volume $volume) {
-            foreach ($volume->snapshots as $snapshot) {
-                $snapshot->skipFileCleanup = $volume->skipFileCleanup;
-                $snapshot->delete();
-            }
+            $files = $volume->snapshotFiles()->get();
+            $snapshotIds = $files->pluck('snapshot_id')->unique()->all();
+
+            // Cascade atomically so a mid-cascade failure can't leave orphaned
+            // rows or half-reconciled snapshots.
+            DB::transaction(function () use ($volume, $files, $snapshotIds) {
+                foreach ($files as $file) {
+                    if (! $volume->skipFileCleanup && $file->status === SnapshotFileStatus::Completed) {
+                        $file->deleteFromVolume();
+                    }
+                    $file->delete();
+                }
+
+                // Snapshots left without any copy follow the volume (legacy
+                // cascade); multi-volume snapshots survive with their remaining
+                // copies. Batch the lookups instead of querying per snapshot.
+                $snapshots = Snapshot::query()->whereKey($snapshotIds)->get();
+                $snapshotIdsWithFiles = SnapshotFile::query()
+                    ->whereIn('snapshot_id', $snapshotIds)
+                    ->distinct()
+                    ->pluck('snapshot_id')
+                    ->all();
+
+                foreach ($snapshots->whereNotIn('id', $snapshotIdsWithFiles) as $snapshot) {
+                    $snapshot->skipFileCleanup = true;
+                    $snapshot->delete();
+                }
+
+                // Backup configs that only targeted this volume follow it too.
+                foreach ($volume->backups()->with('volumes:id')->get() as $backup) {
+                    if (! $backup->volumes->contains(fn (Volume $other) => $other->id !== $volume->id)) {
+                        $backup->delete();
+                    }
+                }
+            });
         });
     }
 
@@ -68,27 +102,29 @@ class Volume extends Model
     }
 
     /**
-     * @return HasMany<Backup, Volume>
+     * @return BelongsToMany<Backup, Volume>
      */
-    public function backups(): HasMany
+    public function backups(): BelongsToMany
     {
-        return $this->hasMany(Backup::class);
+        return $this->belongsToMany(Backup::class);
     }
 
     /**
-     * @return HasMany<Snapshot, Volume>
+     * The snapshot copies stored on this volume.
+     *
+     * @return HasMany<SnapshotFile, Volume>
      */
-    public function snapshots(): HasMany
+    public function snapshotFiles(): HasMany
     {
-        return $this->hasMany(Snapshot::class);
+        return $this->hasMany(SnapshotFile::class);
     }
 
     /**
-     * Check if volume has any snapshots (making it immutable).
+     * Check if volume has any snapshot copies (making it immutable).
      */
     public function hasSnapshots(): bool
     {
-        return $this->snapshots()->exists();
+        return $this->snapshotFiles()->exists();
     }
 
     /**
@@ -128,7 +164,14 @@ class Volume extends Model
             return (int) $this->attributes['used_storage_bytes'];
         }
 
-        return (int) $this->snapshots()->completed()->sum('file_size');
+        // The archive size lives on the snapshot (one archive, uploaded
+        // unchanged to every volume), so each surviving copy contributes its
+        // snapshot's size to this volume's usage.
+        return (int) $this->snapshotFiles()
+            ->completed()
+            ->fileExists()
+            ->join('snapshots', 'snapshot_files.snapshot_id', '=', 'snapshots.id')
+            ->sum('snapshots.file_size');
     }
 
     /**

@@ -32,7 +32,7 @@ final class BackupForm
     {
         return [
             'id' => null,
-            'volume_id' => '',
+            'volume_ids' => [],
             'path' => '',
             'backup_schedule_id' => $defaultScheduleId ?? '',
             'retention_policy' => Backup::RETENTION_DAYS,
@@ -56,7 +56,7 @@ final class BackupForm
     {
         return [
             'id' => $backup->id,
-            'volume_id' => $backup->volume_id,
+            'volume_ids' => $backup->volumes->pluck('id')->all(),
             'path' => $backup->path ?? '',
             'backup_schedule_id' => $backup->backup_schedule_id ?? '',
             'retention_policy' => $backup->retention_policy ?? Backup::RETENTION_DAYS,
@@ -83,7 +83,6 @@ final class BackupForm
         $retentionPolicy = $entry['retention_policy'] ?? Backup::RETENTION_DAYS;
 
         $data = [
-            'volume_id' => $entry['volume_id'] ?? '',
             'path' => ! empty($entry['path']) ? $entry['path'] : null,
             'backup_schedule_id' => $entry['backup_schedule_id'] ?? '',
             'retention_policy' => $retentionPolicy,
@@ -198,7 +197,8 @@ final class BackupForm
         $prefix = "backups.{$index}.";
 
         $rules = [
-            $prefix.'volume_id' => [
+            $prefix.'volume_ids' => ['required', 'array', 'min:1'],
+            $prefix.'volume_ids.*' => [
                 'required',
                 Rule::exists('volumes', 'id')->where('organization_id', app(CurrentOrganization::class)->id()),
                 function (string $attribute, mixed $value, \Closure $fail) use ($isAgent): void {
@@ -313,7 +313,7 @@ final class BackupForm
      */
     public static function isComplete(array $entry, DatabaseType $serverType): bool
     {
-        if (($entry['volume_id'] ?? '') === '' || ($entry['backup_schedule_id'] ?? '') === '') {
+        if (($entry['volume_ids'] ?? []) === [] || ($entry['backup_schedule_id'] ?? '') === '') {
             return false;
         }
 
@@ -470,20 +470,22 @@ final class BackupForm
     }
 
     /**
-     * Display name for the selected volume, or null if none selected.
+     * Display name(s) for the selected volumes, or null if none selected.
      *
      * @param  array<string, mixed>  $entry
      * @param  Collection<int, \App\Models\Volume>  $volumes
      */
     public static function volumeLabel(array $entry, Collection $volumes): ?string
     {
-        $id = $entry['volume_id'] ?? '';
+        $ids = $entry['volume_ids'] ?? [];
 
-        if ($id === '') {
+        if (! is_array($ids) || $ids === []) {
             return null;
         }
 
-        return $volumes->firstWhere('id', $id)?->name;
+        $names = $volumes->whereIn('id', $ids)->pluck('name');
+
+        return $names->isEmpty() ? null : $names->implode(', ');
     }
 
     /**

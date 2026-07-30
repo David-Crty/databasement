@@ -2,15 +2,46 @@
 
 namespace App\Services\Backup\DTO;
 
+use App\Enums\SnapshotFileStatus;
+
 readonly class BackupResult
 {
+    /**
+     * @param  list<VolumeTransferResult>  $volumeResults  One outcome per target volume
+     */
     public function __construct(
         public string $filename,
         public int $fileSize,
         public string $checksum,
-        // Set when the volume reached its storage limit but is in notify-only
-        // mode: the backup was still uploaded and this message describes the
-        // overage so the job can notify the user. Null when within the limit.
-        public ?string $storageWarning = null,
+        public array $volumeResults = [],
     ) {}
+
+    public function hasFailures(): bool
+    {
+        return $this->failedResults() !== [];
+    }
+
+    /**
+     * @return list<VolumeTransferResult>
+     */
+    public function failedResults(): array
+    {
+        return array_values(array_filter(
+            $this->volumeResults,
+            fn (VolumeTransferResult $result) => $result->status === SnapshotFileStatus::Failed,
+        ));
+    }
+
+    /**
+     * Notify-only storage limit overage messages collected across volumes.
+     *
+     * @return list<VolumeTransferResult>
+     */
+    public function storageWarnings(): array
+    {
+        return array_values(array_filter(
+            $this->volumeResults,
+            fn (VolumeTransferResult $result) => $result->storageWarning !== null,
+        ));
+    }
 }
