@@ -190,8 +190,6 @@ class AgentController extends Controller
         $this->applyVolumeResults(
             $snapshot,
             ! empty($validated['volumes']) ? $validated['volumes'] : null,
-            $validated['filename'],
-            (int) $validated['file_size'],
         );
 
         $backupJob = $snapshot->job;
@@ -250,7 +248,7 @@ class AgentController extends Controller
      *
      * @param  list<array{volume_id?: string|null, status: string, error?: string|null}>|null  $volumeResults
      */
-    private function applyVolumeResults(Snapshot $snapshot, ?array $volumeResults, string $filename, int $fileSize): void
+    private function applyVolumeResults(Snapshot $snapshot, ?array $volumeResults): void
     {
         $files = $snapshot->files()->get();
 
@@ -280,8 +278,6 @@ class AgentController extends Controller
             if ($volumeResult['status'] === SnapshotFileStatus::Completed->value) {
                 $file->update([
                     'status' => SnapshotFileStatus::Completed,
-                    'filename' => $filename,
-                    'file_size' => $fileSize,
                     'file_exists' => true,
                     'file_verified_at' => now(),
                     'error' => null,
@@ -293,8 +289,6 @@ class AgentController extends Controller
                 ]);
             }
         }
-
-        $snapshot->recomputeFileExists();
     }
 
     /**
@@ -340,12 +334,7 @@ class AgentController extends Controller
                     ]);
                 }
 
-                $this->applyVolumeResults(
-                    $snapshot,
-                    $validated['volumes'],
-                    $validated['filename'] ?? '',
-                    (int) ($validated['file_size'] ?? 0),
-                );
+                $this->applyVolumeResults($snapshot, $validated['volumes']);
             }
             if (! empty($validated['logs'])) {
                 $backupJob->update([

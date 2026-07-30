@@ -31,7 +31,8 @@ test('can download snapshot from local storage', function () {
         'filename' => $backupFilename,
         'file_size' => filesize($backupFilePath),
     ]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => $backupFilename]);
+    $snapshot->update(['filename' => $backupFilename]);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $response = $this->actingAs($user)
@@ -58,7 +59,8 @@ test('download returns 404 when local file is missing', function () {
         'filename' => 'nonexistent-backup.sql.gz',
         'file_size' => 1024,
     ]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'nonexistent-backup.sql.gz']);
+    $snapshot->update(['filename' => 'nonexistent-backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $response = $this->actingAs($user)
@@ -85,7 +87,8 @@ test('can download snapshot from s3 storage redirects to presigned url', functio
         'filename' => 'test-backup.sql.gz',
         'file_size' => 1024,
     ]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'test-backup.sql.gz']);
+    $snapshot->update(['filename' => 'test-backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $mockS3Filesystem = Mockery::mock(Awss3Filesystem::class);
@@ -135,7 +138,8 @@ test('s3 download presigned url includes volume prefix in key path', function ()
         'filename' => 'myapp-backup-2024-01-13.sql.gz',
         'file_size' => 2048,
     ]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'myapp-backup-2024-01-13.sql.gz']);
+    $snapshot->update(['filename' => 'myapp-backup-2024-01-13.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $response = $this->actingAs($user)
@@ -154,7 +158,7 @@ test('without download-snapshots, downloading is forbidden', function () {
     $snapshot = app(BackupJobFactory::class)
         ->createSnapshots($server->backups->first(), 'manual', $user->id)[0];
     $snapshot->update(['filename' => 'test-backup.sql.gz', 'file_size' => 1024]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'test-backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $this->actingAs($user)
@@ -189,7 +193,7 @@ test('download picks the copy selected via the file query param', function () {
     $snapshot = app(BackupJobFactory::class)
         ->createSnapshots($server->backups->first()->fresh(), 'manual', $user->id)[0];
     $snapshot->update(['filename' => 'multi-copy.sql.gz', 'file_size' => 1024]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'multi-copy.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     // Only volume B actually holds the file.
@@ -211,7 +215,8 @@ test('download rejects a file id that belongs to another snapshot', function () 
 
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual', $user->id)[0];
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'a.sql.gz']);
+    $snapshot->update(['filename' => 'a.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $otherSnapshot = \App\Models\Snapshot::factory()->create();

@@ -404,7 +404,8 @@ describe('volume deletion', function () {
             'filename' => $backupFilename,
             'file_size' => filesize($backupFilePath),
         ]);
-        $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => $backupFilename]);
+        $snapshot->update(['filename' => $backupFilename]);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
         $snapshot->job->markCompleted();
         $snapshotJobId = $snapshot->job->id;
 
@@ -462,7 +463,8 @@ describe('volume deletion', function () {
             'filename' => $backupFilename,
             'file_size' => filesize($backupFilePath),
         ]);
-        $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => $backupFilename]);
+        $snapshot->update(['filename' => $backupFilename]);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
         $snapshot->job->markCompleted();
 
         $backupJobId = $snapshot->backup_job_id;

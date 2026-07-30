@@ -69,8 +69,7 @@ test('handle builds config from models and updates snapshot on success', functio
     expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($snapshot->filename)->toBe('prod-myapp-2024.sql.gz')
         ->and($snapshot->file_size)->toBe(2048)
-        ->and($snapshot->checksum)->toBe('abc123def456')
-        ->and($snapshot->file_verified_at)->not->toBeNull();
+        ->and($snapshot->checksum)->toBe('abc123def456');
 });
 
 test('handle passes backup path from model to config', function () {
@@ -317,8 +316,8 @@ test('handle uploads once and records a completed file row per target volume', f
     $snapshot->refresh();
     expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
         ->and($snapshot->files()->completed()->count())->toBe(2)
-        ->and($snapshot->files->pluck('filename')->unique()->all())->toBe(['myapp.sql.gz'])
-        ->and($snapshot->file_exists)->toBeTrue();
+        ->and($snapshot->filename)->toBe('myapp.sql.gz')
+        ->and($snapshot->hasExistingFile())->toBeTrue();
 });
 
 test('handle records the successful copy and fails the job when one upload fails', function () {
@@ -346,10 +345,10 @@ test('handle records the successful copy and fails the job when one upload fails
     $snapshot->refresh();
     expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
         ->and($goodFile->fresh()->status)->toBe(SnapshotFileStatus::Completed)
-        ->and($goodFile->fresh()->filename)->toBe('myapp.sql.gz')
+        ->and($snapshot->filename)->toBe('myapp.sql.gz')
         ->and($badFile->fresh()->status)->toBe(SnapshotFileStatus::Failed)
         ->and($badFile->fresh()->error)->toBe('S3 unreachable')
-        ->and($snapshot->file_exists)->toBeTrue();
+        ->and($snapshot->hasExistingFile())->toBeTrue();
 });
 
 test('handle retries only the copies that have not completed yet', function () {

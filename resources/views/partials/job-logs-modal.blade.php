@@ -64,12 +64,13 @@
                 </div>
 
                 {{-- File missing warning --}}
-                @if($snapshot && !$snapshot->file_exists)
+                @if($snapshot && $snapshot->hasMissingFile())
+                    @php $lastVerifiedAt = $snapshot->lastVerifiedAt(); @endphp
                     <x-alert class="alert-warning" icon="o-exclamation-triangle">
                         {{ __('Backup file is missing from volume') }}
-                        @if($snapshot->file_verified_at)
+                        @if($lastVerifiedAt)
                             <span class="text-base-content/70">
-                                — {{ __('checked') }} {{ \App\Support\Formatters::humanDate($snapshot->file_verified_at) }} ({{ $snapshot->file_verified_at->diffForHumans() }})
+                                — {{ __('checked') }} {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }} ({{ $lastVerifiedAt->diffForHumans() }})
                             </span>
                         @endif
                     </x-alert>

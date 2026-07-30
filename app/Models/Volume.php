@@ -64,13 +64,9 @@ class Volume extends Model
                     ->pluck('snapshot_id')
                     ->all();
 
-                foreach ($snapshots as $snapshot) {
-                    if (in_array($snapshot->id, $snapshotIdsWithFiles, true)) {
-                        $snapshot->recomputeFileExists();
-                    } else {
-                        $snapshot->skipFileCleanup = true;
-                        $snapshot->delete();
-                    }
+                foreach ($snapshots->whereNotIn('id', $snapshotIdsWithFiles) as $snapshot) {
+                    $snapshot->skipFileCleanup = true;
+                    $snapshot->delete();
                 }
 
                 // Backup configs that only targeted this volume follow it too.
@@ -168,7 +164,14 @@ class Volume extends Model
             return (int) $this->attributes['used_storage_bytes'];
         }
 
-        return (int) $this->snapshotFiles()->completed()->fileExists()->sum('file_size');
+        // The archive size lives on the snapshot (one archive, uploaded
+        // unchanged to every volume), so each surviving copy contributes its
+        // snapshot's size to this volume's usage.
+        return (int) $this->snapshotFiles()
+            ->completed()
+            ->fileExists()
+            ->join('snapshots', 'snapshot_files.snapshot_id', '=', 'snapshots.id')
+            ->sum('snapshots.file_size');
     }
 
     /**

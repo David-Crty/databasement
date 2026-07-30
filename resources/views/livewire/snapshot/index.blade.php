@@ -24,7 +24,7 @@
             :row-decoration="[
                 'bg-error/5' => fn ($snapshot) => $snapshot->job?->status?->value === 'failed',
                 'bg-warning/5' => fn ($snapshot) => $snapshot->job?->status?->value === 'running'
-                    || (! $snapshot->file_exists && $snapshot->job?->status?->value === 'completed'),
+                    || $snapshot->hasMissingFile(),
             ]"
         >
             <x-slot:empty>
@@ -41,7 +41,7 @@
             </x-slot:empty>
 
             @scope('cell_subject', $snapshot)
-                @php $fileMissing = $snapshot->job?->status?->value === 'completed' && ! $snapshot->file_exists; @endphp
+                @php $fileMissing = $snapshot->hasMissingFile(); @endphp
                 <div class="flex items-center gap-3 min-w-0">
                     <x-icon :name="$snapshot->database_type->icon()" class="w-6 h-6 shrink-0" />
                     <div class="min-w-0">
@@ -72,10 +72,11 @@
                                     <x-slot:content>
                                         <div class="text-xs space-y-1">
                                             <div class="font-semibold text-warning">{{ __('Backup file not found on volume') }}</div>
-                                            @if($snapshot->file_verified_at)
+                                            @php $lastVerifiedAt = $snapshot->lastVerifiedAt(); @endphp
+                                            @if($lastVerifiedAt)
                                                 <div class="text-base-content/70">
-                                                    {{ __('Checked') }}: {{ \App\Support\Formatters::humanDate($snapshot->file_verified_at) }}
-                                                    ({{ $snapshot->file_verified_at->diffForHumans() }})
+                                                    {{ __('Checked') }}: {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }}
+                                                    ({{ $lastVerifiedAt->diffForHumans() }})
                                                 </div>
                                             @endif
                                         </div>
@@ -120,7 +121,7 @@
                 @php
                     $status = $snapshot->job?->status?->value;
                     $job = $snapshot->job;
-                    $canRestore = $status === 'completed' && $snapshot->file_exists && $snapshot->database_type !== \App\Enums\DatabaseType::REDIS;
+                    $canRestore = $status === 'completed' && $snapshot->hasExistingFile() && $snapshot->database_type !== \App\Enums\DatabaseType::REDIS;
                     $completedFiles = $snapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed);
                     $canDownload = $status === 'completed' && $completedFiles->where('file_exists', true)->isNotEmpty();
                     $canDelete = in_array($status, ['completed', 'failed'], true);

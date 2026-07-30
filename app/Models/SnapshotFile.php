@@ -29,8 +29,6 @@ class SnapshotFile extends Model
     protected $fillable = [
         'snapshot_id',
         'volume_id',
-        'filename',
-        'file_size',
         'status',
         'file_exists',
         'file_verified_at',
@@ -40,7 +38,6 @@ class SnapshotFile extends Model
     protected function casts(): array
     {
         return [
-            'file_size' => 'integer',
             'file_exists' => 'boolean',
             'file_verified_at' => 'datetime',
             'status' => SnapshotFileStatus::class,
@@ -71,7 +68,7 @@ class SnapshotFile extends Model
      */
     public function scopeCompleted(Builder $query): Builder
     {
-        return $query->where('status', SnapshotFileStatus::Completed);
+        return $query->where('snapshot_files.status', SnapshotFileStatus::Completed);
     }
 
     /**
@@ -82,16 +79,17 @@ class SnapshotFile extends Model
      */
     public function scopeFileExists(Builder $query): Builder
     {
-        return $query->where('file_exists', true);
+        return $query->where('snapshot_files.file_exists', true);
     }
 
     /**
-     * The path of this copy on its volume. Falls back to the snapshot's
-     * archive filename for rows that predate per-copy filenames.
+     * The path of this copy on its volume. The same archive is uploaded to
+     * every target volume under the same name, so the name lives on the
+     * snapshot and is never repeated per copy.
      */
     public function storedFilename(): string
     {
-        return $this->filename !== '' ? $this->filename : (string) $this->snapshot->filename;
+        return (string) $this->snapshot->filename;
     }
 
     /**

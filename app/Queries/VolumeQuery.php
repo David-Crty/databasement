@@ -52,11 +52,14 @@ class VolumeQuery
         $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
 
         return Volume::query()
-            // Eager-load each volume's used storage
+            // Eager-load each volume's used storage. The archive size lives on
+            // the snapshot, so each surviving copy is joined back to it.
             ->withSum(['snapshotFiles as used_storage_bytes' => function (Builder $query): void {
                 /** @var Builder<SnapshotFile> $query */
-                $query->completed()->fileExists();
-            }], 'file_size')
+                $query->completed()
+                    ->fileExists()
+                    ->join('snapshots', 'snapshot_files.snapshot_id', '=', 'snapshots.id');
+            }], 'snapshots.file_size')
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
             })

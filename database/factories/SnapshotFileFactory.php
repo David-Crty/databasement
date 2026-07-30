@@ -23,8 +23,6 @@ class SnapshotFileFactory extends Factory
         return [
             'snapshot_id' => Snapshot::factory(),
             'volume_id' => fn () => Volume::factory()->local()->create()->id,
-            'filename' => fake()->slug().'.sql.gz',
-            'file_size' => fake()->numberBetween(1024, 1024 * 1024 * 100),
             'status' => SnapshotFileStatus::Completed,
             'file_exists' => true,
             'file_verified_at' => null,

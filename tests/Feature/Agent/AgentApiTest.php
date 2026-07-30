@@ -236,7 +236,7 @@ describe('job acknowledgement', function () {
         $snapshot->refresh();
         expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
             ->and($snapshot->files()->completed()->count())->toBe(2)
-            ->and($snapshot->files->pluck('filename')->unique()->all())->toBe(['multi.sql.gz']);
+            ->and($snapshot->filename)->toBe('multi.sql.gz');
     });
 
     test('legacy ack without volume results fails a multi-volume job but completes a single-volume one', function () {
@@ -289,7 +289,6 @@ describe('job acknowledgement', function () {
         expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
             ->and($snapshot->filename)->toBe('partial.sql.gz')
             ->and($snapshot->files()->completed()->first()->volume_id)->toBe($volumeA->id)
-            ->and($snapshot->files()->completed()->first()->filename)->toBe('partial.sql.gz')
             ->and($snapshot->files()->where('status', SnapshotFileStatus::Failed)->first()->error)->toBe('S3 unreachable');
     });
 });

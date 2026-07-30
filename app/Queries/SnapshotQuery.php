@@ -89,7 +89,7 @@ class SnapshotQuery
                 $query->whereRaw('database_type = ?', [$dbTypeFilter]);
             })
             ->when($fileMissing, function (Builder $query) {
-                $query->whereRaw('file_exists = ?', [false]);
+                $query->fileMissing();
             });
 
         $direction = Formatters::sortDirection($sortDirection);

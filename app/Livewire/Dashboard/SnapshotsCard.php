@@ -4,6 +4,7 @@ namespace App\Livewire\Dashboard;
 
 use App\Models\Snapshot;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Lazy;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -33,7 +34,9 @@ class SnapshotsCard extends Component
         $baseQuery = Snapshot::forCurrentOrg()->completed();
 
         $this->totalSnapshots = $baseQuery->count();
-        $this->verifiedSnapshots = (clone $baseQuery)->whereNotNull('file_verified_at')->count();
+        $this->verifiedSnapshots = (clone $baseQuery)
+            ->whereHas('files', fn (Builder $query) => $query->whereNotNull('file_verified_at'))
+            ->count();
         $this->missingSnapshots = (clone $baseQuery)->fileMissing()->count();
     }
 

@@ -148,7 +148,6 @@ class ProcessBackupJob implements ShouldQueue
             'filename' => $result->filename,
             'file_size' => $result->fileSize,
             'checksum' => $result->checksum,
-            'file_verified_at' => now(),
         ]);
 
         foreach ($result->volumeResults as $volumeResult) {
@@ -160,8 +159,6 @@ class ProcessBackupJob implements ShouldQueue
             if ($volumeResult->status === SnapshotFileStatus::Completed) {
                 $file->update([
                     'status' => SnapshotFileStatus::Completed,
-                    'filename' => $result->filename,
-                    'file_size' => $result->fileSize,
                     'file_exists' => true,
                     'file_verified_at' => now(),
                     'error' => null,
@@ -173,8 +170,6 @@ class ProcessBackupJob implements ShouldQueue
                 ]);
             }
         }
-
-        $snapshot->recomputeFileExists();
     }
 
     /**

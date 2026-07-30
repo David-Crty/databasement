@@ -77,7 +77,7 @@ test('deleting a snapshot prunes empty parent folders and stops at the first non
         mkdir($volumePath.'/'.$folder, 0755, true);
         rename($volumePath.'/'.$snapshot->filename, $volumePath.'/'.$newFilename);
         $snapshot->update(['filename' => $newFilename]);
-        $snapshot->files()->update(['filename' => $newFilename]);
+        $snapshot->update(['filename' => $newFilename]);
     } else {
         $newFilename = $snapshot->filename;
     }
@@ -152,7 +152,7 @@ test('snapshot is still deleted when pruning empty parent folders throws', funct
 
     $snapshot = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
     $snapshot->update(['filename' => '2026_06_15/backup.sql.gz']);
-    $snapshot->files()->update(['filename' => '2026_06_15/backup.sql.gz']);
+    $snapshot->update(['filename' => '2026_06_15/backup.sql.gz']);
 
     // The file is removed fine, but the volume blows up while pruning the now-empty folder.
     $filesystem = Mockery::mock(Filesystem::class);

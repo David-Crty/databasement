@@ -13,10 +13,14 @@ return new class extends Migration
      * is dumped once and the archive is uploaded to each volume.
      *
      * - `backup_volume` (pivot) replaces `backups.volume_id`.
-     * - `snapshot_files` (one row per snapshot × volume copy, with per-copy
-     *   upload status and file verification state) replaces
+     * - `snapshot_files` (one row per snapshot × volume copy, holding only
+     *   per-copy upload status and file verification state) replaces
      *   `snapshots.volume_id`. Archive-level fields (filename, file_size,
-     *   checksum) stay on `snapshots` — the file is identical on every volume.
+     *   checksum) stay on `snapshots` and are never repeated per copy — the
+     *   same archive is uploaded to every volume under the same name.
+     *   Conversely, per-copy state (file_exists, file_verified_at) moves off
+     *   `snapshots` entirely and is derived from the copy rows on read, so
+     *   neither table stores a value the other already owns.
      * - `restores.snapshot_file_id` records which copy a restore reads from
      *   (null = auto-pick the first available copy).
      */
@@ -35,8 +39,6 @@ return new class extends Migration
             $table->char('id', 26)->primary();
             $table->char('snapshot_id', 26);
             $table->char('volume_id', 26);
-            $table->string('filename')->default('');
-            $table->unsignedBigInteger('file_size')->default(0);
             $table->string('status')->default('pending');
             $table->boolean('file_exists')->default(true);
             $table->timestamp('file_verified_at')->nullable();
@@ -75,8 +77,6 @@ return new class extends Migration
                     'id' => strtolower((string) Str::ulid()),
                     'snapshot_id' => $snapshot->id,
                     'volume_id' => $snapshot->volume_id,
-                    'filename' => $snapshot->filename ?? '',
-                    'file_size' => $snapshot->file_size ?? 0,
                     'status' => $hasFile ? 'completed' : 'pending',
                     'file_exists' => (bool) ($snapshot->file_exists ?? true),
                     'file_verified_at' => $snapshot->file_verified_at,
@@ -116,6 +116,15 @@ return new class extends Migration
         Schema::table('snapshots', function (Blueprint $table) {
             $table->dropColumn('volume_id');
         });
+
+        // File presence and verification are per-copy facts now: they live on
+        // snapshot_files and are derived from there on read.
+        Schema::table('snapshots', function (Blueprint $table) {
+            $table->dropIndex('snapshots_file_exists_index');
+        });
+        Schema::table('snapshots', function (Blueprint $table) {
+            $table->dropColumn(['file_exists', 'file_verified_at']);
+        });
     }
 
     /**
@@ -138,6 +147,26 @@ return new class extends Migration
         Schema::table('snapshots', function (Blueprint $table) {
             $table->char('volume_id', 26)->nullable()->index('snapshots_volume_id_foreign');
         });
+
+        Schema::table('snapshots', function (Blueprint $table) {
+            $table->boolean('file_exists')->default(true)->index();
+            $table->timestamp('file_verified_at')->nullable();
+        });
+
+        // Collapse the per-copy facts back onto the snapshot: it "exists" when
+        // any completed copy survives, and carries the latest check time.
+        DB::table('snapshot_files')
+            ->selectRaw('snapshot_id, MAX(file_verified_at) as file_verified_at, MAX(CASE WHEN status = ? AND file_exists = ? THEN 1 ELSE 0 END) as file_exists', ['completed', true])
+            ->groupBy('snapshot_id')
+            ->orderBy('snapshot_id')
+            ->chunkById(200, function ($files) {
+                foreach ($files as $file) {
+                    DB::table('snapshots')->where('id', $file->snapshot_id)->update([
+                        'file_exists' => (bool) $file->file_exists,
+                        'file_verified_at' => $file->file_verified_at,
+                    ]);
+                }
+            }, 'snapshot_id');
 
         DB::table('backup_volume')
             ->selectRaw('backup_id, MIN(volume_id) as volume_id')

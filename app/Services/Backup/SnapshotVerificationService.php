@@ -67,7 +67,7 @@ class SnapshotVerificationService
             return;
         }
 
-        $wasPreviouslyExisting = $snapshot->file_exists;
+        $wasPreviouslyExisting = $snapshot->hasExistingFile();
 
         // Check each stored copy on its own volume; an unreachable volume only
         // stamps the copy's verification timestamp without changing its state.
@@ -98,12 +98,9 @@ class SnapshotVerificationService
             }
         }
 
-        $snapshot->update(['file_verified_at' => now()]);
-        $snapshot->recomputeFileExists();
-
         // A snapshot only counts as newly missing once no copy is left on any
         // volume — losing one copy while another remains is not a data loss.
-        if ($wasPreviouslyExisting && ! $snapshot->file_exists) {
+        if ($wasPreviouslyExisting && ! $snapshot->hasExistingFile()) {
             $this->newlyMissing->push([
                 'server' => $snapshot->databaseServer->name,
                 'database' => $snapshot->database_name,

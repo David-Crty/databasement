@@ -18,7 +18,7 @@ test('job is configured with correct queue and settings', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz']);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
@@ -57,7 +57,7 @@ test('handle builds config from models and marks job completed', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($sourceServer->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'file_size' => 2048, 'compression_type' => CompressionType::GZIP]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $targetServer, 'restored_db');
@@ -105,7 +105,7 @@ test('handle marks job as failed and re-throws on execute failure', function () 
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($sourceServer->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $targetServer, 'restored_db');
@@ -131,7 +131,7 @@ test('job can be dispatched to queue', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz']);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
@@ -150,7 +150,7 @@ test('failed method sends notification', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz']);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');
@@ -174,7 +174,7 @@ test('handle reads from the copy chosen on the restore', function () {
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($backup->fresh(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $chosenFile = $snapshot->files()->whereRelation('volume', 'name', 'Second Copy')->firstOrFail();
@@ -200,7 +200,7 @@ test('handle fails when no copy of the snapshot exists on any volume', function 
     $factory = app(BackupJobFactory::class);
     $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'compression_type' => CompressionType::GZIP]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     $restore = $factory->createRestore($snapshot, $server, 'restored_db');

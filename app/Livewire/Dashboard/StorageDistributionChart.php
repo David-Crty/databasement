@@ -24,7 +24,7 @@ class StorageDistributionChart extends Component
             ->join('snapshot_files', 'snapshot_files.snapshot_id', '=', 'snapshots.id')
             ->where('snapshot_files.status', SnapshotFileStatus::Completed)
             ->join('volumes', 'snapshot_files.volume_id', '=', 'volumes.id')
-            ->selectRaw('volumes.name, SUM(snapshot_files.file_size) as total_size')
+            ->selectRaw('volumes.name, SUM(snapshots.file_size) as total_size')
             ->groupBy('volumes.id', 'volumes.name')
             ->orderByDesc('total_size')
             ->get();

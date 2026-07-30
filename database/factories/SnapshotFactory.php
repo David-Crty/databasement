@@ -66,23 +66,20 @@ class SnapshotFactory extends Factory
     }
 
     /**
-     * Create the per-volume copy rows for a snapshot, deriving their state
-     * from the snapshot's archive fields.
+     * Create the per-volume copy rows for a snapshot. A snapshot that already
+     * has an archive filename counts as uploaded to each of its volumes.
      *
      * @param  iterable<int, Volume>  $volumes
      */
     private static function createFileRows(Snapshot $snapshot, iterable $volumes): void
     {
-        $filename = (string) ($snapshot->filename ?? '');
+        $uploaded = (string) ($snapshot->filename ?? '') !== '';
 
         foreach ($volumes as $volume) {
             $snapshot->files()->create([
                 'volume_id' => $volume->id,
-                'filename' => $filename,
-                'file_size' => $snapshot->file_size ?? 0,
-                'status' => $filename !== '' ? SnapshotFileStatus::Completed : SnapshotFileStatus::Pending,
-                'file_exists' => (bool) ($snapshot->file_exists ?? true),
-                'file_verified_at' => $snapshot->file_verified_at,
+                'status' => $uploaded ? SnapshotFileStatus::Completed : SnapshotFileStatus::Pending,
+                'file_exists' => true,
             ]);
         }
 
@@ -162,10 +159,10 @@ class SnapshotFactory extends Factory
      */
     public function fileMissing(): static
     {
-        return $this->state(fn () => [
-            'file_exists' => false,
-            'file_verified_at' => now(),
-        ]);
+        return $this->afterCreating(function (Snapshot $snapshot) {
+            $snapshot->files()->update(['file_exists' => false, 'file_verified_at' => now()]);
+            $snapshot->unsetRelation('files');
+        });
     }
 
     /**
@@ -173,10 +170,10 @@ class SnapshotFactory extends Factory
      */
     public function fileVerified(): static
     {
-        return $this->state(fn () => [
-            'file_exists' => true,
-            'file_verified_at' => now(),
-        ]);
+        return $this->afterCreating(function (Snapshot $snapshot) {
+            $snapshot->files()->update(['file_exists' => true, 'file_verified_at' => now()]);
+            $snapshot->unsetRelation('files');
+        });
     }
 
     /**
@@ -200,7 +197,6 @@ class SnapshotFactory extends Factory
                 file_put_contents($filePath, $content ?? 'test backup content');
 
                 $size = filesize($filePath);
-                $file->update(['file_size' => $size]);
             }
 
             if ($size !== null) {

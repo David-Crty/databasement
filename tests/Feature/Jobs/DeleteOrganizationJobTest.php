@@ -37,7 +37,7 @@ function seedOrganizationSnapshot(Organization $org): string
 
     $snapshot = app(BackupJobFactory::class)->createSnapshots($backup, 'manual')[0];
     $snapshot->update(['filename' => $backupFilename, 'file_size' => filesize($backupFilePath)]);
-    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => $backupFilename]);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
     // The queue worker runs with no resolved organization (CLI context), so the
