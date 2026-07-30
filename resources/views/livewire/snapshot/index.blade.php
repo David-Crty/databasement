@@ -54,13 +54,11 @@
                         </div>
                         <div class="flex items-center gap-2 mt-1 flex-wrap">
                             <x-id-popover :id="$snapshot->id" />
-                            @php $volumeNames = $snapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed)->pluck('volume.name')->filter(); @endphp
-                            @if($volumeNames->isNotEmpty())
-                                <span class="inline-flex items-center gap-1 text-xs text-base-content/50">
-                                    <x-icon name="o-server-stack" class="w-3 h-3" />
-                                    {{ $volumeNames->implode(', ') }}
-                                </span>
-                            @endif
+                            @foreach($snapshot->files as $file)
+                                @if($file->volume)
+                                    <x-snapshot-volume-badge :file="$file" />
+                                @endif
+                            @endforeach
                             @if($fileMissing)
                                 <x-popover>
                                     <x-slot:trigger>
@@ -204,6 +202,14 @@
             <p class="text-sm text-base-content/70">
                 {{ __('This snapshot is stored on several volumes. Choose which copy to download.') }}
             </p>
+
+            {{-- The same archive is uploaded to every volume, so the size is shown once. --}}
+            @if($this->downloadSnapshot->file_size)
+                <div class="mt-2 flex items-center gap-1 text-xs text-base-content/60">
+                    <x-icon name="o-archive-box" class="w-3.5 h-3.5" />
+                    <span class="font-mono">{{ $this->downloadSnapshot->getHumanFileSize() }}</span>
+                </div>
+            @endif
 
             <div class="mt-4 space-y-2">
                 @foreach($this->downloadSnapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed) as $file)
