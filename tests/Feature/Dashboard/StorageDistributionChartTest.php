@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SnapshotFileStatus;
 use App\Livewire\Dashboard\StorageDistributionChart;
 use App\Models\DatabaseServer;
 use App\Models\User;
@@ -24,11 +25,11 @@ test('storage distribution chart builds doughnut chart data grouped by volume', 
     // Create snapshots on different volumes
     $snapshots1 = $factory->createSnapshots($server1->backups->first(), 'manual', $user->id);
     $snapshots1[0]->update(['file_size' => 1024 * 1024 * 100]); // 100 MB
-    $snapshots1[0]->files()->update(['status' => 'completed', 'file_size' => 1024 * 1024 * 100]);
+    $snapshots1[0]->files()->update(['status' => SnapshotFileStatus::Completed, 'file_size' => 1024 * 1024 * 100]);
 
     $snapshots2 = $factory->createSnapshots($server2->backups->first(), 'manual', $user->id);
     $snapshots2[0]->update(['file_size' => 1024 * 1024 * 50]); // 50 MB
-    $snapshots2[0]->files()->update(['status' => 'completed', 'file_size' => 1024 * 1024 * 50]);
+    $snapshots2[0]->files()->update(['status' => SnapshotFileStatus::Completed, 'file_size' => 1024 * 1024 * 50]);
 
     $component = Livewire::withoutLazyLoading()
         ->actingAs($user)
@@ -63,7 +64,7 @@ test('storage distribution chart labels include formatted size', function () {
 
     $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
     $snapshots[0]->update(['file_size' => 1024 * 1024 * 256]); // 256 MB
-    $snapshots[0]->files()->update(['status' => 'completed', 'file_size' => 1024 * 1024 * 256]);
+    $snapshots[0]->files()->update(['status' => SnapshotFileStatus::Completed, 'file_size' => 1024 * 1024 * 256]);
 
     $component = Livewire::withoutLazyLoading()
         ->actingAs($user)

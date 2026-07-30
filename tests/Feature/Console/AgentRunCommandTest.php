@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\VolumeTransferException;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\VolumeTransferResult;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -24,10 +27,17 @@ beforeEach(function () {
                 'extra_config' => null,
                 'database_name' => 'testdb',
             ],
-            'volume' => [
-                'type' => 'local',
-                'name' => 'Test Volume',
-                'config' => ['path' => '/backups'],
+            'volumes' => [
+                [
+                    'type' => 'local',
+                    'name' => 'Test Volume',
+                    'config' => ['path' => '/backups'],
+                ],
+                [
+                    'type' => 's3',
+                    'name' => 'Offsite',
+                    'config' => ['bucket' => 'backups'],
+                ],
             ],
             'compression' => ['type' => null, 'level' => null],
             'backup_path' => '',
@@ -67,7 +77,10 @@ test('processes a job and calls ack on success', function () {
         '*/agent/jobs/job-123/ack' => Http::response(['status' => 'ok']),
     ]);
 
-    $mockResult = new BackupResult('backup_testdb.sql.gz', 54321, 'abc123hash');
+    $mockResult = new BackupResult('backup_testdb.sql.gz', 54321, 'abc123hash', [
+        new VolumeTransferResult('vol-1', 'Test Volume', SnapshotFileStatus::Completed),
+        new VolumeTransferResult('vol-2', 'Offsite', SnapshotFileStatus::Completed),
+    ]);
     $backupTask = $this->mock(BackupTask::class);
     $backupTask->shouldReceive('execute')->once()->andReturn($mockResult);
 
@@ -80,7 +93,78 @@ test('processes a job and calls ack on success', function () {
         && $request['filename'] === 'backup_testdb.sql.gz'
         && $request['file_size'] === 54321
         && $request['checksum'] === 'abc123hash'
+        && count($request['volumes']) === 2
+        && $request['volumes'][0]['volume_id'] === 'vol-1'
+        && $request['volumes'][1]['volume_id'] === 'vol-2'
+        && $request['volumes'][1]['status'] === SnapshotFileStatus::Completed->value
     );
+});
+
+test('reports per-volume outcomes when only some uploads fail', function () {
+    Http::fake([
+        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/claim' => Http::response(['job' => $this->jobPayload]),
+        '*/agent/jobs/job-123/fail' => Http::response(['status' => 'ok']),
+    ]);
+
+    $partialResult = new BackupResult('backup_testdb.sql.gz', 54321, 'abc123hash', [
+        new VolumeTransferResult('vol-1', 'Test Volume', SnapshotFileStatus::Completed),
+        new VolumeTransferResult('vol-2', 'Offsite', SnapshotFileStatus::Failed, 'S3 unreachable'),
+    ]);
+
+    $backupTask = $this->mock(BackupTask::class);
+    $backupTask->shouldReceive('execute')->once()
+        ->andThrow(new VolumeTransferException($partialResult, 'Upload failed for volume(s): Offsite'));
+
+    $this->artisan('agent:run --once')
+        ->expectsOutputToContain('Job failed: Upload failed for volume(s): Offsite')
+        ->assertSuccessful();
+
+    // The successful copy must still reach the app, alongside the failure.
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/fail')
+        && $request['error_message'] === 'Upload failed for volume(s): Offsite'
+        && $request['filename'] === 'backup_testdb.sql.gz'
+        && $request['file_size'] === 54321
+        && $request['volumes'][0]['status'] === SnapshotFileStatus::Completed->value
+        && $request['volumes'][1]['status'] === SnapshotFileStatus::Failed->value
+        && $request['volumes'][1]['error'] === 'S3 unreachable'
+    );
+});
+
+test('processes a legacy single-volume job payload', function () {
+    // Agents can still claim jobs queued before multi-volume support, which
+    // carry only the singular `volume` key.
+    $legacyPayload = $this->jobPayload;
+    unset($legacyPayload['payload']['volumes']);
+    $legacyPayload['payload']['volume'] = [
+        'type' => 'local',
+        'name' => 'Test Volume',
+        'config' => ['path' => '/backups'],
+    ];
+
+    Http::fake([
+        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/claim' => Http::response(['job' => $legacyPayload]),
+        '*/agent/jobs/job-123/ack' => Http::response(['status' => 'ok']),
+    ]);
+
+    $capturedConfig = null;
+    $backupTask = $this->mock(BackupTask::class);
+    $backupTask->shouldReceive('execute')->once()
+        ->andReturnUsing(function (...$args) use (&$capturedConfig) {
+            $capturedConfig = $args[0];
+
+            return new BackupResult('backup_testdb.sql.gz', 54321, 'abc123hash', [
+                new VolumeTransferResult(null, 'Test Volume', SnapshotFileStatus::Completed),
+            ]);
+        });
+
+    $this->artisan('agent:run --once')
+        ->expectsOutputToContain('Job completed: backup_testdb.sql.gz')
+        ->assertSuccessful();
+
+    expect($capturedConfig->volumes)->toHaveCount(1)
+        ->and($capturedConfig->volumes[0]->name)->toBe('Test Volume');
 });
 
 test('calls fail endpoint when backup task throws', function () {

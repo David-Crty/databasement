@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SnapshotFileStatus;
 use App\Jobs\DeleteOrganizationJob;
 use App\Models\DatabaseServer;
 use App\Models\Organization;
@@ -36,7 +37,7 @@ function seedOrganizationSnapshot(Organization $org): string
 
     $snapshot = app(BackupJobFactory::class)->createSnapshots($backup, 'manual')[0];
     $snapshot->update(['filename' => $backupFilename, 'file_size' => filesize($backupFilePath)]);
-    $snapshot->files()->update(['status' => 'completed', 'filename' => $backupFilename]);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => $backupFilename]);
     $snapshot->job->markCompleted();
 
     // The queue worker runs with no resolved organization (CLI context), so the

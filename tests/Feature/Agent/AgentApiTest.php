@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\BackupJobStatus;
+use App\Enums\SnapshotFileStatus;
 use App\Http\Middleware\ThrottleFailedAgentAuth;
 use App\Models\Agent;
 use App\Models\AgentJob;
@@ -217,7 +218,7 @@ describe('job acknowledgement', function () {
         $volumeA = \App\Models\Volume::factory()->s3()->create();
         $volumeB = \App\Models\Volume::factory()->s3()->create();
         $snapshot = \App\Models\Snapshot::factory()->onVolumes($volumeA, $volumeB)->create(['filename' => '']);
-        $snapshot->files()->update(['status' => 'pending']);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Pending]);
         $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
 
         $this->withToken($token)
@@ -226,8 +227,8 @@ describe('job acknowledgement', function () {
                 'file_size' => 2048,
                 'checksum' => 'sha',
                 'volumes' => [
-                    ['volume_id' => $volumeA->id, 'status' => 'completed'],
-                    ['volume_id' => $volumeB->id, 'status' => 'completed'],
+                    ['volume_id' => $volumeA->id, 'status' => SnapshotFileStatus::Completed->value],
+                    ['volume_id' => $volumeB->id, 'status' => SnapshotFileStatus::Completed->value],
                 ],
             ])
             ->assertOk();
@@ -246,7 +247,7 @@ describe('job acknowledgement', function () {
         $volumeA = \App\Models\Volume::factory()->s3()->create();
         $volumeB = \App\Models\Volume::factory()->s3()->create();
         $snapshot = \App\Models\Snapshot::factory()->onVolumes($volumeA, $volumeB)->create(['filename' => '']);
-        $snapshot->files()->update(['status' => 'pending']);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Pending]);
         $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
 
         $this->withToken($token)
@@ -259,7 +260,7 @@ describe('job acknowledgement', function () {
         $snapshot->refresh();
         expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
             ->and($snapshot->files()->completed()->count())->toBe(1)
-            ->and($snapshot->files()->where('status', 'failed')->first()->error)
+            ->and($snapshot->files()->where('status', SnapshotFileStatus::Failed)->first()->error)
             ->toContain('update the agent');
     });
 
@@ -269,7 +270,7 @@ describe('job acknowledgement', function () {
         $volumeA = \App\Models\Volume::factory()->s3()->create();
         $volumeB = \App\Models\Volume::factory()->s3()->create();
         $snapshot = \App\Models\Snapshot::factory()->onVolumes($volumeA, $volumeB)->create(['filename' => '']);
-        $snapshot->files()->update(['status' => 'pending']);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Pending]);
         $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
 
         $this->withToken($token)
@@ -278,8 +279,8 @@ describe('job acknowledgement', function () {
                 'filename' => 'partial.sql.gz',
                 'file_size' => 4096,
                 'volumes' => [
-                    ['volume_id' => $volumeA->id, 'status' => 'completed'],
-                    ['volume_id' => $volumeB->id, 'status' => 'failed', 'error' => 'S3 unreachable'],
+                    ['volume_id' => $volumeA->id, 'status' => SnapshotFileStatus::Completed->value],
+                    ['volume_id' => $volumeB->id, 'status' => SnapshotFileStatus::Failed->value, 'error' => 'S3 unreachable'],
                 ],
             ])
             ->assertOk();
@@ -289,7 +290,7 @@ describe('job acknowledgement', function () {
             ->and($snapshot->filename)->toBe('partial.sql.gz')
             ->and($snapshot->files()->completed()->first()->volume_id)->toBe($volumeA->id)
             ->and($snapshot->files()->completed()->first()->filename)->toBe('partial.sql.gz')
-            ->and($snapshot->files()->where('status', 'failed')->first()->error)->toBe('S3 unreachable');
+            ->and($snapshot->files()->where('status', SnapshotFileStatus::Failed)->first()->error)->toBe('S3 unreachable');
     });
 });
 

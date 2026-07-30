@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SnapshotFileStatus;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Agent\AgentAuthenticationException;
 use Illuminate\Support\Facades\Http;
@@ -100,7 +101,7 @@ describe('ack', function () {
         Http::fake();
         $logs = [['timestamp' => '2026-01-01T00:00:00+00:00', 'type' => 'log', 'level' => 'success', 'message' => 'Done']];
 
-        $volumeResults = [['volume_id' => 'vol-1', 'volume_name' => 'Local', 'status' => 'completed', 'error' => null, 'storage_warning' => null, 'quota_exceeded' => false]];
+        $volumeResults = [['volume_id' => 'vol-1', 'volume_name' => 'Local', 'status' => SnapshotFileStatus::Completed->value, 'error' => null, 'storage_warning' => null, 'quota_exceeded' => false]];
 
         $this->client->ack('job-1', 'backup.sql.gz', 12345, 'sha256hash', $volumeResults, $logs);
 
@@ -110,7 +111,7 @@ describe('ack', function () {
                 && $request['file_size'] === 12345
                 && $request['checksum'] === 'sha256hash'
                 && $request['volumes'][0]['volume_id'] === 'vol-1'
-                && $request['volumes'][0]['status'] === 'completed'
+                && $request['volumes'][0]['status'] === SnapshotFileStatus::Completed->value
                 && $request['logs'][0]['message'] === 'Done';
         });
     });

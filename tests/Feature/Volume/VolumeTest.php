@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Ability;
+use App\Enums\SnapshotFileStatus;
 use App\Enums\VolumeType;
 use App\Livewire\Volume\Create;
 use App\Livewire\Volume\Edit;
@@ -403,7 +404,7 @@ describe('volume deletion', function () {
             'filename' => $backupFilename,
             'file_size' => filesize($backupFilePath),
         ]);
-        $snapshot->files()->update(['status' => 'completed', 'filename' => $backupFilename]);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => $backupFilename]);
         $snapshot->job->markCompleted();
         $snapshotJobId = $snapshot->job->id;
 
@@ -461,7 +462,7 @@ describe('volume deletion', function () {
             'filename' => $backupFilename,
             'file_size' => filesize($backupFilePath),
         ]);
-        $snapshot->files()->update(['status' => 'completed', 'filename' => $backupFilename]);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => $backupFilename]);
         $snapshot->job->markCompleted();
 
         $backupJobId = $snapshot->backup_job_id;

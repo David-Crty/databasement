@@ -232,7 +232,11 @@ class AgentController extends Controller
         return [
             'volumes' => 'nullable|array|max:100',
             'volumes.*.volume_id' => 'nullable|string|max:26',
-            'volumes.*.status' => 'required_with:volumes|string|in:completed,failed',
+            'volumes.*.status' => sprintf(
+                'required_with:volumes|string|in:%s,%s',
+                SnapshotFileStatus::Completed->value,
+                SnapshotFileStatus::Failed->value,
+            ),
             'volumes.*.error' => 'nullable|string|max:10000',
         ];
     }
@@ -251,7 +255,7 @@ class AgentController extends Controller
         $files = $snapshot->files()->get();
 
         if ($volumeResults === null) {
-            $volumeResults = [['volume_id' => $files->first()?->volume_id, 'status' => 'completed']];
+            $volumeResults = [['volume_id' => $files->first()?->volume_id, 'status' => SnapshotFileStatus::Completed->value]];
 
             foreach ($files->skip(1) as $staleFile) {
                 $staleFile->update([
@@ -273,7 +277,7 @@ class AgentController extends Controller
                 continue;
             }
 
-            if ($volumeResult['status'] === 'completed') {
+            if ($volumeResult['status'] === SnapshotFileStatus::Completed->value) {
                 $file->update([
                     'status' => SnapshotFileStatus::Completed,
                     'filename' => $filename,

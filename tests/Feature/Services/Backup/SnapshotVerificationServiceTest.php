@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SnapshotFileStatus;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Snapshot;
@@ -82,7 +83,7 @@ test('verifies all completed snapshots', function () {
     // Set filenames and mark completed
     foreach ($snapshots as $snapshot) {
         $snapshot->update(['filename' => fake()->slug().'.sql.gz']);
-        $snapshot->files()->update(['status' => 'completed', 'filename' => $snapshot->filename]);
+        $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => $snapshot->filename]);
         $snapshot->job->markCompleted();
     }
 
@@ -118,7 +119,7 @@ test('sends notification when newly missing files are detected in bulk mode', fu
     $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
     $snapshot = $snapshots[0];
     $snapshot->update(['filename' => 'backup.sql.gz', 'file_exists' => true]);
-    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz']);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz']);
     $snapshot->job->markCompleted();
 
     $mockFilesystem = Mockery::mock(Filesystem::class);
@@ -142,7 +143,7 @@ test('does not send notification when no new files are missing', function () {
     $snapshot = $snapshots[0];
     // Already marked as missing — not newly missing
     $snapshot->update(['filename' => 'backup.sql.gz', 'file_exists' => false]);
-    $snapshot->files()->update(['status' => 'completed', 'filename' => 'backup.sql.gz', 'file_exists' => false]);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed, 'filename' => 'backup.sql.gz', 'file_exists' => false]);
     $snapshot->job->markCompleted();
 
     $mockFilesystem = Mockery::mock(Filesystem::class);
