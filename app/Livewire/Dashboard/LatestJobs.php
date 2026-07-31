@@ -80,6 +80,7 @@ class LatestJobs extends Component
     public function fetchJobs(): void
     {
         $query = BackupJob::forCurrentOrg()
+            ->withoutLogs()
             ->with([
                 'snapshot.databaseServer',
                 'restore.targetServer',

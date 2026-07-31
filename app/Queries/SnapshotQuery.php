@@ -12,14 +12,6 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class SnapshotQuery
 {
-    private const RELATIONSHIPS = [
-        'databaseServer',
-        'backup',
-        'files.volume',
-        'triggeredBy',
-        'job',
-    ];
-
     private const ALLOWED_SORT_COLUMNS = [
         'started_at',
         'created_at',
@@ -29,12 +21,29 @@ class SnapshotQuery
     ];
 
     /**
+     * `job` is loaded without its `logs` blob: the listing only needs the status.
+     * The logs modal re-fetches the job in full.
+     *
+     * @return array<int|string, mixed>
+     */
+    private static function relationships(): array
+    {
+        return [
+            'databaseServer',
+            'backup',
+            'files.volume',
+            'triggeredBy',
+            'job' => fn ($query) => $query->withoutLogs(),
+        ];
+    }
+
+    /**
      * @return QueryBuilder<Snapshot>
      */
     public static function make(): QueryBuilder
     {
         return QueryBuilder::for(Snapshot::class)
-            ->with(self::RELATIONSHIPS)
+            ->with(self::relationships())
             ->allowedFilters(
                 AllowedFilter::exact('database_server_id'),
                 AllowedFilter::partial('database_name'),
@@ -71,7 +80,7 @@ class SnapshotQuery
         string $sortDirection = 'desc'
     ): Builder {
         $query = Snapshot::query()
-            ->with(self::RELATIONSHIPS);
+            ->with(self::relationships());
 
         $query->forCurrentOrg();
 

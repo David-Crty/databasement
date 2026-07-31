@@ -9,18 +9,27 @@ use Illuminate\Database\Eloquent\Builder;
 
 class RestoreQuery
 {
-    private const RELATIONSHIPS = [
-        'snapshot.databaseServer',
-        'targetServer',
-        'triggeredBy',
-        'scheduledRestore',
-        'job',
-    ];
-
     private const ALLOWED_SORT_COLUMNS = [
         'created_at',
         'status',
     ];
+
+    /**
+     * `job` is loaded without its `logs` blob: the listing only needs the status.
+     * The logs modal re-fetches the job in full.
+     *
+     * @return array<int|string, mixed>
+     */
+    private static function relationships(): array
+    {
+        return [
+            'snapshot.databaseServer',
+            'targetServer',
+            'triggeredBy',
+            'scheduledRestore',
+            'job' => fn ($query) => $query->withoutLogs(),
+        ];
+    }
 
     /**
      * Build query from manual parameters (for Livewire).
@@ -39,7 +48,7 @@ class RestoreQuery
         // The DatabaseServer model has an OrganizationScope global scope, so
         // whereHas('targetServer') automatically filters to the current org.
         $query = Restore::query()
-            ->with(self::RELATIONSHIPS)
+            ->with(self::relationships())
             ->whereHas('targetServer');
 
         $query

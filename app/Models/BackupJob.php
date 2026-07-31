@@ -19,6 +19,24 @@ class BackupJob extends Model implements BackupLogger
 {
     use HasUlids;
 
+    /**
+     * Columns a listing needs, excluding the potentially huge `logs` and
+     * `error_trace` payloads.
+     *
+     * @var array<int, string>
+     */
+    private const SUMMARY_COLUMNS = [
+        'id',
+        'job_id',
+        'status',
+        'started_at',
+        'completed_at',
+        'duration_ms',
+        'error_message',
+        'created_at',
+        'updated_at',
+    ];
+
     protected $fillable = [
         'job_id',
         'status',
@@ -61,6 +79,22 @@ class BackupJob extends Model implements BackupLogger
                         ->whereRaw('organization_id = ?', [$orgId]);
                 });
         });
+    }
+
+    /**
+     * Scope for listings: selects everything needed to render a job row except the
+     * `logs` JSON blob, which can reach megabytes on a chatty command and would
+     * otherwise be fetched and decoded for every row on the page.
+     *
+     * Jobs loaded through this scope must not be used to read logs — the logs
+     * modal re-fetches the job in full.
+     *
+     * @param  Builder<static>  $query
+     * @return Builder<static>
+     */
+    public function scopeWithoutLogs(Builder $query): Builder
+    {
+        return $query->select(self::SUMMARY_COLUMNS);
     }
 
     /**

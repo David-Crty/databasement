@@ -124,7 +124,6 @@
                     $canDownload = $status === 'completed' && $completedFiles->where('file_exists', true)->isNotEmpty();
                     $canDelete = in_array($status, ['completed', 'failed'], true);
                     $canCancel = $status === 'pending' && $job;
-                    $hasLogs = ! empty($job?->logs);
                 @endphp
                 <div class="flex items-center gap-1 justify-end">
                     @if($canRestore)
@@ -165,8 +164,8 @@
                         wire:click="viewLogs('{{ $job?->id }}')"
                         :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
-                        :class="$hasLogs ? '' : 'opacity-30'"
-                        :disabled="! $hasLogs"
+                        :class="$job ? '' : 'opacity-30'"
+                        :disabled="! $job"
                     />
 
                     @if($canDelete)
