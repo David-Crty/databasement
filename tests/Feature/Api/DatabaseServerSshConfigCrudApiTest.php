@@ -40,7 +40,10 @@ test('manage-database-servers allows creating a password-based ssh config', func
         ->assertJsonPath('data.auth_type', 'password')
         ->assertJsonPath('data.port', 22);
 
-    expect($response->json('data'))->not->toHaveKeys(['password', 'private_key', 'key_passphrase']);
+    expect($response->json('data'))
+        ->not->toHaveKey('password')
+        ->not->toHaveKey('private_key')
+        ->not->toHaveKey('key_passphrase');
 
     /** @var DatabaseServerSshConfig $config */
     $config = DatabaseServerSshConfig::findOrFail($response->json('data.id'));
@@ -141,13 +144,20 @@ test('viewing ssh configs needs no ability', function () {
         ->assertJsonPath('data.0.id', $config->id);
 
     // Listed items carry no credentials and no public_key placeholder.
-    expect($listed->json('data.0'))->not->toHaveKeys(['password', 'private_key', 'key_passphrase', 'public_key']);
+    expect($listed->json('data.0'))
+        ->not->toHaveKey('password')
+        ->not->toHaveKey('private_key')
+        ->not->toHaveKey('key_passphrase')
+        ->not->toHaveKey('public_key');
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson("/api/v1/database-server-ssh-configs/{$config->id}");
 
     $response->assertOk()->assertJsonPath('data.username', 'tunnel_user');
-    expect($response->json('data'))->not->toHaveKeys(['password', 'private_key', 'key_passphrase']);
+    expect($response->json('data'))
+        ->not->toHaveKey('password')
+        ->not->toHaveKey('private_key')
+        ->not->toHaveKey('key_passphrase');
 });
 
 // ─── Update ──────────────────────────────────────────────────────────────────
@@ -232,6 +242,41 @@ test('regenerating a key drops the passphrase of the replaced one', function () 
     $config->refresh();
     expect($config->key_passphrase)->toBeNull()
         ->and($config->private_key)->toContain('OPENSSH PRIVATE KEY');
+});
+
+test('replacing the private key drops the passphrase of the replaced one', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $config = DatabaseServerSshConfig::factory()->withKeyAuthAndPassphrase()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
+            'host' => $config->host,
+            'username' => $config->username,
+            'auth_type' => 'key',
+            'private_key' => 'REPLACEMENT_SSH_PRIVATE_KEY_FOR_TESTS_ONLY',
+        ])
+        ->assertOk();
+
+    $config->refresh();
+    expect($config->key_passphrase)->toBeNull()
+        ->and($config->private_key)->toBe('REPLACEMENT_SSH_PRIVATE_KEY_FOR_TESTS_ONLY');
+});
+
+test('a passphrase sent with a new private key is stored', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $config = DatabaseServerSshConfig::factory()->withKeyAuthAndPassphrase()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
+            'host' => $config->host,
+            'username' => $config->username,
+            'auth_type' => 'key',
+            'private_key' => 'REPLACEMENT_SSH_PRIVATE_KEY_FOR_TESTS_ONLY',
+            'key_passphrase' => 'new_passphrase',
+        ])
+        ->assertOk();
+
+    expect($config->fresh()->key_passphrase)->toBe('new_passphrase');
 });
 
 // ─── Destroy ─────────────────────────────────────────────────────────────────

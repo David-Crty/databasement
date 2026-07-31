@@ -97,6 +97,13 @@ class DatabaseServerSshConfigController extends Controller
             }
         }
 
+        // A client-supplied private key invalidates the passphrase held for the
+        // one it replaces, so that passphrase is dropped unless the request
+        // supplies one for the new key.
+        if (filled($validated['private_key'] ?? null) && ! array_key_exists('key_passphrase', $validated)) {
+            $validated['key_passphrase'] = null;
+        }
+
         $publicKey = $this->generateKeyIfRequested($request, $keyGenerator, $validated);
 
         $validated['port'] ??= $databaseServerSshConfig->port;
