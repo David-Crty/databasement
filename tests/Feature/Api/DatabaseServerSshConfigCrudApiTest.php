@@ -216,6 +216,24 @@ test('switching auth type clears the credentials of the previous one', function 
         ->and($config->private_key)->toContain('OPENSSH PRIVATE KEY');
 });
 
+test('regenerating a key drops the passphrase of the replaced one', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $config = DatabaseServerSshConfig::factory()->withKeyAuthAndPassphrase()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
+            'host' => $config->host,
+            'username' => $config->username,
+            'auth_type' => 'key',
+            'generate_key' => true,
+        ])
+        ->assertOk();
+
+    $config->refresh();
+    expect($config->key_passphrase)->toBeNull()
+        ->and($config->private_key)->toContain('OPENSSH PRIVATE KEY');
+});
+
 // ─── Destroy ─────────────────────────────────────────────────────────────────
 
 test('without manage-database-servers, deleting an ssh config via api is forbidden', function () {

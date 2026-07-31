@@ -59,22 +59,11 @@ class DatabaseServerSshConfigController extends Controller
         $this->authorize('create', DatabaseServerSshConfig::class);
 
         $validated = $request->validated();
-        $publicKey = null;
-
-        if ($request->boolean('generate_key')) {
-            /** @var string $host */
-            $host = $validated['host'];
-            $keypair = $keyGenerator->generate($keyGenerator->buildComment('', $host));
-            $validated['private_key'] = $keypair['private'];
-            $publicKey = $keypair['public'];
-        }
-
-        unset($validated['generate_key']);
+        $publicKey = $this->generateKeyIfRequested($request, $keyGenerator, $validated);
 
         $validated['port'] ??= 22;
         $validated['organization_id'] = app(CurrentOrganization::class)->id();
 
-        /** @var array<string, mixed> $validated */
         $sshConfig = DatabaseServerSshConfig::create($this->clearUnusedCredentials($validated));
 
         return new DatabaseServerSshConfigResource($sshConfig)
@@ -98,28 +87,19 @@ class DatabaseServerSshConfigController extends Controller
         $this->authorize('update', $databaseServerSshConfig);
 
         $validated = $request->validated();
-        $publicKey = null;
-
-        if ($request->boolean('generate_key')) {
-            /** @var string $host */
-            $host = $validated['host'];
-            $keypair = $keyGenerator->generate($keyGenerator->buildComment('', $host));
-            $validated['private_key'] = $keypair['private'];
-            $validated['key_passphrase'] = null;
-            $publicKey = $keypair['public'];
-        }
-
-        unset($validated['generate_key']);
-
-        $validated['port'] ??= $databaseServerSshConfig->port;
 
         // Blank credentials mean "keep the stored one" — they are never
-        // readable back through the API, so a client cannot echo them.
+        // readable back through the API, so a client cannot echo them. This
+        // runs before key generation, whose deliberate blanks must survive.
         foreach (DatabaseServerSshConfig::SENSITIVE_FIELDS as $field) {
             if (array_key_exists($field, $validated) && blank($validated[$field])) {
                 unset($validated[$field]);
             }
         }
+
+        $publicKey = $this->generateKeyIfRequested($request, $keyGenerator, $validated);
+
+        $validated['port'] ??= $databaseServerSshConfig->port;
 
         $databaseServerSshConfig->update($this->clearUnusedCredentials($validated));
 
@@ -150,6 +130,31 @@ class DatabaseServerSshConfigController extends Controller
     }
 
     /**
+     * Generate a keypair server-side when the payload asks for one, writing the
+     * private key into it. A generated key never has a passphrase, so any
+     * stored one is dropped. Returns the public key, which is not persisted.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function generateKeyIfRequested(Request $request, SshKeyGenerator $keyGenerator, array &$validated): ?string
+    {
+        unset($validated['generate_key']);
+
+        if (! $request->boolean('generate_key')) {
+            return null;
+        }
+
+        /** @var string $host */
+        $host = $validated['host'];
+        $keypair = $keyGenerator->generate($keyGenerator->buildComment('', $host));
+
+        $validated['private_key'] = $keypair['private'];
+        $validated['key_passphrase'] = null;
+
+        return $keypair['public'];
+    }
+
+    /**
      * Wipe the credentials belonging to the auth type that is not in use, so a
      * config never keeps a stale password next to a private key.
      *
@@ -158,7 +163,7 @@ class DatabaseServerSshConfigController extends Controller
      */
     private function clearUnusedCredentials(array $data): array
     {
-        if (($data['auth_type'] ?? null) === 'password') {
+        if ($data['auth_type'] === 'password') {
             $data['private_key'] = null;
             $data['key_passphrase'] = null;
         } else {
