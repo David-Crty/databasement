@@ -50,9 +50,11 @@ class ShellProcessor
         // Start the command log entry before execution
         $logIndex = $this->logger?->startCommandLog($sanitizedCommand);
 
-        // Run with output callback for incremental updates. The buffer is bounded,
-        // so neither the in-memory copy nor the stored log grows with a command
-        // that emits an unbounded number of warnings.
+        // Run with output callback for incremental updates. The buffer bounds what
+        // reaches the stored log, so a command emitting an unbounded number of
+        // warnings cannot grow the job's `logs` blob. It does not bound memory:
+        // Process keeps the full output internally for getOutput()/getErrorOutput()
+        // below, so a huge stream still accumulates for the command's lifetime.
         $incrementalOutput = $this->newOutputBuffer();
         $lastFlush = 0.0;
 

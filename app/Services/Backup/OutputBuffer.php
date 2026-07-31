@@ -108,9 +108,14 @@ class OutputBuffer
         $lastBreak = strrpos($chunk, "\n");
 
         if ($lastBreak === false) {
-            $this->head .= $chunk;
+            // A byte-sized cut can land inside a multi-byte character. Carry the
+            // partial trailing sequence over instead of dropping it, so the head
+            // stays valid UTF-8 on its own and the tail still starts on a lead
+            // byte. Nothing is discarded here, so the counters are untouched.
+            $complete = $this->dropTrailingPartialUtf8($chunk);
+            $this->head .= $complete;
 
-            return $rest;
+            return substr($chunk, strlen($complete)).$rest;
         }
 
         $this->head .= substr($chunk, 0, $lastBreak + 1);
@@ -135,8 +140,26 @@ class OutputBuffer
         $boundary = strpos($this->tail, "\n", $overflow);
         $cut = $boundary === false ? $overflow : $boundary + 1;
 
-        $this->droppedBytes += $cut;
+        $kept = substr($this->tail, $cut);
+
+        // A byte cut can land inside a multi-byte character. Drop the orphaned
+        // continuation bytes so the retained tail stays valid UTF-8.
+        $kept = preg_replace('/^[\x80-\xBF]+/', '', $kept) ?? $kept;
+
+        // Counted from what was actually discarded, orphans included. Continuation
+        // bytes are never 0x0A, so the line count is unaffected by that trim.
+        $this->droppedBytes += strlen($this->tail) - strlen($kept);
         $this->droppedLines += substr_count(substr($this->tail, 0, $cut), "\n");
-        $this->tail = substr($this->tail, $cut);
+        $this->tail = $kept;
+    }
+
+    /**
+     * Remove an incomplete multi-byte sequence at the end of a slice.
+     */
+    private function dropTrailingPartialUtf8(string $value): string
+    {
+        $pattern = '/(?:[\xC0-\xDF]|[\xE0-\xEF][\x80-\xBF]?|[\xF0-\xF7][\x80-\xBF]{0,2})\z/';
+
+        return preg_replace($pattern, '', $value) ?? $value;
     }
 }
