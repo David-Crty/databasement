@@ -33,6 +33,27 @@ Once you've saved an SSH config, the form offers **Use existing** (pick a saved 
 
 With **Auth Type** set to **Private Key**, the form can **Generate a new Ed25519 keypair** for you. Copy the displayed public key into `~/.ssh/authorized_keys` on the SSH server before saving — it's shown only once and the public key isn't stored.
 
+### Creating an SSH configuration via the API
+
+SSH configurations are also a REST resource, so a whole tunnel-backed server can be provisioned without touching the UI. `POST /api/v1/database-server-ssh-configs` returns the new config's `id`, ready to pass as `ssh_config_id` when creating the database server:
+
+```bash
+curl -X POST https://databasement.example.com/api/v1/database-server-ssh-configs \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "host": "bastion.example.com",
+    "port": 22,
+    "username": "databasement",
+    "auth_type": "key",
+    "generate_key": true
+  }'
+```
+
+With `generate_key`, the keypair is generated server-side and the public key comes back in the response — copy it into `authorized_keys` on the SSH host. As in the UI, it is returned only once and never stored. Omit `generate_key` to send your own `private_key` (and optional `key_passphrase`), or use `"auth_type": "password"` with a `password`.
+
+Credentials are write-only: `GET`, `PUT` and the list endpoint never return them, and omitting them on `PUT` keeps the stored ones. A configuration still attached to a database server cannot be deleted. See [REST API](./api.md) for the full reference.
+
 ## Backing up databases on a remote host
 
 When databases run in Docker containers on a remote machine with ports only on an internal network, the tunnel reuses the **same SSH access you already use to manage that host** — no separate agent is needed, and the database stays private.
