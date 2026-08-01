@@ -11,6 +11,21 @@ class ShellProcessor
 {
     private ?BackupLogger $logger = null;
 
+    /**
+     * The flush interval matters as much as the output budget: every incremental
+     * write re-serializes the job's whole `logs` JSON blob, so flushing once per
+     * output chunk makes a chatty command quadratic in database writes.
+     *
+     * @param  int  $outputHeadBytes  Leading slice of a command's output to keep.
+     * @param  int  $outputTailBytes  Trailing slice of a command's output to keep.
+     * @param  float  $flushIntervalSeconds  Minimum delay between incremental log writes.
+     */
+    public function __construct(
+        private readonly int $outputHeadBytes = 16384,
+        private readonly int $outputTailBytes = 16384,
+        private readonly float $flushIntervalSeconds = 1.0,
+    ) {}
+
     public function setLogger(BackupLogger $logger): void
     {
         $this->logger = $logger;
@@ -35,18 +50,35 @@ class ShellProcessor
         // Start the command log entry before execution
         $logIndex = $this->logger?->startCommandLog($sanitizedCommand);
 
-        // Run with output callback for incremental updates
-        $incrementalOutput = '';
-        $process->run(function ($type, $data) use (&$incrementalOutput, $logIndex, $startTime) {
-            $incrementalOutput .= $data;
+        // Run with output callback for incremental updates. The buffer bounds what
+        // reaches the stored log, so a command emitting an unbounded number of
+        // warnings cannot grow the job's `logs` blob. It does not bound memory:
+        // Process keeps the full output internally for getOutput()/getErrorOutput()
+        // below, so a huge stream still accumulates for the command's lifetime.
+        $incrementalOutput = $this->newOutputBuffer();
+        $lastFlush = 0.0;
 
-            // Update the log entry with incremental output (sanitized)
-            if ($this->logger && $logIndex !== null) {
-                $this->logger->updateCommandLog($logIndex, [
-                    'output' => $this->sanitize(trim($incrementalOutput)),
-                    'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
-                ]);
+        $process->run(function ($type, $data) use ($incrementalOutput, &$lastFlush, $logIndex, $startTime) {
+            $incrementalOutput->append($data);
+
+            if (! $this->logger || $logIndex === null) {
+                return;
             }
+
+            // Throttle incremental updates; the final write below always runs, so
+            // nothing is lost by skipping a flush here.
+            $now = microtime(true);
+
+            if ($now - $lastFlush < $this->flushIntervalSeconds) {
+                return;
+            }
+
+            $lastFlush = $now;
+
+            $this->logger->updateCommandLog($logIndex, [
+                'output' => $this->sanitize(trim($incrementalOutput->toString())),
+                'duration_ms' => round(($now - $startTime) * 1000, 2),
+            ]);
         });
 
         $output = $process->getOutput();
@@ -55,9 +87,13 @@ class ShellProcessor
 
         // Finalize the log entry with exit code and status
         if ($this->logger && $logIndex !== null) {
-            $combinedOutput = $this->sanitize(trim($output."\n".$errorOutput));
+            $finalOutput = $this->newOutputBuffer();
+            $finalOutput->append($output);
+            $finalOutput->append("\n");
+            $finalOutput->append($errorOutput);
+
             $this->logger->updateCommandLog($logIndex, [
-                'output' => $combinedOutput,
+                'output' => $this->sanitize(trim($finalOutput->toString())),
                 'exit_code' => $exitCode,
                 'status' => $process->isSuccessful() ? 'completed' : 'failed',
                 'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
@@ -65,12 +101,22 @@ class ShellProcessor
         }
 
         if (! $process->isSuccessful()) {
-            $sanitizedError = $this->sanitize($errorOutput);
+            // Bounded as well: this message ends up in `backup_jobs.error_message`,
+            // a TEXT column that a multi-megabyte stderr would overflow.
+            $error = $this->newOutputBuffer();
+            $error->append($errorOutput);
+
+            $sanitizedError = $this->sanitize($error->toString());
             Log::error($sanitizedCommand."\n".$sanitizedError);
             throw new ShellProcessFailed($sanitizedError);
         }
 
         return $output;
+    }
+
+    private function newOutputBuffer(): OutputBuffer
+    {
+        return new OutputBuffer($this->outputHeadBytes, $this->outputTailBytes);
     }
 
     /**

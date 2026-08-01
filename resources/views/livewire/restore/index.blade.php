@@ -141,7 +141,6 @@
                     $target = $restore->targetServer;
                     $canRerun = $snapshot && $target;
                     $job = $restore->job;
-                    $hasLogs = ! empty($job?->logs);
                 @endphp
                 <div class="flex items-center gap-1 justify-end">
                     @if($canRerun)
@@ -161,8 +160,8 @@
                         wire:click="viewLogs('{{ $job?->id }}')"
                         :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
-                        :class="$hasLogs ? '' : 'opacity-30'"
-                        :disabled="! $hasLogs"
+                        :class="$job ? '' : 'opacity-30'"
+                        :disabled="! $job"
                     />
 
                     @can('delete', $restore)

@@ -240,13 +240,25 @@
                                             <div class="py-3 space-y-3">
                                                 @if($isCommand)
                                                     <!-- Command & Output -->
+                                                    @php
+                                                        // Same bounded head-and-tail logic ShellProcessor uses when
+                                                        // capturing, on a tighter budget: every line rendered here is a
+                                                        // DOM node that also rides along in the Livewire payload.
+                                                        $rendered = new \App\Services\Backup\OutputBuffer(4096, 4096);
+                                                        $rendered->append(trim($log['output'] ?? ''));
+                                                        $renderedOutput = $rendered->toString();
+                                                        $outputLines = $renderedOutput === '' ? [] : explode("\n", $renderedOutput);
+                                                        $truncationMarker = $rendered->marker();
+                                                    @endphp
                                                     <div class="mockup-code text-sm max-h-64 overflow-auto">
                                                         <pre data-prefix="$"><code>{{ $log['command'] }}</code></pre>
-                                                        @if(isset($log['output']) && !empty(trim($log['output'])))
-                                                            @foreach(explode("\n", trim($log['output'])) as $line)
+                                                        @foreach($outputLines as $line)
+                                                            @if($line === $truncationMarker)
+                                                                <pre data-prefix="…"><code class="text-warning">{{ $line }}</code></pre>
+                                                            @else
                                                                 <pre data-prefix=">"><code class="{{ $isError ? 'text-error' : '' }}">{{ $line }}</code></pre>
-                                                            @endforeach
-                                                        @endif
+                                                            @endif
+                                                        @endforeach
                                                     </div>
 
                                                     @if($isRunning || isset($log['exit_code']) || isset($log['duration_ms']))

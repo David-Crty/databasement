@@ -120,6 +120,77 @@ test('process works without logger', function () {
     expect(trim($output))->toBe('no logger');
 });
 
+test('process bounds the stored output of a chatty command', function () {
+    $backupJob = BackupJob::create([
+        'status' => 'running',
+    ]);
+
+    // 64-byte head/tail budget, so a few hundred bytes of warnings overflow it.
+    $processor = new ShellProcessor(outputHeadBytes: 64, outputTailBytes: 64);
+    $processor->setLogger($backupJob);
+
+    // A noisy pg_dump repeating a warning on stderr, in miniature.
+    $processor->process('seq 1 100 | sed "s/^/warning: line /" >&2');
+
+    $backupJob->refresh();
+    $output = $backupJob->getLogs()[0]['output'];
+
+    expect(strlen($output))->toBeLessThan(300)
+        ->and($output)->toContain('warning: line 1')
+        ->and($output)->toContain('warning: line 100')
+        ->and($output)->not->toContain('warning: line 50')
+        ->and($output)->toContain('of output omitted');
+});
+
+test('process bounds the error message thrown for a failing chatty command', function () {
+    Log::spy();
+
+    $processor = new ShellProcessor(outputHeadBytes: 64, outputTailBytes: 64);
+
+    $run = fn () => $processor->process('seq 1 100 | sed "s/^/warning: line /" >&2; exit 1');
+
+    expect($run)->toThrow(
+        fn (ShellProcessFailed $e) => expect(strlen($e->getMessage()))->toBeLessThan(300)
+    );
+});
+
+test('process throttles incremental log writes while a command runs', function () {
+    $logger = new class implements \App\Contracts\BackupLogger
+    {
+        public int $updates = 0;
+
+        public function logCommand(string $command, ?string $output = null, ?int $exitCode = null, ?float $startTime = null): void {}
+
+        public function startCommandLog(string $command): int
+        {
+            return 0;
+        }
+
+        public function updateCommandLog(int $index, array $data): void
+        {
+            $this->updates++;
+        }
+
+        public function log(string $message, string $level = 'info', ?array $context = null): void {}
+
+        public function getLogs(): array
+        {
+            return [];
+        }
+    };
+
+    // An interval no test run can reach, so every write after the first is skipped.
+    $processor = new ShellProcessor(flushIntervalSeconds: 3600);
+    $processor->setLogger($logger);
+
+    // ~2 MB delivered as many read chunks. Unthrottled this is one database
+    // write per chunk, each re-serializing the whole growing `logs` blob.
+    $processor->process('seq 1 300000');
+
+    // The first chunk, then the final write once the command exits.
+    expect($logger->updates)->toBe(2);
+});
+
 test('process creates log entry before command starts', function () {
     $backupJob = BackupJob::create([
         'status' => 'running',

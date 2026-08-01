@@ -73,3 +73,18 @@ test('can sort snapshots by column', function () {
     expect($results->first()->file_size)->toBe(5000)
         ->and($results->last()->file_size)->toBe(1000);
 });
+
+test('snapshot listing does not load the job log payload', function () {
+    $factory = app(BackupJobFactory::class);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['db1']]);
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
+    $snapshots[0]->job->update(['logs' => [['type' => 'log', 'message' => str_repeat('x', 10000)]]]);
+
+    $job = SnapshotQuery::buildFromParams()->get()->first()->job;
+
+    // Fetching `logs` for every row is what made the index page crawl once a
+    // chatty command filled the column. The logs modal re-fetches the job.
+    expect($job->getAttributes())->not->toHaveKey('logs')
+        ->and($job->status)->toBeInstanceOf(BackupJobStatus::class);
+});
