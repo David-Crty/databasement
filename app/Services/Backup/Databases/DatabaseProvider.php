@@ -111,6 +111,12 @@ class DatabaseProvider
             $dbConfig['ssl_enabled'] = true;
         }
 
+        // Marks a live server: the handler may query it for the MySQL/MariaDB
+        // flavour. Display-only configs, like the dump preview, leave it unset.
+        if ($config->databaseType === DatabaseType::MYSQL) {
+            $dbConfig['probe_server_version'] = true;
+        }
+
         if ($config->databaseType === DatabaseType::POSTGRESQL
             && ($snapshotDumpFormat ?? $extra['dump_format'] ?? null) === 'custom') {
             $dbConfig['dump_format'] = 'custom';
