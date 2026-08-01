@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AgentController;
 use App\Http\Controllers\Api\V1\BackupJobController;
 use App\Http\Controllers\Api\V1\BackupScheduleController;
 use App\Http\Controllers\Api\V1\DatabaseServerController;
+use App\Http\Controllers\Api\V1\DatabaseServerSshConfigController;
 use App\Http\Controllers\Api\V1\ScheduledRestoreController;
 use App\Http\Controllers\Api\V1\SnapshotController;
 use App\Http\Controllers\Api\V1\UserOrganizationController;
@@ -21,6 +22,11 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
         ->name('database-servers.backup');
     Route::post('database-servers/{database_server}/restore', [DatabaseServerController::class, 'restore'])
         ->name('database-servers.restore');
+
+    Route::apiResource('database-server-ssh-configs', DatabaseServerSshConfigController::class)
+        ->only(['index', 'show', 'store', 'destroy']);
+    Route::put('database-server-ssh-configs/{database_server_ssh_config}', [DatabaseServerSshConfigController::class, 'update'])
+        ->name('database-server-ssh-configs.update');
 
     Route::apiResource('jobs', BackupJobController::class)
         ->only(['index', 'show'])

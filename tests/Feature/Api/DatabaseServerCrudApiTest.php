@@ -3,6 +3,7 @@
 use App\Enums\Ability;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
+use App\Models\DatabaseServerSshConfig;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\Databases\DatabaseProvider;
@@ -317,6 +318,37 @@ test('can update a database server via api', function () {
         ->assertJsonPath('data.name', 'Updated Server')
         ->assertJsonPath('data.host', 'new-host.example.com')
         ->assertJsonPath('data.managed_by', 'k8s:default/mysql-pod');
+});
+
+test('update attaches an ssh config to a server that has none', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $sshConfig = DatabaseServerSshConfig::factory()->create();
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    expect($server->ssh_config_id)->toBeNull();
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-servers/{$server->id}", [
+            'name' => $server->name,
+            'database_type' => 'mysql',
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'ssh_config_id' => $sshConfig->id,
+            'backups' => [[
+                'database_selection_mode' => 'all',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ]],
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.ssh_config_id', $sshConfig->id);
+
+    expect($server->fresh()->sshConfig->host)->toBe('bastion.example.com');
 });
 
 test('blank password keeps existing password on update', function () {
