@@ -12,7 +12,7 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 
 | Engine     | Supported Versions           | CLI Tool                     | Restore |
 |------------|------------------------------|------------------------------|---------|
-| MySQL      | 5.6, 5.7, 8.x, 9.x           | `mariadb-dump`               | Yes     |
+| MySQL      | 5.6, 5.7, 8.x, 9.x, 26.x     | `mariadb-dump`               | Yes     |
 | MariaDB    | 10.x, 11.x, 12.x             | `mariadb-dump`               | Yes     |
 | PostgreSQL | 12, 13, 14, 15, 16, 17, 18   | `pg_dump` v18                | Yes     |
 | SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.dacpac`)     | Yes     |
@@ -23,7 +23,7 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 | Valkey     | 7.2+                         | `redis-cli --rdb`            | No      |
 
 :::info How this works
-- **MySQL / MariaDB**: Databasement ships the MariaDB 11.4 client (`mariadb-dump`), which is wire-protocol compatible with MySQL servers.
+- **MySQL / MariaDB**: Databasement ships the MariaDB 11.4 client (`mariadb-dump`), which is wire-protocol compatible with MySQL servers. On MySQL 26.0 and later, stored procedures and functions are left out of the dump: the client reads MySQL's new YY.M version number (9.7 → 26.7) as a MariaDB one and asks for stored packages, which MySQL rejects. Tables, data, views and triggers are unaffected, and the job logs a warning.
 - **PostgreSQL**: The `pg_dump` v18 client can dump from any server version back to 9.2. Versions below 12 have reached end-of-life and are not recommended.
 - **SQL Server**: Backups are extracted as `.dacpac` files (schema + table data) using Microsoft's `sqlpackage` CLI (`/Action:Extract`) and re-applied with `/Action:Publish`. Server-bound objects (logins, users, permissions, role memberships) are excluded so backups stay portable across instances and don't fail on Windows-auth principals like `[NT AUTHORITY\SYSTEM]`. Works against on-prem SQL Server 2017+ and Azure SQL Database. Connections use the `pdo_sqlsrv` PHP extension.
 - **MongoDB**: The MongoDB Database Tools (`mongodump` / `mongorestore`) officially support server versions 4.2 through 8.0.

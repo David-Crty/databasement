@@ -58,6 +58,64 @@ test('dump includes extra dump flags', function () {
         ->and($result->command)->toEndWith("> '/tmp/dump.sql'");
 });
 
+/** A handler on a live server reporting $version, or an unreadable one for null. */
+function mysqlDatabaseReportingVersion(?string $version): MysqlDatabase
+{
+    $pdo = Mockery::mock(PDO::class);
+
+    if ($version === null) {
+        $pdo->shouldReceive('query')->andThrow(new PDOException('server has gone away'));
+    } else {
+        $statement = Mockery::mock(\PDOStatement::class);
+        $statement->shouldReceive('fetchColumn')->andReturn($version);
+        $pdo->shouldReceive('query')->with('SELECT VERSION()')->andReturn($statement);
+    }
+
+    $db = Mockery::mock(MysqlDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
+    $db->shouldReceive('createPdo')->andReturn($pdo);
+    $db->setConfig([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+        'probe_server_version' => true,
+    ]);
+
+    return $db;
+}
+
+test('dump keeps --routines for servers the MariaDB client can dump routines from', function (?string $version) {
+    $result = mysqlDatabaseReportingVersion($version)->dump('/tmp/dump.sql');
+
+    expect($result->command)->toContain('--routines')
+        ->and($result->log)->toBeNull();
+})->with([
+    'MariaDB inside its own package range' => ['11.4.12-MariaDB-ubu2404'],
+    'MySQL on the pre-2026 scheme' => ['9.7.2'],
+    'MySQL 8' => ['8.4.11'],
+    'unreadable version' => [null],
+]);
+
+// MySQL 26.7 clears the client's >= 10.3 package gate, so --routines triggers
+// SHOW PACKAGE STATUS and MySQL rejects it with a syntax error (#494).
+test('dump drops --routines for MySQL versions that trip the MariaDB package check', function () {
+    $result = mysqlDatabaseReportingVersion('26.7.0')->dump('/tmp/dump.sql');
+
+    expect($result->command)->not->toContain('--routines')
+        ->and($result->command)->toContain('mariadb-dump --single-transaction --add-drop-table')
+        ->and($result->log?->level)->toBe('warning')
+        ->and($result->log?->message)->toContain('26.7.0');
+});
+
+test('dump does not probe the server when the config is not for a live server', function () {
+    $db = Mockery::mock(MysqlDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
+    $db->shouldNotReceive('createPdo');
+    $db->setConfig(['host' => 'hostname', 'port' => 3306, 'user' => 'user', 'pass' => '***', 'database' => 'dbname']);
+
+    expect($db->dump('/path/to/output')->command)->toContain('--routines');
+});
+
 test('restore builds correct command with skip_ssl by default', function () {
     $result = $this->db->restore('/tmp/restore.sql');
 

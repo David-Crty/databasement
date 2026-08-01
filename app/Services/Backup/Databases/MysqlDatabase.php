@@ -4,6 +4,7 @@ namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
 use App\Exceptions\Backup\ConnectionException;
+use App\Services\Backup\DTO\DatabaseOperationLog;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
@@ -13,6 +14,9 @@ class MysqlDatabase implements DatabaseInterface
 {
     /** @var array<string, mixed> */
     private array $config;
+
+    /** Cached VERSION() result; '' means "asked and could not tell". */
+    private ?string $serverVersion = null;
 
     private const string DUMP_BINARY = 'mariadb-dump';
 
@@ -25,6 +29,9 @@ class MysqlDatabase implements DatabaseInterface
         '--hex-blob',           // Encode binary data as hex for safer transport
         '--quote-names',        // Quote identifiers with backticks
     ];
+
+    /** Server version from which the MariaDB client dumps stored packages. */
+    private const string MARIADB_PACKAGES_VERSION = '10.3.0';
 
     private const array EXCLUDED_DATABASES = [
         'information_schema',
@@ -62,6 +69,15 @@ class MysqlDatabase implements DatabaseInterface
         $options = self::DUMP_OPTIONS;
         $options[] = $this->getSslFlag();
 
+        $log = null;
+        if (! $this->canDumpRoutines()) {
+            $options = array_values(array_diff($options, ['--routines']));
+            $log = new DatabaseOperationLog(
+                'Stored routines were excluded from this dump: the MariaDB client cannot dump routines from a MySQL server reporting version '.$this->serverVersion().'.',
+                'warning',
+            );
+        }
+
         $extraFlags = '';
         if (! empty($this->config['dump_flags'])) {
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
@@ -82,7 +98,50 @@ class MysqlDatabase implements DatabaseInterface
 
         $command .= ' > '.escapeshellarg($outputPath);
 
-        return new DatabaseOperationResult(command: $command);
+        return new DatabaseOperationResult(command: $command, log: $log);
+    }
+
+    /**
+     * The client gates stored packages on the numeric server version alone, so a
+     * MySQL server on the YY.M scheme (9.7 → 26.7) gets a MariaDB-only
+     * `SHOW PACKAGE STATUS` and the dump dies. No flag skips just the packages.
+     * Unknown versions keep `--routines`, preserving the previous behaviour.
+     */
+    private function canDumpRoutines(): bool
+    {
+        $version = $this->serverVersion();
+
+        if ($version === null || str_contains(strtolower($version), 'mariadb')) {
+            return true;
+        }
+
+        return version_compare($version, self::MARIADB_PACKAGES_VERSION, '<');
+    }
+
+    /**
+     * Server version as reported by the server, or null when it cannot be read.
+     */
+    protected function serverVersion(): ?string
+    {
+        // Unset for configs that never reach a server, such as the UI preview.
+        if (empty($this->config['probe_server_version'])) {
+            return null;
+        }
+
+        if ($this->serverVersion !== null) {
+            return $this->serverVersion === '' ? null : $this->serverVersion;
+        }
+
+        try {
+            $statement = $this->createPdo()->query('SELECT VERSION()');
+            $version = $statement === false ? false : $statement->fetchColumn();
+        } catch (\PDOException) {
+            $version = false;
+        }
+
+        $this->serverVersion = is_string($version) ? $version : '';
+
+        return $this->serverVersion === '' ? null : $this->serverVersion;
     }
 
     public function restore(string $inputPath): DatabaseOperationResult
