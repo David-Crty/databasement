@@ -11,10 +11,12 @@ use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\RestoreTask;
 use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
+use App\Support\QueueTimeouts;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
@@ -38,6 +40,24 @@ class ProcessRestoreJob implements ShouldQueue
         $this->backoff = AppConfig::get('backup.job_backoff');
         $this->tries = AppConfig::get('backup.job_tries');
         $this->onQueue('backups');
+    }
+
+    /**
+     * Refuse to run the same restore twice at once.
+     *
+     * Two workers dropping and recreating the same target database concurrently
+     * is worse than a missed retry, so a duplicate copy is dropped rather than
+     * released back to the queue.
+     *
+     * @return array<int, WithoutOverlapping>
+     */
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping($this->restoreId))
+                ->expireAfter(QueueTimeouts::lockExpiry($this->timeout))
+                ->dontRelease(),
+        ];
     }
 
     /**

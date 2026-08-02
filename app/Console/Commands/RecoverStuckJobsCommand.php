@@ -6,13 +6,14 @@ use App\Enums\BackupJobStatus;
 use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
+use App\Support\QueueTimeouts;
 use Illuminate\Console\Command;
 use RuntimeException;
 
 class RecoverStuckJobsCommand extends Command
 {
     /** Grace period added to the configured timeout before a job is considered stuck. */
-    private const GRACE_PERIOD_SECONDS = 300;
+    private const int GRACE_PERIOD_SECONDS = QueueTimeouts::RETRY_GRACE_SECONDS;
 
     protected $signature = 'jobs:recover-stuck';
 

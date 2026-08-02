@@ -1,0 +1,80 @@
+<?php
+
+namespace App\Support;
+
+use App\Facades\AppConfig;
+
+/**
+ * Timing window that keeps a queued backup/restore from running twice.
+ *
+ * Laravel hands a reserved job to another worker once `retry_after` elapses,
+ * whether or not it is still running. The framework default is 90 seconds while
+ * `backup.job_timeout` defaults to 7200, so any dump longer than 90 seconds was
+ * picked up a second time mid-run. The three values below must keep this order:
+ *
+ *     job timeout  <  overlap lock expiry  <  retry_after
+ *
+ * The lock outlives the job so a running dump can never be duplicated, and
+ * expires before `retry_after` so that a genuine retry (worker killed, lock
+ * never released) is still allowed to run.
+ */
+final class QueueTimeouts
+{
+    /** Seconds added to the job timeout before a reserved job may be handed to another worker. */
+    public const int RETRY_GRACE_SECONDS = 300;
+
+    /** Seconds added to the job timeout before the overlap lock expires on its own. */
+    public const int LOCK_GRACE_SECONDS = 60;
+
+    /**
+     * Queue connections whose `retry_after` governs re-delivery of reserved jobs.
+     *
+     * SQS is absent on purpose: its equivalent (the visibility timeout) lives on
+     * the AWS queue itself and cannot be set from here.
+     *
+     * @var list<string>
+     */
+    private const array CONNECTIONS = ['database', 'redis', 'beanstalkd'];
+
+    /**
+     * Raise the configured `retry_after` above the longest a job may run.
+     *
+     * An explicitly configured value is never lowered, only raised to the safe
+     * minimum.
+     */
+    public static function apply(): void
+    {
+        $minimum = self::retryAfter();
+
+        foreach (self::CONNECTIONS as $connection) {
+            $key = "queue.connections.{$connection}.retry_after";
+
+            if (config($key) === null) {
+                continue;
+            }
+
+            config([$key => max((int) config($key), $minimum)]);
+        }
+    }
+
+    /**
+     * Earliest a reserved job may be re-delivered, in seconds.
+     */
+    public static function retryAfter(): int
+    {
+        return self::jobTimeout() + self::RETRY_GRACE_SECONDS;
+    }
+
+    /**
+     * Lifetime of a job's overlap lock, in seconds.
+     */
+    public static function lockExpiry(int $jobTimeout): int
+    {
+        return $jobTimeout + self::LOCK_GRACE_SECONDS;
+    }
+
+    private static function jobTimeout(): int
+    {
+        return (int) AppConfig::get('backup.job_timeout');
+    }
+}

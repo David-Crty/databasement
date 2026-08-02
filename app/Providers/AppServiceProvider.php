@@ -19,6 +19,7 @@ use App\Services\Backup\Filesystems\SftpFilesystem;
 use App\Services\Backup\Filesystems\SmbFilesystem;
 use App\Services\Backup\ShellProcessor;
 use App\Services\CurrentOrganization;
+use App\Support\QueueTimeouts;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Parameter;
@@ -103,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->warnDeprecatedEnvVars();
+        $this->configureQueueTimeouts();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
         $this->registerBouncer();
@@ -186,6 +188,22 @@ class AppServiceProvider extends ServiceProvider
             Log::warning('Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.');
         }
 
+    }
+
+    /**
+     * Keep the queue's retry_after above the longest a backup/restore may run.
+     *
+     * Only workers act on retry_after, so this is skipped for web requests to
+     * avoid a database read on every one. Agent mode runs on the sync driver and
+     * has no database at all.
+     */
+    private function configureQueueTimeouts(): void
+    {
+        if (config('agent.enabled') || ! $this->app->runningInConsole()) {
+            return;
+        }
+
+        QueueTimeouts::apply();
     }
 
     /**

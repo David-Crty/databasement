@@ -14,10 +14,12 @@ use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
+use App\Support\QueueTimeouts;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
@@ -41,6 +43,25 @@ class ProcessBackupJob implements ShouldQueue
         $this->backoff = AppConfig::get('backup.job_backoff');
         $this->tries = AppConfig::get('backup.job_tries');
         $this->onQueue('backups');
+    }
+
+    /**
+     * Refuse to dump the same snapshot twice at once.
+     *
+     * QueueTimeouts keeps retry_after above the job timeout, so a re-delivery
+     * mid-run should no longer happen. This is the second line of defence: a
+     * duplicate copy is dropped rather than released, because releasing it would
+     * only run the same dump again once the original finishes.
+     *
+     * @return array<int, WithoutOverlapping>
+     */
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping($this->snapshotId))
+                ->expireAfter(QueueTimeouts::lockExpiry($this->timeout))
+                ->dontRelease(),
+        ];
     }
 
     /**
