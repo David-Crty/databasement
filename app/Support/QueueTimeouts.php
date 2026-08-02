@@ -17,6 +17,12 @@ use App\Facades\AppConfig;
  * The lock outlives the job so a running dump can never be duplicated, and
  * expires before `retry_after` so that a genuine retry (worker killed, lock
  * never released) is still allowed to run.
+ *
+ * A worker resolves `retry_after` once, when it boots: the value is baked into
+ * the queue connection and later config changes do not reach it. Editing
+ * `backup.job_timeout` therefore signals a worker restart (see
+ * App\Livewire\Configuration\Form::saveBackup), otherwise a raised timeout would
+ * leave running workers with a retry_after below it.
  */
 final class QueueTimeouts
 {
