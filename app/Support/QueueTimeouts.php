@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Facades\AppConfig;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 
 /**
  * Timing window that keeps a queued backup/restore from running twice.
@@ -54,13 +55,27 @@ final class QueueTimeouts
 
         foreach (self::CONNECTIONS as $connection) {
             $key = "queue.connections.{$connection}.retry_after";
+            $configured = config($key);
 
-            if (config($key) === null) {
+            if ($configured === null) {
                 continue;
             }
 
-            config([$key => max((int) config($key), $minimum)]);
+            config([$key => max((int) $configured, $minimum)]);
         }
+    }
+
+    /**
+     * Guard that stops a second copy of a job running alongside the first.
+     *
+     * The duplicate is dropped rather than released: releasing it would only run
+     * the same dump or restore again once the original finished.
+     */
+    public static function overlapGuard(string $key, int $jobTimeout): WithoutOverlapping
+    {
+        return (new WithoutOverlapping($key))
+            ->expireAfter($jobTimeout + self::LOCK_GRACE_SECONDS)
+            ->dontRelease();
     }
 
     /**
@@ -69,14 +84,6 @@ final class QueueTimeouts
     public static function retryAfter(): int
     {
         return self::jobTimeout() + self::RETRY_GRACE_SECONDS;
-    }
-
-    /**
-     * Lifetime of a job's overlap lock, in seconds.
-     */
-    public static function lockExpiry(int $jobTimeout): int
-    {
-        return $jobTimeout + self::LOCK_GRACE_SECONDS;
     }
 
     private static function jobTimeout(): int

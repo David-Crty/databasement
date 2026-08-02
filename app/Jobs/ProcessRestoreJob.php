@@ -46,18 +46,13 @@ class ProcessRestoreJob implements ShouldQueue
      * Refuse to run the same restore twice at once.
      *
      * Two workers dropping and recreating the same target database concurrently
-     * is worse than a missed retry, so a duplicate copy is dropped rather than
-     * released back to the queue.
+     * is worse than a missed retry.
      *
      * @return array<int, WithoutOverlapping>
      */
     public function middleware(): array
     {
-        return [
-            (new WithoutOverlapping($this->restoreId))
-                ->expireAfter(QueueTimeouts::lockExpiry($this->timeout))
-                ->dontRelease(),
-        ];
+        return [QueueTimeouts::overlapGuard($this->restoreId, $this->timeout)];
     }
 
     /**

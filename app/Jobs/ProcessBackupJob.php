@@ -49,19 +49,13 @@ class ProcessBackupJob implements ShouldQueue
      * Refuse to dump the same snapshot twice at once.
      *
      * QueueTimeouts keeps retry_after above the job timeout, so a re-delivery
-     * mid-run should no longer happen. This is the second line of defence: a
-     * duplicate copy is dropped rather than released, because releasing it would
-     * only run the same dump again once the original finishes.
+     * mid-run should no longer happen. This is the second line of defence.
      *
      * @return array<int, WithoutOverlapping>
      */
     public function middleware(): array
     {
-        return [
-            (new WithoutOverlapping($this->snapshotId))
-                ->expireAfter(QueueTimeouts::lockExpiry($this->timeout))
-                ->dontRelease(),
-        ];
+        return [QueueTimeouts::overlapGuard($this->snapshotId, $this->timeout)];
     }
 
     /**

@@ -12,9 +12,6 @@ use RuntimeException;
 
 class RecoverStuckJobsCommand extends Command
 {
-    /** Grace period added to the configured timeout before a job is considered stuck. */
-    private const int GRACE_PERIOD_SECONDS = QueueTimeouts::RETRY_GRACE_SECONDS;
-
     protected $signature = 'jobs:recover-stuck';
 
     protected $description = 'Recover stuck jobs (expired agent leases and timed-out backup jobs)';
@@ -84,7 +81,7 @@ class RecoverStuckJobsCommand extends Command
      */
     private function recoverBackupJobs(): bool
     {
-        $timeout = AppConfig::get('backup.job_timeout') + self::GRACE_PERIOD_SECONDS;
+        $timeout = AppConfig::get('backup.job_timeout') + QueueTimeouts::RETRY_GRACE_SECONDS;
         $cutoff = now()->subSeconds($timeout);
 
         $stuckJobs = BackupJob::query()

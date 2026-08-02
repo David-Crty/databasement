@@ -160,12 +160,9 @@ class Form extends \Livewire\Form
             AppConfig::set($configKey, $this->{$property});
         }
 
-        // A worker bakes retry_after into its queue connection at boot from the
-        // job timeout in force at the time (see App\Support\QueueTimeouts), so a
-        // raised timeout would not reach running workers and their retry_after
-        // would sit below the timeout of the jobs they pick up next. Ask them to
-        // restart; the flag is only read between jobs, so nothing in flight is
-        // interrupted.
+        // Workers resolve retry_after from the job timeout when they boot (see
+        // App\Support\QueueTimeouts), so a changed timeout only reaches them on
+        // restart. The flag is read between jobs, so nothing in flight is cut off.
         if ($previousJobTimeout !== (int) $this->job_timeout) {
             Artisan::call('queue:restart');
         }
