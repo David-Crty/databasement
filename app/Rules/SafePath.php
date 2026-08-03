@@ -17,6 +17,13 @@ readonly class SafePath implements ValidationRule
             return;
         }
 
+        // Reject null bytes (truncate paths in some filesystem calls)
+        if (str_contains($value, "\0")) {
+            $fail('The :attribute must not contain null bytes.');
+
+            return;
+        }
+
         // Reject path traversal sequences
         if (str_contains($value, '..')) {
             $fail('The :attribute must not contain path traversal sequences (..).');

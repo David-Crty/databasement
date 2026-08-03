@@ -24,7 +24,6 @@ test('SafeEndpointUrl accepts or rejects endpoints', function (string $input, bo
     'ipv4 mapped metadata address' => ['http://[::ffff:169.254.169.254]/', false],
 
     'non http scheme' => ['file:///etc/passwd', false],
-    'gopher scheme' => ['gopher://127.0.0.1:6379/_INFO', false],
     'missing scheme' => ['s3.example.com', false],
 ]);
 

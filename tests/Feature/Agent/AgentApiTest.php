@@ -212,36 +212,43 @@ describe('job acknowledgement', function () {
             ->and($backupJob->logs[0]['message'])->toBe('Starting backup for database: testdb');
     });
 
-    test('ack rejects a filename that escapes the volume root', function () {
+    test('ack rejects an unsafe filename', function (string $filename) {
         // An agent is lower-trust than the central server it reports to, so the
-        // filename it supplies must not become a traversal payload.
+        // filename it supplies must not reach the download path unsanitised.
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
+        $original = $agentJob->snapshot->filename;
 
         $this->withToken($token)
             ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", [
-                'filename' => '../../../../etc/passwd',
+                'filename' => $filename,
                 'file_size' => 12345,
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('filename');
 
-        expect($agentJob->snapshot->fresh()->filename)->not->toBe('../../../../etc/passwd');
-    });
+        expect($agentJob->snapshot->fresh()->filename)->toBe($original);
+    })->with([
+        'traversal' => '../../../../etc/passwd',
+        'null byte' => "backups/test.sql.gz\0.php",
+    ]);
 
-    test('fail rejects a filename that escapes the volume root', function () {
+    test('fail rejects an unsafe filename', function (string $filename) {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
 
         $this->withToken($token)
             ->postJson("/api/v1/agent/jobs/{$agentJob->id}/fail", [
                 'error_message' => 'partial upload',
-                'filename' => '/etc/passwd',
+                'filename' => $filename,
                 'file_size' => 12345,
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('filename');
-    });
+    })->with([
+        'traversal' => '/etc/passwd',
+        'null byte' => "backups/test.sql.gz\0.php",
+    ]);
 
     test('ack records per-volume results on a multi-volume snapshot', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();

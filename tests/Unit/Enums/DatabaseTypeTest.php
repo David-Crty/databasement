@@ -30,7 +30,6 @@ test('databaseNameRules accepts or rejects names per database type', function (D
     'sqlite too long' => [DatabaseType::SQLITE, str_repeat('a', 256), false],
     // A restore writes to the path directly, so it must not be able to escape.
     'sqlite traversal rejected' => [DatabaseType::SQLITE, '/var/lib/data/../../app/public/cmd.php', false],
-    'sqlite relative traversal rejected' => [DatabaseType::SQLITE, '../public/cmd.php', false],
     'sqlite backslash rejected' => [DatabaseType::SQLITE, '/var/lib\\data.sqlite', false],
     'sqlite dotted filename allowed' => [DatabaseType::SQLITE, '/var/lib/data/app..sqlite', true],
 

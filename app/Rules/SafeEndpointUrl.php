@@ -62,7 +62,17 @@ readonly class SafeEndpointUrl implements ValidationRule
             return [$host];
         }
 
-        return gethostbynamel($host) ?: [];
+        $addresses = gethostbynamel($host) ?: [];
+
+        // gethostbynamel() is IPv4-only, so an AAAA-only host would otherwise
+        // resolve to nothing and skip the check entirely.
+        foreach (@dns_get_record($host, DNS_AAAA) ?: [] as $record) {
+            if (isset($record['ipv6']) && is_string($record['ipv6'])) {
+                $addresses[] = $record['ipv6'];
+            }
+        }
+
+        return $addresses;
     }
 
     private function isLinkLocal(string $address): bool
