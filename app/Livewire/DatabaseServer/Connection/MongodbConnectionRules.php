@@ -3,6 +3,7 @@
 namespace App\Livewire\DatabaseServer\Connection;
 
 use App\Livewire\DatabaseServer\Form;
+use App\Rules\SafeHost;
 
 class MongodbConnectionRules extends ClientServerConnectionRules
 {
@@ -20,7 +21,7 @@ class MongodbConnectionRules extends ClientServerConnectionRules
     public function testConnectionRules(Form $form): array
     {
         return [
-            'host' => 'required|string|max:255',
+            'host' => ['required', 'string', 'max:255', new SafeHost],
             'port' => $this->portRule($form),
         ];
     }

@@ -159,6 +159,13 @@ class MongodbDatabase implements DatabaseInterface
      */
     public static function buildConnectionUri(string $host, ?int $port, string $user = '', string $pass = '', array $options = []): string
     {
+        // The last `@` in the authority wins, so a host carrying one would move
+        // the connection to whatever follows it. Encoding is not an option here
+        // because IPv6 literals need their colons and brackets intact.
+        if (preg_match('#[@/\\\\?\#\s]#', $host) === 1) {
+            throw new \InvalidArgumentException('MongoDB host contains characters that are not valid in a connection URI.');
+        }
+
         $srv = ! empty($options['srv']);
         $scheme = $srv ? 'mongodb+srv' : 'mongodb';
         $hostPart = $srv ? $host : sprintf('%s:%d', $host, (int) $port);

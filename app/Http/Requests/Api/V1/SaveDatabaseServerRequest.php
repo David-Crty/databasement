@@ -8,6 +8,7 @@ use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Rules\SafeHost;
 use App\Rules\SafePath;
 use App\Services\CurrentOrganization;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -61,7 +62,7 @@ class SaveDatabaseServerRequest extends FormRequest
         $type = $this->input('database_type');
 
         if (in_array($type, ['mysql', 'postgres', 'mongodb', 'redis'])) {
-            $rules['host'] = 'required|string|max:255';
+            $rules['host'] = ['required', 'string', 'max:255', new SafeHost];
             $rules['port'] = 'required|integer|min:1|max:65535';
         }
 

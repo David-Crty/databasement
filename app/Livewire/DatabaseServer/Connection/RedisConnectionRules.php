@@ -3,6 +3,7 @@
 namespace App\Livewire\DatabaseServer\Connection;
 
 use App\Livewire\DatabaseServer\Form;
+use App\Rules\SafeHost;
 
 /**
  * Redis servers may run without AUTH, so credentials are optional and the
@@ -20,7 +21,7 @@ class RedisConnectionRules extends ClientServerConnectionRules
     public function testConnectionRules(Form $form): array
     {
         return [
-            'host' => 'required|string|max:255',
+            'host' => ['required', 'string', 'max:255', new SafeHost],
             'port' => 'required|integer|min:1|max:65535',
         ];
     }
