@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\DatabaseServerOrganizationScope;
 use Database\Factories\ScheduledRestoreFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +24,15 @@ class ScheduledRestore extends Model
     public const string SKIP_PREVIOUS_IN_FLIGHT = 'previous_in_flight';
 
     public const string SKIP_DISABLED = 'disabled';
+
+    /**
+     * Tenancy is inherited from the target server; the source server is
+     * constrained to the same organization at validation time.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new DatabaseServerOrganizationScope('target_server_id'));
+    }
 
     protected $fillable = [
         'name',

@@ -20,7 +20,7 @@ class StorageDistributionChart extends Component
     public function mount(): void
     {
         /** @var \Illuminate\Support\Collection<int, object{name: string, total_size: int}> $storageByVolume */
-        $storageByVolume = Snapshot::forCurrentOrg()
+        $storageByVolume = Snapshot::query()
             ->join('snapshot_files', 'snapshot_files.snapshot_id', '=', 'snapshots.id')
             ->where('snapshot_files.status', SnapshotFileStatus::Completed)
             ->join('volumes', 'snapshot_files.volume_id', '=', 'volumes.id')

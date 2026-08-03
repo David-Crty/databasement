@@ -6,8 +6,7 @@ use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Enums\DatabaseType;
 use App\Enums\SnapshotFileStatus;
-use App\Models\Scopes\OrganizationScope;
-use App\Services\CurrentOrganization;
+use App\Models\Scopes\DatabaseServerOrganizationScope;
 use App\Support\Formatters;
 use Database\Factories\SnapshotFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -173,6 +172,9 @@ class Snapshot extends Model
 
     protected static function booted(): void
     {
+        // Tenancy is inherited from the database server the snapshot was taken from.
+        static::addGlobalScope(new DatabaseServerOrganizationScope('database_server_id'));
+
         // Delete the backup files, associated restores and job when snapshot is deleted
         static::deleting(function (Snapshot $snapshot) {
             if (! $snapshot->skipFileCleanup) {
@@ -191,22 +193,6 @@ class Snapshot extends Model
 
             // Delete the snapshot's own job
             $snapshot->job->delete();
-        });
-    }
-
-    /**
-     * Scope to filter snapshots by the current organization.
-     *
-     * @param  Builder<static>  $query
-     * @return Builder<static>
-     */
-    public function scopeForCurrentOrg(Builder $query): Builder
-    {
-        $orgId = app(CurrentOrganization::class)->id();
-
-        return $query->whereHas('databaseServer', function (Builder $sq) use ($orgId) {
-            $sq->withoutGlobalScope(OrganizationScope::class)
-                ->whereRaw('organization_id = ?', [$orgId]);
         });
     }
 

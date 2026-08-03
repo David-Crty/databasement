@@ -42,6 +42,31 @@ test('can download snapshot from local storage', function () {
         ->assertDownload($backupFilename);
 });
 
+test('download refuses a filename that escapes the volume root', function () {
+    // The filename is reported by the agent that produced the backup, so the
+    // download must not follow it outside the volume it belongs to.
+    $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
+
+    $volume = Volume::factory()->local()->create();
+    $secret = dirname($volume->config['path']).'/agent-traversal-secret.txt';
+    file_put_contents($secret, 'top secret');
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+    $server->backups->first()->volumes()->sync([$volume->id]);
+
+    $factory = app(BackupJobFactory::class);
+    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual', $user->id)[0];
+    $snapshot->update(['filename' => '../'.basename($secret), 'file_size' => filesize($secret)]);
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
+    $snapshot->job->markCompleted();
+
+    $this->actingAs($user)
+        ->get(route('snapshots.download', $snapshot))
+        ->assertNotFound();
+
+    unlink($secret);
+});
+
 test('download returns 404 when local file is missing', function () {
     $user = User::factory()->withAbilities([Ability::DownloadSnapshots->value])->create();
 

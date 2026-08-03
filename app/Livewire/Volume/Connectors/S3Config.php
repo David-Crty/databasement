@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Volume\Connectors;
 
+use App\Rules\SafeEndpointUrl;
 use App\Rules\SafePath;
 
 class S3Config extends BaseConfig
@@ -37,12 +38,12 @@ class S3Config extends BaseConfig
             "{$prefix}.region" => ['required_if:type,s3', 'string', 'max:255'],
             "{$prefix}.access_key_id" => ["required_with:{$prefix}.secret_access_key", 'nullable', 'string', 'max:255'],
             "{$prefix}.secret_access_key" => ["required_with:{$prefix}.access_key_id", 'nullable', 'string', 'max:1000'],
-            "{$prefix}.custom_endpoint" => ['nullable', 'string', 'max:255'],
-            "{$prefix}.public_endpoint" => ['nullable', 'string', 'max:255'],
+            "{$prefix}.custom_endpoint" => ['nullable', 'string', 'max:255', new SafeEndpointUrl],
+            "{$prefix}.public_endpoint" => ['nullable', 'string', 'max:255', new SafeEndpointUrl],
             "{$prefix}.use_path_style_endpoint" => ['nullable', 'boolean'],
             "{$prefix}.custom_role_arn" => ['nullable', 'string', 'max:255'],
             "{$prefix}.role_session_name" => ['nullable', 'string', 'max:255'],
-            "{$prefix}.sts_endpoint" => ['nullable', 'string', 'max:255'],
+            "{$prefix}.sts_endpoint" => ['nullable', 'string', 'max:255', new SafeEndpointUrl],
         ];
     }
 }

@@ -212,6 +212,37 @@ describe('job acknowledgement', function () {
             ->and($backupJob->logs[0]['message'])->toBe('Starting backup for database: testdb');
     });
 
+    test('ack rejects a filename that escapes the volume root', function () {
+        // An agent is lower-trust than the central server it reports to, so the
+        // filename it supplies must not become a traversal payload.
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", [
+                'filename' => '../../../../etc/passwd',
+                'file_size' => 12345,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('filename');
+
+        expect($agentJob->snapshot->fresh()->filename)->not->toBe('../../../../etc/passwd');
+    });
+
+    test('fail rejects a filename that escapes the volume root', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/fail", [
+                'error_message' => 'partial upload',
+                'filename' => '/etc/passwd',
+                'file_size' => 12345,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('filename');
+    });
+
     test('ack records per-volume results on a multi-volume snapshot', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
 

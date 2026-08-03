@@ -28,13 +28,18 @@ class TriggerRestoreTool extends Tool
             'schema_name' => 'required|string|max:255',
         ]);
 
-        /** @var Snapshot $snapshot */
-        $snapshot = Snapshot::findOrFail($validated['snapshot_id']);
+        // `exists` ignores the organization scope, so resolve both through the
+        // scoped models: an unresolvable id belongs to another organization.
+        $snapshot = Snapshot::find((string) $validated['snapshot_id']);
+        $targetServer = DatabaseServer::find((string) $validated['database_server_id']);
 
-        /** @var DatabaseServer $targetServer */
-        $targetServer = DatabaseServer::findOrFail($validated['database_server_id']);
+        if (! $snapshot || ! $targetServer) {
+            return Response::error('Snapshot or database server not found.');
+        }
 
-        if (! $request->user()?->can('restore', $targetServer)) {
+        $user = $request->user();
+
+        if (! $user?->can('restore', $targetServer) || ! $user->can('restoreFrom', $snapshot)) {
             return Response::error('Permission denied. You do not have permission to trigger restores.');
         }
 
@@ -43,7 +48,7 @@ class TriggerRestoreTool extends Tool
                 snapshot: $snapshot,
                 targetServer: $targetServer,
                 schemaName: $validated['schema_name'],
-                triggeredByUserId: $request->user()->getAuthIdentifier()
+                triggeredByUserId: $user->getAuthIdentifier()
             );
         } catch (ValidationException $e) {
             return Response::error(collect($e->errors())->flatten()->implode(' '));

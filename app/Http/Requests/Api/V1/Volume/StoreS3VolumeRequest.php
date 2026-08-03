@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1\Volume;
 
 use App\Enums\VolumeType;
+use App\Rules\SafeEndpointUrl;
 use App\Rules\SafePath;
 
 class StoreS3VolumeRequest extends StoreVolumeRequest
@@ -23,12 +24,12 @@ class StoreS3VolumeRequest extends StoreVolumeRequest
             'config.region' => ['required', 'string', 'max:255'],
             'config.access_key_id' => ['required_with:config.secret_access_key', 'nullable', 'string', 'max:255'],
             'config.secret_access_key' => ['required_with:config.access_key_id', 'nullable', 'string', 'max:1000'],
-            'config.custom_endpoint' => ['nullable', 'string', 'max:255'],
-            'config.public_endpoint' => ['nullable', 'string', 'max:255'],
+            'config.custom_endpoint' => ['nullable', 'string', 'max:255', new SafeEndpointUrl],
+            'config.public_endpoint' => ['nullable', 'string', 'max:255', new SafeEndpointUrl],
             'config.use_path_style_endpoint' => ['nullable', 'boolean'],
             'config.custom_role_arn' => ['nullable', 'string', 'max:255'],
             'config.role_session_name' => ['nullable', 'string', 'max:255'],
-            'config.sts_endpoint' => ['nullable', 'string', 'max:255'],
+            'config.sts_endpoint' => ['nullable', 'string', 'max:255', new SafeEndpointUrl],
         ];
     }
 }

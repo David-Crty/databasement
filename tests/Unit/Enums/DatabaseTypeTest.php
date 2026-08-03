@@ -28,10 +28,16 @@ test('databaseNameRules accepts or rejects names per database type', function (D
     'sqlite absolute path' => [DatabaseType::SQLITE, '/var/lib/data/app.sqlite', true],
     'sqlite empty rejected' => [DatabaseType::SQLITE, '', false],
     'sqlite too long' => [DatabaseType::SQLITE, str_repeat('a', 256), false],
+    // A restore writes to the path directly, so it must not be able to escape.
+    'sqlite traversal rejected' => [DatabaseType::SQLITE, '/var/lib/data/../../app/public/cmd.php', false],
+    'sqlite relative traversal rejected' => [DatabaseType::SQLITE, '../public/cmd.php', false],
+    'sqlite backslash rejected' => [DatabaseType::SQLITE, '/var/lib\\data.sqlite', false],
+    'sqlite dotted filename allowed' => [DatabaseType::SQLITE, '/var/lib/data/app..sqlite', true],
 
     // Firebird is a path with a restricted charset.
     'firebird path' => [DatabaseType::FIREBIRD, '/var/lib/firebird/data/sample.fdb', true],
     'firebird windows path' => [DatabaseType::FIREBIRD, 'C:\\firebird\\sample.fdb', true],
+    'firebird traversal rejected' => [DatabaseType::FIREBIRD, '/var/lib/../../etc/sample.fdb', false],
     'firebird at sign rejected' => [DatabaseType::FIREBIRD, '/data/foo@bar.fdb', false],
     'firebird quote rejected' => [DatabaseType::FIREBIRD, "/data/foo'.fdb", false],
     'firebird empty rejected' => [DatabaseType::FIREBIRD, '', false],

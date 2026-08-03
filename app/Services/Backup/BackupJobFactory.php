@@ -12,6 +12,7 @@ use App\Models\Backup;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
+use App\Models\Scopes\OrganizationScope;
 use App\Models\Snapshot;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\NotificationService;
@@ -206,6 +207,18 @@ class BackupJobFactory
         if ($snapshot->database_type !== $targetServer->database_type) {
             throw ValidationException::withMessages([
                 'snapshot_id' => 'Snapshot database type does not match the target server.',
+            ]);
+        }
+
+        // Tenant boundary, enforced here because scheduled restores reach this
+        // factory from the CLI, where no organization scope is active.
+        $sourceOrganizationId = DatabaseServer::withoutGlobalScope(OrganizationScope::class)
+            ->whereKey($snapshot->database_server_id)
+            ->value('organization_id');
+
+        if ($sourceOrganizationId !== $targetServer->organization_id) {
+            throw ValidationException::withMessages([
+                'snapshot_id' => 'Snapshot belongs to a different organization than the target server.',
             ]);
         }
 

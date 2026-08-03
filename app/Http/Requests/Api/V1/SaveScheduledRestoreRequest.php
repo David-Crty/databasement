@@ -29,10 +29,14 @@ class SaveScheduledRestoreRequest extends FormRequest
 
     public function withValidator(Validator $validator): void
     {
-        $validator->after(fn (Validator $v) => $this->validateServerTypesMatch($v));
+        $validator->after(fn (Validator $v) => $this->validateServers($v));
     }
 
-    private function validateServerTypesMatch(Validator $validator): void
+    /**
+     * `exists` ignores Eloquent scopes, so both ids are re-resolved through the
+     * org-scoped model: an unresolvable id belongs to another organization.
+     */
+    private function validateServers(Validator $validator): void
     {
         $sourceId = $this->input('source_server_id');
         $targetId = $this->input('target_server_id');
@@ -43,6 +47,14 @@ class SaveScheduledRestoreRequest extends FormRequest
 
         $source = DatabaseServer::find($sourceId);
         $target = DatabaseServer::find($targetId);
+
+        if (! $source) {
+            $validator->errors()->add('source_server_id', __('The selected source server is invalid.'));
+        }
+
+        if (! $target) {
+            $validator->errors()->add('target_server_id', __('The selected target server is invalid.'));
+        }
 
         if (! $source || ! $target) {
             return;
