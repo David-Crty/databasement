@@ -117,6 +117,9 @@ test('buildConnectionUri rejects a host that would redirect the connection', fun
 })->with([
     'credential delimiter' => 'internal.mongo.corp@attacker.com',
     'path delimiter' => 'host/evil',
+    // A comma makes the authority a seed list, so the driver may pick either.
+    'seed list' => 'legit.internal:27017,attacker.com',
+    'trailing newline' => "host\n",
 ]);
 
 test('buildConnectionUri keeps an ipv6 literal intact', function () {

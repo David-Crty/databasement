@@ -14,13 +14,20 @@ use Illuminate\Contracts\Validation\ValidationRule;
  */
 readonly class SafeHost implements ValidationRule
 {
+    /**
+     * Anchored with \A and \z rather than ^ and $, which would let a trailing
+     * newline through. Shared with the connection-string builders that treat
+     * this as their last line of defence.
+     */
+    public const PATTERN = '/\A[A-Za-z0-9._:\[\]-]+\z/';
+
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! is_string($value) || $value === '') {
             return;
         }
 
-        if (preg_match('/^[A-Za-z0-9._:\[\]-]+$/', $value) !== 1) {
+        if (preg_match(self::PATTERN, $value) !== 1) {
             $fail(__('The :attribute may only contain letters, numbers, dots, dashes, underscores, colons and square brackets.'));
         }
     }

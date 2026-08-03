@@ -25,6 +25,8 @@ test('SafeHost accepts or rejects a host', function (string $host, bool $valid) 
     'mssql dsn separator' => ['db.example.com,1433', false],
     'path delimiter' => ['db.example.com/evil', false],
     'whitespace' => ['db.example.com evil', false],
+    // `$` would match before a final newline, so the pattern anchors with \z.
+    'trailing newline' => ["db.example.com\n", false],
 ]);
 
 test('the database server api rejects a host that redirects the connection', function () {
