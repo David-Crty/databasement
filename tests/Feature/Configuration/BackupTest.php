@@ -9,6 +9,7 @@ use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -236,4 +237,30 @@ test('without manage-backup-settings, running verify files is forbidden', functi
         ->test(Backup::class)
         ->call('runVerifyFiles')
         ->assertForbidden();
+});
+
+test('changing the job timeout tells running workers to restart', function () {
+    // Workers resolve retry_after from the job timeout when they boot, so the
+    // new value only reaches them once they restart.
+    Cache::forget('illuminate:queue:restart');
+
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create())
+        ->test(Backup::class)
+        ->set('form.job_timeout', 3600)
+        ->call('saveBackupConfig')
+        ->assertHasNoErrors();
+
+    expect(Cache::get('illuminate:queue:restart'))->not->toBeNull();
+});
+
+test('saving unrelated backup settings leaves workers running', function () {
+    Cache::forget('illuminate:queue:restart');
+
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create())
+        ->test(Backup::class)
+        ->set('form.compression_level', 9)
+        ->call('saveBackupConfig')
+        ->assertHasNoErrors();
+
+    expect(Cache::get('illuminate:queue:restart'))->toBeNull();
 });

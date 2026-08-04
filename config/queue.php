@@ -27,6 +27,11 @@ return [
     | Drivers: "sync", "database", "beanstalkd", "sqs", "redis",
     |          "deferred", "failover", "null"
     |
+    | The `retry_after` values below are only a floor. App\Support\QueueTimeouts
+    | raises them at runtime to sit above `backup.job_timeout`, so that a dump
+    | still in progress is never handed to a second worker. SQS is the one
+    | exception: set its visibility timeout on the AWS queue itself.
+    |
     */
 
     'connections' => [

@@ -5,6 +5,7 @@ namespace App\Livewire\Configuration;
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use Cron\CronExpression;
+use Illuminate\Support\Facades\Artisan;
 
 class Form extends \Livewire\Form
 {
@@ -138,6 +139,8 @@ class Form extends \Livewire\Form
     {
         $this->validate($this->backupRules());
 
+        $previousJobTimeout = (int) AppConfig::get('backup.job_timeout');
+
         $backupKeyMap = [
             'working_directory' => 'backup.working_directory',
             'compression' => 'backup.compression',
@@ -155,6 +158,13 @@ class Form extends \Livewire\Form
 
         foreach ($backupKeyMap as $property => $configKey) {
             AppConfig::set($configKey, $this->{$property});
+        }
+
+        // Workers resolve retry_after from the job timeout when they boot (see
+        // App\Support\QueueTimeouts), so a changed timeout only reaches them on
+        // restart. The flag is read between jobs, so nothing in flight is cut off.
+        if ($previousJobTimeout !== (int) $this->job_timeout) {
+            Artisan::call('queue:restart');
         }
     }
 
