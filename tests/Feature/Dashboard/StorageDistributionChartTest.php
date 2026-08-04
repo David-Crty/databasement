@@ -3,6 +3,8 @@
 use App\Enums\SnapshotFileStatus;
 use App\Livewire\Dashboard\StorageDistributionChart;
 use App\Models\DatabaseServer;
+use App\Models\Organization;
+use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
@@ -74,4 +76,31 @@ test('storage distribution chart labels include formatted size', function () {
 
     expect($chart['data']['labels'][0])->toContain('my-storage')
         ->and($chart['data']['labels'][0])->toContain('256');
+});
+
+test('storage distribution chart groups only the current organization', function () {
+    $user = User::factory()->create();
+    $factory = app(BackupJobFactory::class);
+
+    $volume = Volume::factory()->create(['name' => 'my-storage']);
+    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+    $server->backups->first()->volumes()->sync([$volume->id]);
+
+    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
+    $snapshots[0]->update(['file_size' => 1024]);
+    $snapshots[0]->files()->update(['status' => SnapshotFileStatus::Completed]);
+
+    // The joins here bypass nothing: the org scope still has to apply.
+    $foreignOrg = Organization::factory()->create();
+    Snapshot::factory()
+        ->forServer(DatabaseServer::factory()->create(['organization_id' => $foreignOrg->id]))
+        ->onVolumes(Volume::factory()->create(['organization_id' => $foreignOrg->id, 'name' => 'foreign-storage']))
+        ->create(['file_size' => 999_000]);
+
+    $component = Livewire::withoutLazyLoading()
+        ->actingAs($user)
+        ->test(StorageDistributionChart::class);
+
+    expect($component->get('totalBytes'))->toBe(1024)
+        ->and($component->get('chart')['data']['labels'])->toHaveCount(1);
 });
