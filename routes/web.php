@@ -4,10 +4,14 @@ use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
-// Health check routes (public)
+// Liveness probe (public) — reports nothing about the deployment.
 Route::get('/health', [\App\Http\Controllers\Web\HealthCheckController::class, 'up'])
     ->name('health.up');
+
+// Deployment diagnostics: discloses host, proxy and, in debug mode, request
+// headers and app config, so it requires a signed-in user.
 Route::get('/health/debug', [\App\Http\Controllers\Web\HealthCheckController::class, 'debug'])
+    ->middleware('auth')
     ->name('health.debug');
 
 // Home - redirect based on auth status and user count

@@ -167,6 +167,8 @@ class SqliteDatabase implements DatabaseInterface
         }
 
         $targetPath = $this->config['sqlite_path'];
+        $this->guardLocalTargetPath($targetPath);
+
         if (! @copy($inputPath, $targetPath)) {
             throw new RestoreException("Failed to copy SQLite file {$inputPath} to {$targetPath}");
         }
@@ -177,6 +179,28 @@ class SqliteDatabase implements DatabaseInterface
             'success',
             ['path' => $this->config['sqlite_path']],
         ));
+    }
+
+    /**
+     * A local restore writes onto the application host's own filesystem. A SQLite
+     * file landing in the install directory would be served by the web server, and
+     * PHP executes any `<?php` block embedded in it.
+     */
+    private function guardLocalTargetPath(string $targetPath): void
+    {
+        $base = realpath(base_path());
+
+        // The target file usually does not exist yet, so fall back to the
+        // directory it would land in. An unresolvable path fails the copy anyway.
+        $resolved = realpath($targetPath) ?: realpath(dirname($targetPath));
+
+        if ($base === false || $resolved === false) {
+            return;
+        }
+
+        if ($resolved === $base || str_starts_with($resolved, $base.DIRECTORY_SEPARATOR)) {
+            throw new RestoreException("Refusing to restore into the application directory: {$targetPath}");
+        }
     }
 
     public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void

@@ -3,6 +3,8 @@
 namespace App\Enums;
 
 use App\Models\DatabaseServer;
+use App\Rules\SafeDatabasePath;
+use Illuminate\Contracts\Validation\ValidationRule;
 
 enum DatabaseType: string
 {
@@ -153,16 +155,17 @@ enum DatabaseType: string
      * Validation rules for a destination database name/path of this type.
      *
      * SQLite accepts any non-empty path. Firebird is a path too but with a
-     * restricted character set. All other types use the conservative
-     * identifier charset (letters, numbers, underscores).
+     * restricted character set. Both are additionally checked for traversal,
+     * since a restore writes to the path directly. All other types use the
+     * conservative identifier charset (letters, numbers, underscores).
      *
-     * @return array<int, string>
+     * @return array<int, ValidationRule|string>
      */
     public function databaseNameRules(): array
     {
         return match ($this) {
-            self::SQLITE => ['required', 'string', 'max:255'],
-            self::FIREBIRD => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_\/\\\\.\-: ]+$/'],
+            self::SQLITE => ['required', 'string', 'max:255', new SafeDatabasePath],
+            self::FIREBIRD => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_\/\\\\.\-: ]+$/', new SafeDatabasePath(allowBackslashes: true)],
             default => ['required', 'string', 'max:64', 'regex:/^[a-zA-Z0-9_]+$/'],
         };
     }

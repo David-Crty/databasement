@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Support\Carbon;
 
 test('health check returns success', function () {
@@ -9,8 +10,14 @@ test('health check returns success', function () {
         ->assertJson(['success' => true]);
 });
 
+test('health debug is not reachable without authentication', function () {
+    // It reports the host, proxy chain and, in debug mode, request headers.
+    $this->getJson(route('health.debug'))->assertUnauthorized();
+});
+
 test('health debug returns application info', function () {
-    $response = $this->getJson(route('health.debug'));
+    $response = $this->actingAs(User::factory()->create())
+        ->getJson(route('health.debug'));
 
     $response->assertOk()
         ->assertJsonStructure([
@@ -35,7 +42,8 @@ test('health debug renders date_time_app in display timezone and exposes it in d
     Carbon::setTestNow(Carbon::parse('2026-05-27 00:00:00', 'UTC'));
 
     try {
-        $response = $this->getJson(route('health.debug'));
+        $response = $this->actingAs(User::factory()->create())
+            ->getJson(route('health.debug'));
 
         $response->assertOk()
             ->assertJsonPath('date_time_utc', '2026-05-27 00:00:00')

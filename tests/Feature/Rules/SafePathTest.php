@@ -18,6 +18,23 @@ test('rejects path traversal sequences', function (string $path) {
     '..\\windows\\system32',
 ]);
 
+test('rejects null bytes', function (string $path) {
+    $validator = Validator::make(
+        ['path' => $path],
+        ['path' => new SafePath(allowAbsolute: true)]
+    );
+
+    expect($validator->fails())->toBeTrue()
+        ->and($validator->errors()->first('path'))->toContain('null byte');
+})->with([
+    // A value of only null bytes is not covered here: Laravel trims those away
+    // and treats the attribute as absent, so `required` is what rejects it.
+    "backups/test.sql.gz\0.php",
+    // Trailing nulls survive Laravel's trim-based presence check, so the rule
+    // still sees them.
+    "/var/backups\0",
+]);
+
 test('rejects backslashes', function (string $path) {
     $validator = Validator::make(
         ['path' => $path],

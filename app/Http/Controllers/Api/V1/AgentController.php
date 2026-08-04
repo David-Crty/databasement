@@ -9,6 +9,7 @@ use App\Models\AgentJob;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Rules\SafePath;
 use App\Services\Agent\AgentJobPayloadBuilder;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\NotificationService;
@@ -172,7 +173,7 @@ class AgentController extends Controller
         }
 
         $validated = $request->validate([
-            'filename' => 'required|string|max:1000',
+            'filename' => ['required', 'string', 'max:1000', new SafePath],
             'file_size' => 'required|integer|min:0',
             'checksum' => 'nullable|string|max:255',
             ...self::volumeResultRules(),
@@ -311,7 +312,7 @@ class AgentController extends Controller
 
         $validated = $request->validate([
             'error_message' => 'required|string|max:10000',
-            'filename' => 'nullable|string|max:1000',
+            'filename' => ['nullable', 'string', 'max:1000', new SafePath],
             'file_size' => 'nullable|integer|min:0',
             ...self::volumeResultRules(),
             ...self::logRules(),

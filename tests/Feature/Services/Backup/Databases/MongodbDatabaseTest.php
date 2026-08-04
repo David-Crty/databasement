@@ -109,6 +109,23 @@ test('buildConnectionUri builds the expected uri', function (?int $port, string 
     'options without credentials' => [27017, '', '', ['connection_options' => 'tls=true'], 'mongodb://host:27017/?tls=true'],
 ]);
 
+test('buildConnectionUri rejects a host that would redirect the connection', function (string $host) {
+    // The last `@` in the authority wins, so an unencoded one moves the
+    // connection to whatever follows it.
+    expect(fn () => MongodbDatabase::buildConnectionUri($host, 27017, 'user', 'secret'))
+        ->toThrow(InvalidArgumentException::class);
+})->with([
+    'credential delimiter' => 'internal.mongo.corp@attacker.com',
+    'path delimiter' => 'host/evil',
+    // A comma makes the authority a seed list, so the driver may pick either.
+    'seed list' => 'legit.internal:27017,attacker.com',
+    'trailing newline' => "host\n",
+]);
+
+test('buildConnectionUri keeps an ipv6 literal intact', function () {
+    expect(MongodbDatabase::buildConnectionUri('[::1]', 27017))->toBe('mongodb://[::1]:27017');
+});
+
 test('prepareForRestore is a no-op', function () {
     $logger = Mockery::mock(\App\Contracts\BackupLogger::class);
 

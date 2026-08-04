@@ -54,7 +54,26 @@ class SnapshotDownloadController extends Controller
             __('Backup file not found or not readable by the web server. Ensure the volume path is mounted into the web container and readable by the application user.')
         );
 
+        abort_unless($this->isInsideVolume($fullPath, $volumeRoot), 404, __('Backup file not found.'));
+
         return response()->download($fullPath, basename($file->storedFilename()));
+    }
+
+    /**
+     * The stored filename originates from the agent that produced the backup,
+     * so the resolved path is confirmed to stay under the volume root before
+     * anything is read.
+     */
+    private function isInsideVolume(string $fullPath, string $volumeRoot): bool
+    {
+        $root = realpath($volumeRoot);
+        $resolved = realpath($fullPath);
+
+        if ($root === false || $resolved === false) {
+            return false;
+        }
+
+        return str_starts_with($resolved, rtrim($root, '/').'/');
     }
 
     /**

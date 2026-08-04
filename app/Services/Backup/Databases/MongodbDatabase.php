@@ -3,6 +3,7 @@
 namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
+use App\Rules\SafeHost;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use MongoDB\Driver\Command;
@@ -159,6 +160,15 @@ class MongodbDatabase implements DatabaseInterface
      */
     public static function buildConnectionUri(string $host, ?int $port, string $user = '', string $pass = '', array $options = []): string
     {
+        // A `@` moves the connection to whatever follows it (the last one in an
+        // authority wins) and a `,` turns the host into a seed list, so both can
+        // redirect the connection. Encoding is not an option because IPv6
+        // literals need their colons and brackets intact; allowlist instead,
+        // sharing the rule's definition so the two cannot drift.
+        if (preg_match(SafeHost::PATTERN, $host) !== 1) {
+            throw new \InvalidArgumentException('MongoDB host contains characters that are not valid in a connection URI.');
+        }
+
         $srv = ! empty($options['srv']);
         $scheme = $srv ? 'mongodb+srv' : 'mongodb';
         $hostPart = $srv ? $host : sprintf('%s:%d', $host, (int) $port);

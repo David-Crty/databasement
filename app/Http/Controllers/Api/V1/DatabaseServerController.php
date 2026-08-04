@@ -202,6 +202,8 @@ class DatabaseServerController extends Controller
         /** @var Snapshot $snapshot */
         $snapshot = Snapshot::findOrFail($request->validated('snapshot_id'));
 
+        $this->authorize('restoreFrom', $snapshot);
+
         /** @var int|null $userId */
         $userId = auth()->id();
 

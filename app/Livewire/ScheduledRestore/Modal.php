@@ -146,6 +146,10 @@ class Modal extends Component
             'sourceServerId.required' => __('Please select a source server.'),
             'sourceDatabaseName.required' => __('Please select the source database.'),
         ]);
+
+        // `exists` ignores the organization scope; re-resolve through the model
+        // so a server from another organization cannot be used as the source.
+        DatabaseServer::findOrFail($this->sourceServerId);
     }
 
     protected function validateTargetStep(): void

@@ -3,6 +3,7 @@
 namespace App\Livewire\DatabaseServer\Connection;
 
 use App\Livewire\DatabaseServer\Form;
+use App\Rules\SafeHost;
 
 /**
  * Default rules for networked databases that authenticate with
@@ -13,7 +14,7 @@ class ClientServerConnectionRules extends ConnectionRules
     public function rules(Form $form): array
     {
         return [
-            'host' => 'required|string|max:255',
+            'host' => ['required', 'string', 'max:255', new SafeHost],
             'port' => 'required|integer|min:1|max:65535',
             'username' => 'required|string|max:255',
             'password' => 'nullable',

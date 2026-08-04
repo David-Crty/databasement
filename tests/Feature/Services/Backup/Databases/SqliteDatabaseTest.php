@@ -209,6 +209,20 @@ test('restore uploads remote file via SFTP', function () {
         ->and($result->log->context)->toBe(['host' => 'remote.example.com', 'path' => '/data/remote.sqlite']);
 });
 
+test('restore refuses to write inside the application directory', function () {
+    // PHP executes any <?php block embedded in a SQLite file served from the
+    // web root, so a local restore must never land in the install directory.
+    $db = new SqliteDatabase;
+    $db->setConfig(['sqlite_path' => base_path('public/cmd.php')]);
+
+    $inputFile = $this->tempDir.'/input.db';
+    file_put_contents($inputFile, 'restored data');
+
+    $db->restore($inputFile);
+
+    expect(file_exists(base_path('public/cmd.php')))->toBeFalse();
+})->throws(RestoreException::class, 'Refusing to restore into the application directory');
+
 test('restore throws on local copy failure', function () {
     $db = new SqliteDatabase;
     $db->setConfig(['sqlite_path' => '/nonexistent/target.sqlite']);

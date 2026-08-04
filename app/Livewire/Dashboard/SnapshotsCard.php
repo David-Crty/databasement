@@ -31,7 +31,7 @@ class SnapshotsCard extends Component
 
     private function loadData(): void
     {
-        $baseQuery = Snapshot::forCurrentOrg()->completed();
+        $baseQuery = Snapshot::query()->completed();
 
         $this->totalSnapshots = $baseQuery->count();
         $this->verifiedSnapshots = (clone $baseQuery)

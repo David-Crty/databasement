@@ -3,7 +3,7 @@
 namespace App\Services\Backup;
 
 use App\Models\ScheduledRestore;
-use App\Models\Scopes\OrganizationScope;
+use App\Models\Scopes\DatabaseServerOrganizationScope;
 use App\Models\Snapshot;
 
 class LatestSnapshotResolver
@@ -18,7 +18,7 @@ class LatestSnapshotResolver
     public function resolve(ScheduledRestore $scheduledRestore): ?Snapshot
     {
         return Snapshot::query()
-            ->withoutGlobalScope(OrganizationScope::class)
+            ->withoutGlobalScope(DatabaseServerOrganizationScope::class)
             ->where('database_server_id', $scheduledRestore->source_server_id)
             ->where('database_name', $scheduledRestore->source_database_name)
             ->fileExists()

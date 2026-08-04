@@ -82,8 +82,6 @@ class SnapshotQuery
         $query = Snapshot::query()
             ->with(self::relationships());
 
-        $query->forCurrentOrg();
-
         $query
             ->when($search, function (Builder $query) use ($search) {
                 self::applySearch($query, $search);
