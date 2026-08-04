@@ -77,17 +77,6 @@ jobs:
           override_branch: ${{ github.event.workflow_run.head_branch }}
           override_pr: ${{ steps.pr.outputs.number }}
 
-      - name: Upload coverage to Codacy
-        # No commit override needed: the reporter reads the triggering
-        # commit from the workflow_run event payload (head_sha), so the
-        # coverage is attributed to the right commit even though this
-        # workflow runs detached from the original push/PR.
-        if: hashFiles('coverage.xml') != ''
-        uses: codacy/codacy-coverage-reporter-action@v1
-        with:
-          project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
-          coverage-reports: coverage.xml
-
       - name: SonarQube Scan (main)
         # Analyse the main branch, using the coverage.xml and junit.xml
         # produced by the triggering `tests` run.
