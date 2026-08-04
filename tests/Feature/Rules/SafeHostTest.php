@@ -45,3 +45,23 @@ test('the database server api rejects a host that redirects the connection', fun
         ->assertStatus(422)
         ->assertJsonValidationErrors('host');
 });
+
+test('a sqlite backup path cannot escape via traversal', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'probe',
+            'database_type' => 'sqlite',
+            'backups_enabled' => true,
+            'backups' => [[
+                'volume_ids' => [App\Models\Volume::factory()->create()->id],
+                'backup_schedule_id' => dailySchedule()->id,
+                'retention_policy' => 'days',
+                'retention_days' => 7,
+                'database_names' => ['/var/lib/data/../../../etc/passwd'],
+            ]],
+        ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('backups.0.database_names.0');
+});
