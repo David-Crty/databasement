@@ -102,7 +102,7 @@ class SnapshotQuery
             });
 
         $direction = Formatters::sortDirection($sortDirection);
-        $sortColumn = Formatters::sortColumn($sortColumn, self::ALLOWED_SORT_COLUMNS);
+        $sortColumn = Formatters::sortColumn($sortColumn, self::ALLOWED_SORT_COLUMNS, 'started_at');
 
         if ($sortColumn === 'status') {
             return self::orderByJobStatus($query, 'snapshots.backup_job_id', $direction);
