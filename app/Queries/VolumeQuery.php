@@ -49,7 +49,7 @@ class VolumeQuery
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
-        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+        $sortColumn = Formatters::sortColumn($sortColumn, self::ALLOWED_SORT_COLUMNS);
 
         return Volume::query()
             // Eager-load each volume's used storage. The archive size lives on

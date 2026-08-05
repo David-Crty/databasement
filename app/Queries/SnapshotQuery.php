@@ -2,8 +2,8 @@
 
 namespace App\Queries;
 
-use App\Models\BackupJob;
 use App\Models\Snapshot;
+use App\Queries\Concerns\OrdersByJobStatus;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 use Spatie\QueryBuilder\AllowedFilter;
@@ -12,6 +12,8 @@ use Spatie\QueryBuilder\QueryBuilder;
 
 class SnapshotQuery
 {
+    use OrdersByJobStatus;
+
     private const ALLOWED_SORT_COLUMNS = [
         'started_at',
         'created_at',
@@ -100,13 +102,10 @@ class SnapshotQuery
             });
 
         $direction = Formatters::sortDirection($sortDirection);
-        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+        $sortColumn = Formatters::sortColumn($sortColumn, self::ALLOWED_SORT_COLUMNS);
 
         if ($sortColumn === 'status') {
-            return $query->orderBy(
-                BackupJob::select('status')->whereColumn('backup_jobs.id', 'snapshots.backup_job_id'),
-                $direction,
-            );
+            return self::orderByJobStatus($query, 'snapshots.backup_job_id', $direction);
         }
 
         return $query->orderBy($sortColumn, $direction);

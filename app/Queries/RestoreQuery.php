@@ -2,13 +2,15 @@
 
 namespace App\Queries;
 
-use App\Models\BackupJob;
 use App\Models\Restore;
+use App\Queries\Concerns\OrdersByJobStatus;
 use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 
 class RestoreQuery
 {
+    use OrdersByJobStatus;
+
     private const ALLOWED_SORT_COLUMNS = [
         'created_at',
         'status',
@@ -66,13 +68,10 @@ class RestoreQuery
             });
 
         $direction = Formatters::sortDirection($sortDirection);
-        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+        $sortColumn = Formatters::sortColumn($sortColumn, self::ALLOWED_SORT_COLUMNS);
 
         if ($sortColumn === 'status') {
-            return $query->orderBy(
-                BackupJob::select('status')->whereColumn('backup_jobs.id', 'restores.backup_job_id'),
-                $direction,
-            );
+            return self::orderByJobStatus($query, 'restores.backup_job_id', $direction);
         }
 
         return $query->orderBy($sortColumn, $direction);
