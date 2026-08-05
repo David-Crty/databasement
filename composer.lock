@@ -62,16 +62,16 @@
         },
         {
             "name": "aws/aws-sdk-php",
-            "version": "3.381.5",
+            "version": "3.390.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/aws/aws-sdk-php.git",
-                "reference": "409208d62af0ddafbcb0af1a0bf514f5ffcaba92"
+                "reference": "a09e95bf062e15b7343f9c1362fd45c7a0dec39b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/409208d62af0ddafbcb0af1a0bf514f5ffcaba92",
-                "reference": "409208d62af0ddafbcb0af1a0bf514f5ffcaba92",
+                "url": "https://api.github.com/repos/aws/aws-sdk-php/zipball/a09e95bf062e15b7343f9c1362fd45c7a0dec39b",
+                "reference": "a09e95bf062e15b7343f9c1362fd45c7a0dec39b",
                 "shasum": ""
             },
             "require": {
@@ -79,10 +79,10 @@
                 "ext-json": "*",
                 "ext-pcre": "*",
                 "ext-simplexml": "*",
-                "guzzlehttp/guzzle": "^7.4.5",
-                "guzzlehttp/promises": "^2.0",
-                "guzzlehttp/psr7": "^2.4.5",
-                "mtdowling/jmespath.php": "^2.8.0",
+                "guzzlehttp/guzzle": "^7.8.2 || ^8.0",
+                "guzzlehttp/promises": "^2.0.3 || ^3.0",
+                "guzzlehttp/psr7": "^2.6.3 || ^3.0",
+                "mtdowling/jmespath.php": "^2.9.1",
                 "php": ">=8.1",
                 "psr/http-message": "^1.0 || ^2.0",
                 "symfony/filesystem": "^v5.4.45 || ^v6.4.3 || ^v7.1.0 || ^v8.0.0"
@@ -153,9 +153,9 @@
             "support": {
                 "forum": "https://github.com/aws/aws-sdk-php/discussions",
                 "issues": "https://github.com/aws/aws-sdk-php/issues",
-                "source": "https://github.com/aws/aws-sdk-php/tree/3.381.5"
+                "source": "https://github.com/aws/aws-sdk-php/tree/3.390.2"
             },
-            "time": "2026-05-20T18:16:01+00:00"
+            "time": "2026-07-31T18:06:07+00:00"
         },
         {
             "name": "bacon/bacon-qr-code",
@@ -3570,16 +3570,16 @@
         },
         {
             "name": "league/flysystem-aws-s3-v3",
-            "version": "3.34.0",
+            "version": "3.35.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/flysystem-aws-s3-v3.git",
-                "reference": "0c62fdac907791d8649ad3c61cb7a77628344fb8"
+                "reference": "8475ef9adfc6498b85469e2abec6fe3118cd08c4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/flysystem-aws-s3-v3/zipball/0c62fdac907791d8649ad3c61cb7a77628344fb8",
-                "reference": "0c62fdac907791d8649ad3c61cb7a77628344fb8",
+                "url": "https://api.github.com/repos/thephpleague/flysystem-aws-s3-v3/zipball/8475ef9adfc6498b85469e2abec6fe3118cd08c4",
+                "reference": "8475ef9adfc6498b85469e2abec6fe3118cd08c4",
                 "shasum": ""
             },
             "require": {
@@ -3619,9 +3619,9 @@
                 "storage"
             ],
             "support": {
-                "source": "https://github.com/thephpleague/flysystem-aws-s3-v3/tree/3.34.0"
+                "source": "https://github.com/thephpleague/flysystem-aws-s3-v3/tree/3.35.2"
             },
-            "time": "2026-05-04T08:24:00+00:00"
+            "time": "2026-07-01T23:25:49+00:00"
         },
         {
             "name": "league/flysystem-azure-blob-storage",
@@ -4533,16 +4533,16 @@
         },
         {
             "name": "mtdowling/jmespath.php",
-            "version": "2.9.1",
+            "version": "2.9.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/jmespath/jmespath.php.git",
-                "reference": "9c208ba27ae7d90853c288b3795d6702eb251d34"
+                "reference": "2157c5e50e813ec6a96c1eed3be7f64a20fb32a8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/jmespath/jmespath.php/zipball/9c208ba27ae7d90853c288b3795d6702eb251d34",
-                "reference": "9c208ba27ae7d90853c288b3795d6702eb251d34",
+                "url": "https://api.github.com/repos/jmespath/jmespath.php/zipball/2157c5e50e813ec6a96c1eed3be7f64a20fb32a8",
+                "reference": "2157c5e50e813ec6a96c1eed3be7f64a20fb32a8",
                 "shasum": ""
             },
             "require": {
@@ -4593,9 +4593,9 @@
             ],
             "support": {
                 "issues": "https://github.com/jmespath/jmespath.php/issues",
-                "source": "https://github.com/jmespath/jmespath.php/tree/2.9.1"
+                "source": "https://github.com/jmespath/jmespath.php/tree/2.9.2"
             },
-            "time": "2026-06-11T10:43:56+00:00"
+            "time": "2026-07-06T18:56:19+00:00"
         },
         {
             "name": "myclabs/deep-copy",
@@ -7450,20 +7450,21 @@
         },
         {
             "name": "symfony/filesystem",
-            "version": "v8.0.11",
+            "version": "v8.1.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/filesystem.git",
-                "reference": "224db910898ce1317b892a9a1338f1f8f17eb7c7"
+                "reference": "17856b7a222664a26a5ea1cb06ee0721c2438217"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/filesystem/zipball/224db910898ce1317b892a9a1338f1f8f17eb7c7",
-                "reference": "224db910898ce1317b892a9a1338f1f8f17eb7c7",
+                "url": "https://api.github.com/repos/symfony/filesystem/zipball/17856b7a222664a26a5ea1cb06ee0721c2438217",
+                "reference": "17856b7a222664a26a5ea1cb06ee0721c2438217",
                 "shasum": ""
             },
             "require": {
-                "php": ">=8.4",
+                "php": ">=8.4.1",
+                "symfony/deprecation-contracts": "^2.5|^3",
                 "symfony/polyfill-ctype": "~1.8",
                 "symfony/polyfill-mbstring": "~1.8"
             },
@@ -7496,7 +7497,7 @@
             "description": "Provides basic utilities for the filesystem",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/filesystem/tree/v8.0.11"
+                "source": "https://github.com/symfony/filesystem/tree/v8.1.2"
             },
             "funding": [
                 {
@@ -7516,7 +7517,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-05-11T16:39:47+00:00"
+            "time": "2026-07-22T15:42:13+00:00"
         },
         {
             "name": "symfony/finder",
