@@ -60,13 +60,18 @@ class BackupJobPolicy
     /**
      * Resolve the org that owns the job by walking either side of the
      * snapshot / restore relation and reading the related server's
-     * organization_id. The OrganizationScope on DatabaseServer is bypassed
-     * since the caller may be in a different org.
+     * organization_id.
+     *
+     * Every scope is bypassed on the way: this answers "who owns this job"
+     * precisely when the caller is in a different org, so a scoped read would
+     * make every foreign job look ownerless and deny members their own
+     * notification deeplinks. Only ownership is derived here; membership is
+     * then checked by the caller.
      */
     private function resolveOrganizationId(BackupJob $backupJob): ?string
     {
-        $snapshot = $backupJob->snapshot;
-        $restore = $backupJob->restore;
+        $snapshot = $backupJob->snapshot()->withoutGlobalScopes()->first();
+        $restore = $backupJob->restore()->withoutGlobalScopes()->first();
 
         $serverId = $snapshot
             ? $snapshot->database_server_id

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\DatabaseServerOrganizationScope;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +16,10 @@ class Restore extends Model
 
     protected static function booted(): void
     {
+        // Tenancy is inherited from the server the restore wrote to, matching
+        // ScheduledRestore. Without it every by-id lookup crosses organizations.
+        static::addGlobalScope(new DatabaseServerOrganizationScope('target_server_id'));
+
         // Delete the associated job when restore is deleted
         static::deleting(function (Restore $restore) {
             $restore->job->delete();

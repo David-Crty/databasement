@@ -4,9 +4,12 @@ use App\Enums\Ability;
 use App\Livewire\Restore\Index;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
+use App\Models\Organization;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
+use App\Models\Volume;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -31,6 +34,29 @@ function makeRestore(array $attrs = []): Restore
         'snapshot_id' => $snapshot->id,
         'target_server_id' => $target->id,
         'schema_name' => $attrs['schema_name'] ?? 'restored_db',
+    ]);
+}
+
+/**
+ * A completed restore owned by an organization the actor is not a member of.
+ */
+function foreignRestore(): Restore
+{
+    $org = Organization::factory()->create();
+    $server = DatabaseServer::factory()->create([
+        'organization_id' => $org->id,
+        'database_type' => 'mysql',
+    ]);
+    $snapshot = Snapshot::factory()
+        ->forServer($server)
+        ->onVolumes(Volume::factory()->create(['organization_id' => $org->id]))
+        ->create();
+
+    return Restore::create([
+        'backup_job_id' => BackupJob::create(['status' => 'completed'])->id,
+        'snapshot_id' => $snapshot->id,
+        'target_server_id' => $server->id,
+        'schema_name' => 'victim_confidential_schema',
     ]);
 }
 
@@ -210,4 +236,31 @@ test('without operate-restores, opening a new restore is forbidden', function ()
     Livewire::test(Index::class)
         ->call('openNewRestore')
         ->assertForbidden();
+});
+
+test('another organization restore record is not listed', function () {
+    $own = makeRestore(['schema_name' => 'own_schema']);
+    $foreign = foreignRestore();
+
+    Livewire::test(Index::class)
+        ->assertSee('own_schema')
+        ->assertDontSee($foreign->schema_name);
+});
+
+test('another organization restore record cannot be deleted', function () {
+    // operate-restores is an ordinary operational ability, so holding it must
+    // not reach another tenant's restore history.
+    $foreign = foreignRestore();
+
+    expect(fn () => Livewire::test(Index::class)->call('confirmDeleteRestore', $foreign->id))
+        ->toThrow(ModelNotFoundException::class);
+
+    expect(Restore::withoutGlobalScopes()->whereKey($foreign->id)->exists())->toBeTrue();
+});
+
+test('another organization restore record cannot be re-run', function () {
+    $foreign = foreignRestore();
+
+    expect(fn () => Livewire::test(Index::class)->call('rerunRestore', $foreign->id))
+        ->toThrow(ModelNotFoundException::class);
 });
