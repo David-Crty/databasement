@@ -166,6 +166,50 @@ function createDatabaseServer(array $attributes = []): \App\Models\DatabaseServe
 }
 
 /**
+ * Create a DatabaseServer in an organization the acting user is not a member of.
+ * Returned with its organization so callers can put related records there too.
+ *
+ * @return array{0: \App\Models\Organization, 1: \App\Models\DatabaseServer}
+ */
+function foreignServer(string $databaseType = 'mysql'): array
+{
+    $org = \App\Models\Organization::factory()->create();
+
+    return [$org, \App\Models\DatabaseServer::factory()->create([
+        'organization_id' => $org->id,
+        'database_type' => $databaseType,
+    ])];
+}
+
+/**
+ * A complete, restorable snapshot owned by an organization the actor is not in.
+ */
+function foreignSnapshot(string $databaseType = 'mysql'): \App\Models\Snapshot
+{
+    [$org, $server] = foreignServer($databaseType);
+
+    return \App\Models\Snapshot::factory()
+        ->forServer($server)
+        ->onVolumes(\App\Models\Volume::factory()->create(['organization_id' => $org->id]))
+        ->create();
+}
+
+/**
+ * A completed restore owned by an organization the actor is not a member of.
+ */
+function foreignRestore(): \App\Models\Restore
+{
+    $snapshot = foreignSnapshot();
+
+    return \App\Models\Restore::create([
+        'backup_job_id' => \App\Models\BackupJob::create(['status' => 'completed'])->id,
+        'snapshot_id' => $snapshot->id,
+        'target_server_id' => $snapshot->database_server_id,
+        'schema_name' => 'victim_confidential_schema',
+    ]);
+}
+
+/**
  * Create a matching source + target DatabaseServer pair of the same type.
  *
  * @return array{0: \App\Models\DatabaseServer, 1: \App\Models\DatabaseServer}
