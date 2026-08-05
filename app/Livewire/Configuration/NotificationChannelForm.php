@@ -5,6 +5,7 @@ namespace App\Livewire\Configuration;
 use App\Enums\NotificationChannelType;
 use App\Models\NotificationChannel;
 use App\Rules\CommaSeparatedEmails;
+use App\Rules\SafeEndpointUrl;
 use Illuminate\Validation\Rule;
 use Livewire\Form;
 
@@ -135,14 +136,14 @@ class NotificationChannelForm extends Form
                 'config_to' => ['required', 'string', 'max:1000', new CommaSeparatedEmails],
             ]),
             NotificationChannelType::Slack => array_merge($rules, [
-                'config_webhook_url' => [($isEdit && $this->has_config_webhook_url) ? 'nullable' : 'required', 'string', 'url', 'max:500'],
+                'config_webhook_url' => [($isEdit && $this->has_config_webhook_url) ? 'nullable' : 'required', 'string', 'url', 'max:500', new SafeEndpointUrl],
             ]),
             NotificationChannelType::Discord => array_merge($rules, [
                 'config_token' => [($isEdit && $this->has_config_token) ? 'nullable' : 'required', 'string', 'max:500'],
                 'config_channel_id' => ['required', 'string', 'max:100'],
             ]),
             NotificationChannelType::DiscordWebhook => array_merge($rules, [
-                'config_url' => [($isEdit && $this->has_config_url) ? 'nullable' : 'required', 'string', 'url', 'max:500'],
+                'config_url' => [($isEdit && $this->has_config_url) ? 'nullable' : 'required', 'string', 'url', 'max:500', new SafeEndpointUrl],
             ]),
             NotificationChannelType::Telegram => array_merge($rules, [
                 'config_bot_token' => [($isEdit && $this->has_config_bot_token) ? 'nullable' : 'required', 'string', 'max:500'],
@@ -154,11 +155,11 @@ class NotificationChannelForm extends Form
                 'config_user_key' => [($isEdit && $this->has_config_user_key) ? 'nullable' : 'required', 'string', 'max:500'],
             ]),
             NotificationChannelType::Gotify => array_merge($rules, [
-                'config_url' => ['required', 'string', 'url', 'max:500'],
+                'config_url' => ['required', 'string', 'url', 'max:500', new SafeEndpointUrl],
                 'config_token' => [($isEdit && $this->has_config_token) ? 'nullable' : 'required', 'string', 'max:500'],
             ]),
             NotificationChannelType::Webhook => array_merge($rules, [
-                'config_url' => ['required', 'string', 'url', 'max:500'],
+                'config_url' => ['required', 'string', 'url', 'max:500', new SafeEndpointUrl],
                 'config_secret' => ['nullable', 'string', 'max:500'],
             ]),
             default => $rules,

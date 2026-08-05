@@ -39,6 +39,19 @@ class BackupSchedulePolicy
     }
 
     /**
+     * Determine whether the user can set the post-backup/post-restore scripts.
+     *
+     * These run as shell on the application host, but the setting is global
+     * while manage-backup-settings is granted per organization — so anyone
+     * holding it in any organization could otherwise reach every other
+     * tenant's data. Reserved for super admins.
+     */
+    public function managePostScripts(User $user): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    /**
      * Determine whether the user can create models.
      * Backup schedules are part of backup configuration.
      */

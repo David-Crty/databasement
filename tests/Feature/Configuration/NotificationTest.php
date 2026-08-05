@@ -167,3 +167,32 @@ test('manage-notifications allows creating an email channel with multiple addres
     expect($channel->config['to'])->toBe('alice@example.com, bob@example.com')
         ->and(NotificationChannelType::Email->routeValue($channel->config))->toBe(['alice@example.com', 'bob@example.com']);
 });
+
+test('a webhook channel cannot point at the instance metadata endpoint', function () {
+    // The app fetches this URL server-side on every notification, so a
+    // link-local target would hand back cloud instance credentials.
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
+        ->test(Notification::class)
+        ->call('openChannelModal')
+        ->set('channelForm.name', 'ssrf')
+        ->set('channelForm.type', 'webhook')
+        ->set('channelForm.config_url', 'http://169.254.169.254/latest/meta-data/')
+        ->call('saveChannel')
+        ->assertHasErrors('channelForm.config_url');
+
+    $this->assertDatabaseMissing('notification_channels', ['name' => 'ssrf']);
+});
+
+test('a webhook channel may still point at a private network host', function () {
+    // Self-hosted notification sinks on a LAN are a supported setup.
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
+        ->test(Notification::class)
+        ->call('openChannelModal')
+        ->set('channelForm.name', 'internal hook')
+        ->set('channelForm.type', 'webhook')
+        ->set('channelForm.config_url', 'http://192.168.1.50:8080/notify')
+        ->call('saveChannel')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('notification_channels', ['name' => 'internal hook']);
+});

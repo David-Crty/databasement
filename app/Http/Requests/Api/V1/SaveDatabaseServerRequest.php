@@ -8,6 +8,7 @@ use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Rules\SafeDatabasePath;
 use App\Rules\SafeHost;
 use App\Rules\SafePath;
 use App\Services\CurrentOrganization;
@@ -107,7 +108,7 @@ class SaveDatabaseServerRequest extends FormRequest
 
             if ($type === 'sqlite') {
                 $rules['backups.*.database_names'] = 'required|array|min:1';
-                $rules['backups.*.database_names.*'] = 'required|string|max:1000';
+                $rules['backups.*.database_names.*'] = ['required', 'string', 'max:1000', new SafeDatabasePath];
             } elseif (in_array($type, ['mysql', 'postgres', 'mongodb'])) {
                 $rules['backups.*.database_selection_mode'] = ['required', 'string', Rule::in(array_map(fn (DatabaseSelectionMode $m) => $m->value, DatabaseSelectionMode::cases()))];
                 $rules['backups.*.database_names'] = 'nullable|array';

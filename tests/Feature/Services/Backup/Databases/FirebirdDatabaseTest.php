@@ -37,6 +37,22 @@ test('testConnection returns success when isql probe succeeds', function () {
         ->and($result['details']['output'])->toContain('Database: '.FIREBIRD_TEST_DATABASE);
 });
 
+test('testConnection probes without going through a shell', function () {
+    // isql reads the query from stdin, so the probe needs no shell to pipe it
+    // and no argument escaping. A shell string here would reintroduce both.
+    Process::fake(['*' => Process::result(output: 'ok')]);
+
+    $this->db->testConnection();
+
+    Process::assertRan(function ($process) {
+        expect($process->command)->toBeArray()
+            ->and($process->command[0])->toBe('isql')
+            ->and($process->command)->not->toContain('sh');
+
+        return true;
+    });
+});
+
 test('testConnection returns failure when probe fails', function () {
     Process::fake([
         '*' => Process::result(exitCode: 1, errorOutput: 'I/O error during "open" operation'),

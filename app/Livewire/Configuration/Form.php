@@ -4,6 +4,7 @@ namespace App\Livewire\Configuration;
 
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
+use App\Models\BackupSchedule;
 use Cron\CronExpression;
 use Illuminate\Support\Facades\Artisan;
 
@@ -155,6 +156,12 @@ class Form extends \Livewire\Form
             'post_backup_script' => 'backup.post_backup_script',
             'post_restore_script' => 'backup.post_restore_script',
         ];
+
+        // The scripts run as shell on the host, so they stay super-admin only
+        // even though the rest of this screen is a per-organization ability.
+        if (! auth()->user()?->can('managePostScripts', BackupSchedule::class)) {
+            unset($backupKeyMap['post_backup_script'], $backupKeyMap['post_restore_script']);
+        }
 
         foreach ($backupKeyMap as $property => $configKey) {
             AppConfig::set($configKey, $this->{$property});

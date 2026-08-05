@@ -8,6 +8,7 @@ use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Rules\SafeDatabasePath;
 use App\Rules\SafePath;
 use App\Services\CurrentOrganization;
 use App\Support\Formatters;
@@ -228,7 +229,10 @@ final class BackupForm
         // `database_names`; require at least one.
         if ($serverType->identifiesDatabasesByPath()) {
             $rules[$prefix.'database_names'] = 'required|array|min:1';
-            $rules[$prefix.'database_names.*'] = 'required|string|max:1000';
+            $rules[$prefix.'database_names.*'] = [
+                'required', 'string', 'max:1000',
+                new SafeDatabasePath(allowBackslashes: $serverType === DatabaseType::FIREBIRD),
+            ];
         }
 
         // Database selection only applies to enumerable client-server types

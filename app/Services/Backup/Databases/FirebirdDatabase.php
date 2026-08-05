@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Process;
 
 class FirebirdDatabase implements DatabaseInterface
 {
+    private const PROBE_QUERY = "SELECT 1 FROM RDB\$DATABASE;\n";
+
     /** @var array<string, mixed> */
     private array $config = [];
 
@@ -68,7 +70,9 @@ class FirebirdDatabase implements DatabaseInterface
         $startTime = microtime(true);
 
         try {
-            $result = Process::timeout(10)->run($this->buildConnectionProbeCommand());
+            $result = Process::timeout(10)
+                ->input(self::PROBE_QUERY)
+                ->run($this->buildConnectionProbeCommand());
         } catch (ProcessTimedOutException) {
             $durationMs = (int) round((microtime(true) - $startTime) * 1000);
 
@@ -114,20 +118,20 @@ class FirebirdDatabase implements DatabaseInterface
         return $host.'/'.$port.':'.$database;
     }
 
-    private function buildConnectionProbeCommand(): string
+    /**
+     * Argument list rather than a shell string: isql reads the probe query from
+     * stdin, so no shell is needed to pipe it and no argument needs escaping.
+     *
+     * @return list<string>
+     */
+    private function buildConnectionProbeCommand(): array
     {
-        $script = <<<'BASH'
-printf '%%s\n' "SELECT 1 FROM RDB\$DATABASE;" | isql -b -user %s -password %s %s
-BASH;
-
-        return sprintf(
-            'sh -lc %s',
-            escapeshellarg(sprintf(
-                $script,
-                escapeshellarg((string) ($this->config['user'] ?? '')),
-                escapeshellarg((string) ($this->config['pass'] ?? '')),
-                escapeshellarg($this->connectionTarget())
-            ))
-        );
+        return [
+            'isql',
+            '-b',
+            '-user', (string) ($this->config['user'] ?? ''),
+            '-password', (string) ($this->config['pass'] ?? ''),
+            $this->connectionTarget(),
+        ];
     }
 }

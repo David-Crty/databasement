@@ -248,6 +248,9 @@
                     ];
                 @endphp
 
+                {{-- Super admin only: these run as shell on the host, and the
+                     stored script may itself carry credentials. --}}
+                @can('managePostScripts', \App\Models\BackupSchedule::class)
                 <div class="border-t border-base-200/60 pt-6 mt-2 space-y-4">
                     <div class="flex items-center gap-3">
                         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-base-200 text-base-content/70">
@@ -323,6 +326,7 @@
                         @endforeach
                     </div>
                 </div>
+                @endcan
 
                 @if ($this->canManage)
                 <div class="flex items-center justify-end border-t border-base-200/60 pt-6">
