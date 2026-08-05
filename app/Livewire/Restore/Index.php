@@ -3,6 +3,7 @@
 namespace App\Livewire\Restore;
 
 use App\Enums\DatabaseType;
+use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\Concerns\HandlesJobLogsModal;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
@@ -21,7 +22,7 @@ use Livewire\WithPagination;
 #[Title('Restores')]
 class Index extends Component
 {
-    use AuthorizesRequests, HandlesJobLogsModal, Toast, WithPagination;
+    use AuthorizesRequests, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -54,38 +55,6 @@ class Index extends Component
     public function refreshAfterRestoreCreated(): void
     {
         $this->resetPage();
-    }
-
-    public function updatingSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingStatusFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingSourceServerFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingTargetServerFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingDbTypeFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function clear(): void
-    {
-        $this->reset('search', 'statusFilter', 'sourceServerFilter', 'targetServerFilter', 'dbTypeFilter');
-        $this->resetPage();
-        $this->success(__('Filters cleared.'));
     }
 
     /**
@@ -217,10 +186,7 @@ class Index extends Component
      */
     public function dbTypeOptions(): array
     {
-        return collect(DatabaseType::cases())
-            ->map(fn (DatabaseType $t) => ['id' => $t->value, 'name' => $t->label()])
-            ->values()
-            ->all();
+        return DatabaseType::toSelectOptions();
     }
 
     public function render(): View
@@ -243,5 +209,13 @@ class Index extends Component
             'targetServerOptions' => $this->targetServerOptions(),
             'dbTypeOptions' => $this->dbTypeOptions(),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function filterProperties(): array
+    {
+        return ['search', 'statusFilter', 'sourceServerFilter', 'targetServerFilter', 'dbTypeFilter'];
     }
 }
