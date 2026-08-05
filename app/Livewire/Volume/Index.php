@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Volume;
 
+use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Queries\VolumeQuery;
@@ -17,7 +18,7 @@ use Livewire\WithPagination;
 #[Title('Volumes')]
 class Index extends Component
 {
-    use AuthorizesRequests, Toast, WithPagination;
+    use AuthorizesRequests, FiltersAndPaginates, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -33,28 +34,6 @@ class Index extends Component
     public int $deleteSnapshotCount = 0;
 
     public bool $keepFiles = false;
-
-    public function updatingSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    /**
-     * @param  string|array<string, mixed>  $property
-     */
-    public function updated(string|array $property): void
-    {
-        if (! is_array($property) && $property != '') {
-            $this->resetPage();
-        }
-    }
-
-    public function clear(): void
-    {
-        $this->reset('search');
-        $this->resetPage();
-        $this->success(__('Filters cleared.'));
-    }
 
     /**
      * @return array<int, array<string, mixed>>
@@ -118,5 +97,13 @@ class Index extends Component
             'headers' => $this->headers(),
             'showAwsDeprecationWarning' => config('app.has_deprecated_aws_env'),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function filterProperties(): array
+    {
+        return ['search'];
     }
 }

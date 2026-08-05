@@ -4,6 +4,7 @@ namespace App\Livewire\Snapshot;
 
 use App\Enums\BackupJobStatus;
 use App\Enums\DatabaseType;
+use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\Concerns\HandlesJobLogsModal;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
@@ -21,7 +22,7 @@ use Livewire\WithPagination;
 #[Title('Snapshots')]
 class Index extends Component
 {
-    use AuthorizesRequests, HandlesJobLogsModal, Toast, WithPagination;
+    use AuthorizesRequests, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -55,38 +56,6 @@ class Index extends Component
     public ?string $downloadSnapshotId = null;
 
     public bool $showDownloadModal = false;
-
-    public function updatingSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingStatusFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingServerFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingDbTypeFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingFileMissing(): void
-    {
-        $this->resetPage();
-    }
-
-    public function clear(): void
-    {
-        $this->reset('search', 'statusFilter', 'serverFilter', 'dbTypeFilter', 'fileMissing');
-        $this->resetPage();
-        $this->success(__('Filters cleared.'));
-    }
 
     /**
      * @return array<int, array<string, mixed>>
@@ -159,10 +128,7 @@ class Index extends Component
      */
     public function dbTypeOptions(): array
     {
-        return collect(DatabaseType::cases())
-            ->map(fn (DatabaseType $t) => ['id' => $t->value, 'name' => $t->label()])
-            ->values()
-            ->all();
+        return DatabaseType::toSelectOptions();
     }
 
     /**
@@ -271,5 +237,13 @@ class Index extends Component
             'serverOptions' => $this->serverOptions(),
             'dbTypeOptions' => $this->dbTypeOptions(),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function filterProperties(): array
+    {
+        return ['search', 'statusFilter', 'serverFilter', 'dbTypeFilter', 'fileMissing'];
     }
 }

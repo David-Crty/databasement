@@ -3,6 +3,7 @@
 namespace App\Livewire\ScheduledRestore;
 
 use App\Enums\DatabaseType;
+use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Traits\Toast;
@@ -20,7 +21,7 @@ use Livewire\WithPagination;
 #[Title('Scheduled Restores')]
 class Index extends Component
 {
-    use AuthorizesRequests, Toast, WithPagination;
+    use AuthorizesRequests, FiltersAndPaginates, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -52,38 +53,6 @@ class Index extends Component
     public function refreshAfterSave(): void
     {
         $this->resetPage();
-    }
-
-    public function updatingSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingEnabledFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingSourceServerFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingTargetServerFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatingDbTypeFilter(): void
-    {
-        $this->resetPage();
-    }
-
-    public function clear(): void
-    {
-        $this->reset('search', 'enabledFilter', 'sourceServerFilter', 'targetServerFilter', 'dbTypeFilter');
-        $this->resetPage();
-        $this->success(__('Filters cleared.'));
     }
 
     /**
@@ -181,10 +150,7 @@ class Index extends Component
      */
     public function dbTypeOptions(): array
     {
-        return collect(DatabaseType::cases())
-            ->map(fn (DatabaseType $t) => ['id' => $t->value, 'name' => $t->label()])
-            ->values()
-            ->all();
+        return DatabaseType::toSelectOptions();
     }
 
     public function render(): View
@@ -213,5 +179,13 @@ class Index extends Component
             'serverOptions' => $this->serverOptions(),
             'dbTypeOptions' => $this->dbTypeOptions(),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function filterProperties(): array
+    {
+        return ['search', 'enabledFilter', 'sourceServerFilter', 'targetServerFilter', 'dbTypeFilter'];
     }
 }

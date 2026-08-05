@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Agent;
 
+use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\Agent;
 use App\Queries\AgentQuery;
 use App\Traits\Toast;
@@ -16,7 +17,7 @@ use Livewire\WithPagination;
 #[Title('Agents')]
 class Index extends Component
 {
-    use AuthorizesRequests, Toast, WithPagination;
+    use AuthorizesRequests, FiltersAndPaginates, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -30,28 +31,6 @@ class Index extends Component
     public bool $showDeleteModal = false;
 
     public int $deleteServerCount = 0;
-
-    public function updatingSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    /**
-     * @param  string|array<string, mixed>  $property
-     */
-    public function updated(string|array $property): void
-    {
-        if (! is_array($property) && $property != '') {
-            $this->resetPage();
-        }
-    }
-
-    public function clear(): void
-    {
-        $this->reset('search');
-        $this->resetPage();
-        $this->success(__('Filters cleared.'));
-    }
 
     /**
      * @return array<int, array<string, mixed>>
@@ -110,5 +89,13 @@ class Index extends Component
             'agents' => $query->paginate(10),
             'headers' => $this->headers(),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function filterProperties(): array
+    {
+        return ['search'];
     }
 }

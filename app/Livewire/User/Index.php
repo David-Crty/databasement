@@ -2,6 +2,7 @@
 
 namespace App\Livewire\User;
 
+use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\User;
 use App\Services\CurrentOrganization;
 use App\Support\Formatters;
@@ -18,7 +19,7 @@ use Silber\Bouncer\Database\Role;
 #[Title('Users')]
 class Index extends Component
 {
-    use AuthorizesRequests, Toast, WithPagination;
+    use AuthorizesRequests, FiltersAndPaginates, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -56,28 +57,6 @@ class Index extends Component
     public function mount(): void
     {
         $this->authorize('viewAny', User::class);
-    }
-
-    public function updatingSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    /**
-     * @param  string|array<string, mixed>  $property
-     */
-    public function updated(string|array $property): void
-    {
-        if (! is_array($property) && $property != '') {
-            $this->resetPage();
-        }
-    }
-
-    public function clear(): void
-    {
-        $this->reset(['search', 'roleFilter', 'statusFilter']);
-        $this->resetPage();
-        $this->success(__('Filters cleared.'));
     }
 
     /**
@@ -265,5 +244,13 @@ class Index extends Component
             'statusFilterOptions' => $this->statusFilterOptions(),
             'canManageOrgMembership' => auth()->user()->can('manageOrgMembership', User::class),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function filterProperties(): array
+    {
+        return ['search', 'roleFilter', 'statusFilter'];
     }
 }
