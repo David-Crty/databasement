@@ -71,11 +71,9 @@
     </x-modal>
 
     <!-- DELETE MODAL -->
-    <x-modal wire:model="showDeleteModal" :title="__('Delete role')" class="backdrop-blur">
-        <p>{{ __('Are you sure you want to delete this role? Users who have only this role will lose its abilities.') }}</p>
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showDeleteModal = false" />
-            <x-button :label="__('Delete')" class="btn-error" wire:click="delete" spinner="delete" />
-        </x-slot:actions>
-    </x-modal>
+    <x-delete-confirmation-modal
+        :title="__('Delete role')"
+        :message="__('Are you sure you want to delete this role? Users who have only this role will lose its abilities.')"
+        onConfirm="delete"
+    />
 </div>
