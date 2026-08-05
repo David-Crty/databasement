@@ -118,18 +118,15 @@
     </x-card>
 
     <!-- DELETE CONFIRMATION MODAL -->
-    <x-modal wire:model="showDeleteModal" :title="__('Delete Agent')" class="backdrop-blur">
-        <p>{{ __('Are you sure you want to delete this agent? This action cannot be undone.') }}</p>
-
+    <x-delete-confirmation-modal
+        :title="__('Delete Agent')"
+        :message="__('Are you sure you want to delete this agent? This action cannot be undone.')"
+        onConfirm="delete"
+    >
         @if($deleteServerCount > 0)
             <x-alert icon="o-exclamation-triangle" class="alert-warning mt-4">
                 {{ trans_choice(':count database server is assigned to this agent and will be unlinked.|:count database servers are assigned to this agent and will be unlinked.', $deleteServerCount, ['count' => $deleteServerCount]) }}
             </x-alert>
         @endif
-
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showDeleteModal = false" />
-            <x-button :label="__('Delete')" class="btn-error" wire:click="delete" />
-        </x-slot:actions>
-    </x-modal>
+    </x-delete-confirmation-modal>
 </div>

@@ -112,7 +112,7 @@ class BackupJobQuery
             });
 
         $direction = Formatters::sortDirection($sortDirection);
-        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+        $sortColumn = Formatters::sortColumn($sortColumn, self::ALLOWED_SORT_COLUMNS);
 
         // Handle sorting
         if ($sortColumn === 'snapshot_size') {

@@ -53,7 +53,7 @@ class DatabaseServerQuery
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
-        $sortColumn = in_array($sortColumn, self::ALLOWED_SORT_COLUMNS, true) ? $sortColumn : 'created_at';
+        $sortColumn = Formatters::sortColumn($sortColumn, self::ALLOWED_SORT_COLUMNS);
 
         return DatabaseServer::query()
             ->with(['backups.volumes', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])

@@ -168,3 +168,13 @@ test('resolveDatePlaceholders uses display timezone for "now"', function () {
 
     \Carbon\Carbon::setTestNow();
 });
+
+test('sortColumn falls back when the requested column is not whitelisted', function (?string $requested, string $expected) {
+    // Sort columns arrive from the URL, so an unknown one must not reach the
+    // query builder.
+    expect(Formatters::sortColumn($requested, ['name', 'created_at']))->toBe($expected);
+})->with([
+    'allowed' => ['name', 'name'],
+    'not allowed' => ['id; drop table users', 'created_at'],
+    'null' => [null, 'created_at'],
+]);

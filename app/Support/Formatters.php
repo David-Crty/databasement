@@ -131,9 +131,24 @@ class Formatters
      *
      * @return 'asc'|'desc'
      */
+    /**
+     * @return 'asc'|'desc'
+     */
     public static function sortDirection(string $direction): string
     {
         return strtolower($direction) === 'asc' ? 'asc' : 'desc';
+    }
+
+    /**
+     * Constrain a requested sort column to a whitelist. Sort columns reach the
+     * query builder from the URL, so an unknown one falls back rather than
+     * being interpolated.
+     *
+     * @param  list<string>  $allowed
+     */
+    public static function sortColumn(?string $requested, array $allowed, string $default = 'created_at'): string
+    {
+        return in_array($requested, $allowed, true) ? (string) $requested : $default;
     }
 
     /**

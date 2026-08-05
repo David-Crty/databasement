@@ -5,11 +5,9 @@ use App\Mcp\Servers\DatabasementServer;
 use App\Mcp\Tools\ListSnapshotsTool;
 use App\Mcp\Tools\TriggerRestoreTool;
 use App\Models\DatabaseServer;
-use App\Models\Organization;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use App\Models\User;
-use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\CurrentOrganization;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -21,31 +19,6 @@ use Illuminate\Validation\ValidationException;
  * inherit tenancy from their database server. These cover every path that
  * resolves one by id, which is where the isolation used to be missing.
  */
-
-/**
- * @return array{0: Organization, 1: DatabaseServer}
- */
-function foreignServer(string $databaseType = 'mysql'): array
-{
-    $org = Organization::factory()->create();
-
-    return [$org, DatabaseServer::factory()->create([
-        'organization_id' => $org->id,
-        'database_type' => $databaseType,
-    ])];
-}
-
-/**
- * A complete, restorable snapshot owned by an organization the actor is not in.
- */
-function foreignSnapshot(string $databaseType = 'mysql'): Snapshot
-{
-    [$org, $server] = foreignServer($databaseType);
-    $volume = Volume::factory()->create(['organization_id' => $org->id]);
-
-    return Snapshot::factory()->forServer($server)->onVolumes($volume)->create();
-}
-
 test('the snapshot api does not list another organization snapshots', function () {
     $user = User::factory()->withAbilities([])->create();
     $foreign = foreignSnapshot();

@@ -3,6 +3,7 @@
 namespace App\Queries;
 
 use App\Models\Agent;
+use App\Support\Formatters;
 use Illuminate\Database\Eloquent\Builder;
 
 class AgentQuery
@@ -22,12 +23,8 @@ class AgentQuery
      */
     public static function applySort(Builder $query, array $sortBy): Builder
     {
-        $requested = $sortBy['column'] ?? 'created_at';
-        $column = in_array($requested, self::ALLOWED_SORT_COLUMNS, true)
-            ? $requested
-            : 'created_at';
-
-        $direction = strtolower($sortBy['direction'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+        $column = Formatters::sortColumn($sortBy['column'] ?? null, self::ALLOWED_SORT_COLUMNS);
+        $direction = Formatters::sortDirection($sortBy['direction'] ?? 'desc');
 
         return $query->orderBy($column, $direction);
     }
