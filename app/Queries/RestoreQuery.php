@@ -45,11 +45,8 @@ class RestoreQuery
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
-        // The DatabaseServer model has an OrganizationScope global scope, so
-        // whereHas('targetServer') automatically filters to the current org.
         $query = Restore::query()
-            ->with(self::relationships())
-            ->whereHas('targetServer');
+            ->with(self::relationships());
 
         $query
             ->when($search, function (Builder $query) use ($search) {

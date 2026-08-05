@@ -280,3 +280,32 @@ test('without download-snapshots, opening the copy picker is forbidden', functio
         ->call('openDownloadModal', $snapshot->id)
         ->assertForbidden();
 });
+
+test('?job= from another org opens the logs modal when the user is a member', function () {
+    // Both Snapshot and Restore are organization-scoped, so BackupJobPolicy has
+    // to bypass those scopes to work out who owns a job. Without that, a member
+    // following a notification deeplink into their other org is denied.
+    $otherOrg = \App\Models\Organization::factory()->create(['name' => 'OtherOrg']);
+    attachUserToOrg($this->user, $otherOrg, 'member');
+
+    $current = app(\App\Services\CurrentOrganization::class);
+    $current->set($otherOrg);
+    $server = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
+    $job = Snapshot::factory()->forServer($server)->create()->job;
+    $current->set(\App\Models\Organization::default());
+
+    Livewire::withQueryParams(['job' => $job->id])
+        ->test(Index::class)
+        ->assertSet('showLogsModal', true)
+        ->assertSet('selectedJobId', $job->id);
+});
+
+test('?job= from another org is forbidden when the user is not a member', function () {
+    $otherOrg = \App\Models\Organization::factory()->create();
+    $server = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
+    $job = Snapshot::factory()->forServer($server)->create()->job;
+
+    Livewire::withQueryParams(['job' => $job->id])
+        ->test(Index::class)
+        ->assertForbidden();
+});
