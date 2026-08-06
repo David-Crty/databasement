@@ -128,6 +128,24 @@ class User extends Authenticatable
     }
 
     /**
+     * Whether the current request's authentication covers the given ability.
+     *
+     * True for session/web auth (no access token) or a token granted `['*']`
+     * or the explicit ability; false for a real, scoped-out
+     * PersonalAccessToken. Sanctum's TransientToken (first-party SPA/session
+     * requests) always reports can() === true, so it naturally passes through
+     * as covered without needing special-casing. Wrapped in optional() because
+     * currentAccessToken() is null at runtime for plain session/web auth even
+     * though Sanctum's generic-based PHPDoc claims it's always non-null.
+     */
+    public function tokenCovers(string $ability): bool
+    {
+        $token = optional($this->currentAccessToken());
+
+        return ($token->can('*') ?? true) || ($token->can($ability) ?? true);
+    }
+
+    /**
      * The name of the role assigned to the user in an organization (built-in or
      * custom), or null if none.
      */

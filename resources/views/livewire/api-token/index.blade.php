@@ -22,7 +22,14 @@
                 @foreach($tokens as $token)
                     <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
                         <div class="flex-1">
-                            <div class="font-medium">{{ $token->name }}</div>
+                            <div class="font-medium">
+                                {{ $token->name }}
+                                @if(in_array('*', $token->abilities ?? [], true))
+                                    <span class="badge badge-sm badge-ghost ml-1">{{ __('Full access') }}</span>
+                                @else
+                                    <span class="badge badge-sm badge-ghost ml-1">{{ trans_choice('{0} No abilities|{1} :count ability|[2,*] :count abilities', count($token->abilities ?? []), ['count' => count($token->abilities ?? [])]) }}</span>
+                                @endif
+                            </div>
                             <div class="text-sm text-base-content/70">
                                 @if($token->tokenable)
                                     <span class="font-medium">{{ $token->tokenable->name }}</span>
@@ -60,6 +67,20 @@
             placeholder="{{ __('e.g., CI/CD Pipeline, Backup Script') }}"
             hint="{{ __('A descriptive name to identify this token') }}"
         />
+
+        <label class="flex items-center gap-3 mt-4 cursor-pointer">
+            <x-toggle wire:model.live="fullAccess" class="toggle-primary" />
+            <span class="font-medium">{{ __('Full access') }}</span>
+        </label>
+
+        @unless($fullAccess)
+            <div class="mt-4">
+                <div class="text-sm text-base-content/70 mb-2">
+                    {{ __('Select the abilities this token is allowed to use.') }}
+                </div>
+                <x-ability-toggles :groups="$abilityGroups" model="tokenAbilities" />
+            </div>
+        @endunless
 
         <x-slot:actions>
             <x-button label="{{ __('Cancel') }}" wire:click="closeCreateModal" />

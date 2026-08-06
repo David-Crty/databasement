@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Livewire\ApiToken\Index;
 use App\Models\User;
 use Livewire\Livewire;
@@ -12,7 +13,8 @@ test('can create a new api token and use it to authenticate', function () {
         ->set('tokenName', 'Test Token')
         ->call('createToken');
 
-    expect($user->tokens()->where('name', 'Test Token')->exists())->toBeTrue();
+    $token = $user->tokens()->where('name', 'Test Token')->firstOrFail();
+    expect($token->can('*'))->toBeTrue();
 
     // Use the created token to call the API
     $plainTextToken = $component->get('newToken');
@@ -20,6 +22,38 @@ test('can create a new api token and use it to authenticate', function () {
     $this->withHeader('Authorization', 'Bearer '.$plainTextToken)
         ->getJson(route('api.database-servers.index'))
         ->assertOk();
+});
+
+test('can create a scoped api token limited to the selected abilities', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('tokenName', 'Scoped Token')
+        ->set('fullAccess', false)
+        ->set('tokenAbilities', [Ability::RunBackups->value, Ability::DownloadSnapshots->value])
+        ->call('createToken');
+
+    $token = $user->tokens()->where('name', 'Scoped Token')->firstOrFail();
+
+    expect($token->can('*'))->toBeFalse()
+        ->and($token->can(Ability::RunBackups->value))->toBeTrue()
+        ->and($token->can(Ability::DownloadSnapshots->value))->toBeTrue()
+        ->and($token->can(Ability::ManageVolumes->value))->toBeFalse();
+});
+
+test('creating a scoped token rejects abilities outside the catalogue', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('tokenName', 'Bad Token')
+        ->set('fullAccess', false)
+        ->set('tokenAbilities', ['not-a-real-ability'])
+        ->call('createToken')
+        ->assertHasErrors(['tokenAbilities.0']);
+
+    expect($user->tokens()->where('name', 'Bad Token')->exists())->toBeFalse();
 });
 
 test('can revoke an existing token', function () {

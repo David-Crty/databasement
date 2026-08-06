@@ -2,13 +2,13 @@
 
 namespace App\Livewire\ApiToken;
 
+use App\Enums\Ability;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Laravel\Sanctum\PersonalAccessToken;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 #[Title('API Tokens')]
@@ -16,8 +16,12 @@ class Index extends Component
 {
     use Toast;
 
-    #[Validate('required|string|max:255')]
     public string $tokenName = '';
+
+    public bool $fullAccess = true;
+
+    /** @var list<string> */
+    public array $tokenAbilities = [];
 
     public bool $showCreateModal = false;
 
@@ -39,17 +43,25 @@ class Index extends Component
     public function closeCreateModal(): void
     {
         $this->showCreateModal = false;
-        $this->tokenName = '';
+        $this->reset(['tokenName', 'fullAccess', 'tokenAbilities']);
     }
 
     public function createToken(): void
     {
-        $this->validate();
+        $this->validate([
+            'tokenName' => 'required|string|max:255',
+            'tokenAbilities' => 'array',
+            'tokenAbilities.*' => 'in:'.implode(',', Ability::names()),
+        ]);
 
-        $token = Auth::user()->createToken($this->tokenName);
+        $abilities = $this->fullAccess
+            ? ['*']
+            : array_values(array_intersect($this->tokenAbilities, Ability::names()));
+
+        $token = Auth::user()->createToken($this->tokenName, $abilities);
 
         $this->newToken = $token->plainTextToken;
-        $this->tokenName = '';
+        $this->reset(['tokenName', 'fullAccess', 'tokenAbilities']);
         $this->showCreateModal = false;
         $this->showTokenModal = true;
     }
@@ -116,6 +128,7 @@ class Index extends Component
 
         return view('livewire.api-token.index', [
             'tokens' => $query->get(),
+            'abilityGroups' => Ability::grouped(),
         ]);
     }
 }

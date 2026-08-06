@@ -165,9 +165,19 @@ class AppServiceProvider extends ServiceProvider
         // policy abilities (create/update/delete/...) keep their own super-admin
         // handling. A Gate::before that returns null defers to Bouncer's grant
         // resolution — unlike a Gate::define, which would shadow it.
+        //
+        // This also enforces Sanctum token scoping for the catalogue: a real,
+        // scoped-out PersonalAccessToken is denied outright before Bouncer's
+        // role/direct-ability resolution ever runs, without touching the 12
+        // individual policy files. Session auth and legacy `['*']` tokens are
+        // unaffected (User::tokenCovers()).
         Gate::before(function (?User $user, string $ability): ?bool {
             if ($user?->isSuperAdmin() && in_array($ability, Ability::names(), true)) {
                 return true;
+            }
+
+            if ($user !== null && in_array($ability, Ability::names(), true) && ! $user->tokenCovers($ability)) {
+                return false;
             }
 
             return null;
