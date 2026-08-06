@@ -132,10 +132,6 @@ jobs:
       - name: Run Tests
         run: php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml
 
-      - name: Save PR metadata
-        if: ${{ always() && github.event_name == 'pull_request' }}
-        run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
-
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v7
@@ -144,6 +140,5 @@ jobs:
           path: |
             coverage.xml
             junit.xml
-            pr-number.txt
           retention-days: 1
           if-no-files-found: ignore

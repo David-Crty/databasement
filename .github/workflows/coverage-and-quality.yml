@@ -7,7 +7,8 @@ on:
 
 permissions:
   contents: read
-  actions: read   # needed to download artifacts from the triggering run
+  actions: read         # download artifacts from the triggering run
+  pull-requests: read   # resolve the PR behind a fork's head branch
 
 jobs:
   upload:
@@ -16,18 +17,35 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.conclusion != 'skipped' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source (read-only, for Codecov path resolution)
+      - name: Checkout source (read-only, for Codecov and SonarQube)
         # Codecov's CLI needs the source tree on disk to build its file
         # network and apply path fixups against the paths in coverage.xml.
         # SonarQube also needs the source tree (with full history) for
-        # relevant analysis. Safe in this secret-bearing context because we
-        # never execute the checked-out code — we only let the tools read it.
+        # relevant analysis. `allow-unsafe-pr-checkout` opts out of the guard
+        # checkout v7.0.1 added, which otherwise fails every fork PR: that
+        # guard targets *executing* fork code, and this job only reads it.
         uses: actions/checkout@v7
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
           persist-credentials: false
+          allow-unsafe-pr-checkout: true
+
+      - name: Pin scanner config to the base repo
+        # Fork-controlled after the checkout, and the scanner honours what it
+        # finds — sonar.host.url would redirect SONAR_TOKEN. Fail loudly if the
+        # fetch fails rather than let the scan run on the fork's version.
+        if: ${{ github.event.workflow_run.head_repository.full_name != github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_SHA: ${{ github.sha }}   # workflow_run: tip of this repo's default branch
+        run: |
+          set -euo pipefail
+          # Stage via temp file so a failed fetch can't leave a truncated config.
+          gh api "repos/${{ github.repository }}/contents/sonar-project.properties?ref=$BASE_SHA" \
+            -H "Accept: application/vnd.github.raw" > "$RUNNER_TEMP/sonar.properties"
+          mv "$RUNNER_TEMP/sonar.properties" sonar-project.properties
 
       - name: Download coverage artifact
         # Producer uses `if-no-files-found: ignore`, so the artifact may be
@@ -40,20 +58,33 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read PR metadata
-        id: pr
+      - name: Resolve upload metadata
+        id: meta
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_OWNER: ${{ github.event.workflow_run.head_repository.owner.login }}
+          IS_FORK: ${{ github.event.workflow_run.head_repository.full_name != github.repository }}
+          EVENT: ${{ github.event.workflow_run.event }}
         run: |
-          if [ -f pr-number.txt ]; then
-            number=$(cat pr-number.txt)
-            echo "number=$number" >> "$GITHUB_OUTPUT"
-            # Resolve the PR's base branch for SonarQube PR analysis. The
-            # workflow_run payload doesn't reliably carry it, so query the API
-            # and fall back to the default branch if anything goes wrong.
-            base=$(gh pr view "$number" --repo "${{ github.repository }}" --json baseRefName -q .baseRefName 2>/dev/null || true)
-            echo "base=${base:-main}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+
+          # Codecov labels fork branches `owner:branch`; a bare name would
+          # register a phantom branch on this repo.
+          if [ "$IS_FORK" = true ]; then
+            echo "branch=$HEAD_OWNER:$HEAD_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "branch=$HEAD_BRANCH" >> "$GITHUB_OUTPUT"
           fi
+
+          [ "$EVENT" = pull_request ] || exit 0
+
+          # Look the PR up by head ref against *this* repo: workflow_run carries
+          # no pull_requests for forks, commits/{sha}/pulls doesn't resolve a
+          # fork head, and the artifact is fork-writable so it can't be trusted.
+          gh api "repos/${{ github.repository }}/pulls" -X GET \
+            -f state=all -f "head=$HEAD_OWNER:$HEAD_BRANCH" \
+            --jq '.[0] // empty | "number=\(.number)", "base=\(.base.ref)"' >> "$GITHUB_OUTPUT"
 
       - name: Upload coverage to Codecov
         if: hashFiles('coverage.xml') != ''
@@ -63,8 +94,8 @@ jobs:
           report_type: coverage
           files: coverage.xml
           override_commit: ${{ github.event.workflow_run.head_sha }}
-          override_branch: ${{ github.event.workflow_run.head_branch }}
-          override_pr: ${{ steps.pr.outputs.number }}
+          override_branch: ${{ steps.meta.outputs.branch }}
+          override_pr: ${{ steps.meta.outputs.number }}
 
       - name: Upload test results to Codecov
         if: hashFiles('junit.xml') != ''
@@ -74,8 +105,8 @@ jobs:
           report_type: test_results
           files: junit.xml
           override_commit: ${{ github.event.workflow_run.head_sha }}
-          override_branch: ${{ github.event.workflow_run.head_branch }}
-          override_pr: ${{ steps.pr.outputs.number }}
+          override_branch: ${{ steps.meta.outputs.branch }}
+          override_pr: ${{ steps.meta.outputs.number }}
 
       - name: SonarQube Scan (main)
         # Analyse the main branch, using the coverage.xml and junit.xml
@@ -95,9 +126,9 @@ jobs:
       - name: SonarQube Scan (pull request)
         # Analyse pull requests so SonarQube decorates the PR with its Quality
         # Gate and inline issues. The `pull_requests` payload is unreliable in
-        # workflow_run, so we drive this off the PR number from the artifact and
-        # the base branch resolved above.
-        if: ${{ github.event.workflow_run.event == 'pull_request' && steps.pr.outputs.number != '' && hashFiles('coverage.xml') != '' }}
+        # workflow_run, so we drive this off the PR number and base branch
+        # resolved above.
+        if: ${{ github.event.workflow_run.event == 'pull_request' && steps.meta.outputs.number != '' && hashFiles('coverage.xml') != '' }}
         uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -105,7 +136,7 @@ jobs:
           # PR analysis params take precedence over branch analysis. Pin the
           # revision to the triggering commit since we run detached.
           args: >-
-            -Dsonar.pullrequest.key=${{ steps.pr.outputs.number }}
+            -Dsonar.pullrequest.key=${{ steps.meta.outputs.number }}
             -Dsonar.pullrequest.branch=${{ github.event.workflow_run.head_branch }}
-            -Dsonar.pullrequest.base=${{ steps.pr.outputs.base }}
+            -Dsonar.pullrequest.base=${{ steps.meta.outputs.base }}
             -Dsonar.scm.revision=${{ github.event.workflow_run.head_sha }}
