@@ -4,7 +4,6 @@ namespace App\Http\Requests\Api\V1;
 
 use App\Enums\DatabaseSelectionMode;
 use App\Enums\DatabaseType;
-use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
@@ -139,12 +138,13 @@ class SaveDatabaseServerRequest extends FormRequest
                 return;
             }
 
-            $isAgent = $this->has('agent_id')
-                ? $this->filled('agent_id')
-                : ($existing?->agent_id !== null);
+            $agentId = $this->has('agent_id')
+                ? ($this->input('agent_id') ?: null)
+                : $existing?->agent_id;
+            $isAgent = $agentId !== null;
 
             foreach ($backups as $index => $backup) {
-                $this->validateBackupEntry($validator, $index, is_array($backup) ? $backup : [], $isAgent);
+                $this->validateBackupEntry($validator, $index, is_array($backup) ? $backup : [], $isAgent, $agentId);
             }
         });
     }
@@ -154,12 +154,21 @@ class SaveDatabaseServerRequest extends FormRequest
      *
      * @param  array<string, mixed>  $backup
      */
-    private function validateBackupEntry(Validator $validator, int $index, array $backup, bool $isAgent): void
+    private function validateBackupEntry(Validator $validator, int $index, array $backup, bool $isAgent, ?string $agentId = null): void
     {
-        if ($isAgent) {
-            $volumeIds = array_filter((array) ($backup['volume_ids'] ?? []));
-            if ($volumeIds !== [] && Volume::whereIn('id', $volumeIds)->where('type', VolumeType::LOCAL->value)->exists()) {
-                $validator->errors()->add("backups.{$index}.volume_ids", 'Local volumes cannot be used with remote agents.');
+        $volumeIds = array_filter((array) ($backup['volume_ids'] ?? []));
+
+        if ($volumeIds !== []) {
+            $unreachable = Volume::whereIn('id', $volumeIds)->get()
+                ->reject(fn (Volume $volume) => $volume->isReachableBy($isAgent, $agentId));
+
+            if ($unreachable->isNotEmpty()) {
+                $validator->errors()->add(
+                    "backups.{$index}.volume_ids",
+                    $unreachable->first()->isRemote()
+                        ? 'This volume is only reachable from its own agent.'
+                        : 'Local volumes cannot be used with remote agents.',
+                );
             }
         }
 

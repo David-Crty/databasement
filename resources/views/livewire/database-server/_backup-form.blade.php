@@ -322,7 +322,12 @@
                 </span>
             </div>
 
+            {{-- The component hands its options to Alpine inside x-data, which is
+                 evaluated once. Livewire would morph the node and leave the stale
+                 list in place, so key it on the reachable set to force a rebuild
+                 whenever the server's agent changes. --}}
             <x-choices-offline
+                wire:key="volume-picker-{{ $index }}-{{ $form->use_agent ? ($form->agent_id ?: 'unassigned') : 'no-agent' }}"
                 wire:model.live="form.backups.{{ $index }}.volume_ids"
                 :label="__('Storage Volumes')"
                 :options="$volumeOptions"
@@ -332,6 +337,22 @@
                 searchable
                 required
             >
+                {{-- Badge the volumes an agent owns, so the destination makes it
+                     obvious which machine will hold the backup. --}}
+                @scope('item', $option)
+                    <x-list-item :item="$option" value="name" no-separator no-hover>
+                        <x-slot:actions>
+                            @if($option['agent_name'])
+                                <x-badge
+                                    :value="$option['agent_name']"
+                                    icon="o-cpu-chip"
+                                    class="badge-ghost badge-sm gap-1 whitespace-nowrap"
+                                />
+                            @endif
+                        </x-slot:actions>
+                    </x-list-item>
+                @endscope
+
                 <x-slot:append>
                     <x-button
                         wire:click="refreshVolumes"
@@ -349,6 +370,18 @@
                     />
                 </x-slot:append>
             </x-choices-offline>
+
+            {{-- The list only offers volumes this server can actually write to,
+                 so an empty list needs to explain itself. --}}
+            @if($volumeOptions === [])
+                <p class="text-xs text-warning mt-1">
+                    @if($form->use_agent)
+                        {{ __('No volume is reachable from this agent. Create one and mark it as reachable from the agent.') }}
+                    @else
+                        {{ __('No volume is available. Volumes bound to an agent are only offered to servers using that agent.') }}
+                    @endif
+                </p>
+            @endif
 
             <div>
                 <x-input

@@ -293,26 +293,45 @@ class Form extends \Livewire\Form
             $this->agent_id = null;
         }
 
-        // Clear volume selection(s) if they were local (incompatible with agents)
-        if ($this->use_agent) {
-            foreach ($this->backups as $index => $backup) {
-                $volumeIds = array_values(array_filter((array) ($backup['volume_ids'] ?? [])));
-                if ($volumeIds === []) {
-                    continue;
-                }
-
-                $localIds = \App\Models\Volume::whereIn('id', $volumeIds)
-                    ->where('type', \App\Enums\VolumeType::LOCAL->value)
-                    ->pluck('id')
-                    ->all();
-
-                if ($localIds !== []) {
-                    $this->backups[$index]['volume_ids'] = array_values(array_diff($volumeIds, $localIds));
-                }
-            }
-        }
+        $this->dropUnreachableVolumes();
 
         $this->resetConnectionTestState();
+    }
+
+    /**
+     * Called when agent_id changes - a different agent reaches different volumes.
+     */
+    public function updatedAgentId(): void
+    {
+        $this->dropUnreachableVolumes();
+    }
+
+    /**
+     * Drop selected volumes the server's agent could not write to.
+     *
+     * A local volume is the app's own disk, invisible to an agent — unless it
+     * is bound to that very agent, in which case it is a path on the agent's
+     * machine and perfectly valid. A volume bound to a different agent is never
+     * reachable.
+     */
+    private function dropUnreachableVolumes(): void
+    {
+        foreach ($this->backups as $index => $backup) {
+            $volumeIds = array_values(array_filter((array) ($backup['volume_ids'] ?? [])));
+            if ($volumeIds === []) {
+                continue;
+            }
+
+            $unreachable = \App\Models\Volume::whereIn('id', $volumeIds)
+                ->get()
+                ->reject(fn (\App\Models\Volume $volume) => $volume->isReachableBy($this->use_agent, $this->agent_id))
+                ->pluck('id')
+                ->all();
+
+            if ($unreachable !== []) {
+                $this->backups[$index]['volume_ids'] = array_values(array_diff($volumeIds, $unreachable));
+            }
+        }
     }
 
     /**
@@ -800,23 +819,25 @@ class Form extends \Livewire\Form
     }
 
     /**
-     * Get volume options for select
+     * Volume options for the destination picker, limited to what this server
+     * can actually write to: the volumes bound to its agent, or — for a server
+     * without an agent — only the volumes no agent owns.
      *
-     * @return array<array{id: string, name: string, disabled: bool}>
+     * `agent_name` is null for volumes this app reaches directly; the picker
+     * badges the others with their owner.
+     *
+     * @return array<array{id: string, name: string, agent_name: string|null}>
      */
     public function getVolumeOptions(): array
     {
-        return $this->getAllVolumes()->map(function ($v) {
-            $isLocalWithAgent = $this->use_agent && $v->getVolumeType() === \App\Enums\VolumeType::LOCAL;
-
-            return [
-                'id' => $v->id,
-                'name' => $isLocalWithAgent
-                    ? "{$v->name} ({$v->type}) — ".__('not available for remote agents')
-                    : "{$v->name} ({$v->type})",
-                'disabled' => $isLocalWithAgent,
-            ];
-        })->toArray();
+        return array_values($this->getAllVolumes()
+            ->filter(fn (\App\Models\Volume $volume) => $volume->isReachableBy($this->use_agent, $this->agent_id))
+            ->map(fn (\App\Models\Volume $volume) => [
+                'id' => $volume->id,
+                'name' => "{$volume->name} ({$volume->type})",
+                'agent_name' => $volume->isRemote() ? $volume->agent->name : null,
+            ])
+            ->all());
     }
 
     /**
@@ -843,7 +864,7 @@ class Form extends \Livewire\Form
             foreach ($this->backups as $index => $entry) {
                 $rules = array_merge(
                     $rules,
-                    BackupForm::rulesFor($index, $entry, $serverType, $this->hasAgent()),
+                    BackupForm::rulesFor($index, $entry, $serverType, $this->use_agent, $this->agent_id),
                 );
             }
         }

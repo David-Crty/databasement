@@ -375,7 +375,7 @@ test('mongodb dump command preview masks the uri password cleanly', function () 
         ->and($preview)->not->toContain('********');
 });
 
-test('local volume options reflect use_agent state', function (bool $useAgent, bool $expectedDisabled) {
+test('local volume options reflect use_agent state', function (bool $useAgent, bool $expectedOffered) {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $localVolume = Volume::factory()->local()->create(['name' => 'Local Vol']);
 
@@ -384,13 +384,39 @@ test('local volume options reflect use_agent state', function (bool $useAgent, b
         ->set('form.use_agent', $useAgent);
 
     $options = $component->viewData('form')->getVolumeOptions();
-    $local = collect($options)->firstWhere('id', $localVolume->id);
 
-    expect($local['disabled'])->toBe($expectedDisabled);
+    // Unreachable volumes are not offered at all, rather than shown greyed out.
+    expect(collect($options)->contains('id', $localVolume->id))->toBe($expectedOffered);
 })->with([
-    'disabled when use_agent is true' => [true, true],
-    'enabled when use_agent is false' => [false, false],
+    'hidden when use_agent is true' => [true, false],
+    'offered when use_agent is false' => [false, true],
 ]);
+
+test('the picker only offers volumes the server can reach', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create();
+    $otherAgent = Agent::factory()->create();
+
+    $ownVolume = Volume::factory()->local()->create(['name' => 'Agent Disk', 'agent_id' => $agent->id]);
+    $otherVolume = Volume::factory()->s3()->create(['name' => 'Other Storage', 'agent_id' => $otherAgent->id]);
+    $unboundVolume = Volume::factory()->s3()->create(['name' => 'Shared S3']);
+
+    $component = Livewire::actingAs($user)->test(Create::class);
+
+    // Without an agent: only volumes no agent owns.
+    $ids = collect($component->viewData('form')->getVolumeOptions())->pluck('id');
+    expect($ids)->toContain($unboundVolume->id)
+        ->and($ids)->not->toContain($ownVolume->id)
+        ->and($ids)->not->toContain($otherVolume->id);
+
+    // Through agent X: its own volumes, plus the ones no agent owns.
+    $component->set('form.use_agent', true)->set('form.agent_id', $agent->id);
+
+    $ids = collect($component->viewData('form')->getVolumeOptions())->pluck('id');
+    expect($ids)->toContain($ownVolume->id)
+        ->and($ids)->toContain($unboundVolume->id)
+        ->and($ids)->not->toContain($otherVolume->id);
+});
 
 test('toggling use_agent clears local volume but keeps remote volume', function (string $volumeType, string $expectedVolumeId) {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
@@ -613,4 +639,101 @@ test('without manage-database-servers, the create screen is forbidden', function
     Livewire::actingAs($user)
         ->test(Create::class)
         ->assertForbidden();
+});
+
+test('a local volume bound to the same agent is usable as a backup destination', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create();
+    // A local volume bound to an agent is a path on the agent's machine, not
+    // this app's disk, so it is a legitimate destination for that agent.
+    $volume = Volume::factory()->local()->create(['name' => 'Agent Disk', 'agent_id' => $agent->id]);
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Agent Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', $agent->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id);
+
+    // The selection survives the agent toggle, and the option is not greyed out.
+    expect(collect($component->viewData('form')->getVolumeOptions())->contains('id', $volume->id))->toBeTrue();
+
+    $component->call('save')->assertHasNoErrors();
+
+    $this->assertDatabaseHas('database_servers', ['name' => 'Agent Server', 'agent_id' => $agent->id]);
+});
+
+test('a volume bound to another agent is rejected as a backup destination', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create();
+    $otherAgent = Agent::factory()->create();
+    $volume = Volume::factory()->s3()->create(['name' => 'Other Storage', 'agent_id' => $otherAgent->id]);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Agent Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', $agent->id)
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->call('save')
+        ->assertHasErrors(['form.backups.0.volume_ids.0']);
+
+    $this->assertDatabaseMissing('database_servers', ['name' => 'Agent Server']);
+});
+
+test('the rendered destination picker never lists another agent volume', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create();
+    $otherAgent = Agent::factory()->create();
+
+    Volume::factory()->local()->create(['name' => 'ReachableAgentDisk', 'agent_id' => $agent->id]);
+    Volume::factory()->s3()->create(['name' => 'ForeignAgentStorage', 'agent_id' => $otherAgent->id]);
+    Volume::factory()->local()->create(['name' => 'AppOwnDisk']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Agent Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', $agent->id)
+        ->assertSee('ReachableAgentDisk')
+        ->assertDontSee('ForeignAgentStorage')
+        ->assertDontSee('AppOwnDisk');
+});
+
+test('the destination picker badges volumes with their owning agent', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create(['name' => 'WarehouseAgent']);
+
+    $agentVolume = Volume::factory()->local()->create(['name' => 'Agent Disk', 'agent_id' => $agent->id]);
+    $sharedVolume = Volume::factory()->s3()->create(['name' => 'Shared S3']);
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', $agent->id);
+
+    $options = collect($component->viewData('form')->getVolumeOptions());
+
+    expect($options->firstWhere('id', $agentVolume->id)['agent_name'])->toBe('WarehouseAgent')
+        ->and($options->firstWhere('id', $sharedVolume->id)['agent_name'])->toBeNull();
+
+    // The owner reaches the rendered picker, not just the options array.
+    $component->assertSee('WarehouseAgent');
 });
