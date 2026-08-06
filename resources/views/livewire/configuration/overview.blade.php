@@ -60,9 +60,16 @@
 
             @scope('cell_actions', $server)
             <div class="flex justify-end">
-                <x-button icon="o-arrow-top-right-on-square" class="btn-ghost btn-sm"
-                          wire:click="viewServer('{{ $server->id }}')" spinner
-                          :tooltip-left="__('View')" />
+                <x-floating-dropdown right>
+                    <x-slot:trigger>
+                        <x-button icon="o-ellipsis-vertical" class="btn-ghost btn-sm" :tooltip-left="__('Actions')" />
+                    </x-slot:trigger>
+
+                    <x-menu-item :title="__('View server')" icon="o-server-stack"
+                                 wire:click="viewServer('{{ $server->id }}')" spinner />
+                    <x-menu-item :title="__('View jobs')" icon="o-archive-box"
+                                 wire:click="viewJobs('{{ $server->id }}')" spinner />
+                </x-floating-dropdown>
             </div>
             @endscope
         </x-table>

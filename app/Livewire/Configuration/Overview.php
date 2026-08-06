@@ -75,6 +75,24 @@ class Overview extends Component
      */
     public function viewServer(string $serverId): mixed
     {
+        $server = $this->switchToServerOrg($serverId);
+
+        return $this->redirect(route('database-servers.show', $server), navigate: true);
+    }
+
+    /**
+     * Same org-switch as {@see viewServer()}, but jumps straight to the
+     * server's backup jobs/snapshots instead of its detail page.
+     */
+    public function viewJobs(string $serverId): mixed
+    {
+        $server = $this->switchToServerOrg($serverId);
+
+        return $this->redirect(route('snapshots.index', ['serverFilter' => $server->id]), navigate: true);
+    }
+
+    private function switchToServerOrg(string $serverId): DatabaseServer
+    {
         $this->authorize('viewAnyGlobal', DatabaseServer::class);
 
         $server = DatabaseServer::withoutGlobalScope(OrganizationScope::class)
@@ -83,7 +101,7 @@ class Overview extends Component
 
         app(CurrentOrganization::class)->switchTo($server->organization);
 
-        return $this->redirect(route('database-servers.show', $server), navigate: true);
+        return $server;
     }
 
     public function render(): View

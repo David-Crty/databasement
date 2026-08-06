@@ -61,3 +61,16 @@ test('viewing a server switches current organization context and redirects', fun
 
     expect(app(CurrentOrganization::class)->id())->toBe($org->id);
 });
+
+test('viewing a server\'s jobs switches current organization context and redirects to snapshots', function () {
+    $admin = User::factory()->superAdmin()->create();
+    $org = Organization::factory()->create();
+    $server = DatabaseServer::factory()->create(['organization_id' => $org->id]);
+
+    Livewire::actingAs($admin)
+        ->test(Overview::class)
+        ->call('viewJobs', $server->id)
+        ->assertRedirect(route('snapshots.index', ['serverFilter' => $server->id]));
+
+    expect(app(CurrentOrganization::class)->id())->toBe($org->id);
+});
