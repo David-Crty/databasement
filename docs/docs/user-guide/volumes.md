@@ -153,6 +153,10 @@ Before saving a volume, use the **Test Connection** button to verify:
 
 The test creates a small temporary file, reads it back to verify integrity, then deletes it.
 
+### Volumes only an agent can reach
+
+If the storage lives inside a private network, Databasement itself cannot probe it. Enable **Volume is only reachable from an agent** and choose the agent: the same test is then queued for that agent, which runs it on its own network and reports the outcome back. The button waits while the agent picks the job up, so allow a few seconds — the agent only sees it on its next poll. See [Remote Agents](./agents.md) for what else changes for these volumes.
+
 ## Volume Immutability
 
 Once a volume has backup snapshots associated with it, the storage configuration becomes read-only. This protects backup integrity by ensuring snapshots always point to their original storage location.
