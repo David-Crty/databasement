@@ -283,10 +283,12 @@ test('without download-snapshots, opening the copy picker is forbidden', functio
         ->assertForbidden();
 });
 
-test('can add a comment to a snapshot', function () {
+test('edit-snapshots allows adding a comment to a snapshot', function () {
+    $user = User::factory()->withAbilities([Ability::EditSnapshots->value])->create();
     $snapshot = Snapshot::factory()->withFile()->create();
 
-    Livewire::test(Index::class)
+    Livewire::actingAs($user)
+        ->test(Index::class)
         ->call('openCommentModal', $snapshot->id)
         ->assertSet('showCommentModal', true)
         ->assertSet('editComment', '')
