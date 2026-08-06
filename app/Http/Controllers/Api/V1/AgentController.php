@@ -386,7 +386,11 @@ class AgentController extends Controller
         }
 
         $validated = $request->validate([
-            'targets' => 'required|array|min:1|max:100',
+            // One target per snapshot copy, and nothing caps how many volumes a
+            // backup writes to. Bounded only to keep the payload sane: a lower
+            // limit would reject a report for files the agent already deleted,
+            // leaving a record whose archives are gone.
+            'targets' => 'required|array|min:1|max:1000',
             'targets.*.volume_id' => 'nullable|string|max:26',
             'targets.*.status' => 'required|string|in:deleted,failed',
             'targets.*.error' => 'nullable|string|max:10000',

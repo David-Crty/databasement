@@ -737,3 +737,54 @@ test('the destination picker badges volumes with their owning agent', function (
     // The owner reaches the rendered picker, not just the options array.
     $component->assertSee('WarehouseAgent');
 });
+
+test('agent_id is ignored when the remote agent toggle is off', function () {
+    // The volumes are validated against "no agent", so the server must not be
+    // persisted with one: otherwise it would end up agent-backed while
+    // pointing at storage only the app can reach.
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create();
+    $localVolume = Volume::factory()->local()->create(['name' => 'App Disk']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Mismatched Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.use_agent', false)
+        ->set('form.agent_id', $agent->id)
+        ->set('form.backups.0.volume_ids', [$localVolume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $this->assertDatabaseHas('database_servers', [
+        'name' => 'Mismatched Server',
+        'agent_id' => null,
+    ]);
+});
+
+test('an agent must be picked when the remote agent toggle is on', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->s3()->create(['name' => 'Shared S3']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Agentless Agent Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.use_agent', true)
+        ->set('form.agent_id', null)
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->call('save')
+        ->assertHasErrors('form.agent_id');
+
+    $this->assertDatabaseMissing('database_servers', ['name' => 'Agentless Agent Server']);
+});

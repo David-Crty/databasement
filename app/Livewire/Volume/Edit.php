@@ -57,6 +57,10 @@ class Edit extends Component
      */
     public function pollConnectionTest(): void
     {
+        // A Livewire action is its own request, so mount()'s check does not
+        // carry over to it.
+        $this->authorize('viewForm', $this->form->volume);
+
         $this->form->pollConnectionTest();
     }
 

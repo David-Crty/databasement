@@ -162,11 +162,13 @@ class SaveDatabaseServerRequest extends FormRequest
             $unreachable = Volume::whereIn('id', $volumeIds)->get()
                 ->reject(fn (Volume $volume) => $volume->isReachableBy($isAgent, $agentId));
 
-            if ($unreachable->isNotEmpty()) {
+            $offending = $unreachable->first();
+
+            if ($offending !== null) {
                 $validator->errors()->add(
                     "backups.{$index}.volume_ids",
-                    $unreachable->first()->isRemote()
-                        ? 'This volume is only reachable from its own agent.'
+                    $offending->isRemote()
+                        ? "Volume '{$offending->name}' is only reachable from agent '{$offending->agent->name}'."
                         : 'Local volumes cannot be used with remote agents.',
                 );
             }

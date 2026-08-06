@@ -93,30 +93,6 @@ class AgentJobFactory extends Factory
     }
 
     /**
-     * Configure the job as a cleanup job removing one snapshot copy.
-     */
-    public function cleanup(?Volume $volume = null): static
-    {
-        return $this->state(function (array $attributes) use ($volume) {
-            $volume ??= Volume::factory()->create();
-
-            return [
-                'type' => AgentJob::TYPE_CLEANUP,
-                'payload' => [
-                    'type' => 'cleanup',
-                    'server_name' => 'Test Server',
-                    'snapshot_id' => $attributes['snapshot_id'] ?? null,
-                    'targets' => [[
-                        'volume_id' => $volume->id,
-                        'filename' => 'backup.sql.gz',
-                        'volume' => VolumeConfig::fromVolume($volume)->toPayload(),
-                    ]],
-                ],
-            ];
-        });
-    }
-
-    /**
      * Configure the job as a volume connection test. These target an agent
      * directly, so they carry no database server and no snapshot.
      */

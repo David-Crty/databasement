@@ -47,10 +47,16 @@ readonly class RemoteVolumeTester
     }
 
     /**
-     * True when the agent has had long enough to pick the job up and did not.
+     * True when the agent has had long enough to answer and did not.
+     *
+     * Measured from the last sign of life on the job rather than from creation,
+     * so a probe the agent has already claimed and is still running (an SFTP
+     * host that is slow to time out, say) is not abandoned mid-flight.
      */
     public function hasTimedOut(AgentJob $job): bool
     {
-        return $job->created_at->addSeconds((int) config('agent.volume_test_timeout'))->isPast();
+        $since = $job->lease_expires_at ?? $job->claimed_at ?? $job->created_at;
+
+        return $since->addSeconds((int) config('agent.volume_test_timeout'))->isPast();
     }
 }

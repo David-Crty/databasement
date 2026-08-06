@@ -48,12 +48,17 @@ class DeleteSnapshotAction
         }
 
         // A previous run may already have delegated this snapshot; retention
-        // re-examines it every run while the record is still there.
-        if ($this->hasPendingCleanupJob($snapshot)) {
-            return false;
-        }
-
+        // re-examines it every run while the record is still there. The check
+        // sits inside the transaction, behind a lock on the snapshot row, so a
+        // retention run and a user deletion racing each other cannot both pass
+        // it and send two agents after the same files.
         DB::transaction(function () use ($snapshot, $files): void {
+            Snapshot::query()->whereKey($snapshot->id)->lockForUpdate()->first();
+
+            if ($this->hasPendingCleanupJob($snapshot)) {
+                return;
+            }
+
             foreach ($files as $file) {
                 $file->update([
                     'status' => SnapshotFileStatus::Deleting,

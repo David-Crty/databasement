@@ -109,6 +109,14 @@ class Form extends \Livewire\Form
 
     public ?string $agent_id = null;
 
+    /**
+     * Per-request cache for the volume list. Private, so Livewire never
+     * serializes it and each request rebuilds it from the database.
+     *
+     * @var \Illuminate\Support\Collection<int, \App\Models\Volume>|null
+     */
+    private ?\Illuminate\Support\Collection $volumeCache = null;
+
     public bool $backups_enabled = true;
 
     // Notification preferences (server-level)
@@ -815,7 +823,10 @@ class Form extends \Livewire\Form
      */
     public function getAllVolumes(): \Illuminate\Support\Collection
     {
-        return \App\Models\Volume::orderBy('name')->get();
+        // The picker labels agent-owned volumes with their owner, so eager-load
+        // the relation instead of querying once per volume while rendering.
+        // Memoized because a single render asks for the list several times.
+        return $this->volumeCache ??= \App\Models\Volume::with('agent')->orderBy('name')->get();
     }
 
     /**
@@ -838,6 +849,19 @@ class Form extends \Livewire\Form
                 'agent_name' => $volume->isRemote() ? $volume->agent->name : null,
             ])
             ->all());
+    }
+
+    /**
+     * Identity of the current option set, for the picker's wire:key.
+     *
+     * The component hands its options to Alpine inside x-data, evaluated once,
+     * so Livewire morphing the node would leave a stale list on screen. Keying
+     * on the options themselves covers every way they can change: the agent
+     * selection, and the refresh button after a volume is added elsewhere.
+     */
+    public function getVolumeOptionsKey(): string
+    {
+        return substr(md5((string) json_encode($this->getVolumeOptions())), 0, 12);
     }
 
     /**
@@ -903,7 +927,12 @@ class Form extends \Livewire\Form
                 DatabaseType::cases()
             ))],
             'description' => 'nullable|string|max:1000',
-            'agent_id' => ['nullable', Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
+            // Required with the toggle on, so the volumes validated against an
+            // agent are not saved onto a server that ends up without one.
+            'agent_id' => [
+                $this->use_agent ? 'required' : 'nullable',
+                Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id()),
+            ],
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
@@ -984,7 +1013,23 @@ class Form extends \Livewire\Form
             $validated['notification_channel_ids'],
         );
 
+        // The toggle is the single source of truth for whether the server is
+        // agent-backed. Persisting a stale agent_id behind a disabled toggle
+        // would save an agent-backed server whose volumes were validated as if
+        // it had none.
+        $validated['agent_id'] = $this->resolvedAgentId();
+
         return $validated;
+    }
+
+    /**
+     * The agent this server is routed through, or null when the app reaches the
+     * database itself. Every reachability and persistence decision reads this
+     * rather than the raw property pair.
+     */
+    private function resolvedAgentId(): ?string
+    {
+        return $this->use_agent ? ($this->agent_id ?: null) : null;
     }
 
     /**

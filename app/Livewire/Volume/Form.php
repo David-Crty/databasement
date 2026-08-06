@@ -13,6 +13,7 @@ use App\Services\VolumeConnectionTester;
 use App\Support\Formatters;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class Form extends \Livewire\Form
@@ -64,6 +65,9 @@ class Form extends \Livewire\Form
     public bool $testingConnection = false;
 
     // Id of the agent job carrying a remote test, while it is in flight.
+    // Locked because AgentJob carries no organization scope: a client-writable
+    // id would let the poll read another tenant's job error back to the form.
+    #[Locked]
     public ?string $connectionTestJobId = null;
 
     public function __construct(
@@ -385,7 +389,15 @@ class Form extends \Livewire\Form
             return;
         }
 
-        $job = AgentJob::find($this->connectionTestJobId);
+        // Narrowed to this form's own test: AgentJob has no organization scope,
+        // so a bare find() would be one tampered id away from reading another
+        // tenant's job. The id is #[Locked] too — this is the second lock.
+        $job = AgentJob::query()
+            ->whereKey($this->connectionTestJobId)
+            ->where('type', AgentJob::TYPE_VOLUME_TEST)
+            ->where('agent_id', $this->agent_id)
+            ->first();
+
         $tester = app(RemoteVolumeTester::class);
 
         if ($job === null) {

@@ -324,10 +324,10 @@
 
             {{-- The component hands its options to Alpine inside x-data, which is
                  evaluated once. Livewire would morph the node and leave the stale
-                 list in place, so key it on the reachable set to force a rebuild
-                 whenever the server's agent changes. --}}
+                 list in place, so key it on the option set to force a rebuild
+                 whenever it changes. --}}
             <x-choices-offline
-                wire:key="volume-picker-{{ $index }}-{{ $form->use_agent ? ($form->agent_id ?: 'unassigned') : 'no-agent' }}"
+                wire:key="volume-picker-{{ $index }}-{{ $volumeOptionsKey }}"
                 wire:model.live="form.backups.{{ $index }}.volume_ids"
                 :label="__('Storage Volumes')"
                 :options="$volumeOptions"

@@ -6,6 +6,7 @@ use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\User;
 use App\Models\Volume;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -219,4 +220,52 @@ describe('the volume-tested endpoint', function () {
             ->postJson("/api/v1/agent/jobs/{$job->id}/volume-tested", ['success' => true])
             ->assertStatus(422);
     });
+});
+
+describe('isolating the polled job', function () {
+    test('the poll ignores a job belonging to another agent', function () {
+        // AgentJob carries no organization scope, so the poll must not read
+        // back any job it is handed: only its own test on its own agent.
+        $foreign = AgentJob::factory()->volumeTest()->create([
+            'agent_id' => Agent::factory()->create()->id,
+            'status' => AgentJob::STATUS_FAILED,
+            'error_message' => 'another tenant private error',
+        ]);
+
+        $component = Livewire::actingAs($this->user)
+            ->test(Create::class)
+            ->set(sftpFormState($this->agent))
+            ->call('testConnection');
+
+        // Simulate a tampered id reaching the form despite #[Locked].
+        $component->instance()->form->connectionTestJobId = $foreign->id;
+        $component->call('pollConnectionTest');
+
+        expect($component->get('form.connectionTestMessage'))->not->toContain('another tenant private error');
+    });
+
+    test('the job id cannot be set from the client', function () {
+        $component = Livewire::actingAs($this->user)->test(Create::class);
+
+        expect(fn () => $component->set('form.connectionTestJobId', 'tampered-id'))
+            ->toThrow(CannotUpdateLockedPropertyException::class);
+    });
+});
+
+test('a test the agent already claimed is not timed out mid-flight', function () {
+    config(['agent.volume_test_timeout' => 60]);
+
+    $component = Livewire::actingAs($this->user)
+        ->test(Create::class)
+        ->set(sftpFormState($this->agent))
+        ->call('testConnection');
+
+    $job = AgentJob::where('type', AgentJob::TYPE_VOLUME_TEST)->sole();
+    $job->claim($this->agent, leaseDurationSeconds: 300);
+
+    // Past the window measured from creation, but the agent is still working.
+    $this->travel(120)->seconds();
+
+    $component->call('pollConnectionTest')
+        ->assertSet('form.connectionTestJobId', $job->id);
 });
