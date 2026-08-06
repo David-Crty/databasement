@@ -36,6 +36,15 @@ class SnapshotPolicy
     }
 
     /**
+     * Determine whether the user can edit the model's comment.
+     * Requires the edit-snapshots ability.
+     */
+    public function update(User $user, Snapshot $snapshot): bool
+    {
+        return $user->can(Ability::EditSnapshots->value);
+    }
+
+    /**
      * Determine whether the user can download the snapshot.
      * Requires the download-snapshots ability.
      */

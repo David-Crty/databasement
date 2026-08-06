@@ -14,12 +14,14 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
-    // The Snapshot index gates cancelling/deleting on delete-snapshots and
-    // restoring on operate-restores. The default actor holds exactly those, so
-    // the happy-path tests below double as the allow cases for both abilities.
+    // The Snapshot index gates cancelling/deleting on delete-snapshots,
+    // restoring on operate-restores, and editing comments on edit-snapshots.
+    // The default actor holds exactly those, so the happy-path tests below
+    // double as the allow cases for each ability.
     $this->user = User::factory()->withAbilities([
         Ability::DeleteSnapshots->value,
         Ability::OperateRestores->value,
+        Ability::EditSnapshots->value,
     ])->create();
     actingAs($this->user);
 });
@@ -278,6 +280,43 @@ test('without download-snapshots, opening the copy picker is forbidden', functio
     Livewire::actingAs($user)
         ->test(Index::class)
         ->call('openDownloadModal', $snapshot->id)
+        ->assertForbidden();
+});
+
+test('can add a comment to a snapshot', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->call('openCommentModal', $snapshot->id)
+        ->assertSet('showCommentModal', true)
+        ->assertSet('editComment', '')
+        ->set('editComment', 'Backup before upgrading to version 1.37')
+        ->call('saveComment')
+        ->assertSet('showCommentModal', false)
+        ->assertSee('Backup before upgrading to version 1.37');
+
+    expect($snapshot->fresh()->comment)->toBe('Backup before upgrading to version 1.37');
+});
+
+test('saving a blank comment clears it', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['comment' => 'Old note']);
+
+    Livewire::test(Index::class)
+        ->call('openCommentModal', $snapshot->id)
+        ->assertSet('editComment', 'Old note')
+        ->set('editComment', '   ')
+        ->call('saveComment');
+
+    expect($snapshot->fresh()->comment)->toBeNull();
+});
+
+test('without edit-snapshots, editing a comment is forbidden', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::EditSnapshots->value)->create());
+
+    Livewire::test(Index::class)
+        ->call('openCommentModal', $snapshot->id)
         ->assertForbidden();
 });
 

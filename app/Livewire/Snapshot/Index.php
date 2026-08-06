@@ -57,6 +57,13 @@ class Index extends Component
 
     public bool $showDownloadModal = false;
 
+    #[Locked]
+    public ?string $editCommentSnapshotId = null;
+
+    public string $editComment = '';
+
+    public bool $showCommentModal = false;
+
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -151,6 +158,38 @@ class Index extends Component
         }
 
         return Snapshot::with('files.volume')->find($this->downloadSnapshotId);
+    }
+
+    public function openCommentModal(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('update', $snapshot);
+
+        $this->editCommentSnapshotId = $snapshotId;
+        $this->editComment = (string) $snapshot->comment;
+        $this->resetValidation();
+        $this->showCommentModal = true;
+    }
+
+    public function saveComment(): void
+    {
+        $snapshot = Snapshot::findOrFail($this->editCommentSnapshotId);
+
+        $this->authorize('update', $snapshot);
+
+        $this->validate([
+            'editComment' => 'nullable|string|max:1000',
+        ]);
+
+        $snapshot->update([
+            'comment' => trim($this->editComment) !== '' ? trim($this->editComment) : null,
+        ]);
+
+        $this->showCommentModal = false;
+        $this->editCommentSnapshotId = null;
+
+        $this->success(__('Snapshot comment saved.'));
     }
 
     public function confirmDeleteSnapshot(string $snapshotId): void

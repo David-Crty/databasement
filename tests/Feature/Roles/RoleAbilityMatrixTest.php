@@ -19,8 +19,8 @@ $manage = ['manage-database-servers', 'manage-volumes', 'manage-agents'];
 $mapping = [
     'viewer' => [],
     'operator' => $operate,
-    'member' => [...$operate, 'delete-snapshots', 'use-adminer', ...$manage],
-    'admin' => [...$operate, 'delete-snapshots', 'use-adminer', ...$manage, 'manage-backup-settings', 'manage-notifications', 'manage-users'],
+    'member' => [...$operate, 'delete-snapshots', 'edit-snapshots', 'use-adminer', ...$manage],
+    'admin' => [...$operate, 'delete-snapshots', 'edit-snapshots', 'use-adminer', ...$manage, 'manage-backup-settings', 'manage-notifications', 'manage-users'],
 ];
 
 dataset('role ability matrix', function () use ($mapping) {

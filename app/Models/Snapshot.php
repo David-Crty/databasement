@@ -39,6 +39,7 @@ class Snapshot extends Model
         'checksum',
         'started_at',
         'database_name',
+        'comment',
         'database_type',
         'compression_type',
         'method',

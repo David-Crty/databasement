@@ -21,6 +21,7 @@ enum Ability: string
     case RunBackups = 'run-backups';
     case DownloadSnapshots = 'download-snapshots';
     case DeleteSnapshots = 'delete-snapshots';
+    case EditSnapshots = 'edit-snapshots';
     case OperateRestores = 'operate-restores';
     case UseAdminer = 'use-adminer';
     case ManageDatabaseServers = 'manage-database-servers';
@@ -39,6 +40,7 @@ enum Ability: string
             self::RunBackups => __('Run backups'),
             self::DownloadSnapshots => __('Download snapshots'),
             self::DeleteSnapshots => __('Delete snapshots'),
+            self::EditSnapshots => __('Edit snapshot comments'),
             self::OperateRestores => __('Operate restores'),
             self::UseAdminer => __('Use Adminer'),
             self::ManageDatabaseServers => __('Manage database servers'),
@@ -59,6 +61,7 @@ enum Ability: string
             self::RunBackups => __('Run backups on demand.'),
             self::DownloadSnapshots => __('Download snapshot files.'),
             self::DeleteSnapshots => __('Delete snapshots and cancel pending backup jobs.'),
+            self::EditSnapshots => __('Add or edit notes on snapshots.'),
             self::OperateRestores => __('Restore from snapshots and manage scheduled restores.'),
             self::UseAdminer => __('Open the Adminer database browser.'),
             self::ManageDatabaseServers => __('Create, edit and delete database server connections.'),
@@ -79,6 +82,7 @@ enum Ability: string
             self::RunBackups,
             self::DownloadSnapshots,
             self::DeleteSnapshots,
+            self::EditSnapshots,
             self::OperateRestores,
             self::UseAdminer => __('Operations'),
             self::ManageDatabaseServers,
