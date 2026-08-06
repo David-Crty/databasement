@@ -75,6 +75,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('configuration.roles');
     Route::livewire('configuration/organizations', \App\Livewire\Configuration\Organization::class)
         ->name('configuration.organizations');
+    Route::livewire('configuration/overview', \App\Livewire\Configuration\Overview::class)
+        ->name('configuration.overview');
 
     // Agents
     Route::livewire('agents', \App\Livewire\Agent\Index::class)

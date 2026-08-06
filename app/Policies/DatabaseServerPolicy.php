@@ -28,6 +28,15 @@ class DatabaseServerPolicy
     }
 
     /**
+     * Determine whether the user can view the cross-org admin overview.
+     * Restricted to super_admins only.
+     */
+    public function viewAnyGlobal(User $user): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    /**
      * Determine whether the user can view the create/edit form.
      * Demo users can view forms but not submit them.
      */
