@@ -93,6 +93,21 @@ class SnapshotFile extends Model
     }
 
     /**
+     * True when this copy still has (or may still have) a file on its volume
+     * that has to be removed before the snapshot record can go away. Covers
+     * uploaded copies as well as copies whose removal was already delegated to
+     * an agent but never confirmed, so a retry picks them up again.
+     */
+    public function needsVolumeCleanup(): bool
+    {
+        return in_array($this->status, [
+            SnapshotFileStatus::Completed,
+            SnapshotFileStatus::Deleting,
+            SnapshotFileStatus::DeletionFailed,
+        ], true);
+    }
+
+    /**
      * Delete this copy's file from its volume.
      */
     public function deleteFromVolume(): bool

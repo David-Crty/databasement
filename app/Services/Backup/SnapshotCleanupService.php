@@ -13,6 +13,8 @@ class SnapshotCleanupService
 
     private int $totalDeleted = 0;
 
+    public function __construct(private DeleteSnapshotAction $deleteSnapshot) {}
+
     /**
      * Run the cleanup process.
      *
@@ -165,9 +167,12 @@ class SnapshotCleanupService
 
         if ($this->dryRun) {
             Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
-        } else {
-            $snapshot->delete();
+        } elseif ($this->deleteSnapshot->execute($snapshot)) {
             Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
+        } else {
+            // The volume is only reachable from the agent: the record stays
+            // until the agent confirms the file is gone.
+            Log::info("Snapshot cleanup: Delegated deletion of {$database} ({$age} days old) to its agent");
         }
 
         $this->totalDeleted++;
