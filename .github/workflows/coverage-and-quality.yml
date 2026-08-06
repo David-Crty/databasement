@@ -82,9 +82,12 @@ jobs:
           # Look the PR up by head ref against *this* repo: workflow_run carries
           # no pull_requests for forks, commits/{sha}/pulls doesn't resolve a
           # fork head, and the artifact is fork-writable so it can't be trusted.
+          # Emit nothing unless exactly one open PR matches; the same head can
+          # target two bases, and picking one arbitrarily would mislabel it.
           gh api "repos/${{ github.repository }}/pulls" -X GET \
-            -f state=all -f "head=$HEAD_OWNER:$HEAD_BRANCH" \
-            --jq '.[0] // empty | "number=\(.number)", "base=\(.base.ref)"' >> "$GITHUB_OUTPUT"
+            -f state=open -f "head=$HEAD_OWNER:$HEAD_BRANCH" \
+            --jq 'if length == 1 then (.[0] | "number=\(.number)", "base=\(.base.ref)") else empty end' \
+            >> "$GITHUB_OUTPUT"
 
       - name: Upload coverage to Codecov
         if: hashFiles('coverage.xml') != ''
