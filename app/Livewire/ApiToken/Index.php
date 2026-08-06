@@ -103,6 +103,24 @@ class Index extends Component
         $this->success(__('API token revoked successfully.'));
     }
 
+    /**
+     * Display-ready label for a token's access scope badge.
+     */
+    public function accessLabel(PersonalAccessToken $token): string
+    {
+        $abilities = $token->abilities ?? [];
+
+        if (in_array('*', $abilities, true)) {
+            return __('Full access');
+        }
+
+        return trans_choice(
+            '{0} No abilities|{1} :count ability|[2,*] :count abilities',
+            count($abilities),
+            ['count' => count($abilities)]
+        );
+    }
+
     public function canDelete(PersonalAccessToken $token): bool
     {
         $user = Auth::user();

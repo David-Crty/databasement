@@ -24,11 +24,7 @@
                         <div class="flex-1">
                             <div class="font-medium">
                                 {{ $token->name }}
-                                @if(in_array('*', $token->abilities ?? [], true))
-                                    <span class="badge badge-sm badge-ghost ml-1">{{ __('Full access') }}</span>
-                                @else
-                                    <span class="badge badge-sm badge-ghost ml-1">{{ trans_choice('{0} No abilities|{1} :count ability|[2,*] :count abilities', count($token->abilities ?? []), ['count' => count($token->abilities ?? [])]) }}</span>
-                                @endif
+                                <span class="badge badge-sm badge-ghost ml-1">{{ $this->accessLabel($token) }}</span>
                             </div>
                             <div class="text-sm text-base-content/70">
                                 @if($token->tokenable)

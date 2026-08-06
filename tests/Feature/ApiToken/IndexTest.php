@@ -56,6 +56,17 @@ test('creating a scoped token rejects abilities outside the catalogue', function
     expect($user->tokens()->where('name', 'Bad Token')->exists())->toBeFalse();
 });
 
+test('the index lists a full-access badge and an ability-count badge for scoped tokens', function () {
+    $user = User::factory()->create();
+    $user->createToken('Legacy Token');
+    $user->createToken('Scoped Token', [Ability::RunBackups->value, Ability::DownloadSnapshots->value]);
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->assertSee(__('Full access'))
+        ->assertSee('2 abilities');
+});
+
 test('can revoke an existing token', function () {
     $user = User::factory()->create();
     $token = $user->createToken('Token to Delete');
