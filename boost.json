@@ -6,6 +6,9 @@
     "guidelines": true,
     "herd_mcp": false,
     "mcp": true,
+    "packages": [
+        "pestphp/pest-plugin-agent"
+    ],
     "sail": false,
     "skills": [
         "fortify-development",
@@ -13,6 +16,7 @@
         "mcp-development",
         "socialite-development",
         "livewire-development",
-        "pest-testing"
+        "pest-testing",
+        "pest-plugin-agent"
     ]
 }
