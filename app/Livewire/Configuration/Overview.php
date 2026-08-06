@@ -13,6 +13,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -137,6 +138,15 @@ class Overview extends Component
             })
             ->orderBy($this->sortBy['column'], Formatters::sortDirection($this->sortBy['direction']))
             ->paginate(15);
+
+        $servers->getCollection()->each(function (DatabaseServer $server) {
+            $latestBackupAt = $server->getAttribute('latest_backup_at');
+
+            $server->setAttribute(
+                'latest_backup_display',
+                $latestBackupAt ? Carbon::parse($latestBackupAt)->diffForHumans() : null,
+            );
+        });
 
         return view('livewire.configuration.overview', [
             'servers' => $servers,

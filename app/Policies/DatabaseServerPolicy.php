@@ -29,11 +29,12 @@ class DatabaseServerPolicy
 
     /**
      * Determine whether the user can view the cross-org admin overview.
-     * Restricted to super_admins only.
+     * Super admins bypass catalogue abilities (see AppServiceProvider::registerBouncer());
+     * anyone else needs the view-global-overview ability granted in their current org.
      */
     public function viewAnyGlobal(User $user): bool
     {
-        return $user->isSuperAdmin();
+        return $user->can(Ability::ViewGlobalOverview->value);
     }
 
     /**

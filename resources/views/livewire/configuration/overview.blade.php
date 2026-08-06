@@ -5,11 +5,11 @@
         </x-slot:subtitle>
         <x-slot:actions>
             <div class="hidden sm:flex items-center gap-2">
-                <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" clearable
+                <x-input :placeholder="__('Search...')" wire:model.live.debounce="search" clearable
                          icon="o-magnifying-glass" class="!input-sm w-48" />
                 @if ($search)
                     <x-button icon="o-x-mark" wire:click="clear" spinner class="btn-ghost btn-sm"
-                              tooltip="{{ __('Clear search') }}" />
+                              :tooltip="__('Clear search')" />
                 @endif
             </div>
         </x-slot:actions>
@@ -19,7 +19,7 @@
 
     <!-- SEARCH (Mobile) -->
     <div class="sm:hidden mb-4">
-        <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" clearable
+        <x-input :placeholder="__('Search...')" wire:model.live.debounce="search" clearable
                  icon="o-magnifying-glass" />
     </div>
 
@@ -52,8 +52,8 @@
             @scope('cell_status', $server)
             <div class="flex flex-col gap-1">
                 <x-job-status-indicator :status="$server->latest_backup_status ?? 'never'" />
-                @if ($server->latest_backup_at)
-                    <span class="text-xs text-base-content/60">{{ \Carbon\Carbon::parse($server->latest_backup_at)->diffForHumans() }}</span>
+                @if ($server->latest_backup_display)
+                    <span class="text-xs text-base-content/60">{{ $server->latest_backup_display }}</span>
                 @endif
             </div>
             @endscope
