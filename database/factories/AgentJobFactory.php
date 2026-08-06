@@ -6,6 +6,8 @@ use App\Enums\DatabaseSelectionMode;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\Snapshot;
+use App\Models\Volume;
+use App\Services\Backup\DTO\VolumeConfig;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -88,6 +90,51 @@ class AgentJobFactory extends Factory
                 'triggered_by_user_id' => null,
             ],
         ]);
+    }
+
+    /**
+     * Configure the job as a cleanup job removing one snapshot copy.
+     */
+    public function cleanup(?Volume $volume = null): static
+    {
+        return $this->state(function (array $attributes) use ($volume) {
+            $volume ??= Volume::factory()->create();
+
+            return [
+                'type' => AgentJob::TYPE_CLEANUP,
+                'payload' => [
+                    'type' => 'cleanup',
+                    'server_name' => 'Test Server',
+                    'snapshot_id' => $attributes['snapshot_id'] ?? null,
+                    'targets' => [[
+                        'volume_id' => $volume->id,
+                        'filename' => 'backup.sql.gz',
+                        'volume' => VolumeConfig::fromVolume($volume)->toPayload(),
+                    ]],
+                ],
+            ];
+        });
+    }
+
+    /**
+     * Configure the job as a volume connection test. These target an agent
+     * directly, so they carry no database server and no snapshot.
+     */
+    public function volumeTest(?Volume $volume = null): static
+    {
+        return $this->state(function () use ($volume) {
+            $volume ??= Volume::factory()->create();
+
+            return [
+                'type' => AgentJob::TYPE_VOLUME_TEST,
+                'snapshot_id' => null,
+                'max_attempts' => 1,
+                'payload' => [
+                    'type' => 'volume_test',
+                    'volume' => VolumeConfig::fromVolume($volume)->toPayload(),
+                ],
+            ];
+        });
     }
 
     /**

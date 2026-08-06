@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\BackupJobStatus;
+use App\Enums\SnapshotFileStatus;
 use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
@@ -58,10 +59,22 @@ class RecoverStuckJobsCommand extends Command
                 $errorMessage = "Max attempts ({$job->max_attempts}) exceeded with expired lease.";
                 $job->markFailed($errorMessage);
 
-                // Discovery jobs have no snapshot; only backup jobs carry one to fail.
-                $job->snapshot?->job->markFailed(
-                    new RuntimeException("Agent job failed: {$errorMessage}")
-                );
+                // Cleanup jobs also carry a snapshot, but its backup job
+                // succeeded long ago — only the copies' deletion failed.
+                if ($job->type === AgentJob::TYPE_CLEANUP) {
+                    $job->snapshot?->files()
+                        ->where('status', SnapshotFileStatus::Deleting)
+                        ->update([
+                            'status' => SnapshotFileStatus::DeletionFailed,
+                            'error' => $errorMessage,
+                        ]);
+                } else {
+                    // Discovery jobs have no snapshot; only backup jobs carry one to fail.
+                    $job->snapshot?->job->markFailed(
+                        new RuntimeException("Agent job failed: {$errorMessage}")
+                    );
+                }
+
                 $failedCount++;
             }
         }

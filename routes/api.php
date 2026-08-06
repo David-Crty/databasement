@@ -66,5 +66,7 @@ Route::middleware(['throttle-failed-agent-auth', 'auth:sanctum', 'agent'])->name
     Route::post('jobs/{agentJob}/heartbeat', [AgentController::class, 'jobHeartbeat'])->name('jobs.heartbeat');
     Route::post('jobs/{agentJob}/ack', [AgentController::class, 'ack'])->name('jobs.ack');
     Route::post('jobs/{agentJob}/fail', [AgentController::class, 'fail'])->name('jobs.fail');
+    Route::post('jobs/{agentJob}/cleaned', [AgentController::class, 'cleaned'])->name('jobs.cleaned');
+    Route::post('jobs/{agentJob}/volume-tested', [AgentController::class, 'volumeTested'])->name('jobs.volume-tested');
     Route::post('jobs/{agentJob}/discovered-databases', [AgentController::class, 'discoveredDatabases'])->name('jobs.discovered-databases');
 });

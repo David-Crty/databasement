@@ -9,8 +9,11 @@ use App\Services\Agent\AgentAuthenticationException;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\BackupConfig;
+use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
+use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\InMemoryBackupLogger;
+use App\Services\VolumeConnectionTester;
 use App\Support\FilesystemSupport;
 use Illuminate\Console\Command;
 
@@ -53,6 +56,10 @@ class AgentRunCommand extends Command
 
                     if ($jobType === 'discover') {
                         $this->executeDiscoveryJob($job, $client);
+                    } elseif ($jobType === 'cleanup') {
+                        $this->executeCleanupJob($job, $client);
+                    } elseif ($jobType === 'volume_test') {
+                        $this->executeVolumeTestJob($job, $client);
                     } else {
                         $this->executeBackupJob($job, $client, $backupTask);
                     }
@@ -149,6 +156,93 @@ class AgentRunCommand extends Command
     private function volumeResultPayloads(array $volumeResults): array
     {
         return array_map(fn (VolumeTransferResult $volumeResult) => $volumeResult->toPayload(), $volumeResults);
+    }
+
+    /**
+     * Probe a volume the app cannot reach, using the same write/read/delete
+     * check the app runs for local volumes.
+     *
+     * @param  array{id: string, snapshot_id: string|null, payload: array<string, mixed>}  $job
+     */
+    private function executeVolumeTestJob(array $job, AgentApiClient $client): void
+    {
+        $payload = $job['payload'];
+        $volume = $payload['volume'] ?? [];
+
+        $this->log("Processing volume test job {$job['id']}: ".($volume['name'] ?? 'unknown'));
+
+        try {
+            $result = app(VolumeConnectionTester::class)->testConfig(VolumeConfig::fromPayload($volume));
+        } catch (\Throwable $e) {
+            $result = ['success' => false, 'message' => $e->getMessage()];
+        }
+
+        $client->reportVolumeTestResult($job['id'], $result['success'], $result['message']);
+
+        $this->log($result['success']
+            ? "Volume test succeeded: {$job['id']}"
+            : "Volume test failed: {$result['message']}", $result['success'] ? 'info' : 'error');
+    }
+
+    /**
+     * Remove a snapshot's files from the volumes only this agent can reach.
+     *
+     * Each target is reported individually so the app can finalise the record
+     * when every file is gone and keep it (still tracked, retryable) otherwise.
+     * A target whose file is already absent counts as removed, which makes a
+     * retried cleanup idempotent.
+     *
+     * @param  array{id: string, snapshot_id: string|null, payload: array<string, mixed>}  $job
+     */
+    private function executeCleanupJob(array $job, AgentApiClient $client): void
+    {
+        try {
+            $payload = $job['payload'];
+            $targets = $payload['targets'] ?? [];
+
+            $this->log("Processing cleanup job {$job['id']}: ".count($targets).' target(s)');
+
+            $filesystemProvider = app(FilesystemProvider::class);
+            $results = [];
+
+            foreach ($targets as $target) {
+                $volumeId = $target['volume_id'] ?? null;
+                $filename = (string) ($target['filename'] ?? '');
+
+                try {
+                    if ($filename === '') {
+                        throw new \RuntimeException('Cleanup target carries no filename.');
+                    }
+
+                    $filesystem = $filesystemProvider->getForVolumeConfig(
+                        VolumeConfig::fromPayload($target['volume'])
+                    );
+
+                    if ($filesystem->fileExists($filename)) {
+                        $filesystem->delete($filename);
+
+                        FilesystemSupport::deleteEmptyParentDirectories($filesystem, $filename, [
+                            'snapshot_id' => $job['snapshot_id'],
+                        ]);
+                    }
+
+                    $results[] = ['volume_id' => $volumeId, 'status' => 'deleted'];
+                } catch (\Throwable $e) {
+                    $this->log("Cleanup target failed: {$e->getMessage()}", 'error');
+                    $results[] = [
+                        'volume_id' => $volumeId,
+                        'status' => 'failed',
+                        'error' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            $client->reportCleanupResult($job['id'], $results);
+            $this->log("Cleanup job completed: {$job['id']}");
+        } catch (\Throwable $e) {
+            $this->log("Cleanup failed: {$e->getMessage()}", 'error');
+            $client->fail($job['id'], $e->getMessage());
+        }
     }
 
     /**

@@ -83,7 +83,15 @@ class AgentController extends Controller
                         });
                 })
                 ->whereColumn('attempts', '<', 'max_attempts')
-                ->whereRelation('databaseServer', 'agent_id', $agent->id)
+                ->where(function ($query) use ($agent) {
+                    // Most jobs inherit their agent from the database server;
+                    // agent-targeted ones (volume tests) name it up front.
+                    $query->whereRelation('databaseServer', 'agent_id', $agent->id)
+                        ->orWhere(function ($q) use ($agent) {
+                            $q->whereIn('type', AgentJob::AGENT_TARGETED_TYPES)
+                                ->where('agent_id', $agent->id);
+                        });
+                })
                 ->orderBy('created_at')
                 ->lockForUpdate()
                 ->first();
@@ -347,6 +355,124 @@ class AgentController extends Controller
             $backupJob->markFailed($exception);
 
             app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
+        }
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Acknowledge a cleanup job.
+     *
+     * Reports which of the snapshot's files the agent removed from its volumes.
+     * The snapshot record is dropped only once every target is gone; a target
+     * the agent could not remove keeps the record so the file stays tracked and
+     * the deletion can be retried.
+     */
+    public function cleaned(Request $request, AgentJob $agentJob): JsonResponse
+    {
+        /** @var Agent $agent */
+        $agent = $request->user();
+
+        if ($agentJob->agent_id !== $agent->id) {
+            return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
+        }
+
+        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
+            return response()->json(['message' => "Cannot acknowledge a job with status '{$agentJob->status}'."], 409);
+        }
+
+        if ($agentJob->type !== AgentJob::TYPE_CLEANUP || ! $agentJob->snapshot) {
+            return response()->json(['message' => 'This endpoint is only for cleanup jobs.'], 422);
+        }
+
+        $validated = $request->validate([
+            'targets' => 'required|array|min:1|max:100',
+            'targets.*.volume_id' => 'nullable|string|max:26',
+            'targets.*.status' => 'required|string|in:deleted,failed',
+            'targets.*.error' => 'nullable|string|max:10000',
+        ]);
+
+        $snapshot = $agentJob->snapshot;
+        $files = $snapshot->files()->get();
+        $failures = [];
+
+        foreach ($validated['targets'] as $target) {
+            $file = $files->firstWhere('volume_id', $target['volume_id'] ?? null);
+
+            if ($file === null) {
+                continue;
+            }
+
+            if ($target['status'] === 'deleted') {
+                // The file is gone: drop the copy row so a retry of the
+                // remaining targets does not revisit this volume.
+                $file->delete();
+
+                continue;
+            }
+
+            $file->update([
+                'status' => SnapshotFileStatus::DeletionFailed,
+                'error' => $target['error'] ?? 'Deletion failed',
+            ]);
+
+            $failures[] = $file->volume_id;
+        }
+
+        // Copies the agent did not report on at all are left pending deletion,
+        // so they must block the record from going away too.
+        $unreported = $snapshot->files()->where('status', SnapshotFileStatus::Deleting)->count();
+
+        if ($failures === [] && $unreported === 0) {
+            $agentJob->markCompleted();
+
+            $snapshot->skipFileCleanup = true;
+            $snapshot->delete();
+
+            return response()->json(['status' => 'ok', 'deleted' => true]);
+        }
+
+        $agentJob->markFailed(sprintf(
+            'Agent could not delete %d of %d snapshot file(s).',
+            count($failures) + $unreported,
+            count($files),
+        ));
+
+        return response()->json(['status' => 'ok', 'deleted' => false]);
+    }
+
+    /**
+     * Report the outcome of a volume connection test.
+     *
+     * The job itself carries the answer the UI polls for: completed means the
+     * agent reached the volume, failed carries the reason it could not.
+     */
+    public function volumeTested(Request $request, AgentJob $agentJob): JsonResponse
+    {
+        /** @var Agent $agent */
+        $agent = $request->user();
+
+        if ($agentJob->agent_id !== $agent->id) {
+            return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
+        }
+
+        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
+            return response()->json(['message' => "Cannot report a result for a job with status '{$agentJob->status}'."], 409);
+        }
+
+        if ($agentJob->type !== AgentJob::TYPE_VOLUME_TEST) {
+            return response()->json(['message' => 'This endpoint is only for volume test jobs.'], 422);
+        }
+
+        $validated = $request->validate([
+            'success' => 'required|boolean',
+            'message' => 'nullable|string|max:10000',
+        ]);
+
+        if ($validated['success']) {
+            $agentJob->markCompleted();
+        } else {
+            $agentJob->markFailed($validated['message'] ?? 'The agent could not reach this volume.');
         }
 
         return response()->json(['status' => 'ok']);
