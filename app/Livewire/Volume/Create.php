@@ -43,6 +43,14 @@ class Create extends Component
         $this->form->testConnection();
     }
 
+    /**
+     * Polled by the form while a remote (agent-run) connection test is pending.
+     */
+    public function pollConnectionTest(): void
+    {
+        $this->form->pollConnectionTest();
+    }
+
     public function render(): View
     {
         return view('livewire.volume.create');
