@@ -71,6 +71,16 @@ test('can create database server', function (array $config) {
     ]);
 })->with('database server configs');
 
+test('dump_privileges defaults from config for new postgresql servers', function () {
+    config(['backup.default_dump_privileges' => true]);
+
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->assertSet('form.dump_privileges', true);
+});
+
 test('can create database server with backups disabled', function () {
     // Acts as the allow case for manage-database-servers: a user whose only
     // grant is that ability can complete a create end-to-end.

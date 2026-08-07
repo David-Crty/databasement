@@ -26,6 +26,16 @@ echo "base64:$(openssl rand -base64 32)"
 If you change the encryption key, you will not be able to restore backups that were encrypted with the previous key. Keep your encryption key safe and backed up separately.
 :::
 
+## PostgreSQL Ownership & Privileges Default
+
+New PostgreSQL servers default to stripping `OWNER`/`GRANT`/`REVOKE` statements from dumps (`--no-owner --no-privileges`), toggled per server via **Backup ownership and privilege information** in the server form. To have new servers default to preserving that information instead (useful for declarative/Helm deployments where you don't want to click through the UI for every server):
+
+```bash
+BACKUP_DEFAULT_DUMP_PRIVILEGES=true
+```
+
+This only changes the form's default value for servers created afterward. It does not retroactively change existing servers, and admins can still override it per server.
+
 ## Hook Scripts
 
 Run a shell script after **every successful backup** and after **every successful restore**. Configure both from **Configuration → Backup → Hook Scripts** in the web UI — that screen also lists every variable available to each script.

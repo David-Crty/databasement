@@ -22,6 +22,8 @@ class Create extends Component
     {
         $this->authorize('viewForm', DatabaseServer::class);
 
+        $this->form->dump_privileges = (bool) config('backup.default_dump_privileges');
+
         $dailyScheduleId = BackupSchedule::where('name', 'Daily')->value('id');
         $this->form->addBackup($dailyScheduleId);
     }
