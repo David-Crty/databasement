@@ -71,15 +71,34 @@ test('can create database server', function (array $config) {
     ]);
 })->with('database server configs');
 
-test('dump_privileges defaults from config for new postgresql servers', function () {
-    config(['backup.default_dump_privileges' => true]);
+test('dump_privileges defaults from config for new postgresql servers', function (bool $configured, bool $expected) {
+    config(['backup.default_dump_privileges' => $configured]);
 
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
 
     Livewire::actingAs($user)
         ->test(Create::class)
-        ->assertSet('form.dump_privileges', true);
-});
+        ->assertSet('form.dump_privileges', $expected)
+        ->set('form.name', 'Postgres Dump Privileges Server')
+        ->set('form.database_type', 'postgres')
+        ->set('form.host', 'postgres.example.com')
+        ->set('form.port', 5432)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.backups.0.database_names.0', 'myapp_production')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->call('save')
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'Postgres Dump Privileges Server')->first();
+
+    expect($server->getExtraConfig('dump_privileges', false))->toBe($expected);
+})->with([
+    'configured true' => [true, true],
+    'configured false (default)' => [false, false],
+]);
 
 test('can create database server with backups disabled', function () {
     // Acts as the allow case for manage-database-servers: a user whose only
