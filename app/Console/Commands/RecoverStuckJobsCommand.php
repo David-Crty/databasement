@@ -68,8 +68,10 @@ class RecoverStuckJobsCommand extends Command
                             'status' => SnapshotFileStatus::DeletionFailed,
                             'error' => $errorMessage,
                         ]);
-                } else {
-                    // Discovery jobs have no snapshot; only backup jobs carry one to fail.
+                } elseif ($job->type === AgentJob::TYPE_BACKUP) {
+                    // Only a backup job owns the snapshot's backup job. Named
+                    // by type, not by "carries a snapshot", so a future job
+                    // type cannot silently fail an unrelated backup.
                     $job->snapshot?->job->markFailed(
                         new RuntimeException("Agent job failed: {$errorMessage}")
                     );

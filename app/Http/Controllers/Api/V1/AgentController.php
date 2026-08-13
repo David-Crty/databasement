@@ -148,7 +148,9 @@ class AgentController extends Controller
         $leaseDuration = max(1, (int) config('agent.lease_duration', 300));
         $agentJob->extendLease($leaseDuration);
 
-        if (! empty($validated['logs']) && $agentJob->snapshot) {
+        // Same reasoning as fail(): a cleanup job's snapshot belongs to a backup
+        // that already finished, so its logs are not this job's to append to.
+        if (! empty($validated['logs']) && $agentJob->type === AgentJob::TYPE_BACKUP && $agentJob->snapshot) {
             $backupJob = $agentJob->snapshot->job;
             $backupJob->update([
                 'logs' => array_merge($backupJob->logs ?? [], $validated['logs']),
@@ -328,8 +330,26 @@ class AgentController extends Controller
 
         $agentJob->markFailed($validated['error_message']);
 
-        // Only update backup job logs/status for backup jobs (discovery jobs have no snapshot)
-        if ($agentJob->snapshot) {
+        // A cleanup job carries the snapshot whose files it was removing, but
+        // that snapshot's backup succeeded long ago. Failing its backup job
+        // here would drop it out of Snapshot::scopeCompleted(), which retention
+        // selects on, hiding the snapshot from retention permanently -- and it
+        // would fire a "backup failed" notification for a backup that worked.
+        if ($agentJob->type === AgentJob::TYPE_CLEANUP) {
+            $agentJob->snapshot?->files()
+                ->where('status', SnapshotFileStatus::Deleting)
+                ->update([
+                    'status' => SnapshotFileStatus::DeletionFailed,
+                    'error' => $validated['error_message'],
+                ]);
+
+            return response()->json(['status' => 'ok']);
+        }
+
+        // Only a backup job owns the snapshot's backup job. Asserted by type
+        // rather than by "carries a snapshot", which stopped meaning "is a
+        // backup" once cleanup jobs started carrying one too.
+        if ($agentJob->type === AgentJob::TYPE_BACKUP && $agentJob->snapshot) {
             $snapshot = $agentJob->snapshot;
             $backupJob = $snapshot->job;
 

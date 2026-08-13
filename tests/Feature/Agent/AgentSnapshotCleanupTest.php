@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BackupJobStatus;
 use App\Enums\SnapshotFileStatus;
 use App\Models\Agent;
 use App\Models\AgentJob;
@@ -8,6 +9,7 @@ use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Services\Backup\DeleteSnapshotAction;
 use App\Services\Backup\SnapshotCleanupService;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Create an agent plus a server bound to it, and the agent's API token.
@@ -225,4 +227,94 @@ describe('the cleaned endpoint', function () {
 
         expect(Snapshot::find($snapshot->id))->not->toBeNull();
     });
+});
+
+describe('a cleanup job failing through the generic fail endpoint', function () {
+    /**
+     * An agent that predates cleanup jobs treats one as a backup, throws, and
+     * reports through fail(). That path must not touch the snapshot's backup
+     * job: retention selects on Snapshot::scopeCompleted(), so failing it would
+     * hide the snapshot from retention for good and let backups pile up past
+     * their policy.
+     */
+    test('does not fail the backup job, so the snapshot stays visible to retention', function () {
+        ['agent' => $agent, 'server' => $server, 'token' => $token] = agentBackedServer();
+        $server->backups()->firstOrFail()->update(['retention_days' => 3]);
+
+        $snapshot = Snapshot::factory()->forServer($server)->withFile()->create();
+        $snapshot->forceFill(['created_at' => now()->subDays(10)])->saveQuietly();
+
+        app(DeleteSnapshotAction::class)->execute($snapshot->fresh());
+        $job = AgentJob::where('snapshot_id', $snapshot->id)->sole();
+        $job->claim($agent);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$job->id}/fail", [
+                'error_message' => 'Unknown job type',
+            ])
+            ->assertOk();
+
+        $snapshot->refresh();
+
+        expect($snapshot->job->status)->toBe(BackupJobStatus::Completed)
+            ->and($snapshot->files()->firstOrFail()->status)->toBe(SnapshotFileStatus::DeletionFailed);
+
+        // The decisive one: retention must still see it and try again, instead
+        // of skipping it forever while the file lives on.
+        expect(Snapshot::completed()->whereKey($snapshot->id)->exists())->toBeTrue();
+
+        app(SnapshotCleanupService::class)->run();
+
+        expect(AgentJob::where('snapshot_id', $snapshot->id)
+            ->where('type', AgentJob::TYPE_CLEANUP)
+            ->where('status', AgentJob::STATUS_PENDING)
+            ->exists())->toBeTrue();
+    });
+
+    test('does not send a backup-failed notification for a backup that succeeded', function () {
+        ['agent' => $agent, 'server' => $server, 'token' => $token] = agentBackedServer();
+        $snapshot = Snapshot::factory()->forServer($server)->withFile()->create();
+
+        app(DeleteSnapshotAction::class)->execute($snapshot);
+        $job = AgentJob::where('snapshot_id', $snapshot->id)->sole();
+        $job->claim($agent);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$job->id}/fail", ['error_message' => 'Volume unreachable'])
+            ->assertOk();
+
+        Notification::assertNothingSent();
+    });
+
+    test('a failing backup job still fails its backup job', function () {
+        // The guard is by job type, so the backup path must be untouched.
+        ['agent' => $agent, 'server' => $server, 'token' => $token] = agentBackedServer();
+        $snapshot = Snapshot::factory()->forServer($server)->create();
+        $job = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$job->id}/fail", ['error_message' => 'mysqldump exploded'])
+            ->assertOk();
+
+        expect($snapshot->fresh()->job->status)->toBe(BackupJobStatus::Failed);
+    });
+});
+
+test('a copy stranded mid-delegation is still attempted when its server loses the agent', function () {
+    // The agent is unassigned while a cleanup is in flight, so the deletion
+    // falls back to the app. The stranded copy is no longer Completed, and
+    // must not be skipped for it, or the record would go while the file stays.
+    ['server' => $server] = agentBackedServer();
+    $snapshot = Snapshot::factory()->forServer($server)->withFile()->create();
+    $path = volumePathOf($snapshot, $snapshot->files()->firstOrFail()->volume_id);
+
+    app(DeleteSnapshotAction::class)->execute($snapshot);
+    expect($snapshot->files()->firstOrFail()->status)->toBe(SnapshotFileStatus::Deleting);
+
+    $server->update(['agent_id' => null]);
+
+    app(DeleteSnapshotAction::class)->execute($snapshot->fresh());
+
+    expect(Snapshot::find($snapshot->id))->toBeNull()
+        ->and(file_exists($path))->toBeFalse();
 });
