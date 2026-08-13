@@ -121,10 +121,10 @@ use App\Enums\VolumeType;
         <!-- Test Connection Button -->
         <div class="pt-2">
             {{-- A remote test returns immediately and is answered later by the
-                 agent, so the button keeps spinning off-request to match the
-                 local test's feedback. --}}
+                 agent, so the button stays disabled until the poll brings an
+                 outcome. The pending alert below carries the "waiting" state. --}}
             <x-button
-                class="w-full btn-outline {{ $form->testingConnection ? 'loading' : '' }}"
+                class="w-full btn-outline"
                 type="button"
                 icon="o-arrow-path"
                 wire:click="testConnection"
