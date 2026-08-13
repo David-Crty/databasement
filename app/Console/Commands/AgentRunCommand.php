@@ -237,8 +237,14 @@ class AgentRunCommand extends Command
                 }
             }
 
-            $client->reportCleanupResult($job['id'], $results);
-            $this->log("Cleanup job completed: {$job['id']}");
+            $recordDeleted = $client->reportCleanupResult($job['id'], $results);
+
+            $removed = count(array_filter($results, fn (array $r) => $r['status'] === 'deleted'));
+
+            $this->log($recordDeleted
+                ? "Cleanup job completed: {$job['id']} ({$removed}/".count($results).' target(s) removed, snapshot record deleted)'
+                : "Cleanup job reported but the server kept the snapshot: {$job['id']} ({$removed}/".count($results).' target(s) removed)',
+                $recordDeleted ? 'info' : 'error');
         } catch (\Throwable $e) {
             $this->log("Cleanup failed: {$e->getMessage()}", 'error');
             $client->fail($job['id'], $e->getMessage());

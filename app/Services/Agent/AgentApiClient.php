@@ -101,11 +101,18 @@ class AgentApiClient
      *
      * @param  array<int, array<string, mixed>>  $results
      */
-    public function reportCleanupResult(string $jobId, array $results): void
+    public function reportCleanupResult(string $jobId, array $results): bool
     {
-        $this->post("/agent/jobs/{$jobId}/cleaned", [
+        $response = $this->post("/agent/jobs/{$jobId}/cleaned", [
             'targets' => $results,
-        ], timeout: 30)->throw();
+        ], timeout: 30);
+
+        $response->throw();
+
+        // The app decides whether the snapshot record can go: it may refuse
+        // because a copy went unreported or a target could not be matched.
+        // Reporting only that the POST succeeded would hide that.
+        return (bool) $response->json('deleted');
     }
 
     /**
