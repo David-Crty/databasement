@@ -1,4 +1,4 @@
-.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
+.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -65,6 +65,25 @@ test-coverage-filter: ## Run tests with coverage and filter (usage: make test-co
 
 test-sequential: ## Run all tests sequentially (for debugging)
 	$(PHP_ARTISAN) test
+
+# --- Test Impact Analysis (Pest 5) -------------------------------------------
+# TIA replays cached results and re-runs only the tests affected by your working
+# tree, turning a ~110s suite into a ~2s replay.
+#
+# DELIBERATELY NOT wired into `make test`, the pre-commit hook, or CI. On this
+# codebase the recorded graph only carries test edges for 177 of 291 app/ files;
+# app/Livewire is almost entirely missing (2 of 70 files have edges), so edits
+# there replay green instead of running the tests that cover them. Verified by
+# deleting an authorize() call from a Livewire component: TIA reported 1487
+# passed while the full suite failed. Treat TIA output as a hint, never a gate.
+#
+# `php artisan test` rejects --tia (Collision does not forward the option), so
+# these targets invoke vendor/bin/pest directly.
+test-tia: ## Fast inner-loop replay via Test Impact Analysis (NOT a substitute for `make test`)
+	$(PHP_EXEC) vendor/bin/pest --parallel --tia
+
+test-tia-baseline: ## (Re)record the TIA baseline -- --coverage is required, without it no app/ edges are recorded
+	$(PHP_EXEC) vendor/bin/pest --parallel --tia --coverage --fresh
 
 ##@ Code Quality
 
