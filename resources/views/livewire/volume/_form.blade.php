@@ -53,6 +53,52 @@ use App\Enums\VolumeType;
                 @endforeach
             </x-radio-card-group>
         </div>
+
+        <!-- Remote volume: reachable only from an agent -->
+        @php $agentOptions = $form->getAgentOptions(); @endphp
+        @if(count($agentOptions) > 0 || $form->hasAgent())
+            <div class="border border-base-300 rounded-lg bg-base-200">
+                <label class="flex items-start gap-3 p-4 cursor-pointer select-none">
+                    <x-toggle
+                        wire:model.live="form.use_agent"
+                        class="toggle-primary"
+                        :disabled="$readonly"
+                    />
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-medium">{{ __('Volume is only reachable from an agent') }}</span>
+                            <span class="badge badge-ghost badge-sm text-base-content/50 font-normal">{{ __('Optional') }}</span>
+                        </div>
+                        <p class="text-xs text-base-content/50 mt-0.5 leading-relaxed">
+                            {{ __('Enable this when the storage lives inside your private network. Connection tests, uploads and deletions all run on the agent instead of this app.') }}
+                        </p>
+                    </div>
+                </label>
+
+                @if($form->use_agent)
+                    <div class="border-t border-base-300 bg-base-100 p-4 rounded-b-lg space-y-3">
+                        <x-select
+                            wire:model.live="form.agent_id"
+                            :label="__('Agent')"
+                            :options="$agentOptions"
+                            :placeholder="__('Select an agent')"
+                            placeholder-value=""
+                            :disabled="$readonly"
+                        />
+
+                        @php $selectedAgent = $form->getSelectedAgent(); @endphp
+                        @if($selectedAgent)
+                            <div class="flex items-center gap-2 text-sm">
+                                <x-agent-status-indicator :status="$selectedAgent->connectionStatus()" />
+                                @if($selectedAgent->last_heartbeat_at)
+                                    <span class="text-base-content/70">{{ __('Last heartbeat :time', ['time' => $selectedAgent->last_heartbeat_at->diffForHumans()]) }}</span>
+                                @endif
+                            </div>
+                        @endif
+                    </div>
+                @endif
+            </div>
+        @endif
     </div>
 
     <!-- Configuration -->
@@ -74,6 +120,9 @@ use App\Enums\VolumeType;
 
         <!-- Test Connection Button -->
         <div class="pt-2">
+            {{-- A remote test returns immediately and is answered later by the
+                 agent, so the button stays disabled until the poll brings an
+                 outcome. The pending alert below carries the "waiting" state. --}}
             <x-button
                 class="w-full btn-outline"
                 type="button"
@@ -84,16 +133,28 @@ use App\Enums\VolumeType;
             >
                 @if($form->testingConnection)
                     {{ __('Testing Connection...') }}
+                @elseif($form->use_agent)
+                    {{ __('Test Connection on the agent') }}
                 @else
                     {{ __('Test Connection') }}
                 @endif
             </x-button>
         </div>
 
+        {{-- The agent only sees the job on its next poll, so wait for its answer. --}}
+        @if($form->connectionTestJobId !== null)
+            <div wire:poll.2s="pollConnectionTest"></div>
+        @endif
+
         <!-- Connection Test Result -->
         @if($form->connectionTestMessage)
             <div class="mt-2">
-                @if($form->connectionTestSuccess)
+                @if($form->testingConnection)
+                    {{-- Still waiting on the agent: not an outcome yet. --}}
+                    <x-alert class="alert-warning" icon="o-clock">
+                        {{ $form->connectionTestMessage }}
+                    </x-alert>
+                @elseif($form->connectionTestSuccess)
                     <x-alert class="alert-success" icon="o-check-circle">
                         {{ $form->connectionTestMessage }}
                     </x-alert>

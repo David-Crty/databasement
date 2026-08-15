@@ -109,6 +109,14 @@ class Form extends \Livewire\Form
 
     public ?string $agent_id = null;
 
+    /**
+     * Per-request cache for the volume list. Private, so Livewire never
+     * serializes it and each request rebuilds it from the database.
+     *
+     * @var \Illuminate\Support\Collection<int, \App\Models\Volume>|null
+     */
+    private ?\Illuminate\Support\Collection $volumeCache = null;
+
     public bool $backups_enabled = true;
 
     // Notification preferences (server-level)
@@ -293,26 +301,45 @@ class Form extends \Livewire\Form
             $this->agent_id = null;
         }
 
-        // Clear volume selection(s) if they were local (incompatible with agents)
-        if ($this->use_agent) {
-            foreach ($this->backups as $index => $backup) {
-                $volumeIds = array_values(array_filter((array) ($backup['volume_ids'] ?? [])));
-                if ($volumeIds === []) {
-                    continue;
-                }
-
-                $localIds = \App\Models\Volume::whereIn('id', $volumeIds)
-                    ->where('type', \App\Enums\VolumeType::LOCAL->value)
-                    ->pluck('id')
-                    ->all();
-
-                if ($localIds !== []) {
-                    $this->backups[$index]['volume_ids'] = array_values(array_diff($volumeIds, $localIds));
-                }
-            }
-        }
+        $this->dropUnreachableVolumes();
 
         $this->resetConnectionTestState();
+    }
+
+    /**
+     * Called when agent_id changes - a different agent reaches different volumes.
+     */
+    public function updatedAgentId(): void
+    {
+        $this->dropUnreachableVolumes();
+    }
+
+    /**
+     * Drop selected volumes the server's agent could not write to.
+     *
+     * A local volume is the app's own disk, invisible to an agent — unless it
+     * is bound to that very agent, in which case it is a path on the agent's
+     * machine and perfectly valid. A volume bound to a different agent is never
+     * reachable.
+     */
+    private function dropUnreachableVolumes(): void
+    {
+        foreach ($this->backups as $index => $backup) {
+            $volumeIds = array_values(array_filter((array) ($backup['volume_ids'] ?? [])));
+            if ($volumeIds === []) {
+                continue;
+            }
+
+            $unreachable = \App\Models\Volume::whereIn('id', $volumeIds)
+                ->get()
+                ->reject(fn (\App\Models\Volume $volume) => $volume->isReachableBy($this->use_agent, $this->agent_id))
+                ->pluck('id')
+                ->all();
+
+            if ($unreachable !== []) {
+                $this->backups[$index]['volume_ids'] = array_values(array_diff($volumeIds, $unreachable));
+            }
+        }
     }
 
     /**
@@ -796,27 +823,45 @@ class Form extends \Livewire\Form
      */
     public function getAllVolumes(): \Illuminate\Support\Collection
     {
-        return \App\Models\Volume::orderBy('name')->get();
+        // The picker labels agent-owned volumes with their owner, so eager-load
+        // the relation instead of querying once per volume while rendering.
+        // Memoized because a single render asks for the list several times.
+        return $this->volumeCache ??= \App\Models\Volume::with('agent')->orderBy('name')->get();
     }
 
     /**
-     * Get volume options for select
+     * Volume options for the destination picker, limited to what this server
+     * can actually write to: the volumes bound to its agent, or — for a server
+     * without an agent — only the volumes no agent owns.
      *
-     * @return array<array{id: string, name: string, disabled: bool}>
+     * `agent_name` is null for volumes this app reaches directly; the picker
+     * badges the others with their owner.
+     *
+     * @return array<array{id: string, name: string, agent_name: string|null}>
      */
     public function getVolumeOptions(): array
     {
-        return $this->getAllVolumes()->map(function ($v) {
-            $isLocalWithAgent = $this->use_agent && $v->getVolumeType() === \App\Enums\VolumeType::LOCAL;
+        return array_values($this->getAllVolumes()
+            ->filter(fn (\App\Models\Volume $volume) => $volume->isReachableBy($this->use_agent, $this->agent_id))
+            ->map(fn (\App\Models\Volume $volume) => [
+                'id' => $volume->id,
+                'name' => "{$volume->name} ({$volume->type})",
+                'agent_name' => $volume->isRemote() ? $volume->agent->name : null,
+            ])
+            ->all());
+    }
 
-            return [
-                'id' => $v->id,
-                'name' => $isLocalWithAgent
-                    ? "{$v->name} ({$v->type}) — ".__('not available for remote agents')
-                    : "{$v->name} ({$v->type})",
-                'disabled' => $isLocalWithAgent,
-            ];
-        })->toArray();
+    /**
+     * Identity of the current option set, for the picker's wire:key.
+     *
+     * The component hands its options to Alpine inside x-data, evaluated once,
+     * so Livewire morphing the node would leave a stale list on screen. Keying
+     * on the options themselves covers every way they can change: the agent
+     * selection, and the refresh button after a volume is added elsewhere.
+     */
+    public function getVolumeOptionsKey(): string
+    {
+        return substr(md5((string) json_encode($this->getVolumeOptions())), 0, 12);
     }
 
     /**
@@ -843,7 +888,7 @@ class Form extends \Livewire\Form
             foreach ($this->backups as $index => $entry) {
                 $rules = array_merge(
                     $rules,
-                    BackupForm::rulesFor($index, $entry, $serverType, $this->hasAgent()),
+                    BackupForm::rulesFor($index, $entry, $serverType, $this->use_agent, $this->agent_id),
                 );
             }
         }
@@ -882,7 +927,12 @@ class Form extends \Livewire\Form
                 DatabaseType::cases()
             ))],
             'description' => 'nullable|string|max:1000',
-            'agent_id' => ['nullable', Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
+            // Required with the toggle on, so the volumes validated against an
+            // agent are not saved onto a server that ends up without one.
+            'agent_id' => [
+                $this->use_agent ? 'required' : 'nullable',
+                Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id()),
+            ],
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
@@ -963,7 +1013,23 @@ class Form extends \Livewire\Form
             $validated['notification_channel_ids'],
         );
 
+        // The toggle is the single source of truth for whether the server is
+        // agent-backed. Persisting a stale agent_id behind a disabled toggle
+        // would save an agent-backed server whose volumes were validated as if
+        // it had none.
+        $validated['agent_id'] = $this->resolvedAgentId();
+
         return $validated;
+    }
+
+    /**
+     * The agent this server is routed through, or null when the app reaches the
+     * database itself. Every reachability and persistence decision reads this
+     * rather than the raw property pair.
+     */
+    private function resolvedAgentId(): ?string
+    {
+        return $this->use_agent ? ($this->agent_id ?: null) : null;
     }
 
     /**

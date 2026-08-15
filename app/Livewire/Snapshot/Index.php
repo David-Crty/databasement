@@ -10,6 +10,7 @@ use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\SnapshotQuery;
+use App\Services\Backup\DeleteSnapshotAction;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -186,12 +187,14 @@ class Index extends Component
 
         $this->authorize('delete', $snapshot);
 
-        $snapshot->skipFileCleanup = $this->keepFiles;
-        $snapshot->delete();
+        $deleted = app(DeleteSnapshotAction::class)->execute($snapshot, $this->keepFiles);
+
         $this->deleteSnapshotId = null;
         $this->showDeleteModal = false;
 
-        $this->success(__('Snapshot deleted successfully!'));
+        $this->success($deleted
+            ? __('Snapshot deleted successfully!')
+            : __('Snapshot deletion sent to the agent. It will disappear once the agent confirms the file was removed.'));
     }
 
     public function deletePendingJob(): void

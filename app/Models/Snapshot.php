@@ -269,7 +269,14 @@ class Snapshot extends Model
     {
         $deleted = false;
 
-        foreach ($this->files()->completed()->get() as $file) {
+        // Copies left mid-delegation (an agent that never confirmed, or whose
+        // server has since lost its agent) still have a file out there, so they
+        // must be attempted too rather than skipped for not being Completed.
+        $files = $this->files()->get()->filter(
+            fn (SnapshotFile $file) => $file->needsVolumeCleanup()
+        );
+
+        foreach ($files as $file) {
             $deleted = $file->deleteFromVolume() || $deleted;
         }
 

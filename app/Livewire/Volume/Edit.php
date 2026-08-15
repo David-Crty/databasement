@@ -52,6 +52,18 @@ class Edit extends Component
         $this->form->testConnection();
     }
 
+    /**
+     * Polled by the form while a remote (agent-run) connection test is pending.
+     */
+    public function pollConnectionTest(): void
+    {
+        // A Livewire action is its own request, so mount()'s check does not
+        // carry over to it.
+        $this->authorize('viewForm', $this->form->volume);
+
+        $this->form->pollConnectionTest();
+    }
+
     public function render(): View
     {
         return view('livewire.volume.edit');

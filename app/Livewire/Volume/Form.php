@@ -3,11 +3,17 @@
 namespace App\Livewire\Volume;
 
 use App\Enums\VolumeType;
+use App\Models\Agent;
+use App\Models\AgentJob;
 use App\Models\Volume;
+use App\Services\Agent\RemoteVolumeTester;
+use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\CurrentOrganization;
 use App\Services\VolumeConnectionTester;
 use App\Support\Formatters;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 class Form extends \Livewire\Form
@@ -17,6 +23,12 @@ class Form extends \Livewire\Form
     public string $name = '';
 
     public string $type = 'local';
+
+    // When true, the volume lives behind an agent: the app cannot reach it, so
+    // its connection test runs on that agent instead.
+    public bool $use_agent = false;
+
+    public ?string $agent_id = null;
 
     // Optional storage quota for the volume, entered in GB. Empty = no limit.
     // Stored under the `max_storage_bytes` key of the volume's config JSON.
@@ -52,6 +64,12 @@ class Form extends \Livewire\Form
 
     public bool $testingConnection = false;
 
+    // Id of the agent job carrying a remote test, while it is in flight.
+    // Locked because AgentJob carries no organization scope: a client-writable
+    // id would let the poll read another tenant's job error back to the form.
+    #[Locked]
+    public ?string $connectionTestJobId = null;
+
     public function __construct(
         Component $component,
         mixed $propertyName,
@@ -71,6 +89,8 @@ class Form extends \Livewire\Form
         $this->volume = $volume;
         $this->name = $volume->name;
         $this->type = $volume->type;
+        $this->agent_id = $volume->agent_id;
+        $this->use_agent = $volume->isRemote();
 
         // Load decrypted config, masking sensitive fields to prevent browser serialization
         $volumeType = VolumeType::from($volume->type);
@@ -92,7 +112,16 @@ class Form extends \Livewire\Form
             'type' => ['required', 'string', 'in:'.implode(',', array_column(VolumeType::cases(), 'value'))],
             'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
             'storageLimitNotifyOnly' => ['boolean'],
+            'use_agent' => ['boolean'],
+            'agent_id' => [
+                'nullable',
+                Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id()),
+            ],
         ];
+
+        if ($this->use_agent) {
+            $rules['agent_id'][0] = 'required';
+        }
 
         // Merge rules from all connector classes
         foreach (VolumeType::cases() as $volumeType) {
@@ -118,6 +147,7 @@ class Form extends \Livewire\Form
         $data = [
             'name' => $this->name,
             'type' => $this->type,
+            'agent_id' => $this->resolvedAgentId(),
             'config' => $this->buildConfig(),
         ];
 
@@ -135,8 +165,70 @@ class Form extends \Livewire\Form
 
         $this->volume->update([
             'name' => $this->name,
+            'agent_id' => $this->resolvedAgentId(),
             'config' => $this->buildConfig(),
         ]);
+    }
+
+    /**
+     * The agent to bind the volume to, or null when the app reaches it directly.
+     */
+    private function resolvedAgentId(): ?string
+    {
+        return $this->use_agent ? $this->agent_id : null;
+    }
+
+    /**
+     * Clear the selected agent when the toggle is switched off, so an unused
+     * selection cannot leak into the saved volume.
+     */
+    public function updatedUseAgent(): void
+    {
+        if (! $this->use_agent) {
+            $this->agent_id = null;
+        }
+
+        $this->resetConnectionTest();
+    }
+
+    public function updatedAgentId(): void
+    {
+        $this->resetConnectionTest();
+    }
+
+    private function resetConnectionTest(): void
+    {
+        $this->connectionTestJobId = null;
+        $this->connectionTestMessage = null;
+        $this->connectionTestSuccess = false;
+        $this->testingConnection = false;
+    }
+
+    /**
+     * Agents available to bind a volume to.
+     *
+     * @return array<array{id: string, name: string}>
+     */
+    public function getAgentOptions(): array
+    {
+        return Agent::orderBy('name')->get()->map(fn (Agent $agent) => [
+            'id' => $agent->id,
+            'name' => $agent->name,
+        ])->toArray();
+    }
+
+    public function hasAgent(): bool
+    {
+        return ! empty($this->agent_id);
+    }
+
+    public function getSelectedAgent(): ?Agent
+    {
+        if (! $this->hasAgent()) {
+            return null;
+        }
+
+        return Agent::find($this->agent_id);
     }
 
     /**
@@ -244,19 +336,100 @@ class Form extends \Livewire\Form
             ? $volumeType->mergeSensitiveFromPersisted($this->getActiveConfig(), $this->volume->getDecryptedConfig())
             : $this->getActiveConfig();
 
-        /** @var VolumeConnectionTester $tester */
-        $tester = app(VolumeConnectionTester::class);
+        // $testConfig already holds plaintext secrets, so it maps straight onto
+        // the DTO both the local probe and the agent payload are built from.
+        $volumeConfig = new VolumeConfig(
+            type: $this->type,
+            name: $this->name ?: 'test-volume',
+            config: $testConfig,
+            id: $this->volume?->id,
+        );
 
-        $testVolume = new Volume([
-            'name' => $this->name ?: 'test-volume',
-            'type' => $this->type,
-            'config' => $testConfig,
-        ]);
+        // A volume behind an agent is unreachable from here: hand the probe to
+        // the agent and let the UI poll for its answer.
+        if ($this->use_agent) {
+            $this->dispatchRemoteConnectionTest($volumeConfig);
 
-        $result = $tester->test($testVolume);
+            return;
+        }
+
+        $result = app(VolumeConnectionTester::class)->testConfig($volumeConfig);
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
         $this->testingConnection = false;
+    }
+
+    private function dispatchRemoteConnectionTest(VolumeConfig $volumeConfig): void
+    {
+        $agent = $this->getSelectedAgent();
+
+        if ($agent === null) {
+            $this->testingConnection = false;
+            $this->connectionTestSuccess = false;
+            $this->connectionTestMessage = __('Select the agent that can reach this volume first.');
+
+            return;
+        }
+
+        $job = app(RemoteVolumeTester::class)->dispatch($agent, $volumeConfig);
+
+        $this->connectionTestJobId = $job->id;
+        $this->connectionTestSuccess = false;
+        $this->connectionTestMessage = __('Waiting for agent :name to test the volume...', ['name' => $agent->name]);
+    }
+
+    /**
+     * Read back the result of a remote test. Polled by the form while a test is
+     * in flight; a no-op otherwise.
+     */
+    public function pollConnectionTest(): void
+    {
+        if ($this->connectionTestJobId === null) {
+            return;
+        }
+
+        // Narrowed to this form's own test: AgentJob has no organization scope,
+        // so a bare find() would be one tampered id away from reading another
+        // tenant's job. The id is #[Locked] too — this is the second lock.
+        $job = AgentJob::query()
+            ->whereKey($this->connectionTestJobId)
+            ->where('type', AgentJob::TYPE_VOLUME_TEST)
+            ->where('agent_id', $this->agent_id)
+            ->first();
+
+        $tester = app(RemoteVolumeTester::class);
+
+        if ($job === null) {
+            $this->finishRemoteConnectionTest(false, __('The volume test was cancelled.'));
+
+            return;
+        }
+
+        $result = $tester->result($job);
+
+        if ($result['state'] === 'success') {
+            $this->finishRemoteConnectionTest(true, __('Connection successful!'));
+
+            return;
+        }
+
+        if ($result['state'] === 'failed') {
+            $this->finishRemoteConnectionTest(false, $result['message'] ?: __('The agent could not reach this volume.'));
+
+            return;
+        }
+
+        if ($tester->hasTimedOut($job)) {
+            $this->finishRemoteConnectionTest(false, __('The agent did not respond. Check that it is running and connected.'));
+        }
+    }
+
+    private function finishRemoteConnectionTest(bool $success, string $message): void
+    {
+        $this->connectionTestJobId = null;
+        $this->testingConnection = false;
+        $this->connectionTestSuccess = $success;
+        $this->connectionTestMessage = $message;
     }
 }
