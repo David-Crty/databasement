@@ -130,6 +130,18 @@
                     </div>
                 </div>
 
+                <!-- SSH Compression -->
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <x-toggle
+                        wire:model="form.ssh_compression"
+                        class="toggle-primary toggle-sm"
+                    />
+                    <div>
+                        <span class="text-sm font-medium">{{ __('Enable compression') }}</span>
+                        <p class="text-xs text-base-content/60">{{ __('Speeds up backups over slow links, at the cost of extra CPU on both ends.') }}</p>
+                    </div>
+                </label>
+
                 <!-- Authentication Method -->
                 <div class="form-control">
                     <label class="label">

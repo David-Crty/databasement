@@ -54,6 +54,40 @@ test('can create database server with SSH tunnel (password auth)', function () {
     expect($server->sshConfig->auth_type)->toBe('password');
     // Password should be stored (encrypted by model cast)
     expect($server->sshConfig->password)->toBe('ssh_secret');
+    // Compression defaults to off when not explicitly enabled
+    expect($server->sshConfig->compression)->toBeFalse();
+});
+
+test('can enable ssh compression when creating a database server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'SSH Compression Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'private-db.internal')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.backups.0.database_names.0', 'myapp_production')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.ssh_enabled', true)
+        ->set('form.ssh_config_mode', 'create')
+        ->set('form.ssh_host', 'bastion.example.com')
+        ->set('form.ssh_port', 22)
+        ->set('form.ssh_username', 'tunnel_user')
+        ->set('form.ssh_auth_type', 'password')
+        ->set('form.ssh_password', 'ssh_secret')
+        ->set('form.ssh_compression', true)
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'SSH Compression Server')->first();
+    expect($server->sshConfig->compression)->toBeTrue();
 });
 
 test('can create database server with SSH tunnel (key auth)', function () {

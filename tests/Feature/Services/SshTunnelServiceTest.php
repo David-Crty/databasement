@@ -171,6 +171,82 @@ test('establish throws exception when tunnel fails to connect', function () {
     expect($service->getLocalPort())->toBeNull();
 });
 
+test('establish enables ssh compression when the config requests it', function () {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'bastion.example.com';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'tunnel_user';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'ssh_password';
+    $sshConfig->compression = true;
+
+    $server = new DatabaseServer;
+    $server->host = 'database.internal';
+    $server->port = 3306;
+    $server->database_type = 'mysql';
+    $server->ssh_config_id = 'temp';
+    $server->setRelation('sshConfig', $sshConfig);
+
+    $mockProcess = Mockery::mock(\Symfony\Component\Process\Process::class);
+    $mockProcess->shouldReceive('setTimeout')->once()->with(null);
+    $mockProcess->shouldReceive('start')->once();
+    $mockProcess->shouldReceive('isRunning')->andReturn(true);
+    $mockProcess->shouldReceive('stop')->andReturn(0);
+
+    $service = Mockery::mock(SshTunnelService::class)->makePartial();
+    $service->shouldAllowMockingProtectedMethods();
+    $service->shouldReceive('allocateLocalPort')->once()->andReturn(54323);
+    $service->shouldReceive('createTunnelProcess')
+        ->once()
+        ->andReturnUsing(function ($command) use ($mockProcess) {
+            expect($command)->toContain('-C');
+
+            return $mockProcess;
+        });
+    $service->shouldReceive('waitForTunnel')->once()->andReturn(true);
+
+    $service->establish($server);
+    $service->close();
+});
+
+test('establish omits ssh compression by default', function () {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'bastion.example.com';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'tunnel_user';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'ssh_password';
+    $sshConfig->compression = false;
+
+    $server = new DatabaseServer;
+    $server->host = 'database.internal';
+    $server->port = 3306;
+    $server->database_type = 'mysql';
+    $server->ssh_config_id = 'temp';
+    $server->setRelation('sshConfig', $sshConfig);
+
+    $mockProcess = Mockery::mock(\Symfony\Component\Process\Process::class);
+    $mockProcess->shouldReceive('setTimeout')->once()->with(null);
+    $mockProcess->shouldReceive('start')->once();
+    $mockProcess->shouldReceive('isRunning')->andReturn(true);
+    $mockProcess->shouldReceive('stop')->andReturn(0);
+
+    $service = Mockery::mock(SshTunnelService::class)->makePartial();
+    $service->shouldAllowMockingProtectedMethods();
+    $service->shouldReceive('allocateLocalPort')->once()->andReturn(54324);
+    $service->shouldReceive('createTunnelProcess')
+        ->once()
+        ->andReturnUsing(function ($command) use ($mockProcess) {
+            expect($command)->not->toContain('-C');
+
+            return $mockProcess;
+        });
+    $service->shouldReceive('waitForTunnel')->once()->andReturn(true);
+
+    $service->establish($server);
+    $service->close();
+});
+
 test('establish with key auth creates temp key file', function () {
     // Create SSH config without persisting to database
     $sshConfig = new DatabaseServerSshConfig;

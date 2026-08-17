@@ -85,6 +85,8 @@ class Form extends \Livewire\Form
 
     public string $ssh_auth_type = 'password';
 
+    public bool $ssh_compression = false;
+
     public string $ssh_password = '';
 
     public string $ssh_private_key = '';
@@ -383,6 +385,7 @@ class Form extends \Livewire\Form
         $this->ssh_port = $config->port;
         $this->ssh_username = $config->username;
         $this->ssh_auth_type = $config->auth_type;
+        $this->ssh_compression = $config->compression;
         // Don't populate sensitive fields for security
         $this->ssh_password = '';
         $this->ssh_private_key = '';
@@ -400,6 +403,7 @@ class Form extends \Livewire\Form
         $this->ssh_port = 22;
         $this->ssh_username = '';
         $this->ssh_auth_type = 'password';
+        $this->ssh_compression = false;
         $this->ssh_password = '';
         $this->ssh_private_key = '';
         $this->ssh_key_passphrase = '';
@@ -981,6 +985,7 @@ class Form extends \Livewire\Form
             'port' => $this->ssh_port,
             'username' => $this->ssh_username,
             'auth_type' => $this->ssh_auth_type,
+            'compression' => $this->ssh_compression,
         ];
 
         // Add sensitive fields if provided
@@ -1009,7 +1014,7 @@ class Form extends \Livewire\Form
             $config = DatabaseServerSshConfig::find($existingConfigId);
             if ($config !== null) {
                 // Non-sensitive fields are always updated; sensitive fields only when provided
-                $nonSensitiveFields = ['host', 'port', 'username', 'auth_type'];
+                $nonSensitiveFields = ['host', 'port', 'username', 'auth_type', 'compression'];
                 $updateData = array_intersect_key($sshData, array_flip($nonSensitiveFields));
 
                 foreach (DatabaseServerSshConfig::SENSITIVE_FIELDS as $field) {
@@ -1215,6 +1220,7 @@ class Form extends \Livewire\Form
         $config->port = $this->ssh_port;
         $config->username = $this->ssh_username;
         $config->auth_type = $this->ssh_auth_type;
+        $config->compression = $this->ssh_compression;
 
         // Use form values or fall back to existing config values
         $config->password = $this->ssh_password ?: $this->getSshFieldFromConfig('password');
