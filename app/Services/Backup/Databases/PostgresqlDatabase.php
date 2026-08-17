@@ -73,6 +73,20 @@ class PostgresqlDatabase implements DatabaseInterface
         return ! empty($this->config['ssl_enabled']) ? 'PGSSLMODE=require ' : '';
     }
 
+    /**
+     * Resolve a PostgreSQL client tool (psql, pg_dump, pg_restore) to an
+     * invocable command name. Bare by default (relies on $PATH); prefixed
+     * with `backup.postgresql_client_bin_dir` when configured, so hosts with
+     * several PostgreSQL client versions installed can pin an unambiguous
+     * absolute path instead of relying on the tool to locate itself via $PATH.
+     */
+    private function binary(string $name): string
+    {
+        $binDir = config('backup.postgresql_client_bin_dir');
+
+        return $binDir ? rtrim((string) $binDir, '/').'/'.$name : $name;
+    }
+
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $options = $this->withPrivilegeOptions(self::DUMP_OPTIONS);
@@ -87,9 +101,10 @@ class PostgresqlDatabase implements DatabaseInterface
 
         // Flags must come before the database name (last positional argument)
         $command = sprintf(
-            '%sPGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s%s %s',
+            '%sPGPASSWORD=%s %s %s --host=%s --port=%s --username=%s%s %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
+            $this->binary('pg_dump'),
             implode(' ', $options),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
@@ -107,9 +122,10 @@ class PostgresqlDatabase implements DatabaseInterface
     {
         if (($this->config['dump_format'] ?? 'plain') === 'custom') {
             return new DatabaseOperationResult(command: sprintf(
-                '%sPGPASSWORD=%s pg_restore %s --host=%s --port=%s --username=%s --dbname=%s %s',
+                '%sPGPASSWORD=%s %s %s --host=%s --port=%s --username=%s --dbname=%s %s',
                 $this->sslEnvPrefix(),
                 escapeshellarg($this->config['pass']),
+                $this->binary('pg_restore'),
                 implode(' ', $this->withPrivilegeOptions(self::RESTORE_CUSTOM_FORMAT_OPTIONS)),
                 escapeshellarg($this->config['host']),
                 escapeshellarg((string) $this->config['port']),
@@ -120,9 +136,10 @@ class PostgresqlDatabase implements DatabaseInterface
         }
 
         return new DatabaseOperationResult(command: sprintf(
-            '%sPGPASSWORD=%s psql --host=%s --port=%s --username=%s %s -f %s',
+            '%sPGPASSWORD=%s %s --host=%s --port=%s --username=%s %s -f %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
+            $this->binary('psql'),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
@@ -307,9 +324,10 @@ class PostgresqlDatabase implements DatabaseInterface
     private function getQueryCommand(string $query): string
     {
         return sprintf(
-            '%sPGPASSWORD=%s psql --host=%s --port=%s --user=%s %s -t -c %s',
+            '%sPGPASSWORD=%s %s --host=%s --port=%s --user=%s %s -t -c %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
+            $this->binary('psql'),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
