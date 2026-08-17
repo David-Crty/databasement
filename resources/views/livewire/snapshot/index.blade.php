@@ -59,6 +59,19 @@
                                     <x-snapshot-volume-badge :file="$file" />
                                 @endif
                             @endforeach
+                            @can('update', $snapshot)
+                                <button
+                                    type="button"
+                                    wire:click="openNoteModal('{{ $snapshot->id }}')"
+                                    class="inline-flex items-center gap-1 text-xs {{ $snapshot->note ? 'text-base-content/70' : 'text-base-content/40' }} hover:text-primary"
+                                    title="{{ $snapshot->note ?: __('Add a note') }}"
+                                >
+                                    <x-icon name="o-pencil-square" class="w-3.5 h-3.5" />
+                                    @if($snapshot->note)
+                                        <span class="truncate max-w-40">{{ $snapshot->note }}</span>
+                                    @endif
+                                </button>
+                            @endcan
                             @if($fileMissing)
                                 <x-popover>
                                     <x-slot:trigger>
@@ -244,6 +257,20 @@
 
         <x-slot:actions>
             <x-button :label="__('Close')" @click="$wire.showDownloadModal = false" />
+        </x-slot:actions>
+    </x-modal>
+
+    <x-modal wire:model="showNoteModal" :title="__('Snapshot Note')" class="backdrop-blur">
+        <x-textarea
+            wire:model="noteInput"
+            :label="__('Note')"
+            :placeholder="__('e.g. Backup taken before the v1.37 upgrade')"
+            rows="3"
+        />
+
+        <x-slot:actions>
+            <x-button :label="__('Cancel')" @click="$wire.showNoteModal = false" />
+            <x-button :label="__('Save')" wire:click="saveNote" class="btn-primary" spinner="saveNote" />
         </x-slot:actions>
     </x-modal>
 

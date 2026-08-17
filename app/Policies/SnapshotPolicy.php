@@ -36,6 +36,16 @@ class SnapshotPolicy
     }
 
     /**
+     * Determine whether the user can edit the snapshot's note.
+     * Reuses the delete-snapshots ability: editing a note is snapshot
+     * housekeeping, the same trust level as removing the snapshot outright.
+     */
+    public function update(User $user, Snapshot $snapshot): bool
+    {
+        return $user->can(Ability::DeleteSnapshots->value);
+    }
+
+    /**
      * Determine whether the user can download the snapshot.
      * Requires the download-snapshots ability.
      */

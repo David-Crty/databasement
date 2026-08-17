@@ -309,3 +309,48 @@ test('?job= from another org is forbidden when the user is not a member', functi
         ->test(Index::class)
         ->assertForbidden();
 });
+
+test('can add a note to a snapshot', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->call('openNoteModal', $snapshot->id)
+        ->assertSet('showNoteModal', true)
+        ->assertSet('noteSnapshotId', $snapshot->id)
+        ->set('noteInput', 'Backup vaultwarden version 1.37')
+        ->call('saveNote')
+        ->assertSet('showNoteModal', false);
+
+    expect($snapshot->fresh()->note)->toBe('Backup vaultwarden version 1.37');
+});
+
+test('opening the note modal prefills the existing note', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['note' => 'Existing note']);
+
+    Livewire::test(Index::class)
+        ->call('openNoteModal', $snapshot->id)
+        ->assertSet('noteInput', 'Existing note');
+});
+
+test('saving a blank note clears it', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['note' => 'Existing note']);
+
+    Livewire::test(Index::class)
+        ->call('openNoteModal', $snapshot->id)
+        ->set('noteInput', '')
+        ->call('saveNote');
+
+    expect($snapshot->fresh()->note)->toBeNull();
+});
+
+test('without delete-snapshots, editing a note is forbidden', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    actingAs(User::factory()->withAbilities([])->create());
+
+    Livewire::test(Index::class)
+        ->call('openNoteModal', $snapshot->id)
+        ->assertForbidden();
+
+    expect($snapshot->fresh()->note)->toBeNull();
+});

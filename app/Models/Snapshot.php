@@ -37,6 +37,7 @@ class Snapshot extends Model
         'filename',
         'file_size',
         'checksum',
+        'note',
         'started_at',
         'database_name',
         'database_type',

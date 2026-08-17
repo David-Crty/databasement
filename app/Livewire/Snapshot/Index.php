@@ -57,6 +57,13 @@ class Index extends Component
 
     public bool $showDownloadModal = false;
 
+    #[Locked]
+    public ?string $noteSnapshotId = null;
+
+    public string $noteInput = '';
+
+    public bool $showNoteModal = false;
+
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -151,6 +158,37 @@ class Index extends Component
         }
 
         return Snapshot::with('files.volume')->find($this->downloadSnapshotId);
+    }
+
+    public function openNoteModal(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('update', $snapshot);
+
+        $this->noteSnapshotId = $snapshotId;
+        $this->noteInput = $snapshot->note ?? '';
+        $this->showNoteModal = true;
+    }
+
+    public function saveNote(): void
+    {
+        if (! $this->noteSnapshotId) {
+            return;
+        }
+
+        $snapshot = Snapshot::findOrFail($this->noteSnapshotId);
+
+        $this->authorize('update', $snapshot);
+
+        $this->validate(['noteInput' => ['nullable', 'string', 'max:2000']]);
+
+        $snapshot->update(['note' => $this->noteInput !== '' ? $this->noteInput : null]);
+
+        $this->noteSnapshotId = null;
+        $this->showNoteModal = false;
+
+        $this->success(__('Note saved successfully!'));
     }
 
     public function confirmDeleteSnapshot(string $snapshotId): void
