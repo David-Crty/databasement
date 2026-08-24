@@ -214,6 +214,36 @@ GRANT RDB$ADMIN TO databasement;
 Restore is performed with `gbak -rep`, which writes a fresh `.fdb` at the target path and replaces an existing file at that path if one is present. The user supplies the destination path during restore.
 :::
 
+## Dump Command Configuration
+
+Every server form has a **Dump Command Configuration** section that tunes the command Databasement runs to produce the dump. A live **Command preview** below the fields shows exactly what will be executed. The section is unavailable for SQLite, which is copied as a file rather than dumped.
+
+### Extra Dump Flags
+
+Free-form flags appended to the dump command, for example `--no-tablespaces --column-statistics=0`. Each whitespace-separated token is passed to the dump tool as a single argument.
+
+### Excluded Tables
+
+Tables listed here are left out of every database backed up for this server. Enter **table names only, without a schema prefix**, separated by commas or new lines:
+
+```text
+web_api_log, web_service_log
+audit_log
+```
+
+Databasement expands the list per dump, so one entry covers every database on the server:
+
+- **MySQL / MariaDB** — each database is dumped separately, so the names are qualified with the database being dumped: dumping `datasoft` adds `--ignore-table=datasoft.web_api_log --ignore-table=datasoft.web_service_log`, and dumping `red` adds the same flags with the `red.` prefix. This avoids having to maintain one flag per schema-table pair by hand, and it keeps working when a new database appears on the server.
+- **PostgreSQL** — the names are passed unqualified as `--exclude-table=web_api_log`, which matches the table in every schema of the database being dumped.
+
+Names must be plain identifiers (letters, digits, `_` and `$`, up to 64 characters), and at most 200 may be listed. Excluding a table that does not exist is harmless — both dump tools ignore unmatched names.
+
+:::warning Excluded tables are missing from the snapshot
+A restore recreates only what the dump contains. An excluded table is not dropped on the restore target, but it is not restored either — if the target does not already have it, the table will be absent after the restore.
+:::
+
+Excluded Tables is available for **MySQL / MariaDB** and **PostgreSQL**; the other supported engines have no per-table exclusion in their dump tools.
+
 ## Browsing Data with Adminer
 
 Databasement can launch [Adminer](https://www.adminer.org/) directly against a registered server to inspect schema and run queries from the browser. Supported for **MySQL**, **PostgreSQL**, and **SQLite** servers that connect without an SSH tunnel.

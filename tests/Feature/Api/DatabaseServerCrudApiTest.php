@@ -145,6 +145,39 @@ test('store moves auth_source and dump_flags to extra_config', function () {
         ->assertJsonPath('data.extra_config.dump_flags', '--single-transaction');
 });
 
+test('store moves excluded_tables to extra_config', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'MySQL excluding logs',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'excluded_tables' => ['web_api_log', 'web_service_log'],
+            'backups_enabled' => false,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.extra_config.excluded_tables', ['web_api_log', 'web_service_log']);
+});
+
+test('store rejects excluded table names that are not plain identifiers', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'MySQL bad exclusions',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'excluded_tables' => ['logs; DROP TABLE users'],
+            'backups_enabled' => false,
+        ])
+        ->assertJsonValidationErrors('excluded_tables.0');
+});
+
 test('update preserves extra_config when keys are not sent', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create([

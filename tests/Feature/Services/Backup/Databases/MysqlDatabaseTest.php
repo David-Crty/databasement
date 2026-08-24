@@ -58,6 +58,63 @@ test('dump includes extra dump flags', function () {
         ->and($result->command)->toEndWith("> '/tmp/dump.sql'");
 });
 
+/** The same excluded tables, dumped from two different schemas on one server. */
+function mysqlDatabaseExcluding(string $schema): MysqlDatabase
+{
+    $db = new MysqlDatabase;
+    $db->setConfig([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => $schema,
+        'excluded_tables' => ['web_api_log', 'web_service_log'],
+    ]);
+
+    return $db;
+}
+
+test('dump qualifies excluded tables with the schema being dumped', function (string $schema) {
+    $result = mysqlDatabaseExcluding($schema)->dump('/tmp/dump.sql');
+
+    // One --ignore-table per table, prefixed with this dump's schema, before the database name
+    expect($result->command)->toContain("'--ignore-table={$schema}.web_api_log' '--ignore-table={$schema}.web_service_log' '{$schema}'")
+        ->and($result->command)->toEndWith("> '/tmp/dump.sql'");
+})->with(['datasoft', 'red']);
+
+test('dump combines excluded tables with extra dump flags', function () {
+    $db = new MysqlDatabase;
+    $db->setConfig([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+        'dump_flags' => '--no-tablespaces',
+        'excluded_tables' => ['audit_log'],
+    ]);
+
+    expect($db->dump('/tmp/dump.sql')->command)
+        ->toContain("'--no-tablespaces' '--ignore-table=myapp.audit_log' 'myapp'");
+});
+
+test('dump adds no ignore-table flags when excluded tables are absent or empty', function (mixed $excluded) {
+    $db = new MysqlDatabase;
+    $db->setConfig(array_merge([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+    ], $excluded === 'absent' ? [] : ['excluded_tables' => $excluded]));
+
+    expect($db->dump('/tmp/dump.sql')->command)->not->toContain('--ignore-table');
+})->with([
+    'absent' => 'absent',
+    'empty list' => [[]],
+    'null' => [null],
+]);
+
 /** A handler on a live server reporting $version, or an unreadable one for null. */
 function mysqlDatabaseReportingVersion(?string $version): MysqlDatabase
 {

@@ -122,7 +122,7 @@ test('buildExtraConfig folds type-specific fields into extra_config', function (
     expect($data['extra_config'])->toEqual($expected);
 
     // Handled keys are always pulled out of $data.
-    foreach (['auth_source', 'dump_flags', 'dump_format', 'dump_privileges', 'ssl_enabled'] as $key) {
+    foreach (['auth_source', 'dump_flags', 'excluded_tables', 'dump_format', 'dump_privileges', 'ssl_enabled'] as $key) {
         expect($data)->not->toHaveKey($key);
     }
 })->with([
@@ -160,4 +160,30 @@ test('buildExtraConfig folds type-specific fields into extra_config', function (
     'clears stale config on type change when no replacement keys are provided' => [
         ['database_type' => 'mysql'], ['auth_source' => 'records'], 'mongodb', null,
     ],
+    'parses excluded_tables from the comma-separated form value' => [
+        ['database_type' => 'mysql', 'excluded_tables' => 'web_api_log, web_service_log'],
+        null, null, ['excluded_tables' => ['web_api_log', 'web_service_log']],
+    ],
+    'keeps excluded_tables already supplied as a list' => [
+        ['database_type' => 'postgres', 'excluded_tables' => ['audit_log']],
+        null, null, ['excluded_tables' => ['audit_log']],
+    ],
+    'drops excluded_tables for a type without per-table exclusion' => [
+        ['database_type' => 'mongodb', 'excluded_tables' => 'web_api_log'], null, null, null,
+    ],
+    'clears existing excluded_tables when the field is emptied' => [
+        ['database_type' => 'mysql', 'excluded_tables' => ''], ['excluded_tables' => ['audit_log']], null, null,
+    ],
+]);
+
+test('parseExcludedTables normalizes separators, blanks and duplicates', function (mixed $value, array $expected) {
+    expect(DatabaseServer::parseExcludedTables($value))->toBe($expected);
+})->with([
+    'comma separated' => ['web_api_log, web_service_log', ['web_api_log', 'web_service_log']],
+    'newline separated' => ["web_api_log\nweb_service_log", ['web_api_log', 'web_service_log']],
+    'mixed separators with blanks' => [" web_api_log ,,\r\n  web_service_log \n", ['web_api_log', 'web_service_log']],
+    'duplicates collapsed' => ['audit_log, audit_log', ['audit_log']],
+    'already a list' => [['audit_log'], ['audit_log']],
+    'empty string' => ['', []],
+    'null' => [null, []],
 ]);

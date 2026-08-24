@@ -153,6 +153,16 @@ use App\Enums\DatabaseType;
                                     type="text"
                                 />
 
+                                @if($form->supportsExcludedTables())
+                                    <x-textarea
+                                        wire:model.live.debounce.300ms="form.excluded_tables"
+                                        :placeholder="__('e.g., web_api_log, web_service_log')"
+                                        :hint="__('Table names without schema prefix, separated by commas or new lines. Applied to every database in this server’s backup.')"
+                                        :label="__('Excluded Tables')"
+                                        rows="3"
+                                    />
+                                @endif
+
                                 @php $dumpPreview = $form->getDumpCommandPreview() @endphp
                                 @if($dumpPreview)
                                     <x-badge :value="__('Command preview')" class="badge-primary"/>

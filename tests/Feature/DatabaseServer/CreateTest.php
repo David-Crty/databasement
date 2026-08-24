@@ -307,6 +307,64 @@ test('can create database server with dump flags', function () {
         ->toBe('--no-tablespaces --column-statistics=0');
 });
 
+test('can create database server with excluded tables', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'MySQL Excluding Logs')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.excluded_tables', "web_api_log, web_service_log\naudit_log")
+        ->set('form.backups.0.database_names.0', 'myapp')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'MySQL Excluding Logs')->first();
+
+    expect($server->getExtraConfig('excluded_tables'))
+        ->toBe(['web_api_log', 'web_service_log', 'audit_log']);
+});
+
+test('rejects excluded table names that are not plain identifiers', function (string $excluded) {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'MySQL Bad Exclusions')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.excluded_tables', $excluded)
+        ->set('form.backups.0.database_names.0', 'myapp')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->call('save')
+        ->assertHasErrors('form.excluded_tables');
+
+    expect(DatabaseServer::where('name', 'MySQL Bad Exclusions')->exists())->toBeFalse();
+})->with([
+    'space in name' => ['web api log'],
+    'statement terminator' => ['logs; DROP TABLE users'],
+    'sql comment' => ['logs --'],
+    'schema qualified' => ['datasoft.web_api_log'],
+    'shell substitution' => ['$(whoami)'],
+    'wildcard' => ['web_*'],
+    'over 64 characters' => ['a123456789012345678901234567890123456789012345678901234567890123456789'],
+]);
+
 test('can create mysql database server with ssl_enabled', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);

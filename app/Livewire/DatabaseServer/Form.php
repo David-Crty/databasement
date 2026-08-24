@@ -13,6 +13,7 @@ use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\NotificationChannel;
+use App\Rules\ExcludedTableNames;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\ShellProcessor;
 use App\Services\Backup\SyncBackupConfigurationsAction;
@@ -54,6 +55,12 @@ class Form extends \Livewire\Form
     public string $connection_options = '';
 
     public string $dump_flags = '';
+
+    /**
+     * Table names excluded from every database dumped for this server,
+     * comma- or newline-separated. Stored in extra_config as a list.
+     */
+    public string $excluded_tables = '';
 
     public string $dump_format = 'plain';
 
@@ -458,9 +465,10 @@ class Form extends \Livewire\Form
         $this->srv_enabled = (bool) $server->getExtraConfig('srv_enabled', false);
         $this->connection_options = $server->getExtraConfig('connection_options', '');
         $this->dump_flags = $server->getExtraConfig('dump_flags', '');
+        $this->excluded_tables = implode(', ', DatabaseServer::parseExcludedTables($server->getExtraConfig('excluded_tables')));
         $this->dump_format = $server->getExtraConfig('dump_format', 'plain');
         $this->dump_privileges = (bool) $server->getExtraConfig('dump_privileges', false);
-        $this->dump_config_open = ! empty($this->dump_flags) || $this->dump_format === 'custom' || $this->dump_privileges;
+        $this->dump_config_open = ! empty($this->dump_flags) || ! empty($this->excluded_tables) || $this->dump_format === 'custom' || $this->dump_privileges;
         $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $this->username = $server->username ?? '';
         $this->description = $server->description;
@@ -680,6 +688,14 @@ class Form extends \Livewire\Form
     }
 
     /**
+     * Check if current database type supports excluding individual tables.
+     */
+    public function supportsExcludedTables(): bool
+    {
+        return DatabaseServer::supportsExcludedTables($this->database_type);
+    }
+
+    /**
      * Get a preview of the dump command for the current database type.
      */
     public function getDumpCommandPreview(): string
@@ -694,6 +710,7 @@ class Form extends \Livewire\Form
             'port' => $type->defaultPort(),
             'database' => 'dbname',
             'dump_flags' => $this->dump_flags,
+            'excluded_tables' => $this->supportsExcludedTables() ? DatabaseServer::parseExcludedTables($this->excluded_tables) : [],
             'user' => 'user',
             'pass' => '********',
         ];
@@ -885,6 +902,7 @@ class Form extends \Livewire\Form
             'agent_id' => ['nullable', Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
             'backups_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
+            'excluded_tables' => ['nullable', 'string', new ExcludedTableNames],
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
             'dump_privileges' => 'boolean',
             'ssl_enabled' => 'boolean',

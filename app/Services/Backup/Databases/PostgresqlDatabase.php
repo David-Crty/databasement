@@ -85,6 +85,13 @@ class PostgresqlDatabase implements DatabaseInterface
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
         }
 
+        // Unqualified --exclude-table patterns match the table in every schema
+        // of the database being dumped.
+        $extraFlags .= DatabaseOperationResult::escapeTableExclusions(
+            '--exclude-table',
+            $this->config['excluded_tables'] ?? null,
+        );
+
         // Flags must come before the database name (last positional argument)
         $command = sprintf(
             '%sPGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s%s %s',

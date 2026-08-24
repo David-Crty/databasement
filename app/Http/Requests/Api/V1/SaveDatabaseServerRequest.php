@@ -8,6 +8,7 @@ use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Rules\ExcludedTableNames;
 use App\Rules\SafeDatabasePath;
 use App\Rules\SafeHost;
 use App\Rules\SafePath;
@@ -71,6 +72,8 @@ class SaveDatabaseServerRequest extends FormRequest
             $rules['username'] = 'required|string|max:255';
             $rules['password'] = 'nullable';
             $rules['dump_flags'] = ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'];
+            $rules['excluded_tables'] = ['nullable', 'array', 'max:'.ExcludedTableNames::MAX_NAMES];
+            $rules['excluded_tables.*'] = ['string', 'max:'.ExcludedTableNames::MAX_NAME_LENGTH, 'regex:'.ExcludedTableNames::PATTERN];
         }
 
         if ($type === 'postgres') {

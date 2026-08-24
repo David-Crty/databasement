@@ -351,7 +351,7 @@ class DatabaseServer extends Model
 
     /**
      * Move type-specific fields (auth_source, srv_enabled, connection_options,
-     * dump_flags, ssl_enabled) into extra_config.
+     * dump_flags, excluded_tables, ssl_enabled) into extra_config.
      * Clears stale keys when database type has changed.
      *
      * @param  array<string, mixed>  $data
@@ -372,6 +372,7 @@ class DatabaseServer extends Model
             ['srv_enabled',         fn ($v) => $type === DatabaseType::MONGODB->value && $v,                       fn () => true],
             ['connection_options',  fn ($v) => $type === DatabaseType::MONGODB->value && $v !== '' && $v !== null, fn ($v) => $v],
             ['dump_flags',          fn ($v) => $type !== DatabaseType::SQLITE->value && $v !== '' && $v !== null,  fn ($v) => $v],
+            ['excluded_tables',     fn ($v) => self::supportsExcludedTables($type) && self::parseExcludedTables($v) !== [], fn ($v) => self::parseExcludedTables($v)],
             ['dump_format',         fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v === 'custom',       fn () => 'custom'],
             ['dump_privileges',     fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v,                    fn () => true],
             ['ssl_enabled',         fn ($v) => in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value], true) && $v, fn () => true],
@@ -411,6 +412,42 @@ class DatabaseServer extends Model
         } else {
             unset($extraConfig[$key]);
         }
+    }
+
+    /**
+     * Whether a database type can exclude individual tables from its dump.
+     *
+     * Only the two table-based SQL types have a per-table exclusion flag:
+     * `mariadb-dump --ignore-table` and `pg_dump --exclude-table`.
+     */
+    public static function supportsExcludedTables(?string $type): bool
+    {
+        return in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value], true);
+    }
+
+    /**
+     * Normalize excluded table names into a clean list.
+     *
+     * Accepts the UI's comma- or newline-separated textarea string as well as
+     * an already-structured array (REST API, or a value round-tripped out of
+     * extra_config). Blank entries and duplicates are dropped; names are not
+     * validated here — see {@see \App\Rules\ExcludedTableNames}.
+     *
+     * @return list<string>
+     */
+    public static function parseExcludedTables(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = preg_split('/[,\r\n]+/', $value) ?: [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $names = array_map(trim(...), array_filter($value, is_string(...)));
+
+        return array_values(array_unique(array_filter($names, fn (string $name): bool => $name !== '')));
     }
 
     /**
