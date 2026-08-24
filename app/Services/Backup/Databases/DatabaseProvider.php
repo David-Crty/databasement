@@ -107,6 +107,10 @@ class DatabaseProvider
             $dbConfig['dump_flags'] = $extra['dump_flags'];
         }
 
+        if (! empty($extra['excluded_tables'])) {
+            $dbConfig['excluded_tables'] = $extra['excluded_tables'];
+        }
+
         if (in_array($config->databaseType, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true) && ! empty($extra['ssl_enabled'])) {
             $dbConfig['ssl_enabled'] = true;
         }

@@ -141,6 +141,23 @@ test('makeFromConfig passes ssl_enabled from extra_config for mysql', function (
         ->not->toContain('--skip_ssl');
 });
 
+test('makeFromConfig expands excluded_tables from extra_config per dumped database', function (string $databaseName) {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::MYSQL,
+        serverName: 'MySQL Server',
+        host: 'db.example.com',
+        port: 3306,
+        username: 'root',
+        password: 'secret',
+        extraConfig: ['excluded_tables' => ['web_api_log', 'web_service_log']],
+    );
+
+    $database = (new DatabaseProvider)->makeFromConfig($config, $databaseName, 'db.example.com', 3306);
+
+    expect($database->dump('/tmp/test.sql')->command)
+        ->toContain("'--ignore-table={$databaseName}.web_api_log' '--ignore-table={$databaseName}.web_service_log'");
+})->with(['datasoft', 'red']);
+
 test('makeFromConfig passes ssl_enabled from extra_config for postgres', function () {
     $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
         databaseType: DatabaseType::POSTGRESQL,

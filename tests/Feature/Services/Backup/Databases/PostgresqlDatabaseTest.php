@@ -40,6 +40,39 @@ test('dump includes extra dump flags', function () {
         ->and($result->command)->toEndWith("-f '/tmp/dump.sql'");
 });
 
+test('dump excludes tables from every schema of the dumped database', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'excluded_tables' => ['web_api_log', 'web_service_log'],
+    ]);
+
+    // Unqualified patterns match the table in any schema
+    expect($db->dump('/tmp/dump.sql')->command)
+        ->toContain("'--exclude-table=web_api_log' '--exclude-table=web_service_log' 'myapp'");
+});
+
+test('dump adds no exclude-table flags when excluded tables are absent or empty', function (mixed $excluded) {
+    $db = new PostgresqlDatabase;
+    $db->setConfig(array_merge([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+    ], $excluded === 'absent' ? [] : ['excluded_tables' => $excluded]));
+
+    expect($db->dump('/tmp/dump.sql')->command)->not->toContain('--exclude-table');
+})->with([
+    'absent' => 'absent',
+    'empty list' => [[]],
+    'null' => [null],
+]);
+
 test('restore builds correct psql command', function () {
     $result = $this->db->restore('/tmp/restore.sql');
 

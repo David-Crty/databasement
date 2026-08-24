@@ -83,6 +83,14 @@ class MysqlDatabase implements DatabaseInterface
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
         }
 
+        // mariadb-dump qualifies --ignore-table by schema, so the names are
+        // expanded against whichever database this dump targets.
+        $extraFlags .= DatabaseOperationResult::escapeTableExclusions(
+            '--ignore-table',
+            $this->config['excluded_tables'] ?? null,
+            $this->config['database'].'.',
+        );
+
         // Flags must come before the database name; mariadb-dump treats anything after it as table names
         $command = sprintf(
             '%s %s --host=%s --port=%s --user=%s --password=%s%s %s',

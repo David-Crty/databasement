@@ -5,6 +5,7 @@
         use App\Enums\NotificationChannelSelection;
         use App\Enums\NotificationTrigger;
         use App\Livewire\DatabaseServer\BackupForm;
+        use App\Models\DatabaseServer;
 
         $sshConfig = $server->sshConfig;
         $agent = $server->agent;
@@ -13,8 +14,9 @@
         $sslEnabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $authSource = $server->getExtraConfig('auth_source');
         $dumpFlags = $server->getExtraConfig('dump_flags');
+        $excludedTables = DatabaseServer::parseExcludedTables($server->getExtraConfig('excluded_tables'));
         $dumpFormat = $isPostgres ? ($server->getExtraConfig('dump_format', 'plain')) : null;
-        $showDumpCard = $dumpFlags || ($isPostgres && $dumpFormat === 'custom');
+        $showDumpCard = $dumpFlags || $excludedTables || ($isPostgres && $dumpFormat === 'custom');
 
         $trigger = $server->notification_trigger;
         $selection = $server->notification_channel_selection;
@@ -415,6 +417,19 @@
                                 <div class="min-w-0">
                                     <div class="text-xs uppercase font-semibold opacity-60">{{ __('Extra flags') }}</div>
                                     <code class="mt-1 inline-block text-xs font-mono break-all px-1.5 py-0.5 rounded bg-base-200">{{ $dumpFlags }}</code>
+                                </div>
+                            </li>
+                        @endif
+                        @if($excludedTables)
+                            <li class="list-row">
+                                <x-icon name="o-no-symbol" class="w-4 h-4 opacity-60" />
+                                <div class="min-w-0">
+                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Excluded Tables') }}</div>
+                                    <div class="mt-1 flex flex-wrap gap-1">
+                                        @foreach($excludedTables as $excludedTable)
+                                            <code class="text-xs font-mono break-all px-1.5 py-0.5 rounded bg-base-200">{{ $excludedTable }}</code>
+                                        @endforeach
+                                    </div>
                                 </div>
                             </li>
                         @endif
