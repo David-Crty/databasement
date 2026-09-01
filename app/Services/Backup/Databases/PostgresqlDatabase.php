@@ -312,9 +312,23 @@ class PostgresqlDatabase implements DatabaseInterface
 
     private function connectionDatabase(): string
     {
-        $configured = $this->config['connection_database'] ?? null;
+        return self::resolveConnectionDatabase($this->config);
+    }
 
-        return is_string($configured) && $configured !== ''
+    /**
+     * The database a connection opens on, falling back to `postgres` when the
+     * server names none. Whitespace-only input is treated as naming none: a
+     * blank dbname reaches libpq as a database that cannot exist, so trimming
+     * here keeps a stray space from turning into an opaque connection error.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public static function resolveConnectionDatabase(array $config): string
+    {
+        $configured = $config['connection_database'] ?? null;
+        $configured = is_string($configured) ? trim($configured) : '';
+
+        return $configured !== ''
             ? $configured
             : self::DEFAULT_CONNECTION_DATABASE;
     }

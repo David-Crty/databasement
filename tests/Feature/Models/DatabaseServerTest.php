@@ -146,6 +146,12 @@ test('buildExtraConfig folds type-specific fields into extra_config', function (
     'drops empty connection_database' => [
         ['database_type' => 'postgres', 'connection_database' => ''], null, null, null,
     ],
+    'drops whitespace-only connection_database' => [
+        ['database_type' => 'postgres', 'connection_database' => '   '], null, null, null,
+    ],
+    'trims surrounding whitespace from connection_database' => [
+        ['database_type' => 'postgres', 'connection_database' => ' app_db '], null, null, ['connection_database' => 'app_db'],
+    ],
     'drops connection_database for non-postgres types' => [
         ['database_type' => 'mysql', 'connection_database' => 'app_db'], null, null, null,
     ],

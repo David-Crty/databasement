@@ -10,8 +10,10 @@ class PostgresConnectionRules extends ClientServerConnectionRules
     {
         $extra = $form->ssl_enabled ? ['ssl_enabled' => true] : [];
 
-        if ($form->connection_database !== '') {
-            $extra['connection_database'] = $form->connection_database;
+        $connectionDatabase = trim($form->connection_database);
+
+        if ($connectionDatabase !== '') {
+            $extra['connection_database'] = $connectionDatabase;
         }
 
         return $extra;

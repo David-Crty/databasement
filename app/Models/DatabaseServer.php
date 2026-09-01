@@ -375,7 +375,7 @@ class DatabaseServer extends Model
             ['dump_format',         fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v === 'custom',       fn () => 'custom'],
             ['dump_privileges',     fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v,                    fn () => true],
             ['ssl_enabled',         fn ($v) => in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value], true) && $v, fn () => true],
-            ['connection_database', fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v !== '' && $v !== null, fn ($v) => $v],
+            ['connection_database', fn ($v) => $type === DatabaseType::POSTGRESQL->value && is_string($v) && trim($v) !== '', fn ($v) => trim($v)],
         ];
 
         foreach ($rules as [$key, $keep, $store]) {

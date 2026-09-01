@@ -8,6 +8,7 @@ use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Rules\MaxBytes;
 use App\Rules\SafeDatabasePath;
 use App\Rules\SafeHost;
 use App\Rules\SafePath;
@@ -76,7 +77,7 @@ class SaveDatabaseServerRequest extends FormRequest
         if ($type === 'postgres') {
             $rules['dump_format'] = ['nullable', 'string', Rule::in(['plain', 'custom'])];
             $rules['dump_privileges'] = 'boolean';
-            $rules['connection_database'] = 'nullable|string|max:63';
+            $rules['connection_database'] = ['nullable', 'string', new MaxBytes(63)];
         }
 
         if (in_array($type, ['mongodb', 'redis'])) {

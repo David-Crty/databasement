@@ -320,10 +320,6 @@ class DatabaseProvider
      */
     public static function connectionDatabase(array $extraConfig): string
     {
-        $configured = $extraConfig['connection_database'] ?? null;
-
-        return is_string($configured) && $configured !== ''
-            ? $configured
-            : PostgresqlDatabase::DEFAULT_CONNECTION_DATABASE;
+        return PostgresqlDatabase::resolveConnectionDatabase($extraConfig);
     }
 }

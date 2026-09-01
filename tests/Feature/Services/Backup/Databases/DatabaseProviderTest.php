@@ -291,7 +291,9 @@ test('connectionDatabase falls back to postgres', function (array $extraConfig, 
     'unset' => [[], 'postgres'],
     'empty string' => [['connection_database' => ''], 'postgres'],
     'null' => [['connection_database' => null], 'postgres'],
+    'whitespace only' => [['connection_database' => "  \t "], 'postgres'],
     'configured' => [['connection_database' => 'app_db'], 'app_db'],
+    'configured with surrounding whitespace' => [['connection_database' => ' app_db '], 'app_db'],
 ]);
 
 test('makeFromConfig passes connection_database to the postgres handler', function () {
