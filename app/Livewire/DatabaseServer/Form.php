@@ -897,7 +897,7 @@ class Form extends \Livewire\Form
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
             'dump_privileges' => 'boolean',
             'ssl_enabled' => 'boolean',
-            'connection_database' => ['nullable', 'string', new MaxBytes(63)],
+            'connection_database' => ['nullable', 'string', new MaxBytes(63), 'regex:'.DatabaseType::IDENTIFIER_PATTERN],
             'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
             'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],
             'notification_channel_ids' => ['array', Rule::requiredIf(

@@ -152,6 +152,18 @@ enum DatabaseType: string
     }
 
     /**
+     * The charset a database name is held to on every type that names an
+     * identifier rather than a path. It is also the last line of defence for
+     * the PDO DSN, which interpolates a database name unescaped and treats `;`
+     * and `=` as structure: an identifier restricted to this set carries no
+     * character the DSN parser can act on.
+     *
+     * Anchored with \A and \z rather than ^ and $, which would let a trailing
+     * newline through.
+     */
+    public const string IDENTIFIER_PATTERN = '/\A[a-zA-Z0-9_]+\z/';
+
+    /**
      * Validation rules for a destination database name/path of this type.
      *
      * SQLite accepts any non-empty path. Firebird is a path too but with a
@@ -166,7 +178,7 @@ enum DatabaseType: string
         return match ($this) {
             self::SQLITE => ['required', 'string', 'max:255', new SafeDatabasePath],
             self::FIREBIRD => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_\/\\\\.\-: ]+$/', new SafeDatabasePath(allowBackslashes: true)],
-            default => ['required', 'string', 'max:64', 'regex:/^[a-zA-Z0-9_]+$/'],
+            default => ['required', 'string', 'max:64', 'regex:'.self::IDENTIFIER_PATTERN],
         };
     }
 
