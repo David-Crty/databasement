@@ -128,7 +128,7 @@
                     $canRestore = $status === 'completed' && $snapshot->hasExistingFile() && $snapshot->database_type !== \App\Enums\DatabaseType::REDIS;
                     $completedFiles = $snapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed);
                     $canDownload = $status === 'completed' && $completedFiles->where('file_exists', true)->isNotEmpty();
-                    $canDelete = in_array($status, ['completed', 'failed'], true) && ! $snapshot->locked;
+                    $canDelete = $this->canDelete($snapshot);
                     $canCancel = $status === 'pending' && $job;
                 @endphp
                 <div class="flex items-center gap-1 justify-end">

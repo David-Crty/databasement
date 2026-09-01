@@ -9,6 +9,7 @@ use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -164,6 +165,19 @@ test('cannot cancel a non-pending job', function () {
         ->assertForbidden();
 });
 
+test('canDelete reflects snapshot status and lock state', function () {
+    $completedUnlocked = Snapshot::factory()->withFile()->create();
+    $completedLocked = Snapshot::factory()->withFile()->create(['locked' => true]);
+    $pending = Snapshot::factory()->withFile()->create();
+    $pending->job->update(['status' => BackupJobStatus::Pending, 'completed_at' => null]);
+
+    $component = Livewire::test(Index::class)->instance();
+
+    expect($component->canDelete($completedUnlocked))->toBeTrue()
+        ->and($component->canDelete($completedLocked))->toBeFalse()
+        ->and($component->canDelete($pending))->toBeFalse();
+});
+
 test('can delete a completed snapshot', function () {
     $snapshot = Snapshot::factory()->withFile()->create();
 
@@ -212,6 +226,29 @@ test('a locked snapshot cannot be deleted even with delete-snapshots', function 
         ->assertForbidden();
 
     expect(Snapshot::find($snapshot->id))->not->toBeNull();
+});
+
+test('a snapshot locked between the authorize check and the delete call is not deleted', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    $component = Livewire::test(Index::class)
+        ->call('confirmDeleteSnapshot', $snapshot->id)
+        ->assertSet('deleteSnapshotId', $snapshot->id);
+
+    // Simulate a concurrent request locking the snapshot in the window between
+    // deleteSnapshot()'s authorize() check and its actual delete call: apply the
+    // lock as soon as deleteSnapshot() fetches the snapshot, before authorize()
+    // reads the (now stale, in-memory) locked value.
+    Snapshot::retrieved(function (Snapshot $retrieved) use ($snapshot) {
+        if ($retrieved->id === $snapshot->id) {
+            DB::table('snapshots')->where('id', $snapshot->id)->update(['locked' => true]);
+        }
+    });
+
+    $component->call('deleteSnapshot');
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull()
+        ->and(Snapshot::find($snapshot->id)->locked)->toBeTrue();
 });
 
 test('without delete-snapshots, deleting a snapshot is forbidden', function () {

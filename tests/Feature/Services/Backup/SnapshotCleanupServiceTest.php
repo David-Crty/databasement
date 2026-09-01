@@ -4,6 +4,7 @@ use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\SnapshotCleanupService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use League\Flysystem\DirectoryListing;
 use League\Flysystem\Filesystem;
@@ -214,6 +215,28 @@ test('GFS retention skips locked snapshots even outside kept tiers', function ()
     expect(Snapshot::find($kept->id))->not->toBeNull()
         ->and(Snapshot::find($lockedOutsideTiers->id))->not->toBeNull()
         ->and(Snapshot::find($unlockedOutsideTiers->id))->toBeNull();
+});
+
+test('a snapshot locked after selection but before deletion is not deleted', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $racedSnapshot = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
+
+    // Simulate another request locking the snapshot in the window between the
+    // service's bulk selection query and its per-snapshot delete call: apply the
+    // lock as soon as the bulk query hydrates the snapshot, before the service's
+    // own re-check (a plain scalar query, not a model hydration) runs.
+    Snapshot::retrieved(function (Snapshot $retrieved) use ($racedSnapshot) {
+        if ($retrieved->id === $racedSnapshot->id) {
+            DB::table('snapshots')->where('id', $racedSnapshot->id)->update(['locked' => true]);
+        }
+    });
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and(Snapshot::find($racedSnapshot->id))->not->toBeNull();
 });
 
 test('dry-run mode does not delete snapshots', function () {

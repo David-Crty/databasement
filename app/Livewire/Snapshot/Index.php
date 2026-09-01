@@ -13,6 +13,7 @@ use App\Queries\SnapshotQuery;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -153,6 +154,11 @@ class Index extends Component
         return Snapshot::with('files.volume')->find($this->downloadSnapshotId);
     }
 
+    public function canDelete(Snapshot $snapshot): bool
+    {
+        return in_array($snapshot->job->status->value, ['completed', 'failed'], true) && ! $snapshot->locked;
+    }
+
     public function toggleLock(string $snapshotId): void
     {
         $snapshot = Snapshot::findOrFail($snapshotId);
@@ -199,10 +205,30 @@ class Index extends Component
 
         $this->authorize('delete', $snapshot);
 
-        $snapshot->skipFileCleanup = $this->keepFiles;
-        $snapshot->delete();
+        // The authorize() check above can go stale if the snapshot is locked in the
+        // moment between it and this call, so re-check under a row lock immediately
+        // before deleting rather than trusting the earlier read.
+        $deleted = DB::transaction(function () use ($snapshot) {
+            $locked = Snapshot::whereKey($snapshot->id)->lockForUpdate()->value('locked');
+
+            if ($locked) {
+                return false;
+            }
+
+            $snapshot->skipFileCleanup = $this->keepFiles;
+            $snapshot->delete();
+
+            return true;
+        });
+
         $this->deleteSnapshotId = null;
         $this->showDeleteModal = false;
+
+        if (! $deleted) {
+            $this->error(__('Snapshot was locked and could not be deleted.'));
+
+            return;
+        }
 
         $this->success(__('Snapshot deleted successfully!'));
     }

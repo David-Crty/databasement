@@ -5,6 +5,7 @@ namespace App\Services\Backup;
 use App\Models\Backup;
 use App\Models\Snapshot;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class SnapshotCleanupService
@@ -166,11 +167,33 @@ class SnapshotCleanupService
 
         if ($this->dryRun) {
             Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
-        } else {
-            $snapshot->delete();
-            Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
+            $this->totalDeleted++;
+
+            return;
         }
 
+        // Snapshots are selected for cleanup by an earlier bulk query, which can go stale
+        // if the snapshot is locked in between. Re-check under a row lock immediately
+        // before deleting so a lock applied mid-run is never silently overridden.
+        $deleted = DB::transaction(function () use ($snapshot) {
+            $locked = Snapshot::whereKey($snapshot->id)->lockForUpdate()->value('locked');
+
+            if ($locked) {
+                return false;
+            }
+
+            $snapshot->delete();
+
+            return true;
+        });
+
+        if (! $deleted) {
+            Log::info("Snapshot cleanup: Skipped {$database} - locked since being selected for cleanup.");
+
+            return;
+        }
+
+        Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
         $this->totalDeleted++;
     }
 }
