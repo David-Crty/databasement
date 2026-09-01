@@ -214,6 +214,27 @@ enum DatabaseType: string
     }
 
     /**
+     * Every extension {@see dumpExtension()} can produce, across all types and
+     * dump formats. Consumers that have to recognise a dump file without
+     * knowing which type produced it (the encrypted archive is extracted before
+     * the type is known) match against this set.
+     *
+     * @return array<string>
+     */
+    public static function dumpExtensions(): array
+    {
+        $extensions = [];
+
+        foreach (self::cases() as $type) {
+            foreach ([null, 'custom'] as $format) {
+                $extensions[] = $type->dumpExtension($format);
+            }
+        }
+
+        return array_values(array_unique($extensions));
+    }
+
+    /**
      * @return array<array{id: string, name: string}>
      */
     public static function toSelectOptions(): array
