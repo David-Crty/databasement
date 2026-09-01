@@ -209,29 +209,70 @@ class PostgresqlDatabase implements DatabaseInterface
         }
     }
 
+    /**
+     * The statements that hand a restored database, and what the restore made
+     * inside it, to $owner. Also what the restore modals preview, so what the
+     * user is shown and what runs cannot drift apart.
+     *
+     * `database` always runs: pg_dump only ever describes the contents of a
+     * database, never the database itself, so after a restore it belongs to the
+     * role the restore connected as even when the dump preserved ownership.
+     * That is the one thing preserving privileges cannot cover, and the only
+     * thing left to do for such a snapshot — its objects come back under their
+     * original owners, so the restore role owns nothing to hand over, and
+     * REASSIGN OWNED BY is far too blunt to point at them anyway: it moves
+     * every object the role owns in the database plus shared objects
+     * cluster-wide. `objects` therefore only joins it for a portable dump, the
+     * one case where the restore role recreated what it is handing over.
+     *
+     * @param  string  $connectionUser  username the restore connects as
+     * @return array{database: string, objects?: string}
+     */
+    public static function ownershipStatements(string $schemaName, string $owner, string $connectionUser, bool $preservesPrivileges): array
+    {
+        $quote = static fn (string $identifier): string => '"'.str_replace('"', '""', $identifier).'"';
+
+        $statements = [
+            'database' => sprintf('ALTER DATABASE %s OWNER TO %s', $quote($schemaName), $quote($owner)),
+        ];
+
+        if (! $preservesPrivileges) {
+            $statements['objects'] = sprintf('REASSIGN OWNED BY %s TO %s', $quote($connectionUser), $quote($owner));
+        }
+
+        return $statements;
+    }
+
+    /**
+     * Hand the restored database to $username by running the statements
+     * {@see ownershipStatements()} settles on.
+     *
+     * The two run on different connections: the database is altered over the
+     * connection database, its objects reassigned from inside the restored one.
+     */
     public function transferOwnership(string $schemaName, string $username, BackupLogger $logger): void
     {
+        $statements = self::ownershipStatements(
+            $schemaName,
+            $username,
+            (string) $this->config['user'],
+            ! empty($this->config['dump_privileges']),
+        );
+
         try {
-            $safeUser = str_replace('"', '""', $username);
-            $safeDb = str_replace('"', '""', $schemaName);
-            $safeRestoreUser = str_replace('"', '""', $this->config['user']);
-
-            // Transfer database ownership
             $adminPdo = $this->createPdo();
-            $ownerCmd = "ALTER DATABASE \"{$safeDb}\" OWNER TO \"{$safeUser}\"";
-            $logger->logCommand($ownerCmd, null, 0);
-            $adminPdo->exec($ownerCmd);
+            $logger->logCommand($statements['database'], null, 0);
+            $adminPdo->exec($statements['database']);
 
-            // Reassign all objects from the restore connection user to the target user.
-            // Skip when users are the same (would be a no-op).
-            if ($this->config['user'] !== $username) {
-                $targetPdo = $this->createPdoForDatabase($schemaName);
-                $reassignCmd = "REASSIGN OWNED BY \"{$safeRestoreUser}\" TO \"{$safeUser}\"";
-                $logger->logCommand($reassignCmd, null, 0);
-                $targetPdo->exec($reassignCmd);
-            } else {
-                $logger->log('Restore user and target user are the same, skipping object reassignment');
+            if (! isset($statements['objects'])) {
+                $logger->log('Snapshot carries its own ownership information, leaving the owners of the restored objects untouched');
+
+                return;
             }
+
+            $targetPdo = $this->createPdoForDatabase($schemaName);
+            $logger->logCommand($statements['objects'], null, 0);
+            $targetPdo->exec($statements['objects']);
         } catch (\PDOException $e) {
             throw new ConnectionException("Failed to transfer ownership: {$e->getMessage()}", 0, $e);
         }

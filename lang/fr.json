@@ -803,5 +803,9 @@
   "Connection database": "Base de connexion",
   "Opened to test the connection and list databases.": "Ouverte pour tester la connexion et lister les bases.",
   "Restoring over existing objects requires ownership of them, not just privileges.": "Restaurer par-dessus des objets existants exige d’en être propriétaire, pas seulement d’avoir les privilèges.",
-  "PostgreSQL permissions": "Permissions PostgreSQL"
+  "PostgreSQL permissions": "Permissions PostgreSQL",
+  "Transfer database ownership to user after restore": "Transférer la propriété de la base à cet utilisateur après le restore",
+  "Set database owner after restore": "Définir le propriétaire de la base après le restore",
+  "PostgreSQL username (leave empty to skip)": "Nom d’utilisateur PostgreSQL (laisser vide pour ignorer)",
+  "This SQL will be run after the restore:": "Ce SQL sera exécuté après le restore :"
 }

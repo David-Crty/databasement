@@ -320,3 +320,46 @@ test('prepareForRestore allows recreating a database other than the connection o
     expect(fn () => $db->prepareForRestore('other_db', new InMemoryBackupLogger, forceDatabase: true))
         ->toThrow(ConnectionException::class, 'Failed to prepare database');
 });
+
+/** A handler whose connections are the given mocks, configured to restore as `databasement`. */
+function postgresHandlerConnectingWith(PDO $adminPdo, bool $dumpPrivileges): PostgresqlDatabase
+{
+    $db = Mockery::mock(PostgresqlDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
+    $db->shouldReceive('createPdo')->once()->andReturn($adminPdo);
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'databasement',
+        'pass' => 'pg_secret',
+        'database' => 'restored_db',
+        'dump_privileges' => $dumpPrivileges,
+    ]);
+
+    return $db;
+}
+
+test('ownership transfer hands the database over and reassigns what a portable restore created', function () {
+    $adminPdo = Mockery::mock(PDO::class);
+    $adminPdo->shouldReceive('exec')->once()->with('ALTER DATABASE "restored_db" OWNER TO "webapp"');
+
+    $targetPdo = Mockery::mock(PDO::class);
+    $targetPdo->shouldReceive('exec')->once()->with('REASSIGN OWNED BY "databasement" TO "webapp"');
+
+    $db = postgresHandlerConnectingWith($adminPdo, dumpPrivileges: false);
+    $db->shouldReceive('createPdoForDatabase')->once()->with('restored_db')->andReturn($targetPdo);
+
+    $db->transferOwnership('restored_db', 'webapp', new InMemoryBackupLogger);
+});
+
+// A privilege-preserving snapshot restores its objects under their original
+// owners, so only the database itself is left to hand over: pg_dump never
+// describes the database, whatever the snapshot preserved (#525).
+test('ownership transfer leaves the restored objects alone for a snapshot that carries its own owners', function () {
+    $adminPdo = Mockery::mock(PDO::class);
+    $adminPdo->shouldReceive('exec')->once()->with('ALTER DATABASE "restored_db" OWNER TO "webapp"');
+
+    $db = postgresHandlerConnectingWith($adminPdo, dumpPrivileges: true);
+    $db->shouldNotReceive('createPdoForDatabase');
+
+    $db->transferOwnership('restored_db', 'webapp', new InMemoryBackupLogger);
+});
