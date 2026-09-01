@@ -407,6 +407,33 @@ test('update syncs backup configuration', function () {
         ->and($server->backups->first()->retention_policy)->toBe('forever');
 });
 
+test('a connection database cannot smuggle extra parameters into the dsn', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    // The value is interpolated into a PDO DSN, where `;` starts another
+    // keyword=value pair rather than being part of the database name.
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-servers/{$server->id}", [
+            'name' => $server->name,
+            'database_type' => 'postgres',
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'connection_database' => 'app_db;host=attacker.example.com',
+            'backups' => [[
+                'database_selection_mode' => 'all',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'forever',
+            ]],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['connection_database']);
+});
+
 test('update returns validation errors', function () {
     $user = User::factory()->create();
     $server = DatabaseServer::factory()->create();

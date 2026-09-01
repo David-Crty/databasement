@@ -1,7 +1,9 @@
 <?php
 
+use App\Exceptions\Backup\ConnectionException;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\DTO\DatabaseOperationResult;
+use App\Services\Backup\InMemoryBackupLogger;
 use Illuminate\Support\Facades\Process;
 
 beforeEach(function () {
@@ -246,4 +248,68 @@ test('testConnection returns failure when process fails', function () {
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain('connection refused');
+});
+
+test('admin connections use the configured connection database', function (?string $configured, string $expected) {
+    $db = new class extends PostgresqlDatabase
+    {
+        public string $connectedTo = '';
+
+        protected function createPdoForDatabase(string $database): PDO
+        {
+            $this->connectedTo = $database;
+
+            throw new PDOException('connection stubbed');
+        }
+    };
+
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'app',
+        'pass' => 'pg_secret',
+        // The target database, deliberately different from the connection one:
+        // listDatabases() must not connect here.
+        'database' => 'myapp',
+        'connection_database' => $configured,
+    ]);
+
+    expect(fn () => $db->listDatabases())->toThrow(PDOException::class)
+        ->and($db->connectedTo)->toBe($expected);
+})->with([
+    'configured' => ['app_db', 'app_db'],
+    'empty falls back' => ['', 'postgres'],
+    'null falls back' => [null, 'postgres'],
+]);
+
+test('prepareForRestore refuses to recreate the connection database', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'app',
+        'pass' => 'pg_secret',
+        'database' => 'app_db',
+        'connection_database' => 'app_db',
+    ]);
+
+    // No connection is opened: the conflict is decided before createPdo().
+    expect(fn () => $db->prepareForRestore('app_db', new InMemoryBackupLogger, forceDatabase: true))
+        ->toThrow(ConnectionException::class, 'it is also the connection database');
+});
+
+test('prepareForRestore allows recreating a database other than the connection one', function () {
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => '127.0.0.1',
+        'port' => 1,
+        'user' => 'app',
+        'pass' => 'pg_secret',
+        'database' => 'other_db',
+        'connection_database' => 'app_db',
+    ]);
+
+    // Passes the guard and fails later, on the connection itself.
+    expect(fn () => $db->prepareForRestore('other_db', new InMemoryBackupLogger, forceDatabase: true))
+        ->toThrow(ConnectionException::class, 'Failed to prepare database');
 });

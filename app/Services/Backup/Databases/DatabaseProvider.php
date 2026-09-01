@@ -117,6 +117,10 @@ class DatabaseProvider
             $dbConfig['probe_server_version'] = true;
         }
 
+        if ($config->databaseType === DatabaseType::POSTGRESQL) {
+            $dbConfig['connection_database'] = self::connectionDatabase($extra);
+        }
+
         if ($config->databaseType === DatabaseType::POSTGRESQL
             && ($snapshotDumpFormat ?? $extra['dump_format'] ?? null) === 'custom') {
             $dbConfig['dump_format'] = 'custom';
@@ -298,10 +302,24 @@ class DatabaseProvider
         }
 
         return match ($server->database_type) {
-            DatabaseType::POSTGRESQL => 'postgres',
+            DatabaseType::POSTGRESQL => self::connectionDatabase($server->extra_config ?? []),
             DatabaseType::MSSQL => 'master',
             DatabaseType::FIREBIRD => $server->resolveDatabaseNames()[0] ?? '',
             default => '',
         };
+    }
+
+    /**
+     * PostgreSQL refuses a connection that names no database, so testing a
+     * connection and listing the catalogue both have to open one. `postgres` is
+     * the conventional choice, but managed providers (Heroku, RDS, Neon, …)
+     * routinely withhold CONNECT on it, so a server can name another database
+     * through extra_config.connection_database.
+     *
+     * @param  array<string, mixed>  $extraConfig
+     */
+    public static function connectionDatabase(array $extraConfig): string
+    {
+        return PostgresqlDatabase::resolveConnectionDatabase($extraConfig);
     }
 }

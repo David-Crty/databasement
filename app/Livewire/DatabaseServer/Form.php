@@ -13,6 +13,7 @@ use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\NotificationChannel;
+use App\Rules\MaxBytes;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\ShellProcessor;
 use App\Services\Backup\SyncBackupConfigurationsAction;
@@ -67,6 +68,13 @@ class Form extends \Livewire\Form
     public bool $dump_config_open = false;
 
     public bool $ssl_enabled = false;
+
+    /**
+     * PostgreSQL only. Database opened to test the connection and list the
+     * others. Empty falls back to `postgres`, which managed providers often do
+     * not grant CONNECT on. Stored in extra_config.
+     */
+    public string $connection_database = '';
 
     // SSH Tunnel Configuration
     public bool $ssh_enabled = false;
@@ -462,6 +470,7 @@ class Form extends \Livewire\Form
         $this->dump_privileges = (bool) $server->getExtraConfig('dump_privileges', false);
         $this->dump_config_open = ! empty($this->dump_flags) || $this->dump_format === 'custom' || $this->dump_privileges;
         $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
+        $this->connection_database = $server->getExtraConfig('connection_database', '');
         $this->username = $server->username ?? '';
         $this->description = $server->description;
         $this->agent_id = $server->agent_id;
@@ -888,6 +897,7 @@ class Form extends \Livewire\Form
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
             'dump_privileges' => 'boolean',
             'ssl_enabled' => 'boolean',
+            'connection_database' => ['nullable', 'string', new MaxBytes(63), 'regex:'.DatabaseType::IDENTIFIER_PATTERN],
             'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
             'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],
             'notification_channel_ids' => ['array', Rule::requiredIf(
