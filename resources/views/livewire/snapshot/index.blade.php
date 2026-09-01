@@ -81,6 +81,12 @@
                                     </x-slot:content>
                                 </x-popover>
                             @endif
+                            @if($snapshot->locked)
+                                <span class="badge badge-neutral badge-xs gap-1" title="{{ __('Protected from auto-deletion') }}">
+                                    <x-icon name="o-lock-closed" class="w-3 h-3" />
+                                    {{ __('Locked') }}
+                                </span>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -122,7 +128,7 @@
                     $canRestore = $status === 'completed' && $snapshot->hasExistingFile() && $snapshot->database_type !== \App\Enums\DatabaseType::REDIS;
                     $completedFiles = $snapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed);
                     $canDownload = $status === 'completed' && $completedFiles->where('file_exists', true)->isNotEmpty();
-                    $canDelete = in_array($status, ['completed', 'failed'], true);
+                    $canDelete = in_array($status, ['completed', 'failed'], true) && ! $snapshot->locked;
                     $canCancel = $status === 'pending' && $job;
                 @endphp
                 <div class="flex items-center gap-1 justify-end">
@@ -167,6 +173,17 @@
                         :class="$job ? '' : 'opacity-30'"
                         :disabled="! $job"
                     />
+
+                    @if(in_array($status, ['completed', 'failed'], true))
+                        @can('manageLock', $snapshot)
+                            <x-button
+                                :icon="$snapshot->locked ? 'o-lock-closed' : 'o-lock-open'"
+                                wire:click="toggleLock('{{ $snapshot->id }}')"
+                                :tooltip="$snapshot->locked ? __('Unlock') : __('Lock (protect from deletion)')"
+                                class="btn-ghost btn-sm"
+                            />
+                        @endcan
+                    @endif
 
                     @if($canDelete)
                         @can('delete', $snapshot)

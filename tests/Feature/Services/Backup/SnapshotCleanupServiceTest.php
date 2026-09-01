@@ -179,6 +179,43 @@ test('snapshot is still deleted when pruning empty parent folders throws', funct
     Log::shouldNotHaveReceived('error');
 });
 
+test('days retention skips locked snapshots even when expired', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $lockedExpired = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
+    $lockedExpired->update(['locked' => true]);
+    $unlockedExpired = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(1)
+        ->and(Snapshot::find($lockedExpired->id))->not->toBeNull()
+        ->and(Snapshot::find($unlockedExpired->id))->toBeNull();
+});
+
+test('GFS retention skips locked snapshots even outside kept tiers', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, [
+        'retention_policy' => 'gfs',
+        'retention_days' => null,
+        'gfs_keep_daily' => 1,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => null,
+    ]);
+
+    $kept = createSnapshot($server, 'completed', now()->subDays(1), 'app_db');
+    $lockedOutsideTiers = createSnapshot($server, 'completed', now()->subDays(2), 'app_db');
+    $lockedOutsideTiers->update(['locked' => true]);
+    $unlockedOutsideTiers = createSnapshot($server, 'completed', now()->subDays(3), 'app_db');
+
+    app(SnapshotCleanupService::class)->run();
+
+    expect(Snapshot::find($kept->id))->not->toBeNull()
+        ->and(Snapshot::find($lockedOutsideTiers->id))->not->toBeNull()
+        ->and(Snapshot::find($unlockedOutsideTiers->id))->toBeNull();
+});
+
 test('dry-run mode does not delete snapshots', function () {
     $server = DatabaseServer::factory()->create();
     updateFirstBackup($server, ['retention_days' => 7]);

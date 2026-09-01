@@ -28,9 +28,20 @@ class SnapshotPolicy
 
     /**
      * Determine whether the user can delete the model.
-     * Requires the delete-snapshots ability.
+     * Requires the delete-snapshots ability. Locked snapshots cannot be
+     * deleted until unlocked, regardless of ability.
      */
     public function delete(User $user, Snapshot $snapshot): bool
+    {
+        return $user->can(Ability::DeleteSnapshots->value) && ! $snapshot->locked;
+    }
+
+    /**
+     * Determine whether the user can lock or unlock the snapshot.
+     * Requires the delete-snapshots ability, since locking governs who may
+     * protect a snapshot from the same deletion that ability controls.
+     */
+    public function manageLock(User $user, Snapshot $snapshot): bool
     {
         return $user->can(Ability::DeleteSnapshots->value);
     }

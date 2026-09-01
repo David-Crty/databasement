@@ -175,6 +175,45 @@ test('can delete a completed snapshot', function () {
     expect(Snapshot::find($snapshot->id))->toBeNull();
 });
 
+test('delete-snapshots allows locking and unlocking a snapshot', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+    $user = User::factory()->withAbilities([Ability::DeleteSnapshots->value])->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeTrue();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
+});
+
+test('without delete-snapshots, toggling a snapshot lock is forbidden', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::DeleteSnapshots->value)->create());
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id)
+        ->assertForbidden();
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
+});
+
+test('a locked snapshot cannot be deleted even with delete-snapshots', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['locked' => true]);
+
+    Livewire::test(Index::class)
+        ->call('confirmDeleteSnapshot', $snapshot->id)
+        ->assertForbidden();
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
+});
+
 test('without delete-snapshots, deleting a snapshot is forbidden', function () {
     $snapshot = Snapshot::factory()->withFile()->create();
 

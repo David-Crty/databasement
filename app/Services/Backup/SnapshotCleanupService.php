@@ -59,6 +59,7 @@ class SnapshotCleanupService
         $expiredSnapshots = Snapshot::where('backup_id', $backup->id)
             ->completed()
             ->where('created_at', '<', $cutoffDate)
+            ->where('locked', false)
             ->get();
 
         if ($expiredSnapshots->isEmpty()) {
@@ -112,7 +113,7 @@ class SnapshotCleanupService
         }
 
         $snapshotsToDelete = $allSnapshots->reject(
-            fn (Snapshot $snapshot) => $snapshotsToKeep->contains($snapshot->id)
+            fn (Snapshot $snapshot) => $snapshotsToKeep->contains($snapshot->id) || $snapshot->locked
         );
 
         if ($snapshotsToDelete->isEmpty()) {

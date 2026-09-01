@@ -153,6 +153,19 @@ class Index extends Component
         return Snapshot::with('files.volume')->find($this->downloadSnapshotId);
     }
 
+    public function toggleLock(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('manageLock', $snapshot);
+
+        $snapshot->update(['locked' => ! $snapshot->locked]);
+
+        $this->success($snapshot->locked
+            ? __('Snapshot locked. It will be protected from deletion until unlocked.')
+            : __('Snapshot unlocked.'));
+    }
+
     public function confirmDeleteSnapshot(string $snapshotId): void
     {
         $snapshot = Snapshot::findOrFail($snapshotId);

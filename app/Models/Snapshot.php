@@ -37,6 +37,7 @@ class Snapshot extends Model
         'filename',
         'file_size',
         'checksum',
+        'locked',
         'started_at',
         'database_name',
         'database_type',
@@ -51,6 +52,7 @@ class Snapshot extends Model
         return [
             'started_at' => 'datetime',
             'file_size' => 'integer',
+            'locked' => 'boolean',
             'database_type' => DatabaseType::class,
             'metadata' => 'array',
             'compression_type' => CompressionType::class,

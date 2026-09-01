@@ -58,7 +58,7 @@ enum Ability: string
         return match ($this) {
             self::RunBackups => __('Run backups on demand.'),
             self::DownloadSnapshots => __('Download snapshot files.'),
-            self::DeleteSnapshots => __('Delete snapshots and cancel pending backup jobs.'),
+            self::DeleteSnapshots => __('Delete snapshots, cancel pending backup jobs, and lock/unlock snapshots to protect them from deletion.'),
             self::OperateRestores => __('Restore from snapshots and manage scheduled restores.'),
             self::UseAdminer => __('Open the Adminer database browser.'),
             self::ManageDatabaseServers => __('Create, edit and delete database server connections.'),
