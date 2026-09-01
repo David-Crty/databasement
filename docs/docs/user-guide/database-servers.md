@@ -113,6 +113,16 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO databasement;
 For single-database access without `CREATEDB`, the target database must already exist. Grant `ALL PRIVILEGES` on that specific database and its schema. The user won't be able to drop/recreate the database during restore - Databasement will drop and recreate tables instead.
 :::
 
+:::warning[In-place restores need ownership, not just privileges]
+`GRANT ALL PRIVILEGES` does not make the role the owner of existing tables or of the `public` schema, and only the owner may drop or recreate them. Restoring into a database whose objects belong to another role fails with `must be owner of table ...`. Either restore into an empty database, or transfer ownership first:
+
+```sql
+\c database_name
+REASSIGN OWNED BY previous_owner TO databasement;
+ALTER SCHEMA public OWNER TO databasement;
+```
+:::
+
 ### Microsoft SQL Server
 
 SQL Server uses `sqlpackage` to extract and publish `.dacpac` files (schema + table data). Supports on-prem SQL Server 2017+ and Azure SQL Database (default port: 1433). Server-level objects (logins, users, permissions, role memberships) are excluded from the backup.
