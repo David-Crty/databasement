@@ -89,10 +89,15 @@
             </x-alert>
         @endif
 
-        <x-tabs wire:model="updateInstructionsTab" label-class="tabs-sm">
+        <div class="tabs tabs-border tabs-sm">
 
             {{-- Docker Compose tab --}}
-            <x-tab name="docker-compose-tab" :label="__('Docker Compose')" icon="devicon.docker">
+            <label class="tab gap-2">
+                <input type="radio" name="update-instructions" checked/>
+                <x-icon name="devicon.docker"/>
+                {{ __('Docker Compose') }}
+            </label>
+            <div class="tab-content px-3 py-5">
                 <div class="flex items-center justify-between mb-1.5">
                     <p class="text-sm opacity-70">
                         {{ __('Run from the folder where your docker-compose.yml is located') }}
@@ -106,10 +111,15 @@
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $dockerComposeCommand }}</code></pre>
-            </x-tab>
+            </div>
 
             {{-- Helm / Kubernetes tab --}}
-            <x-tab name="helm-tab" :label="__('Helm / Kubernetes')" icon="devicon.kubernetes">
+            <label class="tab gap-2">
+                <input type="radio" name="update-instructions"/>
+                <x-icon name="devicon.kubernetes"/>
+                {{ __('Helm / Kubernetes') }}
+            </label>
+            <div class="tab-content px-3 py-5">
                 <div class="flex items-center justify-between mb-1.5">
                     <p class="text-sm opacity-70">
                         {{ __('Update the Helm repository and upgrade the release') }}
@@ -123,10 +133,15 @@
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $helmCommand }}</code></pre>
-            </x-tab>
+            </div>
 
             {{-- Docker tab --}}
-            <x-tab name="docker-tab" :label="__('Docker')" icon="devicon.docker">
+            <label class="tab gap-2">
+                <input type="radio" name="update-instructions"/>
+                <x-icon name="devicon.docker"/>
+                {{ __('Docker') }}
+            </label>
+            <div class="tab-content px-3 py-5">
                 <div class="flex items-center justify-between mb-1.5">
                     <p class="text-sm opacity-70">
                         {{ __('Run from the folder where your .env file is located') }}
@@ -140,9 +155,9 @@
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $dockerCommand }}</code></pre>
-            </x-tab>
+            </div>
 
-        </x-tabs>
+        </div>
 
         <x-slot:actions>
             <x-button :label="__('Done')" class="btn-primary" @click="$wire.showModal = false" />
