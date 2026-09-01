@@ -113,44 +113,13 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO databasement;
 For single-database access without `CREATEDB`, the target database must already exist. Grant `ALL PRIVILEGES` on that specific database and its schema. The user won't be able to drop/recreate the database during restore - Databasement will drop and recreate tables instead.
 :::
 
-**In-place restores need ownership, not just privileges.** `GRANT ALL PRIVILEGES` does not make the role the owner of existing tables or of the `public` schema, and only the owner may drop or recreate them. Restoring into a database whose objects belong to another role fails with `must be owner of table ...`. Restoring into an empty database avoids this entirely; to restore in place, transfer ownership of the existing objects first:
+**In-place restores need ownership, not just privileges.** `GRANT ALL PRIVILEGES` does not make the role the owner of existing tables or of the `public` schema, and only an owner may drop or recreate them, so restoring into a database whose objects belong to another role fails with `must be owner of table ...`. Grant `databasement` membership in the role that owns them: PostgreSQL accepts a member of the owning role wherever it requires the owner, so nothing has to change hands.
 
 ```sql
-\c database_name
-ALTER SCHEMA public OWNER TO databasement;
-
--- Every table, sequence and view in the schema, one statement each.
-DO $$
-DECLARE
-    obj record;
-BEGIN
-    FOR obj IN
-        SELECT c.relkind, format('%I.%I', n.nspname, c.relname) AS name
-        FROM pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public'
-          AND c.relkind IN ('r', 'p', 'S', 'v', 'm')
-          -- A serial or identity sequence follows its table's owner and
-          -- cannot be reassigned on its own.
-          AND NOT (c.relkind = 'S' AND EXISTS (
-              SELECT 1 FROM pg_depend d
-              WHERE d.classid = 'pg_class'::regclass
-                AND d.objid = c.oid
-                AND d.deptype IN ('a', 'i')
-          ))
-    LOOP
-        EXECUTE format('ALTER %s %s OWNER TO databasement',
-            CASE obj.relkind
-                WHEN 'S' THEN 'SEQUENCE'
-                WHEN 'v' THEN 'VIEW'
-                WHEN 'm' THEN 'MATERIALIZED VIEW'
-                ELSE 'TABLE'
-            END, obj.name);
-    END LOOP;
-END $$;
+GRANT owning_role TO databasement;
 ```
 
-`REASSIGN OWNED BY previous_owner TO databasement;` does the same in one statement, but it is not scoped to the schema or even to the database: it moves every object that role owns in the current database, plus shared objects (databases and tablespaces) across the whole cluster. Use it only when `databasement` is meant to take over everything the old role owns.
+Restoring into an empty database avoids the problem entirely.
 
 ### Microsoft SQL Server
 
