@@ -3,6 +3,7 @@
 namespace App\Services\Backup\Compressors;
 
 use App\Enums\CompressionType;
+use App\Enums\DatabaseType;
 use App\Services\Backup\ShellProcessor;
 
 /**
@@ -77,9 +78,19 @@ class EncryptedCompressor extends BaseCompressor
         return $command;
     }
 
+    /**
+     * 7-Zip restores the archived file under its original basename, so the
+     * extracted dump is always `dump.<extension>` (see BackupTask). The
+     * extension depends on the database type and dump format, neither of which
+     * is known here, so every extension the enum can produce is accepted.
+     */
     public function getDecompressedPath(string $inputPath): string
     {
-        $targets = ['dump.sql', 'dump.db'];
+        $targets = array_map(
+            static fn (string $extension): string => 'dump.'.$extension,
+            DatabaseType::dumpExtensions(),
+        );
+
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($inputPath, \FilesystemIterator::SKIP_DOTS)
         );
