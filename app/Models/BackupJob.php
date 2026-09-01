@@ -155,7 +155,27 @@ class BackupJob extends Model implements BackupLogger
             'duration_ms' => $this->calculateDuration(),
             'error_message' => $exception->getMessage(),
             'error_trace' => $exception->getTraceAsString(),
+            'logs' => $this->logsWithRunningCommandsClosed('failed'),
         ]);
+    }
+
+    /**
+     * Close out any command log entries still marked "running", so a job that fails
+     * before its last command finishes (e.g. an exception escaping mid-execution, or
+     * a timed-out job recovered by RecoverStuckJobsCommand) doesn't leave the logs
+     * modal showing a permanently spinning command.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function logsWithRunningCommandsClosed(string $status): array
+    {
+        return array_map(function (array $log) use ($status) {
+            if (($log['type'] ?? null) === 'command' && ($log['status'] ?? null) === 'running') {
+                $log['status'] = $status;
+            }
+
+            return $log;
+        }, $this->logs ?? []);
     }
 
     /**
