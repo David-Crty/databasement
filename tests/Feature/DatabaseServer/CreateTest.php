@@ -614,3 +614,35 @@ test('without manage-database-servers, the create screen is forbidden', function
         ->test(Create::class)
         ->assertForbidden();
 });
+
+test('postgres connection database round-trips through the form', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'postgres')
+        ->assertSee('Connection database')
+        ->set('form.name', 'Managed PG')
+        ->set('form.host', 'pg.example.com')
+        ->set('form.port', 5432)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.connection_database', 'app_db')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_names.0', 'app_db')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $server = DatabaseServer::where('name', 'Managed PG')->firstOrFail();
+
+    expect($server->getExtraConfig('connection_database'))->toBe('app_db')
+        ->and(DatabaseProvider::connectionDatabase($server->extra_config))->toBe('app_db');
+
+    // The edit form must hydrate it back, otherwise saving again silently drops it.
+    Livewire::actingAs($user)
+        ->test(\App\Livewire\DatabaseServer\Edit::class, ['server' => $server])
+        ->assertSet('form.connection_database', 'app_db');
+});

@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\Process;
 
 class PostgresqlDatabase implements DatabaseInterface
 {
+    /**
+     * Database opened when the server names none of its own. Conventional on a
+     * self-hosted cluster; managed providers often withhold CONNECT on it.
+     */
+    public const string DEFAULT_CONNECTION_DATABASE = 'postgres';
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -149,6 +155,18 @@ class PostgresqlDatabase implements DatabaseInterface
 
     public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
+        // DROP DATABASE runs over the connection database, so it can never
+        // target the database that connection is open on. Servers with a single
+        // reachable database hit this when both point at it. Checked up front:
+        // the failure is a configuration conflict, not a connection problem.
+        if ($forceDatabase && $schemaName === $this->connectionDatabase()) {
+            throw new ConnectionException(sprintf(
+                'Cannot recreate database "%s": it is also the connection database this server connects through. '
+                .'Point the connection database at another database, or restore without database recreation.',
+                $schemaName,
+            ));
+        }
+
         try {
             $pdo = $this->createPdo();
 
@@ -281,9 +299,24 @@ class PostgresqlDatabase implements DatabaseInterface
         ];
     }
 
+    /**
+     * Admin connection, used for work that cannot run inside the target
+     * database itself (enumerating databases, dropping and recreating one).
+     * Defaults to `postgres` unless the server names another database it
+     * can actually reach.
+     */
     protected function createPdo(): \PDO
     {
-        return $this->createPdoForDatabase('postgres');
+        return $this->createPdoForDatabase($this->connectionDatabase());
+    }
+
+    private function connectionDatabase(): string
+    {
+        $configured = $this->config['connection_database'] ?? null;
+
+        return is_string($configured) && $configured !== ''
+            ? $configured
+            : self::DEFAULT_CONNECTION_DATABASE;
     }
 
     protected function createPdoForDatabase(string $database): \PDO

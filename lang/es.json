@@ -797,5 +797,7 @@
   "Change only for sovereign clouds (e.g., core.usgovcloudapi.net, core.chinacloudapi.cn).": "Cámbialo solo para nubes soberanas (ej.: core.usgovcloudapi.net, core.chinacloudapi.cn).",
   "Backups will be stored as blobs in the specified container. The account key can be found under Access keys in your Azure Storage account.": "Los Backups se almacenarán como blobs en el contenedor especificado. La clave de cuenta se encuentra en «Claves de acceso» de tu cuenta de Azure Storage.",
   "Custom Blob Endpoint": "Endpoint de Blob personalizado",
-  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "Para almacenamiento compatible con Azure (emulador Azurite, pasarelas autoalojadas). Sustituye al sufijo del endpoint."
+  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "Para almacenamiento compatible con Azure (emulador Azurite, pasarelas autoalojadas). Sustituye al sufijo del endpoint.",
+  "Connection database": "Base de datos de conexión",
+  "Opened to test the connection and list databases.": "Se abre para probar la conexión y listar las bases de datos."
 }

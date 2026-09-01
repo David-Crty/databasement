@@ -8,7 +8,13 @@ class PostgresConnectionRules extends ClientServerConnectionRules
 {
     public function extraConfig(Form $form): array
     {
-        return $form->ssl_enabled ? ['ssl_enabled' => true] : [];
+        $extra = $form->ssl_enabled ? ['ssl_enabled' => true] : [];
+
+        if ($form->connection_database !== '') {
+            $extra['connection_database'] = $form->connection_database;
+        }
+
+        return $extra;
     }
 
     public function dumpPreviewConfig(Form $form): array
