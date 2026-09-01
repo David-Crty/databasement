@@ -125,8 +125,13 @@ class PostgresqlDatabase implements DatabaseInterface
             ));
         }
 
+        // -v ON_ERROR_STOP=1 makes psql abort and exit non-zero on the first
+        // failed statement. Without it psql skips past errors and still exits 0,
+        // so a restore that recreated nothing was reported as successful. The
+        // dump is written with --clean --if-exists, so the DROP statements it
+        // replays are not an error when the object is absent.
         return new DatabaseOperationResult(command: sprintf(
-            '%sPGPASSWORD=%s psql --host=%s --port=%s --username=%s %s -f %s',
+            '%sPGPASSWORD=%s psql --set=ON_ERROR_STOP=1 --host=%s --port=%s --username=%s %s -f %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
             escapeshellarg($this->config['host']),

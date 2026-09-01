@@ -58,6 +58,13 @@
                 :hint="__('Transfers ownership of the database and all its objects (tables, sequences, functions, schemas) to this user. Useful when the restore user differs from the application user.')"
             />
         @endif
+
+        <div class="fieldset-label mt-1 text-xs">
+            {{ __('Restoring over existing objects requires ownership of them, not just privileges.') }}
+            <a href="https://david-crty.github.io/databasement/user-guide/database-servers#postgresql"
+               target="_blank"
+               class="link link-primary underline-offset-2">{{ __('PostgreSQL permissions') }}</a>
+        </div>
     @endif
 
     @if(in_array($type, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true))

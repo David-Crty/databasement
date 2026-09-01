@@ -46,7 +46,13 @@ test('restore builds correct psql command', function () {
     $result = $this->db->restore('/tmp/restore.sql');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("PGPASSWORD='pg_secret' psql --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/restore.sql'");
+        ->and($result->command)->toBe("PGPASSWORD='pg_secret' psql --set=ON_ERROR_STOP=1 --host='pg.local' --port='5432' --username='postgres' 'myapp' -f '/tmp/restore.sql'");
+});
+
+test('plain restore stops on the first SQL error instead of exiting successfully', function () {
+    $result = $this->db->restore('/tmp/restore.sql');
+
+    expect($result->command)->toContain('--set=ON_ERROR_STOP=1');
 });
 
 test('dump appends --format=custom when dump_format is custom', function () {
@@ -123,6 +129,7 @@ test('restore falls back to psql when dump_format is absent', function () {
     $result = $this->db->restore('/tmp/snapshot.sql');
 
     expect($result->command)->toStartWith("PGPASSWORD='pg_secret' psql ")
+        ->and($result->command)->toContain('--set=ON_ERROR_STOP=1')
         ->and($result->command)->toContain('-f ');
 });
 
