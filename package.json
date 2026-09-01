@@ -19,7 +19,7 @@
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.62.3",
     "@tailwindcss/oxide-linux-x64-gnu": "^4.3.3",
-    "lightningcss-linux-x64-gnu": "^1.29.1"
+    "lightningcss-linux-x64-gnu": "^1.33.0"
   },
   "devDependencies": {
     "daisyui": "^5.7.7",
