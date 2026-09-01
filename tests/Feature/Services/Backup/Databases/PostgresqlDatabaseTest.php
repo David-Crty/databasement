@@ -239,6 +239,60 @@ test('testConnection returns success with version and SSL info', function () {
         ->and($result['details']['output'])->toContain('PostgreSQL 16.2');
 });
 
+test('dump uses bare pg_dump by default', function () {
+    expect($this->db->dump('/tmp/dump.sql')->command)->toContain(' pg_dump ');
+});
+
+test('dump uses the configured client bin dir when set', function () {
+    config(['backup.postgresql_client_bin_dir' => '/usr/pgsql-18/bin']);
+
+    expect($this->db->dump('/tmp/dump.sql')->command)->toContain(' /usr/pgsql-18/bin/pg_dump ')
+        ->and($this->db->dump('/tmp/dump.sql')->command)->not->toContain(' pg_dump ');
+});
+
+test('restore uses the configured client bin dir for psql when set', function () {
+    config(['backup.postgresql_client_bin_dir' => '/usr/pgsql-18/bin']);
+
+    expect($this->db->restore('/tmp/restore.sql')->command)->toContain(' /usr/pgsql-18/bin/psql ');
+});
+
+test('restore uses the configured client bin dir for pg_restore when set', function () {
+    config(['backup.postgresql_client_bin_dir' => '/usr/pgsql-18/bin']);
+
+    $db = new PostgresqlDatabase;
+    $db->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'dump_format' => 'custom',
+    ]);
+
+    expect($db->restore('/tmp/snapshot.sql')->command)->toContain(' /usr/pgsql-18/bin/pg_restore ');
+});
+
+test('a trailing slash on the configured bin dir does not produce a double slash', function () {
+    config(['backup.postgresql_client_bin_dir' => '/usr/pgsql-18/bin/']);
+
+    expect($this->db->dump('/tmp/dump.sql')->command)->toContain(' /usr/pgsql-18/bin/pg_dump ')
+        ->and($this->db->dump('/tmp/dump.sql')->command)->not->toContain('bin//pg_dump');
+});
+
+test('testConnection query command uses the configured client bin dir for psql when set', function () {
+    config(['backup.postgresql_client_bin_dir' => '/usr/pgsql-18/bin']);
+
+    Process::preventStrayProcesses();
+    Process::fake([
+        '*version*' => Process::result(output: 'PostgreSQL 16.2'),
+        '*ssl*' => Process::result(output: 'yes'),
+    ]);
+
+    $this->db->testConnection();
+
+    Process::assertRan(fn ($process) => str_contains($process->command, '/usr/pgsql-18/bin/psql'));
+});
+
 test('testConnection returns failure when process fails', function () {
     Process::fake([
         '*' => Process::result(exitCode: 1, errorOutput: 'connection refused'),
