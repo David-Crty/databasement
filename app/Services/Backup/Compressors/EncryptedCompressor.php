@@ -79,12 +79,14 @@ class EncryptedCompressor extends BaseCompressor
 
     public function getDecompressedPath(string $inputPath): string
     {
-        $targets = ['dump.sql', 'dump.db'];
+        // BackupTask always names the pre-compression dump file "dump.{extension}",
+        // where the extension varies by database type/format (DatabaseType::dumpExtension()).
+        // Matching the prefix avoids maintaining a list that drifts out of sync with that enum.
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($inputPath, \FilesystemIterator::SKIP_DOTS)
         );
         foreach ($iterator as $file) {
-            if ($file->isFile() && in_array($file->getFilename(), $targets, true)) {
+            if ($file->isFile() && str_starts_with($file->getFilename(), 'dump.')) {
                 return $file->getPathname();
             }
         }

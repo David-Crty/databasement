@@ -3,6 +3,7 @@
 use App\Enums\CompressionType;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\EncryptedCompressor;
+use App\Support\FilesystemSupport;
 use Tests\Support\TestShellProcessor;
 
 beforeEach(function () {
@@ -53,6 +54,37 @@ test('encrypted compressor executes compress and returns correct path', function
         ->and(file_exists($compressedPath))->toBeTrue();
 
     unlink($compressedPath);
+});
+
+test('encrypted compressor finds the decompressed dump regardless of extension', function (string $filename) {
+    $dir = sys_get_temp_dir().'/'.uniqid('encrypted_compressor_test_');
+    mkdir($dir);
+    file_put_contents($dir.'/'.$filename, 'dump contents');
+
+    $compressor = new EncryptedCompressor($this->shellProcessor, 6);
+
+    expect($compressor->getDecompressedPath($dir))->toBe($dir.'/'.$filename);
+
+    FilesystemSupport::cleanupDirectory($dir);
+})->with([
+    'plain SQL dump' => ['dump.sql'],
+    'SQLite dump' => ['dump.db'],
+    'PostgreSQL custom-format dump' => ['dump.dump'],
+    'MSSQL dump' => ['dump.dacpac'],
+    'Firebird dump' => ['dump.fbk'],
+    'MongoDB dump' => ['dump.archive'],
+]);
+
+test('encrypted compressor throws when no decompressed dump is found', function () {
+    $dir = sys_get_temp_dir().'/'.uniqid('encrypted_compressor_test_');
+    mkdir($dir);
+
+    $compressor = new EncryptedCompressor($this->shellProcessor, 6);
+
+    expect(fn () => $compressor->getDecompressedPath($dir))
+        ->toThrow(RuntimeException::class, 'Decompression failed: output file not found');
+
+    FilesystemSupport::cleanupDirectory($dir);
 });
 
 test('encrypted compressor removes stale archive before compressing', function () {
