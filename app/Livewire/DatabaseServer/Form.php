@@ -14,6 +14,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\NotificationChannel;
 use App\Rules\MaxBytes;
+use App\Rules\SafeDumpFlags;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\ShellProcessor;
 use App\Services\Backup\SyncBackupConfigurationsAction;
@@ -893,7 +894,7 @@ class Form extends \Livewire\Form
             'description' => 'nullable|string|max:1000',
             'agent_id' => ['nullable', Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
             'backups_enabled' => 'boolean',
-            'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
+            'dump_flags' => ['nullable', 'string', 'max:500', new SafeDumpFlags(DatabaseType::tryFrom($this->database_type))],
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
             'dump_privileges' => 'boolean',
             'ssl_enabled' => 'boolean',

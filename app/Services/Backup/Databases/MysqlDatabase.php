@@ -3,6 +3,7 @@
 namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
+use App\Enums\DatabaseType;
 use App\Exceptions\Backup\ConnectionException;
 use App\Services\Backup\DTO\DatabaseOperationLog;
 use App\Services\Backup\DTO\DatabaseOperationResult;
@@ -80,7 +81,7 @@ class MysqlDatabase implements DatabaseInterface
 
         $extraFlags = '';
         if (! empty($this->config['dump_flags'])) {
-            $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
+            $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::MYSQL);
         }
 
         // Flags must come before the database name; mariadb-dump treats anything after it as table names
