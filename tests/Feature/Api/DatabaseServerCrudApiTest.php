@@ -4,6 +4,7 @@ use App\Enums\Ability;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
+use App\Models\Organization;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\Databases\DatabaseProvider;
@@ -349,6 +350,35 @@ test('update attaches an ssh config to a server that has none', function () {
         ->assertJsonPath('data.ssh_config_id', $sshConfig->id);
 
     expect($server->fresh()->sshConfig->host)->toBe('bastion.example.com');
+});
+
+test('an ssh config from another organization is rejected', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $foreignOrg = Organization::factory()->create();
+    $foreignConfig = DatabaseServerSshConfig::factory()->create(['organization_id' => $foreignOrg->id]);
+    $volume = Volume::factory()->local()->create();
+    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Tunnelled',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'ssh_config_id' => $foreignConfig->id,
+            'backups' => [[
+                'database_selection_mode' => 'all',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ]],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('ssh_config_id');
+
+    expect(DatabaseServer::withoutGlobalScopes()->where('name', 'Tunnelled')->exists())->toBeFalse();
 });
 
 test('blank password keeps existing password on update', function () {
