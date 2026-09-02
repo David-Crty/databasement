@@ -186,3 +186,18 @@ test('testConnection returns failure when process fails', function () {
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->toContain('Access denied');
 });
+
+test('dump refuses a flag that redirects where the client writes', function () {
+    $db = new MysqlDatabase;
+    $db->setConfig([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+        'dump_flags' => '--result-file=/app/public/shell.php',
+    ]);
+
+    expect(fn () => $db->dump('/tmp/dump.sql'))
+        ->toThrow(App\Exceptions\Backup\DatabaseDumpException::class, '--result-file=/app/public/shell.php');
+});
