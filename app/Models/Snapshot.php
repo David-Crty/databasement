@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @mixin IdeHelperSnapshot
@@ -180,7 +181,21 @@ class Snapshot extends Model
         // Delete the backup files, associated restores and job when snapshot is deleted
         static::deleting(function (Snapshot $snapshot) {
             if (! $snapshot->skipFileCleanup) {
-                $snapshot->deleteBackupFiles();
+                // Deleting from the volume is irreversible and must not run until the
+                // surrounding delete is guaranteed to commit (deleteSnapshot() callers
+                // wrap this in a row-locked transaction to fix a locking race; if a
+                // later step in that transaction throws and it rolls back, files
+                // deleted here can't be un-deleted). Capture the copies now, before
+                // their rows are removed below, and defer the actual volume deletes
+                // until the transaction commits (or run immediately outside one).
+                $files = $snapshot->files()->completed()->get()
+                    ->each(fn (SnapshotFile $file) => $file->setRelation('snapshot', $snapshot));
+
+                DB::afterCommit(function () use ($files) {
+                    foreach ($files as $file) {
+                        $file->deleteFromVolume();
+                    }
+                });
             }
 
             // The copy rows would cascade at the DB level, but delete them

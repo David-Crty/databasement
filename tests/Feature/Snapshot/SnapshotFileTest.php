@@ -6,6 +6,7 @@ use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Filesystems\FilesystemProvider;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use League\Flysystem\Filesystem;
 
@@ -76,4 +77,44 @@ test('a volume that fails to delete does not stop the snapshot\'s other copies',
     expect($snapshot->deleteBackupFiles())->toBeTrue();
 
     Log::shouldHaveReceived('error')->once();
+});
+
+test('deleting a snapshot deletes its backup files from the volume', function () {
+    $snapshot = Snapshot::factory()->create(['filename' => 'backup.sql.gz']);
+
+    $filesystem = Mockery::mock(Filesystem::class);
+    $filesystem->shouldReceive('fileExists')->with('backup.sql.gz')->once()->andReturnTrue();
+    $filesystem->shouldReceive('delete')->with('backup.sql.gz')->once();
+
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldReceive('getForVolume')->once()->andReturn($filesystem);
+    app()->instance(FilesystemProvider::class, $provider);
+
+    $snapshot->delete();
+
+    expect(Snapshot::find($snapshot->id))->toBeNull();
+});
+
+test('backup files are not deleted from the volume when the delete transaction rolls back', function () {
+    // Deleting from the volume is irreversible, so it must be deferred until the
+    // transaction wrapping the snapshot delete is guaranteed to commit. If a later
+    // step in that transaction fails and rolls back, the row survives and the
+    // files it references must still be there.
+    $snapshot = Snapshot::factory()->create(['filename' => 'backup.sql.gz']);
+
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldNotReceive('getForVolume');
+    app()->instance(FilesystemProvider::class, $provider);
+
+    try {
+        DB::transaction(function () use ($snapshot) {
+            $snapshot->delete();
+
+            throw new RuntimeException('simulated failure after delete');
+        });
+    } catch (RuntimeException) {
+        // Expected: proves the deferred file deletion never ran.
+    }
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
 });
