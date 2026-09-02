@@ -112,8 +112,8 @@ test('backup files are not deleted from the volume when the delete transaction r
 
             throw new RuntimeException('simulated failure after delete');
         });
-    } catch (RuntimeException) {
-        // Expected: proves the deferred file deletion never ran.
+    } catch (RuntimeException $exception) {
+        expect($exception->getMessage())->toBe('simulated failure after delete');
     }
 
     expect(Snapshot::find($snapshot->id))->not->toBeNull();
