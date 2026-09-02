@@ -14,6 +14,7 @@ use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -165,9 +166,28 @@ class Index extends Component
 
         $this->authorize('manageLock', $snapshot);
 
-        $snapshot->update(['locked' => ! $snapshot->locked]);
+        // A concurrent delete can remove the row between the read above and the
+        // update below, in which case update() affects zero rows but still
+        // reports success. Reload under a row lock and skip if it's gone.
+        $locked = DB::transaction(function () use ($snapshot) {
+            $current = Snapshot::whereKey($snapshot->id)->lockForUpdate()->first();
 
-        $this->success($snapshot->locked
+            if (! $current) {
+                return null;
+            }
+
+            $current->update(['locked' => ! $current->locked]);
+
+            return $current->locked;
+        });
+
+        if ($locked === null) {
+            $this->error(__('Snapshot no longer exists.'));
+
+            return;
+        }
+
+        $this->success($locked
             ? __('Snapshot locked. It will be protected from deletion until unlocked.')
             : __('Snapshot unlocked.'));
     }
@@ -205,18 +225,22 @@ class Index extends Component
 
         $this->authorize('delete', $snapshot);
 
-        // The authorize() check above can go stale if the snapshot is locked in the
-        // moment between it and this call, so re-check under a row lock immediately
-        // before deleting rather than trusting the earlier read.
+        // The authorize() check above can go stale if the snapshot is locked, or
+        // deleted outright by another request, in the moment between it and this
+        // call. Reload the row itself (not just its `locked` scalar) under a row
+        // lock and re-authorize against that current state immediately before
+        // deleting: deleting the stale, pre-lock $snapshot instance would re-run
+        // its `deleting` callback against relations another request may have
+        // already removed.
         $deleted = DB::transaction(function () use ($snapshot) {
-            $locked = Snapshot::whereKey($snapshot->id)->lockForUpdate()->value('locked');
+            $current = Snapshot::whereKey($snapshot->id)->lockForUpdate()->first();
 
-            if ($locked) {
+            if (! $current || Gate::denies('delete', $current)) {
                 return false;
             }
 
-            $snapshot->skipFileCleanup = $this->keepFiles;
-            $snapshot->delete();
+            $current->skipFileCleanup = $this->keepFiles;
+            $current->delete();
 
             return true;
         });

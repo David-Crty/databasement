@@ -251,6 +251,70 @@ test('a snapshot locked between the authorize check and the delete call is not d
         ->and(Snapshot::find($snapshot->id)->locked)->toBeTrue();
 });
 
+test('a snapshot deleted by another request before the row lock is skipped without error', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    $component = Livewire::test(Index::class)
+        ->call('confirmDeleteSnapshot', $snapshot->id)
+        ->assertSet('deleteSnapshotId', $snapshot->id);
+
+    // Simulate a concurrent request that finishes deleting the snapshot in the
+    // window between this request's initial findOrFail() and its own row-locked
+    // reload: remove the row (cascading its files/restores at the DB level, same
+    // as a real delete) as soon as deleteSnapshot() re-fetches it, before the
+    // transaction's lockForUpdate() runs. If deleteSnapshot() deleted the stale,
+    // pre-lock instance instead of reloading, its `deleting` callback would
+    // dereference a `job` relation whose row is untouched here but would be gone
+    // in the real race, and the request would fail instead of no-op-ing.
+    Snapshot::retrieved(function (Snapshot $retrieved) use ($snapshot) {
+        if ($retrieved->id === $snapshot->id) {
+            DB::table('snapshots')->where('id', $snapshot->id)->delete();
+        }
+    });
+
+    $component->call('deleteSnapshot');
+
+    expect(Snapshot::find($snapshot->id))->toBeNull();
+});
+
+test('a snapshot deleted by another request before toggleLock reloads it does not report success', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    // Mount first so the index listing's own render (which hydrates every visible
+    // snapshot, including this one) happens before the listener below is armed.
+    $component = Livewire::test(Index::class);
+
+    // Simulate a concurrent request that deletes the snapshot in the window
+    // between toggleLock()'s initial findOrFail() and its own row-locked reload.
+    Snapshot::retrieved(function (Snapshot $retrieved) use ($snapshot) {
+        if ($retrieved->id === $snapshot->id) {
+            DB::table('snapshots')->where('id', $snapshot->id)->delete();
+        }
+    });
+
+    $component->call('toggleLock', $snapshot->id);
+
+    expect(Snapshot::find($snapshot->id))->toBeNull();
+});
+
+test('locking then deleting a snapshot in sequence still succeeds', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    $component = Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeTrue();
+
+    $component->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
+
+    $component->call('confirmDeleteSnapshot', $snapshot->id)
+        ->call('deleteSnapshot');
+
+    expect(Snapshot::find($snapshot->id))->toBeNull();
+});
+
 test('without delete-snapshots, deleting a snapshot is forbidden', function () {
     $snapshot = Snapshot::factory()->withFile()->create();
 

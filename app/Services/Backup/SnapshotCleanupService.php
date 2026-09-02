@@ -173,16 +173,19 @@ class SnapshotCleanupService
         }
 
         // Snapshots are selected for cleanup by an earlier bulk query, which can go stale
-        // if the snapshot is locked in between. Re-check under a row lock immediately
-        // before deleting so a lock applied mid-run is never silently overridden.
+        // if the snapshot is locked — or already deleted by a concurrent request — in
+        // between. Reload the row itself (not just its `locked` scalar) under a row lock
+        // immediately before deleting: deleting the stale, pre-lock $snapshot instance
+        // would re-run its `deleting` callback against relations another request may
+        // have already removed.
         $deleted = DB::transaction(function () use ($snapshot) {
-            $locked = Snapshot::whereKey($snapshot->id)->lockForUpdate()->value('locked');
+            $current = Snapshot::whereKey($snapshot->id)->lockForUpdate()->first();
 
-            if ($locked) {
+            if (! $current || $current->locked) {
                 return false;
             }
 
-            $snapshot->delete();
+            $current->delete();
 
             return true;
         });

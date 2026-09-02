@@ -239,6 +239,31 @@ test('a snapshot locked after selection but before deletion is not deleted', fun
         ->and(Snapshot::find($racedSnapshot->id))->not->toBeNull();
 });
 
+test('a snapshot deleted by another request before the row lock is skipped without error', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $racedSnapshot = createSnapshot($server, 'completed', now()->subDays(10), 'app_db');
+
+    // Simulate another request (e.g. a manual delete from the Snapshots index)
+    // finishing the delete in the window between the bulk selection query and
+    // the service's own row-locked reload: remove the row as soon as the bulk
+    // query hydrates it, before deleteSnapshot()'s lockForUpdate() runs. If
+    // deleteSnapshot() deleted the stale, pre-lock instance instead of reloading,
+    // its `deleting` callback would dereference relations the concurrent request
+    // already removed, and the run would fail instead of skipping it.
+    Snapshot::retrieved(function (Snapshot $retrieved) use ($racedSnapshot) {
+        if ($retrieved->id === $racedSnapshot->id) {
+            DB::table('snapshots')->where('id', $racedSnapshot->id)->delete();
+        }
+    });
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and(Snapshot::find($racedSnapshot->id))->toBeNull();
+});
+
 test('dry-run mode does not delete snapshots', function () {
     $server = DatabaseServer::factory()->create();
     updateFirstBackup($server, ['retention_days' => 7]);
