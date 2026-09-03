@@ -18,6 +18,17 @@ class PostgresqlDatabase implements DatabaseInterface
      */
     public const string DEFAULT_CONNECTION_DATABASE = 'postgres';
 
+    /**
+     * Newest client major whose output an older server still accepts.
+     *
+     * pg_dump 17 and 18 write `SET transaction_timeout = 0` into every dump,
+     * a GUC that only exists from PostgreSQL 17 on, and they do it whatever
+     * the version of the server they read. A dump is only guaranteed to load
+     * into a server at least as new as the client that wrote it, so servers
+     * below 17 are dumped and restored with a client of this major instead.
+     */
+    private const int LEGACY_CLIENT_MAJOR = 16;
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -94,9 +105,10 @@ class PostgresqlDatabase implements DatabaseInterface
 
         // Flags must come before the database name (last positional argument)
         $command = sprintf(
-            '%sPGPASSWORD=%s pg_dump %s --host=%s --port=%s --username=%s%s %s',
+            '%sPGPASSWORD=%s %s %s --host=%s --port=%s --username=%s%s %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
+            $this->binary('pg_dump'),
             implode(' ', $options),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
@@ -114,9 +126,10 @@ class PostgresqlDatabase implements DatabaseInterface
     {
         if (($this->config['dump_format'] ?? 'plain') === 'custom') {
             return new DatabaseOperationResult(command: sprintf(
-                '%sPGPASSWORD=%s pg_restore %s --host=%s --port=%s --username=%s --dbname=%s %s',
+                '%sPGPASSWORD=%s %s %s --host=%s --port=%s --username=%s --dbname=%s %s',
                 $this->sslEnvPrefix(),
                 escapeshellarg($this->config['pass']),
+                $this->binary('pg_restore'),
                 implode(' ', $this->withPrivilegeOptions(self::RESTORE_CUSTOM_FORMAT_OPTIONS)),
                 escapeshellarg($this->config['host']),
                 escapeshellarg((string) $this->config['port']),
@@ -132,15 +145,79 @@ class PostgresqlDatabase implements DatabaseInterface
         // dump is written with --clean --if-exists, so the DROP statements it
         // replays are not an error when the object is absent.
         return new DatabaseOperationResult(command: sprintf(
-            '%sPGPASSWORD=%s psql --set=ON_ERROR_STOP=1 --host=%s --port=%s --username=%s %s -f %s',
+            '%sPGPASSWORD=%s %s --set=ON_ERROR_STOP=1 --host=%s --port=%s --username=%s %s -f %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
+            $this->binary('psql'),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['database']),
             escapeshellarg($inputPath)
         ));
+    }
+
+    /**
+     * Path to the libpq client binary to run for this server.
+     *
+     * Servers below {@see LEGACY_CLIENT_MAJOR} get the matching older build
+     * when the image carries one; everything else keeps the client on PATH.
+     */
+    private function binary(string $name): string
+    {
+        $major = $this->serverMajorVersion();
+
+        if ($major === null || $major > self::LEGACY_CLIENT_MAJOR) {
+            return $name;
+        }
+
+        foreach ($this->clientBinDirs() as $directory) {
+            $path = sprintf($directory, self::LEGACY_CLIENT_MAJOR).'/'.$name;
+
+            if (is_executable($path)) {
+                return $path;
+            }
+        }
+
+        // No versioned build on this host, as on a native install without the
+        // package. The client on PATH still dumps; its output just carries the
+        // forward-incompatible SET this method exists to steer around.
+        return $name;
+    }
+
+    /**
+     * Where a versioned client build lands, on Alpine and on Debian/Ubuntu.
+     *
+     * @return list<string>
+     */
+    protected function clientBinDirs(): array
+    {
+        return [
+            '/usr/libexec/postgresql%d',
+            '/usr/lib/postgresql/%d/bin',
+        ];
+    }
+
+    /**
+     * Major version the server reports, or null when it cannot be read.
+     */
+    private function serverMajorVersion(): ?int
+    {
+        // Unset for configs that never reach a server, such as the UI preview.
+        if (empty($this->config['probe_server_version'])) {
+            return null;
+        }
+
+        try {
+            $version = $this->createPdo()->getAttribute(\PDO::ATTR_SERVER_VERSION);
+        } catch (\PDOException) {
+            return null;
+        }
+
+        // Reported as "16.15 (Debian 16.15-1.pgdg13+2)", so the leading integer is the major.
+        $major = is_string($version) ? (int) $version : 0;
+
+        return $major > 0 ? $major : null;
     }
 
     /**
