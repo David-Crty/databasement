@@ -186,8 +186,17 @@ class Index extends Component
 
         $this->authorize('delete', $snapshot);
 
-        $snapshot->skipFileCleanup = $this->keepFiles;
-        $snapshot->delete();
+        try {
+            $snapshot->skipFileCleanup = $this->keepFiles;
+            $snapshot->delete();
+        } catch (\RuntimeException $e) {
+            // Chain-lineage guard: a non-newest S3 run can't be removed yet.
+            $this->error($e->getMessage());
+            $this->deleteSnapshotId = null;
+            $this->showDeleteModal = false;
+
+            return;
+        }
         $this->deleteSnapshotId = null;
         $this->showDeleteModal = false;
 

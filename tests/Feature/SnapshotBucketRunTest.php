@@ -44,3 +44,41 @@ test('an s3 full and incremental snapshot store run tracking and object files', 
         ->and($objects->firstWhere('path', 'uploads/photo.jpg')->size)->toBe(120)
         ->and($objects->firstWhere('path', 'old/file.bin')->tombstone)->toBeTrue();
 });
+
+test('s3 run deletion is forced newest-first so lineage stays resolvable', function () {
+    $full = Snapshot::factory()->forServer($this->server)->create([
+        'run_kind' => 'full',
+        'database_name' => 'photos',
+        'started_at' => now()->subHours(2),
+    ]);
+
+    $olderInc = Snapshot::factory()->forServer($this->server)->create([
+        'run_kind' => 'incremental',
+        'full_snapshot_id' => $full->id,
+        'database_name' => 'photos',
+        'started_at' => now()->subHour(),
+    ]);
+    $newestInc = Snapshot::factory()->forServer($this->server)->create([
+        'run_kind' => 'incremental',
+        'full_snapshot_id' => $full->id,
+        'database_name' => 'photos',
+        'started_at' => now(),
+    ]);
+
+    // The anchor full still has descendents -> cannot be removed.
+    expect(fn () => $full->delete())->toThrow(\RuntimeException::class);
+
+    // Older incremental still has a newer sibling -> cannot be removed either.
+    expect(fn () => $olderInc->delete())->toThrow(\RuntimeException::class);
+
+    // Newest incremental is the chain tip -> deletion is allowed.
+    $newestInc->skipFileCleanup = true; // no real volume file to remove in tests
+    $newestInc->delete();
+
+    // Removing the tip unblocks its predecessor, and finally the full anchor.
+    $olderInc->skipFileCleanup = true;
+    $olderInc->delete();
+    $full->skipFileCleanup = true;
+    $full->delete();
+    $this->addToAssertionCount(1);
+});

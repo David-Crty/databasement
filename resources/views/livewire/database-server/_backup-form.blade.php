@@ -437,14 +437,17 @@
                     :value="Backup::RETENTION_DAYS"
                     wire:model.live="form.backups.{{ $index }}.retention_policy"
                 />
-                <x-radio-card
-                    :active="($backup['retention_policy'] ?? '') === Backup::RETENTION_GFS"
-                    icon="o-square-3-stack-3d"
-                    :label="__('GFS')"
-                    :hint="__('Tiered retention')"
-                    :value="Backup::RETENTION_GFS"
-                    wire:model.live="form.backups.{{ $index }}.retention_policy"
-                />
+                {{-- GFS tiering is not meaningful for bucket-copy run chains (v1) --}}
+                @unless($serverType?->isObjectStorage() ?? false)
+                    <x-radio-card
+                        :active="($backup['retention_policy'] ?? '') === Backup::RETENTION_GFS"
+                        icon="o-square-3-stack-3d"
+                        :label="__('GFS')"
+                        :hint="__('Tiered retention')"
+                        :value="Backup::RETENTION_GFS"
+                        wire:model.live="form.backups.{{ $index }}.retention_policy"
+                    />
+                @endunless
                 <x-radio-card
                     :active="($backup['retention_policy'] ?? '') === Backup::RETENTION_FOREVER"
                     icon="o-arrow-path-rounded-square"

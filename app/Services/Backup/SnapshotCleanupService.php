@@ -166,6 +166,10 @@ class SnapshotCleanupService
         if ($this->dryRun) {
             Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
         } else {
+            // Retention-based cleanup is the whole-chain owner: it may remove an
+            // older S3 run even when newer runs still exist (the policy decides
+            // which runs to keep). The interactive/UI delete path stays guarded.
+            $snapshot->allowOutOfOrderChainDelete = true;
             $snapshot->delete();
             Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
         }
