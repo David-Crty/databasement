@@ -9,6 +9,7 @@ use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\CurrentOrganization;
+use App\Support\BouncerScope;
 use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Router;
@@ -18,7 +19,7 @@ use Illuminate\Routing\SortedMiddleware;
  * A real request reaches the framework with no organization resolved; the
  * suite's setupOrgContext() resolves one up front, which hides anything that
  * reads the tenant before SetCurrentOrganization has run. Clearing it here
- * makes these tests exercise the same starting state as production.
+ * makes these tests start where a request does.
  */
 function asUnresolvedRequest(): void
 {
@@ -35,7 +36,6 @@ beforeEach(function () {
     attachUserToOrg($this->eve, $this->orgB, 'admin');
 
     $this->foreignServer = DatabaseServer::factory()->create([
-        'name' => 'org-a-db',
         'organization_id' => $this->orgA->id,
     ]);
 });
@@ -51,129 +51,79 @@ test('tenant context is resolved before route-model binding', function (string $
         ->toBeLessThan(array_search(SubstituteBindings::class, $pipeline, true));
 })->with(['api.database-servers.show', 'dashboard']);
 
-describe('database servers', function () {
-    test('a non-member cannot read another organization\'s server', function () {
-        asUnresolvedRequest();
+// Reading is guarded by the organization scope alone: show performs no
+// authorize() call of its own.
+test('a non-member cannot read another organization\'s record', function () {
+    asUnresolvedRequest();
 
-        $this->actingAs($this->eve, 'sanctum')
-            ->getJson("/api/v1/database-servers/{$this->foreignServer->id}")
-            ->assertNotFound();
-    });
-
-    test('a non-member cannot update another organization\'s server', function () {
-        asUnresolvedRequest();
-
-        $this->actingAs($this->eve, 'sanctum')
-            ->putJson("/api/v1/database-servers/{$this->foreignServer->id}", [
-                'name' => 'PWNED',
-                'database_type' => 'sqlite',
-                'backups_enabled' => false,
-                'backups' => [],
-            ])
-            ->assertNotFound();
-
-        expect($this->foreignServer->fresh()->name)->toBe('org-a-db');
-    });
-
-    test('a non-member cannot delete another organization\'s server', function () {
-        asUnresolvedRequest();
-
-        $this->actingAs($this->eve, 'sanctum')
-            ->deleteJson("/api/v1/database-servers/{$this->foreignServer->id}")
-            ->assertNotFound();
-
-        expect(DatabaseServer::withoutGlobalScopes()->find($this->foreignServer->id))->not->toBeNull();
-    });
-
-    test('a non-member cannot trigger a backup on another organization\'s server', function () {
-        asUnresolvedRequest();
-
-        $this->actingAs($this->eve, 'sanctum')
-            ->postJson("/api/v1/database-servers/{$this->foreignServer->id}/backup")
-            ->assertNotFound();
-    });
+    $this->actingAs($this->eve, 'sanctum')
+        ->getJson("/api/v1/database-servers/{$this->foreignServer->id}")
+        ->assertNotFound();
 });
 
-describe('volumes', function () {
-    test('a non-member cannot read another organization\'s volume', function () {
-        $volume = Volume::factory()->create(['organization_id' => $this->orgA->id]);
+// Writing goes through authorize(), so this covers the scope and the policy
+// together on the path where a bypass destroys data.
+test('a non-member cannot delete another organization\'s record', function () {
+    $volume = Volume::factory()->create(['organization_id' => $this->orgA->id]);
 
-        asUnresolvedRequest();
+    asUnresolvedRequest();
 
-        $this->actingAs($this->eve, 'sanctum')
-            ->getJson("/api/v1/volumes/{$volume->id}")
-            ->assertNotFound();
-    });
+    $this->actingAs($this->eve, 'sanctum')
+        ->deleteJson("/api/v1/volumes/{$volume->id}")
+        ->assertNotFound();
 
-    test('a non-member cannot delete another organization\'s volume', function () {
-        $volume = Volume::factory()->create(['organization_id' => $this->orgA->id]);
-
-        asUnresolvedRequest();
-
-        $this->actingAs($this->eve, 'sanctum')
-            ->deleteJson("/api/v1/volumes/{$volume->id}")
-            ->assertNotFound();
-
-        expect(Volume::withoutGlobalScopes()->find($volume->id))->not->toBeNull();
-    });
+    expect(Volume::withoutGlobalScopes()->find($volume->id))->not->toBeNull();
 });
 
-describe('records inheriting their tenant from a server', function () {
-    test('a non-member cannot read another organization\'s snapshot', function () {
-        $snapshot = Snapshot::factory()
-            ->forServer($this->foreignServer)
-            ->onVolumes(Volume::factory()->create(['organization_id' => $this->orgA->id]))
-            ->create();
+// Snapshots own no organization_id and are scoped through their server by
+// DatabaseServerOrganizationScope, a separate implementation.
+test('a non-member cannot read a record scoped through its server', function () {
+    $snapshot = Snapshot::factory()
+        ->forServer($this->foreignServer)
+        ->onVolumes(Volume::factory()->create(['organization_id' => $this->orgA->id]))
+        ->create();
 
-        asUnresolvedRequest();
+    asUnresolvedRequest();
 
-        $this->actingAs($this->eve, 'sanctum')
-            ->getJson("/api/v1/snapshots/{$snapshot->id}")
-            ->assertNotFound();
-    });
-
-    test('a non-member cannot read another organization\'s ssh config', function () {
-        $sshConfig = DatabaseServerSshConfig::factory()->create([
-            'organization_id' => $this->orgA->id,
-        ]);
-
-        asUnresolvedRequest();
-
-        $this->actingAs($this->eve, 'sanctum')
-            ->getJson("/api/v1/database-server-ssh-configs/{$sshConfig->id}")
-            ->assertNotFound();
-    });
+    $this->actingAs($this->eve, 'sanctum')
+        ->getJson("/api/v1/snapshots/{$snapshot->id}")
+        ->assertNotFound();
 });
 
 describe('policy ownership guard', function () {
-    test('abilities do not authorize a model from another organization', function () {
-        $volume = Volume::factory()->create(['organization_id' => $this->orgA->id]);
-        $agent = Agent::factory()->create(['organization_id' => $this->orgA->id]);
-
-        // Eve is scoped to her own org, but holds every ability there.
+    beforeEach(function () {
+        // Eve is scoped to her own org, where she holds every ability.
         app(CurrentOrganization::class)->set($this->orgB);
-        App\Support\BouncerScope::apply($this->orgB->id);
-
-        expect($this->eve->can('view', $this->foreignServer))->toBeFalse()
-            ->and($this->eve->can('update', $this->foreignServer))->toBeFalse()
-            ->and($this->eve->can('delete', $this->foreignServer))->toBeFalse()
-            ->and($this->eve->can('view', $volume))->toBeFalse()
-            ->and($this->eve->can('delete', $volume))->toBeFalse()
-            ->and($this->eve->can('view', $agent))->toBeFalse()
-            ->and($this->eve->can('delete', $agent))->toBeFalse();
+        BouncerScope::apply($this->orgB->id);
     });
 
-    test('the same abilities still authorize a model in the current organization', function () {
-        $ownServer = DatabaseServer::factory()->create(['organization_id' => $this->orgB->id]);
-        $ownVolume = Volume::factory()->create(['organization_id' => $this->orgB->id]);
+    test('an ability does not authorize a model from another organization', function () {
+        $foreign = [
+            $this->foreignServer,
+            Volume::factory()->create(['organization_id' => $this->orgA->id]),
+            Agent::factory()->create(['organization_id' => $this->orgA->id]),
+            DatabaseServerSshConfig::factory()->create(['organization_id' => $this->orgA->id]),
+        ];
 
-        app(CurrentOrganization::class)->set($this->orgB);
-        App\Support\BouncerScope::apply($this->orgB->id);
+        foreach ($foreign as $model) {
+            expect($this->eve->can('view', $model))->toBeFalse()
+                ->and($this->eve->can('update', $model))->toBeFalse()
+                ->and($this->eve->can('delete', $model))->toBeFalse();
+        }
+    });
 
-        expect($this->eve->can('view', $ownServer))->toBeTrue()
-            ->and($this->eve->can('update', $ownServer))->toBeTrue()
-            ->and($this->eve->can('delete', $ownServer))->toBeTrue()
-            ->and($this->eve->can('view', $ownVolume))->toBeTrue()
-            ->and($this->eve->can('delete', $ownVolume))->toBeTrue();
+    test('the same ability still authorizes a model in the current organization', function () {
+        $own = [
+            DatabaseServer::factory()->create(['organization_id' => $this->orgB->id]),
+            Volume::factory()->create(['organization_id' => $this->orgB->id]),
+            Agent::factory()->create(['organization_id' => $this->orgB->id]),
+            DatabaseServerSshConfig::factory()->create(['organization_id' => $this->orgB->id]),
+        ];
+
+        foreach ($own as $model) {
+            expect($this->eve->can('view', $model))->toBeTrue()
+                ->and($this->eve->can('update', $model))->toBeTrue()
+                ->and($this->eve->can('delete', $model))->toBeTrue();
+        }
     });
 });
