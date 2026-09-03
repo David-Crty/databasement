@@ -239,3 +239,21 @@ test('another organization restore record cannot be re-run', function () {
     expect(fn () => Livewire::test(Index::class)->call('rerunRestore', $foreign->id))
         ->toThrow(ModelNotFoundException::class);
 });
+
+test('viewLogs does not render a job from an org the user is not a member of', function () {
+    $otherOrg = \App\Models\Organization::factory()->create(['name' => 'OtherOrg']);
+
+    $current = app(\App\Services\CurrentOrganization::class);
+    $current->set($otherOrg);
+    $otherOrgServer = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
+    $snapshot = Snapshot::factory()->forServer($otherOrgServer)->withFile()->create();
+    $restore = makeRestore(['snapshot' => $snapshot, 'target' => $otherOrgServer]);
+    $restore->job->log('pg_restore --host=other-org-host', 'info');
+
+    // Return to the default org. The user is NOT a member of OtherOrg.
+    $current->set(\App\Models\Organization::default());
+
+    Livewire::test(Index::class)
+        ->call('viewLogs', $restore->job->id)
+        ->assertDontSee('other-org-host');
+});
