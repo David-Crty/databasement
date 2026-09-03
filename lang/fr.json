@@ -807,5 +807,11 @@
   "Transfer database ownership to user after restore": "Transférer la propriété de la base à cet utilisateur après le restore",
   "Set database owner after restore": "Définir le propriétaire de la base après le restore",
   "PostgreSQL username (leave empty to skip)": "Nom d’utilisateur PostgreSQL (laisser vide pour ignorer)",
-  "This SQL will be run after the restore:": "Ce SQL sera exécuté après le restore :"
+  "This SQL will be run after the restore:": "Ce SQL sera exécuté après le restore :",
+  "Endpoint": "Endpoint",
+  "S3 access key": "Clé d’accès S3",
+  "S3 secret key": "Clé secrète S3",
+  "Bucket": "Bucket",
+  "Prefix (optional)": "Préfixe (facultatif)",
+  "Use path-style endpoint": "Utiliser le mode endpoint path-style"
 }
