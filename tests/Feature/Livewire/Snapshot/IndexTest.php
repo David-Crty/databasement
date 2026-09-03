@@ -309,3 +309,17 @@ test('?job= from another org is forbidden when the user is not a member', functi
         ->test(Index::class)
         ->assertForbidden();
 });
+
+test('viewLogs does not render a job from another organization', function () {
+    $otherOrg = \App\Models\Organization::factory()->create();
+    $server = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
+    $job = Snapshot::factory()->forServer($server)->create()->job;
+    $job->log('mariadb-dump --host=other-org-host', 'info');
+
+    // Acting as the default-org user (beforeEach), who is not a member of
+    // $otherOrg. selectedJobId is client-writable, so the modal must resolve
+    // the job through the view policy rather than trusting the id.
+    Livewire::test(Index::class)
+        ->call('viewLogs', $job->id)
+        ->assertDontSee('other-org-host');
+});
