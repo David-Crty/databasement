@@ -329,6 +329,30 @@ test('a server below 17 falls back to the client on PATH when no matching build 
         ->and($db->restore('/tmp/restore.sql')->command)->toContain("PGPASSWORD='pg_secret' psql ");
 });
 
+// Falling back is survivable, but it produces a snapshot the source server
+// cannot take back, so the job log has to say so while the backup is running.
+test('falling back to the client on PATH warns that the snapshot may not restore', function (string $method, array $config) {
+    $db = postgresHandlerReportingVersion('16.15', $config);
+    $db->shouldReceive('clientBinDirs')->andReturn(['/nonexistent/postgresql%d']);
+
+    $log = $db->{$method}('/tmp/snapshot.sql')->log;
+
+    expect($log?->level)->toBe('warning')
+        ->and($log?->message)->toContain('No PostgreSQL 16 client is installed')
+        ->and($log?->message)->toContain('PostgreSQL 16 server');
+})->with([
+    'dump' => ['dump', []],
+    'custom-format restore' => ['restore', ['dump_format' => 'custom']],
+]);
+
+test('a server handled by the matching client is not warned about', function () {
+    expect(postgresHandlerReportingVersion('16.15')->dump('/tmp/dump.sql')->log)->toBeNull()
+        ->and(postgresHandlerReportingVersion('17.11')->dump('/tmp/dump.sql')->log)->toBeNull();
+})->skip(
+    ! is_executable('/usr/libexec/postgresql16/pg_dump'),
+    'no PostgreSQL 16 client build in this image',
+);
+
 test('servers the default client can write for keep it', function (?string $serverVersion) {
     $db = postgresHandlerReportingVersion($serverVersion);
 

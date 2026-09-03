@@ -5,6 +5,7 @@ namespace App\Services\Backup\Databases;
 use App\Contracts\BackupLogger;
 use App\Enums\DatabaseType;
 use App\Exceptions\Backup\ConnectionException;
+use App\Services\Backup\DTO\DatabaseOperationLog;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
@@ -103,12 +104,15 @@ class PostgresqlDatabase implements DatabaseInterface
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::POSTGRESQL);
         }
 
+        $major = $this->serverMajorVersion();
+        $binary = $this->binary('pg_dump', $major);
+
         // Flags must come before the database name (last positional argument)
         $command = sprintf(
             '%sPGPASSWORD=%s %s %s --host=%s --port=%s --username=%s%s %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
-            $this->binary('pg_dump'),
+            $binary,
             implode(' ', $options),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
@@ -119,24 +123,28 @@ class PostgresqlDatabase implements DatabaseInterface
 
         $command .= ' -f '.escapeshellarg($outputPath);
 
-        return new DatabaseOperationResult(command: $command);
+        return new DatabaseOperationResult(command: $command, log: $this->legacyClientLog($binary, $major));
     }
 
     public function restore(string $inputPath): DatabaseOperationResult
     {
+        $major = $this->serverMajorVersion();
+
         if (($this->config['dump_format'] ?? 'plain') === 'custom') {
+            $binary = $this->binary('pg_restore', $major);
+
             return new DatabaseOperationResult(command: sprintf(
                 '%sPGPASSWORD=%s %s %s --host=%s --port=%s --username=%s --dbname=%s %s',
                 $this->sslEnvPrefix(),
                 escapeshellarg($this->config['pass']),
-                $this->binary('pg_restore'),
+                $binary,
                 implode(' ', $this->withPrivilegeOptions(self::RESTORE_CUSTOM_FORMAT_OPTIONS)),
                 escapeshellarg($this->config['host']),
                 escapeshellarg((string) $this->config['port']),
                 escapeshellarg($this->config['user']),
                 escapeshellarg($this->config['database']),
                 escapeshellarg($inputPath),
-            ));
+            ), log: $this->legacyClientLog($binary, $major));
         }
 
         // -v ON_ERROR_STOP=1 makes psql abort and exit non-zero on the first
@@ -148,7 +156,7 @@ class PostgresqlDatabase implements DatabaseInterface
             '%sPGPASSWORD=%s %s --set=ON_ERROR_STOP=1 --host=%s --port=%s --username=%s %s -f %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
-            $this->binary('psql'),
+            $this->binary('psql', $major),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
@@ -163,10 +171,8 @@ class PostgresqlDatabase implements DatabaseInterface
      * Servers below {@see LEGACY_CLIENT_MAJOR} get the matching older build
      * when the image carries one; everything else keeps the client on PATH.
      */
-    private function binary(string $name): string
+    private function binary(string $name, ?int $major): string
     {
-        $major = $this->serverMajorVersion();
-
         if ($major === null || $major > self::LEGACY_CLIENT_MAJOR) {
             return $name;
         }
@@ -181,8 +187,34 @@ class PostgresqlDatabase implements DatabaseInterface
 
         // No versioned build on this host, as on a native install without the
         // package. The client on PATH still dumps; its output just carries the
-        // forward-incompatible SET this method exists to steer around.
+        // forward-incompatible SET this method exists to steer around, which
+        // {@see legacyClientLog()} warns about rather than failing the backup.
         return $name;
+    }
+
+    /**
+     * Warn when an older server had to be handled by the client on PATH.
+     *
+     * A backup that runs and warns beats one that refuses: the snapshot still
+     * holds the data and still restores into a server as new as the client
+     * that wrote it. What it may not do is go back into the server it came
+     * from, and that is worth saying at the time rather than at recovery.
+     */
+    private function legacyClientLog(string $binary, ?int $major): ?DatabaseOperationLog
+    {
+        if ($major === null || $major > self::LEGACY_CLIENT_MAJOR || str_contains($binary, '/')) {
+            return null;
+        }
+
+        return new DatabaseOperationLog(
+            sprintf(
+                'No PostgreSQL %d client is installed, so the client on PATH was used against this PostgreSQL %d server. '
+                .'If it is newer, the snapshot will not restore into a server this old.',
+                self::LEGACY_CLIENT_MAJOR,
+                $major,
+            ),
+            'warning',
+        );
     }
 
     /**
