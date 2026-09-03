@@ -7,11 +7,14 @@ use App\Exceptions\Backup\VolumeTransferException;
 use App\Facades\AppConfig;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
+use App\Models\Volume;
 use App\Services\Backup\BackupTask;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\BackupResult;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\VolumeConfig;
+use App\Services\Backup\S3BucketBackupEngine;
 use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
 use App\Support\QueueTimeouts;
@@ -74,6 +77,13 @@ class ProcessBackupJob implements ShouldQueue
 
         try {
             $job->markRunning();
+
+            // S3/object-storage servers are copied as buckets, not SQL-dumped.
+            if ($databaseServer->database_type->isObjectStorage()) {
+                $this->runObjectStorageBackup($snapshot, $databaseServer, $job);
+
+                return;
+            }
 
             $attemptInfo = $this->job ? " (attempt {$this->attempts()}/{$this->tries})" : '';
             $job->log("Starting backup for database: {$snapshot->database_name}{$attemptInfo}", 'info');
@@ -184,6 +194,119 @@ class ProcessBackupJob implements ShouldQueue
                     'error' => $volumeResult->error,
                 ]);
             }
+        }
+    }
+
+    /**
+     * Run a bucket-copy backup for an S3/object-storage snapshot: pick the
+     * folder scope, drive S3BucketBackupEngine (which builds + uploads the
+     * archive to every target volume) and persist the outcome it returned.
+     */
+    private function runObjectStorageBackup(Snapshot $snapshot, \App\Models\DatabaseServer $databaseServer, \App\Models\BackupJob $job): void
+    {
+        $attemptInfo = $this->job ? " (attempt {$this->attempts()}/{$this->tries})" : '';
+        $job->log("Starting bucket backup for folder: {$snapshot->database_name}{$attemptInfo}", 'info');
+
+        $handler = app(DatabaseProvider::class)
+            ->makeForServer($databaseServer, $snapshot->database_name, $databaseServer->host ?? '', $databaseServer->port ?? 0);
+
+        if (! $handler instanceof \App\Services\Backup\Databases\S3Database) {
+            throw new \RuntimeException('Expected an S3 database handler for bucket backup.');
+        }
+        $engine = app(S3BucketBackupEngine::class);
+
+        // Retry support: skip volumes whose copy already uploaded successfully.
+        $targets = $snapshot->files
+            ->filter(fn (SnapshotFile $file) => $file->status !== SnapshotFileStatus::Completed)
+            ->whenEmpty(fn () => $snapshot->files)
+            ->values()
+            ->map(fn (SnapshotFile $file) => VolumeConfig::fromVolume($file->volume, $file->volume->usedStorageBytes()))
+            ->all();
+
+        $outcome = $engine->run(
+            snapshot: $snapshot,
+            source: $handler->getFilesystem(),
+            scope: rtrim((string) $snapshot->database_name, '/'),
+            targets: $targets,
+            logger: $job,
+        );
+
+        $this->persistS3Outcome($snapshot, $outcome);
+        $this->applyS3VolumeResults($snapshot, $outcome['volume_results']);
+
+        $failures = array_values(array_filter(
+            $outcome['volume_results'],
+            fn (\App\Services\Backup\DTO\VolumeTransferResult $r) => $r->status === SnapshotFileStatus::Failed,
+        ));
+
+        if ($failures !== []) {
+            $names = implode(', ', array_map(fn ($r) => $r->volumeName, $failures));
+            $message = __('Bucket upload failed for volume(s): :volumes', ['volumes' => $names]);
+            $job->log($message, 'error');
+            $job->markFailed(new \RuntimeException($message));
+            app(NotificationService::class)->notifyBackupFailed($snapshot, new \RuntimeException($message));
+
+            return;
+        }
+
+        $job->log(sprintf(
+            'Bucket backup completed: %s run, %d archive/files, checksum %s',
+            $outcome['run_kind']->value,
+            count($outcome['object_files']),
+            substr($outcome['checksum'], 0, 16).'...',
+        ), 'success');
+
+        $job->markCompleted();
+        app(NotificationService::class)->notifyBackupSuccess($snapshot);
+        Log::info('Bucket backup completed successfully', [
+            'snapshot_id' => $snapshot->id,
+            'database_server_id' => $databaseServer->id,
+        ]);
+    }
+
+    /**
+     * Write the archive run-level fields + object rows + effective state
+     * produced by S3BucketBackupEngine onto the Snapshot.
+     *
+     * @param  array{run_kind: \App\Enums\RunKind, full_snapshot_id: string|null, filename: string, file_size: int, checksum: string, object_files: array<int, array<string, mixed>>, object_state: array<string, array{size: int, mtime: int}>}  $outcome
+     */
+    private function persistS3Outcome(Snapshot $snapshot, array $outcome): void
+    {
+        $snapshot->update([
+            'run_kind' => $outcome['run_kind'],
+            'full_snapshot_id' => $outcome['full_snapshot_id'],
+            'filename' => $outcome['filename'],
+            'checksum' => $outcome['checksum'],
+            'file_size' => $outcome['file_size'],
+            'metadata' => array_merge($snapshot->metadata ?? [], [
+                S3BucketBackupEngine::META_STATE_KEY => $outcome['object_state'],
+            ]),
+        ]);
+
+        foreach ($outcome['object_files'] as $row) {
+            $snapshot->objectFiles()->create($row);
+        }
+    }
+
+    /**
+     * Mark each per-volume copy row Completed/Failed from the engine results.
+     *
+     * @param  list<\App\Services\Backup\DTO\VolumeTransferResult>  $results
+     */
+    private function applyS3VolumeResults(Snapshot $snapshot, array $results): void
+    {
+        foreach ($results as $result) {
+            $file = $snapshot->files->firstWhere('volume_id', $result->volumeId);
+            if ($file === null) {
+                continue;
+            }
+            $isOk = $result->status === SnapshotFileStatus::Completed;
+            $file->update([
+                'status' => $result->status,
+                'file_exists' => $isOk,
+                'file_verified_at' => $isOk ? now() : $file->file_verified_at,
+                'error' => $isOk ? null : $result->error,
+            ]);
         }
     }
 

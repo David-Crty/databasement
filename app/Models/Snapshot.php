@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Enums\DatabaseType;
+use App\Enums\RunKind;
 use App\Enums\SnapshotFileStatus;
 use App\Models\Scopes\DatabaseServerOrganizationScope;
 use App\Support\Formatters;
@@ -41,6 +42,8 @@ class Snapshot extends Model
         'database_name',
         'database_type',
         'compression_type',
+        'run_kind',
+        'full_snapshot_id',
         'method',
         'metadata',
         'triggered_by_user_id',
@@ -54,6 +57,7 @@ class Snapshot extends Model
             'database_type' => DatabaseType::class,
             'metadata' => 'array',
             'compression_type' => CompressionType::class,
+            'run_kind' => RunKind::class,
         ];
     }
 
@@ -218,6 +222,27 @@ class Snapshot extends Model
     public function files(): HasMany
     {
         return $this->hasMany(SnapshotFile::class);
+    }
+
+    /**
+     * The object-level changes archived by this run (bucket-copy backups only).
+     *
+     * @return HasMany<SnapshotObjectFile, Snapshot>
+     */
+    public function objectFiles(): HasMany
+    {
+        return $this->hasMany(SnapshotObjectFile::class);
+    }
+
+    /**
+     * The anchor full run this incremental backs onto, or null for full/SQL
+     * snapshots.
+     *
+     * @return BelongsTo<Snapshot, Snapshot>
+     */
+    public function fullSnapshot(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'full_snapshot_id');
     }
 
     /**
