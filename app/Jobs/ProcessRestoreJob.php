@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Enums\SnapshotFileStatus;
 use App\Facades\AppConfig;
 use App\Models\Restore;
+use App\Models\SnapshotFile;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeConfig;
@@ -108,6 +109,15 @@ class ProcessRestoreJob implements ShouldQueue
 
             $job->log("Reading snapshot from volume: {$sourceFile->volume->name}", 'info');
 
+            // S3/object-storage runs are restored as a bucket-copy lineage, not
+            // an SQL dump: reconstruct the state of the selected run and write
+            // it into the destination's scope (schema_name).
+            if ($snapshot->run_kind !== null && $targetServer->database_type->isObjectStorage()) {
+                $this->runObjectStorageRestore($restore, $snapshot, $targetServer, $sourceFile, $job);
+
+                return;
+            }
+
             $config = new RestoreConfig(
                 targetServer: DatabaseConnectionConfig::fromServer($targetServer),
                 snapshotVolume: VolumeConfig::fromVolume($sourceFile->volume),
@@ -150,6 +160,47 @@ class ProcessRestoreJob implements ShouldQueue
     }
 
     /**
+     * Restore an S3/object-storage run directly: reconstruct the folder state
+     * (from its archive lineage on the source volume) into the destination
+     * server's requested scope.
+     */
+    private function runObjectStorageRestore(
+        Restore $restore,
+        \App\Models\Snapshot $snapshot,
+        \App\Models\DatabaseServer $targetServer,
+        SnapshotFile $sourceFile,
+        \App\Models\BackupJob $job,
+    ): void {
+        $provider = app(\App\Services\Backup\Databases\DatabaseProvider::class);
+        $destHandler = $provider->makeForServer($targetServer, '', $targetServer->host ?? '', $targetServer->port ?? 0);
+
+        if (! $destHandler instanceof \App\Services\Backup\Databases\S3Database) {
+            throw new \RuntimeException('Bucket restore requires an S3 destination server.');
+        }
+
+        $destScope = trim((string) $restore->schema_name, '/');
+
+        $engine = app(\App\Services\Backup\S3BucketRestoreEngine::class);
+        $engine->restore(
+            run: $snapshot,
+            destMany: $destHandler->getFilesystem(),
+            destScope: $destScope,
+            logger: $job,
+            volumeId: $sourceFile->volume_id,
+        );
+
+        $job->markCompleted();
+        app(NotificationService::class)->notifyRestoreSuccess($restore);
+
+        Log::info('Bucket restore completed successfully', [
+            'restore_id' => $restore->id,
+            'snapshot_id' => $snapshot->id,
+            'target_server_id' => $targetServer->id,
+            'dest_scope' => $destScope,
+        ]);
+    }
+
+    /**
      * Handle a job failure (called by Laravel queue after all retries exhausted).
      */
     public function failed(\Throwable $exception): void
@@ -162,3 +213,4 @@ class ProcessRestoreJob implements ShouldQueue
         app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
     }
 }
+
