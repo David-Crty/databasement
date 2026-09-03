@@ -126,4 +126,12 @@ describe('policy ownership guard', function () {
                 ->and($this->eve->can('delete', $model))->toBeTrue();
         }
     });
+
+    // Artisan commands and queue workers resolve no organization, and the
+    // global scopes do not filter there either.
+    test('the guard passes when no organization is resolved', function () {
+        asUnresolvedRequest();
+
+        expect($this->eve->can('view', $this->foreignServer))->toBeTrue();
+    });
 });
