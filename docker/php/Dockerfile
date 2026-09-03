@@ -42,7 +42,7 @@ COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 # Add tools
 RUN apk add --no-cache git \
         mariadb-client mariadb-connector-c \
-        postgresql18-client \
+        postgresql16-client postgresql18-client \
         supervisor \
         gzip zstd 7zip \
         tzdata \
