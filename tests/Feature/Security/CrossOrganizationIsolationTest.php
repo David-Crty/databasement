@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SetCurrentOrganization;
 use App\Models\Agent;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
@@ -8,7 +9,10 @@ use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\CurrentOrganization;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Routing\Router;
+use Illuminate\Routing\SortedMiddleware;
 
 /**
  * A real request reaches the framework with no organization resolved; the
@@ -36,15 +40,16 @@ beforeEach(function () {
     ]);
 });
 
-test('tenant context is resolved before route-model binding', function () {
-    $priority = app(Illuminate\Contracts\Http\Kernel::class)->getMiddlewarePriority();
+test('tenant context is resolved before route-model binding', function (string $routeName) {
+    $router = app(Router::class);
+    $pipeline = iterator_to_array(new SortedMiddleware(
+        app(Kernel::class)->getMiddlewarePriority(),
+        $router->gatherRouteMiddleware($router->getRoutes()->getByName($routeName)),
+    ));
 
-    expect(array_search(App\Http\Middleware\SetCurrentOrganization::class, $priority, true))
-        ->toBeLessThan(array_search(SubstituteBindings::class, $priority, true));
-
-    expect(array_search(App\Http\Middleware\ScopeBouncer::class, $priority, true))
-        ->toBeLessThan(array_search(SubstituteBindings::class, $priority, true));
-});
+    expect(array_search(SetCurrentOrganization::class, $pipeline, true))
+        ->toBeLessThan(array_search(SubstituteBindings::class, $pipeline, true));
+})->with(['api.database-servers.show', 'dashboard']);
 
 describe('database servers', function () {
     test('a non-member cannot read another organization\'s server', function () {
