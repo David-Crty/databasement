@@ -8,8 +8,6 @@ use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Services\Backup\Filesystems\Awss3Filesystem;
 use League\Flysystem\Filesystem;
-use League\Flysystem\FilesystemException;
-use League\Flysystem\StorageAttributes;
 
 /**
  * S3-compatible object storage (MinIO, Backblaze B2, AWS S3, …) exposed to the
@@ -51,13 +49,13 @@ class S3Database implements DatabaseInterface
 
         try {
             $entries = $filesystem->listContents($this->rootPrefix(), true);
-        } catch (FilesystemException|\Throwable $e) {
+        } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to list objects in bucket: '.$e->getMessage(), previous: $e);
         }
 
         $segments = [];
         foreach ($entries as $entry) {
-            if (! ($entry instanceof StorageAttributes) || ! $entry->isFile()) {
+            if (! $entry->isFile()) {
                 continue;
             }
             $segments[] = $this->topLevelSegment($entry->path());

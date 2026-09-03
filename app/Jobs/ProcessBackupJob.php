@@ -216,12 +216,14 @@ class ProcessBackupJob implements ShouldQueue
         $engine = app(S3BucketBackupEngine::class);
 
         // Retry support: skip volumes whose copy already uploaded successfully.
-        $targets = $snapshot->files
-            ->filter(fn (SnapshotFile $file) => $file->status !== SnapshotFileStatus::Completed)
-            ->whenEmpty(fn () => $snapshot->files)
-            ->values()
-            ->map(fn (SnapshotFile $file) => VolumeConfig::fromVolume($file->volume, $file->volume->usedStorageBytes()))
-            ->all();
+        $targets = array_values(
+            $snapshot->files
+                ->filter(fn (SnapshotFile $file) => $file->status !== SnapshotFileStatus::Completed)
+                ->whenEmpty(fn () => $snapshot->files)
+                ->values()
+                ->map(fn (SnapshotFile $file) => VolumeConfig::fromVolume($file->volume, $file->volume->usedStorageBytes()))
+                ->all()
+        );
 
         $outcome = $engine->run(
             snapshot: $snapshot,

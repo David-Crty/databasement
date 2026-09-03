@@ -13,7 +13,6 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\FilesystemSupport;
 use App\Support\Formatters;
 use League\Flysystem\Filesystem;
-use League\Flysystem\StorageAttributes;
 use PharData;
 
 /**
@@ -137,7 +136,7 @@ class S3BucketBackupEngine
         $objects = [];
 
         foreach ($fs->listContents($prefix, true) as $entry) {
-            if (! ($entry instanceof StorageAttributes) || ! $entry->isFile()) {
+            if (! $entry->isFile()) {
                 continue;
             }
             $path = $entry->path();
@@ -145,7 +144,7 @@ class S3BucketBackupEngine
 
             $objects[$path] = [
                 'path' => $path,
-                'size' => $size === false ? 0 : (int) $size,
+                'size' => (int) $size,
                 'mtime' => $this->safeLastModified($fs, $path),
             ];
         }
@@ -158,9 +157,7 @@ class S3BucketBackupEngine
     private function safeLastModified(Filesystem $fs, string $path): int
     {
         try {
-            $ts = $fs->lastModified($path);
-
-            return $ts === false ? 0 : (int) $ts;
+            return (int) $fs->lastModified($path);
         } catch (\Throwable) {
             return 0;
         }
@@ -255,6 +252,7 @@ class S3BucketBackupEngine
 
     /**
      * @param  array<string, array{path: string, size: int, mtime: int}>  $objects
+     * @param  string[]  $deleted
      * @return array{0: string, 1: string, 2: int}
      */
     private function buildArchive(string $workDir, Filesystem $fs, array $objects, array $deleted, Snapshot $snapshot): array
@@ -319,7 +317,7 @@ class S3BucketBackupEngine
 
     private function archiveName(Snapshot $snapshot, string $scope, RunKind $runKind, string $archivePath): string
     {
-        $server = preg_replace('/[^a-zA-Z0-9-_]/', '-', $snapshot->databaseServer?->name ?? 's3') ?? 's3';
+        $server = preg_replace('/[^a-zA-Z0-9-_]/', '-', ($snapshot->databaseServer->name ?? 's3')) ?? 's3';
         $scopePart = preg_replace('/[^a-zA-Z0-9-_]/', '-', $scope !== '' ? $scope : 'root') ?? 'root';
         $ts = now()->setTimezone(config('app.display_timezone'))->format('Y-m-d-His');
         $ext = pathinfo($archivePath, PATHINFO_EXTENSION) ?: 'gz';
@@ -328,6 +326,7 @@ class S3BucketBackupEngine
     }
 
     /**
+     * @param  array<string, array{path: string, size: int, mtime: int}>  $current
      * @return array<string, array{size: int, mtime: int}>
      */
     private function shapeState(array $current): array
@@ -368,6 +367,7 @@ class S3BucketBackupEngine
     }
 
     /**
+     * @param  array{path: string, size: int, mtime: int}  $obj
      * @return array<string, mixed>
      */
     private function row(array $obj, bool $tombstone): array

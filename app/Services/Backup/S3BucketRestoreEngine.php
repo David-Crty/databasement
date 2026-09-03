@@ -96,19 +96,24 @@ class S3BucketRestoreEngine
             $members[] = $anchor;
         }
 
-        // If the chosen run itself is the anchor, nothing further is needed.
-        if ($target->id !== $anchor?->id) {
+        // If the chosen run itself is the anchor (and the anchor exists above
+        // us to build from), only the anchor is needed.
+        if ($anchor !== null && $target->id !== $anchor->id) {
             $incrementals = Snapshot::query()
                 ->where('database_server_id', $target->database_server_id)
                 ->where('database_name', $target->database_name)
                 ->where('run_kind', RunKind::INCREMENTAL->value)
-                ->where('full_snapshot_id', $anchor?->id)
-                ->where('started_at', '>', $anchor?->started_at ?? $target->started_at)
+                ->where('full_snapshot_id', $anchor->id)
+                ->where('started_at', '>', $anchor->started_at)
                 ->where('started_at', '<=', $target->started_at)
                 ->orderBy('started_at')
                 ->get();
 
             $members = array_merge($members, $incrementals->all());
+        } elseif ($anchor === null) {
+            // No completed full anchor in scope: leave $members empty so a
+            // degenerate run fails cleanly instead of restoring a partial chain.
+            $members = [];
         }
 
         $resolved = [];
@@ -163,8 +168,6 @@ class S3BucketRestoreEngine
 
     /**
      * Decompress one lineage archive to a .tar path.
-     *
-     * @param  array{snapshot: Snapshot, file: SnapshotFile}  $entry
      */
     private function decompressRun(Snapshot $snapshot, string $archivedLocal, string $workDir, BackupLogger $logger): string
     {

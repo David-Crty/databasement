@@ -13,6 +13,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * a later run can diff against it. Deleted source objects are stored as
  * tombstone rows (size/mtime null, {@see self::$tombstone} true) so a restore
  * of the run's state drops them without resurrecting older versions.
+ *
+ * @mixin IdeHelperSnapshotObjectFile
  */
 class SnapshotObjectFile extends Model
 {
