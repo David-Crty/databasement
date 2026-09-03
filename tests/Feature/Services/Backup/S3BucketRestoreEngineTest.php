@@ -105,6 +105,50 @@ test('restore overlays full + incremental and drops tombstones onto destination'
     $this->addToAssertionCount(1);
 });
 
+test('an older run is restorable as its own point-in-time state', function () {
+    $server = DatabaseServer::factory()->s3()->create(['name' => 'Chain Src']);
+    $backup = $server->backups()->oldest('id')->firstOrFail();
+    $provider = makeLocalProvider();
+    $engine = new S3BucketBackupEngine(
+        new CompressorFactory(new App\Services\Backup\ShellProcessor()),
+        $provider,
+    );
+
+    // full: a.txt='aaa', gone.txt
+    file_put_contents($this->srcDir.'/a.txt', 'aaa');
+    file_put_contents($this->srcDir.'/gone.txt', 'gonedata');
+    $full = Snapshot::factory()->forServer($server)->create([
+        'backup_id' => $backup->id, 'database_name' => '', 'started_at' => now()->subHour(),
+        'compression_type' => CompressionType::GZIP->value,
+    ]);
+    $fullOut = $engine->run($full, s3LocalFs($this->srcDir), '', [VolumeConfig::fromVolume($this->volume)], $full->job);
+    persistBucketRun($full, $fullOut, $this->volume);
+
+    // between runs: modify a, add c, delete gone -> the incremental.
+    file_put_contents($this->srcDir.'/a.txt', 'v2-content');
+    unlink($this->srcDir.'/gone.txt');
+    file_put_contents($this->srcDir.'/c.txt', 'c');
+    $inc = Snapshot::factory()->forServer($server)->create([
+        'backup_id' => $backup->id, 'database_name' => '', 'started_at' => now(),
+        'compression_type' => CompressionType::GZIP->value,
+    ]);
+    $incOut = $engine->run($inc, s3LocalFs($this->srcDir), '', [VolumeConfig::fromVolume($this->volume)], $inc->job);
+    persistBucketRun($inc, $incOut, $this->volume);
+
+    // Restore the FULL (older) point-in-time: original untouched state.
+    $restore = new App\Services\Backup\S3BucketRestoreEngine(
+        new CompressorFactory(new App\Services\Backup\ShellProcessor()),
+        $provider,
+    );
+    $restore->restore($full, s3LocalFs($this->dstDir), '', $full->job);
+
+    $dstFs = s3LocalFs($this->dstDir);
+    expect($dstFs->read('a.txt'))->toBe('aaa')
+        ->and($dstFs->fileExists('gone.txt'))->toBeTrue()
+        ->and($dstFs->fileExists('c.txt'))->toBeFalse();
+    $this->addToAssertionCount(1);
+});
+
 function persistBucketRun(Snapshot $snapshot, array $outcome, Volume $volume): void
 {
     $snapshot->update([
