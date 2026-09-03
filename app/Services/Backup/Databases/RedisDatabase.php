@@ -151,7 +151,7 @@ class RedisDatabase implements DatabaseInterface
             if (! empty($user)) {
                 $flags[] = '--user '.escapeshellarg($user);
             }
-            $flags[] = '-a '.escapeshellarg($pass);
+            $flags[] = '--pass '.escapeshellarg($pass);
         }
 
         return $flags;
