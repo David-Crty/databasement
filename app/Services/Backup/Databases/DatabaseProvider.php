@@ -28,6 +28,7 @@ class DatabaseProvider
             DatabaseType::MONGODB => new MongodbDatabase,
             DatabaseType::MSSQL => new MssqlDatabase,
             DatabaseType::FIREBIRD => new FirebirdDatabase,
+            DatabaseType::S3 => new S3Database,
         };
     }
 
@@ -164,6 +165,10 @@ class DatabaseProvider
         string $host,
         int $port,
     ): array {
+        if ($config->databaseType === DatabaseType::S3) {
+            return $this->objectStorageConfig($config, $host, $port);
+        }
+
         $dbConfig = [
             'host' => $host,
             'port' => $port,
@@ -178,6 +183,54 @@ class DatabaseProvider
         $dbConfig['database'] = $databaseName;
 
         return $dbConfig;
+    }
+
+    /**
+     * Build the Flysystem-compatible config for an S3-compatible object
+     * storage server. The "database server" points at one bucket and its
+     * folders are the per-unit source paths. The schema intentionally mirrors
+     * the Volume S3 config ({@see \App\Livewire\Volume\Connectors\S3Config}) so
+     * the same {@see \App\Services\Backup\Filesystems\Awss3Filesystem} adapter
+     * and bucket engines consume either.
+     *
+     * @param  array<string, mixed>|null  $extraConfig
+     * @return array<string, mixed>
+     */
+    public static function objectStorageConfig(
+        DatabaseConnectionConfig $config,
+        ?string $host = null,
+        ?int $port = null,
+        ?array $extraConfig = null,
+    ): array {
+        $extra = $extraConfig ?? $config->extraConfig ?? [];
+        $host = $host ?? $config->host;
+        $port = $port ?? $config->port;
+        $scheme = ! empty($extra['ssl_enabled']) ? 'https' : 'http';
+
+        // Accept an already-absolute URI in `host` (some setups pre-bake the
+        // scheme), otherwise qualify the plain host with the scheme.
+        $isAbsoluteUri = str_contains($host, '://');
+        $endpoint = $isAbsoluteUri ? $host : $scheme.'://'.$host;
+
+        // Only append a scheme-unqualified host's port, and never duplicate a
+        // port the caller already baked into `host`.
+        $authoritySuffix = ':'.$port;
+        if ($port > 0 && ! $isAbsoluteUri && ! str_contains($host, $authoritySuffix)) {
+            $endpoint .= $authoritySuffix;
+        }
+
+        return [
+            'region' => (string) ($extra['s3_region'] ?? 'us-east-1'),
+            'bucket' => (string) ($extra['s3_bucket'] ?? ''),
+            'access_key_id' => $config->username,
+            'secret_access_key' => $config->password,
+            'custom_endpoint' => $endpoint,
+            'use_path_style_endpoint' => ! empty($extra['s3_use_path_style_endpoint']),
+            'root' => (string) ($extra['s3_prefix'] ?? ''),
+            // Rich detail used by UI / logging.
+            'host' => $host,
+            'port' => $port,
+        ];
     }
 
     /**

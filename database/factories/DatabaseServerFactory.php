@@ -127,6 +127,31 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
+     * Configure the factory for an S3-compatible object storage server
+     * (MinIO, Backblaze B2, …). One bucket, access/secret credentials.
+     *
+     * @param  array<string, mixed>  $extra  Overrides for the extra config
+     */
+    public function s3(?array $extra = null): static
+    {
+        return $this->state(fn () => [
+            'name' => fake()->company().' S3 Storage',
+            'database_type' => 's3',
+            'host' => fake()->randomElement(['localhost', '127.0.0.1', 'minio.example.com']),
+            'port' => 9000,
+            'username' => 'AKIA'.fake()->bothify('##########'),
+            'password' => fake()->password(),
+            'database_names' => null,
+            'extra_config' => array_merge([
+                's3_bucket' => fake()->slug(),
+                's3_region' => 'us-east-1',
+                's3_use_path_style_endpoint' => true,
+                'ssl_enabled' => false,
+            ], $extra ?? []),
+        ]);
+    }
+
+    /**
      * Configure the factory for Microsoft SQL Server database type.
      */
     public function mssql(): static
