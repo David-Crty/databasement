@@ -55,6 +55,25 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetCurrentOrganization::class,
             \App\Http\Middleware\ScopeBouncer::class,
         ]);
+        // Tenant context must be resolved before SubstituteBindings: route-model
+        // binding that runs first resolves {model} parameters with no organization
+        // in scope, which turns OrganizationScope into a no-op and hands back
+        // records from any organization. Pinning the order here covers every
+        // group, so appending to `web`/`api` cannot silently undo it.
+        // EnsureUserIsActive is pinned alongside them to keep rejecting pending
+        // accounts before the organization lookup they would fail anyway.
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\EnsureUserIsActive::class,
+        );
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\SetCurrentOrganization::class,
+        );
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\ScopeBouncer::class,
+        );
         $middleware->preventRequestForgery(except: [
             'adminer',
         ]);

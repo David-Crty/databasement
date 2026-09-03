@@ -5,9 +5,12 @@ namespace App\Policies;
 use App\Enums\Ability;
 use App\Models\Agent;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationOwnership;
 
 class AgentPolicy
 {
+    use ChecksOrganizationOwnership;
+
     /**
      * Determine whether the user can view any models.
      * All authenticated users can view the list.
@@ -19,11 +22,11 @@ class AgentPolicy
 
     /**
      * Determine whether the user can view the model.
-     * All authenticated users can view details.
+     * All authenticated users in the owning organization can view details.
      */
     public function view(User $user, Agent $agent): bool
     {
-        return true;
+        return $this->ownedByCurrentOrganization($agent->organization_id);
     }
 
     /**
@@ -41,7 +44,8 @@ class AgentPolicy
      */
     public function update(User $user, Agent $agent): bool
     {
-        return $user->can(Ability::ManageAgents->value);
+        return $this->ownedByCurrentOrganization($agent->organization_id)
+            && $user->can(Ability::ManageAgents->value);
     }
 
     /**
@@ -50,6 +54,7 @@ class AgentPolicy
      */
     public function delete(User $user, Agent $agent): bool
     {
-        return $user->can(Ability::ManageAgents->value);
+        return $this->ownedByCurrentOrganization($agent->organization_id)
+            && $user->can(Ability::ManageAgents->value);
     }
 }
