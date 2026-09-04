@@ -82,6 +82,7 @@
                                     </x-slot:content>
                                 </x-popover>
                             @endif
+                            @include('livewire.snapshot._lock', ['snapshot' => $snapshot])
                         </div>
                         @include('livewire.snapshot._comment', ['snapshot' => $snapshot])
                     </div>

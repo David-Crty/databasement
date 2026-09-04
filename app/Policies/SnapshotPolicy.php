@@ -45,6 +45,16 @@ class SnapshotPolicy
     }
 
     /**
+     * Determine whether the user can lock the snapshot against automatic cleanup.
+     * Requires the delete-snapshots ability, since locking and unlocking decide
+     * whether the retention policy is allowed to remove the snapshot.
+     */
+    public function lock(User $user, Snapshot $snapshot): bool
+    {
+        return $user->can(Ability::DeleteSnapshots->value);
+    }
+
+    /**
      * Determine whether the user can download the snapshot.
      * Requires the download-snapshots ability.
      */

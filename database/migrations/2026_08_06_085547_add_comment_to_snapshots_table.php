@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::table('snapshots', function (Blueprint $table) {
             $table->text('comment')->nullable()->after('database_name');
+            $table->boolean('locked')->default(false)->after('comment');
         });
     }
 
@@ -22,7 +23,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('snapshots', function (Blueprint $table) {
-            $table->dropColumn('comment');
+            $table->dropColumn(['comment', 'locked']);
         });
     }
 };

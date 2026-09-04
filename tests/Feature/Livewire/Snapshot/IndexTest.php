@@ -337,6 +337,32 @@ test('without run-backups, the comment is read-only', function () {
         ->assertForbidden();
 });
 
+test('delete-snapshots allows locking a snapshot against cleanup', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeTrue();
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
+});
+
+test('without delete-snapshots, locking a snapshot is forbidden', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::DeleteSnapshots->value)->create());
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id)
+        ->assertForbidden();
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
+});
+
 test('?job= from another org opens the logs modal when the user is a member', function () {
     // Both Snapshot and Restore are organization-scoped, so BackupJobPolicy has
     // to bypass those scopes to work out who owns a job. Without that, a member

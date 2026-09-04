@@ -196,6 +196,19 @@ class Index extends Component
         $this->success(__('Snapshot comment saved.'));
     }
 
+    public function toggleLock(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('lock', $snapshot);
+
+        $snapshot->update(['locked' => ! $snapshot->locked]);
+
+        $this->success($snapshot->locked
+            ? __('Snapshot locked. Automatic cleanup will keep it.')
+            : __('Snapshot unlocked.'));
+    }
+
     public function confirmDeleteSnapshot(string $snapshotId): void
     {
         $snapshot = Snapshot::findOrFail($snapshotId);
