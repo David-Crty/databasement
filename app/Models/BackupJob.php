@@ -155,7 +155,7 @@ class BackupJob extends Model implements BackupLogger
             'duration_ms' => $this->calculateDuration(),
             'error_message' => $exception->getMessage(),
             'error_trace' => $exception->getTraceAsString(),
-            'logs' => $this->logsWithDanglingRunningMarkedFailed(),
+            'logs' => $this->logsWithDanglingCommandsFailed(),
         ]);
     }
 
@@ -168,7 +168,7 @@ class BackupJob extends Model implements BackupLogger
      *
      * @return array<int, array<string, mixed>>
      */
-    private function logsWithDanglingRunningMarkedFailed(): array
+    private function logsWithDanglingCommandsFailed(): array
     {
         $logs = $this->logs ?? [];
 

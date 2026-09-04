@@ -37,11 +37,11 @@ class SnapshotPolicy
 
     /**
      * Determine whether the user can edit the model's comment.
-     * Requires the edit-snapshots ability.
+     * Requires the run-backups ability.
      */
     public function update(User $user, Snapshot $snapshot): bool
     {
-        return $user->can(Ability::EditSnapshots->value);
+        return $user->can(Ability::RunBackups->value);
     }
 
     /**

@@ -1,4 +1,4 @@
-<div wire:poll.30s>
+<div @if($editCommentSnapshotId === null) wire:poll.30s @endif>
     @if($errorMessage)
         <x-alert title="{{ $errorMessage }}" class="alert-error mb-4" icon="o-x-circle" />
     @endif
@@ -22,6 +22,7 @@
             :sort-by="$sortBy"
             with-pagination
             :row-decoration="[
+                'group' => fn () => true,
                 'bg-error/5' => fn ($snapshot) => $snapshot->job?->status?->value === 'failed',
                 'bg-warning/5' => fn ($snapshot) => $snapshot->job?->status?->value === 'running'
                     || $snapshot->hasMissingFile(),
@@ -82,11 +83,7 @@
                                 </x-popover>
                             @endif
                         </div>
-                        @if($snapshot->comment)
-                            <div class="text-sm text-base-content/70 mt-1 truncate" title="{{ $snapshot->comment }}">
-                                {{ $snapshot->comment }}
-                            </div>
-                        @endif
+                        @include('livewire.snapshot._comment', ['snapshot' => $snapshot])
                     </div>
                 </div>
             @endscope
@@ -173,15 +170,6 @@
                         :disabled="! $job"
                     />
 
-                    @can('update', $snapshot)
-                        <x-button
-                            icon="o-pencil-square"
-                            wire:click="openCommentModal('{{ $snapshot->id }}')"
-                            :tooltip="$snapshot->comment ? __('Edit comment') : __('Add comment')"
-                            class="btn-ghost btn-sm"
-                        />
-                    @endcan
-
                     @if($canDelete)
                         @can('delete', $snapshot)
                             <x-button
@@ -258,14 +246,6 @@
 
         <x-slot:actions>
             <x-button :label="__('Close')" @click="$wire.showDownloadModal = false" />
-        </x-slot:actions>
-    </x-modal>
-
-    <x-modal wire:model="showCommentModal" :title="__('Snapshot Comment')">
-        <x-textarea :label="__('Comment')" wire:model="editComment" rows="3" :placeholder="__('e.g. Backup before upgrading to version 1.37')" />
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showCommentModal = false" />
-            <x-button :label="__('Save')" class="btn-primary" wire:click="saveComment" />
         </x-slot:actions>
     </x-modal>
 
