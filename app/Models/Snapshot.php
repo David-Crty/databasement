@@ -232,6 +232,7 @@ class Snapshot extends Model
 
         return Snapshot::query()
             ->where('database_server_id', $this->database_server_id)
+            ->where('database_name', $this->database_name)
             ->where('full_snapshot_id', $anchor)
             ->when($this->run_kind === RunKind::INCREMENTAL, function ($query) {
                 /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */

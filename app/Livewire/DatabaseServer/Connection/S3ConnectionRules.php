@@ -35,9 +35,13 @@ class S3ConnectionRules extends ClientServerConnectionRules
     public function extraConfig(Form $form): array
     {
         return array_filter([
-            's3_bucket' => $form->s3_bucket,
-            's3_region' => $form->s3_region ?: null,
-            's3_prefix' => $form->s3_prefix ?: null,
+            // Mirror the persisted, normalised values used by
+            // DatabaseServer::buildExtraConfig() so "Test Connection" and a
+            // saved server agree even when the operator leaves leading/trailing
+            // whitespace in the bucket/region/prefix inputs.
+            's3_bucket' => trim((string) $form->s3_bucket) ?: null,
+            's3_region' => ($region = trim((string) $form->s3_region)) !== '' ? $region : null,
+            's3_prefix' => ($prefix = trim((string) $form->s3_prefix)) !== '' ? $prefix : null,
             's3_use_path_style_endpoint' => $form->s3_use_path_style_endpoint ? true : null,
             'ssl_enabled' => $form->ssl_enabled ? true : null,
         ], static fn ($value) => $value !== null);

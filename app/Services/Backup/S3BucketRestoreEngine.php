@@ -6,13 +6,11 @@ use App\Contracts\BackupLogger;
 use App\Enums\RunKind;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
-use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\FilesystemSupport;
 use League\Flysystem\Filesystem;
 use PharData;
-use PharFileInfo;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -77,7 +75,13 @@ class S3BucketRestoreEngine
 
     /**
      * Ordered SnapshotFile+Snapshot entries to overlay: anchor full then the
-     * incrementals up to the target run, all read from the same archive volume.
+     * incrementals up to the target run.
+     *
+     * Every member of the lineage must resolve to an existing archive copy or
+     * the restore fails loudly instead of warping a partial chain into the
+     * destination. This protects against a stray silent restore when retention
+     * or an upload failure removed an anchor that a retained incremental still
+     * references.
      *
      * @return array<int, array{snapshot: Snapshot, file: SnapshotFile}>
      */
@@ -85,6 +89,7 @@ class S3BucketRestoreEngine
     {
         $anchor = Snapshot::query()
             ->where('database_server_id', $target->database_server_id)
+            ->where('backup_id', $target->backup_id)
             ->where('database_name', $target->database_name)
             ->where('run_kind', RunKind::FULL->value)
             ->where('started_at', '<=', $target->started_at)
@@ -101,6 +106,7 @@ class S3BucketRestoreEngine
         if ($anchor !== null && $target->id !== $anchor->id) {
             $incrementals = Snapshot::query()
                 ->where('database_server_id', $target->database_server_id)
+                ->where('backup_id', $target->backup_id)
                 ->where('database_name', $target->database_name)
                 ->where('run_kind', RunKind::INCREMENTAL->value)
                 ->where('full_snapshot_id', $anchor->id)
@@ -110,17 +116,26 @@ class S3BucketRestoreEngine
                 ->get();
 
             $members = array_merge($members, $incrementals->all());
-        } elseif ($anchor === null) {
-            // No completed full anchor in scope: leave $members empty so a
-            // degenerate run fails cleanly instead of restoring a partial chain.
-            $members = [];
+
+            // The chosen run must itself be part of the chain.
+            $members = collect($members)
+                ->push($target)
+                ->unique('id')
+                ->values()
+                ->all();
+            usort($members, fn (Snapshot $a, Snapshot $b) => $a->started_at <=> $b->started_at);
         }
 
         $resolved = [];
         foreach ($members as $snapshot) {
             $file = $this->archiveFileFor($snapshot, $volumeId);
             if ($file === null) {
-                continue;
+                $kind = $snapshot->run_kind !== null ? $snapshot->run_kind->value : 'run';
+                throw new \RuntimeException(sprintf(
+                    'Cannot restore: archive for %s snapshot %s is unavailable on any volume. Its chain cannot be reconstructed without it.',
+                    $kind,
+                    $snapshot->id,
+                ));
             }
             $resolved[] = ['snapshot' => $snapshot, 'file' => $file];
         }
@@ -130,8 +145,14 @@ class S3BucketRestoreEngine
 
     private function archiveFileFor(Snapshot $snapshot, ?string $volumeId): ?SnapshotFile
     {
+        // Prefer the archive copy on the requested volume, but fall back to any
+        // volume hosting a completed copy so a partial upload on one volume does
+        // not make the whole chain unrestorable elsewhere.
         if ($volumeId !== null) {
-            return $snapshot->files()->where('volume_id', $volumeId)->completed()->first();
+            $file = $snapshot->files()->where('volume_id', $volumeId)->completed()->first();
+            if ($file !== null) {
+                return $file;
+            }
         }
 
         return $snapshot->files()->completed()->latest('id')->first();
@@ -177,9 +198,6 @@ class S3BucketRestoreEngine
         return $compressor->decompress($archivedLocal);
     }
 
-    /**
-     * @return void
-     */
     private function overlayRun(string $tarPath, string $mergeDir): void
     {
         $tar = new PharData($tarPath);
@@ -237,8 +255,14 @@ class S3BucketRestoreEngine
 
     private function uploadMerge(string $mergeDir, Filesystem $dest, string $destScope, BackupLogger $logger): void
     {
-        $dest = $dest; // scope prefix applied per member below
         $prefix = $destScope === '' ? '' : rtrim($destScope, '/').'/';
+        // A restore replaces the scope with the selected state, mirroring the
+        // SQL drop-and-recreate flow: any object that already exists under the
+        // destination scope but is absent from the restored merge (for example
+        // an object deleted in the selected state, or a file that existed only
+        // in a newer run when an older snapshot is restored) must be removed,
+        // otherwise the scope accumulates stale data the merge never touches.
+        $this->wipeDestinationScope($dest, $prefix);
         $uploaded = 0;
 
         $iterator = new RecursiveIteratorIterator(
@@ -257,13 +281,30 @@ class S3BucketRestoreEngine
 
             $destPath = $prefix.$rel;
             $stream = fopen($file->getPathname(), 'rb');
-            $dest->writeStream($destPath, $stream);
-            if (is_resource($stream)) {
+            if ($stream === false) {
+                throw new \RuntimeException('Failed to open restored object for upload: '.$rel);
+            }
+
+            try {
+                $dest->writeStream($destPath, $stream);
+            } finally {
                 fclose($stream);
             }
             $uploaded++;
         }
 
         $logger->log("Restored {$uploaded} object(s) to scope ".($destScope !== '' ? $destScope : '(root)'), 'success');
+    }
+
+    private function wipeDestinationScope(Filesystem $dest, string $prefix): void
+    {
+        // Remove every existing object under the scope. In object storage there
+        // are no real folders, so deleting all matching object keys is enough;
+        // empty local adapter directories left behind are harmless.
+        foreach ($dest->listContents($prefix, true) as $entry) {
+            if ($entry->isFile()) {
+                $dest->delete($entry->path());
+            }
+        }
     }
 }

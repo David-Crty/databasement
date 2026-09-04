@@ -54,6 +54,10 @@ class DatabaseServer extends Model
         static::deleting(function (DatabaseServer $server) {
             foreach ($server->snapshots as $snapshot) {
                 $snapshot->skipFileCleanup = $server->skipFileCleanup;
+                // Server teardown removes every run in a chain, so the
+                // delete-newest-first invariant (which exists to keep lineage
+                // restorable) cannot apply here.
+                $snapshot->allowOutOfOrderChainDelete = true;
                 $snapshot->delete();
             }
 

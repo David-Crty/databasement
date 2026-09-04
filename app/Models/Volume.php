@@ -66,6 +66,10 @@ class Volume extends Model
 
                 foreach ($snapshots->whereNotIn('id', $snapshotIdsWithFiles) as $snapshot) {
                     $snapshot->skipFileCleanup = true;
+                    // The volume host is gone, so every copy of these chain runs
+                    // is being removed together; the interactive delete guard
+                    // (delete-newest-first) has nothing left to preserve.
+                    $snapshot->allowOutOfOrderChainDelete = true;
                     $snapshot->delete();
                 }
 

@@ -27,6 +27,51 @@ class Awss3Filesystem implements FilesystemInterface
     }
 
     /**
+     * Ensure the configured bucket exists, creating it if absent.
+     *
+     * The Flysystem S3 adapter only reads/writes objects and does not provision
+     * a bucket — a PutObject to a missing bucket fails with NoSuchBucket. This
+     * is the explicit create step the integration/E2E tests (and any future
+     * self-provisioning path) call before seeding fixture objects.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function ensureBucketExists(array $config): void
+    {
+        $client = $this->createClient($config);
+
+        if ($client->doesBucketExist($config['bucket'])) {
+            return;
+        }
+
+        $create = ['Bucket' => $config['bucket']];
+        $region = $config['region'] ?? 'us-east-1';
+        if ($region !== 'us-east-1') {
+            $create['CreateBucketConfiguration'] = ['LocationConstraint' => $region];
+        }
+
+        $client->createBucket($create);
+        // A freshly created bucket may not be listable immediately; not needed
+        // for correctness here since subsequent writes target it directly.
+    }
+
+    /**
+     * Best-effort removal of an (empty) bucket — used for integration cleanup.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function deleteBucket(array $config): void
+    {
+        $client = $this->createClient($config);
+
+        try {
+            $client->deleteBucket(['Bucket' => $config['bucket']]);
+        } catch (\Throwable) {
+            // Bucket missing or not empty: best-effort cleanup only.
+        }
+    }
+
+    /**
      * Generate a presigned URL for downloading a file from S3
      *
      * @param  array<string, mixed>  $config

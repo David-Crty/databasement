@@ -242,13 +242,17 @@ class ProcessBackupJob implements ShouldQueue
         ));
 
         if ($failures !== []) {
+            // Successful per-volume copies were recorded above so a retry does
+            // not re-upload them, but the run is not complete until every target
+            // volume holds the archive. Throw so `handle()` marks the job failed
+            // and the queue retries within `backup.job_tries`, then `failed()`
+            // notifies only once the retries are exhausted. Returning here would
+            // acknowledge the attempt and bypass retries entirely.
             $names = implode(', ', array_map(fn ($r) => $r->volumeName, $failures));
             $message = __('Bucket upload failed for volume(s): :volumes', ['volumes' => $names]);
             $job->log($message, 'error');
-            $job->markFailed(new \RuntimeException($message));
-            app(NotificationService::class)->notifyBackupFailed($snapshot, new \RuntimeException($message));
 
-            return;
+            throw new \RuntimeException($message);
         }
 
         $job->log(sprintf(

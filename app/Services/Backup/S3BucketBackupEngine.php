@@ -76,7 +76,10 @@ class S3BucketBackupEngine
         ?callable $onChanged = null,
     ): array {
         $workingDir = FilesystemSupport::createWorkingDirectory('s3backup', $snapshot->id);
-        $runKind = $this->decideRunKind($snapshot, $fullEvery);
+        // The folder ("database") this run snapshots; a chain lives strictly
+        // inside one folder. An empty scope means the bucket root.
+        $chainScope = trim($scope, '/');
+        $runKind = $this->decideRunKind($snapshot, $fullEvery, $chainScope);
 
         try {
             $current = $this->listObjects($source, $scope);
@@ -87,7 +90,7 @@ class S3BucketBackupEngine
                 $changed = $current;
                 $deleted = [];
             } else {
-                [$changed, $deleted] = $this->diff($this->priorEffectiveState($snapshot), $current);
+                [$changed, $deleted] = $this->diff($this->priorEffectiveState($snapshot, $chainScope), $current);
             }
 
             if ($onChanged !== null) {
@@ -112,7 +115,7 @@ class S3BucketBackupEngine
 
             return [
                 'run_kind' => $runKind,
-                'full_snapshot_id' => ! $runKind->isFull() ? $this->anchorFullId($snapshot) : null,
+                'full_snapshot_id' => ! $runKind->isFull() ? $this->anchorFullId($snapshot, $chainScope) : null,
                 'filename' => $filename,
                 'file_size' => $fileSize,
                 'checksum' => $checksum,
@@ -128,24 +131,42 @@ class S3BucketBackupEngine
     }
 
     /**
-     * @return array<string, array{path: string, size: int, mtime: int}>
+     * List the objects inside a folder scope, keyed by their path **relative to
+     * the scope** (never carrying the scope prefix). S3 keys are absolute to
+     * the bucket root, but archives, diffs and the restore lineage all treat a
+     * member as folder-relative (see {@see S3BucketRestoreEngine}), so the scope
+     * prefix is stripped here exactly once so it is never re-applied later
+     * (which previously produced doubled folders like `customers/customers/`).
+     *
+     * @return array<string, array{path: string, read: string, size: int, mtime: int}>
      */
     private function listObjects(Filesystem $fs, string $scope): array
     {
         $prefix = $scope === '' ? '' : rtrim($scope, '/').'/';
+        $prefixLen = strlen($prefix);
         $objects = [];
 
         foreach ($fs->listContents($prefix, true) as $entry) {
             if (! $entry->isFile()) {
                 continue;
             }
-            $path = $entry->path();
-            $size = $fs->fileSize($path);
+            $key = $entry->path();
+            // Relative to the scope. Root-scope objects (scope '') have no prefix.
+            $rel = $prefix === '' ? $key : substr($key, $prefixLen);
 
-            $objects[$path] = [
-                'path' => $path,
+            if ($rel === '') {
+                continue;
+            }
+
+            $size = $fs->fileSize($key);
+            $objects[$rel] = [
+                'path' => $rel,
+                // The key as it exists on the mounted source filesystem: object
+                // content is read by this raw key, but archived/compared by the
+                // scope-relative `path` above.
+                'read' => $key,
                 'size' => (int) $size,
-                'mtime' => $this->safeLastModified($fs, $path),
+                'mtime' => $this->safeLastModified($fs, $key),
             ];
         }
 
@@ -165,16 +186,21 @@ class S3BucketBackupEngine
 
     /**
      * @param  array<string, array{size: ?int, mtime: ?int}>  $baseline
-     * @param  array<string, array{path: string, size: int, mtime: int}>  $current
-     * @return array{0: array<string, array{path: string, size: int, mtime: int}>, 1: string[]}
+     * @param  array<string, array{path: string, read: string, size: int, mtime: int}>  $current
+     * @return array{0: array<string, array{path: string, read: string, size: int, mtime: int}>, 1: string[]}
      */
     private function diff(array $baseline, array $current): array
     {
         $changed = [];
         foreach ($current as $path => $obj) {
             $prior = $baseline[$path] ?? null;
+            // safeLastModified() yields 0 when lastModified() is unavailable.
+            // Two runs can both read 0 for a genuinely changed object, so never
+            // treat mtime 0 as evidence things are unchanged — such objects are
+            // always re-archived (harmless over-capture, never silent omission).
             $same = $prior !== null
                 && (int) $prior['size'] === (int) $obj['size']
+                && (int) $obj['mtime'] !== 0
                 && (int) $prior['mtime'] === (int) $obj['mtime'];
 
             if (! $same) {
@@ -193,13 +219,18 @@ class S3BucketBackupEngine
     }
 
     /**
+     * Latest completed run of the same folder whose metadata carries the
+     * effective state the next incremental diffs against. Folder-scoped: one
+     * backup config may back up many folders and their chains must never mix.
+     *
      * @return array<string, array{size: ?int, mtime: ?int}>
      */
-    private function priorEffectiveState(Snapshot $snapshot): array
+    private function priorEffectiveState(Snapshot $snapshot, string $scope): array
     {
         $prior = Snapshot::query()
             ->where('database_server_id', $snapshot->database_server_id)
             ->where('backup_id', $snapshot->backup_id)
+            ->where('database_name', $scope)
             ->whereNotNull('run_kind')
             ->where('started_at', '<', $snapshot->started_at)
             ->latest('started_at')
@@ -210,22 +241,28 @@ class S3BucketBackupEngine
         return is_array($state) ? $state : [];
     }
 
-    private function anchorFullId(Snapshot $snapshot): ?string
+    /**
+     * The anchor full run of the same folder that an incremental backs onto.
+     * Folder-scoped for the same reason as {@see priorEffectiveState()}.
+     */
+    private function anchorFullId(Snapshot $snapshot, string $scope): ?string
     {
         return Snapshot::query()
             ->where('database_server_id', $snapshot->database_server_id)
             ->where('backup_id', $snapshot->backup_id)
+            ->where('database_name', $scope)
             ->where('run_kind', RunKind::FULL->value)
             ->where('started_at', '<=', $snapshot->started_at)
             ->orderByDesc('started_at')
             ->value('id');
     }
 
-    private function decideRunKind(Snapshot $snapshot, int $fullEvery): RunKind
+    private function decideRunKind(Snapshot $snapshot, int $fullEvery, string $scope): RunKind
     {
         $latestFull = Snapshot::query()
             ->where('database_server_id', $snapshot->database_server_id)
             ->where('backup_id', $snapshot->backup_id)
+            ->where('database_name', $scope)
             ->where('run_kind', RunKind::FULL->value)
             ->where('started_at', '<=', $snapshot->started_at)
             ->orderByDesc('started_at')
@@ -238,6 +275,7 @@ class S3BucketBackupEngine
         $increments = Snapshot::query()
             ->where('database_server_id', $snapshot->database_server_id)
             ->where('backup_id', $snapshot->backup_id)
+            ->where('database_name', $scope)
             ->where('run_kind', RunKind::INCREMENTAL->value)
             ->where('full_snapshot_id', $latestFull)
             ->where('started_at', '<=', $snapshot->started_at)
@@ -251,7 +289,7 @@ class S3BucketBackupEngine
     }
 
     /**
-     * @param  array<string, array{path: string, size: int, mtime: int}>  $objects
+     * @param  array<string, array{path: string, read: string, size: int, mtime: int}>  $objects
      * @param  string[]  $deleted
      * @return array{0: string, 1: string, 2: int}
      */
@@ -270,7 +308,7 @@ class S3BucketBackupEngine
     }
 
     /**
-     * @param  array<string, array{path: string, size: int, mtime: int}>  $objects
+     * @param  array<string, array{path: string, read: string, size: int, mtime: int}>  $objects
      * @param  string[]  $deleted
      */
     private function writeTar(string $tarPath, Filesystem $fs, array $objects, array $deleted): void
@@ -282,7 +320,7 @@ class S3BucketBackupEngine
         $tar = new PharData($tarPath);
         try {
             foreach ($objects as $obj) {
-                $this->addObject($tar, $stageDir, $fs, $obj['path']);
+                $this->addObject($tar, $stageDir, $fs, (string) $obj['read'], (string) $obj['path']);
             }
             foreach ($deleted as $path) {
                 $tar->addFromString($path.self::TOMBSTONE_SUFFIX, '');
@@ -292,26 +330,47 @@ class S3BucketBackupEngine
         }
     }
 
-    private function addObject(PharData $tar, string $stageDir, Filesystem $fs, string $remote): void
+    private function addObject(PharData $tar, string $stageDir, Filesystem $fs, string $readKey, string $member): void
     {
         // PharData refuses absolute paths and path-traversal members; scope is
         // already a relative folder, and we also flatten the local name using a
         // content-derived hash so collision-free staging names stay short.
-        $local = $stageDir.'/'.substr((string) hash('sha256', $remote), 0, 20);
+        // `$readKey` is the object's key on the mounted source filesystem (it may
+        // include the folder scope), while `$member` is the scope-relative
+        // archive path — so a later restore never re-prefixes the scope and
+        // produces a doubled folder (`customers/customers/...`).
+        $local = $stageDir.'/'.substr((string) hash('sha256', $member), 0, 20);
 
-        $stream = $fs->readStream($remote);
+        $stream = $fs->readStream($readKey);
         $out = fopen($local, 'wb');
         if ($out === false) {
-            fclose($stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
 
-            throw new \RuntimeException('Failed to open local staging file for object: '.$remote);
+            throw new \RuntimeException('Failed to open local staging file for object: '.$readKey);
         }
-        stream_copy_to_stream($stream, $out);
-        fclose($stream);
-        fclose($out);
 
-        // Member path is the real object key relative to the FS root.
-        $tar->addFile($local, $remote);
+        try {
+            $copied = stream_copy_to_stream($stream, $out);
+            if ($copied === false) {
+                throw new \RuntimeException('Failed to copy object into the backup archive: '.$readKey);
+            }
+        } catch (\Throwable $e) {
+            // Never add a partial object to the archive; drop the staging file.
+            @unlink($local);
+            throw $e;
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+            if (is_resource($out)) {
+                fclose($out);
+            }
+        }
+
+        // Member path is the folder-relative object key.
+        $tar->addFile($local, $member);
         unlink($local);
     }
 
@@ -319,7 +378,12 @@ class S3BucketBackupEngine
     {
         $server = preg_replace('/[^a-zA-Z0-9-_]/', '-', ($snapshot->databaseServer->name ?? 's3')) ?? 's3';
         $scopePart = preg_replace('/[^a-zA-Z0-9-_]/', '-', $scope !== '' ? $scope : 'root') ?? 'root';
-        $ts = now()->setTimezone(config('app.display_timezone'))->format('Y-m-d-His');
+        // Derive the timestamp from the snapshot (stable across attempts), not
+        // the execution clock. Every copy of one run must share the same archive
+        // name because SnapshotFile::storedFilename() reads snapshot.filename — a
+        // retry renaming the archive (now()) would make earlier copies on other
+        // volumes unreachable.
+        $ts = $snapshot->started_at->setTimezone(config('app.display_timezone'))->format('Y-m-d-His');
         $ext = pathinfo($archivePath, PATHINFO_EXTENSION) ?: 'gz';
 
         return sprintf('%s-%s-%s.s3.%s.%s', $server, $scopePart, $ts, $runKind->value, $ext);
