@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Volume\Connectors;
 
+use App\Rules\SafeHost;
 use App\Rules\SafePath;
 
 class SmbConfig extends BaseConfig
@@ -27,7 +28,7 @@ class SmbConfig extends BaseConfig
     public static function rules(string $prefix): array
     {
         return [
-            "{$prefix}.host" => ['required_if:type,smb', 'string', 'max:255'],
+            "{$prefix}.host" => ['required_if:type,smb', 'string', 'max:255', new SafeHost],
             "{$prefix}.share" => ['required_if:type,smb', 'string', 'max:255'],
             "{$prefix}.username" => ['required_if:type,smb', 'string', 'max:255'],
             "{$prefix}.password" => ['required_if:type,smb', 'string', 'max:1000'],

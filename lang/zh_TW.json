@@ -799,5 +799,13 @@
   "Change only for sovereign clouds (e.g., core.usgovcloudapi.net, core.chinacloudapi.cn).": "僅在主權雲環境下變更（例如：core.usgovcloudapi.net、core.chinacloudapi.cn）。",
   "Backups will be stored as blobs in the specified container. The account key can be found under Access keys in your Azure Storage account.": "Backup 將以 blob 形式儲存在指定的容器中。帳戶金鑰可在您的 Azure 儲存體帳戶中的「存取金鑰」下找到。",
   "Custom Blob Endpoint": "自訂 Blob 端點",
-  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "適用於 Azure 相容的儲存服務（Azurite 模擬器、自架閘道）。會覆寫端點後綴。"
+  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "適用於 Azure 相容的儲存服務（Azurite 模擬器、自架閘道）。會覆寫端點後綴。",
+  "Connection database": "連線資料庫",
+  "Opened to test the connection and list databases.": "用於測試連線及列出資料庫。",
+  "Restoring over existing objects requires ownership of them, not just privileges.": "還原覆蓋既有物件時，必須擁有這些物件的擁有權，而非僅有權限。",
+  "PostgreSQL permissions": "PostgreSQL 權限",
+  "Transfer database ownership to user after restore": "Restore 後將資料庫擁有權轉移給此使用者",
+  "Set database owner after restore": "Restore 後設定資料庫擁有者",
+  "PostgreSQL username (leave empty to skip)": "PostgreSQL 使用者名稱（留空則略過）",
+  "This SQL will be run after the restore:": "Restore 後將執行以下 SQL："
 }

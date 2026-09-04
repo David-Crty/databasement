@@ -122,7 +122,7 @@ test('buildExtraConfig folds type-specific fields into extra_config', function (
     expect($data['extra_config'])->toEqual($expected);
 
     // Handled keys are always pulled out of $data.
-    foreach (['auth_source', 'dump_flags', 'dump_format', 'dump_privileges', 'ssl_enabled'] as $key) {
+    foreach (['auth_source', 'dump_flags', 'dump_format', 'dump_privileges', 'ssl_enabled', 'connection_database'] as $key) {
         expect($data)->not->toHaveKey($key);
     }
 })->with([
@@ -139,6 +139,21 @@ test('buildExtraConfig folds type-specific fields into extra_config', function (
     ],
     'keeps ssl_enabled for postgres' => [
         ['database_type' => 'postgres', 'ssl_enabled' => true], null, null, ['ssl_enabled' => true],
+    ],
+    'keeps connection_database for postgres' => [
+        ['database_type' => 'postgres', 'connection_database' => 'app_db'], null, null, ['connection_database' => 'app_db'],
+    ],
+    'drops empty connection_database' => [
+        ['database_type' => 'postgres', 'connection_database' => ''], null, null, null,
+    ],
+    'drops whitespace-only connection_database' => [
+        ['database_type' => 'postgres', 'connection_database' => '   '], null, null, null,
+    ],
+    'trims surrounding whitespace from connection_database' => [
+        ['database_type' => 'postgres', 'connection_database' => ' app_db '], null, null, ['connection_database' => 'app_db'],
+    ],
+    'drops connection_database for non-postgres types' => [
+        ['database_type' => 'mysql', 'connection_database' => 'app_db'], null, null, null,
     ],
     'drops field not relevant to the type' => [
         ['database_type' => 'sqlite', 'dump_flags' => '--anything'], null, null, null,

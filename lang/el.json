@@ -794,5 +794,13 @@
   "Change only for sovereign clouds (e.g., core.usgovcloudapi.net, core.chinacloudapi.cn).": "Αλλάξτε το μόνο για κυρίαρχα cloud (π.χ., core.usgovcloudapi.net, core.chinacloudapi.cn).",
   "Backups will be stored as blobs in the specified container. The account key can be found under Access keys in your Azure Storage account.": "Τα Backups θα αποθηκεύονται ως blobs στο καθορισμένο container. Το κλειδί λογαριασμού βρίσκεται στα «Κλειδιά πρόσβασης» του λογαριασμού Azure Storage σας.",
   "Custom Blob Endpoint": "Προσαρμοσμένο Blob endpoint",
-  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "Για αποθήκευση συμβατή με Azure (εξομοιωτής Azurite, self-hosted gateways). Υπερισχύει της κατάληξης endpoint."
+  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "Για αποθήκευση συμβατή με Azure (εξομοιωτής Azurite, self-hosted gateways). Υπερισχύει της κατάληξης endpoint.",
+  "Connection database": "Βάση δεδομένων σύνδεσης",
+  "Opened to test the connection and list databases.": "Ανοίγει για τον έλεγχο της σύνδεσης και την προβολή των βάσεων δεδομένων.",
+  "Restoring over existing objects requires ownership of them, not just privileges.": "Η επαναφορά πάνω σε υπάρχοντα αντικείμενα απαιτεί κυριότητα, όχι μόνο δικαιώματα.",
+  "PostgreSQL permissions": "Δικαιώματα PostgreSQL",
+  "Transfer database ownership to user after restore": "Μεταβίβαση της ιδιοκτησίας της Βάσης Δεδομένων σε αυτόν τον χρήστη μετά το restore",
+  "Set database owner after restore": "Ορισμός του ιδιοκτήτη της Βάσης Δεδομένων μετά το restore",
+  "PostgreSQL username (leave empty to skip)": "Όνομα χρήστη PostgreSQL (αφήστε κενό για παράλειψη)",
+  "This SQL will be run after the restore:": "Αυτό το SQL θα εκτελεστεί μετά το restore:"
 }

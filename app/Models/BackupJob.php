@@ -155,7 +155,30 @@ class BackupJob extends Model implements BackupLogger
             'duration_ms' => $this->calculateDuration(),
             'error_message' => $exception->getMessage(),
             'error_trace' => $exception->getTraceAsString(),
+            'logs' => $this->logsWithDanglingRunningMarkedFailed(),
         ]);
+    }
+
+    /**
+     * A command log entry can be left at `status: 'running'` if the job dies
+     * between `startCommandLog()` and `ShellProcessor`'s finalize step (queue
+     * timeout, worker kill, uncaught fatal error). Without this, the log-modal
+     * UI keeps showing a "Running" spinner on that command forever, even
+     * though the job itself is already marked failed.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function logsWithDanglingRunningMarkedFailed(): array
+    {
+        $logs = $this->logs ?? [];
+
+        foreach ($logs as $index => $entry) {
+            if (($entry['status'] ?? null) === 'running') {
+                $logs[$index]['status'] = 'failed';
+            }
+        }
+
+        return $logs;
     }
 
     /**

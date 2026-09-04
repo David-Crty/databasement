@@ -8,7 +8,9 @@ use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Rules\MaxBytes;
 use App\Rules\SafeDatabasePath;
+use App\Rules\SafeDumpFlags;
 use App\Rules\SafeHost;
 use App\Rules\SafePath;
 use App\Services\CurrentOrganization;
@@ -50,17 +52,20 @@ class SaveDatabaseServerRequest extends FormRequest
      */
     public function rules(): array
     {
+        $type = $this->input('database_type');
+        $databaseType = is_string($type) ? DatabaseType::tryFrom($type) : null;
+
         $rules = [
             'name' => 'required|string|max:255',
             'database_type' => ['required', 'string', Rule::in(array_map(fn (DatabaseType $t) => $t->value, DatabaseType::cases()))],
             'description' => 'nullable|string|max:1000',
             'backups_enabled' => 'boolean',
-            'ssh_config_id' => 'nullable|exists:database_server_ssh_configs,id',
+            'ssh_config_id' => ['nullable', Rule::exists('database_server_ssh_configs', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
             'agent_id' => ['nullable', Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
             'managed_by' => 'nullable|string|max:255',
+            // Every engine but SQLite appends these to its dump command.
+            'dump_flags' => ['nullable', 'string', 'max:500', new SafeDumpFlags($databaseType)],
         ];
-
-        $type = $this->input('database_type');
 
         if (in_array($type, ['mysql', 'postgres', 'mongodb', 'redis'])) {
             $rules['host'] = ['required', 'string', 'max:255', new SafeHost];
@@ -70,18 +75,17 @@ class SaveDatabaseServerRequest extends FormRequest
         if (in_array($type, ['mysql', 'postgres'])) {
             $rules['username'] = 'required|string|max:255';
             $rules['password'] = 'nullable';
-            $rules['dump_flags'] = ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'];
         }
 
         if ($type === 'postgres') {
             $rules['dump_format'] = ['nullable', 'string', Rule::in(['plain', 'custom'])];
             $rules['dump_privileges'] = 'boolean';
+            $rules['connection_database'] = ['nullable', 'string', new MaxBytes(63), 'regex:'.DatabaseType::IDENTIFIER_PATTERN];
         }
 
         if (in_array($type, ['mongodb', 'redis'])) {
             $rules['username'] = 'nullable|string|max:255';
             $rules['password'] = 'nullable';
-            $rules['dump_flags'] = ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'];
         }
 
         if ($type === 'mongodb') {

@@ -3,6 +3,7 @@
 namespace App\Livewire\Concerns;
 
 use App\Models\BackupJob;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Url;
 
 /**
@@ -11,8 +12,9 @@ use Livewire\Attributes\Url;
  *
  * - extend {@see \Livewire\Component}
  * - use {@see \Illuminate\Foundation\Auth\Access\AuthorizesRequests}
- * - define a `getSelectedJobProperty()` returning the eager-loaded BackupJob
- *   (each consumer chooses which relations to load).
+ * - define a `getSelectedJobProperty()` that loads the job it wants (each
+ *   consumer chooses which relations) and returns it through
+ *   {@see self::guardSelectedJob()}
  *
  * When the `?job=ID` URL parameter resolves to an unknown job, the trait
  * exposes the message via `$errorMessage` (the host's blade is expected to
@@ -58,5 +60,21 @@ trait HandlesJobLogsModal
     {
         $this->showLogsModal = false;
         $this->selectedJobId = null;
+    }
+
+    /**
+     * Drop the job unless the viewer passes the view policy.
+     *
+     * `selectedJobId` is a public property, so the client can set it directly
+     * without going through mount() or viewLogs(). The check therefore belongs
+     * where the job is read, not only where the id is assigned.
+     */
+    protected function guardSelectedJob(?BackupJob $job): ?BackupJob
+    {
+        if ($job === null || Gate::denies('view', $job)) {
+            return null;
+        }
+
+        return $job;
     }
 }

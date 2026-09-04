@@ -8,7 +8,8 @@ This is a Laravel application for managing database server backups. It uses Live
 
 ## Development Commands
 
-**IMPORTANT**: All PHP commands MUST be run through Docker. Never run `php`, `composer`, or `vendor/bin/*` commands directly on the host. Use the Makefile targets or `docker compose exec --user application -T app <command>` instead. Always include `--user application` to ensure correct file permissions.
+**IMPORTANT**: All PHP commands MUST be run through Docker. Never run `php`, `composer`, or `vendor/bin/*` commands directly on the host. Use the Makefile targets or `docker compose exec --user application -T app <command>` instead. Always include `--user application` to ensure correct file permissions. 
+This overrides any bundled guideline or skill that shows a bare command — notably the `pestphp/pest-plugin-agent` rules at the end of this file, whose `vendor/bin/pest --agent='…'` examples must be run as `docker compose exec --user application -T app vendor/bin/pest --agent='…'`.
 
 ### Setup and Installation
 ```bash
@@ -35,9 +36,32 @@ make test                           # Run all tests in parallel (fast iteration)
 make test-sequential                # Run tests sequentially (for debugging only)
 make test-filter FILTER=DatabaseServer  # Run specific test class/method
 make test-coverage                  # Run tests with coverage report
+make test-tia                       # Fast TIA replay - a hint only, never a gate (see below)
+make test-tia-baseline              # (Re)record the TIA baseline
 ```
 
 Tests run in parallel by default using Pest's parallel testing feature. This significantly speeds up the test suite (~12-18s for 350+ tests). Use `make test-sequential` if you need to debug test order issues.
+
+#### Test Impact Analysis (`make test-tia`)
+
+Pest 5's TIA replays cached results and re-runs only the tests affected by the working tree, turning the ~110s suite into a ~2s replay. It is **opt-in only** — it is deliberately absent from `make test`, the pre-commit hook, and CI.
+
+**Never treat a green `make test-tia` as proof the suite passes.** On this codebase the recorded graph carries test edges for only 177 of 291 `app/` files, and `app/Livewire` is almost entirely missing (2 of 70 files have edges). Removing an `authorize()` call from a Livewire component produced `1487 passed` under TIA while the full suite failed on it. Use it for fast inner-loop feedback, then always confirm with `make test` before committing.
+
+Two gotchas if you touch these targets:
+- `php artisan test` rejects `--tia` (Collision does not forward the option), so the TIA targets call `vendor/bin/pest` directly.
+- The baseline **must** be recorded with `--coverage`. Without it, Pest's own recorder registers zero `app/` files (pcov only sees files compiled inside its start window, and Laravel compiles everything during bootstrap), so every change replays green.
+
+#### One-off snippets (`--agent`)
+
+`pestphp/pest-plugin-agent` runs a snippet inside the full test environment (factories, `RefreshDatabase`, HTTP/Livewire assertions) without creating a test file. Prefer this over `tinker` when you need to verify behaviour that depends on the testing config:
+
+```bash
+docker compose exec --user application -T app vendor/bin/pest \
+  --agent='$user = \App\Models\User::factory()->create(); $this->actingAs($user)->get("/dashboard")->assertOk();'
+```
+
+The rest of the `pest-plugin-agent` skill applies as written.
 
 #### Agent-Optimized Output (laravel/pao)
 
@@ -88,6 +112,8 @@ make analyse            # Alias for phpstan
 
 make ide-helper         # Regenerate model type hints for PHPStan
 ```
+
+PHPStan analyses `app/` only (level 7). `pestphp/pest-plugin-phpstan` is registered in `phpstan.neon` so Pest's functional API (`it`/`test`/`expect`, closure `$this`) is understood, but it stays dormant until `tests/` is added to `paths` — which is a separate piece of work (~380 errors at level 2, 1000+ at level 7).
 
 ### Model Type Hints (IDE Helper)
 
@@ -386,8 +412,8 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/pail (PAIL) - v1
 - laravel/pint (PINT) - v1
 - laravel/sail (SAIL) - v1
-- pestphp/pest (PEST) - v4
-- phpunit/phpunit (PHPUNIT) - v12
+- pestphp/pest (PEST) - v5
+- phpunit/phpunit (PHPUNIT) - v13
 - rector/rector (RECTOR) - v2
 
 ## Skills Activation
@@ -466,7 +492,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Always use curly braces for control structures, even for single-line bodies.
 - Use PHP 8 constructor property promotion: `public function __construct(public GitHub $github) { }`. Do not leave empty zero-parameter `__construct()` methods unless the constructor is private.
 - Use explicit return type declarations and type hints for all method parameters: `function isAccessible(User $user, ?string $path = null): bool`
-- Follow existing application Enum naming conventions.
+- Use TitleCase for Enum keys: `FavoritePerson`, `BestLake`, `Monthly`.
 - Prefer PHPDoc blocks over inline comments. Only add inline comments for exceptionally complex logic.
 - Use array shape type definitions in PHPDoc blocks.
 
@@ -536,5 +562,51 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - The `{name}` argument should not include the test suite directory. Use `php artisan make:test --pest SomeFeatureTest` instead of `php artisan make:test --pest Feature/SomeFeatureTest`.
 - Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
 - Do NOT delete tests without approval.
+
+=== pestphp/pest-plugin-agent rules ===
+
+## Pest Agent Plugin
+
+`vendor/bin/pest --agent="<code>"` runs a one-off Pest assertion without creating a test file — the fastest way to verify that a change actually works (a route response, a model relationship, a rendered page, a form submission, mail firing, a screenshot, JavaScript errors, and so on).
+
+### ALWAYS load the skill first
+
+Whenever the user asks you to check, verify, confirm, or "make sure" something **works** — and it can be exercised on a route, page, form, model, job, mail, notification, or screenshot — you **MUST** load the **`pest-plugin-agent` skill before doing anything else**. Do not reach for a shell command, a throwaway test file, or manual reasoning first. This includes prompts like "verify the login form works", "did my change break X", "screenshot the homepage", "check this route returns 200", "make sure the mail fires", "is the form working", or any behavioral check after a Blade, Livewire, CSS, or JS change. Load the skill, then follow it exactly.
+
+### NEVER fight shell escaping — use SINGLE outer quotes
+
+Inline the snippet, but wrap it in **single** quotes, not double. Single quotes tell the shell to interpret nothing, so `$variables`, `\App\Models\User`, backticks, and `!` all pass through to PHP literally — **there is nothing to escape.** Use double quotes for PHP string literals inside:
+
+```bash
+vendor/bin/pest --agent='$user = \App\Models\User::factory()->create(); visit("/login")->type("email", $user->email)->press("Log in")->assertPathIs("/dashboard");'
+```
+
+Double outer quotes are the trap the shell springs on you — `--agent="…$user…"` makes the shell interpolate `$user` to nothing. Never do that, and never hand-escape `$`.
+
+The one thing single quotes can't contain is a literal single quote (an apostrophe in the PHP). Only then, fall back to a file: **Write** the snippet to a `.php` file (plain body statements — no `<?php`, no `use`, fully qualified class names) and run `vendor/bin/pest --agent="$(cat /path/to/snippet.php)"`. `"$(cat …)"` passes the contents verbatim without re-parsing. The plugin resolves the test suite's `uses`/namespace itself, so the file's location does not matter (a scratch/temp path is fine — it need not live under `tests/`).
+
+### Browser checks require the browser plugin — ask before installing
+
+Whenever the request can only be answered in a real browser — "does login work", "is the page responsive", "screenshot the homepage", "check the mobile layout", "does the button click through", "are there JS/console errors", or any visual/interaction check — the `visit()` browser API is needed. It comes from a **separate** package, `pestphp/pest-plugin-browser`, which is powered by Playwright.
+
+If `visit()` is undefined (or the package is not installed), **do not install it silently — ask the user for permission first**, since it pulls in Node/Playwright dependencies and downloads browser binaries. Explain that the browser check needs it and confirm before running these commands:
+
+```bash
+composer require pestphp/pest-plugin-browser --dev   # the browser plugin (needs Node.js)
+
+npm install playwright@latest                         # Playwright driver
+
+npx playwright install                                # download the browser binaries
+
+```
+
+Once the user approves and it's installed, add `tests/Browser/Screenshots` to `.gitignore` so captured screenshots aren't committed. Browser assertions then run through the same `vendor/bin/pest --agent='…'` flow:
+
+```bash
+vendor/bin/pest --agent='visit("/login")->type("email", "test@example.com")->type("password", "password")->press("Log in")->assertPathIs("/dashboard");'
+vendor/bin/pest --agent='visit("/")->on()->mobile()->screenshot(fullPage: false, filename: "home-mobile");'
+```
+
+For full usage — backend examples, browser testing, screenshots, responsive checks, combining frontend and backend assertions, RefreshDatabase guidance, and pitfalls — load the **`pest-plugin-agent` skill**.
 
 </laravel-boost-guidelines>

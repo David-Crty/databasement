@@ -799,5 +799,13 @@
   "Change only for sovereign clouds (e.g., core.usgovcloudapi.net, core.chinacloudapi.cn).": "À modifier uniquement pour les clouds souverains (ex. : core.usgovcloudapi.net, core.chinacloudapi.cn).",
   "Backups will be stored as blobs in the specified container. The account key can be found under Access keys in your Azure Storage account.": "Les Backups seront stockés sous forme de blobs dans le conteneur spécifié. La clé de compte se trouve dans « Clés d’accès » de votre compte de stockage Azure.",
   "Custom Blob Endpoint": "Point de terminaison Blob personnalisé",
-  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "Pour le stockage compatible Azure (émulateur Azurite, passerelles auto-hébergées). Remplace le suffixe du point de terminaison."
+  "For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix.": "Pour le stockage compatible Azure (émulateur Azurite, passerelles auto-hébergées). Remplace le suffixe du point de terminaison.",
+  "Connection database": "Base de connexion",
+  "Opened to test the connection and list databases.": "Ouverte pour tester la connexion et lister les bases.",
+  "Restoring over existing objects requires ownership of them, not just privileges.": "Restaurer par-dessus des objets existants exige d’en être propriétaire, pas seulement d’avoir les privilèges.",
+  "PostgreSQL permissions": "Permissions PostgreSQL",
+  "Transfer database ownership to user after restore": "Transférer la propriété de la base à cet utilisateur après le restore",
+  "Set database owner after restore": "Définir le propriétaire de la base après le restore",
+  "PostgreSQL username (leave empty to skip)": "Nom d’utilisateur PostgreSQL (laisser vide pour ignorer)",
+  "This SQL will be run after the restore:": "Ce SQL sera exécuté après le restore :"
 }
