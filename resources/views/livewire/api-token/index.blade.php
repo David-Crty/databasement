@@ -1,7 +1,7 @@
 <div>
     <x-header title="{{ __('API Tokens') }}" subtitle="{{ __('Manage your personal access tokens for API authentication') }}" size="text-2xl" separator class="mb-6">
         <x-slot:actions>
-            <x-button label="{{ __('Create Token') }}" icon="o-plus" class="btn-primary" wire:click="openCreateModal" />
+            <x-button label="{{ __('Create Token') }}" icon="o-plus" class="btn-primary" wire:click="openCreateModal" spinner />
         </x-slot:actions>
     </x-header>
 
@@ -42,6 +42,7 @@
                             <x-button
                                 icon="o-trash"
                                 wire:click="confirmDelete('{{ $token->id }}')"
+                                spinner
                                 tooltip="{{ __('Revoke') }}"
                                 class="btn-ghost btn-sm text-error"
                             />
@@ -62,8 +63,8 @@
         />
 
         <x-slot:actions>
-            <x-button label="{{ __('Cancel') }}" wire:click="closeCreateModal" />
-            <x-button label="{{ __('Create') }}" wire:click="createToken" class="btn-primary" spinner="createToken" />
+            <x-button label="{{ __('Cancel') }}" wire:click="closeCreateModal" spinner />
+            <x-button label="{{ __('Create') }}" wire:click="createToken" class="btn-primary" spinner />
         </x-slot:actions>
     </x-modal>
 
@@ -91,7 +92,7 @@
         </div>
 
         <x-slot:actions>
-            <x-button label="{{ __('Done') }}" class="btn-primary" wire:click="closeTokenModal" />
+            <x-button label="{{ __('Done') }}" class="btn-primary" wire:click="closeTokenModal" spinner />
         </x-slot:actions>
     </x-modal>
 
@@ -100,8 +101,8 @@
         <p>{{ __('Are you sure you want to revoke this token? Any applications using this token will no longer be able to access the API.') }}</p>
 
         <x-slot:actions>
-            <x-button label="{{ __('Cancel') }}" wire:click="closeDeleteModal" />
-            <x-button label="{{ __('Revoke Token') }}" class="btn-error" wire:click="deleteToken" spinner="deleteToken" />
+            <x-button label="{{ __('Cancel') }}" wire:click="closeDeleteModal" spinner />
+            <x-button label="{{ __('Revoke Token') }}" class="btn-error" wire:click="deleteToken" spinner />
         </x-slot:actions>
     </x-modal>
 </div>

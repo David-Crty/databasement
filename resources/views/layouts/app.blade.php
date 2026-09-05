@@ -78,9 +78,9 @@
                         @endunless
                         <form method="POST" action="{{ route('logout') }}" class="w-full">
                             @csrf
-                            <x-button type="submit" class="w-full" icon="o-power">
+                            <x-submit-button class="w-full" icon="o-power">
                                 {{ __('Logout') }}
-                            </x-button>
+                            </x-submit-button>
                         </form>
                     </x-menu-sub>
                 </x-menu>

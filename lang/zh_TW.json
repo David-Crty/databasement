@@ -622,8 +622,6 @@
   "Test SSH": "測試 SSH",
   "Test notification sent to: :channel": "測試通知已傳送至：:channel",
   "Test notification sent to: :channels": "測試通知已傳送至：:channels",
-  "Testing Connection...": "正在測試連線…",
-  "Testing...": "測試中…",
   "The AWS region where your S3 bucket is located.": "您的 S3 bucket 所在的 AWS 區域。",
   "The Discord channel where failure notifications are sent.": "傳送失敗通知的 Discord 頻道。",
   "The chat or group ID where failure notifications are sent.": "傳送失敗通知的聊天或群組 ID。",

@@ -22,7 +22,7 @@
 
     <x-slot:actions>
         @if($doneAction)
-            <x-button label="{{ $doneLabel }}" wire:click="{{ $doneAction }}" class="btn-primary" />
+            <x-button label="{{ $doneLabel }}" wire:click="{{ $doneAction }}" spinner class="btn-primary" />
         @else
             <x-button label="{{ $doneLabel }}" @click="$wire.showCopyModal = false" class="btn-primary" />
         @endif

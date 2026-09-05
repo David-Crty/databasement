@@ -301,6 +301,7 @@ Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bounc
 - Alert pattern: Use `class="alert-success"`, `class="alert-error"`, etc.
 - Form components: `<x-input>`, `<x-password>`, `<x-select>`, `<x-checkbox>`, etc.
 - Translated attributes: always use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"` — interpolation double-encodes special characters (see "Avoiding HTML Encoding Artifacts" below)
+- Loading states: every `<x-button>` / `<x-menu-item>` with `wire:click` takes the bare `spinner` prop (it targets the click expression, parameters included, so per-row buttons spin individually); `type="submit"` buttons of `wire:submit` forms take `spinner="method"`; `$set`/`$toggle` clicks take `spinner="property"`; classic POST forms (auth pages, logout) use `<x-submit-button>`.
 - Documentation: https://mary-ui.com/docs/components/button
 
 ### Resource Index Pages
