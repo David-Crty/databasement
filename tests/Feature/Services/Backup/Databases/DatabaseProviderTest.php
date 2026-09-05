@@ -352,7 +352,38 @@ test('makeFromConfig builds correct config for MongoDB with source database', fu
         ->toContain('authSource=myauth');
 });
 
-test('makeForServer builds an S3 handler from extra_config', function () {
+test('makeForServer builds an S3 handler from extra_config over allowed loopback HTTP', function () {
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 's3',
+        'host' => '127.0.0.1',
+        'port' => 9000,
+        'username' => 'AKIAEXAMPLE',
+        'password' => 'secretkey',
+        'extra_config' => [
+            's3_bucket' => 'photos',
+            's3_region' => 'us-east-1',
+            's3_use_path_style_endpoint' => true,
+            's3_prefix' => 'hired',
+        ],
+    ]);
+
+    $database = (new DatabaseProvider)->makeForServer($server, '', '127.0.0.1', 9000);
+
+    expect($database)->toBeInstanceOf(S3Database::class);
+
+    $config = (new ReflectionClass($database))->getProperty('config')->getValue($database);
+    expect($config)->toMatchArray([
+        'bucket' => 'photos',
+        'region' => 'us-east-1',
+        'access_key_id' => 'AKIAEXAMPLE',
+        'secret_access_key' => 'secretkey',
+        'use_path_style_endpoint' => true,
+        'root' => 'hired',
+    ])
+        ->and($config['custom_endpoint'])->toBe('http://127.0.0.1:9000');
+});
+
+test('makeForServer refuses cleartext S3 credentials to a non-private host', function () {
     $server = DatabaseServer::factory()->create([
         'database_type' => 's3',
         'host' => 'minio.example.com',
@@ -367,21 +398,8 @@ test('makeForServer builds an S3 handler from extra_config', function () {
         ],
     ]);
 
-    $database = (new DatabaseProvider)->makeForServer($server, '', 'minio.example.com', 9000);
-
-    expect($database)->toBeInstanceOf(S3Database::class);
-
-    $config = (new ReflectionClass($database))->getProperty('config')->getValue($database);
-    expect($config)->toMatchArray([
-        'bucket' => 'photos',
-        'region' => 'us-east-1',
-        'access_key_id' => 'AKIAEXAMPLE',
-        'secret_access_key' => 'secretkey',
-        'use_path_style_endpoint' => true,
-        'root' => 'hired',
-    ])
-        ->and($config['custom_endpoint'])->toBe('http://minio.example.com:9000');
-});
+    (new DatabaseProvider)->makeForServer($server, '', 'minio.example.com', 9000);
+})->throws(\RuntimeException::class, 'S3 credentials require an HTTPS endpoint');
 
 test('makeFromConfig maps ssl to an https S3 custom endpoint', function () {
     $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(

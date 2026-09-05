@@ -4,6 +4,7 @@ namespace App\Livewire\DatabaseServer\Connection;
 
 use App\Livewire\DatabaseServer\Form;
 use App\Rules\SafePath;
+use App\Services\Backup\Databases\DatabaseProvider;
 
 /**
  * Connection rules for S3-compatible object storage (MinIO, Backblaze B2, AWS
@@ -15,12 +16,30 @@ class S3ConnectionRules extends ClientServerConnectionRules
 {
     public function rules(Form $form): array
     {
-        return array_merge(parent::rules($form), [
+        $rules = array_merge(parent::rules($form), [
             's3_bucket' => ['required', 'string', 'max:255'],
             's3_region' => ['nullable', 'string', 'max:255'],
             's3_prefix' => ['nullable', 'string', 'max:255', new SafePath],
             's3_use_path_style_endpoint' => 'boolean',
         ]);
+
+        // Refuse cleartext (non-SSL) S3 endpoints that are not loopback/private
+        // hosts before persisting the access-key pair. This mirrors the runtime
+        // guard in DatabaseProvider::objectStorageConfig() so Test Connection and
+        // a saved server reject the same insecure configurations.
+        $rules['host'][] = function (string $attribute, mixed $value, \Closure $fail) use ($form): void {
+            if ($form->ssl_enabled) {
+                return;
+            }
+
+            $host = is_string($value) ? trim($value) : '';
+
+            if ($host !== '' && ! DatabaseProvider::hostIsPrivateOrLoopback($host)) {
+                $fail(__('HTTP S3 endpoints are only allowed on loopback or private hosts (e.g. 127.0.0.1 or a local MinIO). Enable SSL or use a private endpoint.'));
+            }
+        };
+
+        return $rules;
     }
 
     public function testConnectionRules(Form $form): array

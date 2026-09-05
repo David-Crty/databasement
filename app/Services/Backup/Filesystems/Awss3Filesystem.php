@@ -4,6 +4,7 @@ namespace App\Services\Backup\Filesystems;
 
 use Aws\Credentials\AssumeRoleCredentialProvider;
 use Aws\Credentials\CredentialProvider;
+use Aws\S3\Exception\S3Exception;
 use Aws\S3\S3Client;
 use Aws\Sts\StsClient;
 use League\Flysystem\AwsS3V3\AwsS3V3Adapter;
@@ -66,8 +67,16 @@ class Awss3Filesystem implements FilesystemInterface
 
         try {
             $client->deleteBucket(['Bucket' => $config['bucket']]);
-        } catch (\Throwable) {
-            // Bucket missing or not empty: best-effort cleanup only.
+        } catch (S3Exception $e) {
+            // Best-effort cleanup: a bucket that is already gone or still holds
+            // objects is an expected teardown state and can be swallowed. Any
+            // other failure (access denied, transport, …) is unexpected — the
+            // bucket may still exist — so propagate it for the caller to see.
+            $code = $e->getAwsErrorCode();
+
+            if ($code !== 'NoSuchBucket' && $code !== 'BucketNotEmpty') {
+                throw $e;
+            }
         }
     }
 

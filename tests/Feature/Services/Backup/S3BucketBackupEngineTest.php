@@ -236,3 +236,96 @@ test('sibling folders under one backup config each keep their own run chain', fu
         ->and($customers2Out['full_snapshot_id'])->toBe($customers->id)
         ->and(array_column($customers2Out['object_files'], 'path'))->toEqualCanonicalizing(['c.txt']);
 });
+
+test('archive filenames are unique per snapshot, even within the same second', function () {
+    file_put_contents($this->srcDir.'/x.txt', 'x');
+    file_put_contents($this->srcDir.'/y.txt', 'y');
+
+    $backup = $this->server->backups()->oldest('id')->firstOrFail();
+    $engine = new S3BucketBackupEngine(
+        new App\Services\Backup\Compressors\CompressorFactory(new App\Services\Backup\ShellProcessor),
+        $this->provider,
+    );
+
+    // Two distinct full runs share the exact same started_at second. Their
+    // archives must still not collide on the volume key.
+    $at = now();
+    $a = Snapshot::factory()->forServer($this->server)->create([
+        'backup_id' => $backup->id,
+        'database_name' => '',
+        'compression_type' => CompressionType::GZIP->value,
+        'started_at' => $at,
+    ]);
+    $b = Snapshot::factory()->forServer($this->server)->create([
+        'backup_id' => $backup->id,
+        'database_name' => '',
+        'compression_type' => CompressionType::GZIP->value,
+        'started_at' => $at,
+    ]);
+
+    $aOut = $engine->run(snapshot: $a, source: s3EngineAdapter($this->srcDir), scope: '', targets: [], logger: $a->job);
+    $bOut = $engine->run(snapshot: $b, source: s3EngineAdapter($this->srcDir), scope: '', targets: [], logger: $b->job);
+
+    expect($aOut['filename'])->toContain($a->id)
+        ->and($bOut['filename'])->toContain($b->id)
+        ->and($aOut['filename'])->not->toBe($bOut['filename']);
+});
+
+test('a failed full run is never reused as an anchor or incremental baseline', function () {
+    file_put_contents($this->srcDir.'/a.txt', str_repeat('a', 40));
+    file_put_contents($this->srcDir.'/gone.txt', str_repeat('g', 10));
+
+    $backup = $this->server->backups()->oldest('id')->firstOrFail();
+    $engine = new S3BucketBackupEngine(
+        new App\Services\Backup\Compressors\CompressorFactory(new App\Services\Backup\ShellProcessor),
+        $this->provider,
+    );
+
+    // A first full run ends up FAILED: run_kind and the effective state were
+    // persisted, but the volume uploads threw, so the job is not completed.
+    $failed = Snapshot::factory()->forServer($this->server)->create([
+        'backup_id' => $backup->id,
+        'database_name' => '',
+        'compression_type' => CompressionType::GZIP->value,
+        'started_at' => now()->subMinutes(5),
+    ]);
+    $failedOut = $engine->run(
+        snapshot: $failed,
+        source: s3EngineAdapter($this->srcDir),
+        scope: '',
+        targets: [],
+        logger: $failed->job,
+    );
+    $failed->update([
+        'run_kind' => $failedOut['run_kind'],
+        'filename' => $failedOut['filename'],
+        'metadata' => [S3BucketBackupEngine::META_STATE_KEY => $failedOut['object_state']],
+    ]);
+    $failed->job->update(['status' => \App\Enums\BackupJobStatus::Failed]);
+
+    // The source changed while the last full attempt failed.
+    file_put_contents($this->srcDir.'/a.txt', str_repeat('a', 4000));
+    unlink($this->srcDir.'/gone.txt');
+    file_put_contents($this->srcDir.'/c.txt', 'new-content');
+
+    $next = Snapshot::factory()->forServer($this->server)->create([
+        'backup_id' => $backup->id,
+        'database_name' => '',
+        'compression_type' => CompressionType::GZIP->value,
+        'started_at' => now(),
+    ]);
+    $nextOut = $engine->run(
+        snapshot: $next,
+        source: s3EngineAdapter($this->srcDir),
+        scope: '',
+        targets: [],
+        logger: $next->job,
+    );
+
+    // The failed run must not anchor the next one (nor act as a baseline to
+    // diff against), so the next run is a clean FULL of the current content.
+    expect($failedOut['run_kind'])->toBe(RunKind::FULL)
+        ->and($nextOut['run_kind'])->toBe(RunKind::FULL)
+        ->and($nextOut['full_snapshot_id'])->toBeNull()
+        ->and(array_column($nextOut['object_files'], 'path'))->toEqualCanonicalizing(['a.txt', 'c.txt']);
+});

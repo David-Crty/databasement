@@ -655,7 +655,7 @@ test('can create an S3 object-storage server and round-trip extra config', funct
         ->test(\App\Livewire\DatabaseServer\Create::class)
         ->set('form.name', 'MinIO Photos')
         ->set('form.database_type', 's3')
-        ->set('form.host', 'minio.internal')
+        ->set('form.host', '127.0.0.1')
         ->set('form.port', 9000)
         ->set('form.username', 'AKIA1234')
         ->set('form.password', 'secretkey')
@@ -675,7 +675,7 @@ test('can create an S3 object-storage server and round-trip extra config', funct
     $server = DatabaseServer::where('name', 'MinIO Photos')->firstOrFail();
 
     expect($server->database_type->value)->toBe('s3')
-        ->and($server->host)->toBe('minio.internal')
+        ->and($server->host)->toBe('127.0.0.1')
         ->and($server->getExtraConfig('s3_bucket'))->toBe('photos')
         ->and($server->getExtraConfig('s3_region'))->toBe('us-east-1')
         ->and($server->getExtraConfig('s3_prefix'))->toBe('uploads')
@@ -696,7 +696,7 @@ test('creating an S3 server without a bucket fails validation', function () {
         ->test(\App\Livewire\DatabaseServer\Create::class)
         ->set('form.name', 'Broken S3')
         ->set('form.database_type', 's3')
-        ->set('form.host', 'minio.internal')
+        ->set('form.host', '127.0.0.1')
         ->set('form.port', 9000)
         ->set('form.username', 'AKIA')
         ->set('form.password', 'password')
@@ -706,6 +706,8 @@ test('creating an S3 server without a bucket fails validation', function () {
         ->set('form.backups.0.retention_days', 14)
         ->call('save')
         ->assertHasErrors(['form.s3_bucket']);
+});
+
 test('a failed save points the user at the first invalid field', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();

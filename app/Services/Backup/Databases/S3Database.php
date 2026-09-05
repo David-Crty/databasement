@@ -47,21 +47,26 @@ class S3Database implements DatabaseInterface
     {
         $filesystem = $this->getFilesystem();
 
+        // Non-recursive listing (the AWS adapter's "/" delimiter mode), so a
+        // large bucket is never walked object-by-object just to learn its
+        // top-level folders: only each immediate child is returned.
         try {
-            $entries = $filesystem->listContents($this->rootPrefix(), true);
+            $entries = $filesystem->listContents('', false);
         } catch (\Throwable $e) {
             throw new \RuntimeException('Failed to list objects in bucket: '.$e->getMessage(), previous: $e);
         }
 
         $segments = [];
         foreach ($entries as $entry) {
-            if (! $entry->isFile()) {
-                continue;
-            }
-            $segments[] = $this->topLevelSegment($entry->path());
+            // A directory at the top level is itself the folder to back up. A
+            // top-level file is a loose object at the bucket root, which maps to
+            // the '' scope so the UI can also protect it.
+            $segments[] = $entry->isDir() ? $this->firstPathSegment($entry->path()) : '';
         }
 
-        $databases = array_values(array_unique(array_filter($segments)));
+        // Deduplicate without dropping '' (the root segment, which a root-level
+        // loose object contributes) — array_filter() would erase it.
+        $databases = array_values(array_unique($segments));
 
         sort($databases);
 
@@ -128,29 +133,15 @@ class S3Database implements DatabaseInterface
     }
 
     /**
-     * The configured root/prefix stripped of slashes, used for the Flysystem
-     * base path.
+     * Return the first path segment of a (top-level) entry path. Directory
+     * paths surface as their own folder name; a path that is empty after
+     * trimming maps to '' only via listDatabases()'s file handling.
      */
-    private function rootPrefix(): string
+    private function firstPathSegment(string $path): string
     {
-        return trim((string) ($this->config['root'] ?? $this->config['prefix'] ?? ''), '/');
-    }
+        $path = trim($path, '/');
+        $firstSlash = strpos($path, '/');
 
-    /**
-     * Derive the top-level folder a key belongs to, ignoring the configured
-     * root prefix. Returns '' for objects directly at the root.
-     */
-    private function topLevelSegment(string $key): string
-    {
-        $root = trim((string) ($this->config['root'] ?? $this->config['prefix'] ?? ''), '/');
-        $relativeKey = $key;
-
-        if ($root !== '' && str_starts_with($key, $root.'/')) {
-            $relativeKey = substr($key, strlen($root) + 1);
-        }
-
-        $firstSlash = strpos($relativeKey, '/');
-
-        return $firstSlash === false ? '' : substr($relativeKey, 0, $firstSlash);
+        return $firstSlash === false ? $path : substr($path, 0, $firstSlash);
     }
 }

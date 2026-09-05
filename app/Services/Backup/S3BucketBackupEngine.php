@@ -233,6 +233,7 @@ class S3BucketBackupEngine
             ->where('database_name', $scope)
             ->whereNotNull('run_kind')
             ->where('started_at', '<', $snapshot->started_at)
+            ->completed()
             ->latest('started_at')
             ->first();
 
@@ -253,6 +254,7 @@ class S3BucketBackupEngine
             ->where('database_name', $scope)
             ->where('run_kind', RunKind::FULL->value)
             ->where('started_at', '<=', $snapshot->started_at)
+            ->completed()
             ->orderByDesc('started_at')
             ->value('id');
     }
@@ -265,6 +267,7 @@ class S3BucketBackupEngine
             ->where('database_name', $scope)
             ->where('run_kind', RunKind::FULL->value)
             ->where('started_at', '<=', $snapshot->started_at)
+            ->completed()
             ->orderByDesc('started_at')
             ->value('id');
 
@@ -279,6 +282,7 @@ class S3BucketBackupEngine
             ->where('run_kind', RunKind::INCREMENTAL->value)
             ->where('full_snapshot_id', $latestFull)
             ->where('started_at', '<=', $snapshot->started_at)
+            ->completed()
             ->count();
 
         if ($increments >= max(1, $fullEvery) - 1) {
@@ -386,7 +390,11 @@ class S3BucketBackupEngine
         $ts = $snapshot->started_at->setTimezone(config('app.display_timezone'))->format('Y-m-d-His');
         $ext = pathinfo($archivePath, PATHINFO_EXTENSION) ?: 'gz';
 
-        return sprintf('%s-%s-%s.s3.%s.%s', $server, $scopePart, $ts, $runKind->value, $ext);
+        // The filename timestamp has one-second resolution, so two runs for the
+        // same server/scope/kind could collide within a second and silently
+        // overwrite an earlier archive. The snapshot id disambiguates them while
+        // staying stable across retries of the same snapshot.
+        return sprintf('%s-%s-%s-%s.s3.%s.%s', $server, $scopePart, $ts, $snapshot->id, $runKind->value, $ext);
     }
 
     /**
