@@ -807,5 +807,20 @@
   "Transfer database ownership to user after restore": "Transférer la propriété de la base à cet utilisateur après le restore",
   "Set database owner after restore": "Définir le propriétaire de la base après le restore",
   "PostgreSQL username (leave empty to skip)": "Nom d’utilisateur PostgreSQL (laisser vide pour ignorer)",
-  "This SQL will be run after the restore:": "Ce SQL sera exécuté après le restore :"
+  "This SQL will be run after the restore:": "Ce SQL sera exécuté après le restore :",
+  "What changed in each release of Databasement": "Ce qui a changé dans chaque version de Databasement",
+  "GitHub releases": "Releases GitHub",
+  "Unreleased": "Non publié",
+  "Current": "Actuelle",
+  "New": "Nouvelle",
+  "Compare on GitHub": "Comparer sur GitHub",
+  "Added": "Ajouts",
+  "Changed": "Modifications",
+  "Deprecated": "Obsolète",
+  "Removed": "Suppressions",
+  "Fixed": "Corrections",
+  "Security": "Sécurité",
+  "No changes recorded yet": "Aucun changement enregistré pour le moment",
+  "No changelog is available for this build": "Aucun changelog n’est disponible pour cette version",
+  "See what changed in each release": "Voir ce qui a changé dans chaque version"
 }

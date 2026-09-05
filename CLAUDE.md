@@ -243,6 +243,32 @@ Pre-commit hook automatically runs:
 
 Ensure tests pass and code is formatted before committing.
 
+### Commit and PR Titles (changelog)
+
+`CHANGELOG.md` (Keep a Changelog, **one section per minor version** with every entry prefixed by the patch that shipped it) is drafted from git history by git-cliff (`cliff.toml`, `make changelog-draft`) and polished by the `/changelog` skill. The app parses it and renders it at `/changelog`, and `docs/scripts/sync-changelog.js` publishes it as a documentation page, so its shape is load-bearing. PRs are squash-merged, so the **PR title becomes the commit subject git-cliff reads**. Write it as a conventional commit, `type(scope)?: description`:
+
+| Title prefix | Changelog section |
+|---|---|
+| `feat:` | Added |
+| `fix:` | Fixed |
+| `fix(security):` | Security |
+| `perf:`, `refactor:` | Changed (only when an operator would notice; otherwise `chore:`) |
+| any type whose description starts with "remove" / "drop" | Removed |
+| any type whose description starts with "deprecate" | Deprecated |
+| `chore:`, `ci:`, `test:`, `docs:`, `style:`, dependency bumps | skipped |
+
+Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and render with a **Breaking:** prefix. The PR body keeps explaining the *why*; it becomes the commit body the skill reads for wording. GitHub appends `(#NNN)`, which becomes the PR link. Branch names do not matter. Feature PRs must not edit `CHANGELOG.md`: the release step writes it.
+
+### Releasing
+
+`make release VERSION=x.y.z` does everything from a clean, up-to-date `main`:
+
+1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the Unreleased entries under the `[x.y]` section tagged with the patch, commits to `main` (pre-commit hook included, so Docker must be up) and pushes.
+2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
+3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
+
+To review the entry before tagging, run `/changelog x.y.z` in Claude Code first; `make release` then finds the entry and only tags. `/changelog` with no argument only refreshes the Unreleased section (no commit); `/changelog --backfill` regenerates the whole history (one-off). `make changelog-draft [RANGE=vA..vB]` prints the raw git-cliff draft.
+
 ### Running a Single Test
 
 ```bash

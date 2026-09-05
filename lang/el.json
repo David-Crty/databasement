@@ -802,5 +802,20 @@
   "Transfer database ownership to user after restore": "Μεταβίβαση της ιδιοκτησίας της Βάσης Δεδομένων σε αυτόν τον χρήστη μετά το restore",
   "Set database owner after restore": "Ορισμός του ιδιοκτήτη της Βάσης Δεδομένων μετά το restore",
   "PostgreSQL username (leave empty to skip)": "Όνομα χρήστη PostgreSQL (αφήστε κενό για παράλειψη)",
-  "This SQL will be run after the restore:": "Αυτό το SQL θα εκτελεστεί μετά το restore:"
+  "This SQL will be run after the restore:": "Αυτό το SQL θα εκτελεστεί μετά το restore:",
+  "What changed in each release of Databasement": "Τι άλλαξε σε κάθε έκδοση του Databasement",
+  "GitHub releases": "Εκδόσεις στο GitHub",
+  "Unreleased": "Μη δημοσιευμένο",
+  "Current": "Τρέχουσα",
+  "New": "Νέα",
+  "Compare on GitHub": "Σύγκριση στο GitHub",
+  "Added": "Προστέθηκαν",
+  "Changed": "Άλλαξαν",
+  "Deprecated": "Καταργούνται",
+  "Removed": "Αφαιρέθηκαν",
+  "Fixed": "Διορθώθηκαν",
+  "Security": "Ασφάλεια",
+  "No changes recorded yet": "Δεν έχουν καταγραφεί αλλαγές ακόμη",
+  "No changelog is available for this build": "Δεν υπάρχει διαθέσιμο changelog για αυτή την έκδοση",
+  "See what changed in each release": "Δείτε τι άλλαξε σε κάθε έκδοση"
 }
