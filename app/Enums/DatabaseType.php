@@ -4,6 +4,7 @@ namespace App\Enums;
 
 use App\Models\DatabaseServer;
 use App\Rules\SafeDatabasePath;
+use App\Rules\SafePath;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 enum DatabaseType: string
@@ -15,6 +16,7 @@ enum DatabaseType: string
     case MONGODB = 'mongodb';
     case MSSQL = 'mssql';
     case FIREBIRD = 'firebird';
+    case S3 = 's3';
 
     public function label(): string
     {
@@ -26,6 +28,7 @@ enum DatabaseType: string
             self::MONGODB => 'MongoDB',
             self::MSSQL => 'Microsoft SQL Server',
             self::FIREBIRD => 'Firebird',
+            self::S3 => 'S3 / Object Storage',
         };
     }
 
@@ -39,6 +42,7 @@ enum DatabaseType: string
             self::MONGODB => 'devicon.mongodb',
             self::MSSQL => 'devicon.microsoftsqlserver',
             self::FIREBIRD => 'devicon.firebird',
+            self::S3 => 'o-cloud',
         };
     }
 
@@ -70,6 +74,7 @@ enum DatabaseType: string
             self::MONGODB => 27017,
             self::MSSQL => 1433,
             self::FIREBIRD => 3050,
+            self::S3 => 9000,
         };
     }
 
@@ -105,6 +110,7 @@ enum DatabaseType: string
                 ? sprintf('sqlsrv:Server=%s,%d;Database=%s;TrustServerCertificate=true;Encrypt=true', $host, $port, $database)
                 : sprintf('sqlsrv:Server=%s,%d;TrustServerCertificate=true;Encrypt=true', $host, $port),
             self::FIREBIRD => throw new \RuntimeException('Firebird does not support PDO connections'),
+            self::S3 => throw new \RuntimeException('S3/object storage does not support PDO connections'),
         };
     }
 
@@ -117,7 +123,7 @@ enum DatabaseType: string
      */
     public function createPdo(DatabaseServer $server, ?string $database = null, int $timeout = 30): \PDO
     {
-        if (in_array($this, [self::REDIS, self::MONGODB, self::FIREBIRD], true)) {
+        if (in_array($this, [self::REDIS, self::MONGODB, self::FIREBIRD, self::S3], true)) {
             throw new \RuntimeException("{$this->label()} does not support PDO connections");
         }
 
@@ -178,6 +184,7 @@ enum DatabaseType: string
         return match ($this) {
             self::SQLITE => ['required', 'string', 'max:255', new SafeDatabasePath],
             self::FIREBIRD => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_\/\\\\.\-: ]+$/', new SafeDatabasePath(allowBackslashes: true)],
+            self::S3 => ['required', 'string', 'max:1024', new SafePath],
             default => ['required', 'string', 'max:64', 'regex:'.self::IDENTIFIER_PATTERN],
         };
     }
@@ -205,6 +212,35 @@ enum DatabaseType: string
     }
 
     /**
+     * Whether this type is S3-compatible object storage rather than a
+     * relational/SQL-like database server. Bucket backup jobs branch on this
+     * flag to run the S3 folder copy engine instead of the SQL dump pipeline.
+     */
+    public function isObjectStorage(): bool
+    {
+        return $this === self::S3;
+    }
+
+    /**
+     * Whether databases are discovered by listing the bucket's top-level
+     * prefixes (living "databases" inherent to the storage), rather than by
+     * connecting to an RDBMS catalog that Sql-type types enumerate.
+     */
+    public function listsDatabasesFromStorage(): bool
+    {
+        return $this === self::S3;
+    }
+
+    /**
+     * Whether the bucket scan is performed via an S3 API endpoint rather than
+     * through an SSH tunnel into the storage host.
+     */
+    public function connectsOverS3Api(): bool
+    {
+        return $this === self::S3;
+    }
+
+    /**
      * Get the file extension used for database dumps.
      *
      * $format is the postgres dump format ('plain'|'custom'); ignored for other types.
@@ -221,6 +257,7 @@ enum DatabaseType: string
             self::MONGODB => 'archive',
             self::MSSQL => 'dacpac',
             self::FIREBIRD => 'fbk',
+            self::S3 => 'tar',
             default => 'sql',
         };
     }

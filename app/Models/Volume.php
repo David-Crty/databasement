@@ -64,8 +64,57 @@ class Volume extends Model
                     ->pluck('snapshot_id')
                     ->all();
 
-                foreach ($snapshots->whereNotIn('id', $snapshotIdsWithFiles) as $snapshot) {
+                $orphaned = $snapshots->whereNotIn('id', $snapshotIdsWithFiles);
+                $orphanedIds = $orphaned->pluck('id')->map(
+                    fn ($id) => (string) $id
+                )->all();
+
+                // A deleted volume must not break a surviving chain: if a run
+                // loses its last copy here but a descendant still exists with a
+                // copy on another volume, deleting the anchor would leave that
+                // descendant unable to resolve its lineage (S3BucketRestoreEngine).
+                // Only the whole descendant set may go together, so abort the
+                // volume deletion when a dependent snapshot will survive.
+                foreach ($orphaned as $snapshot) {
+                    if ($snapshot->run_kind === null) {
+                        continue;
+                    }
+
+                    $anchor = $snapshot->run_kind === \App\Enums\RunKind::FULL
+                        ? $snapshot->id
+                        : $snapshot->full_snapshot_id;
+
+                    if ($anchor === null) {
+                        continue;
+                    }
+
+                    $survives = Snapshot::query()
+                        ->where('database_server_id', $snapshot->database_server_id)
+                        ->where('database_name', $snapshot->database_name)
+                        ->where('full_snapshot_id', $anchor)
+                        ->when($snapshot->run_kind === \App\Enums\RunKind::INCREMENTAL, function ($query) use ($snapshot) {
+                            /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */
+                            $query->where('started_at', '>', $snapshot->started_at);
+                        })
+                        ->whereNotIn('id', $orphanedIds)
+                        ->exists();
+
+                    if ($survives) {
+                        throw new \RuntimeException(
+                            'Cannot delete this volume: an S3 backup run on it has a '
+                            .'newer run in the same chain that still has copies on '
+                            .'another volume. Remove those copies first so restores '
+                            .'keep a resolvable lineage.'
+                        );
+                    }
+                }
+
+                foreach ($orphaned as $snapshot) {
                     $snapshot->skipFileCleanup = true;
+                    // The volume host is gone, so every copy of these chain runs
+                    // is being removed together; the interactive delete guard
+                    // (delete-newest-first) has nothing left to preserve.
+                    $snapshot->allowOutOfOrderChainDelete = true;
                     $snapshot->delete();
                 }
 

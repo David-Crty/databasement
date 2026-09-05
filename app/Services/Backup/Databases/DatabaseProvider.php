@@ -28,6 +28,7 @@ class DatabaseProvider
             DatabaseType::MONGODB => new MongodbDatabase,
             DatabaseType::MSSQL => new MssqlDatabase,
             DatabaseType::FIREBIRD => new FirebirdDatabase,
+            DatabaseType::S3 => new S3Database,
         };
     }
 
@@ -165,6 +166,10 @@ class DatabaseProvider
         string $host,
         int $port,
     ): array {
+        if ($config->databaseType === DatabaseType::S3) {
+            return $this->objectStorageConfig($config, $host, $port);
+        }
+
         $dbConfig = [
             'host' => $host,
             'port' => $port,
@@ -179,6 +184,164 @@ class DatabaseProvider
         $dbConfig['database'] = $databaseName;
 
         return $dbConfig;
+    }
+
+    /**
+     * Build the Flysystem-compatible config for an S3-compatible object
+     * storage server. The "database server" points at one bucket and its
+     * folders are the per-unit source paths. The schema intentionally mirrors
+     * the Volume S3 config ({@see \App\Livewire\Volume\Connectors\S3Config}) so
+     * the same {@see \App\Services\Backup\Filesystems\Awss3Filesystem} adapter
+     * and bucket engines consume either.
+     *
+     * @param  array<string, mixed>|null  $extraConfig
+     * @return array<string, mixed>
+     */
+    public static function objectStorageConfig(
+        DatabaseConnectionConfig $config,
+        ?string $host = null,
+        ?int $port = null,
+        ?array $extraConfig = null,
+    ): array {
+        $extra = $extraConfig ?? $config->extraConfig ?? [];
+        $host = $host ?? $config->host;
+        $port = $port ?? $config->port;
+        $scheme = ! empty($extra['ssl_enabled']) ? 'https' : 'http';
+
+        // Accept an already-absolute URI in `host` (some setups pre-bake the
+        // scheme), otherwise qualify the plain host with the scheme.
+        $isAbsoluteUri = str_contains($host, '://');
+        $endpoint = $isAbsoluteUri ? $host : $scheme.'://'.$host;
+
+        // Only append a scheme-unqualified host's port, and never duplicate a
+        // port the caller already baked into `host`.
+        $authoritySuffix = ':'.$port;
+        if ($port > 0 && ! $isAbsoluteUri && ! str_contains($host, $authoritySuffix)) {
+            $endpoint .= $authoritySuffix;
+        }
+
+        // Refuse to ship object-storage credentials to a public cleartext HTTP
+        // endpoint. HTTP stays allowed only for loopback/private hosts (local
+        // MinIO etc.); anything else must be HTTPS, or the credentials could be
+        // observed in transit. Absolute-URI `host`s are covered here too because
+        // they can select http independently of ssl_enabled.
+        if (self::transportIsCleartext($endpoint) && self::serverHasCredentials($config)) {
+            $authorityHost = (string) parse_url($endpoint, PHP_URL_HOST) ?: $host;
+
+            if (! self::hostIsPrivateOrLoopback($authorityHost)) {
+                throw new \RuntimeException(
+                    'S3 credentials require an HTTPS endpoint. HTTP is only allowed for '
+                    .'loopback or private hosts (e.g. a local MinIO), got: '.$endpoint
+                );
+            }
+        }
+
+        return [
+            'region' => (string) ($extra['s3_region'] ?? 'us-east-1'),
+            'bucket' => (string) ($extra['s3_bucket'] ?? ''),
+            'access_key_id' => $config->username,
+            'secret_access_key' => $config->password,
+            'custom_endpoint' => $endpoint,
+            'use_path_style_endpoint' => ! empty($extra['s3_use_path_style_endpoint']),
+            'root' => (string) ($extra['s3_prefix'] ?? ''),
+            // Rich detail used by UI / logging.
+            'host' => $host,
+            'port' => $port,
+        ];
+    }
+
+    /**
+     * True when a server supplies static S3 credentials (access key pair) that
+     * the SDK would sign and send to the endpoint.
+     */
+    private static function serverHasCredentials(DatabaseConnectionConfig $config): bool
+    {
+        $username = trim((string) $config->username);
+        $password = trim((string) $config->password);
+
+        return $username !== '' || $password !== '';
+    }
+
+    /**
+     * True when the assembled endpoint is a cleartext http:// (not https) URI.
+     */
+    private static function transportIsCleartext(string $endpoint): bool
+    {
+        $scheme = strtolower((string) parse_url($endpoint, PHP_URL_SCHEME));
+
+        return $scheme === 'http';
+    }
+
+    /**
+     * Allow cleartext only to loopback and RFC1918/ULA-adjacent private hosts.
+     *
+     * A literal IP is checked directly. A hostname is resolved and allowed only
+     * when every returned address is loopback/private; a name that cannot be
+     * resolved is not treated as private unless it is an explicit localhost
+     * alias, because we cannot otherwise prove the traffic stays on-premise.
+     */
+    public static function hostIsPrivateOrLoopback(string $host): bool
+    {
+        $host = strtolower(trim($host));
+        $host = trim($host, '[]'); // unwrap an IPv6 literal's brackets
+
+        if ($host === '') {
+            return false;
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return self::isPrivateOrLoopbackIp($host);
+        }
+
+        if (in_array($host, ['localhost', 'localhost.localdomain'], true)) {
+            return true;
+        }
+
+        $addresses = @gethostbynamel($host) ?: [];
+        foreach ((array) @dns_get_record($host, DNS_AAAA) as $record) {
+            if (isset($record['ipv6'], $record['type']) && $record['type'] === 'AAAA') {
+                $addresses[] = $record['ipv6'];
+            }
+        }
+
+        if ($addresses === []) {
+            return false;
+        }
+
+        foreach ($addresses as $address) {
+            if (! self::isPrivateOrLoopbackIp((string) $address)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static function isPrivateOrLoopbackIp(string $address): bool
+    {
+        $packed = @inet_pton($address);
+
+        if ($packed === false) {
+            return false;
+        }
+
+        // Unwrap ::ffff:a.b.c.d so a mapped private address is honoured as its
+        // IPv4 counterpart.
+        if (strlen($packed) === 16 && str_starts_with($packed, str_repeat("\x00", 10)."\xff\xff")) {
+            $packed = substr($packed, 12);
+        }
+
+        if (strlen($packed) === 4) {
+            // 127.0.0.0/8 loopback, 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16.
+            return $packed[0] === "\x7f"
+                || $packed[0] === "\x0a"
+                || ($packed[0] === "\xac" && (ord($packed[1]) & 0xF0) === 0x10)
+                || ($packed[0] === "\xc0" && $packed[1] === "\xa8");
+        }
+
+        // ::1 loopback and fc00::/7 unique-local addresses.
+        return $packed === inet_pton('::1')
+            || (ord($packed[0]) === 0xFC || ord($packed[0]) === 0xFD);
     }
 
     /**

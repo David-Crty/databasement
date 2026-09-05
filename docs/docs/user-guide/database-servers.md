@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Database Servers
 
-Database servers are the source of your backups. Databasement can connect to and backup MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis/Valkey servers.
+Database servers are the source of your backups. Databasement can connect to and backup MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, Redis/Valkey, and S3 / object storage bucket servers.
 
 ## Supported Versions
 
@@ -30,6 +30,22 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 - **SQLite**: Backups are performed by copying the database file over SFTP. The SQLite 3.x file format has been backwards-compatible since 3.0.0 (2004).
 - **Firebird**: Backups use `gbak` to produce a portable `.fbk` transportable backup file; restore replays it with `gbak -rep`, which replaces the target `.fdb` if one already exists. Databasement ships the Firebird 5 client, which can back up and restore Firebird 3.x, 4.x, and 5.x servers. Each `.fdb` file on the server is its own database, so backup configuration is path-based (like SQLite) rather than name-based.
 - **Redis / Valkey**: `redis-cli --rdb` creates a point-in-time RDB snapshot via the replication protocol. Valkey 7.2+ is supported as a drop-in replacement for Redis. Restore is not supported.
+
+## S3 / Object storage (bucket backups)
+
+Register any S3-compatible endpoint (MinIO, Backblaze B2, AWS S3, Wasabi, ...) as a **Database Server** of type *S3 / Object Storage*. The server targets one bucket: the bucket's top-level folders act like individual databases, so the regular backup configuration applies (which folders, schedule, retention, destination volumes on a different service).
+
+Object backups differ from SQL dumps because a whole folder is copied. Each run is a chained archive:
+
+- The first run is a **full** archive of every object in the folder (tar, then gzip/zstd/7z per the global compression setting — encryption uses the same `BACKUP_ENCRYPTION_KEY`).
+- Runs between two fulls are **incremental**: only objects whose size/mtime changed are archived. A source object that is deleted is recorded as a deletion tombstone so restores do not resurrect old data.
+- A full run runs again every few runs (configurable cadence) so incremental chains stay short.
+
+Restore reconstructs a folder **state as of any chosen run** by overlaying its archive lineage (the anchor full plus the incrementals up to that run) onto the destination bucket folder, honoring tombstones. This means an older run is always restorable as its own point-in-time state.
+
+Storage saving reflects this: unchanged objects cost nothing on a new run; total used space is about the current folder size plus older versions retained by your policy.
+
+Deleting an S3 run is kept **newest-first**: you cannot delete a run that a newer restore still depends on. Retention-based cleanup owns whole chains and can prune older runs per your policy; GFS tiering is not offered for object-storage backups.
 :::
 
 ## Connection Requirements

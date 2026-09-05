@@ -71,8 +71,13 @@ class SnapshotCleanupService
 
         Log::info("Snapshot cleanup: Server {$serverName} (retention: {$backup->retention_days} days)");
 
+        // Ids of the snapshots this pass will remove. Retention must not delete
+        // an S3 chain's full anchor while a kept incremental still references it,
+        // otherwise that incremental becomes unrestorable (see restore lineage).
+        $deletingIds = $expiredSnapshots->pluck('id')->flip();
+
         foreach ($expiredSnapshots as $snapshot) {
-            $this->deleteSnapshot($snapshot);
+            $this->deleteSnapshot($snapshot, $deletingIds);
         }
     }
 
@@ -126,8 +131,10 @@ class SnapshotCleanupService
 
         Log::info("Snapshot cleanup: Server {$serverName} (GFS: {$backup->gfs_keep_daily}d/{$backup->gfs_keep_weekly}w/{$backup->gfs_keep_monthly}m)");
 
+        $deletingIds = $snapshotsToDelete->pluck('id')->flip();
+
         foreach ($snapshotsToDelete as $snapshot) {
-            $this->deleteSnapshot($snapshot);
+            $this->deleteSnapshot($snapshot, $deletingIds);
         }
     }
 
@@ -163,18 +170,54 @@ class SnapshotCleanupService
         return $selected;
     }
 
-    private function deleteSnapshot(Snapshot $snapshot): void
+    /**
+     * Delete one snapshot, keeping S3 full/anchored runs while a descendant
+     * incremental that survives this retention pass still references them.
+     *
+     * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds  Ids being deleted in this pass.
+     */
+    private function deleteSnapshot(Snapshot $snapshot, $deletingIds): void
     {
         $age = $snapshot->created_at->diffInDays(now());
         $database = $snapshot->database_name;
 
+        // Retention is the chain's whole-chain owner and may free older runs.
+        // But it must not orphan a full run that this pass leaves in place while
+        // at least one kept incremental depends on it — that incremental becomes
+        // unrestorable. In that case the full is retained too.
+        if ($snapshot->run_kind?->isFull() && $this->hasRetainedDescendant($snapshot, $deletingIds)) {
+            Log::warning("Snapshot cleanup: Kept {$database} ({$age} days old) - a newer incremental snapshot depends on it.");
+
+            return;
+        }
+
         if ($this->dryRun) {
             Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
         } else {
+            // Retention-based cleanup is the whole-chain owner: it may remove an
+            // older S3 run even when newer runs exist (the policy decides which
+            // runs to keep). The interactive/UI delete path stays guarded.
+            $snapshot->allowOutOfOrderChainDelete = true;
             $snapshot->delete();
             Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
         }
 
         $this->totalDeleted++;
+    }
+
+    /**
+     * Whether any descendant incremental of a full run survives this retention
+     * pass. Descendants that are themselves being deleted do not block it.
+     *
+     * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds
+     */
+    private function hasRetainedDescendant(Snapshot $snapshot, $deletingIds): bool
+    {
+        return Snapshot::query()
+            ->where('database_server_id', $snapshot->database_server_id)
+            ->where('database_name', $snapshot->database_name)
+            ->where('full_snapshot_id', $snapshot->id)
+            ->whereNotIn('id', $deletingIds->keys())
+            ->exists();
     }
 }

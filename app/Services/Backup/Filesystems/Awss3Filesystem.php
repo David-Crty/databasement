@@ -4,6 +4,7 @@ namespace App\Services\Backup\Filesystems;
 
 use Aws\Credentials\AssumeRoleCredentialProvider;
 use Aws\Credentials\CredentialProvider;
+use Aws\S3\Exception\S3Exception;
 use Aws\S3\S3Client;
 use Aws\Sts\StsClient;
 use League\Flysystem\AwsS3V3\AwsS3V3Adapter;
@@ -24,6 +25,59 @@ class Awss3Filesystem implements FilesystemInterface
         $root = $config['root'] ?? $config['prefix'] ?? '';
 
         return new Filesystem(new AwsS3V3Adapter($client, $config['bucket'], $root));
+    }
+
+    /**
+     * Ensure the configured bucket exists, creating it if absent.
+     *
+     * The Flysystem S3 adapter only reads/writes objects and does not provision
+     * a bucket — a PutObject to a missing bucket fails with NoSuchBucket. This
+     * is the explicit create step the integration/E2E tests (and any future
+     * self-provisioning path) call before seeding fixture objects.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function ensureBucketExists(array $config): void
+    {
+        $client = $this->createClient($config);
+
+        if ($client->doesBucketExist($config['bucket'])) {
+            return;
+        }
+
+        $create = ['Bucket' => $config['bucket']];
+        $region = $config['region'] ?? 'us-east-1';
+        if ($region !== 'us-east-1') {
+            $create['CreateBucketConfiguration'] = ['LocationConstraint' => $region];
+        }
+
+        $client->createBucket($create);
+        // A freshly created bucket may not be listable immediately; not needed
+        // for correctness here since subsequent writes target it directly.
+    }
+
+    /**
+     * Best-effort removal of an (empty) bucket — used for integration cleanup.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function deleteBucket(array $config): void
+    {
+        $client = $this->createClient($config);
+
+        try {
+            $client->deleteBucket(['Bucket' => $config['bucket']]);
+        } catch (S3Exception $e) {
+            // Best-effort cleanup: a bucket that is already gone or still holds
+            // objects is an expected teardown state and can be swallowed. Any
+            // other failure (access denied, transport, …) is unexpected — the
+            // bucket may still exist — so propagate it for the caller to see.
+            $code = $e->getAwsErrorCode();
+
+            if ($code !== 'NoSuchBucket' && $code !== 'BucketNotEmpty') {
+                throw $e;
+            }
+        }
     }
 
     /**

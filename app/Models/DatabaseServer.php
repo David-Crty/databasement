@@ -54,6 +54,10 @@ class DatabaseServer extends Model
         static::deleting(function (DatabaseServer $server) {
             foreach ($server->snapshots as $snapshot) {
                 $snapshot->skipFileCleanup = $server->skipFileCleanup;
+                // Server teardown removes every run in a chain, so the
+                // delete-newest-first invariant (which exists to keep lineage
+                // restorable) cannot apply here.
+                $snapshot->allowOutOfOrderChainDelete = true;
                 $snapshot->delete();
             }
 
@@ -371,10 +375,14 @@ class DatabaseServer extends Model
             ['auth_source',         fn ($v) => $type === DatabaseType::MONGODB->value && $v !== '' && $v !== null, fn ($v) => $v],
             ['srv_enabled',         fn ($v) => $type === DatabaseType::MONGODB->value && $v,                       fn () => true],
             ['connection_options',  fn ($v) => $type === DatabaseType::MONGODB->value && $v !== '' && $v !== null, fn ($v) => $v],
+            ['s3_bucket',           fn ($v) => $type === DatabaseType::S3->value && is_string($v) && trim($v) !== '',                  fn ($v) => trim($v)],
+            ['s3_region',           fn ($v) => $type === DatabaseType::S3->value && is_string($v) && trim($v) !== '',                  fn ($v) => trim($v)],
+            ['s3_prefix',           fn ($v) => $type === DatabaseType::S3->value && is_string($v) && trim($v) !== '',                  fn ($v) => trim($v)],
+            ['s3_use_path_style_endpoint', fn ($v) => $type === DatabaseType::S3->value && $v,                                        fn () => true],
             ['dump_flags',          fn ($v) => $type !== DatabaseType::SQLITE->value && $v !== '' && $v !== null,  fn ($v) => $v],
             ['dump_format',         fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v === 'custom',       fn () => 'custom'],
             ['dump_privileges',     fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v,                    fn () => true],
-            ['ssl_enabled',         fn ($v) => in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value], true) && $v, fn () => true],
+            ['ssl_enabled',         fn ($v) => in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value, DatabaseType::S3->value], true) && $v, fn () => true],
             ['connection_database', fn ($v) => $type === DatabaseType::POSTGRESQL->value && is_string($v) && trim($v) !== '', fn ($v) => trim($v)],
         ];
 

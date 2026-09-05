@@ -57,6 +57,17 @@ class Form extends \Livewire\Form
 
     public string $connection_options = '';
 
+    // S3/object-storage connection options (stored in extra_config). The
+    // endpoint 'host' is the S3 authority (scheme signalled by ssl_enabled),
+    // 'bucket'/'prefix' scope the object root, credentials are the access key.
+    public string $s3_bucket = '';
+
+    public string $s3_region = 'us-east-1';
+
+    public string $s3_prefix = '';
+
+    public bool $s3_use_path_style_endpoint = false;
+
     public string $dump_flags = '';
 
     public string $dump_format = 'plain';
@@ -472,6 +483,10 @@ class Form extends \Livewire\Form
         $this->dump_config_open = ! empty($this->dump_flags) || $this->dump_format === 'custom' || $this->dump_privileges;
         $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $this->connection_database = $server->getExtraConfig('connection_database', '');
+        $this->s3_bucket = (string) $server->getExtraConfig('s3_bucket', '');
+        $this->s3_region = (string) $server->getExtraConfig('s3_region', 'us-east-1');
+        $this->s3_prefix = (string) $server->getExtraConfig('s3_prefix', '');
+        $this->s3_use_path_style_endpoint = (bool) $server->getExtraConfig('s3_use_path_style_endpoint', false);
         $this->username = $server->username ?? '';
         $this->description = $server->description;
         $this->agent_id = $server->agent_id;
@@ -641,6 +656,14 @@ class Form extends \Livewire\Form
     }
 
     /**
+     * Check if current database type is S3-compatible object storage.
+     */
+    public function isS3(): bool
+    {
+        return $this->database_type === 's3';
+    }
+
+    /**
      * Check if current database type is MongoDB
      */
     public function isMongodb(): bool
@@ -686,7 +709,7 @@ class Form extends \Livewire\Form
      */
     public function supportsDumpFlags(): bool
     {
-        return ! $this->isSqlite() && $this->database_type !== '';
+        return ! $this->isSqlite() && ! $this->isS3() && $this->database_type !== '';
     }
 
     /**

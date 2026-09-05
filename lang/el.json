@@ -802,5 +802,11 @@
   "Transfer database ownership to user after restore": "Μεταβίβαση της ιδιοκτησίας της Βάσης Δεδομένων σε αυτόν τον χρήστη μετά το restore",
   "Set database owner after restore": "Ορισμός του ιδιοκτήτη της Βάσης Δεδομένων μετά το restore",
   "PostgreSQL username (leave empty to skip)": "Όνομα χρήστη PostgreSQL (αφήστε κενό για παράλειψη)",
-  "This SQL will be run after the restore:": "Αυτό το SQL θα εκτελεστεί μετά το restore:"
+  "This SQL will be run after the restore:": "Αυτό το SQL θα εκτελεστεί μετά το restore:",
+  "Endpoint": "Endpoint",
+  "S3 access key": "Κλειδί πρόσβασης S3",
+  "S3 secret key": "Μυστικό κλειδί S3",
+  "Bucket": "Bucket",
+  "Prefix (optional)": "Πρόθεμα (προαιρετικό)",
+  "Use path-style endpoint": "Χρήση endpoint path-style"
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
 use App\Enums\DatabaseType;
+use App\Enums\RunKind;
 use App\Enums\SnapshotFileStatus;
 use App\Models\Scopes\DatabaseServerOrganizationScope;
 use App\Support\Formatters;
@@ -30,6 +31,13 @@ class Snapshot extends Model
 
     public bool $skipFileCleanup = false;
 
+    /**
+     * Set by callers that deliberately delete whole chains out of order (e.g. a
+     * super-admin wiping a server). Bypasses the delete-newest-first invariant
+     * of {@see assertChainTipOrForcefully()}.
+     */
+    public bool $allowOutOfOrderChainDelete = false;
+
     protected $fillable = [
         'backup_job_id',
         'database_server_id',
@@ -43,6 +51,8 @@ class Snapshot extends Model
         'locked',
         'database_type',
         'compression_type',
+        'run_kind',
+        'full_snapshot_id',
         'method',
         'metadata',
         'triggered_by_user_id',
@@ -57,6 +67,7 @@ class Snapshot extends Model
             'database_type' => DatabaseType::class,
             'metadata' => 'array',
             'compression_type' => CompressionType::class,
+            'run_kind' => RunKind::class,
         ];
     }
 
@@ -180,6 +191,7 @@ class Snapshot extends Model
 
         // Delete the backup files, associated restores and job when snapshot is deleted
         static::deleting(function (Snapshot $snapshot) {
+            $snapshot->assertChainTipOrForcefully();
             if (! $snapshot->skipFileCleanup) {
                 $snapshot->deleteBackupFiles();
             }
@@ -197,6 +209,57 @@ class Snapshot extends Model
             // Delete the snapshot's own job
             $snapshot->job->delete();
         });
+    }
+
+    /**
+     * How many runs in this snapshot's chain depend on it (its descendants).
+     *
+     * A bucket-copy run F (the anchor full) or incremental I may only be
+     * deleted when nothing built on it still exists: deleting the anchor while
+     * a later incremental references it would leave newer restores unable to
+     * resolve their lineage. Descendants are the later incrementals that point
+     * at this run's anchor full (for a full, that's every later incremental of
+     * the chain; for an incremental, only those created after it).
+     */
+    public function chainDescendantCount(): int
+    {
+        if ($this->run_kind === null) {
+            return 0;
+        }
+
+        $anchor = $this->run_kind === RunKind::FULL ? $this->id : $this->full_snapshot_id;
+
+        if ($anchor === null) {
+            return 0;
+        }
+
+        return Snapshot::query()
+            ->where('database_server_id', $this->database_server_id)
+            ->where('database_name', $this->database_name)
+            ->where('full_snapshot_id', $anchor)
+            ->when($this->run_kind === RunKind::INCREMENTAL, function ($query) {
+                /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */
+                $query->where('started_at', '>', $this->started_at);
+            })
+            ->count();
+    }
+
+    /**
+     * Prevent deleting a chain run whose descendants would lose their lineage.
+     * An internal caller that already handles whole-chain pruning may set
+     * {@see self::skipFileCleanup} to bypass this invariant.
+     */
+    public function assertChainTipOrForcefully(): void
+    {
+        if ($this->allowOutOfOrderChainDelete) {
+            return;
+        }
+
+        if ($this->chainDescendantCount() > 0) {
+            throw new \RuntimeException(
+                'This S3 backup run is not the newest in its chain. Delete the newer run(s) first so restores keep a resolvable lineage.'
+            );
+        }
     }
 
     /**
@@ -221,6 +284,27 @@ class Snapshot extends Model
     public function files(): HasMany
     {
         return $this->hasMany(SnapshotFile::class);
+    }
+
+    /**
+     * The object-level changes archived by this run (bucket-copy backups only).
+     *
+     * @return HasMany<SnapshotObjectFile, Snapshot>
+     */
+    public function objectFiles(): HasMany
+    {
+        return $this->hasMany(SnapshotObjectFile::class);
+    }
+
+    /**
+     * The anchor full run this incremental backs onto, or null for full/SQL
+     * snapshots.
+     *
+     * @return BelongsTo<Snapshot, Snapshot>
+     */
+    public function fullSnapshot(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'full_snapshot_id');
     }
 
     /**

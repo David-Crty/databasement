@@ -32,7 +32,7 @@ use App\Enums\DatabaseType;
                 />
 
                 @php $agentOptions = $form->getAgentOptions(); @endphp
-                @if(count($agentOptions) > 0 || $form->hasAgent())
+                @if((!$form->isS3()) && (count($agentOptions) > 0 || $form->hasAgent()))
                     <div class="border border-base-300 rounded-lg bg-base-200">
                         <!-- Toggle Header -->
                         <label class="flex items-start gap-3 p-4 cursor-pointer select-none">
@@ -108,7 +108,9 @@ use App\Enums\DatabaseType;
 
                 @php $selectedType = DatabaseType::tryFrom($form->database_type); @endphp
                 @if($selectedType)
-                    @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
+                    @if(!$form->isS3())
+                        @include('livewire.database-server._ssh-tunnel-config', ['form' => $form, 'isEdit' => $isEdit])
+                    @endif
 
                     {{-- Type-specific connection fields, resolved by convention
                          from the DatabaseType value (like volume connectors). --}}
