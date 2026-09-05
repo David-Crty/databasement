@@ -422,6 +422,45 @@ test('makeFromConfig maps ssl to an https S3 custom endpoint', function () {
         ->and($built['region'])->toBe('us-east-1');
 });
 
+test('makeForServer refuses cleartext S3 credentials for an absolute-URI http host', function () {
+    // An absolute http:// URI in `host` must not bypass the transport guard,
+    // even though it carries its own scheme independently of ssl_enabled.
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 's3',
+        'host' => 'http://minio.example.com',
+        'port' => 9000,
+        'username' => 'AKIAEXAMPLE',
+        'password' => 'secretkey',
+        'extra_config' => [
+            's3_bucket' => 'photos',
+            's3_region' => 'us-east-1',
+            's3_use_path_style_endpoint' => true,
+            's3_prefix' => 'hired',
+        ],
+    ]);
+
+    (new DatabaseProvider)->makeForServer($server, '', 'http://minio.example.com', 9000);
+})->throws(\RuntimeException::class, 'S3 credentials require an HTTPS endpoint');
+
+test('makeFromConfig honours an absolute-URI https host without the ssl toggle', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::S3,
+        serverName: 'S3 Server',
+        host: 'https://s3.eu-central-1.amazonaws.com',
+        port: 443,
+        username: 'b2-key',
+        password: 'b2-secret',
+        extraConfig: ['s3_bucket' => 'archives'],
+    );
+
+    $database = (new DatabaseProvider)->makeFromConfig($config, '', 'https://s3.eu-central-1.amazonaws.com', 443);
+
+    expect($database)->toBeInstanceOf(S3Database::class);
+
+    $built = (new ReflectionClass($database))->getProperty('config')->getValue($database);
+    expect($built['custom_endpoint'])->toBe('https://s3.eu-central-1.amazonaws.com');
+});
+
 test('testConnectionForServer returns SSH failure', function () {
     $sshConfig = new DatabaseServerSshConfig;
     $sshConfig->host = 'nonexistent.invalid.host.example';
