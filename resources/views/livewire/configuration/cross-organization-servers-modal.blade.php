@@ -3,8 +3,12 @@
              :subtitle="__('Every database server and its latest backup, regardless of organization.')"
              box-class="max-w-3xl w-11/12" class="backdrop-blur">
         @if ($showModal)
-            <x-input :placeholder="__('Search...')" wire:model.live.debounce="search" clearable
-                     icon="o-magnifying-glass" class="mb-4" />
+            {{-- Mary forwards `class` to the inner <input> as well as its wrapper,
+                 so spacing lives on a wrapper rather than on the component. --}}
+            <div class="mb-4">
+                <x-input :placeholder="__('Search...')" wire:model.live.debounce="search" clearable
+                         icon="o-magnifying-glass" />
+            </div>
 
             <x-table :headers="$headers" :rows="$this->servers" with-pagination>
                 <x-slot:empty>
