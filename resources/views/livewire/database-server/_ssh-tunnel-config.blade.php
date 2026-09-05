@@ -5,6 +5,7 @@
     $hasExistingConfigs = count($sshConfigOptions) > 0;
     $isExistingConfig = $form->ssh_config_mode === 'existing' && $form->ssh_config_id;
     $credentialsOptional = $isEdit || $isExistingConfig;
+    $hasSshErrors = $form->hasSshFieldErrors();
 @endphp
 
 <!-- SSH Tunnel Configuration -->
@@ -23,8 +24,8 @@
         <div class="border-t border-base-300 bg-base-100 p-4 rounded-b-lg">
             <div
                 class="space-y-4"
-                wire:key="ssh-config-{{ $form->ssh_config_mode }}"
-                x-data="{ showForm: @js($form->ssh_config_mode !== 'existing') }"
+                wire:key="ssh-config-{{ $form->ssh_config_mode }}{{ $hasSshErrors ? '-invalid' : '' }}"
+                x-data="{ showForm: @js($form->ssh_config_mode !== 'existing' || $hasSshErrors) }"
             >
                 <!-- SSH Configuration Mode -->
                 @if($hasExistingConfigs)

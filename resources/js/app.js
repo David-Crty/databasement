@@ -59,3 +59,63 @@ document.addEventListener('alpine:init', () => {
         }
     }));
 });
+
+document.addEventListener('livewire:init', () => {
+    const boundTo = (el, field) => el.getAttributeNames().some((name) => {
+        if (! name.startsWith('wire:model')) {
+            return false;
+        }
+
+        const model = el.getAttribute(name);
+
+        // Exact match first, then either side of a nested path: an error on
+        // `form.channel_ids.0` should still find an input bound to
+        // `form.channel_ids`, and vice versa.
+        return model === field
+            || model.startsWith(`${field}.`)
+            || field.startsWith(`${model}.`);
+    });
+
+    const findField = (field) => field
+        ? Array.from(document.querySelectorAll('input, select, textarea')).find((el) => boundTo(el, field))
+        : null;
+
+    // daisyUI collapses and <details> hide their content outright, so an error
+    // inside one is invisible even after scrolling.
+    const expandAncestors = (el) => {
+        for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+            if (node.tagName === 'DETAILS') {
+                node.open = true;
+            }
+
+            if (node.classList.contains('collapse')) {
+                const toggle = node.querySelector(':scope > input[type="checkbox"], :scope > input[type="radio"]');
+                if (toggle) {
+                    toggle.checked = true;
+                }
+            }
+        }
+    };
+
+    // Mary marks an invalid control by class, on the wrapper for some
+    // components, so fall back to the focusable descendant when there is one.
+    const firstErroredControl = () => {
+        const flagged = document.querySelector('[class~="!input-error"], [class~="!select-error"], [class~="!textarea-error"], [class~="textarea-error"], [class~="!border-error"]');
+
+        return flagged?.querySelector('input, select, textarea') ?? flagged;
+    };
+
+    Livewire.on('validation-failed', ({ field }) => {
+        requestAnimationFrame(() => {
+            const target = findField(field) ?? firstErroredControl();
+
+            if (! target) {
+                return;
+            }
+
+            expandAncestors(target);
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            target.focus({ preventScroll: true });
+        });
+    });
+});

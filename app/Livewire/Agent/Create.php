@@ -4,6 +4,7 @@ namespace App\Livewire\Agent;
 
 use App\Livewire\Concerns\HasAgentToken;
 use App\Models\Agent;
+use App\Traits\SurfacesValidationErrors;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -13,7 +14,7 @@ use Livewire\Component;
 #[Title('Create Agent')]
 class Create extends Component
 {
-    use AuthorizesRequests, HasAgentToken, Toast;
+    use AuthorizesRequests, HasAgentToken, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -26,7 +27,7 @@ class Create extends Component
     {
         $this->authorize('create', Agent::class);
 
-        $agent = $this->form->store();
+        $agent = $this->withValidationFeedback(fn (): Agent => $this->form->store());
 
         $token = $agent->createToken('agent');
         $this->showTokenModal($token->plainTextToken);
