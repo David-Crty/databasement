@@ -103,6 +103,11 @@
                                                     <span
                                                         class="opacity-70">{{ $snapshot->databaseServer->name }}</span>
                                                 </div>
+                                                @if($snapshot->comment)
+                                                    <div class="text-xs opacity-60 truncate" title="{{ $snapshot->comment }}">
+                                                        {{ $snapshot->comment }}
+                                                    </div>
+                                                @endif
                                             </div>
                                             <div class="sm:text-right space-y-0.5">
                                                 <div

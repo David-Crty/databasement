@@ -14,12 +14,14 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
-    // The Snapshot index gates cancelling/deleting on delete-snapshots and
-    // restoring on operate-restores. The default actor holds exactly those, so
-    // the happy-path tests below double as the allow cases for both abilities.
+    // The Snapshot index gates cancelling/deleting on delete-snapshots,
+    // restoring on operate-restores, and editing comments on run-backups.
+    // The default actor holds exactly those, so the happy-path tests below
+    // double as the allow cases for each ability.
     $this->user = User::factory()->withAbilities([
         Ability::DeleteSnapshots->value,
         Ability::OperateRestores->value,
+        Ability::RunBackups->value,
     ])->create();
     actingAs($this->user);
 });
@@ -279,6 +281,96 @@ test('without download-snapshots, opening the copy picker is forbidden', functio
         ->test(Index::class)
         ->call('openDownloadModal', $snapshot->id)
         ->assertForbidden();
+});
+
+test('run-backups allows adding a comment to a snapshot', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $snapshot = Snapshot::factory()->withFile()->create();
+    $comment = 'Backup before upgrading to version 1.37';
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('editComment', $snapshot->id)
+        ->assertSet('editCommentSnapshotId', $snapshot->id)
+        ->assertSet('commentDraft', '')
+        ->set('commentDraft', $comment)
+        ->call('saveComment')
+        ->assertSet('editCommentSnapshotId', null)
+        ->assertSee($comment);
+
+    expect($snapshot->fresh()->comment)->toBe($comment);
+});
+
+test('saving a blank comment clears it', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['comment' => 'Old note']);
+
+    Livewire::test(Index::class)
+        ->call('editComment', $snapshot->id)
+        ->assertSet('commentDraft', 'Old note')
+        ->set('commentDraft', '   ')
+        ->call('saveComment');
+
+    expect($snapshot->fresh()->comment)->toBeNull();
+});
+
+test('cancelling an edit leaves the comment untouched', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['comment' => 'Old note']);
+
+    Livewire::test(Index::class)
+        ->call('editComment', $snapshot->id)
+        ->set('commentDraft', 'Discarded')
+        ->call('cancelEditComment')
+        ->assertSet('editCommentSnapshotId', null);
+
+    expect($snapshot->fresh()->comment)->toBe('Old note');
+});
+
+test('without run-backups, the comment is read-only', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['comment' => 'Old note']);
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::RunBackups->value)->create());
+
+    Livewire::test(Index::class)
+        ->assertSee('Old note')
+        ->assertDontSee('Add comment')
+        ->call('editComment', $snapshot->id)
+        ->assertForbidden();
+});
+
+test('delete-snapshots allows locking a snapshot against cleanup', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeTrue();
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
+});
+
+test('a locked snapshot cannot be deleted even with delete-snapshots', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['locked' => true]);
+
+    Livewire::test(Index::class)
+        ->call('confirmDeleteSnapshot', $snapshot->id)
+        ->assertForbidden();
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
+});
+
+test('without delete-snapshots, locking a snapshot is forbidden', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::DeleteSnapshots->value)->create());
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id)
+        ->assertForbidden();
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
 });
 
 test('?job= from another org opens the logs modal when the user is a member', function () {
