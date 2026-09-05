@@ -99,7 +99,7 @@
         @endif
 
         <p class="mb-4 text-sm">
-            <a href="{{ route('changelog') }}{{ $latestVersion ? '#v'.\App\Support\Changelog\ChangelogRelease::minorOf(ltrim($latestVersion, 'v')) : '' }}" class="link link-primary">
+            <a href="{{ route('changelog') }}" class="link link-primary">
                 {{ __('See what changed in each release') }}
             </a>
         </p>

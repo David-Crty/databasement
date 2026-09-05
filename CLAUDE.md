@@ -245,7 +245,7 @@ Ensure tests pass and code is formatted before committing.
 
 ### Commit and PR Titles (changelog)
 
-`CHANGELOG.md` (Keep a Changelog, **one section per minor version** with every entry prefixed by the patch that shipped it) is drafted from git history by git-cliff (`cliff.toml`, `make changelog-draft`) and polished by the `/changelog` skill. The app parses it and renders it at `/changelog`, and `docs/scripts/sync-changelog.js` publishes it as a documentation page, so its shape is load-bearing. PRs are squash-merged, so the **PR title becomes the commit subject git-cliff reads**. Write it as a conventional commit, `type(scope)?: description`:
+`CHANGELOG.md` (Keep a Changelog, **one section per minor version** with every entry prefixed by the patch that shipped it) is drafted from git history by git-cliff (`cliff.toml`, `make changelog-draft`) and polished by the `/changelog` skill. The app renders it as Markdown at `/changelog` (styled by `.changelog` in `resources/css/app.css`), and `docs/scripts/sync-changelog.js` publishes it as a documentation page. PRs are squash-merged, so the **PR title becomes the commit subject git-cliff reads**. Write it as a conventional commit, `type(scope)?: description`:
 
 | Title prefix | Changelog section |
 |---|---|

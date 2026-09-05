@@ -2,9 +2,9 @@
 
 namespace App\Livewire;
 
-use App\Support\Changelog\ChangelogParser;
-use App\Support\Changelog\ChangelogRelease;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -13,21 +13,27 @@ use Livewire\Component;
 class Changelog extends Component
 {
     /**
-     * Unreleased entries only make sense on builds that are not a tagged
-     * release, so they are hidden whenever a version is configured.
-     *
-     * @return list<ChangelogRelease>
+     * CHANGELOG.md rendered to HTML. The file is plain Markdown maintained by
+     * the /changelog skill, so the page styles it (see `.changelog` in
+     * app.css) rather than picking it apart here.
      */
     #[Computed]
-    public function releases(): array
+    public function html(): string
     {
-        $releases = app(ChangelogParser::class)->releases();
+        $path = base_path('CHANGELOG.md');
 
-        if ($this->currentVersion() === null) {
-            return $releases;
+        if (! is_file($path)) {
+            return '';
         }
 
-        return array_values(array_filter($releases, fn (ChangelogRelease $release): bool => ! $release->isUnreleased()));
+        return Cache::remember(
+            'changelog.html.'.filemtime($path),
+            now()->addDay(),
+            fn (): string => Str::markdown((string) file_get_contents($path), [
+                'html_input' => 'strip',
+                'allow_unsafe_links' => false,
+            ]),
+        );
     }
 
     #[Computed]
@@ -36,24 +42,6 @@ class Changelog extends Component
         $version = config('app.version');
 
         return is_string($version) && $version !== '' ? ltrim($version, 'v') : null;
-    }
-
-    public function isCurrent(ChangelogRelease $release): bool
-    {
-        $current = $this->currentVersion();
-
-        if ($current === null || $release->version === null) {
-            return false;
-        }
-
-        return $release->version === $current || $release->version === ChangelogRelease::minorOf($current);
-    }
-
-    public function isNewerThanCurrent(?string $version): bool
-    {
-        $current = $this->currentVersion();
-
-        return $version !== null && $current !== null && version_compare($version, $current, '>');
     }
 
     public function render(): View
