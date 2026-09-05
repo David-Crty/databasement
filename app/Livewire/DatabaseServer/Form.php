@@ -15,6 +15,8 @@ use App\Models\DatabaseServerSshConfig;
 use App\Models\NotificationChannel;
 use App\Rules\MaxBytes;
 use App\Rules\SafeDumpFlags;
+use App\Rules\SafeHost;
+use App\Rules\SafeUsername;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\ShellProcessor;
 use App\Services\Backup\SyncBackupConfigurationsAction;
@@ -866,7 +868,13 @@ class Form extends \Livewire\Form
             $rules = array_merge($rules, $this->getSshValidationRules());
         }
 
-        $validated = $this->validate($rules);
+        try {
+            $validated = $this->validate($rules);
+        } catch (ValidationException $e) {
+            $this->revealSectionsForErrors(array_keys($e->errors()));
+
+            throw $e;
+        }
 
         if ($this->backups_enabled) {
             foreach ($this->backups as $index => $entry) {
@@ -876,6 +884,21 @@ class Form extends \Livewire\Form
         }
 
         return $validated;
+    }
+
+    /**
+     * Expand any collapsed section holding an invalid field, so the inline
+     * error is actually reachable once the page scrolls to it.
+     *
+     * @param  array<int, string>  $fields
+     */
+    private function revealSectionsForErrors(array $fields): void
+    {
+        foreach ($fields as $field) {
+            if (str_starts_with($field, 'form.dump_')) {
+                $this->dump_config_open = true;
+            }
+        }
     }
 
     /**
@@ -1106,7 +1129,7 @@ class Form extends \Livewire\Form
                 ?? __('Please fill in all required connection fields.');
             $this->connectionTestMessage = $message;
 
-            return;
+            throw $e;
         }
 
         // Test connection
@@ -1164,9 +1187,12 @@ class Form extends \Livewire\Form
             $this->validate($this->getSshValidationRules());
         } catch (ValidationException $e) {
             $this->testingSshConnection = false;
-            $this->sshTestMessage = 'Please fill in all required SSH connection fields.';
+            /** @var string $message */
+            $message = collect($e->errors())->flatten()->first()
+                ?? __('Please fill in all required SSH connection fields.');
+            $this->sshTestMessage = $message;
 
-            return;
+            throw $e;
         }
 
         $sshConfig = $this->buildSshConfigForTest();
@@ -1313,17 +1339,35 @@ class Form extends \Livewire\Form
     }
 
     /**
+     * Whether validation flagged any SSH field. The SSH editor is collapsed
+     * while an existing config is selected, which would otherwise hide the
+     * error the user has to act on.
+     */
+    public function hasSshFieldErrors(): bool
+    {
+        $prefix = $this->getPropertyName().'.ssh_';
+
+        foreach ($this->getComponent()->getErrorBag()->keys() as $key) {
+            if (str_starts_with($key, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Get SSH validation rules. Public so per-type connection rules
      * (e.g. SQLite over SFTP) can include them in their test rules.
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     public function getSshValidationRules(): array
     {
         $rules = [
-            'ssh_host' => 'required|string|max:255',
+            'ssh_host' => ['required', 'string', 'max:255', new SafeHost],
             'ssh_port' => 'required|integer|min:1|max:65535',
-            'ssh_username' => 'required|string|max:255',
+            'ssh_username' => ['required', 'string', 'max:255', new SafeUsername],
             'ssh_auth_type' => 'required|string|in:password,key',
         ];
 
