@@ -805,5 +805,10 @@
   "Transfer database ownership to user after restore": "Transferir la propiedad de la base de datos a este usuario tras el restore",
   "Set database owner after restore": "Definir el propietario de la base de datos tras el restore",
   "PostgreSQL username (leave empty to skip)": "Nombre de usuario de PostgreSQL (dejar vacío para omitir)",
-  "This SQL will be run after the restore:": "Este SQL se ejecutará tras el restore:"
+  "This SQL will be run after the restore:": "Este SQL se ejecutará tras el restore:",
+  "Servers across organizations": "Servidores de todas las organizaciones",
+  "Every database server and its latest backup, regardless of organization.": "Todos los servidores de base de datos y su último backup, sin importar la organización.",
+  "Organization": "Organización",
+  "Last backup": "Último backup",
+  "Open in its organization": "Abrir en su organización"
 }

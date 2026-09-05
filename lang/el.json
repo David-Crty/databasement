@@ -802,5 +802,10 @@
   "Transfer database ownership to user after restore": "Μεταβίβαση της ιδιοκτησίας της Βάσης Δεδομένων σε αυτόν τον χρήστη μετά το restore",
   "Set database owner after restore": "Ορισμός του ιδιοκτήτη της Βάσης Δεδομένων μετά το restore",
   "PostgreSQL username (leave empty to skip)": "Όνομα χρήστη PostgreSQL (αφήστε κενό για παράλειψη)",
-  "This SQL will be run after the restore:": "Αυτό το SQL θα εκτελεστεί μετά το restore:"
+  "This SQL will be run after the restore:": "Αυτό το SQL θα εκτελεστεί μετά το restore:",
+  "Servers across organizations": "Servers όλων των οργανισμών",
+  "Every database server and its latest backup, regardless of organization.": "Όλοι οι servers Βάσεων Δεδομένων και το τελευταίο backup τους, ανεξαρτήτως οργανισμού.",
+  "Organization": "Οργανισμός",
+  "Last backup": "Τελευταίο backup",
+  "Open in its organization": "Άνοιγμα στον οργανισμό του"
 }

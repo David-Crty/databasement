@@ -23,8 +23,4 @@
        role="tab" @class(['tab', 'tab-active' => $active === 'organizations'])>
         {{ __('Organizations') }}
     </a>
-    <a href="{{ route('configuration.overview') }}" wire:navigate
-       role="tab" @class(['tab', 'tab-active' => $active === 'overview'])>
-        {{ __('Overview') }}
-    </a>
 </div>

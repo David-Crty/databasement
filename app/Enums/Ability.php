@@ -12,11 +12,9 @@ namespace App\Enums;
  * AppServiceProvider::registerBouncer().
  *
  * The catalogue covers organization-level operations and configuration,
- * including backup settings and notification channels, plus the read-only
- * cross-org overview (which is granted per-org like any other ability, but
- * only useful while that grant's org is the user's current one). Mutating
- * global concerns (organizations, authentication/SSO and role management)
- * remain reserved for super admins and are not represented here.
+ * including backup settings and notification channels. Truly global concerns
+ * (organizations, authentication/SSO and role management) remain reserved for
+ * super admins and are not represented here.
  */
 enum Ability: string
 {
@@ -31,7 +29,6 @@ enum Ability: string
     case ManageBackupSettings = 'manage-backup-settings';
     case ManageNotifications = 'manage-notifications';
     case ManageUsers = 'manage-users';
-    case ViewGlobalOverview = 'view-global-overview';
 
     /**
      * Short human label shown as the toggle title.
@@ -50,7 +47,6 @@ enum Ability: string
             self::ManageBackupSettings => __('Manage backup settings'),
             self::ManageNotifications => __('Manage notifications'),
             self::ManageUsers => __('Manage users'),
-            self::ViewGlobalOverview => __('View global overview'),
         };
     }
 
@@ -71,7 +67,6 @@ enum Ability: string
             self::ManageBackupSettings => __('Configure global backup settings and schedules, and run cleanup and verification.'),
             self::ManageNotifications => __('Create, edit, delete and test notification channels.'),
             self::ManageUsers => __('Invite, edit and remove users in the organization.'),
-            self::ViewGlobalOverview => __('View the read-only overview of database servers and their backup status across every organization.'),
         };
     }
 
@@ -91,8 +86,7 @@ enum Ability: string
             self::ManageAgents,
             self::ManageBackupSettings,
             self::ManageNotifications,
-            self::ManageUsers,
-            self::ViewGlobalOverview => __('Configuration'),
+            self::ManageUsers => __('Configuration'),
         };
     }
 

@@ -31,13 +31,13 @@ class DatabaseServerPolicy
     }
 
     /**
-     * Determine whether the user can view the cross-org admin overview.
-     * Super admins bypass catalogue abilities (see AppServiceProvider::registerBouncer());
-     * anyone else needs the view-global-overview ability granted in their current org.
+     * Determine whether the user can list database servers across every
+     * organization. Cross-tenant visibility is a global concern, so it is
+     * reserved for super admins rather than a catalogue ability.
      */
-    public function viewAnyGlobal(User $user): bool
+    public function viewAcrossOrganizations(User $user): bool
     {
-        return $user->can(Ability::ViewGlobalOverview->value);
+        return $user->isSuperAdmin();
     }
 
     /**

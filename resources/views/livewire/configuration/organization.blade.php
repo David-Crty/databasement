@@ -3,6 +3,12 @@
         <x-slot:subtitle>
             {{ __('Manage organizations and their resources.') }}
         </x-slot:subtitle>
+        <x-slot:actions>
+            @can('viewAcrossOrganizations', \App\Models\DatabaseServer::class)
+                <x-button :label="__('Servers across organizations')" icon="o-server-stack" class="btn-outline btn-sm"
+                          @click="$dispatch('open-cross-organization-servers-modal')" />
+            @endcan
+        </x-slot:actions>
     </x-header>
 
     @include('livewire.configuration._tabs', ['active' => 'organizations'])
@@ -54,6 +60,10 @@
             @endscope
         </x-table>
     </x-card>
+
+    @can('viewAcrossOrganizations', \App\Models\DatabaseServer::class)
+        <livewire:configuration.cross-organization-servers-modal />
+    @endcan
 
     @can('create', \App\Models\Organization::class)
     {{-- Create Modal --}}

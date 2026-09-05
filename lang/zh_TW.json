@@ -807,5 +807,10 @@
   "Transfer database ownership to user after restore": "Restore 後將資料庫擁有權轉移給此使用者",
   "Set database owner after restore": "Restore 後設定資料庫擁有者",
   "PostgreSQL username (leave empty to skip)": "PostgreSQL 使用者名稱（留空則略過）",
-  "This SQL will be run after the restore:": "Restore 後將執行以下 SQL："
+  "This SQL will be run after the restore:": "Restore 後將執行以下 SQL：",
+  "Servers across organizations": "所有組織的伺服器",
+  "Every database server and its latest backup, regardless of organization.": "所有組織的資料庫伺服器及其最新 backup。",
+  "Organization": "組織",
+  "Last backup": "最新 backup",
+  "Open in its organization": "在其組織中開啟"
 }
