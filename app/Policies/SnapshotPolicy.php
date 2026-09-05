@@ -28,11 +28,13 @@ class SnapshotPolicy
 
     /**
      * Determine whether the user can delete the model.
-     * Requires the delete-snapshots ability.
+     * Requires the delete-snapshots ability, and refuses a locked snapshot:
+     * locking exists to keep it, so no delete path may remove it until it is
+     * unlocked.
      */
     public function delete(User $user, Snapshot $snapshot): bool
     {
-        return $user->can(Ability::DeleteSnapshots->value);
+        return ! $snapshot->locked && $user->can(Ability::DeleteSnapshots->value);
     }
 
     /**

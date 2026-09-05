@@ -48,13 +48,13 @@
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="table-cell-primary truncate">{{ $snapshot->database_name }}</span>
-                            <a href="{{ route('database-servers.show', $snapshot->databaseServer) }}" wire:navigate
-                               class="text-sm text-base-content/60 hover:text-primary hover:underline truncate">
-                                {{ $snapshot->databaseServer->name }}
-                            </a>
                         </div>
                         <div class="flex items-center gap-2 mt-1 flex-wrap">
-                            <x-id-popover :id="$snapshot->id" />
+                            <a href="{{ route('database-servers.show', $snapshot->databaseServer) }}" wire:navigate
+                               class="badge badge-xs badge-ghost gap-1 hover:text-primary">
+                                <x-icon name="o-server-stack" class="w-3 h-3" />
+                                {{ $snapshot->databaseServer->name }}
+                            </a>
                             @foreach($snapshot->files as $file)
                                 @if($file->volume)
                                     <x-snapshot-volume-badge :file="$file" />
@@ -180,6 +180,15 @@
                                 class="btn-ghost btn-sm text-error"
                             />
                         @endcan
+
+                        @if($snapshot->locked)
+                            @can(\App\Enums\Ability::DeleteSnapshots->value)
+                                {{-- The title sits on the wrapper: a disabled button gets pointer-events: none --}}
+                                <span class="cursor-not-allowed" title="{{ __('This snapshot is locked. Unlock it to delete.') }}">
+                                    <x-button icon="o-trash" class="btn-ghost btn-sm opacity-30" disabled />
+                                </span>
+                            @endcan
+                        @endif
                     @endif
 
                     @if($canCancel)

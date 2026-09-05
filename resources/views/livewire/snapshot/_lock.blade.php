@@ -3,20 +3,14 @@
 @endphp
 
 @if($snapshot->locked)
-    <button
-        type="button"
-        class="badge badge-xs gap-1"
-        @if($canLock)
-            wire:click="toggleLock('{{ $snapshot->id }}')"
-            title="{{ __('Kept out of automatic cleanup. Click to unlock.') }}"
-        @else
-            disabled
-            title="{{ __('Kept out of automatic cleanup.') }}"
-        @endif
-    >
-        <x-icon name="s-lock-closed" class="w-3 h-3" />
-        {{ __('Locked') }}
-    </button>
+    <x-button
+        :label="__('Locked')"
+        icon="s-lock-closed"
+        :tooltip="$canLock ? __('Kept out of automatic cleanup. Click to unlock.') : __('Kept out of automatic cleanup.')"
+        :disabled="! $canLock"
+        wire:click="toggleLock('{{ $snapshot->id }}')"
+        class="btn-ghost btn-xs font-normal text-base-content/50 hover:text-primary"
+    />
 @elseif($canLock)
     <x-button
         :label="__('Lock')"

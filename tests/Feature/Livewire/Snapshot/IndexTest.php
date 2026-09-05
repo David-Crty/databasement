@@ -351,6 +351,16 @@ test('delete-snapshots allows locking a snapshot against cleanup', function () {
     expect($snapshot->fresh()->locked)->toBeFalse();
 });
 
+test('a locked snapshot cannot be deleted even with delete-snapshots', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['locked' => true]);
+
+    Livewire::test(Index::class)
+        ->call('confirmDeleteSnapshot', $snapshot->id)
+        ->assertForbidden();
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
+});
+
 test('without delete-snapshots, locking a snapshot is forbidden', function () {
     $snapshot = Snapshot::factory()->withFile()->create();
 
