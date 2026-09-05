@@ -504,3 +504,50 @@ test('execute runs post-restore script with restore variables after successful r
         ->and($lastEnv)->toHaveKey('RESTORE_SOURCE_DATABASE', 'sourcedb')
         ->and($lastEnv)->toHaveKey('RESTORE_SNAPSHOT_FILENAME', 'backup.sql.gz');
 });
+
+test('execute restores an encrypted custom-format PostgreSQL snapshot', function () {
+    config(['backup.encryption_key' => 'base64:dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleXRlc3Q=']);
+
+    $mockProvider = buildMockRestoreProvider();
+    setupDownloadMock();
+
+    $restoreTask = new RestoreTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+        new PostScriptRunner,
+    );
+
+    $config = new RestoreConfig(
+        targetServer: new DatabaseConnectionConfig(
+            databaseType: DatabaseType::POSTGRESQL,
+            serverName: 'Target Server',
+            host: 'localhost',
+            port: 5432,
+            username: 'postgres',
+            password: 'secret',
+        ),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.dump.7z',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::ENCRYPTED,
+        snapshotDatabaseType: DatabaseType::POSTGRESQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $this->tempDir.'/restore-custom-'.uniqid(),
+        snapshotDumpFormat: 'custom',
+    );
+    mkdir($config->workingDirectory, 0755, true);
+
+    $logger = new InMemoryBackupLogger;
+    $restoreTask->execute($config, $logger);
+
+    $successLogs = collect($logger->getLogs())
+        ->where('level', 'success')
+        ->pluck('message')
+        ->toArray();
+
+    expect($successLogs)->toContain('Restore completed successfully');
+});

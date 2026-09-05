@@ -129,12 +129,11 @@ jobs:
       - name: Run phpstan
         run: vendor/bin/phpstan analyse
 
+      # Always the full suite. Pest's Test Impact Analysis (`make test-tia`) is a
+      # local-only convenience and is never enabled here — CI must verify every
+      # test against a clean checkout.
       - name: Run Tests
         run: php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml
-
-      - name: Save PR metadata
-        if: ${{ always() && github.event_name == 'pull_request' }}
-        run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
 
       - name: Upload coverage artifact
         if: always()
@@ -144,6 +143,5 @@ jobs:
           path: |
             coverage.xml
             junit.xml
-            pr-number.txt
           retention-days: 1
           if-no-files-found: ignore

@@ -4,10 +4,13 @@
         {{-- Update available — eye-catching pill --}}
         <button
             wire:click="open"
+            wire:loading.attr="disabled"
+            wire:target="open"
             class="inline-flex items-center gap-1.5 cursor-pointer rounded-full px-2 py-0.5 bg-warning/10 border border-warning/20 text-warning text-sm font-medium hover:bg-warning/20 hover:border-warning/35 transition-all"
             title="{{ $latestVersion }} {{ __('available') }}"
         >
-            <span class="relative flex h-1.5 w-1.5 shrink-0">
+            <x-loading wire:loading wire:target="open" class="loading-spinner loading-xs" />
+            <span wire:loading.remove wire:target="open" class="relative flex h-1.5 w-1.5 shrink-0">
                 <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-60"></span>
                 <span class="relative inline-flex rounded-full h-1.5 w-1.5 bg-warning"></span>
             </span>
@@ -17,10 +20,13 @@
         {{-- Up to date or no latest info — subtle version with green dot --}}
         <button
             wire:click="open"
+            wire:loading.attr="disabled"
+            wire:target="open"
             class="inline-flex items-center gap-1.5 text-sm text-base-content/60 hover:text-base-content transition-colors cursor-pointer"
         >
+            <x-loading wire:loading wire:target="open" class="loading-spinner loading-xs" />
             @if($this->isUpToDate())
-                <span class="flex h-1.5 w-1.5 shrink-0">
+                <span wire:loading.remove wire:target="open" class="flex h-1.5 w-1.5 shrink-0">
                     <span class="block h-full w-full rounded-full bg-success opacity-70"></span>
                 </span>
             @endif
@@ -32,8 +38,11 @@
         {{-- No version info — plain link --}}
         <button
             wire:click="open"
-            class="link link-hover text-sm text-base-content/60"
+            wire:loading.attr="disabled"
+            wire:target="open"
+            class="inline-flex items-center gap-1.5 link link-hover text-sm text-base-content/60"
         >
+            <x-loading wire:loading wire:target="open" class="loading-spinner loading-xs" />
             {{ __('How to update?') }}
         </button>
     @endif
@@ -89,10 +98,15 @@
             </x-alert>
         @endif
 
-        <x-tabs wire:model="updateInstructionsTab" label-class="tabs-sm">
+        <div class="tabs tabs-border tabs-sm">
 
             {{-- Docker Compose tab --}}
-            <x-tab name="docker-compose-tab" :label="__('Docker Compose')" icon="devicon.docker">
+            <label class="tab gap-2">
+                <input type="radio" name="update-instructions" checked/>
+                <x-icon name="devicon.docker"/>
+                {{ __('Docker Compose') }}
+            </label>
+            <div class="tab-content px-3 py-5">
                 <div class="flex items-center justify-between mb-1.5">
                     <p class="text-sm opacity-70">
                         {{ __('Run from the folder where your docker-compose.yml is located') }}
@@ -106,10 +120,15 @@
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $dockerComposeCommand }}</code></pre>
-            </x-tab>
+            </div>
 
             {{-- Helm / Kubernetes tab --}}
-            <x-tab name="helm-tab" :label="__('Helm / Kubernetes')" icon="devicon.kubernetes">
+            <label class="tab gap-2">
+                <input type="radio" name="update-instructions"/>
+                <x-icon name="devicon.kubernetes"/>
+                {{ __('Helm / Kubernetes') }}
+            </label>
+            <div class="tab-content px-3 py-5">
                 <div class="flex items-center justify-between mb-1.5">
                     <p class="text-sm opacity-70">
                         {{ __('Update the Helm repository and upgrade the release') }}
@@ -123,10 +142,15 @@
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $helmCommand }}</code></pre>
-            </x-tab>
+            </div>
 
             {{-- Docker tab --}}
-            <x-tab name="docker-tab" :label="__('Docker')" icon="devicon.docker">
+            <label class="tab gap-2">
+                <input type="radio" name="update-instructions"/>
+                <x-icon name="devicon.docker"/>
+                {{ __('Docker') }}
+            </label>
+            <div class="tab-content px-3 py-5">
                 <div class="flex items-center justify-between mb-1.5">
                     <p class="text-sm opacity-70">
                         {{ __('Run from the folder where your .env file is located') }}
@@ -140,9 +164,9 @@
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $dockerCommand }}</code></pre>
-            </x-tab>
+            </div>
 
-        </x-tabs>
+        </div>
 
         <x-slot:actions>
             <x-button :label="__('Done')" class="btn-primary" @click="$wire.showModal = false" />

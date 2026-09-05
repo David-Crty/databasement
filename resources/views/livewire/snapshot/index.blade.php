@@ -1,4 +1,4 @@
-<div wire:poll.30s>
+<div @if($editCommentSnapshotId === null) wire:poll.30s @endif>
     @if($errorMessage)
         <x-alert title="{{ $errorMessage }}" class="alert-error mb-4" icon="o-x-circle" />
     @endif
@@ -22,6 +22,7 @@
             :sort-by="$sortBy"
             with-pagination
             :row-decoration="[
+                'group' => fn () => true,
                 'bg-error/5' => fn ($snapshot) => $snapshot->job?->status?->value === 'failed',
                 'bg-warning/5' => fn ($snapshot) => $snapshot->job?->status?->value === 'running'
                     || $snapshot->hasMissingFile(),
@@ -47,13 +48,13 @@
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <span class="table-cell-primary truncate">{{ $snapshot->database_name }}</span>
-                            <a href="{{ route('database-servers.show', $snapshot->databaseServer) }}" wire:navigate
-                               class="text-sm text-base-content/60 hover:text-primary hover:underline truncate">
-                                {{ $snapshot->databaseServer->name }}
-                            </a>
                         </div>
                         <div class="flex items-center gap-2 mt-1 flex-wrap">
-                            <x-id-popover :id="$snapshot->id" />
+                            <a href="{{ route('database-servers.show', $snapshot->databaseServer) }}" wire:navigate
+                               class="badge badge-xs badge-ghost gap-1 hover:text-primary">
+                                <x-icon name="o-server-stack" class="w-3 h-3" />
+                                {{ $snapshot->databaseServer->name }}
+                            </a>
                             @foreach($snapshot->files as $file)
                                 @if($file->volume)
                                     <x-snapshot-volume-badge :file="$file" />
@@ -81,7 +82,9 @@
                                     </x-slot:content>
                                 </x-popover>
                             @endif
+                            @include('livewire.snapshot._lock', ['snapshot' => $snapshot])
                         </div>
+                        @include('livewire.snapshot._comment', ['snapshot' => $snapshot])
                     </div>
                 </div>
             @endscope
@@ -131,6 +134,7 @@
                             <x-button
                                 icon="bi.database-fill-down"
                                 wire:click="triggerRestore('{{ $snapshot->id }}')"
+                                spinner
                                 :tooltip="__('Restore')"
                                 class="btn-ghost btn-sm text-success"
                             />
@@ -144,6 +148,7 @@
                                 <x-button
                                     icon="o-arrow-down-tray"
                                     wire:click="openDownloadModal('{{ $snapshot->id }}')"
+                                    spinner
                                     :tooltip="__('Download')"
                                     class="btn-ghost btn-sm text-primary"
                                 />
@@ -162,6 +167,7 @@
                     <x-button
                         icon="o-document-text"
                         wire:click="viewLogs('{{ $job?->id }}')"
+                        spinner
                         :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
                         :class="$job ? '' : 'opacity-30'"
@@ -173,10 +179,20 @@
                             <x-button
                                 icon="o-trash"
                                 wire:click="confirmDeleteSnapshot('{{ $snapshot->id }}')"
+                                spinner
                                 :tooltip="__('Delete')"
                                 class="btn-ghost btn-sm text-error"
                             />
                         @endcan
+
+                        @if($snapshot->locked)
+                            @can(\App\Enums\Ability::DeleteSnapshots->value)
+                                {{-- The title sits on the wrapper: a disabled button gets pointer-events: none --}}
+                                <span class="cursor-not-allowed" title="{{ __('This snapshot is locked. Unlock it to delete.') }}">
+                                    <x-button icon="o-trash" class="btn-ghost btn-sm opacity-30" disabled />
+                                </span>
+                            @endcan
+                        @endif
                     @endif
 
                     @if($canCancel)
@@ -184,6 +200,7 @@
                             <x-button
                                 icon="o-x-mark"
                                 wire:click="confirmCancelJob('{{ $job->id }}')"
+                                spinner
                                 :tooltip="__('Cancel')"
                                 class="btn-ghost btn-sm text-error"
                             />

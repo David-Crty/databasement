@@ -6,9 +6,12 @@ use App\Enums\Ability;
 use App\Facades\AppConfig;
 use App\Models\DatabaseServer;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationOwnership;
 
 class DatabaseServerPolicy
 {
+    use ChecksOrganizationOwnership;
+
     /**
      * Determine whether the user can view any models.
      * All authenticated users can view the list.
@@ -20,11 +23,11 @@ class DatabaseServerPolicy
 
     /**
      * Determine whether the user can view the model.
-     * All authenticated users can view details.
+     * All authenticated users in the owning organization can view details.
      */
     public function view(User $user, DatabaseServer $databaseServer): bool
     {
-        return true;
+        return $this->ownedByCurrentOrganization($databaseServer->organization_id);
     }
 
     /**
@@ -43,6 +46,10 @@ class DatabaseServerPolicy
      */
     public function viewForm(User $user, ?DatabaseServer $databaseServer = null): bool
     {
+        if ($databaseServer && ! $this->ownedByCurrentOrganization($databaseServer->organization_id)) {
+            return false;
+        }
+
         return $user->isDemo() || $user->can(Ability::ManageDatabaseServers->value);
     }
 
@@ -59,7 +66,8 @@ class DatabaseServerPolicy
      */
     public function update(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->can(Ability::ManageDatabaseServers->value);
+        return $this->ownedByCurrentOrganization($databaseServer->organization_id)
+            && $user->can(Ability::ManageDatabaseServers->value);
     }
 
     /**
@@ -67,7 +75,8 @@ class DatabaseServerPolicy
      */
     public function delete(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->can(Ability::ManageDatabaseServers->value);
+        return $this->ownedByCurrentOrganization($databaseServer->organization_id)
+            && $user->can(Ability::ManageDatabaseServers->value);
     }
 
     /**
@@ -103,6 +112,10 @@ class DatabaseServerPolicy
      */
     public function backup(User $user, DatabaseServer $databaseServer): bool
     {
+        if (! $this->ownedByCurrentOrganization($databaseServer->organization_id)) {
+            return false;
+        }
+
         if ($databaseServer->backups_enabled === false || $databaseServer->backups->isEmpty()) {
             return false;
         }
@@ -115,6 +128,7 @@ class DatabaseServerPolicy
      */
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
-        return $user->isDemo() || $user->can(Ability::OperateRestores->value);
+        return $this->ownedByCurrentOrganization($databaseServer->organization_id)
+            && ($user->isDemo() || $user->can(Ability::OperateRestores->value));
     }
 }

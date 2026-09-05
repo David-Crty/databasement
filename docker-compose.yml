@@ -9,6 +9,10 @@ services:
     volumes:
       - .:/app
       - app-data:/data
+      # Pest's Test Impact Analysis baseline (~/.pest/tia). Kept in a named
+      # volume so `make test-tia` doesn't have to re-record it after every
+      # container recreate.
+      - pest-cache:/home/application/.pest
     ports:
       - "2226:2226"
     environment:
@@ -234,6 +238,7 @@ services:
 
 volumes:
   app-data:
+  pest-cache:
   mysql-data:
   postgres-data:
   rustfs-data:

@@ -24,7 +24,7 @@
             />
 
             <div class="flex items-center justify-end">
-                <x-button type="submit" class="btn-primary" label="{{ __('Save') }}" data-test="update-password-button" />
+                <x-button type="submit" class="btn-primary" label="{{ __('Save') }}" data-test="update-password-button" spinner="updatePassword" />
             </div>
         </form>
     </x-card>

@@ -123,7 +123,8 @@
                                   class="btn-primary btn-sm" wire:navigate />
                     @endcan
                     @can('delete', $server)
-                        <x-button icon="o-trash" wire:click="confirmDelete" tooltip-left="{{ __('Delete') }}"
+                        <x-button icon="o-trash" wire:click="confirmDelete"
+    spinner tooltip-left="{{ __('Delete') }}"
                                   class="btn-ghost btn-sm text-error" />
                     @endcan
                 </div>

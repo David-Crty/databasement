@@ -250,6 +250,69 @@ test('testConnectionForServer delegates to handler testConnection', function (st
     'firebird uses empty database name when no paths set' => ['firebird', ''],
 ]);
 
+test('postgres connection test opens the configured connection database', function () {
+    // Reproduces issues #545/#549: a managed instance that denies CONNECT on
+    // `postgres`, where the user can only reach their own database.
+    $mockHandler = Mockery::mock(\App\Services\Backup\Databases\DatabaseInterface::class);
+    $mockHandler->shouldReceive('testConnection')
+        ->once()
+        ->andReturn(['success' => true, 'message' => 'Connection successful', 'details' => []]);
+
+    $mockSshService = Mockery::mock(SshTunnelService::class);
+    $mockSshService->shouldReceive('close')->once();
+
+    $provider = Mockery::mock(DatabaseProvider::class, [new SftpFilesystem, $mockSshService])
+        ->makePartial();
+    $provider->shouldReceive('makeForServer')
+        ->once()
+        ->with(
+            Mockery::type(DatabaseServer::class),
+            'app_db',
+            Mockery::type('string'),
+            Mockery::type('int')
+        )
+        ->andReturn($mockHandler);
+
+    $server = DatabaseServer::forConnectionTest([
+        'database_type' => 'postgres',
+        'host' => 'db.example.com',
+        'port' => 5432,
+        'username' => 'user',
+        'password' => 'pass',
+        'extra_config' => ['connection_database' => 'app_db'],
+    ]);
+
+    expect($provider->testConnectionForServer($server)['success'])->toBeTrue();
+});
+
+test('connectionDatabase falls back to postgres', function (array $extraConfig, string $expected) {
+    expect(DatabaseProvider::connectionDatabase($extraConfig))->toBe($expected);
+})->with([
+    'unset' => [[], 'postgres'],
+    'empty string' => [['connection_database' => ''], 'postgres'],
+    'null' => [['connection_database' => null], 'postgres'],
+    'whitespace only' => [['connection_database' => "  \t "], 'postgres'],
+    'configured' => [['connection_database' => 'app_db'], 'app_db'],
+    'configured with surrounding whitespace' => [['connection_database' => ' app_db '], 'app_db'],
+]);
+
+test('makeFromConfig passes connection_database to the postgres handler', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::POSTGRESQL,
+        serverName: 'PG Server',
+        host: 'pg.example.com',
+        port: 5432,
+        username: 'postgres',
+        password: 'secret',
+        extraConfig: ['connection_database' => 'app_db'],
+    );
+
+    $database = (new DatabaseProvider)->makeFromConfig($config, 'myapp', 'pg.example.com', 5432);
+
+    expect((new ReflectionClass($database))->getProperty('config')->getValue($database))
+        ->toHaveKey('connection_database', 'app_db');
+});
+
 test('makeFromConfig builds correct config for SQLite with SSH array', function () {
     $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
         databaseType: DatabaseType::SQLITE,

@@ -13,6 +13,10 @@ use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\NotificationChannel;
+use App\Rules\MaxBytes;
+use App\Rules\SafeDumpFlags;
+use App\Rules\SafeHost;
+use App\Rules\SafeUsername;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\ShellProcessor;
 use App\Services\Backup\SyncBackupConfigurationsAction;
@@ -67,6 +71,13 @@ class Form extends \Livewire\Form
     public bool $dump_config_open = false;
 
     public bool $ssl_enabled = false;
+
+    /**
+     * PostgreSQL only. Database opened to test the connection and list the
+     * others. Empty falls back to `postgres`, which managed providers often do
+     * not grant CONNECT on. Stored in extra_config.
+     */
+    public string $connection_database = '';
 
     // SSH Tunnel Configuration
     public bool $ssh_enabled = false;
@@ -130,8 +141,6 @@ class Form extends \Livewire\Form
     public ?string $connectionTestMessage = null;
 
     public bool $connectionTestSuccess = false;
-
-    public bool $testingConnection = false;
 
     /** @var array<string, mixed> Connection test details (dbms, ping, ssl, etc.) */
     public array $connectionTestDetails = [];
@@ -462,6 +471,7 @@ class Form extends \Livewire\Form
         $this->dump_privileges = (bool) $server->getExtraConfig('dump_privileges', false);
         $this->dump_config_open = ! empty($this->dump_flags) || $this->dump_format === 'custom' || $this->dump_privileges;
         $this->ssl_enabled = (bool) $server->getExtraConfig('ssl_enabled', false);
+        $this->connection_database = $server->getExtraConfig('connection_database', '');
         $this->username = $server->username ?? '';
         $this->description = $server->description;
         $this->agent_id = $server->agent_id;
@@ -856,7 +866,13 @@ class Form extends \Livewire\Form
             $rules = array_merge($rules, $this->getSshValidationRules());
         }
 
-        $validated = $this->validate($rules);
+        try {
+            $validated = $this->validate($rules);
+        } catch (ValidationException $e) {
+            $this->revealSectionsForErrors(array_keys($e->errors()));
+
+            throw $e;
+        }
 
         if ($this->backups_enabled) {
             foreach ($this->backups as $index => $entry) {
@@ -866,6 +882,21 @@ class Form extends \Livewire\Form
         }
 
         return $validated;
+    }
+
+    /**
+     * Expand any collapsed section holding an invalid field, so the inline
+     * error is actually reachable once the page scrolls to it.
+     *
+     * @param  array<int, string>  $fields
+     */
+    private function revealSectionsForErrors(array $fields): void
+    {
+        foreach ($fields as $field) {
+            if (str_starts_with($field, 'form.dump_')) {
+                $this->dump_config_open = true;
+            }
+        }
     }
 
     /**
@@ -884,10 +915,11 @@ class Form extends \Livewire\Form
             'description' => 'nullable|string|max:1000',
             'agent_id' => ['nullable', Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
             'backups_enabled' => 'boolean',
-            'dump_flags' => ['nullable', 'string', 'max:500', 'regex:/^[a-zA-Z0-9\s\-\_\=\.\/\,\:\*\?\%\+\@]+$/'],
+            'dump_flags' => ['nullable', 'string', 'max:500', new SafeDumpFlags(DatabaseType::tryFrom($this->database_type))],
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
             'dump_privileges' => 'boolean',
             'ssl_enabled' => 'boolean',
+            'connection_database' => ['nullable', 'string', new MaxBytes(63), 'regex:'.DatabaseType::IDENTIFIER_PATTERN],
             'notification_trigger' => ['required', 'string', Rule::in(array_column(NotificationTrigger::cases(), 'value'))],
             'notification_channel_selection' => ['required', 'string', Rule::in(array_column(NotificationChannelSelection::cases(), 'value'))],
             'notification_channel_ids' => ['array', Rule::requiredIf(
@@ -1066,7 +1098,6 @@ class Form extends \Livewire\Form
 
     public function testConnection(): void
     {
-        $this->testingConnection = true;
         $this->connectionTestMessage = null;
         $this->connectionTestDetails = [];
         $this->availableDatabases = [];
@@ -1088,21 +1119,19 @@ class Form extends \Livewire\Form
                 $this->validate($rules);
             }
         } catch (ValidationException $e) {
-            $this->testingConnection = false;
             $this->connectionTestSuccess = false;
             /** @var string $message */
             $message = collect($e->errors())->flatten()->first()
                 ?? __('Please fill in all required connection fields.');
             $this->connectionTestMessage = $message;
 
-            return;
+            throw $e;
         }
 
         // Test connection
         try {
             $password = $this->password ?: $this->server?->getDecryptedPassword();
         } catch (EncryptionException $e) {
-            $this->testingConnection = false;
             $this->connectionTestSuccess = false;
             $this->connectionTestMessage = $e->getMessage();
 
@@ -1131,7 +1160,6 @@ class Form extends \Livewire\Form
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
         $this->connectionTestDetails = $result['details'];
-        $this->testingConnection = false;
 
         // If connection successful and supports per-database backups, load available databases
         if ($this->connectionTestSuccess && ! $this->identifiesDatabasesByPath() && ! $this->isRedis()) {
@@ -1153,9 +1181,12 @@ class Form extends \Livewire\Form
             $this->validate($this->getSshValidationRules());
         } catch (ValidationException $e) {
             $this->testingSshConnection = false;
-            $this->sshTestMessage = 'Please fill in all required SSH connection fields.';
+            /** @var string $message */
+            $message = collect($e->errors())->flatten()->first()
+                ?? __('Please fill in all required SSH connection fields.');
+            $this->sshTestMessage = $message;
 
-            return;
+            throw $e;
         }
 
         $sshConfig = $this->buildSshConfigForTest();
@@ -1302,17 +1333,35 @@ class Form extends \Livewire\Form
     }
 
     /**
+     * Whether validation flagged any SSH field. The SSH editor is collapsed
+     * while an existing config is selected, which would otherwise hide the
+     * error the user has to act on.
+     */
+    public function hasSshFieldErrors(): bool
+    {
+        $prefix = $this->getPropertyName().'.ssh_';
+
+        foreach ($this->getComponent()->getErrorBag()->keys() as $key) {
+            if (str_starts_with($key, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Get SSH validation rules. Public so per-type connection rules
      * (e.g. SQLite over SFTP) can include them in their test rules.
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     public function getSshValidationRules(): array
     {
         $rules = [
-            'ssh_host' => 'required|string|max:255',
+            'ssh_host' => ['required', 'string', 'max:255', new SafeHost],
             'ssh_port' => 'required|integer|min:1|max:65535',
-            'ssh_username' => 'required|string|max:255',
+            'ssh_username' => ['required', 'string', 'max:255', new SafeUsername],
             'ssh_auth_type' => 'required|string|in:password,key',
         ];
 

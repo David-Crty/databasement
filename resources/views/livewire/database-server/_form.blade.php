@@ -134,7 +134,7 @@ use App\Enums\DatabaseType;
 
                                     @if($form->dump_format === 'custom')
                                         <x-alert class="alert-warning" icon="o-exclamation-triangle">
-                                            {{ __('Custom format archives are version-sensitive: the target restore server must be PostgreSQL 17 or newer. Restores run with 4 parallel pg_restore workers.') }}
+                                            {{ __('Custom format archives are version-sensitive: the target restore server must be no older than this one. Restores run with 4 parallel pg_restore workers.') }}
                                         </x-alert>
                                     @endif
 
@@ -176,12 +176,9 @@ use App\Enums\DatabaseType;
                                 type="button"
                                 icon="{{ $form->connectionTestSuccess ? 'o-check-circle' : 'o-bolt' }}"
                                 wire:click="testConnection"
-                                :disabled="$form->testingConnection"
-                                spinner="testConnection"
+                                spinner
                             >
-                                @if($form->testingConnection)
-                                    {{ __('Testing...') }}
-                                @elseif($form->connectionTestSuccess)
+                                @if($form->connectionTestSuccess)
                                     {{ __('Connection Verified') }}
                                     @if(!empty($form->connectionTestDetails['ping_ms']))
                                         ({{ $form->connectionTestDetails['ping_ms'] }}ms)
@@ -194,6 +191,7 @@ use App\Enums\DatabaseType;
                             @if($form->connectionTestSuccess && !empty($form->connectionTestDetails['output']))
                                 <x-button
                                     wire:click="$toggle('form.showConnectionDetails')"
+                                    spinner="form.showConnectionDetails"
                                     class="btn-ghost btn-sm"
                                     icon="{{ $form->showConnectionDetails ? 'o-eye-slash' : 'o-eye' }}"
                                     :label="$form->showConnectionDetails ? __('Hide Details') : __('Show Details')"
@@ -294,6 +292,7 @@ use App\Enums\DatabaseType;
                     <div class="flex justify-center pt-2">
                         <x-button
                             wire:click="addBackup"
+                            spinner
                             icon="o-plus"
                             class="btn-outline btn-primary"
                             :label="__('Add another backup configuration')"
@@ -421,6 +420,9 @@ use App\Enums\DatabaseType;
                                             <button
                                                 type="button"
                                                 wire:click="$set('form.notification_channel_ids', [])"
+                                                wire:loading.attr="disabled"
+                                                wire:loading.class="opacity-50"
+                                                wire:target="form.notification_channel_ids"
                                                 class="text-xs text-base-content/60 hover:text-base-content hover:underline cursor-pointer"
                                             >
                                                 {{ __('Clear all') }}
@@ -435,6 +437,9 @@ use App\Enums\DatabaseType;
                                                 role="checkbox"
                                                 aria-checked="{{ $isSelected ? 'true' : 'false' }}"
                                                 wire:click="toggleNotificationChannel('{{ $channel->id }}')"
+                                                wire:loading.attr="disabled"
+                                                wire:loading.class="opacity-50"
+                                                wire:target="toggleNotificationChannel('{{ $channel->id }}')"
                                                 wire:key="channel-card-{{ $channel->id }}"
                                                 class="relative flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all cursor-pointer {{ $isSelected ? 'border-primary bg-primary/5 shadow-sm' : 'border-base-300 bg-base-100 hover:bg-base-200' }}"
                                             >

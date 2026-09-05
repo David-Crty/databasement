@@ -57,6 +57,11 @@ class Index extends Component
 
     public bool $showDownloadModal = false;
 
+    #[Locked]
+    public ?string $editCommentSnapshotId = null;
+
+    public string $commentDraft = '';
+
     /**
      * @return array<int, array<string, mixed>>
      */
@@ -78,12 +83,12 @@ class Index extends Component
         // Bypass the OrganizationScope on DatabaseServer/Volume so cross-org
         // deeplinks (e.g. a notification opened while the user is in another
         // org) can still render the snapshot/server context in the logs modal.
-        // The job-view policy already gates access to this data.
-        return BackupJob::with([
+        // guardSelectedJob() applies the view policy to what comes back.
+        return $this->guardSelectedJob(BackupJob::with([
             'snapshot.databaseServer' => fn ($q) => $q->withoutGlobalScopes(),
             'snapshot.files.volume' => fn ($q) => $q->withoutGlobalScopes(),
             'snapshot.triggeredBy',
-        ])->find($this->selectedJobId);
+        ])->find($this->selectedJobId));
     }
 
     public function triggerRestore(string $snapshotId): void
@@ -151,6 +156,57 @@ class Index extends Component
         }
 
         return Snapshot::with('files.volume')->find($this->downloadSnapshotId);
+    }
+
+    public function editComment(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('update', $snapshot);
+
+        $this->editCommentSnapshotId = $snapshotId;
+        $this->commentDraft = (string) $snapshot->comment;
+        $this->resetValidation();
+    }
+
+    public function cancelEditComment(): void
+    {
+        $this->reset('editCommentSnapshotId', 'commentDraft');
+        $this->resetValidation();
+    }
+
+    public function saveComment(): void
+    {
+        $snapshot = Snapshot::findOrFail($this->editCommentSnapshotId);
+
+        $this->authorize('update', $snapshot);
+
+        $this->validate([
+            'commentDraft' => 'nullable|string|max:1000',
+        ]);
+
+        $comment = trim($this->commentDraft);
+
+        $snapshot->update([
+            'comment' => $comment !== '' ? $comment : null,
+        ]);
+
+        $this->reset('editCommentSnapshotId', 'commentDraft');
+
+        $this->success(__('Snapshot comment saved.'));
+    }
+
+    public function toggleLock(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('lock', $snapshot);
+
+        $snapshot->update(['locked' => ! $snapshot->locked]);
+
+        $this->success($snapshot->locked
+            ? __('Snapshot locked. Automatic cleanup will keep it.')
+            : __('Snapshot unlocked.'));
     }
 
     public function confirmDeleteSnapshot(string $snapshotId): void

@@ -461,3 +461,55 @@ test('rejects a source copy that does not belong to the selected snapshot', func
 
     Queue::assertNothingPushed();
 });
+
+// The ownership option used to be swapped for a bare notice on snapshots dumped
+// with ownership and privilege information, which left the reporter of #525 —
+// who runs exactly that setup — with no way to say who owns the restored
+// database. No dump carries that, so the field stays; only its reach narrows.
+test('destination step offers a database owner field whatever the snapshot preserves', function (bool $preservesPrivileges, string $label) {
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres', 'username' => 'databasement']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create([
+        'metadata' => $preservesPrivileges ? ['dump_privileges' => true] : [],
+    ]);
+
+    $component = Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->assertSee($label)
+        // Nothing runs until an owner is named, so nothing is previewed either.
+        ->assertDontSee('ALTER DATABASE')
+        ->set('schemaName', 'restored_db')
+        ->set('ownerUser', 'webapp')
+        ->assertSee('ALTER DATABASE "restored_db" OWNER TO "webapp"');
+
+    // The reassignment is announced only where it runs: a snapshot that carries
+    // its own owners restores its objects under them, leaving nothing to move.
+    if ($preservesPrivileges) {
+        $component->assertDontSee('REASSIGN OWNED BY');
+    } else {
+        $component->assertSee('REASSIGN OWNED BY "databasement" TO "webapp"');
+    }
+})->with([
+    'snapshot preserving ownership' => [true, 'Set database owner after restore'],
+    'portable snapshot' => [false, 'Transfer database ownership to user after restore'],
+]);
+
+test('the owner of a privilege-preserving restore reaches the queued job', function () {
+    Queue::fake();
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create([
+        'metadata' => ['dump_privileges' => true],
+    ]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('schemaName', 'restored_db')
+        ->set('ownerUser', 'webapp')
+        ->call('restore');
+
+    expect(Restore::firstOrFail()->getOption('owner_user'))->toBe('webapp');
+});
