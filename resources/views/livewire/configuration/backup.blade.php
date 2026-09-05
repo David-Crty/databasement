@@ -23,6 +23,7 @@
                         icon="o-plus"
                         class="btn-primary btn-sm"
                         wire:click="openScheduleModal"
+                        spinner
                     />
                 @endif
             </x-card-heading>
@@ -76,7 +77,7 @@
                 @scope('cell_actions', $schedule)
                     @if ($this->canManage)
                         <div class="flex justify-end flex-nowrap gap-1">
-                            <x-button icon="o-pencil-square" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openScheduleModal('{{ $schedule->id }}')" :tooltip-left="__('Edit')" />
+                            <x-button icon="o-pencil-square" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openScheduleModal('{{ $schedule->id }}')" spinner :tooltip-left="__('Edit')" />
                             @if ($schedule->total_backups_count > 0 || $schedule->scheduled_restores_count > 0)
                                 <x-popover>
                                     <x-slot:trigger>
@@ -93,7 +94,7 @@
                                     </x-slot:content>
                                 </x-popover>
                             @else
-                                <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDeleteSchedule('{{ $schedule->id }}')" :tooltip-left="__('Delete')" />
+                                <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDeleteSchedule('{{ $schedule->id }}')" spinner :tooltip-left="__('Delete')" />
                             @endif
                         </div>
                     @endif
@@ -175,7 +176,7 @@
                                 <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->cleanup_cron) }}</div>
                             </div>
                             @if ($this->canManage)
-                                <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runCleanup" spinner="runCleanup" :tooltip-left="__('Run now')" />
+                                <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runCleanup" spinner :tooltip-left="__('Run now')" />
                             @endif
                         </div>
                     </x-config-row>
@@ -192,7 +193,7 @@
                                     <div class="fieldset-label mt-1 text-xs">{{ \App\Support\Formatters::cronTranslation($form->verify_files_cron) }}</div>
                                 </div>
                                 @if ($this->canManage)
-                                    <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runVerifyFiles" spinner="runVerifyFiles" :tooltip-left="__('Run now')" />
+                                    <x-button icon="o-play" class="btn-ghost btn-sm mt-1" wire:click="runVerifyFiles" spinner :tooltip-left="__('Run now')" />
                                 @endif
                             </div>
                         </x-config-row>
@@ -371,7 +372,7 @@
                 class="btn-primary"
                 :label="__('Save')"
                 wire:click="saveSchedule"
-                spinner="saveSchedule"
+                spinner
             />
         </x-slot:actions>
     </x-modal>
@@ -386,7 +387,7 @@
                 class="btn-error"
                 :label="__('Delete')"
                 wire:click="deleteSchedule"
-                spinner="deleteSchedule"
+                spinner
             />
         </x-slot:actions>
     </x-modal>

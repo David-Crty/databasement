@@ -16,14 +16,13 @@
         <x-card title="{{ __('Language') }}" subtitle="{{ __('Choose your preferred language') }}" class="mb-6">
             <div class="flex flex-wrap gap-3">
                 @foreach($availableLocales as $code => $label)
-                    <button
+                    <x-button
+                        :label="$label"
                         wire:click="setLocale('{{ $code }}')"
-                        wire:key="locale-{{ $code }}"
-                        aria-pressed="{{ $locale === $code ? 'true' : 'false' }}"
-                        class="btn {{ $locale === $code ? 'btn-primary' : 'btn-outline' }}"
-                    >
-                        {{ $label }}
-                    </button>
+                        spinner
+                        :aria-pressed="$locale === $code ? 'true' : 'false'"
+                        :class="$locale === $code ? 'btn-primary' : 'btn-outline'"
+                    />
                 @endforeach
             </div>
         </x-card>

@@ -24,7 +24,7 @@
                 placeholder="email@example.com"
             />
 
-            <x-button type="submit" class="btn-primary w-full" label="{{ __('Email password reset link') }}" data-test="email-password-reset-link-button" />
+            <x-submit-button class="btn-primary w-full" :label="__('Email password reset link')" data-test="email-password-reset-link-button" />
         </form>
 
         <div class="space-x-1 rtl:space-x-reverse text-center text-sm">

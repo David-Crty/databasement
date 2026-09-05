@@ -617,8 +617,6 @@
   "Test SSH": "Δοκιμή SSH",
   "Test notification sent to: :channel": "Η δοκιμαστική ειδοποίηση στάλθηκε στο: :channel",
   "Test notification sent to: :channels": "Η δοκιμαστική ειδοποίηση στάλθηκε στα: :channels",
-  "Testing Connection...": "Δοκιμή σύνδεσης...",
-  "Testing...": "Δοκιμή...",
   "The AWS region where your S3 bucket is located.": "Η AWS region όπου βρίσκεται το S3 bucket σας.",
   "The Discord channel where failure notifications are sent.": "Το Discord channel όπου αποστέλλονται ειδοποιήσεις αποτυχίας.",
   "The chat or group ID where failure notifications are sent.": "Το ID chat ή group όπου αποστέλλονται ειδοποιήσεις αποτυχίας.",

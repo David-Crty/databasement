@@ -8,9 +8,7 @@
                         <span class="text-sm text-base-content/70">{{ $databaseType }}</span>
                         <h3 class="text-sm font-bold">{{ $serverName }}</h3>
                     </div>
-                    <button class="btn btn-sm btn-ghost btn-circle" @click="$wire.closeModal()">
-                        <x-icon name="o-x-mark" class="w-5 h-5" />
-                    </button>
+                    <x-button icon="o-x-mark" class="btn-sm btn-ghost btn-circle" wire:click="closeModal" spinner />
                 </div>
                 <div class="flex-1 min-h-0">
                     <iframe

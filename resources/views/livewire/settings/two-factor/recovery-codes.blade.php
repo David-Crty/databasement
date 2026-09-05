@@ -37,6 +37,7 @@
                     icon="o-arrow-path"
                     class="btn-outline"
                     wire:click="regenerateRecoveryCodes"
+                    spinner
                     label="{{ __('Regenerate Codes') }}"
                 />
             @endif

@@ -622,8 +622,6 @@
   "Test SSH": "Tester SSH",
   "Test notification sent to: :channel": "Notification de test envoyée à : :channel",
   "Test notification sent to: :channels": "Notification de test envoyée à : :channels",
-  "Testing Connection...": "Test de la connexion...",
-  "Testing...": "Test en cours...",
   "The AWS region where your S3 bucket is located.": "La région AWS où se trouve votre bucket S3.",
   "The Discord channel where failure notifications are sent.": "Le canal Discord où les notifications d’échec sont envoyées.",
   "The chat or group ID where failure notifications are sent.": "L’ID du chat ou groupe où les notifications d’échec sont envoyées.",
