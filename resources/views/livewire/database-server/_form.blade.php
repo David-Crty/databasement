@@ -136,7 +136,7 @@ use App\Enums\DatabaseType;
 
                                     @if($form->dump_format === 'custom')
                                         <x-alert class="alert-warning" icon="o-exclamation-triangle">
-                                            {{ __('Custom format archives are version-sensitive: the target restore server must be PostgreSQL 17 or newer. Restores run with 4 parallel pg_restore workers.') }}
+                                            {{ __('Custom format archives are version-sensitive: the target restore server must be no older than this one. Restores run with 4 parallel pg_restore workers.') }}
                                         </x-alert>
                                     @endif
 

@@ -706,4 +706,30 @@ test('creating an S3 server without a bucket fails validation', function () {
         ->set('form.backups.0.retention_days', 14)
         ->call('save')
         ->assertHasErrors(['form.s3_bucket']);
+test('a failed save points the user at the first invalid field', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Prod MySQL')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.dump_flags', '--result-file asdasd')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_names.0', 'myapp_production')
+        ->call('save')
+        ->assertHasErrors('form.dump_flags')
+        ->assertDispatched('validation-failed', field: 'form.dump_flags')
+        // The offending field lives in a collapsed section, so the error is
+        // unreachable unless the section is expanded too.
+        ->assertSet('form.dump_config_open', true);
+
+    expect(json_encode($component->effects['xjs'] ?? []))
+        ->toContain('1 field needs your attention');
 });

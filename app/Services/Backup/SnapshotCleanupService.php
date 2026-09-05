@@ -16,6 +16,9 @@ class SnapshotCleanupService
     /**
      * Run the cleanup process.
      *
+     * Locked snapshots are excluded before any tier is computed, so they are
+     * never deleted and never occupy a GFS keep slot.
+     *
      * @return array{deleted: int, dry_run: bool}
      */
     public function run(bool $dryRun = false): array
@@ -58,6 +61,7 @@ class SnapshotCleanupService
 
         $expiredSnapshots = Snapshot::where('backup_id', $backup->id)
             ->completed()
+            ->where('locked', false)
             ->where('created_at', '<', $cutoffDate)
             ->get();
 
@@ -89,6 +93,7 @@ class SnapshotCleanupService
 
         $allSnapshots = Snapshot::where('backup_id', $backup->id)
             ->completed()
+            ->where('locked', false)
             ->orderBy('created_at', 'desc')
             ->get();
 

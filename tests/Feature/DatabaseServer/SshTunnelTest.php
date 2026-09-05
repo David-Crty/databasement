@@ -324,3 +324,52 @@ test('testSshConnection calls form method', function () {
         ->assertSet('form.testingSshConnection', false)
         ->assertSet('form.sshTestSuccess', false);
 });
+
+test('a validation error on a hidden SSH field expands the SSH editor', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    // "Use existing" collapses the SSH editor, so the required host/port/username
+    // rules would otherwise fail against fields the user cannot see.
+    $html = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Bastion Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'private-db.internal')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_names.0', 'myapp_production')
+        ->set('form.ssh_enabled', true)
+        ->set('form.ssh_config_mode', 'existing')
+        ->call('save')
+        ->assertHasErrors('form.ssh_host')
+        ->assertDispatched('validation-failed', field: 'form.ssh_host')
+        ->html();
+
+    expect($html)->toContain('showForm: true');
+});
+
+test('a failed SSH test says which field is wrong', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.ssh_enabled', true)
+        ->set('form.ssh_config_mode', 'create')
+        ->set('form.ssh_host', 'bastion.example.com')
+        ->set('form.ssh_username', 'deploy')
+        ->set('form.ssh_auth_type', 'key')
+        ->call('testSshConnection')
+        ->assertSet('form.sshTestSuccess', false)
+        // A generic "fill in the required fields" hides which one, and why.
+        ->assertSet('form.sshTestMessage', 'The ssh private key field is required.')
+        // Testing the connection points at the offending field the same way
+        // submitting the form does.
+        ->assertHasErrors('form.ssh_private_key')
+        ->assertDispatched('validation-failed', field: 'form.ssh_private_key');
+});

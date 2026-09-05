@@ -113,8 +113,9 @@ class DatabaseProvider
         }
 
         // Marks a live server: the handler may query it for the MySQL/MariaDB
-        // flavour. Display-only configs, like the dump preview, leave it unset.
-        if ($config->databaseType === DatabaseType::MYSQL) {
+        // flavour, or for the PostgreSQL major that decides which client build
+        // to run. Display-only configs, like the dump preview, leave it unset.
+        if (in_array($config->databaseType, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true)) {
             $dbConfig['probe_server_version'] = true;
         }
 

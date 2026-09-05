@@ -7,6 +7,7 @@ use App\Models\Scopes\OrganizationScope;
 use App\Models\User;
 use App\Services\CurrentOrganization;
 use App\Services\Roles\AssignRoleToUserAction;
+use App\Traits\SurfacesValidationErrors;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -20,7 +21,7 @@ use Silber\Bouncer\Database\Role;
 #[Title('Add User')]
 class Create extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -43,7 +44,7 @@ class Create extends Component
     {
         $this->authorize('create', User::class);
 
-        $user = $this->form->store();
+        $user = $this->withValidationFeedback(fn (): User => $this->form->store());
 
         $this->invitationUrl = $user->getInvitationUrl();
         $this->showCopyModal = true;

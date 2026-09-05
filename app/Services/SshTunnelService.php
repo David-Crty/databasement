@@ -305,7 +305,11 @@ class SshTunnelService
         string $remoteCommand = ''
     ): string {
         $optionsString = implode(' ', array_map('escapeshellarg', $sshOptions));
-        $userHost = escapeshellarg($sshUsername).'@'.escapeshellarg($sshHost);
+
+        // `-l user host` rather than `user@host`: concatenating them puts the
+        // username in the first character position of the argument, where a
+        // leading dash is parsed by ssh as an option rather than a destination.
+        $destination = '-l '.escapeshellarg($sshUsername).' -- '.escapeshellarg($sshHost);
         $suffix = $remoteCommand !== '' ? ' '.$remoteCommand : '';
 
         if ($authType === 'key' && ! empty($privateKey)) {
@@ -326,7 +330,7 @@ class SshTunnelService
                     'SSH_ASKPASS=%s SSH_ASKPASS_REQUIRE=force setsid ssh %s %s%s',
                     escapeshellarg($this->askPassScript),
                     $optionsString,
-                    $userHost,
+                    $destination,
                     $suffix
                 );
             }
@@ -336,12 +340,12 @@ class SshTunnelService
                 'SSHPASS=%s sshpass -e ssh %s %s%s',
                 escapeshellarg($password),
                 $optionsString,
-                $userHost,
+                $destination,
                 $suffix
             );
         }
 
-        return sprintf('ssh %s %s%s', $optionsString, $userHost, $suffix);
+        return sprintf('ssh %s %s%s', $optionsString, $destination, $suffix);
     }
 
     /**
