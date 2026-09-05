@@ -6,14 +6,28 @@ YELLOW := \033[0;33m
 NC     := \033[0m # No Color
 
 # Docker / PHP helpers
-DOCKER_COMPOSE := docker compose
+#
+# Everything runs in the container started from the main checkout, which
+# bind-mounts the repo at /app. A git worktree has no docker-compose.yml of its
+# own, so Compose is pointed at the main checkout (found via the shared git
+# dir) and the command is run in the worktree's own path inside the container.
+# Both values collapse to the plain main-checkout case when CURDIR is the repo
+# root, and to `/app` when make is run outside a git repo.
+COMPOSE_ROOT := $(patsubst %/.git,%,$(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null))
+WORKTREE_REL := $(patsubst $(COMPOSE_ROOT)%,%,$(CURDIR))
+ifeq ($(WORKTREE_REL),$(CURDIR))
+WORKTREE_REL :=
+endif
+
+DOCKER_COMPOSE := docker compose $(if $(COMPOSE_ROOT),--project-directory $(COMPOSE_ROOT),)
 PHP_SERVICE    := app
+PHP_WORKDIR    := /app$(WORKTREE_REL)
 
 # Forward AI-agent env vars (Claude Code, Cursor, Gemini, ...) into the container so
 # laravel/pao detects the agent and emits compact JSON output instead of verbose logs.
 # `-e VAR` is only added when VAR is set on the host, avoiding empty-string false positives.
 AGENT_ENV := $(foreach v,CLAUDECODE CLAUDE_CODE AI_AGENT CURSOR_AGENT GEMINI_CLI PAO_DISABLE,$(if $($(v)),-e $(v)))
-PHP_EXEC  := $(DOCKER_COMPOSE) exec --user application -T $(AGENT_ENV) $(PHP_SERVICE)
+PHP_EXEC  := $(DOCKER_COMPOSE) exec --user application -T $(AGENT_ENV) -w $(PHP_WORKDIR) $(PHP_SERVICE)
 PHP_COMPOSER   := $(PHP_EXEC) composer
 PHP_ARTISAN    := $(PHP_EXEC) php artisan
 NPM_EXEC       := npm
@@ -31,10 +45,10 @@ install: ## Install dependencies (composer + npm)
 	$(NPM_EXEC) install
 
 setup: start install build migrate
-	docker compose restart app worker
+	$(DOCKER_COMPOSE) restart app worker
 
 start: ## Start development server (all services: php, queue, mysql, postgres)
-	docker compose up -d
+	$(DOCKER_COMPOSE) up -d
 
 migrate:
 	$(PHP_ARTISAN) migrate
