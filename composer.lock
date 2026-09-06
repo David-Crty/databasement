@@ -4357,21 +4357,21 @@
         },
         {
             "name": "mongodb/mongodb",
-            "version": "2.3.0",
+            "version": "2.4.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/mongodb/mongo-php-library",
-                "reference": "12e56461166d915e3dd8e4969ad0940ed5207d88"
+                "reference": "b72cc2ecf4a11d3871f78a119a8f3cc7ab6d6c29"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/mongodb/mongo-php-library/zipball/12e56461166d915e3dd8e4969ad0940ed5207d88",
-                "reference": "12e56461166d915e3dd8e4969ad0940ed5207d88",
+                "url": "https://api.github.com/repos/mongodb/mongo-php-library/zipball/b72cc2ecf4a11d3871f78a119a8f3cc7ab6d6c29",
+                "reference": "b72cc2ecf4a11d3871f78a119a8f3cc7ab6d6c29",
                 "shasum": ""
             },
             "require": {
                 "composer-runtime-api": "^2.0",
-                "ext-mongodb": "^2.3",
+                "ext-mongodb": "^2.4",
                 "php": "^8.1",
                 "psr/log": "^1.1.4|^2|^3",
                 "symfony/polyfill-php85": "^1.33"
@@ -4426,7 +4426,7 @@
                 "mongodb",
                 "persistence"
             ],
-            "time": "2026-04-28T12:50:06+00:00"
+            "time": "2026-08-27T14:43:15+00:00"
         },
         {
             "name": "monolog/monolog",
