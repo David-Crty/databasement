@@ -9,7 +9,7 @@
 .cache-loader
 
 # Changelog page (generated from the root CHANGELOG.md by scripts/sync-changelog.js)
-/docs/self-hosting/changelog.md
+/docs/changelog.md
 
 # Versioned docs snapshots (generated from git tags by scripts/prepare-versions.sh)
 /versioned_docs

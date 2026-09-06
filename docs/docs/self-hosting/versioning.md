@@ -6,7 +6,7 @@ sidebar_position: 6
 
 Databasement follows [semantic versioning](https://semver.org/). The Docker images, Helm chart, and application all share the same version number — version `1.0.1` means the same release everywhere.
 
-Every change is listed on the [Changelog](./changelog.md) page, which is also shown inside the application (linked from the sidebar and the update dialog). Available versions are listed on [GitHub Releases](https://github.com/David-Crty/databasement/releases).
+Every change is listed on the [Changelog](../changelog.md) page, which is also shown inside the application (linked from the sidebar and the update dialog). Available versions are listed on [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
 ## Docker Image Tags
 

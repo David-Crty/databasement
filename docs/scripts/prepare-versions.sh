@@ -51,10 +51,13 @@ for MINOR in $MINORS; do
     # snapshot's own version.
     find docs/docs -type f \( -name '*.md' -o -name '*.mdx' \) -exec sed -i -E \
         's@\]\((/(user-guide|self-hosting|contributing)/[A-Za-z0-9/_-]+)(#[^)]*)?\)@](\1.md\3)@g' {} +
+    # The changelog page moved from the self-hosting section to the docs root;
+    # tags cut before that link to it from within the section.
+    find docs/docs/self-hosting -type f \( -name '*.md' -o -name '*.mdx' \) -exec sed -i \
+        's@\](\./changelog\.md@](../changelog.md@g' {} +
     # The changelog page is generated from the root CHANGELOG.md rather than
-    # committed, so no tag carries it: write it into each snapshot, without the
-    # releases that came after the one being snapshotted.
-    node "$DOCS_DIR/scripts/sync-changelog.js" --max-minor "$MINOR"
+    # committed, so no tag carries it: write the latest one into each snapshot.
+    node "$DOCS_DIR/scripts/sync-changelog.js"
     (cd "$DOCS_DIR" && npx docusaurus docs:version "$MINOR")
 done
 
