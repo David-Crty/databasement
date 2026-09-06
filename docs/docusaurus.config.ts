@@ -46,6 +46,7 @@ const config: Config = {
                     'self-hosting/native-ubuntu.md',
                     'self-hosting/configuration/**',
                     'self-hosting/versioning.md',
+                    'self-hosting/changelog.md',
                     'user-guide/intro.md',
                     'user-guide/database-servers.md',
                     'user-guide/volumes.md',

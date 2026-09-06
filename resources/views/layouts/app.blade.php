@@ -58,6 +58,7 @@
                 <x-menu-item :title="__('Agents')" icon="o-cpu-chip" :link="route('agents.index')" wire:navigate />
                 <x-menu-separator />
                 <x-menu-item :title="__('Configuration')" icon="o-cog-6-tooth" :link="route('configuration.application')" wire:navigate />
+                <x-menu-item :title="__('Changelog')" icon="o-newspaper" :link="route('changelog')" wire:navigate />
                 <x-menu-item title="{{ __('API Docs') }}" no-wire-navigate="true" icon="o-document-text" link="{{ route('scramble.docs.ui') }}" />
                 <x-menu-item title="{{ __('API Tokens') }}" icon="o-key" link="{{ route('api-tokens.index') }}" wire:navigate />
             </x-menu>
@@ -119,6 +120,9 @@
                 <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
                     <a href="https://david-crty.github.io/databasement/" target="_blank" rel="noopener" class="link link-hover">
                         Documentation
+                    </a>
+                    <a href="{{ route('changelog') }}" wire:navigate class="link link-hover">
+                        {{ __('Changelog') }}
                     </a>
                     <a href="{{ $githubRepo }}/issues/new" target="_blank" rel="noopener" class="link link-hover">
                         Report an issue
