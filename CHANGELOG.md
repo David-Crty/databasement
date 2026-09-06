@@ -12,6 +12,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Added
 
+- `1.7.12` The v1 REST API is rate limited, 300 requests a minute per access token by default; `API_RATE_LIMIT` raises or lowers the ceiling and `0` turns it off where a gateway already throttles. The agent daemon routes and the web interface are not affected ([#524](https://github.com/David-Crty/databasement/pull/524))
 - `1.7.11` Super admins can list the database servers of every organization at once, from a searchable overview opened on the Configuration → Organizations page, with the latest backup status of each server and a shortcut that switches to its organization and opens the server or its jobs ([#521](https://github.com/David-Crty/databasement/pull/521))
 - `1.7.11` The changelog is written for the people who run Databasement and published as a page in the application, linked from the sidebar and the update dialog, and on the documentation site ([#600](https://github.com/David-Crty/databasement/pull/600))
 - `1.7.9` Snapshots can carry a free-text comment and be locked, which excludes them from automatic cleanup and blocks manual deletion until unlocked ([#522](https://github.com/David-Crty/databasement/pull/522))
@@ -33,6 +34,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.7.12` The `latest` Docker image is published from the release tag only, so it can no longer be overwritten by a concurrent build of `main` that carries no version number, which blanked the version badge and the update dialog. The tip of `main` is published as `edge` ([#601](https://github.com/David-Crty/databasement/pull/601))
 - `1.7.10` A form that fails validation raises a toast, expands the collapsed section holding the first invalid field and scrolls it into view with focus; the connection test buttons validate the same way ([#598](https://github.com/David-Crty/databasement/pull/598))
 - `1.7.9` A command log no longer shows a running spinner forever when the job dies before the command finishes (queue timeout, killed worker, fatal error); it is marked failed together with the job ([#541](https://github.com/David-Crty/databasement/pull/541))
 - `1.7.8` PostgreSQL servers below version 17 are dumped with the PostgreSQL 16 client, now shipped in the image alongside the 18 client, so their snapshots restore back into the server they came from; when no matching client exists, the job log warns that the snapshot may only load into a newer server ([#595](https://github.com/David-Crty/databasement/pull/595)) ([#596](https://github.com/David-Crty/databasement/pull/596))
@@ -264,7 +266,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.11
+[1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.12
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
 [1.5]: https://github.com/David-Crty/databasement/compare/v1.4.2...v1.5.6
 [1.4]: https://github.com/David-Crty/databasement/compare/v1.3.1...v1.4.2
