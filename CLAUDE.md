@@ -248,7 +248,7 @@ Ensure tests pass and code is formatted before committing.
 
 ### Commit and PR Titles (changelog)
 
-`CHANGELOG.md` (Keep a Changelog, **one section per minor version** with every entry prefixed by the patch that shipped it) is drafted from git history by git-cliff (`cliff.toml`, `make changelog-draft`) and polished by the `/changelog` skill. The app renders it as Markdown at `/changelog` (styled by `.changelog` in `resources/css/app.css`), and `docs/scripts/sync-changelog.js` publishes it as a documentation page. PRs are squash-merged, so the **PR title becomes the commit subject git-cliff reads**. Write it as a conventional commit, `type(scope)?: description`:
+`CHANGELOG.md` (Keep a Changelog, **one section per minor version** with every entry prefixed by the patch that shipped it, no Unreleased section) is written at release time by the `/changelog` skill, from the commits since the last tag. The app renders it as Markdown at `/changelog` (styled by `.changelog` in `resources/css/app.css`), and `docs/scripts/sync-changelog.js` publishes it as a documentation page. PRs are squash-merged, so the **PR title becomes the commit subject the skill reads**. Write it as a conventional commit, `type(scope)?: description`:
 
 | Title prefix | Changelog section |
 |---|---|
@@ -266,11 +266,11 @@ Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and ren
 
 `make release VERSION=x.y.z` does everything from a clean, up-to-date `main`:
 
-1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the Unreleased entries under the `[x.y]` section tagged with the patch, commits to `main` (pre-commit hook included, so Docker must be up) and pushes.
+1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the commits since the last tag under the `[x.y]` section tagged with the patch, commits to `main` (pre-commit hook included, so Docker must be up) and pushes.
 2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
 3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
 
-To review the entry before tagging, run `/changelog x.y.z` in Claude Code first; `make release` then finds the entry and only tags. `/changelog` with no argument only refreshes the Unreleased section (no commit); `/changelog --backfill` regenerates the whole history (one-off). `make changelog-draft [RANGE=vA..vB]` prints the raw git-cliff draft.
+To review the entry before tagging, run `/changelog x.y.z` in Claude Code first; `make release` then finds the entry and only tags. The version is the skill's only argument and it always writes and commits.
 
 ### Running a Single Test
 

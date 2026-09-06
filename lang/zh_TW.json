@@ -810,7 +810,6 @@
   "This SQL will be run after the restore:": "Restore 後將執行以下 SQL：",
   "What changed in each release of Databasement": "Databasement 每個版本的變更內容",
   "GitHub releases": "GitHub 發行版本",
-  "Unreleased": "尚未發布",
   "Current": "目前版本",
   "New": "新版本",
   "Compare on GitHub": "在 GitHub 上比較",

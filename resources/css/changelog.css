@@ -21,12 +21,6 @@
     font-weight: 600;
 }
 
-/* A version with no entries yet, which is what Unreleased looks like on a
-   tagged build: the heading is immediately followed by the next one. */
-.changelog h2:has(+ h2) {
-    display: none;
-}
-
 .changelog h2 a {
     color: inherit;
     text-decoration: none;

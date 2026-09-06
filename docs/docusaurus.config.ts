@@ -23,7 +23,6 @@ const config: Config = {
     favicon: 'img/favicon.ico',
 
     plugins: [
-        require.resolve('docusaurus-lunr-search'),
         [
             'docusaurus-plugin-llms',
             {
@@ -46,7 +45,7 @@ const config: Config = {
                     'self-hosting/native-ubuntu.md',
                     'self-hosting/configuration/**',
                     'self-hosting/versioning.md',
-                    'self-hosting/changelog.md',
+                    'changelog.md',
                     'user-guide/intro.md',
                     'user-guide/database-servers.md',
                     'user-guide/volumes.md',
@@ -78,7 +77,20 @@ const config: Config = {
     },
     onBrokenLinks: 'throw',
 
-    themes: ['@docusaurus/theme-mermaid'],
+    themes: [
+        '@docusaurus/theme-mermaid',
+        [
+            // Builds one search index per docs version and searches only the
+            // version being read, instead of offering hits from every version.
+            '@easyops-cn/docusaurus-search-local',
+            {
+                hashed: true,
+                indexBlog: false,
+                docsRouteBasePath: '/',
+                highlightSearchTermsOnTargetPage: true,
+            },
+        ],
+    ],
 
     i18n: {
         defaultLocale: 'en',
@@ -139,6 +151,12 @@ const config: Config = {
                     docId: 'user-guide/intro',
                     position: 'left',
                     label: 'User Guide',
+                },
+                {
+                    type: 'doc',
+                    docId: 'changelog',
+                    position: 'left',
+                    label: 'Changelog',
                 },
                 ...(isVersioned ? [{
                     type: 'docsVersionDropdown' as const,

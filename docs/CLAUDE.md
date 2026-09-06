@@ -18,11 +18,15 @@ Docs versions are **ephemeral**: `scripts/prepare-versions.sh` rebuilds one snap
 
 ## Changelog page (generated)
 
-`docs/self-hosting/changelog.md` is **generated** by `scripts/sync-changelog.js` from the repository's root `CHANGELOG.md`; it is gitignored, so **never edit it and never commit it** (edit the root `CHANGELOG.md`, which the `/changelog` skill maintains). It is written in two places: `npm run build` / `npm run start` (via the `prebuild` / `prestart` hooks) for a single-version build, and once per snapshot inside `prepare-versions.sh`, which passes `--max-minor` so an older version never lists releases that came after it. The script also adds `{#v1-7}` heading ids, so other pages can link to `./changelog.md#v1-7`.
+`docs/changelog.md` is **generated** by `scripts/sync-changelog.js` from the repository's root `CHANGELOG.md`; it is gitignored, so **never edit it and never commit it** (edit the root `CHANGELOG.md`, which the `/changelog` skill maintains). It is written in two places: `npm run build` / `npm run start` (via the `prebuild` / `prestart` hooks) for a single-version build, and once per snapshot inside `prepare-versions.sh`. Every version gets the same, latest file: the changelog is one history of the project, not a per-version document. The script also adds `{#v1-7}` heading ids, so other pages can link to `../changelog.md#v1-7`. It sits at the docs root rather than under a section, and is linked from the navbar (`docusaurus.config.ts`), which resolves it within the version being read.
 
 Versioned builds drop the current version (`includeCurrentVersion: false`), so a page that only exists in the working tree is never published: that is why each snapshot gets its own copy rather than relying on the build-time hook alone.
 
 The working tree `docs/` is the *next* version; it goes live when the next tag is cut. To change an already-published version, the fix must land before the next patch tag of that minor, or be handled by a rewrite in `prepare-versions.sh` (see the `../static/` and absolute-link rewrites there).
+
+## Search
+
+`@easyops-cn/docusaurus-search-local` (a theme, configured in `docusaurus.config.ts`) builds one index per docs version and searches only the version being read, so an older version never returns hits from a newer one. `docsRouteBasePath: '/'` must stay in step with the docs `routeBasePath`. The index is generated at build time into `build/`, nothing is committed.
 
 ## Links & assets
 
