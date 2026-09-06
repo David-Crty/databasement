@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="generator" content="Docusaurus v3.10.1">
 <title data-rh="true">Organizations | Databasement</title><meta data-rh="true" name="viewport" content="width=device-width,initial-scale=1"><meta data-rh="true" name="twitter:card" content="summary_large_image"><meta data-rh="true" property="og:url" content="https://david-crty.github.io/databasement/user-guide/organizations"><meta data-rh="true" property="og:locale" content="en"><meta data-rh="true" name="docusaurus_locale" content="en"><meta data-rh="true" name="docsearch:language" content="en"><meta data-rh="true" name="docusaurus_version" content="1.7"><meta data-rh="true" name="docusaurus_tag" content="docs-default-1.7"><meta data-rh="true" name="docsearch:version" content="1.7"><meta data-rh="true" name="docsearch:docusaurus_tag" content="docs-default-1.7"><meta data-rh="true" property="og:title" content="Organizations | Databasement"><meta data-rh="true" name="description" content="Databasement supports multi-organization setups, allowing you to isolate resources (database servers, volumes, agents, snapshots) between teams or projects."><meta data-rh="true" property="og:description" content="Databasement supports multi-organization setups, allowing you to isolate resources (database servers, volumes, agents, snapshots) between teams or projects."><link data-rh="true" rel="icon" href="/databasement/img/favicon.ico"><link data-rh="true" rel="canonical" href="https://david-crty.github.io/databasement/user-guide/organizations"><link data-rh="true" rel="alternate" href="https://david-crty.github.io/databasement/user-guide/organizations" hreflang="en"><link data-rh="true" rel="alternate" href="https://david-crty.github.io/databasement/user-guide/organizations" hreflang="x-default"><script data-rh="true" type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Organizations","item":"https://david-crty.github.io/databasement/user-guide/organizations"}]}</script><link rel="stylesheet" href="/databasement/assets/css/styles.3d8b9c49.css">
-<script src="/databasement/assets/js/runtime~main.9ebf7441.js" defer="defer"></script>
-<script src="/databasement/assets/js/main.da403308.js" defer="defer"></script>
+<script src="/databasement/assets/js/runtime~main.47a75ce5.js" defer="defer"></script>
+<script src="/databasement/assets/js/main.f9b71643.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -35,6 +35,10 @@
 <li class="">Delete empty organizations (all servers, volumes, and agents must be removed first)</li>
 </ul>
 <p>The default organization cannot be renamed or deleted. Organization names must be unique.</p>
+<p><strong>Servers across organizations</strong> opens a read-only list of every database server in the
+installation with its latest backup status, so a super admin can spot a stalled backup without
+switching organizations one by one. Opening a server from that list switches the current
+organization to the one owning it.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="user-management">User Management<a href="#user-management" class="hash-link" aria-label="Direct link to User Management" title="Direct link to User Management" translate="no">​</a></h2>
 <p>The <strong>Users</strong> page shows members of the currently selected organization.</p>
 <p>Admins (org or super) can add users from the <strong>Users &gt; Add User</strong> page:</p>
