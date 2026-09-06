@@ -1,4 +1,4 @@
-.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
+.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release changelog-draft
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -172,6 +172,9 @@ optimize: ## Optimize the application for production
 
 ##@ Release
 
+changelog-draft: ## Print a Keep a Changelog draft from git history (default: unreleased; RANGE=v1.7.9..v1.7.10 for a tag range)
+	@npx --yes git-cliff@2.13.1 --strip header $(if $(RANGE),$(RANGE),--unreleased)
+
 release: ## Create a new release (usage: make release VERSION=1.0.1)
 	@if [ -z "$(VERSION)" ]; then \
 		echo "$(YELLOW)Usage: make release VERSION=1.0.1$(NC)"; \
@@ -188,6 +191,24 @@ release: ## Create a new release (usage: make release VERSION=1.0.1)
 	fi
 	@if [ -n "$$(git status --porcelain)" ]; then \
 		echo "$(YELLOW)Error: Working directory is not clean. Commit or stash changes first.$(NC)"; \
+		exit 1; \
+	fi
+	@if ! grep -q '^- `$(VERSION)`' CHANGELOG.md; then \
+		echo "$(GREEN)No $(VERSION) entries in CHANGELOG.md, writing them with Claude Code (/changelog $(VERSION))...$(NC)"; \
+		claude -p "/changelog $(VERSION)" \
+			--allowedTools "Bash(git *),Bash(gh *),Bash(make changelog-draft*),Read,Edit,Write" || exit 1; \
+	fi
+	@if ! grep -q '^- `$(VERSION)`' CHANGELOG.md; then \
+		echo "$(YELLOW)Error: CHANGELOG.md still has no $(VERSION) entries. Run /changelog $(VERSION) in Claude Code and check its output.$(NC)"; \
+		exit 1; \
+	fi
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "$(YELLOW)Error: the changelog entry was written but not committed. Commit and push it, then rerun.$(NC)"; \
+		exit 1; \
+	fi
+	@git fetch origin main --quiet
+	@if [ "$$(git rev-parse HEAD)" != "$$(git rev-parse origin/main)" ]; then \
+		echo "$(YELLOW)Error: the changelog commit is not on origin/main yet. Push it, then rerun.$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(GREEN)Creating release v$(VERSION)...$(NC)"

@@ -98,6 +98,12 @@
             </x-alert>
         @endif
 
+        <p class="mb-4 text-sm">
+            <a href="{{ route('changelog') }}" class="link link-primary">
+                {{ __('See what changed in each release') }}
+            </a>
+        </p>
+
         <div class="tabs tabs-border tabs-sm">
 
             {{-- Docker Compose tab --}}
