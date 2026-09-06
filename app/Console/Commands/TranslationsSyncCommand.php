@@ -58,9 +58,11 @@ class TranslationsSyncCommand extends Command
                 $this->write($path, $translations);
             }
 
-            $this->report($locale, count($existing) - count($translations), $missing, $artifacts, $broken);
+            $stale = count($existing) - count($translations);
 
-            if ($missing !== [] || $artifacts !== [] || $broken !== []) {
+            $this->report($locale, $stale, $missing, $artifacts, $broken, $check);
+
+            if ($stale > 0 || $missing !== [] || $artifacts !== [] || $broken !== []) {
                 $incomplete = true;
             }
         }
@@ -209,15 +211,72 @@ class TranslationsSyncCommand extends Command
             return 'plural ranges: the source has explicit conditions, the translation has none';
         }
 
+        $covered = $this->merge($translatedRanges);
+
         foreach ($sourceRanges as [$from, $to]) {
-            foreach ([$from, min($to, $from + 1), $to] as $count) {
-                if (! $this->covers($translatedRanges, $count)) {
-                    return sprintf('plural ranges: no branch matches a count of %d', $count);
-                }
+            $gap = $this->firstGap($covered, $from, $to);
+
+            if ($gap !== null) {
+                return sprintf('plural ranges: no branch matches a count of %d', $gap);
             }
         }
 
         return null;
+    }
+
+    /**
+     * Sort and coalesce ranges, joining ones that touch ([1,1] and [2,*] become [1,*]),
+     * so coverage can be decided by a walk instead of by sampling counts.
+     *
+     * @param  array<int, array{int, int}>  $ranges
+     * @return array<int, array{int, int}>
+     */
+    private function merge(array $ranges): array
+    {
+        usort($ranges, fn (array $a, array $b): int => $a[0] <=> $b[0]);
+
+        $merged = [];
+
+        foreach ($ranges as [$from, $to]) {
+            $last = array_key_last($merged);
+
+            if ($last !== null && $from <= $merged[$last][1] + 1) {
+                $merged[$last][1] = max($merged[$last][1], $to);
+
+                continue;
+            }
+
+            $merged[] = [$from, $to];
+        }
+
+        return $merged;
+    }
+
+    /**
+     * The lowest count in [$from, $to] that no merged range covers, or null when the
+     * whole span is covered.
+     *
+     * @param  array<int, array{int, int}>  $covered
+     */
+    private function firstGap(array $covered, int $from, int $to): ?int
+    {
+        $cursor = $from;
+
+        foreach ($covered as [$start, $end]) {
+            if ($start > $cursor) {
+                return $cursor;
+            }
+
+            if ($end >= $cursor) {
+                if ($end >= $to) {
+                    return null;
+                }
+
+                $cursor = $end + 1;
+            }
+        }
+
+        return $cursor <= $to ? $cursor : null;
     }
 
     /**
@@ -251,20 +310,6 @@ class TranslationsSyncCommand extends Command
     }
 
     /**
-     * @param  array<int, array{int, int}>  $ranges
-     */
-    private function covers(array $ranges, int $count): bool
-    {
-        foreach ($ranges as [$from, $to]) {
-            if ($count >= $from && $count <= $to) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * @return array<int, string>
      */
     private function placeholders(string $text): array
@@ -282,12 +327,12 @@ class TranslationsSyncCommand extends Command
      * @param  array<string, array<int, string>>  $artifacts
      * @param  array<string, string>  $broken
      */
-    private function report(string $locale, int $removed, array $missing, array $artifacts, array $broken): void
+    private function report(string $locale, int $stale, array $missing, array $artifacts, array $broken, bool $check): void
     {
         $summary = sprintf('  %s: %d missing', $locale, count($missing));
 
-        if ($removed > 0) {
-            $summary .= sprintf(', %d stale removed', $removed);
+        if ($stale > 0) {
+            $summary .= sprintf($check ? ', %d stale' : ', %d stale removed', $stale);
         }
 
         if ($artifacts !== []) {
@@ -298,7 +343,9 @@ class TranslationsSyncCommand extends Command
             $summary .= sprintf(', %d structurally broken', count($broken));
         }
 
-        $missing === [] && $artifacts === [] && $broken === [] ? $this->info($summary) : $this->warn($summary);
+        $stale === 0 && $missing === [] && $artifacts === [] && $broken === []
+            ? $this->info($summary)
+            : $this->warn($summary);
 
         foreach (array_slice(array_keys($missing), 0, 5) as $key) {
             $this->line("      missing: {$key}");

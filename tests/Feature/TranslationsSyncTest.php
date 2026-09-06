@@ -50,7 +50,7 @@ test('check reports missing translations without writing and exits non-zero', fu
     writeLangFile($this->langPath, 'fr', ['Stale' => 'Obsolète', 'Backup' => 'Backup']);
 
     $this->artisan('translations:sync --check')
-        ->expectsOutputToContain('fr: 1 missing')
+        ->expectsOutputToContain('fr: 1 missing, 1 stale')
         ->assertFailed();
 
     expect(readLangFile($this->langPath, 'fr'))->toHaveKey('Stale');
@@ -110,5 +110,19 @@ test('check reports a lang file that is not a configured locale', function () {
 
     $this->artisan('translations:sync --check')
         ->expectsOutputToContain('lang/fr,es,el.json is not a configured locale')
+        ->assertFailed();
+});
+
+test('check finds a gap left inside a source plural range', function () {
+    writeLangFile($this->langPath, 'en', [
+        '{1} :count file|[2,*] :count files' => '{1} :count file|[2,*] :count files',
+    ]);
+    // Covers 1, 2 and everything from 10 up, but nothing between 3 and 9.
+    writeLangFile($this->langPath, 'fr', [
+        '{1} :count file|[2,*] :count files' => '{1} :count fichier|{2} :count fichiers|[10,*] :count fichiers',
+    ]);
+
+    $this->artisan('translations:sync --check')
+        ->expectsOutputToContain('plural ranges: no branch matches a count of 3')
         ->assertFailed();
 });
