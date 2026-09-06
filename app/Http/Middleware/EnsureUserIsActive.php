@@ -19,7 +19,7 @@ class EnsureUserIsActive
             auth()->logout();
 
             return redirect()->route('login')
-                ->with('error', 'Please complete your registration first.');
+                ->with('error', __('Please complete your registration first.'));
         }
 
         return $next($request);

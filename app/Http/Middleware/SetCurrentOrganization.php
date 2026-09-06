@@ -67,7 +67,7 @@ class SetCurrentOrganization
         $this->currentOrganization->resolveForUser($user, $orgId);
 
         if ($orgId && (! $this->currentOrganization->isResolved() || $this->currentOrganization->id() !== $orgId)) {
-            abort(403, 'The requested organization is not accessible.');
+            abort(403, __('The requested organization is not accessible.'));
         }
     }
 }

@@ -230,7 +230,7 @@ class Form extends \Livewire\Form
             $this->validate($filteredRules);
         } catch (ValidationException) {
             $this->connectionTestSuccess = false;
-            $this->connectionTestMessage = 'Please fill in all required configuration fields.';
+            $this->connectionTestMessage = __('Please fill in all required configuration fields.');
 
             return;
         }
