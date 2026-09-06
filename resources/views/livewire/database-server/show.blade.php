@@ -58,7 +58,7 @@
                                 icon="o-clipboard-document"
                                 class="btn-ghost btn-xs btn-circle shrink-0"
                                 x-clipboard="'{{ $server->id }}'"
-                                x-on:clipboard-copied="$wire.success('{{ __('Copied to clipboard!') }}', null, 'toast-bottom')"
+                                x-on:clipboard-copied="successToast('{{ __('Copied to clipboard!') }}')"
                                 :tooltip="__('Copy ID')"
                             />
                         </div>
