@@ -2062,10 +2062,11 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.7] - 2026-09-06 {#v1-7}
+## [1.7] - 2026-09-07 {#v1-7}
 
 ### Added
 
+- `1.7.13` The French, Spanish, Greek and Traditional Chinese interfaces are fully translated and use consistent wording: about 38% of the strings fell back to English in each locale, and page titles, path validation messages and several flash messages could not be translated at all ([#602](https://github.com/David-Crty/databasement/pull/602)) ([#603](https://github.com/David-Crty/databasement/pull/603))
 - `1.7.12` The v1 REST API is rate limited, 300 requests a minute per access token by default; `API_RATE_LIMIT` raises or lowers the ceiling and `0` turns it off where a gateway already throttles. The agent daemon routes and the web interface are not affected ([#524](https://github.com/David-Crty/databasement/pull/524))
 - `1.7.11` Super admins can list the database servers of every organization at once, from a searchable overview opened on the Configuration → Organizations page, with the latest backup status of each server and a shortcut that switches to its organization and opens the server or its jobs ([#521](https://github.com/David-Crty/databasement/pull/521))
 - `1.7.11` The changelog is written for the people who run Databasement and published as a page in the application, linked from the sidebar and the update dialog, and on the documentation site ([#600](https://github.com/David-Crty/databasement/pull/600))
@@ -2101,6 +2102,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Security
 
+- `1.7.13` The toast helpers are no longer part of the client-facing method surface of every interactive page, where the browser could call them to display an arbitrary message; copy-to-clipboard confirmations are now rendered without a server round trip ([#605](https://github.com/David-Crty/databasement/pull/605))
 - `1.7.8` The Azure custom blob endpoint rejects link-local and instance metadata addresses, as the S3 endpoints already did, and the SFTP, FTP and SMB host fields only accept hostnames and IP addresses ([#594](https://github.com/David-Crty/databasement/pull/594))
 - `1.7.8` Records looked up by id through the web and REST routes are resolved with the organization context in place, so an id from another organization is not found instead of being returned; policies now also check that the record belongs to the current organization ([#591](https://github.com/David-Crty/databasement/pull/591))
 - `1.7.8` The Redis password is masked in logged commands; it was stored in cleartext in the job logs, which every member of the organization can read ([#593](https://github.com/David-Crty/databasement/pull/593))
@@ -2320,7 +2322,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.12
+[1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.13
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
 [1.5]: https://github.com/David-Crty/databasement/compare/v1.4.2...v1.5.6
 [1.4]: https://github.com/David-Crty/databasement/compare/v1.3.1...v1.4.2
