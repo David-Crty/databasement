@@ -68,7 +68,8 @@ class SshTunnelService
             keyPassphrase: $sshConfig['key_passphrase'] ?? null,
             remoteHost: $remoteHost,
             remotePort: $remotePort,
-            localPort: $this->localPort
+            localPort: $this->localPort,
+            compression: (bool) ($sshConfig['compression'] ?? false)
         );
 
         $this->tunnelProcess = $this->createTunnelProcess($command);
@@ -216,7 +217,8 @@ class SshTunnelService
         ?string $keyPassphrase,
         string $remoteHost,
         int $remotePort,
-        int $localPort
+        int $localPort,
+        bool $compression = false
     ): string {
         // BatchMode=yes only for passphrase-less key auth; password and key+passphrase need interactive mode
         $batchMode = $authType === 'key' && empty($keyPassphrase);
@@ -227,7 +229,7 @@ class SshTunnelService
             '-o', 'ServerAliveCountMax=3',
             '-o', 'ExitOnForwardFailure=yes',
             '-L', sprintf('%d:%s:%d', $localPort, $remoteHost, $remotePort),
-        ]);
+        ], $compression);
 
         return $this->buildAuthenticatedCommand(
             $sshOptions,
@@ -257,8 +259,9 @@ class SshTunnelService
 
         // BatchMode=yes only for passphrase-less key auth; password and key+passphrase need interactive mode
         $batchMode = $authType === 'key' && empty($keyPassphrase);
+        $compression = (bool) ($sshConfig['compression'] ?? false);
 
-        $sshOptions = $this->buildBaseOptions($sshPort, $batchMode);
+        $sshOptions = $this->buildBaseOptions($sshPort, $batchMode, compression: $compression);
 
         return $this->buildAuthenticatedCommand(
             $sshOptions,
@@ -277,16 +280,17 @@ class SshTunnelService
      *
      * @param  bool  $batchMode  Use BatchMode=yes for non-interactive auth (passphrase-less keys), BatchMode=no for password/passphrase auth
      * @param  array<string>  $additionalOptions
+     * @param  bool  $compression  Enable SSH compression (-C), trading CPU for bandwidth on slow links
      * @return array<string>
      */
-    private function buildBaseOptions(int $sshPort, bool $batchMode = true, array $additionalOptions = []): array
+    private function buildBaseOptions(int $sshPort, bool $batchMode = true, array $additionalOptions = [], bool $compression = false): array
     {
         return array_merge([
             '-o', 'StrictHostKeyChecking=accept-new',
             '-o', $batchMode ? 'BatchMode=yes' : 'BatchMode=no',
             '-o', sprintf('ConnectTimeout=%d', self::CONNECTION_TIMEOUT_SECONDS),
             '-p', (string) $sshPort,
-        ], $additionalOptions);
+        ], $compression ? ['-C'] : [], $additionalOptions);
     }
 
     /**
