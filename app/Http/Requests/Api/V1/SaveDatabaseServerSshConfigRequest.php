@@ -25,6 +25,7 @@ class SaveDatabaseServerSshConfigRequest extends FormRequest
             'port' => 'nullable|integer|min:1|max:65535',
             'username' => 'required|string|max:255',
             'auth_type' => ['required', 'string', Rule::in(['password', 'key'])],
+            'compression' => 'boolean',
             'password' => 'nullable|string',
             'private_key' => 'nullable|string',
             'key_passphrase' => 'nullable|string',

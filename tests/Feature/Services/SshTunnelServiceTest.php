@@ -199,7 +199,7 @@ test('establish enables ssh compression when the config requests it', function (
     $service->shouldReceive('createTunnelProcess')
         ->once()
         ->andReturnUsing(function ($command) use ($mockProcess) {
-            expect($command)->toContain('-C');
+            expect($command)->toContain("'-C'");
 
             return $mockProcess;
         });
@@ -237,7 +237,7 @@ test('establish omits ssh compression by default', function () {
     $service->shouldReceive('createTunnelProcess')
         ->once()
         ->andReturnUsing(function ($command) use ($mockProcess) {
-            expect($command)->not->toContain('-C');
+            expect($command)->not->toContain("'-C'");
 
             return $mockProcess;
         });
@@ -299,4 +299,21 @@ test('establish with key auth creates temp key file', function () {
     // Verify key file was cleaned up
     $keyFiles = glob(sys_get_temp_dir().'/ssh_key_*');
     expect($keyFiles)->toBeEmpty();
+});
+
+test('the connection test carries compression only when the config enables it', function () {
+    $service = new SshTunnelService;
+
+    $method = new ReflectionMethod($service, 'buildTestCommand');
+    $method->setAccessible(true);
+
+    $config = [
+        'host' => 'bastion.example.com',
+        'port' => 22,
+        'username' => 'tunnel_user',
+        'auth_type' => 'key',
+    ];
+
+    expect($method->invoke($service, $config))->not->toContain("'-C'");
+    expect($method->invoke($service, [...$config, 'compression' => true]))->toContain("'-C'");
 });

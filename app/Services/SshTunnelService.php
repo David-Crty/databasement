@@ -48,7 +48,7 @@ class SshTunnelService
     /**
      * Establish an SSH tunnel from a decrypted SSH config array.
      *
-     * @param  array<string, mixed>  $sshConfig  Decrypted SSH config (host, port, username, auth_type, password, private_key, key_passphrase)
+     * @param  array<string, mixed>  $sshConfig  Decrypted SSH config (host, port, username, auth_type, compression, password, private_key, key_passphrase)
      * @param  string  $remoteHost  The remote host to tunnel to
      * @param  int  $remotePort  The remote port to tunnel to
      * @return array{host: string, port: int} The local endpoint to connect to
