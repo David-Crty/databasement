@@ -19,6 +19,8 @@ Docker images are available on [Docker Hub](https://hub.docker.com/r/davidcrty/d
 
 Use an exact version tag for production deployments. Use `latest` or a major/minor tag if you want automatic updates with tools like [Renovate](https://docs.renovatebot.com/) or [Watchtower](https://containrrr.dev/watchtower/).
 
+There is also `davidcrty/databasement:edge`, rebuilt from every push to `main`. It contains unreleased changes and carries no version number, so use it to try something out, never in production.
+
 ## Helm Chart
 
 The Helm chart uses the same version as the application — installing chart version `1.0.1` deploys app version `1.0.1`.
