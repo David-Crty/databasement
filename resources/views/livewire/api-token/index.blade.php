@@ -86,7 +86,7 @@
                 icon="o-clipboard-document"
                 class="btn-primary"
                 x-clipboard="$wire.newToken"
-                x-on:clipboard-copied="$wire.success('{{ __('Token copied to clipboard!') }}', null, 'toast-bottom')"
+                x-on:clipboard-copied="successToast('{{ __('Token copied to clipboard!') }}')"
                 tooltip="{{ __('Copy') }}"
             />
         </div>

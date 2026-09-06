@@ -15,7 +15,7 @@
             icon="o-clipboard-document"
             class="btn-primary"
             x-clipboard="$wire.invitationUrl"
-            x-on:clipboard-copied="$wire.success('{{ __('Link copied to clipboard!') }}', null, 'toast-bottom')"
+            x-on:clipboard-copied="successToast('{{ __('Link copied to clipboard!') }}')"
             tooltip="{{ __('Copy') }}"
         />
     </div>

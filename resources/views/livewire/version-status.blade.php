@@ -122,7 +122,7 @@
                         class="btn-ghost btn-xs"
                         :label="__('Copy')"
                         x-clipboard="$wire.dockerComposeCommand"
-                        x-on:clipboard-copied="$wire.success('{{ __('Copied to clipboard!') }}', null, 'toast-bottom')"
+                        x-on:clipboard-copied="successToast('{{ __('Copied to clipboard!') }}')"
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $dockerComposeCommand }}</code></pre>
@@ -144,7 +144,7 @@
                         class="btn-ghost btn-xs"
                         :label="__('Copy')"
                         x-clipboard="$wire.helmCommand"
-                        x-on:clipboard-copied="$wire.success('{{ __('Copied to clipboard!') }}', null, 'toast-bottom')"
+                        x-on:clipboard-copied="successToast('{{ __('Copied to clipboard!') }}')"
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $helmCommand }}</code></pre>
@@ -166,7 +166,7 @@
                         class="btn-ghost btn-xs"
                         :label="__('Copy')"
                         x-clipboard="$wire.dockerCommand"
-                        x-on:clipboard-copied="$wire.success('{{ __('Copied to clipboard!') }}', null, 'toast-bottom')"
+                        x-on:clipboard-copied="successToast('{{ __('Copied to clipboard!') }}')"
                     />
                 </div>
                 <pre class="bg-neutral text-neutral-content rounded-box p-5 text-sm overflow-x-auto"><code class="break-all select-all whitespace-pre-wrap">{{ $dockerCommand }}</code></pre>
