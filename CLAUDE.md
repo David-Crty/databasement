@@ -351,9 +351,9 @@ Translations are kept in step with the code by one command, which runs five step
 
 1. `translatable:export en` (kkomelin/laravel-translatable-string-exporter) scans `app/` and `resources/` for `__()`, `trans_choice()` and `@lang()` and rewrites **`lang/en.json`**, the generated, committed inventory of every translatable string. English is the key *and* the value; nothing changes at runtime.
 2. `translations:sync` (`app/Console/Commands/TranslationsSyncCommand.php`) prunes keys the code no longer uses from each target locale. It **never adds a key**, so "missing" always means "not translated yet" rather than "filled with English".
-3. `ai-translator:translate-json` (kargnas/laravel-ai-translator) sends only the keys a locale is missing to Claude. Config lives in `config/ai-translator.php`; the `additional_rules` there are the machine-readable form of the conventions below.
+3. `ai-translator:translate-json` (kargnas/laravel-ai-translator) sends only the keys a locale is missing to Claude, and its own validator retries a chunk that drops a `:placeholder`. Config lives in `config/ai-translator.php`; the `additional_rules` there are the machine-readable form of the conventions below.
 4. `translations:sync` again, to strip the `_comment` banner the translator writes into every file and restore `en.json` key order and formatting.
-5. `translations:sync --check` reports what is still untranslated and flags HTML-encoding artifacts.
+5. `translations:sync --check` writes nothing and fails when a locale is out of sync, so drift is visible without an API key.
 
 `make check-translation` runs steps 1 and 5 only -- no API key, no cost. Both packages are dev dependencies; nothing in this pipeline runs in production.
 

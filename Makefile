@@ -161,7 +161,7 @@ update-translation: ## Update lang/*.json from the code, translating new strings
 	$(PHP_ARTISAN) translations:sync
 	$(PHP_ARTISAN) translations:sync --check
 
-check-translation: ## Report untranslated strings and encoding artifacts (no API calls)
+check-translation: ## Report locales that are out of sync with the code (no API calls)
 	$(PHP_ARTISAN) translatable:export en
 	$(PHP_ARTISAN) translations:sync --check
 
