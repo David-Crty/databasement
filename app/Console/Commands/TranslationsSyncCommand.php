@@ -42,13 +42,18 @@ class TranslationsSyncCommand extends Command
             $missing = count($source) - count($translations);
             $stale = count($existing) - count($translations);
 
-            if (! $check && $translations !== $existing) {
-                $this->write($path, $translations);
+            // Comparing the rendered file rather than the parsed array also catches the
+            // things parsing hides: key order, the stripped banner, the indent width.
+            $rendered = $this->render($translations);
+            $needsWrite = $rendered !== file_get_contents($path);
+
+            if (! $check && $needsWrite) {
+                file_put_contents($path, $rendered);
             }
 
-            $this->report($locale, $missing, $stale, $check);
+            $this->report($locale, $missing, $stale, $needsWrite, $check);
 
-            if ($missing > 0 || $stale > 0) {
+            if ($missing > 0 || $needsWrite) {
                 $outOfSync = true;
             }
         }
@@ -92,7 +97,7 @@ class TranslationsSyncCommand extends Command
         return $pruned;
     }
 
-    private function report(string $locale, int $missing, int $stale, bool $check): void
+    private function report(string $locale, int $missing, int $stale, bool $needsWrite, bool $check): void
     {
         $summary = sprintf('  %s: %d missing', $locale, $missing);
 
@@ -100,7 +105,11 @@ class TranslationsSyncCommand extends Command
             $summary .= sprintf($check ? ', %d stale' : ', %d stale removed', $stale);
         }
 
-        $missing === 0 && $stale === 0 ? $this->info($summary) : $this->warn($summary);
+        if ($needsWrite && $stale === 0) {
+            $summary .= $check ? ', needs formatting' : ', reformatted';
+        }
+
+        $missing === 0 && ! $needsWrite ? $this->info($summary) : $this->warn($summary);
     }
 
     /**
@@ -124,14 +133,14 @@ class TranslationsSyncCommand extends Command
     /**
      * @param  array<string, string>  $translations
      */
-    private function write(string $path, array $translations): void
+    private function render(array $translations): string
     {
         $json = json_encode(
             $translations,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
         );
 
-        file_put_contents($path, $this->indentWithTwoSpaces($json)."\n");
+        return $this->indentWithTwoSpaces($json)."\n";
     }
 
     private function indentWithTwoSpaces(string $json): string

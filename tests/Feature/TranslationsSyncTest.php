@@ -55,3 +55,19 @@ test('check reports a locale that is out of sync without writing, and exits non-
 
     expect(readLangFile($this->langPath, 'fr'))->toHaveKey('Stale');
 });
+
+test('check fails on a file sync would rewrite even when no key is missing', function () {
+    writeLangFile($this->langPath, 'en', ['Backup' => 'Backup', 'Restore' => 'Restore']);
+    // Same keys as the source, in the wrong order and carrying the translator's banner.
+    writeLangFile($this->langPath, 'fr', [
+        '_comment' => 'WARNING: This is an auto-generated file.',
+        'Restore' => 'Restaurer',
+        'Backup' => 'Backup',
+    ]);
+
+    $this->artisan('translations:sync --check')
+        ->expectsOutputToContain('fr: 0 missing, needs formatting')
+        ->assertFailed();
+
+    expect(readLangFile($this->langPath, 'fr'))->toHaveKey('_comment');
+});
