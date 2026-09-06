@@ -1112,6 +1112,21 @@ Core application settings including database, timezone, proxy configuration, and
 | `APP_URL`               | Full URL where the app is accessible             | `http://localhost:2226` |
 | `APP_DEBUG`             | Enable debug mode (set to `false` in production) | `false`                 |
 | `APP_DISPLAY_TIMEZONE`  | Timezone for UI, backup filenames, and crons     | `UTC`                   |
+| `API_RATE_LIMIT`        | Max API requests per minute, per token           | `300`                   |
+
+### API Rate Limit
+
+Requests to the standard `/api/v1/*` endpoints (not the agent daemon endpoints, see below) are capped at `API_RATE_LIMIT` per minute. The budget is keyed by API token where one is present, falling back to the authenticated user and then the client IP for the rare request that carries neither. Exceeding it returns `429 Too Many Requests`.
+
+This only covers the API. The web UI is unaffected: Livewire requests, including auto-refreshing pages, go through the `web` routes and are never counted against this limit.
+
+```bash
+API_RATE_LIMIT=600
+```
+
+Set it to `0` to turn throttling off, for instance when a reverse proxy or API gateway in front of Databasement already enforces its own limits.
+
+Agent daemon endpoints (`/api/v1/agent/*`) are excluded from `API_RATE_LIMIT` entirely: agents poll on a fixed interval and have their own protection against repeated authentication failures.
 
 ### Generating the Application Key
 
@@ -1985,7 +2000,7 @@ For local development OAuth testing, see the [Development Guide](../../contribut
 
 Databasement follows [semantic versioning](https://semver.org/). The Docker images, Helm chart, and application all share the same version number — version `1.0.1` means the same release everywhere.
 
-Every change is listed on the [Changelog](./changelog.md) page, which is also shown inside the application (linked from the sidebar and the update dialog). Available versions are listed on [GitHub Releases](https://github.com/David-Crty/databasement/releases).
+Every change is listed on the [Changelog](../changelog.md) page, which is also shown inside the application (linked from the sidebar and the update dialog). Available versions are listed on [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
 ## Docker Image Tags
 
@@ -1997,6 +2012,8 @@ Docker images are available on [Docker Hub](https://hub.docker.com/r/davidcrty/d
 - `davidcrty/databasement:latest` — most recent release
 
 Use an exact version tag for production deployments. Use `latest` or a major/minor tag if you want automatic updates with tools like [Renovate](https://docs.renovatebot.com/) or [Watchtower](https://containrrr.dev/watchtower/).
+
+There is also `davidcrty/databasement:edge`, rebuilt from every push to `main`. It contains unreleased changes and carries no version number, so use it to try something out, never in production.
 
 ## Helm Chart
 
@@ -2049,6 +2066,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Added
 
+- `1.7.12` The v1 REST API is rate limited, 300 requests a minute per access token by default; `API_RATE_LIMIT` raises or lowers the ceiling and `0` turns it off where a gateway already throttles. The agent daemon routes and the web interface are not affected ([#524](https://github.com/David-Crty/databasement/pull/524))
 - `1.7.11` Super admins can list the database servers of every organization at once, from a searchable overview opened on the Configuration → Organizations page, with the latest backup status of each server and a shortcut that switches to its organization and opens the server or its jobs ([#521](https://github.com/David-Crty/databasement/pull/521))
 - `1.7.11` The changelog is written for the people who run Databasement and published as a page in the application, linked from the sidebar and the update dialog, and on the documentation site ([#600](https://github.com/David-Crty/databasement/pull/600))
 - `1.7.9` Snapshots can carry a free-text comment and be locked, which excludes them from automatic cleanup and blocks manual deletion until unlocked ([#522](https://github.com/David-Crty/databasement/pull/522))
@@ -2070,6 +2088,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.7.12` The `latest` Docker image is published from the release tag only, so it can no longer be overwritten by a concurrent build of `main` that carries no version number, which blanked the version badge and the update dialog. The tip of `main` is published as `edge` ([#601](https://github.com/David-Crty/databasement/pull/601))
 - `1.7.10` A form that fails validation raises a toast, expands the collapsed section holding the first invalid field and scrolls it into view with focus; the connection test buttons validate the same way ([#598](https://github.com/David-Crty/databasement/pull/598))
 - `1.7.9` A command log no longer shows a running spinner forever when the job dies before the command finishes (queue timeout, killed worker, fatal error); it is marked failed together with the job ([#541](https://github.com/David-Crty/databasement/pull/541))
 - `1.7.8` PostgreSQL servers below version 17 are dumped with the PostgreSQL 16 client, now shipped in the image alongside the 18 client, so their snapshots restore back into the server they came from; when no matching client exists, the job log warns that the snapshot may only load into a newer server ([#595](https://github.com/David-Crty/databasement/pull/595)) ([#596](https://github.com/David-Crty/databasement/pull/596))
@@ -2301,7 +2320,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.11
+[1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.12
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
 [1.5]: https://github.com/David-Crty/databasement/compare/v1.4.2...v1.5.6
 [1.4]: https://github.com/David-Crty/databasement/compare/v1.3.1...v1.4.2
@@ -3762,9 +3781,9 @@ For significant changes, open an issue first to discuss the approach.
 
 ## Releasing
 
-`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one section per minor version and every entry prefixed by the patch release that shipped it. The application renders it on its own **Changelog** page. [git-cliff](https://git-cliff.org) drafts entries from git history (`cliff.toml`, `make changelog-draft`), and the `/changelog` Claude Code skill turns the draft into user-facing entries. Feature pull requests never edit the changelog; it is written at release time:
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one section per minor version and every entry prefixed by the patch release that shipped it. The application renders it on its own **Changelog** page. The `/changelog` Claude Code skill turns the commits since the last tag into user-facing entries. Feature pull requests never edit the changelog; it is written at release time:
 
-1. `make release VERSION=x.y.z` from a clean, up-to-date `main`. When `CHANGELOG.md` has no `x.y.z` entries yet, it runs the `/changelog x.y.z` skill headlessly, which files the Unreleased entries under that version's minor section, commits to `main` and pushes.
+1. `make release VERSION=x.y.z` from a clean, up-to-date `main`. When `CHANGELOG.md` has no `x.y.z` entries yet, it runs the `/changelog x.y.z` skill headlessly, which files the entries under that version's minor section, commits to `main` and pushes.
 2. It then tags `vx.y.z` and pushes the tag. To review the entry before tagging, run `/changelog x.y.z` in Claude Code first.
 3. The workflows build the Docker images, Helm chart, documentation, and the GitHub Release.
 

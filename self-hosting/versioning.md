@@ -6,7 +6,7 @@
 
 Databasement follows [semantic versioning](https://semver.org/). The Docker images, Helm chart, and application all share the same version number — version `1.0.1` means the same release everywhere.
 
-Every change is listed on the [Changelog](./changelog.md) page, which is also shown inside the application (linked from the sidebar and the update dialog). Available versions are listed on [GitHub Releases](https://github.com/David-Crty/databasement/releases).
+Every change is listed on the [Changelog](../changelog.md) page, which is also shown inside the application (linked from the sidebar and the update dialog). Available versions are listed on [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
 ## Docker Image Tags
 
@@ -18,6 +18,8 @@ Docker images are available on [Docker Hub](https://hub.docker.com/r/davidcrty/d
 - `davidcrty/databasement:latest` — most recent release
 
 Use an exact version tag for production deployments. Use `latest` or a major/minor tag if you want automatic updates with tools like [Renovate](https://docs.renovatebot.com/) or [Watchtower](https://containrrr.dev/watchtower/).
+
+There is also `davidcrty/databasement:edge`, rebuilt from every push to `main`. It contains unreleased changes and carries no version number, so use it to try something out, never in production.
 
 ## Helm Chart
 

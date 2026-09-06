@@ -351,8 +351,8 @@ For significant changes, open an issue first to discuss the approach.
 
 ## Releasing
 
-`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one section per minor version and every entry prefixed by the patch release that shipped it. The application renders it on its own **Changelog** page. [git-cliff](https://git-cliff.org) drafts entries from git history (`cliff.toml`, `make changelog-draft`), and the `/changelog` Claude Code skill turns the draft into user-facing entries. Feature pull requests never edit the changelog; it is written at release time:
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), with one section per minor version and every entry prefixed by the patch release that shipped it. The application renders it on its own **Changelog** page. The `/changelog` Claude Code skill turns the commits since the last tag into user-facing entries. Feature pull requests never edit the changelog; it is written at release time:
 
-1. `make release VERSION=x.y.z` from a clean, up-to-date `main`. When `CHANGELOG.md` has no `x.y.z` entries yet, it runs the `/changelog x.y.z` skill headlessly, which files the Unreleased entries under that version's minor section, commits to `main` and pushes.
+1. `make release VERSION=x.y.z` from a clean, up-to-date `main`. When `CHANGELOG.md` has no `x.y.z` entries yet, it runs the `/changelog x.y.z` skill headlessly, which files the entries under that version's minor section, commits to `main` and pushes.
 2. It then tags `vx.y.z` and pushes the tag. To review the entry before tagging, run `/changelog x.y.z` in Claude Code first.
 3. The workflows build the Docker images, Helm chart, documentation, and the GitHub Release.

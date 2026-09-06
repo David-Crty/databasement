@@ -14,6 +14,21 @@ Core application settings including database, timezone, proxy configuration, and
 | `APP_URL`               | Full URL where the app is accessible             | `http://localhost:2226` |
 | `APP_DEBUG`             | Enable debug mode (set to `false` in production) | `false`                 |
 | `APP_DISPLAY_TIMEZONE`  | Timezone for UI, backup filenames, and crons     | `UTC`                   |
+| `API_RATE_LIMIT`        | Max API requests per minute, per token           | `300`                   |
+
+### API Rate Limit
+
+Requests to the standard `/api/v1/*` endpoints (not the agent daemon endpoints, see below) are capped at `API_RATE_LIMIT` per minute. The budget is keyed by API token where one is present, falling back to the authenticated user and then the client IP for the rare request that carries neither. Exceeding it returns `429 Too Many Requests`.
+
+This only covers the API. The web UI is unaffected: Livewire requests, including auto-refreshing pages, go through the `web` routes and are never counted against this limit.
+
+```bash
+API_RATE_LIMIT=600
+```
+
+Set it to `0` to turn throttling off, for instance when a reverse proxy or API gateway in front of Databasement already enforces its own limits.
+
+Agent daemon endpoints (`/api/v1/agent/*`) are excluded from `API_RATE_LIMIT` entirely: agents poll on a fixed interval and have their own protection against repeated authentication failures.
 
 ### Generating the Application Key
 
