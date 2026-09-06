@@ -7,21 +7,19 @@ NC     := \033[0m # No Color
 
 # Docker / PHP helpers
 #
-# Everything runs in the container started from the main checkout, which
-# bind-mounts the repo at /app. A git worktree has no docker-compose.yml of its
-# own, so Compose is pointed at the main checkout (found via the shared git
-# dir) and the command is run in the worktree's own path inside the container.
-# Both values collapse to the plain main-checkout case when CURDIR is the repo
-# root, and to `/app` when make is run outside a git repo.
+# The stack runs in one Compose project, started from the main checkout, which
+# bind-mounts the repo at /app. A git worktree carries its own copy of
+# docker-compose.yml, so a bare `docker compose` there starts a *second*
+# project named after the worktree directory -- with no running containers, and
+# host ports already taken by the first. Pointing Compose at the main checkout
+# keeps every target on the one running project, and the worktree is reachable
+# inside it because the mount covers the whole repo. Both values fall back to
+# the plain main-checkout case: `/app`, and no --project-directory.
 COMPOSE_ROOT := $(patsubst %/.git,%,$(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null))
-WORKTREE_REL := $(patsubst $(COMPOSE_ROOT)%,%,$(CURDIR))
-ifeq ($(WORKTREE_REL),$(CURDIR))
-WORKTREE_REL :=
-endif
 
-DOCKER_COMPOSE := docker compose $(if $(COMPOSE_ROOT),--project-directory $(COMPOSE_ROOT),)
+DOCKER_COMPOSE := docker compose $(if $(COMPOSE_ROOT),--project-directory $(COMPOSE_ROOT))
 PHP_SERVICE    := app
-PHP_WORKDIR    := /app$(WORKTREE_REL)
+PHP_WORKDIR    := /app$(if $(COMPOSE_ROOT),$(subst $(COMPOSE_ROOT),,$(CURDIR)))
 
 # Forward AI-agent env vars (Claude Code, Cursor, Gemini, ...) into the container so
 # laravel/pao detects the agent and emits compact JSON output instead of verbose logs.
