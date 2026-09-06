@@ -9,6 +9,10 @@
 
     <x-card shadow class="min-w-0">
         <x-card-heading :title="__('Organizations')" :subtitle="__('Organizations let you group users, servers, and volumes into isolated workspaces.')">
+            @can('viewAcrossOrganizations', \App\Models\DatabaseServer::class)
+                <x-button :label="__('Servers across organizations')" icon="o-server-stack" class="btn-outline btn-sm"
+                          @click="$dispatch('open-cross-organization-servers-modal')" />
+            @endcan
             <x-button
                 :label="__('Documentation')"
                 icon="o-book-open"
@@ -54,6 +58,10 @@
             @endscope
         </x-table>
     </x-card>
+
+    @can('viewAcrossOrganizations', \App\Models\DatabaseServer::class)
+        <livewire:configuration.cross-organization-servers-modal />
+    @endcan
 
     @can('create', \App\Models\Organization::class)
     {{-- Create Modal --}}

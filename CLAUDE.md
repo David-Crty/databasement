@@ -9,6 +9,9 @@ This is a Laravel application for managing database server backups. It uses Live
 ## Development Commands
 
 **IMPORTANT**: All PHP commands MUST be run through Docker. Never run `php`, `composer`, or `vendor/bin/*` commands directly on the host. Use the Makefile targets or `docker compose exec --user application -T app <command>` instead. Always include `--user application` to ensure correct file permissions. 
+
+**In a git worktree, prefer the Makefile targets.** They resolve the Compose project from the shared git dir and run in the worktree's own path inside the container, so `make test` and friends work unchanged. A bare `docker compose` there starts a *second* project named after the worktree directory and reports `service "app" is not running`; it needs `--project-directory <main checkout>` plus `-w /app/<path to worktree>` spelled out. Run `make install` once in a new worktree: `vendor/` is gitignored, and symlinking the main checkout's would run the main branch's `app/` classes.
+
 This overrides any bundled guideline or skill that shows a bare command — notably the `pestphp/pest-plugin-agent` rules at the end of this file, whose `vendor/bin/pest --agent='…'` examples must be run as `docker compose exec --user application -T app vendor/bin/pest --agent='…'`.
 
 ### Setup and Installation

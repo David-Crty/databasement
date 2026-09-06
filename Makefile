@@ -6,14 +6,26 @@ YELLOW := \033[0;33m
 NC     := \033[0m # No Color
 
 # Docker / PHP helpers
-DOCKER_COMPOSE := docker compose
+#
+# The stack runs in one Compose project, started from the main checkout, which
+# bind-mounts the repo at /app. A git worktree carries its own copy of
+# docker-compose.yml, so a bare `docker compose` there starts a *second*
+# project named after the worktree directory -- with no running containers, and
+# host ports already taken by the first. Pointing Compose at the main checkout
+# keeps every target on the one running project, and the worktree is reachable
+# inside it because the mount covers the whole repo. Both values fall back to
+# the plain main-checkout case: `/app`, and no --project-directory.
+COMPOSE_ROOT := $(patsubst %/.git,%,$(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null))
+
+DOCKER_COMPOSE := docker compose $(if $(COMPOSE_ROOT),--project-directory $(COMPOSE_ROOT))
 PHP_SERVICE    := app
+PHP_WORKDIR    := /app$(if $(COMPOSE_ROOT),$(subst $(COMPOSE_ROOT),,$(CURDIR)))
 
 # Forward AI-agent env vars (Claude Code, Cursor, Gemini, ...) into the container so
 # laravel/pao detects the agent and emits compact JSON output instead of verbose logs.
 # `-e VAR` is only added when VAR is set on the host, avoiding empty-string false positives.
 AGENT_ENV := $(foreach v,CLAUDECODE CLAUDE_CODE AI_AGENT CURSOR_AGENT GEMINI_CLI PAO_DISABLE,$(if $($(v)),-e $(v)))
-PHP_EXEC  := $(DOCKER_COMPOSE) exec --user application -T $(AGENT_ENV) $(PHP_SERVICE)
+PHP_EXEC  := $(DOCKER_COMPOSE) exec --user application -T $(AGENT_ENV) -w $(PHP_WORKDIR) $(PHP_SERVICE)
 PHP_COMPOSER   := $(PHP_EXEC) composer
 PHP_ARTISAN    := $(PHP_EXEC) php artisan
 NPM_EXEC       := npm
@@ -31,10 +43,10 @@ install: ## Install dependencies (composer + npm)
 	$(NPM_EXEC) install
 
 setup: start install build migrate
-	docker compose restart app worker
+	$(DOCKER_COMPOSE) restart app worker
 
 start: ## Start development server (all services: php, queue, mysql, postgres)
-	docker compose up -d
+	$(DOCKER_COMPOSE) up -d
 
 migrate:
 	$(PHP_ARTISAN) migrate

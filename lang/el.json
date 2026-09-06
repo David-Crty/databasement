@@ -817,5 +817,10 @@
   "Security": "Ασφάλεια",
   "No changes recorded yet": "Δεν έχουν καταγραφεί αλλαγές ακόμη",
   "No changelog is available for this build": "Δεν υπάρχει διαθέσιμο changelog για αυτή την έκδοση",
-  "See what changed in each release": "Δείτε τι άλλαξε σε κάθε έκδοση"
+  "See what changed in each release": "Δείτε τι άλλαξε σε κάθε έκδοση",
+  "Servers across organizations": "Servers όλων των οργανισμών",
+  "Every database server and its latest backup, regardless of organization.": "Όλοι οι servers Βάσεων Δεδομένων και το τελευταίο backup τους, ανεξαρτήτως οργανισμού.",
+  "Organization": "Οργανισμός",
+  "Last backup": "Τελευταίο backup",
+  "Open in its organization": "Άνοιγμα στον οργανισμό του"
 }

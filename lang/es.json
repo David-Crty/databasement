@@ -820,5 +820,10 @@
   "Security": "Seguridad",
   "No changes recorded yet": "Aún no hay cambios registrados",
   "No changelog is available for this build": "No hay changelog disponible para esta versión",
-  "See what changed in each release": "Ver qué ha cambiado en cada versión"
+  "See what changed in each release": "Ver qué ha cambiado en cada versión",
+  "Servers across organizations": "Servidores de todas las organizaciones",
+  "Every database server and its latest backup, regardless of organization.": "Todos los servidores de base de datos y su último backup, sin importar la organización.",
+  "Organization": "Organización",
+  "Last backup": "Último backup",
+  "Open in its organization": "Abrir en su organización"
 }
