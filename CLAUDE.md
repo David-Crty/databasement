@@ -343,25 +343,37 @@ Use Mary UI's `<x-table>` component with `@scope` directives for cell rendering.
 
 ### Localization
 
-The app uses Laravel's JSON translation files with the `__('...')` helper. Translations live in `lang/{locale}.json`. Available locales are defined in `config/app.php` under `available_locales`. The `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
+The app uses Laravel's JSON translation files with the `__('...')` helper. Keys are the English source strings themselves. Translations live in `lang/{locale}.json`, available locales are defined in `config/app.php` under `available_locales`, and the `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
 
-#### Extracting Translation Strings
+#### `make update-translation`
 
-To find all translatable strings in the codebase:
+Translations are kept in step with the code by one command, which runs five steps (only the third calls an API):
 
-```bash
-# Extract all __('...') and __("...") calls from PHP and Blade files
-# Handles escaped quotes (e.g., __('You\'re logged in')) and double-quoted strings (e.g., __("Use \"auto\""))
-grep -rhoP "__\(\s*'(?:[^'\\\\]|\\\\.)*'" app/ resources/ --include='*.php' --include='*.blade.php' | sed "s/__(\s*'//" | sed "s/'$//" | sed "s/\\\'/'/g" > /tmp/_keys1.txt
-grep -rhoP '__\(\s*"(?:[^"\\\\]|\\\\.)*"' app/ resources/ --include='*.php' --include='*.blade.php' | sed 's/__(\s*"//' | sed 's/"$//' | sed 's/\\"/"/g' > /tmp/_keys2.txt
-cat /tmp/_keys1.txt /tmp/_keys2.txt | sort -u
-```
+1. `translatable:export en` (kkomelin/laravel-translatable-string-exporter) scans `app/` and `resources/` for `__()`, `trans_choice()` and `@lang()` and rewrites **`lang/en.json`**, the generated, committed inventory of every translatable string. English is the key *and* the value; nothing changes at runtime.
+2. `translations:sync` (`app/Console/Commands/TranslationsSyncCommand.php`) prunes keys the code no longer uses from each target locale. It **never adds a key**, so "missing" always means "not translated yet" rather than "filled with English".
+3. `ai-translator:translate-json` (kargnas/laravel-ai-translator) sends only the keys a locale is missing to Claude, and its own validator retries a chunk that drops a `:placeholder`. Config lives in `config/ai-translator.php`; the `additional_rules` there are the machine-readable form of the conventions below.
+4. `translations:sync` again, to strip the `_comment` banner the translator writes into every file and restore `en.json` key order and formatting.
+5. `translations:sync --check` writes nothing and fails when a locale is out of sync, so drift is visible without an API key.
+
+`make check-translation` runs steps 1 and 5 only -- no API key, no cost. Both packages are dev dependencies; nothing in this pipeline runs in production.
+
+The API key comes from 1Password via `op run` (see the global CLAUDE.md): `~/.config/op-env/anthropic.env` holds an `ANTHROPIC_API_KEY=op://...` reference, and the Makefile forwards the resolved value into the container with a bare `-e ANTHROPIC_API_KEY`, so it never reaches a command line. Target locales are the `LOCALES` variable at the top of the `Makefile`.
+
+**Do not use `ai-translator:find-unused`.** Its scanner regex cannot match keys containing `)` or `'` (47 of ours), reports them as unused, and deletes them with `--force`. Pruning is `translations:sync`'s job.
+
+#### Strings the exporter cannot see
+
+`#[Title('...')]` attributes cannot hold a `__()` call, so the layouts translate `$title` at render time and the title strings are listed in `lang/persistent-strings.json`. Anything else built dynamically belongs in that file too.
+
+Deliberately **not** translated: API, CLI and MCP responses, backup/restore job-log lines, and enum `label()` values (see `docs/development/extending.md`).
 
 #### Adding a New Locale
 
 1. Add the locale to `config/app.php` in the `available_locales` array (key = locale code, value = display label)
-2. Create `lang/{locale}.json` with translations (copy `lang/fr.json` as a template)
-3. All `__('...')` keys not present in the JSON file fall back to the key itself (English)
+2. Add it to `LOCALES` in the `Makefile`, and add any locale-specific rules (quotation marks, plural behaviour) to `additional_rules` in `config/ai-translator.php`
+3. Create an empty `lang/{locale}.json` containing `{}` and run `make update-translation`
+
+All `__('...')` keys not present in a JSON file fall back to the key itself (English).
 
 #### Avoiding HTML Encoding Artifacts
 
@@ -397,10 +409,7 @@ These are standard industry jargon that developers worldwide understand regardle
 
 #### Updating an Existing Locale
 
-1. Run the extraction command above to find all translatable strings
-2. Compare against the existing `lang/{locale}.json` to find missing keys
-3. Add translations for any missing keys (using typographic apostrophes in values)
-4. Ensure technical terms listed in **Technical Terms — Do Not Over-Translate** above stay in English — both as standalone labels and within compound phrases
+Run `make update-translation`. Never hand-edit `lang/en.json` (it is generated) and never add keys to a target locale by hand -- a key present with an English value looks translated to every check we have.
 
 ## Important Files
 
@@ -438,6 +447,7 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/socialite (SOCIALITE) - v5
 - livewire/livewire (LIVEWIRE) - v4
 - larastan/larastan (LARASTAN) - v3
+- laravel/ai (AI) - v0
 - laravel/boost (BOOST) - v2
 - laravel/pail (PAIL) - v1
 - laravel/pint (PINT) - v1

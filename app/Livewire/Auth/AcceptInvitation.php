@@ -32,7 +32,7 @@ class AcceptInvitation extends Component
             ->first();
 
         if (! $user) {
-            abort(404, 'Invalid or expired invitation link.');
+            abort(404, __('Invalid or expired invitation link.'));
         }
 
         $this->user = $user;

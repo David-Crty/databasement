@@ -106,7 +106,7 @@ class Modal extends Component
 
         // Agent-backed servers aren't directly reachable, so they can't be restore targets.
         if ($this->targetServer->agent_id !== null) {
-            abort(422, 'Restores cannot target agent-backed servers.');
+            abort(422, __('Restores cannot target agent-backed servers.'));
         }
 
         return true;

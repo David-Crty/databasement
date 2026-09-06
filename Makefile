@@ -1,4 +1,4 @@
-.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
+.PHONY: help install start update-translation check-translation test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -28,6 +28,19 @@ AGENT_ENV := $(foreach v,CLAUDECODE CLAUDE_CODE AI_AGENT CURSOR_AGENT GEMINI_CLI
 PHP_EXEC  := $(DOCKER_COMPOSE) exec --user application -T $(AGENT_ENV) -w $(PHP_WORKDIR) $(PHP_SERVICE)
 PHP_COMPOSER   := $(PHP_EXEC) composer
 PHP_ARTISAN    := $(PHP_EXEC) php artisan
+
+# Localization: target locales for `make update-translation`, and the gitignored
+# file holding the Anthropic key. `op run` would raise a 1Password authorization
+# prompt on every invocation, and the translator makes one process call per locale,
+# so the key is read out once and kept in .env.local. Regenerate it with:
+#   { printf 'ANTHROPIC_API_KEY='; op read 'op://Personal/<item>/credential'; } > .env.local
+# It lives in the main checkout, which is also where a worktree's Compose project runs.
+LOCALES   ?= fr es el zh_TW
+ENV_LOCAL ?= $(if $(COMPOSE_ROOT),$(COMPOSE_ROOT),.)/.env.local
+
+# --locale is an array option and the JSON command does not split on commas: a
+# comma-joined value is taken as one locale name and writes lang/fr,es,el.json.
+LOCALE_FLAGS := $(foreach locale,$(LOCALES),--locale=$(locale))
 NPM_EXEC       := npm
 
 ##@ Help
@@ -130,6 +143,27 @@ docs: ## Start documentation dev server (Docusaurus)
 
 docs-build: ## Build documentation for production (Docusaurus)
 	cd docs && $(NPM_EXEC) install && $(NPM_EXEC) run build
+
+##@ Localization
+
+# Extract -> prune -> translate -> normalise -> report. Only the translate step
+# calls the API, and it only sends the keys a locale is missing, so re-running
+# after a failure costs nothing for what already landed. Sourcing .env.local with
+# `set -a` exports the key into that one shell, and `-e ANTHROPIC_API_KEY` (name,
+# no value) forwards it into the container without it reaching a command line.
+update-translation: ## Update lang/*.json from the code, translating new strings with AI
+	@test -f $(ENV_LOCAL) || { echo "$(YELLOW)Missing $(ENV_LOCAL) with ANTHROPIC_API_KEY (see the Makefile comment)$(NC)"; exit 1; }
+	$(PHP_ARTISAN) translatable:export en
+	$(PHP_ARTISAN) translations:sync
+	set -a; . $(ENV_LOCAL); set +a; $(DOCKER_COMPOSE) exec -e ANTHROPIC_API_KEY \
+		--user application -T -w $(PHP_WORKDIR) $(PHP_SERVICE) \
+		php artisan ai-translator:translate-json --source=en $(LOCALE_FLAGS) --non-interactive
+	$(PHP_ARTISAN) translations:sync
+	$(PHP_ARTISAN) translations:sync --check
+
+check-translation: ## Report locales that are out of sync with the code (no API calls)
+	$(PHP_ARTISAN) translatable:export en
+	$(PHP_ARTISAN) translations:sync --check
 
 ##@ Database
 
