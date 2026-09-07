@@ -213,4 +213,3 @@ class ProcessRestoreJob implements ShouldQueue
         app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
     }
 }
-
