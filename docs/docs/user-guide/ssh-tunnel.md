@@ -24,6 +24,7 @@ Enable **SSH Tunnel** on the database server and point it at the SSH host:
 | SSH Port | SSH port (default: 22) |
 | SSH Username | SSH user |
 | Auth Type | `Password` or `Private Key` (with optional passphrase) |
+| Enable compression | Adds `-C` to the tunnel, trading CPU on both ends for bandwidth. Off by default; worth enabling on slow links |
 
 ### Reusing an SSH configuration
 
@@ -51,6 +52,8 @@ curl -X POST https://databasement.example.com/api/v1/database-server-ssh-configs
 ```
 
 With `generate_key`, the keypair is generated server-side and the public key comes back in the response — copy it into `authorized_keys` on the SSH host. As in the UI, it is returned only once and never stored. Omit `generate_key` to send your own `private_key` (and optional `key_passphrase`), or use `"auth_type": "password"` with a `password`.
+
+`compression` is accepted here too, and defaults to `false` when omitted.
 
 Credentials are write-only: `GET`, `PUT` and the list endpoint never return them, and omitting them on `PUT` keeps the stored ones. A configuration still attached to a database server cannot be deleted. See [REST API](./api.md) for the full reference.
 
