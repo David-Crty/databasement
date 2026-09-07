@@ -91,5 +91,11 @@ return [
             '- Keep the English terms in Latin script. Never write 備份, 快照 or 恢復 for backup, snapshot or restore, not even in a button label such as "Backup Now".',
             '- Separate a Latin technical term from the surrounding Chinese characters with a single space, as in "Backup 檔案" and "下載 Snapshot".',
         ],
+        'zh_cn' => [
+            ...$rules,
+            '- Use Simplified Chinese as written in mainland China, with full-width punctuation and “” for quotation marks.',
+            '- Keep the English terms in Latin script. Never write 备份, 快照, 恢复 or 还原 for backup, snapshot or restore, not even in a button label such as "Backup Now".',
+            '- Separate a Latin technical term from the surrounding Chinese characters with a single space, as in "Backup 文件" and "下载 Snapshot".',
+        ],
     ],
 ];

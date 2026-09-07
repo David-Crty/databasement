@@ -55,3 +55,18 @@ test('check reports a locale that is out of sync without writing, and exits non-
 
     expect(readLangFile($this->langPath, 'fr'))->toHaveKey('Stale');
 });
+
+test('sync strips the translator banner and its indentation from an otherwise current locale', function () {
+    writeLangFile($this->langPath, 'en', ['Backup' => 'Backup', 'Snapshot' => 'Snapshot']);
+    File::put("{$this->langPath}/fr.json", json_encode([
+        '_comment' => 'WARNING: This is an auto-generated file.',
+        'Backup' => 'Backup',
+        'Snapshot' => 'Snapshot',
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+    $this->artisan('translations:sync')->assertSuccessful();
+
+    expect(File::get("{$this->langPath}/fr.json"))->toBe(
+        "{\n  \"Backup\": \"Backup\",\n  \"Snapshot\": \"Snapshot\"\n}\n"
+    );
+});

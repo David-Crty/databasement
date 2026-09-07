@@ -42,7 +42,7 @@ class TranslationsSyncCommand extends Command
             $missing = count($source) - count($translations);
             $stale = count($existing) - count($translations);
 
-            if (! $check && $translations !== $existing) {
+            if (! $check) {
                 $this->write($path, $translations);
             }
 
@@ -122,6 +122,10 @@ class TranslationsSyncCommand extends Command
     }
 
     /**
+     * Comparing the rendered file rather than the decoded arrays is what catches drift
+     * that survives decoding: the translator's banner, its four-space indentation, and
+     * any key order the source no longer has.
+     *
      * @param  array<string, string>  $translations
      */
     private function write(string $path, array $translations): void
@@ -131,7 +135,11 @@ class TranslationsSyncCommand extends Command
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
         );
 
-        file_put_contents($path, $this->indentWithTwoSpaces($json)."\n");
+        $contents = $this->indentWithTwoSpaces($json)."\n";
+
+        if ($contents !== file_get_contents($path)) {
+            file_put_contents($path, $contents);
+        }
     }
 
     private function indentWithTwoSpaces(string $json): string
