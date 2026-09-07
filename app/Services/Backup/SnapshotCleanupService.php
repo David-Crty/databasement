@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\RunKind;
 use App\Models\Backup;
 use App\Models\Snapshot;
 use Illuminate\Support\Collection;
@@ -171,8 +172,10 @@ class SnapshotCleanupService
     }
 
     /**
-     * Delete one snapshot, keeping S3 full/anchored runs while a descendant
-     * incremental that survives this retention pass still references them.
+     * Delete one snapshot, keeping any run (anchor full or incremental) that a
+     * later run surviving this retention pass still needs to restore. A run's
+     * archive is not self-contained, so the whole lineage from the anchor full
+     * up to a kept run must stay in place.
      *
      * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds  Ids being deleted in this pass.
      */
@@ -182,11 +185,13 @@ class SnapshotCleanupService
         $database = $snapshot->database_name;
 
         // Retention is the chain's whole-chain owner and may free older runs.
-        // But it must not orphan a full run that this pass leaves in place while
-        // at least one kept incremental depends on it — that incremental becomes
-        // unrestorable. In that case the full is retained too.
-        if ($snapshot->run_kind?->isFull() && $this->hasRetainedDescendant($snapshot, $deletingIds)) {
-            Log::warning("Snapshot cleanup: Kept {$database} ({$age} days old) - a newer incremental snapshot depends on it.");
+        // But it must not orphan a run that this pass leaves in place while at
+        // least one kept run's restore lineage still depends on it — that kept
+        // run becomes unrestorable. Restore overlays every archive from the
+        // anchor full up to the target, so an older incremental is just as
+        // load-bearing as its anchor full and is retained too.
+        if ($snapshot->run_kind !== null && $this->hasRetainedDescendant($snapshot, $deletingIds)) {
+            Log::warning("Snapshot cleanup: Kept {$database} ({$age} days old) - a newer run's restore lineage depends on it.");
 
             return;
         }
@@ -206,17 +211,29 @@ class SnapshotCleanupService
     }
 
     /**
-     * Whether any descendant incremental of a full run survives this retention
-     * pass. Descendants that are themselves being deleted do not block it.
+     * Whether any later run that survives this retention pass has this run in
+     * its restore lineage. For an anchor full that is any kept incremental of
+     * the chain; for an incremental, only kept incrementals created after it.
+     * Descendants that are themselves being deleted do not block it.
      *
      * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds
      */
     private function hasRetainedDescendant(Snapshot $snapshot, $deletingIds): bool
     {
+        $anchor = $snapshot->run_kind === RunKind::FULL ? $snapshot->id : $snapshot->full_snapshot_id;
+
+        if ($anchor === null) {
+            return false;
+        }
+
         return Snapshot::query()
             ->where('database_server_id', $snapshot->database_server_id)
             ->where('database_name', $snapshot->database_name)
-            ->where('full_snapshot_id', $snapshot->id)
+            ->where('full_snapshot_id', $anchor)
+            ->when($snapshot->run_kind === RunKind::INCREMENTAL, function ($query) use ($snapshot) {
+                /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */
+                $query->where('started_at', '>', $snapshot->started_at);
+            })
             ->whereNotIn('id', $deletingIds->keys())
             ->exists();
     }

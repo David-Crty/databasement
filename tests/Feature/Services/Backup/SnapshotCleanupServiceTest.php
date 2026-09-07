@@ -330,3 +330,59 @@ test('forever policy keeps all snapshots indefinitely', function () {
     expect(Snapshot::find($recentSnapshot->id))->not->toBeNull()
         ->and(Snapshot::find($veryOldSnapshot->id))->not->toBeNull();
 });
+
+/**
+ * Create an S3 bucket run (full or incremental) under the server's first
+ * backup at a given age. The archive filename is left empty so the factory's
+ * per-volume copy rows stay pending and retention deletes never touch a real
+ * volume file.
+ */
+function createBucketRun(DatabaseServer $server, string $runKind, ?string $fullSnapshotId, \Carbon\Carbon $createdAt): Snapshot
+{
+    $snapshot = Snapshot::factory()
+        ->forServer($server)
+        ->create([
+            'filename' => '',
+            'run_kind' => $runKind,
+            'full_snapshot_id' => $fullSnapshotId,
+            'database_name' => 'photos',
+            'started_at' => $createdAt,
+        ]);
+
+    $snapshot->forceFill(['created_at' => $createdAt])->saveQuietly();
+
+    return $snapshot->fresh();
+}
+
+test('days retention keeps an older bucket run when a kept newer run needs its lineage', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(10));
+    $olderIncremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(9));
+    // Survives the cutoff; restoring it overlays the full and the older
+    // incremental above, so both must be retained despite being expired.
+    createBucketRun($server, 'incremental', $full->id, now()->subDays(1));
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and(Snapshot::find($full->id))->not->toBeNull()
+        ->and(Snapshot::find($olderIncremental->id))->not->toBeNull();
+});
+
+test('days retention deletes a whole expired bucket chain together', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(12));
+    $olderIncremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(10));
+    $newestIncremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(8));
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(3)
+        ->and(Snapshot::find($full->id))->toBeNull()
+        ->and(Snapshot::find($olderIncremental->id))->toBeNull()
+        ->and(Snapshot::find($newestIncremental->id))->toBeNull();
+});
