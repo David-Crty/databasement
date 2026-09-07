@@ -168,6 +168,7 @@
                         <x-menu-separator />
                         <x-menu-item :title="__('Delete')" icon="o-trash"
                                      wire:click="confirmDelete('{{ $server->id }}')"
+                                     spinner
                                      class="text-error" />
                     @endcan
                 </x-floating-dropdown>

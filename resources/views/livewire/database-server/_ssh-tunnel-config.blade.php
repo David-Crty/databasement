@@ -199,7 +199,7 @@
                                 type="button"
                                 icon="o-sparkles"
                                 wire:click="generateSshKey"
-                                spinner="generateSshKey"
+                                spinner
                             >
                                 {{ __('Generate') }}
                             </x-button>
@@ -237,7 +237,7 @@
                         type="button"
                         icon="{{ $form->sshTestSuccess ? 'o-check-circle' : 'o-signal' }}"
                         wire:click="testSshConnection"
-                        spinner="testSshConnection"
+                        spinner
                     >
                         @if($form->sshTestSuccess)
                             {{ __('Connected') }}

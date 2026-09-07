@@ -41,7 +41,7 @@
     </x-tabs>
 
     <x-slot:actions>
-        <x-button :label="__('Done')" class="btn-primary" wire:click="closeTokenModal" />
+        <x-button :label="__('Done')" class="btn-primary" wire:click="closeTokenModal" spinner />
     </x-slot:actions>
 
 </x-modal>

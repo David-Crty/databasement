@@ -134,6 +134,7 @@
                             <x-button
                                 icon="bi.database-fill-down"
                                 wire:click="triggerRestore('{{ $snapshot->id }}')"
+                                spinner
                                 :tooltip="__('Restore')"
                                 class="btn-ghost btn-sm text-success"
                             />
@@ -147,6 +148,7 @@
                                 <x-button
                                     icon="o-arrow-down-tray"
                                     wire:click="openDownloadModal('{{ $snapshot->id }}')"
+                                    spinner
                                     :tooltip="__('Download')"
                                     class="btn-ghost btn-sm text-primary"
                                 />
@@ -165,6 +167,7 @@
                     <x-button
                         icon="o-document-text"
                         wire:click="viewLogs('{{ $job?->id }}')"
+                        spinner
                         :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
                         :class="$job ? '' : 'opacity-30'"
@@ -176,6 +179,7 @@
                             <x-button
                                 icon="o-trash"
                                 wire:click="confirmDeleteSnapshot('{{ $snapshot->id }}')"
+                                spinner
                                 :tooltip="__('Delete')"
                                 class="btn-ghost btn-sm text-error"
                             />
@@ -196,6 +200,7 @@
                             <x-button
                                 icon="o-x-mark"
                                 wire:click="confirmCancelJob('{{ $job->id }}')"
+                                spinner
                                 :tooltip="__('Cancel')"
                                 class="btn-ghost btn-sm text-error"
                             />

@@ -39,7 +39,7 @@ trait HandlesJobLogsModal
         $job = BackupJob::find($this->selectedJobId);
 
         if (! $job) {
-            $this->errorMessage = __('Job not found: ').$this->selectedJobId;
+            $this->errorMessage = __('Job not found: :id', ['id' => $this->selectedJobId]);
             $this->selectedJobId = null;
 
             return;

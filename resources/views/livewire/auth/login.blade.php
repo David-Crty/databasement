@@ -72,7 +72,7 @@
                 <x-checkbox name="remember" label="{{ __('Remember me') }}" :checked="old('remember')" />
 
                 <div class="flex items-center justify-end">
-                    <x-button type="submit" class="btn-primary w-full" label="{{ __('Log in') }}" data-test="login-button" />
+                    <x-submit-button class="btn-primary w-full" :label="__('Log in')" data-test="login-button" />
                 </div>
             </x-form>
         @endunless

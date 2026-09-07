@@ -111,6 +111,7 @@
                         <x-button
                             icon="o-trash"
                             wire:click="confirmDelete('{{ $volume->id }}')"
+                            spinner
                             tooltip="{{ __('Delete') }}"
                             class="btn-ghost btn-sm text-error"
                         />

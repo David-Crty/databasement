@@ -9,6 +9,9 @@ This is a Laravel application for managing database server backups. It uses Live
 ## Development Commands
 
 **IMPORTANT**: All PHP commands MUST be run through Docker. Never run `php`, `composer`, or `vendor/bin/*` commands directly on the host. Use the Makefile targets or `docker compose exec --user application -T app <command>` instead. Always include `--user application` to ensure correct file permissions. 
+
+**In a git worktree, prefer the Makefile targets.** They resolve the Compose project from the shared git dir and run in the worktree's own path inside the container, so `make test` and friends work unchanged. A bare `docker compose` there starts a *second* project named after the worktree directory and reports `service "app" is not running`; it needs `--project-directory <main checkout>` plus `-w /app/<path to worktree>` spelled out. Run `make install` once in a new worktree: `vendor/` is gitignored, and symlinking the main checkout's would run the main branch's `app/` classes.
+
 This overrides any bundled guideline or skill that shows a bare command — notably the `pestphp/pest-plugin-agent` rules at the end of this file, whose `vendor/bin/pest --agent='…'` examples must be run as `docker compose exec --user application -T app vendor/bin/pest --agent='…'`.
 
 ### Setup and Installation
@@ -243,6 +246,32 @@ Pre-commit hook automatically runs:
 
 Ensure tests pass and code is formatted before committing.
 
+### Commit and PR Titles (changelog)
+
+`CHANGELOG.md` (Keep a Changelog, **one section per minor version** with every entry prefixed by the patch that shipped it, no Unreleased section) is written at release time by the `/changelog` skill, from the commits since the last tag. The app renders it as Markdown at `/changelog` (styled by `.changelog` in `resources/css/app.css`), and `docs/scripts/sync-changelog.js` publishes it as a documentation page. PRs are squash-merged, so the **PR title becomes the commit subject the skill reads**. Write it as a conventional commit, `type(scope)?: description`:
+
+| Title prefix | Changelog section |
+|---|---|
+| `feat:` | Added |
+| `fix:` | Fixed |
+| `fix(security):` | Security |
+| `perf:`, `refactor:` | Changed (only when an operator would notice; otherwise `chore:`) |
+| any type whose description starts with "remove" / "drop" | Removed |
+| any type whose description starts with "deprecate" | Deprecated |
+| `chore:`, `ci:`, `test:`, `docs:`, `style:`, dependency bumps | skipped |
+
+Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and render with a **Breaking:** prefix. The PR body keeps explaining the *why*; it becomes the commit body the skill reads for wording. GitHub appends `(#NNN)`, which becomes the PR link. Branch names do not matter. Feature PRs must not edit `CHANGELOG.md`: the release step writes it.
+
+### Releasing
+
+`make release VERSION=x.y.z` does everything from a clean, up-to-date `main`:
+
+1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the commits since the last tag under the `[x.y]` section tagged with the patch, commits to `main` (pre-commit hook included, so Docker must be up) and pushes.
+2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
+3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
+
+To review the entry before tagging, run `/changelog x.y.z` in Claude Code first; `make release` then finds the entry and only tags. The version is the skill's only argument and it always writes and commits.
+
 ### Running a Single Test
 
 ```bash
@@ -301,6 +330,7 @@ Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bounc
 - Alert pattern: Use `class="alert-success"`, `class="alert-error"`, etc.
 - Form components: `<x-input>`, `<x-password>`, `<x-select>`, `<x-checkbox>`, etc.
 - Translated attributes: always use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"` — interpolation double-encodes special characters (see "Avoiding HTML Encoding Artifacts" below)
+- Loading states: every `<x-button>` / `<x-menu-item>` with `wire:click` takes the bare `spinner` prop (it targets the click expression, parameters included, so per-row buttons spin individually); `type="submit"` buttons of `wire:submit` forms take `spinner="method"`; `$set`/`$toggle` clicks take `spinner="property"`; classic POST forms (auth pages, logout) use `<x-submit-button>`.
 - Documentation: https://mary-ui.com/docs/components/button
 
 ### Resource Index Pages
@@ -313,25 +343,37 @@ Use Mary UI's `<x-table>` component with `@scope` directives for cell rendering.
 
 ### Localization
 
-The app uses Laravel's JSON translation files with the `__('...')` helper. Translations live in `lang/{locale}.json`. Available locales are defined in `config/app.php` under `available_locales`. The `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
+The app uses Laravel's JSON translation files with the `__('...')` helper. Keys are the English source strings themselves. Translations live in `lang/{locale}.json`, available locales are defined in `config/app.php` under `available_locales`, and the `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
 
-#### Extracting Translation Strings
+#### `make update-translation`
 
-To find all translatable strings in the codebase:
+Translations are kept in step with the code by one command, which runs five steps (only the third calls an API):
 
-```bash
-# Extract all __('...') and __("...") calls from PHP and Blade files
-# Handles escaped quotes (e.g., __('You\'re logged in')) and double-quoted strings (e.g., __("Use \"auto\""))
-grep -rhoP "__\(\s*'(?:[^'\\\\]|\\\\.)*'" app/ resources/ --include='*.php' --include='*.blade.php' | sed "s/__(\s*'//" | sed "s/'$//" | sed "s/\\\'/'/g" > /tmp/_keys1.txt
-grep -rhoP '__\(\s*"(?:[^"\\\\]|\\\\.)*"' app/ resources/ --include='*.php' --include='*.blade.php' | sed 's/__(\s*"//' | sed 's/"$//' | sed 's/\\"/"/g' > /tmp/_keys2.txt
-cat /tmp/_keys1.txt /tmp/_keys2.txt | sort -u
-```
+1. `translatable:export en` (kkomelin/laravel-translatable-string-exporter) scans `app/` and `resources/` for `__()`, `trans_choice()` and `@lang()` and rewrites **`lang/en.json`**, the generated, committed inventory of every translatable string. English is the key *and* the value; nothing changes at runtime.
+2. `translations:sync` (`app/Console/Commands/TranslationsSyncCommand.php`) prunes keys the code no longer uses from each target locale. It **never adds a key**, so "missing" always means "not translated yet" rather than "filled with English".
+3. `ai-translator:translate-json` (kargnas/laravel-ai-translator) sends only the keys a locale is missing to Claude, and its own validator retries a chunk that drops a `:placeholder`. Config lives in `config/ai-translator.php`; the `additional_rules` there are the machine-readable form of the conventions below.
+4. `translations:sync` again, to strip the `_comment` banner the translator writes into every file and restore `en.json` key order and formatting.
+5. `translations:sync --check` writes nothing and fails when a locale is out of sync, so drift is visible without an API key.
+
+`make check-translation` runs steps 1 and 5 only -- no API key, no cost. Both packages are dev dependencies; nothing in this pipeline runs in production.
+
+The API key comes from 1Password via `op run` (see the global CLAUDE.md): `~/.config/op-env/anthropic.env` holds an `ANTHROPIC_API_KEY=op://...` reference, and the Makefile forwards the resolved value into the container with a bare `-e ANTHROPIC_API_KEY`, so it never reaches a command line. Target locales are the `LOCALES` variable at the top of the `Makefile`.
+
+**Do not use `ai-translator:find-unused`.** Its scanner regex cannot match keys containing `)` or `'` (47 of ours), reports them as unused, and deletes them with `--force`. Pruning is `translations:sync`'s job.
+
+#### Strings the exporter cannot see
+
+`#[Title('...')]` attributes cannot hold a `__()` call, so the layouts translate `$title` at render time and the title strings are listed in `lang/persistent-strings.json`. Anything else built dynamically belongs in that file too.
+
+Deliberately **not** translated: API, CLI and MCP responses, backup/restore job-log lines, and enum `label()` values (see `docs/development/extending.md`).
 
 #### Adding a New Locale
 
 1. Add the locale to `config/app.php` in the `available_locales` array (key = locale code, value = display label)
-2. Create `lang/{locale}.json` with translations (copy `lang/fr.json` as a template)
-3. All `__('...')` keys not present in the JSON file fall back to the key itself (English)
+2. Add it to `LOCALES` in the `Makefile`, and add any locale-specific rules (quotation marks, plural behaviour) to `additional_rules` in `config/ai-translator.php`
+3. Create an empty `lang/{locale}.json` containing `{}` and run `make update-translation`
+
+All `__('...')` keys not present in a JSON file fall back to the key itself (English).
 
 #### Avoiding HTML Encoding Artifacts
 
@@ -367,10 +409,7 @@ These are standard industry jargon that developers worldwide understand regardle
 
 #### Updating an Existing Locale
 
-1. Run the extraction command above to find all translatable strings
-2. Compare against the existing `lang/{locale}.json` to find missing keys
-3. Add translations for any missing keys (using typographic apostrophes in values)
-4. Ensure technical terms listed in **Technical Terms — Do Not Over-Translate** above stay in English — both as standalone labels and within compound phrases
+Run `make update-translation`. Never hand-edit `lang/en.json` (it is generated) and never add keys to a target locale by hand -- a key present with an English value looks translated to every check we have.
 
 ## Important Files
 
@@ -408,6 +447,7 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/socialite (SOCIALITE) - v5
 - livewire/livewire (LIVEWIRE) - v4
 - larastan/larastan (LARASTAN) - v3
+- laravel/ai (AI) - v0
 - laravel/boost (BOOST) - v2
 - laravel/pail (PAIL) - v1
 - laravel/pint (PINT) - v1

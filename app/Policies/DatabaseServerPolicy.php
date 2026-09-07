@@ -31,6 +31,16 @@ class DatabaseServerPolicy
     }
 
     /**
+     * Determine whether the user can list database servers across every
+     * organization. Cross-tenant visibility is a global concern, so it is
+     * reserved for super admins rather than a catalogue ability.
+     */
+    public function viewAcrossOrganizations(User $user): bool
+    {
+        return $user->isSuperAdmin();
+    }
+
+    /**
      * Determine whether the user can view the create/edit form.
      * Demo users can view forms but not submit them.
      */

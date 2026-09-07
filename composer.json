@@ -45,6 +45,8 @@
         "ext-zlib": "*",
         "barryvdh/laravel-ide-helper": "^3.6",
         "fakerphp/faker": "^1.23",
+        "kargnas/laravel-ai-translator": "^1.7",
+        "kkomelin/laravel-translatable-string-exporter": "^1.26",
         "larastan/larastan": "^3.8",
         "laravel/boost": "^2.1",
         "laravel/pail": "^1.2.2",

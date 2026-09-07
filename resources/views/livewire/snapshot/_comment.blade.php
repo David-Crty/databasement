@@ -21,8 +21,8 @@
         />
 
         <div class="flex items-center justify-end gap-1 mt-1">
-            <x-button :label="__('Cancel')" class="btn-ghost btn-xs" wire:click="cancelEditComment" />
-            <x-button :label="__('Save')" class="btn-primary btn-xs" wire:click="saveComment" spinner="saveComment" />
+            <x-button :label="__('Cancel')" class="btn-ghost btn-xs" wire:click="cancelEditComment" spinner />
+            <x-button :label="__('Save')" class="btn-primary btn-xs" wire:click="saveComment" spinner />
         </div>
     </div>
 @elseif($snapshot->comment)
@@ -35,6 +35,9 @@
             class="link link-hover min-w-0 text-start text-sm text-base-content/70 line-clamp-2 hover:text-base-content"
             @if($canEditComment)
                 wire:click="editComment('{{ $snapshot->id }}')"
+                wire:loading.attr="disabled"
+                wire:loading.class="opacity-50"
+                wire:target="editComment('{{ $snapshot->id }}')"
                 aria-label="{{ __('Edit comment') }}: {{ $snapshot->comment }}"
             @else
                 x-data="{ expanded: false }"
@@ -49,6 +52,7 @@
         :label="__('Add comment')"
         icon="o-plus"
         wire:click="editComment('{{ $snapshot->id }}')"
+        spinner
         class="btn-ghost btn-xs -ms-2 mt-1 font-normal text-base-content/50 transition-opacity hover:text-primary md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100"
     />
 @endif

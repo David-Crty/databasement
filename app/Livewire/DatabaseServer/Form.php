@@ -153,8 +153,6 @@ class Form extends \Livewire\Form
 
     public bool $connectionTestSuccess = false;
 
-    public bool $testingConnection = false;
-
     /** @var array<string, mixed> Connection test details (dbms, ping, ssl, etc.) */
     public array $connectionTestDetails = [];
 
@@ -1123,7 +1121,6 @@ class Form extends \Livewire\Form
 
     public function testConnection(): void
     {
-        $this->testingConnection = true;
         $this->connectionTestMessage = null;
         $this->connectionTestDetails = [];
         $this->availableDatabases = [];
@@ -1145,7 +1142,6 @@ class Form extends \Livewire\Form
                 $this->validate($rules);
             }
         } catch (ValidationException $e) {
-            $this->testingConnection = false;
             $this->connectionTestSuccess = false;
             /** @var string $message */
             $message = collect($e->errors())->flatten()->first()
@@ -1159,7 +1155,6 @@ class Form extends \Livewire\Form
         try {
             $password = $this->password ?: $this->server?->getDecryptedPassword();
         } catch (EncryptionException $e) {
-            $this->testingConnection = false;
             $this->connectionTestSuccess = false;
             $this->connectionTestMessage = $e->getMessage();
 
@@ -1188,7 +1183,6 @@ class Form extends \Livewire\Form
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
         $this->connectionTestDetails = $result['details'];
-        $this->testingConnection = false;
 
         // If connection successful and supports per-database backups, load available databases
         if ($this->connectionTestSuccess && ! $this->identifiesDatabasesByPath() && ! $this->isRedis()) {
