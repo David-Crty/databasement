@@ -5,6 +5,7 @@ namespace App\Services\Backup;
 use App\Enums\RunKind;
 use App\Models\Backup;
 use App\Models\Snapshot;
+use App\Support\SnapshotChainLock;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
@@ -186,9 +187,60 @@ class SnapshotCleanupService
      * archive is not self-contained, so the whole lineage from the anchor full
      * up to a kept run must stay in place.
      *
+     * Real deletions of S3 chain runs are serialized with the backup job that
+     * persists new runs into the same chain: the lineage decision and the
+     * delete must be atomic, or a run persisted in that interval could lose
+     * the anchor/prior run it was built on (the nullOnDelete FK then clears
+     * its full_snapshot_id) and become unrestorable. When the chain is busy,
+     * the deletion is deferred to a later pass rather than risking that.
+     *
      * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds  Ids being deleted in this pass.
      */
     private function deleteSnapshot(Snapshot $snapshot, $deletingIds): void
+    {
+        if (! $this->dryRun && $snapshot->run_kind !== null) {
+            $this->deleteChainSnapshot($snapshot, $deletingIds);
+
+            return;
+        }
+
+        $this->deleteSnapshotUnlocked($snapshot, $deletingIds);
+    }
+
+    /**
+     * Delete an S3 chain run under the per-chain lock shared with
+     * ProcessBackupJob, deferring the deletion when a backup for the same
+     * chain is in progress.
+     *
+     * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds
+     */
+    private function deleteChainSnapshot(Snapshot $snapshot, $deletingIds): void
+    {
+        $lock = SnapshotChainLock::forSnapshot($snapshot, SnapshotChainLock::CLEANUP_TTL_SECONDS);
+
+        if (! $lock->get()) {
+            $age = $snapshot->created_at->diffInDays(now());
+
+            Log::warning(sprintf(
+                'Snapshot cleanup: Kept %s (%d days old) - a backup for this chain is in progress.',
+                $snapshot->database_name,
+                $age,
+            ));
+
+            return;
+        }
+
+        try {
+            $this->deleteSnapshotUnlocked($snapshot, $deletingIds);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds
+     */
+    private function deleteSnapshotUnlocked(Snapshot $snapshot, $deletingIds): void
     {
         $age = $snapshot->created_at->diffInDays(now());
         $database = $snapshot->database_name;

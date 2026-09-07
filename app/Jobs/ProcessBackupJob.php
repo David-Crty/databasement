@@ -18,6 +18,7 @@ use App\Services\Backup\S3BucketBackupEngine;
 use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
 use App\Support\QueueTimeouts;
+use App\Support\SnapshotChainLock;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -225,49 +226,63 @@ class ProcessBackupJob implements ShouldQueue
                 ->all()
         );
 
-        $outcome = $engine->run(
-            snapshot: $snapshot,
-            source: $handler->getFilesystem(),
-            scope: rtrim((string) $snapshot->database_name, '/'),
-            targets: $targets,
-            logger: $job,
-        );
+        // Serialize lineage writes with retention cleanup on the same chain.
+        // The engine reads the chain's prior runs to pick its anchor/baseline
+        // and the outcome below persists that lineage onto the snapshot, so
+        // cleanup must not delete those runs in between (the nullOnDelete FK
+        // would then clear full_snapshot_id and orphan this run). Cleanup only
+        // holds a chain lock for one decide-and-delete, so the wait below is
+        // short; a same-chain backup still running after it is retried.
+        $chainLock = SnapshotChainLock::forSnapshot($snapshot, $this->timeout);
+        $chainLock->block(60);
 
-        $this->persistS3Outcome($snapshot, $outcome);
-        $this->applyS3VolumeResults($snapshot, $outcome['volume_results']);
+        try {
+            $outcome = $engine->run(
+                snapshot: $snapshot,
+                source: $handler->getFilesystem(),
+                scope: rtrim((string) $snapshot->database_name, '/'),
+                targets: $targets,
+                logger: $job,
+            );
 
-        $failures = array_values(array_filter(
-            $outcome['volume_results'],
-            fn (\App\Services\Backup\DTO\VolumeTransferResult $r) => $r->status === SnapshotFileStatus::Failed,
-        ));
+            $this->persistS3Outcome($snapshot, $outcome);
+            $this->applyS3VolumeResults($snapshot, $outcome['volume_results']);
 
-        if ($failures !== []) {
-            // Successful per-volume copies were recorded above so a retry does
-            // not re-upload them, but the run is not complete until every target
-            // volume holds the archive. Throw so `handle()` marks the job failed
-            // and the queue retries within `backup.job_tries`, then `failed()`
-            // notifies only once the retries are exhausted. Returning here would
-            // acknowledge the attempt and bypass retries entirely.
-            $names = implode(', ', array_map(fn ($r) => $r->volumeName, $failures));
-            $message = __('Bucket upload failed for volume(s): :volumes', ['volumes' => $names]);
-            $job->log($message, 'error');
+            $failures = array_values(array_filter(
+                $outcome['volume_results'],
+                fn (\App\Services\Backup\DTO\VolumeTransferResult $r) => $r->status === SnapshotFileStatus::Failed,
+            ));
 
-            throw new \RuntimeException($message);
+            if ($failures !== []) {
+                // Successful per-volume copies were recorded above so a retry does
+                // not re-upload them, but the run is not complete until every target
+                // volume holds the archive. Throw so `handle()` marks the job failed
+                // and the queue retries within `backup.job_tries`, then `failed()`
+                // notifies only once the retries are exhausted. Returning here would
+                // acknowledge the attempt and bypass retries entirely.
+                $names = implode(', ', array_map(fn ($r) => $r->volumeName, $failures));
+                $message = __('Bucket upload failed for volume(s): :volumes', ['volumes' => $names]);
+                $job->log($message, 'error');
+
+                throw new \RuntimeException($message);
+            }
+
+            $job->log(sprintf(
+                'Bucket backup completed: %s run, %d archive/files, checksum %s',
+                $outcome['run_kind']->value,
+                count($outcome['object_files']),
+                substr($outcome['checksum'], 0, 16).'...',
+            ), 'success');
+
+            $job->markCompleted();
+            app(NotificationService::class)->notifyBackupSuccess($snapshot);
+            Log::info('Bucket backup completed successfully', [
+                'snapshot_id' => $snapshot->id,
+                'database_server_id' => $databaseServer->id,
+            ]);
+        } finally {
+            $chainLock->release();
         }
-
-        $job->log(sprintf(
-            'Bucket backup completed: %s run, %d archive/files, checksum %s',
-            $outcome['run_kind']->value,
-            count($outcome['object_files']),
-            substr($outcome['checksum'], 0, 16).'...',
-        ), 'success');
-
-        $job->markCompleted();
-        app(NotificationService::class)->notifyBackupSuccess($snapshot);
-        Log::info('Bucket backup completed successfully', [
-            'snapshot_id' => $snapshot->id,
-            'database_server_id' => $databaseServer->id,
-        ]);
     }
 
     /**

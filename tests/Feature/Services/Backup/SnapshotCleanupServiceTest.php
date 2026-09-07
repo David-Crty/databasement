@@ -408,3 +408,40 @@ test('days retention keeps a run when a kept descendant started in the same seco
         ->and(Snapshot::find($olderIncremental->id))->not->toBeNull()
         ->and(Snapshot::find($keptIncremental->id))->not->toBeNull();
 });
+
+test('cleanup defers deleting a bucket chain while its lineage is being persisted', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(12));
+
+    // ProcessBackupJob holds the per-chain lock while it persists a new run
+    // that anchors onto the expired full. Cleanup must not delete the full in
+    // that interval, or the persisted descendant would lose its anchor (the
+    // nullOnDelete FK clears full_snapshot_id) and become unrestorable.
+    $lock = \Illuminate\Support\Facades\Cache::lock(
+        \App\Support\SnapshotChainLock::key($server->id, 'photos'),
+        60,
+    );
+    expect($lock->get())->toBeTrue();
+
+    try {
+        $result = app(SnapshotCleanupService::class)->run();
+
+        expect($result['deleted'])->toBe(0)
+            ->and(Snapshot::find($full->id))->not->toBeNull();
+    } finally {
+        $lock->release();
+    }
+
+    // The job then persists its descendant against the still-present anchor.
+    $incremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(1));
+    expect($incremental->fresh()->full_snapshot_id)->toBe($full->id);
+
+    // The next pass sees the kept descendant and still retains the anchor.
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and(Snapshot::find($full->id))->not->toBeNull()
+        ->and(Snapshot::find($incremental->id))->not->toBeNull();
+});
