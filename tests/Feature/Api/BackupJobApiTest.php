@@ -106,3 +106,12 @@ test('authenticated users can get a specific job', function () {
         ->assertJsonPath('data.id', $job->id)
         ->assertJsonPath('data.type', 'backup');
 });
+
+test('a job from another organization is not readable via api', function () {
+    $user = User::factory()->withAbilities([])->create();
+    $foreign = foreignSnapshot();
+
+    $this->actingAs($user, 'sanctum')
+        ->getJson("/api/v1/jobs/{$foreign->backup_job_id}")
+        ->assertNotFound();
+});

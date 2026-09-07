@@ -96,19 +96,19 @@
             <div class="flex items-center gap-2 w-full justify-between">
                 <div>
                     @if($currentStep > 1)
-                        <x-button :label="__('Back')" icon="o-arrow-left" wire:click="previousStep" class="btn-ghost" />
+                        <x-button :label="__('Back')" icon="o-arrow-left" wire:click="previousStep" spinner class="btn-ghost" />
                     @endif
                 </div>
                 <div class="flex items-center gap-2">
                     <x-button :label="__('Cancel')" @click="$wire.showModal = false" class="btn-ghost" />
                     @if($currentStep < 3)
-                        <x-button :label="__('Next')" icon-right="o-arrow-right" wire:click="nextStep" class="btn-primary" />
+                        <x-button :label="__('Next')" icon-right="o-arrow-right" wire:click="nextStep" spinner class="btn-primary" />
                     @else
                         <x-button
                             :label="$editingId ? __('Save changes') : __('Create scheduled restore')"
                             icon="o-check"
                             wire:click="save"
-                            spinner="save"
+                            spinner
                             class="btn-primary"
                         />
                     @endif

@@ -317,3 +317,24 @@ test('the connection test carries compression only when the config enables it', 
     expect($method->invoke($service, $config))->not->toContain("'-C'");
     expect($method->invoke($service, [...$config, 'compression' => true]))->toContain("'-C'");
 });
+
+test('the login name is passed as its own argument, never concatenated onto the host', function () {
+    $service = new SshTunnelService;
+
+    $method = new ReflectionMethod($service, 'buildTestCommand');
+    $method->setAccessible(true);
+
+    $command = $method->invoke($service, [
+        'host' => 'bastion.example.com',
+        'port' => 22,
+        'username' => '-oProxyCommand=id',
+        'auth_type' => 'key',
+    ]);
+
+    // `user@host` would put the login name in the first character position of
+    // the argument, where ssh reads a leading dash as an option and runs
+    // ProxyCommand through a shell.
+    expect($command)
+        ->toContain("-l '-oProxyCommand=id' -- 'bastion.example.com'")
+        ->not->toContain("@'bastion.example.com'");
+});

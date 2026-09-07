@@ -16,6 +16,7 @@
         "mcp-development",
         "socialite-development",
         "livewire-development",
+        "ai-sdk-development",
         "pest-testing",
         "pest-plugin-agent"
     ]

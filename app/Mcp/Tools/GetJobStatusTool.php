@@ -17,11 +17,20 @@ class GetJobStatusTool extends Tool
     public function handle(Request $request): Response
     {
         $validated = $request->validate([
-            'job_id' => 'required|string|exists:backup_jobs,id',
+            'job_id' => 'required|string',
         ]);
 
-        /** @var BackupJob $job */
-        $job = BackupJob::with(['snapshot.databaseServer', 'restore.targetServer', 'restore.snapshot'])->findOrFail($validated['job_id']);
+        // Scoped rather than validated with `exists`, which would query the
+        // table directly and answer for every organization's jobs.
+        $job = BackupJob::query()
+            ->forCurrentOrg()
+            ->with(['snapshot.databaseServer', 'restore.targetServer', 'restore.snapshot'])
+            ->whereKey($validated['job_id'])
+            ->first();
+
+        if ($job === null) {
+            return Response::error('Job not found.');
+        }
 
         $lines = [
             "Job ID: {$job->id}",

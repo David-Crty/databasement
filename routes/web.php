@@ -42,6 +42,8 @@ Route::middleware(['auth'])->group(function () {
     // Dashboard
     Route::livewire('dashboard', \App\Livewire\Dashboard::class)
         ->name('dashboard');
+    Route::livewire('changelog', \App\Livewire\Changelog::class)
+        ->name('changelog');
 
     // Index pages - viewable by all roles
     Route::livewire('database-servers', \App\Livewire\DatabaseServer\Index::class)

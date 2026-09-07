@@ -79,14 +79,9 @@ use App\Enums\VolumeType;
                 type="button"
                 icon="o-arrow-path"
                 wire:click="testConnection"
-                :disabled="$form->testingConnection"
-                spinner="testConnection"
+                spinner
             >
-                @if($form->testingConnection)
-                    {{ __('Testing Connection...') }}
-                @else
-                    {{ __('Test Connection') }}
-                @endif
+                {{ __('Test Connection') }}
             </x-button>
         </div>
 
@@ -111,7 +106,7 @@ use App\Enums\VolumeType;
         <x-button class="btn-ghost" link="{{ route($cancelRoute) }}" wire:navigate>
             {{ __('Cancel') }}
         </x-button>
-        <x-button class="btn-primary" type="submit">
+        <x-button class="btn-primary" type="submit" spinner="save">
             {{ __($submitLabel) }}
         </x-button>
     </div>

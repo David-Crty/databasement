@@ -103,6 +103,11 @@
                                                     <span
                                                         class="opacity-70">{{ $snapshot->databaseServer->name }}</span>
                                                 </div>
+                                                @if($snapshot->comment)
+                                                    <div class="text-xs opacity-60 truncate" title="{{ $snapshot->comment }}">
+                                                        {{ $snapshot->comment }}
+                                                    </div>
+                                                @endif
                                             </div>
                                             <div class="sm:text-right space-y-0.5">
                                                 <div
@@ -169,11 +174,11 @@
 
                     <div class="flex gap-2 mt-6">
                         @if($currentStep > 1)
-                            <x-button class="btn-ghost" wire:click="previousStep">{{ __('Back') }}</x-button>
+                            <x-button class="btn-ghost" wire:click="previousStep" spinner>{{ __('Back') }}</x-button>
                         @endif
                         <div class="flex-1"></div>
                         <x-button class="btn-ghost" @click="$wire.showModal = false">{{ __('Cancel') }}</x-button>
-                        <x-button class="btn-primary" wire:click="restore" spinner="restore">
+                        <x-button class="btn-primary" wire:click="restore" spinner>
                             {{ __('Restore Database') }}
                         </x-button>
                     </div>

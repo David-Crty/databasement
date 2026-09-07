@@ -13,6 +13,7 @@
                     :label="__('New Restore')"
                     icon="o-plus"
                     wire:click="openNewRestore"
+                    spinner
                     class="btn-primary btn-sm"
                 />
             @endcan
@@ -158,6 +159,7 @@
                     <x-button
                         icon="o-document-text"
                         wire:click="viewLogs('{{ $job?->id }}')"
+                        spinner
                         :tooltip="__('View Logs')"
                         class="btn-ghost btn-sm"
                         :class="$job ? '' : 'opacity-30'"
@@ -168,6 +170,7 @@
                         <x-button
                             icon="o-trash"
                             wire:click="confirmDeleteRestore('{{ $restore->id }}')"
+                            spinner
                             :tooltip="__('Delete')"
                             class="btn-ghost btn-sm text-error"
                         />

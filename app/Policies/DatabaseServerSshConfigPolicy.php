@@ -5,9 +5,12 @@ namespace App\Policies;
 use App\Enums\Ability;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\User;
+use App\Policies\Concerns\ChecksOrganizationOwnership;
 
 class DatabaseServerSshConfigPolicy
 {
+    use ChecksOrganizationOwnership;
+
     /**
      * Determine whether the user can view any models.
      * All authenticated users can view the list.
@@ -19,11 +22,11 @@ class DatabaseServerSshConfigPolicy
 
     /**
      * Determine whether the user can view the model.
-     * All authenticated users can view details.
+     * All authenticated users in the owning organization can view details.
      */
     public function view(User $user, DatabaseServerSshConfig $sshConfig): bool
     {
-        return true;
+        return $this->ownedByCurrentOrganization($sshConfig->organization_id);
     }
 
     /**
@@ -40,7 +43,8 @@ class DatabaseServerSshConfigPolicy
      */
     public function update(User $user, DatabaseServerSshConfig $sshConfig): bool
     {
-        return $user->can(Ability::ManageDatabaseServers->value);
+        return $this->ownedByCurrentOrganization($sshConfig->organization_id)
+            && $user->can(Ability::ManageDatabaseServers->value);
     }
 
     /**
@@ -48,6 +52,7 @@ class DatabaseServerSshConfigPolicy
      */
     public function delete(User $user, DatabaseServerSshConfig $sshConfig): bool
     {
-        return $user->can(Ability::ManageDatabaseServers->value);
+        return $this->ownedByCurrentOrganization($sshConfig->organization_id)
+            && $user->can(Ability::ManageDatabaseServers->value);
     }
 }

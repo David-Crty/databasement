@@ -58,6 +58,45 @@ test('days retention deletes expired snapshots and files, skips pending and rece
         ->and(Snapshot::find($otherDbExpired->id))->toBeNull();
 });
 
+test('days retention keeps locked snapshots', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $locked = createSnapshot($server, 'completed', now()->subDays(400), 'app_db');
+    $locked->update(['locked' => true]);
+    $expired = createSnapshot($server, 'completed', now()->subDays(400), 'app_db');
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect(Snapshot::find($locked->id))->not->toBeNull()
+        ->and(Snapshot::find($expired->id))->toBeNull()
+        ->and($result['deleted'])->toBe(1);
+});
+
+// The locked snapshot is the newest one, so it would win the single daily slot
+// if it took part in the tiers. It must survive without spending that slot.
+test('GFS retention keeps locked snapshots without spending a keep slot', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, [
+        'retention_policy' => 'gfs',
+        'gfs_keep_daily' => 1,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => null,
+    ]);
+
+    $locked = createSnapshot($server, 'completed', now(), 'app_db');
+    $locked->update(['locked' => true]);
+    $kept = createSnapshot($server, 'completed', now()->subDays(1), 'app_db');
+    $expired = createSnapshot($server, 'completed', now()->subDays(400), 'app_db');
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect(Snapshot::find($locked->id))->not->toBeNull()
+        ->and(Snapshot::find($kept->id))->not->toBeNull()
+        ->and(Snapshot::find($expired->id))->toBeNull()
+        ->and($result['deleted'])->toBe(1);
+});
+
 test('deleting a snapshot prunes empty parent folders and stops at the first non-empty one', function (
     string $folder,
     array $extraFiles,

@@ -45,7 +45,7 @@
             />
 
             <div class="flex items-center justify-end">
-                <x-button type="submit" class="btn-primary w-full" label="{{ __('Reset password') }}" data-test="reset-password-button" />
+                <x-submit-button class="btn-primary w-full" :label="__('Reset password')" data-test="reset-password-button" />
             </div>
         </form>
     </div>

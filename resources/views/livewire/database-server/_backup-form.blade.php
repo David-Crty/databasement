@@ -66,6 +66,7 @@
         @if(count($form->backups) > 1)
             <x-button
                 wire:click="removeBackup({{ $index }})"
+                spinner
                 icon="o-trash"
                 class="btn-ghost btn-sm text-error shrink-0"
                 tooltip="{{ __('Remove this backup configuration') }}"
@@ -102,6 +103,7 @@
                             @if(count($pathRows) > 1)
                                 <x-button
                                     wire:click="removeDatabasePath({{ $index }}, {{ $pathIndex }})"
+                                    spinner
                                     icon="o-trash"
                                     class="btn-ghost btn-square btn-sm text-error"
                                     type="button"
@@ -111,6 +113,7 @@
                     @endforeach
                     <x-button
                         wire:click="addDatabasePath({{ $index }})"
+                        spinner
                         icon="o-plus"
                         class="btn-ghost btn-sm"
                         :label="__('Add path')"
@@ -478,6 +481,9 @@
                                 <button
                                     type="button"
                                     wire:click="$set('form.backups.{{ $index }}.retention_days', {{ $mark }})"
+                                    wire:loading.attr="disabled"
+                                    wire:loading.class="opacity-50"
+                                    wire:target="form.backups.{{ $index }}.retention_days"
                                     class="text-xs tabular-nums font-mono transition-colors {{ (int) ($backup['retention_days'] ?? 0) === $mark ? 'font-bold text-primary' : 'text-base-content/40 hover:text-base-content/70' }}"
                                 >
                                     {{ $mark }}
