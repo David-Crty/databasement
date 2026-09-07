@@ -227,7 +227,9 @@ class Snapshot extends Model
      * a later incremental references it would leave newer restores unable to
      * resolve their lineage. Descendants are the later incrementals that point
      * at this run's anchor full (for a full, that's every later incremental of
-     * the chain; for an incremental, only those created after it).
+     * the chain; for an incremental, only those created after it — compared
+     * inclusively because started_at stores whole seconds, so a descendant
+     * that began in the same second still restores on top of this run).
      */
     public function chainDescendantCount(): int
     {
@@ -247,15 +249,17 @@ class Snapshot extends Model
             ->where('full_snapshot_id', $anchor)
             ->when($this->run_kind === RunKind::INCREMENTAL, function ($query) {
                 /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */
-                $query->where('started_at', '>', $this->started_at);
+                $query->where('started_at', '>=', $this->started_at)
+                    ->whereKeyNot($this->getKey());
             })
             ->count();
     }
 
     /**
      * Prevent deleting a chain run whose descendants would lose their lineage.
-     * An internal caller that already handles whole-chain pruning may set
-     * {@see self::skipFileCleanup} to bypass this invariant.
+     * An internal caller that already handles whole-chain pruning (retention
+     * cleanup, volume/server teardown) may set
+     * {@see self::allowOutOfOrderChainDelete} to bypass this invariant.
      */
     public function assertChainTipOrForcefully(): void
     {

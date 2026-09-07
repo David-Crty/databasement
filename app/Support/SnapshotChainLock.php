@@ -26,11 +26,13 @@ use Illuminate\Support\Facades\Cache;
 final class SnapshotChainLock
 {
     /**
-     * How long cleanup may hold a chain lock. Cleanup only ever holds it for a
-     * single decide-and-delete (milliseconds), so a short TTL is enough; the
-     * job side uses its own run timeout as the TTL.
+     * How long cleanup may hold a chain lock. Cleanup only ever holds it for
+     * one decide-and-delete, but the delete physically removes every archive
+     * copy of the run from its volumes (network I/O per copy), so the TTL must
+     * comfortably outlive that; the job side waits this long before giving up
+     * and uses its own run timeout as the TTL.
      */
-    public const int CLEANUP_TTL_SECONDS = 60;
+    public const int CLEANUP_TTL_SECONDS = 600;
 
     /**
      * The shared lock key for one chain (one folder scope on one server).

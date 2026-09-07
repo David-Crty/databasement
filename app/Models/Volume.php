@@ -52,24 +52,20 @@ class Volume extends Model
             // Cascade atomically so a mid-cascade failure can't leave orphaned
             // rows or half-reconciled snapshots.
             DB::transaction(function () use ($volume, $files, $snapshotIds) {
-                foreach ($files as $file) {
-                    if (! $volume->skipFileCleanup && $file->status === SnapshotFileStatus::Completed) {
-                        $file->deleteFromVolume();
-                    }
-                    $file->delete();
-                }
-
-                // Snapshots left without any copy follow the volume (legacy
-                // cascade); multi-volume snapshots survive with their remaining
-                // copies. Batch the lookups instead of querying per snapshot.
+                // Snapshots whose only copies live on this volume will follow
+                // it (legacy cascade); snapshots with copies on other volumes
+                // survive. Everything is validated BEFORE any physical file is
+                // removed, so a rejected deletion cannot leave archive files
+                // erased while their rows are rolled back.
                 $snapshots = Snapshot::query()->whereKey($snapshotIds)->get();
-                $snapshotIdsWithFiles = SnapshotFile::query()
+                $snapshotIdsWithOtherCopies = SnapshotFile::query()
                     ->whereIn('snapshot_id', $snapshotIds)
+                    ->where('volume_id', '!=', $volume->getKey())
                     ->distinct()
                     ->pluck('snapshot_id')
                     ->all();
 
-                $orphaned = $snapshots->whereNotIn('id', $snapshotIdsWithFiles);
+                $orphaned = $snapshots->whereNotIn('id', $snapshotIdsWithOtherCopies);
                 $orphanedIds = $orphaned->pluck('id')->map(
                     fn ($id) => (string) $id
                 )->all();
@@ -99,7 +95,10 @@ class Volume extends Model
                         ->where('full_snapshot_id', $anchor)
                         ->when($snapshot->run_kind === \App\Enums\RunKind::INCREMENTAL, function ($query) use ($snapshot) {
                             /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */
-                            $query->where('started_at', '>', $snapshot->started_at);
+                            // Inclusive: started_at stores whole seconds, so a
+                            // survivor that began in the same second still
+                            // restores on top of this run and must block it.
+                            $query->where('started_at', '>=', $snapshot->started_at);
                         })
                         ->whereNotIn('id', $orphanedIds)
                         ->exists();
@@ -112,6 +111,14 @@ class Volume extends Model
                             .'keep a resolvable lineage.'
                         );
                     }
+                }
+
+                // Validation passed: now remove the physical archives and rows.
+                foreach ($files as $file) {
+                    if (! $volume->skipFileCleanup && $file->status === SnapshotFileStatus::Completed) {
+                        $file->deleteFromVolume();
+                    }
+                    $file->delete();
                 }
 
                 foreach ($orphaned as $snapshot) {

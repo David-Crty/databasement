@@ -87,18 +87,15 @@ class S3BucketRestoreEngine
      * or an upload failure removed an anchor that a retained incremental still
      * references.
      *
+     * Only completed runs can anchor or extend a lineage: a failed full is
+     * persisted with run_kind/full_snapshot_id but has no usable archive, so
+     * it must never be selected as the anchor for a later incremental.
+     *
      * @return array<int, array{snapshot: Snapshot, file: SnapshotFile}>
      */
     private function resolveLineage(Snapshot $target, ?string $volumeId): array
     {
-        $anchor = Snapshot::query()
-            ->where('database_server_id', $target->database_server_id)
-            ->where('backup_id', $target->backup_id)
-            ->where('database_name', $target->database_name)
-            ->where('run_kind', RunKind::FULL->value)
-            ->where('started_at', '<=', $target->started_at)
-            ->orderByDesc('started_at')
-            ->first();
+        $anchor = $this->resolveAnchor($target);
 
         $members = [];
         if ($anchor !== null) {
@@ -116,6 +113,7 @@ class S3BucketRestoreEngine
                 ->where('full_snapshot_id', $anchor->id)
                 ->where('started_at', '>', $anchor->started_at)
                 ->where('started_at', '<=', $target->started_at)
+                ->completed()
                 ->orderBy('started_at')
                 ->get();
 
@@ -145,6 +143,34 @@ class S3BucketRestoreEngine
         }
 
         return $resolved;
+    }
+
+    /**
+     * The anchor full a restore overlays first. An incremental records the
+     * exact full it was built on ({@see Snapshot::$full_snapshot_id}, decided
+     * against completed runs when the backup ran), so that run is preferred
+     * over any newer completed full that may also predate the target. Falls
+     * back to the latest completed full at or before the target (a full
+     * targets itself).
+     */
+    private function resolveAnchor(Snapshot $target): ?Snapshot
+    {
+        if ($target->run_kind === RunKind::INCREMENTAL && $target->full_snapshot_id !== null) {
+            $anchor = Snapshot::query()->whereKey($target->full_snapshot_id)->completed()->first();
+            if ($anchor !== null) {
+                return $anchor;
+            }
+        }
+
+        return Snapshot::query()
+            ->where('database_server_id', $target->database_server_id)
+            ->where('backup_id', $target->backup_id)
+            ->where('database_name', $target->database_name)
+            ->where('run_kind', RunKind::FULL->value)
+            ->where('started_at', '<=', $target->started_at)
+            ->completed()
+            ->orderByDesc('started_at')
+            ->first();
     }
 
     /**

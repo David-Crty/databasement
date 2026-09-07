@@ -283,3 +283,63 @@ function persistBucketRun(Snapshot $snapshot, array $outcome, Volume $volume): v
         ['status' => SnapshotFileStatus::Completed, 'file_exists' => true],
     );
 }
+
+test('a failed full between anchor and target is never chosen as the anchor', function () {
+    $server = DatabaseServer::factory()->s3()->create(['name' => 'Failed Anchor Src']);
+    $backup = $server->backups()->oldest('id')->firstOrFail();
+    $provider = makeLocalProvider();
+    $engine = new S3BucketBackupEngine(
+        new CompressorFactory(new App\Services\Backup\ShellProcessor),
+        $provider,
+    );
+
+    // Completed anchor full carrying a.txt = 'aaa'.
+    file_put_contents($this->srcDir.'/a.txt', 'aaa');
+    $full = Snapshot::factory()->forServer($server)->create([
+        'backup_id' => $backup->id,
+        'database_name' => '',
+        'started_at' => now()->subHour(),
+        'compression_type' => CompressionType::GZIP->value,
+    ]);
+    $fullOut = $engine->run($full, s3LocalFs($this->srcDir), '', [VolumeConfig::fromVolume($this->volume)], $full->job);
+    persistBucketRun($full, $fullOut, $this->volume);
+
+    // A later full whose upload failed: ProcessBackupJob persisted run_kind
+    // before the failure, but the job never completed, so it has no usable
+    // archive and must never anchor a restore.
+    $failedFull = Snapshot::factory()->forServer($server)->create([
+        'backup_id' => $backup->id,
+        'database_name' => '',
+        'run_kind' => 'full',
+        'filename' => '',
+        'started_at' => now()->subMinutes(30),
+        'compression_type' => CompressionType::GZIP->value,
+    ]);
+    $failedFull->job->update(['status' => 'failed', 'completed_at' => null]);
+
+    // Incremental built on the completed full (the engine only anchors
+    // completed runs, so it ignores the failed full).
+    file_put_contents($this->srcDir.'/a.txt', 'v2');
+    $inc = Snapshot::factory()->forServer($server)->create([
+        'backup_id' => $backup->id,
+        'database_name' => '',
+        'started_at' => now(),
+        'compression_type' => CompressionType::GZIP->value,
+    ]);
+    $incOut = $engine->run($inc, s3LocalFs($this->srcDir), '', [VolumeConfig::fromVolume($this->volume)], $inc->job);
+    expect($incOut['run_kind'])->toBe(RunKind::INCREMENTAL)
+        ->and($incOut['full_snapshot_id'])->toBe($full->id);
+    persistBucketRun($inc, $incOut, $this->volume);
+
+    // Restoring the incremental must overlay the completed full + incremental
+    // (never the failed full, which has no archive).
+    $restore = new App\Services\Backup\S3BucketRestoreEngine(
+        new CompressorFactory(new App\Services\Backup\ShellProcessor),
+        $provider,
+    );
+    $restore->restore($inc, s3LocalFs($this->dstDir), '', $inc->job);
+
+    $dstFs = s3LocalFs($this->dstDir);
+    expect($dstFs->read('a.txt'))->toBe('v2');
+    $this->addToAssertionCount(1);
+});

@@ -239,11 +239,12 @@ class ProcessBackupJob implements ShouldQueue
         // The engine reads the chain's prior runs to pick its anchor/baseline
         // and the outcome below persists that lineage onto the snapshot, so
         // cleanup must not delete those runs in between (the nullOnDelete FK
-        // would then clear full_snapshot_id and orphan this run). Cleanup only
-        // holds a chain lock for one decide-and-delete, so the wait below is
-        // short; a same-chain backup still running after it is retried.
+        // would then clear full_snapshot_id and orphan this run). Cleanup holds
+        // a chain lock only for one decide-and-delete (its TTL bounds how long
+        // the lock can outlive the holder), so this wait is ample; a same-chain
+        // backup still running after it is retried by the queue.
         $chainLock = SnapshotChainLock::forSnapshot($snapshot, $this->timeout);
-        $chainLock->block(60);
+        $chainLock->block(SnapshotChainLock::CLEANUP_TTL_SECONDS);
 
         try {
             $outcome = $engine->run(

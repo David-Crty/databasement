@@ -82,3 +82,32 @@ test('s3 run deletion is forced newest-first so lineage stays resolvable', funct
     $full->delete();
     $this->addToAssertionCount(1);
 });
+
+test('a run sharing its started_at second with a sibling still blocks deletion', function () {
+    $full = Snapshot::factory()->forServer($this->server)->create([
+        'run_kind' => 'full',
+        'database_name' => 'photos',
+        'started_at' => now()->subHours(2),
+    ]);
+
+    // started_at is stored without fractional seconds: two incrementals of the
+    // same chain can begin in the same second, and each restores on top of the
+    // other, so neither may be deleted while its equal-second sibling exists.
+    $sameSecond = now()->subHour()->startOfSecond();
+    $older = Snapshot::factory()->forServer($this->server)->create([
+        'run_kind' => 'incremental',
+        'full_snapshot_id' => $full->id,
+        'database_name' => 'photos',
+        'started_at' => $sameSecond,
+    ]);
+    $sibling = Snapshot::factory()->forServer($this->server)->create([
+        'run_kind' => 'incremental',
+        'full_snapshot_id' => $full->id,
+        'database_name' => 'photos',
+        'started_at' => $sameSecond->copy(),
+    ]);
+
+    expect(fn () => $older->delete())->toThrow(\RuntimeException::class)
+        ->and(Snapshot::find($older->id))->not->toBeNull()
+        ->and(Snapshot::find($sibling->id))->not->toBeNull();
+});

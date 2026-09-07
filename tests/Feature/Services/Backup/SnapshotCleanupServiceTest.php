@@ -445,3 +445,22 @@ test('cleanup defers deleting a bucket chain while its lineage is being persiste
         ->and(Snapshot::find($full->id))->not->toBeNull()
         ->and(Snapshot::find($incremental->id))->not->toBeNull();
 });
+
+test('days retention frees an expired chain whose only descendant failed', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(12));
+    // A run that persisted its lineage and then failed (job never completed)
+    // is not kept by retention and is not restorable, so it must not pin the
+    // expired anchor forever.
+    $failedIncremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(11));
+    $failedIncremental->job->update(['status' => 'failed', 'completed_at' => null]);
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(1)
+        ->and(Snapshot::find($full->id))->toBeNull()
+        // Retention never touches a non-completed run; it just stops blocking.
+        ->and(Snapshot::find($failedIncremental->id))->not->toBeNull();
+});

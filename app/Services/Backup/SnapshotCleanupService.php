@@ -263,6 +263,11 @@ class SnapshotCleanupService
      * the chain; for an incremental, only kept incrementals created after it.
      * Descendants that are themselves being deleted do not block it.
      *
+     * Only completed descendants count: a run whose upload ultimately failed
+     * was persisted with run_kind/full_snapshot_id but will never be kept by
+     * retention nor restored, so it must not pin its ancestors forever. (The
+     * per-chain lock means no in-flight run can be completing in this window.)
+     *
      * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds
      */
     private function hasRetainedDescendant(Snapshot $snapshot, $deletingIds): bool
@@ -277,6 +282,7 @@ class SnapshotCleanupService
             ->where('database_server_id', $snapshot->database_server_id)
             ->where('database_name', $snapshot->database_name)
             ->where('full_snapshot_id', $anchor)
+            ->completed()
             ->when($snapshot->run_kind === RunKind::INCREMENTAL, function ($query) use ($snapshot) {
                 /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */
                 // Inclusive: started_at stores whole seconds, so a descendant
