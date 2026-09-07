@@ -45,6 +45,10 @@ class S3BucketBackupEngine
     /** Default cadence: run a full every N runs of a folder. */
     public const int DEFAULT_FULL_EVERY_RUNS = 4;
 
+    /**
+     * Build the engine around the compressor factory (archive compression) and
+     * the filesystem provider (volume uploads).
+     */
     public function __construct(
         private readonly CompressorFactory $compressorFactory,
         private readonly FilesystemProvider $filesystemProvider,
@@ -175,6 +179,12 @@ class S3BucketBackupEngine
         return $objects;
     }
 
+    /**
+     * Read an object's last-modified time, returning 0 when the metadata is
+     * unavailable. Callers must treat 0 as "unknown, possibly changed" and
+     * never as proof an object is unchanged, or a same-size content change
+     * could be silently omitted from an incremental.
+     */
     private function safeLastModified(Filesystem $fs, string $path): int
     {
         try {
@@ -259,6 +269,11 @@ class S3BucketBackupEngine
             ->value('id');
     }
 
+    /**
+     * Decide whether the run about to start for a folder is a full or an
+     * incremental archive: full when there is no completed anchor full yet or
+     * the full-every cadence has been reached, otherwise incremental.
+     */
     private function decideRunKind(Snapshot $snapshot, int $fullEvery, string $scope): RunKind
     {
         $latestFull = Snapshot::query()
@@ -334,6 +349,11 @@ class S3BucketBackupEngine
         }
     }
 
+    /**
+     * Stage one changed object from the source filesystem and add it to the
+     * tar under its scope-relative member path. A failed read or copy aborts
+     * the backup rather than archiving a partial object.
+     */
     private function addObject(PharData $tar, string $stageDir, Filesystem $fs, string $readKey, string $member): void
     {
         // PharData refuses absolute paths and path-traversal members; scope is
@@ -378,6 +398,12 @@ class S3BucketBackupEngine
         unlink($local);
     }
 
+    /**
+     * Stable archive filename for one run, derived from the snapshot (server
+     * name, folder scope, started_at and id): every copy and retry of a run
+     * shares the same key, while distinct runs can never collide even within
+     * the same second.
+     */
     private function archiveName(Snapshot $snapshot, string $scope, RunKind $runKind, string $archivePath): string
     {
         $server = preg_replace('/[^a-zA-Z0-9-_]/', '-', ($snapshot->databaseServer->name ?? 's3')) ?? 's3';
@@ -453,6 +479,10 @@ class S3BucketBackupEngine
         ];
     }
 
+    /**
+     * Upload one archive copy to a target volume and report the per-volume
+     * transfer outcome (failed uploads stay visible per volume).
+     */
     private function uploadVolume(VolumeConfig $volume, string $archivePath, string $filename, int $fileSize, BackupLogger $logger): VolumeTransferResult
     {
         try {

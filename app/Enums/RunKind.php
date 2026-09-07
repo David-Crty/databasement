@@ -7,6 +7,9 @@ enum RunKind: string
     case FULL = 'full';
     case INCREMENTAL = 'incremental';
 
+    /**
+     * Human-readable label for the run kind, used across the UI.
+     */
     public function label(): string
     {
         return match ($this) {

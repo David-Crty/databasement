@@ -467,6 +467,10 @@ class Form extends \Livewire\Form
         $this->showConnectionDetails = false;
     }
 
+    /**
+     * Populate every form field from an existing server so it can be edited.
+     * The stored password is intentionally not loaded.
+     */
     public function setServer(DatabaseServer $server): void
     {
         $this->server = $server;

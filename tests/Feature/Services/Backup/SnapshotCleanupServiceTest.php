@@ -386,3 +386,25 @@ test('days retention deletes a whole expired bucket chain together', function ()
         ->and(Snapshot::find($olderIncremental->id))->toBeNull()
         ->and(Snapshot::find($newestIncremental->id))->toBeNull();
 });
+
+test('days retention keeps a run when a kept descendant started in the same second', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(12));
+
+    // started_at is stored without fractional seconds: the expired run and the
+    // kept run begin in the same second, so the restore lineage of the kept
+    // run still overlays the expired archive and cleanup must retain it.
+    $sameSecond = now()->subDays(9)->startOfSecond();
+    $olderIncremental = createBucketRun($server, 'incremental', $full->id, $sameSecond);
+    $keptIncremental = createBucketRun($server, 'incremental', $full->id, $sameSecond->copy());
+    $keptIncremental->forceFill(['created_at' => now()->subDays(1)])->saveQuietly();
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and(Snapshot::find($full->id))->not->toBeNull()
+        ->and(Snapshot::find($olderIncremental->id))->not->toBeNull()
+        ->and(Snapshot::find($keptIncremental->id))->not->toBeNull();
+});

@@ -51,6 +51,11 @@ class SnapshotCleanupService
         return ['deleted' => $this->totalDeleted, 'dry_run' => $dryRun];
     }
 
+    /**
+     * Apply the days-based retention policy to one backup: delete its expired,
+     * unlocked, completed snapshots while keeping any run that a surviving
+     * later run's restore lineage still depends on.
+     */
     private function cleanupDays(Backup $backup): void
     {
         if ($backup->retention_days === null) {
@@ -82,6 +87,10 @@ class SnapshotCleanupService
         }
     }
 
+    /**
+     * Apply the GFS retention policy to one backup across its daily, weekly
+     * and monthly tiers, keeping chain runs that retained snapshots depend on.
+     */
     private function cleanupGfs(Backup $backup): void
     {
         $serverName = $backup->databaseServer->name ?? 'Unknown Server';
@@ -232,7 +241,10 @@ class SnapshotCleanupService
             ->where('full_snapshot_id', $anchor)
             ->when($snapshot->run_kind === RunKind::INCREMENTAL, function ($query) use ($snapshot) {
                 /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */
-                $query->where('started_at', '>', $snapshot->started_at);
+                // Inclusive: started_at stores whole seconds, so a descendant
+                // that began in the same second is still part of the kept
+                // run's lineage and must not be freed.
+                $query->where('started_at', '>=', $snapshot->started_at);
             })
             ->whereNotIn('id', $deletingIds->keys())
             ->exists();

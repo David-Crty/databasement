@@ -45,6 +45,11 @@ class DatabaseServer extends Model
      */
     public ?array $pendingDatabaseNames = null;
 
+    /**
+     * Boot the model: scope every query to the owning organization and cascade
+     * server deletion into its snapshots and inbound restores (and their
+     * files/jobs), mirroring what deleting each record individually triggers.
+     */
     protected static function booted(): void
     {
         static::addGlobalScope(new OrganizationScope);

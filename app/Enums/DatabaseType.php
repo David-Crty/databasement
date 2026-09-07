@@ -18,6 +18,9 @@ enum DatabaseType: string
     case FIREBIRD = 'firebird';
     case S3 = 's3';
 
+    /**
+     * Human-readable label for this database type, used across the UI.
+     */
     public function label(): string
     {
         return match ($this) {
@@ -32,6 +35,9 @@ enum DatabaseType: string
         };
     }
 
+    /**
+     * Icon identifier (devicon class or Heroicon) shown next to this type.
+     */
     public function icon(): string
     {
         return match ($this) {
@@ -64,6 +70,9 @@ enum DatabaseType: string
         };
     }
 
+    /**
+     * Default TCP port for this type, or 0 when it has no network port.
+     */
     public function defaultPort(): int
     {
         return match ($this) {

@@ -27,6 +27,11 @@ class Volume extends Model
 
     public bool $skipFileCleanup = false;
 
+    /**
+     * Boot the model: scope every query to the owning organization, forbid
+     * changing the volume type after creation, and clean up stored files when
+     * the volume is removed.
+     */
     protected static function booted(): void
     {
         static::addGlobalScope(new OrganizationScope);

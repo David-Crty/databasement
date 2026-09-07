@@ -58,6 +58,9 @@ class Snapshot extends Model
         'triggered_by_user_id',
     ];
 
+    /**
+     * Attribute casts applied when reading and writing snapshot attributes.
+     */
     protected function casts(): array
     {
         return [
@@ -184,6 +187,11 @@ class Snapshot extends Model
         return $this->metadata['agent']['name'] ?? null;
     }
 
+    /**
+     * Boot the model: scope every query to the snapshot's database server
+     * organization and, on delete, enforce the chain guard and clean up the
+     * stored files, copy rows, restores and the backing job.
+     */
     protected static function booted(): void
     {
         // Tenancy is inherited from the database server the snapshot was taken from.

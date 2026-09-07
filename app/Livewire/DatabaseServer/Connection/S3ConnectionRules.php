@@ -14,6 +14,14 @@ use App\Services\Backup\Databases\DatabaseProvider;
  */
 class S3ConnectionRules extends ClientServerConnectionRules
 {
+    /**
+     * Validation rules for the S3 connection fields during full-form
+     * validation. Extends the client/server rules with the bucket, region,
+     * prefix and path-style fields, and refuses cleartext endpoints that are
+     * not loopback/private hosts.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(Form $form): array
     {
         $rules = array_merge(parent::rules($form), [
@@ -42,6 +50,13 @@ class S3ConnectionRules extends ClientServerConnectionRules
         return $rules;
     }
 
+    /**
+     * Validation rules for the standalone S3 "Test Connection" action: the
+     * same fields as full validation, except the secret may fall back to the
+     * stored server key when editing.
+     *
+     * @return array<string, mixed>
+     */
     public function testConnectionRules(Form $form): array
     {
         // Same fields as full validation but the hidden secret can fall back to
@@ -51,6 +66,14 @@ class S3ConnectionRules extends ClientServerConnectionRules
         ]);
     }
 
+    /**
+     * Normalised S3 extra_config payload for in-memory connection tests. The
+     * values are trimmed exactly like DatabaseServer::buildExtraConfig() trims
+     * them before persistence, so "Test Connection" and a saved server agree
+     * even when the inputs carry surrounding whitespace.
+     *
+     * @return array<string, mixed>
+     */
     public function extraConfig(Form $form): array
     {
         return array_filter([

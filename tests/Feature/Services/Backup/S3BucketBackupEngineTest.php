@@ -13,6 +13,10 @@ use League\Flysystem\Local\LocalFilesystemAdapter;
 use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use League\Flysystem\Visibility;
 
+/**
+ * Build a local Flysystem adapter over a fixture directory, standing in for
+ * the S3 source and target buckets the engine reads and writes.
+ */
 function s3EngineAdapter(string $dir): Filesystem
 {
     return new Filesystem(new LocalFilesystemAdapter(

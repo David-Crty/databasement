@@ -28,6 +28,10 @@ function s3e2eFs(array $config): League\Flysystem\Filesystem
     return (new Awss3Filesystem)->get($config);
 }
 
+/**
+ * A filesystem provider that resolves the local adapter only — enough for the
+ * live endpoint test to back up to and restore from local fixture directories.
+ */
 function s3e2eLocalProvider(): FilesystemProvider
 {
     $provider = new FilesystemProvider([]);
@@ -36,6 +40,11 @@ function s3e2eLocalProvider(): FilesystemProvider
     return $provider;
 }
 
+/**
+ * Persist one engine outcome (run kind, lineage pointer, archive metadata and
+ * object state) onto the snapshot and mark its archive copy on the volume as
+ * completed, mirroring what ProcessBackupJob does.
+ */
 function s3e2ePersistRun(Snapshot $snapshot, array $outcome, Volume $volume): void
 {
     $snapshot->update([

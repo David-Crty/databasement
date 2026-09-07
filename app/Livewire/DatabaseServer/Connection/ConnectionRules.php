@@ -17,6 +17,11 @@ use App\Livewire\DatabaseServer\Form;
  */
 abstract class ConnectionRules
 {
+    /**
+     * Resolve the connection-rules implementation for a database type. Types
+     * without dedicated host/port/credentials handling fall back to the shared
+     * client/server rules.
+     */
     public static function for(?DatabaseType $type): self
     {
         return match ($type) {

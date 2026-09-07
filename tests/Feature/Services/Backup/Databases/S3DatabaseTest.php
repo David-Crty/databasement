@@ -7,6 +7,10 @@ use League\Flysystem\Local\LocalFilesystemAdapter;
 use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use League\Flysystem\Visibility;
 
+/**
+ * Build a local Flysystem adapter over a fixture directory, standing in for
+ * the S3 bucket the S3Database handler reads.
+ */
 function s3DatabaseAdapter(string $dir): Filesystem
 {
     return new Filesystem(new LocalFilesystemAdapter(

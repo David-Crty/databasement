@@ -30,6 +30,9 @@ class SnapshotObjectFile extends Model
         'tombstone',
     ];
 
+    /**
+     * Attribute casts applied when reading and writing object-file attributes.
+     */
     protected function casts(): array
     {
         return [

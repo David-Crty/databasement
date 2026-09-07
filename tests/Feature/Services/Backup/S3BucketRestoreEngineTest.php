@@ -15,6 +15,10 @@ use League\Flysystem\Local\LocalFilesystemAdapter;
 use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use League\Flysystem\Visibility;
 
+/**
+ * Build a local Flysystem adapter over a fixture directory, standing in for
+ * the S3 source/destination bucket.
+ */
 function s3LocalFs(string $dir): Filesystem
 {
     return new Filesystem(new LocalFilesystemAdapter(
@@ -23,6 +27,10 @@ function s3LocalFs(string $dir): Filesystem
     ), ['visibility' => Visibility::PUBLIC]);
 }
 
+/**
+ * A filesystem provider that resolves the local adapter only — enough for
+ * engine tests that back up to and restore from local fixture directories.
+ */
 function makeLocalProvider(): FilesystemProvider
 {
     $provider = new FilesystemProvider([]);
@@ -255,6 +263,11 @@ test('a folder incremental restore follows that folder own anchor lineage', func
     $this->addToAssertionCount(1);
 });
 
+/**
+ * Persist one engine outcome (run kind, lineage pointer, archive metadata and
+ * object state) onto the snapshot and mark its archive copy on the volume as
+ * completed, mirroring what ProcessBackupJob does.
+ */
 function persistBucketRun(Snapshot $snapshot, array $outcome, Volume $volume): void
 {
     $snapshot->update([

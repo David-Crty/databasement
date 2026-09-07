@@ -317,6 +317,12 @@ class DatabaseProvider
         return true;
     }
 
+    /**
+     * Whether an IP address belongs to a loopback or private range: IPv4
+     * 127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16, or IPv6 ::1
+     * and fc00::/7. IPv4-mapped (::ffff:a.b.c.d) addresses are unwrapped and
+     * judged as their IPv4 counterpart.
+     */
     private static function isPrivateOrLoopbackIp(string $address): bool
     {
         $packed = @inet_pton($address);

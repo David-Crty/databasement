@@ -232,6 +232,11 @@ class Index extends Component
         $this->showDeleteModal = true;
     }
 
+    /**
+     * Delete the snapshot confirmed in the delete modal, optionally keeping its
+     * stored files. A chain-lineage violation (non-newest S3 run) is surfaced
+     * as an inline error instead of a 500.
+     */
     public function deleteSnapshot(): void
     {
         if (! $this->deleteSnapshotId) {

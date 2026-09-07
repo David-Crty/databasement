@@ -27,6 +27,10 @@ use RecursiveIteratorIterator;
  */
 class S3BucketRestoreEngine
 {
+    /**
+     * Build the engine around the compressor factory (archive decompression)
+     * and the filesystem provider (lineage downloads).
+     */
     public function __construct(
         private readonly CompressorFactory $compressorFactory,
         private readonly FilesystemProvider $filesystemProvider,
@@ -143,6 +147,11 @@ class S3BucketRestoreEngine
         return $resolved;
     }
 
+    /**
+     * Resolve the archive copy of a lineage run: the completed copy on the
+     * requested volume when given, otherwise the most recent completed copy on
+     * any volume.
+     */
     private function archiveFileFor(Snapshot $snapshot, ?string $volumeId): ?SnapshotFile
     {
         // Prefer the archive copy on the requested volume, but fall back to any
@@ -176,6 +185,10 @@ class S3BucketRestoreEngine
         return $local;
     }
 
+    /**
+     * Compression extension of a stored archive filename ('tar' when it has
+     * none) — the extension the compressor strips to reveal payload.tar.
+     */
     private function snapshotFileExtension(SnapshotFile $file): string
     {
         $name = $file->storedFilename();
@@ -198,6 +211,10 @@ class S3BucketRestoreEngine
         return $compressor->decompress($archivedLocal);
     }
 
+    /**
+     * Extract one lineage archive into a temp directory and overlay its
+     * contents onto the merge directory (tombstones drop their base path).
+     */
     private function overlayRun(string $tarPath, string $mergeDir): void
     {
         $tar = new PharData($tarPath);
@@ -216,11 +233,19 @@ class S3BucketRestoreEngine
         }
     }
 
+    /**
+     * Stable temp extraction directory name derived from the tar path.
+     */
     private function tempDirname(string $path): string
     {
         return dirname($path).'/extract-'.substr(hash('sha256', $path), 0, 10);
     }
 
+    /**
+     * Walk an extracted archive and copy every file into the merge directory,
+     * overwriting same-path members from older runs; a tombstone member
+     * removes its base path instead of copying it.
+     */
     private function walkAndOverlay(string $extracted, string $mergeDir): void
     {
         $iterator = new RecursiveIteratorIterator(
@@ -253,6 +278,11 @@ class S3BucketRestoreEngine
         }
     }
 
+    /**
+     * Upload the merged state into the destination scope. The scope is wiped
+     * first so the restore ends exactly as the selected run's state, never
+     * accumulating objects the merge does not contain.
+     */
     private function uploadMerge(string $mergeDir, Filesystem $dest, string $destScope, BackupLogger $logger): void
     {
         $prefix = $destScope === '' ? '' : rtrim($destScope, '/').'/';
@@ -296,6 +326,11 @@ class S3BucketRestoreEngine
         $logger->log("Restored {$uploaded} object(s) to scope ".($destScope !== '' ? $destScope : '(root)'), 'success');
     }
 
+    /**
+     * Delete every existing object under the destination scope prefix. Object
+     * storage has no real folders, so removing all matching object keys is
+     * sufficient; empty directories left on local adapters are harmless.
+     */
     private function wipeDestinationScope(Filesystem $dest, string $prefix): void
     {
         // Remove every existing object under the scope. In object storage there

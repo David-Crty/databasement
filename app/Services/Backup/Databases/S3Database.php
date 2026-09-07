@@ -23,6 +23,9 @@ class S3Database implements DatabaseInterface
     /** @var array<string, mixed> */
     private array $config;
 
+    /**
+     * Wrap the S3 adapter factory that builds the Flysystem connection.
+     */
     public function __construct(
         private readonly Awss3Filesystem $awss3Filesystem = new Awss3Filesystem,
     ) {}
@@ -82,16 +85,29 @@ class S3Database implements DatabaseInterface
         return $this->awss3Filesystem->get($this->config);
     }
 
+    /**
+     * Not supported: S3 servers are backed up as whole bucket copies by
+     * {@see \App\Services\Backup\S3BucketBackupEngine}, never dumped.
+     */
     public function dump(string $outputPath): DatabaseOperationResult
     {
         throw new UnsupportedDatabaseTypeException('s3');
     }
 
+    /**
+     * Not supported: S3 snapshots are restored as bucket copies by
+     * {@see \App\Services\Backup\S3BucketRestoreEngine}, never via a database
+     * restore.
+     */
     public function restore(string $inputPath): DatabaseOperationResult
     {
         throw new RestoreException('S3/object storage backups are restored as bucket copies, not database restores.');
     }
 
+    /**
+     * Not supported: bucket-copy restores need no schema preparation, see
+     * {@see restore()}.
+     */
     public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void
     {
         throw new RestoreException('S3/object storage backups are restored as bucket copies, not database restores.');
