@@ -14,6 +14,7 @@ test('sanitizes sensitive patterns', function (string $input, string $expectedTo
     '--password= format' => ['mysqldump --password=secret123 dbname', '--password=***', 'secret123'],
     'quoted --password= format' => ["mysqldump --password='secret123' dbname", '--password=***', 'secret123'],
     '-p shorthand format' => ['mysqldump -psecret123 dbname', '-p***', 'secret123'],
+    'redis --pass format' => ["redis-cli -h 'redis' --pass 'secret123' PING", '--pass ***', 'secret123'],
     'firebird -password format' => ["gbak -b -user 'SYSDBA' -password 'masterkey' 'db' 'dump'", '-password ***', 'masterkey'],
     'firebird -password with spaces in value' => ["gbak -b -user 'SYSDBA' -password 'sec ret pass' 'db' 'dump'", '-password ***', 'sec ret pass'],
     'PGPASSWORD env var' => ['PGPASSWORD=secret123 pg_dump dbname', 'PGPASSWORD=***', 'secret123'],
@@ -35,6 +36,8 @@ test('preserves non-sensitive patterns', function (string $input, string $expect
     '--port option' => ['mysqldump --port=3306 dbname', '--port=3306'],
     '-p with space (port flag)' => ['pg_dump -p 5432 dbname', '-p 5432'],
     'firebird user flag not masked' => ["gbak -b -user 'sysdba' -password 'secret' 'db' 'dump'", "-user 'sysdba'"],
+    'rsync -a not treated as a password flag' => ['rsync -a /src /dst', '-a /src'],
+    '--passphrase not treated as --pass' => ['tool --passphrase-file /k', '--passphrase-file /k'],
 ]);
 
 test('sanitizes realistic mariadb-dump command', function () {

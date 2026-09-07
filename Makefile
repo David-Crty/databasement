@@ -1,4 +1,4 @@
-.PHONY: help install start test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
+.PHONY: help install start update-translation check-translation test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -6,16 +6,41 @@ YELLOW := \033[0;33m
 NC     := \033[0m # No Color
 
 # Docker / PHP helpers
-DOCKER_COMPOSE := docker compose
+#
+# The stack runs in one Compose project, started from the main checkout, which
+# bind-mounts the repo at /app. A git worktree carries its own copy of
+# docker-compose.yml, so a bare `docker compose` there starts a *second*
+# project named after the worktree directory -- with no running containers, and
+# host ports already taken by the first. Pointing Compose at the main checkout
+# keeps every target on the one running project, and the worktree is reachable
+# inside it because the mount covers the whole repo. Both values fall back to
+# the plain main-checkout case: `/app`, and no --project-directory.
+COMPOSE_ROOT := $(patsubst %/.git,%,$(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null))
+
+DOCKER_COMPOSE := docker compose $(if $(COMPOSE_ROOT),--project-directory $(COMPOSE_ROOT))
 PHP_SERVICE    := app
+PHP_WORKDIR    := /app$(if $(COMPOSE_ROOT),$(subst $(COMPOSE_ROOT),,$(CURDIR)))
 
 # Forward AI-agent env vars (Claude Code, Cursor, Gemini, ...) into the container so
 # laravel/pao detects the agent and emits compact JSON output instead of verbose logs.
 # `-e VAR` is only added when VAR is set on the host, avoiding empty-string false positives.
 AGENT_ENV := $(foreach v,CLAUDECODE CLAUDE_CODE AI_AGENT CURSOR_AGENT GEMINI_CLI PAO_DISABLE,$(if $($(v)),-e $(v)))
-PHP_EXEC  := $(DOCKER_COMPOSE) exec --user application -T $(AGENT_ENV) $(PHP_SERVICE)
+PHP_EXEC  := $(DOCKER_COMPOSE) exec --user application -T $(AGENT_ENV) -w $(PHP_WORKDIR) $(PHP_SERVICE)
 PHP_COMPOSER   := $(PHP_EXEC) composer
 PHP_ARTISAN    := $(PHP_EXEC) php artisan
+
+# Localization: target locales for `make update-translation`, and the gitignored
+# file holding the Anthropic key. `op run` would raise a 1Password authorization
+# prompt on every invocation, and the translator makes one process call per locale,
+# so the key is read out once and kept in .env.local. Regenerate it with:
+#   { printf 'ANTHROPIC_API_KEY='; op read 'op://Personal/<item>/credential'; } > .env.local
+# It lives in the main checkout, which is also where a worktree's Compose project runs.
+LOCALES   ?= fr es el zh_TW
+ENV_LOCAL ?= $(if $(COMPOSE_ROOT),$(COMPOSE_ROOT),.)/.env.local
+
+# --locale is an array option and the JSON command does not split on commas: a
+# comma-joined value is taken as one locale name and writes lang/fr,es,el.json.
+LOCALE_FLAGS := $(foreach locale,$(LOCALES),--locale=$(locale))
 NPM_EXEC       := npm
 
 ##@ Help
@@ -31,10 +56,10 @@ install: ## Install dependencies (composer + npm)
 	$(NPM_EXEC) install
 
 setup: start install build migrate
-	docker compose restart app worker
+	$(DOCKER_COMPOSE) restart app worker
 
 start: ## Start development server (all services: php, queue, mysql, postgres)
-	docker compose up -d
+	$(DOCKER_COMPOSE) up -d
 
 migrate:
 	$(PHP_ARTISAN) migrate
@@ -65,6 +90,25 @@ test-coverage-filter: ## Run tests with coverage and filter (usage: make test-co
 
 test-sequential: ## Run all tests sequentially (for debugging)
 	$(PHP_ARTISAN) test
+
+# --- Test Impact Analysis (Pest 5) -------------------------------------------
+# TIA replays cached results and re-runs only the tests affected by your working
+# tree, turning a ~110s suite into a ~2s replay.
+#
+# DELIBERATELY NOT wired into `make test`, the pre-commit hook, or CI. On this
+# codebase the recorded graph only carries test edges for 177 of 291 app/ files;
+# app/Livewire is almost entirely missing (2 of 70 files have edges), so edits
+# there replay green instead of running the tests that cover them. Verified by
+# deleting an authorize() call from a Livewire component: TIA reported 1487
+# passed while the full suite failed. Treat TIA output as a hint, never a gate.
+#
+# `php artisan test` rejects --tia (Collision does not forward the option), so
+# these targets invoke vendor/bin/pest directly.
+test-tia: ## Fast inner-loop replay via Test Impact Analysis (NOT a substitute for `make test`)
+	$(PHP_EXEC) vendor/bin/pest --parallel --tia
+
+test-tia-baseline: ## (Re)record the TIA baseline -- --coverage is required, without it no app/ edges are recorded
+	$(PHP_EXEC) vendor/bin/pest --parallel --tia --coverage --fresh
 
 ##@ Code Quality
 
@@ -99,6 +143,27 @@ docs: ## Start documentation dev server (Docusaurus)
 
 docs-build: ## Build documentation for production (Docusaurus)
 	cd docs && $(NPM_EXEC) install && $(NPM_EXEC) run build
+
+##@ Localization
+
+# Extract -> prune -> translate -> normalise -> report. Only the translate step
+# calls the API, and it only sends the keys a locale is missing, so re-running
+# after a failure costs nothing for what already landed. Sourcing .env.local with
+# `set -a` exports the key into that one shell, and `-e ANTHROPIC_API_KEY` (name,
+# no value) forwards it into the container without it reaching a command line.
+update-translation: ## Update lang/*.json from the code, translating new strings with AI
+	@test -f $(ENV_LOCAL) || { echo "$(YELLOW)Missing $(ENV_LOCAL) with ANTHROPIC_API_KEY (see the Makefile comment)$(NC)"; exit 1; }
+	$(PHP_ARTISAN) translatable:export en
+	$(PHP_ARTISAN) translations:sync
+	set -a; . $(ENV_LOCAL); set +a; $(DOCKER_COMPOSE) exec -e ANTHROPIC_API_KEY \
+		--user application -T -w $(PHP_WORKDIR) $(PHP_SERVICE) \
+		php artisan ai-translator:translate-json --source=en $(LOCALE_FLAGS) --non-interactive
+	$(PHP_ARTISAN) translations:sync
+	$(PHP_ARTISAN) translations:sync --check
+
+check-translation: ## Report locales that are out of sync with the code (no API calls)
+	$(PHP_ARTISAN) translatable:export en
+	$(PHP_ARTISAN) translations:sync --check
 
 ##@ Database
 
@@ -157,6 +222,24 @@ release: ## Create a new release (usage: make release VERSION=1.0.1)
 	fi
 	@if [ -n "$$(git status --porcelain)" ]; then \
 		echo "$(YELLOW)Error: Working directory is not clean. Commit or stash changes first.$(NC)"; \
+		exit 1; \
+	fi
+	@if ! grep -q '^- `$(VERSION)`' CHANGELOG.md; then \
+		echo "$(GREEN)No $(VERSION) entries in CHANGELOG.md, writing them with Claude Code (/changelog $(VERSION))...$(NC)"; \
+		claude -p "/changelog $(VERSION)" \
+			--allowedTools "Bash(git *),Bash(gh *),Read,Edit,Write" || exit 1; \
+	fi
+	@if ! grep -q '^- `$(VERSION)`' CHANGELOG.md; then \
+		echo "$(YELLOW)Error: CHANGELOG.md still has no $(VERSION) entries. Run /changelog $(VERSION) in Claude Code and check its output.$(NC)"; \
+		exit 1; \
+	fi
+	@if [ -n "$$(git status --porcelain)" ]; then \
+		echo "$(YELLOW)Error: the changelog entry was written but not committed. Commit and push it, then rerun.$(NC)"; \
+		exit 1; \
+	fi
+	@git fetch origin main --quiet
+	@if [ "$$(git rev-parse HEAD)" != "$$(git rev-parse origin/main)" ]; then \
+		echo "$(YELLOW)Error: the changelog commit is not on origin/main yet. Push it, then rerun.$(NC)"; \
 		exit 1; \
 	fi
 	@echo "$(GREEN)Creating release v$(VERSION)...$(NC)"

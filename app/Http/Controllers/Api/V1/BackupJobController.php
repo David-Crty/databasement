@@ -28,17 +28,24 @@ class BackupJobController extends Controller
 
     /**
      * Get a job.
+     *
+     * Resolved here rather than by route-model binding: BackupJob has no
+     * organization_id and so no global scope, and binding would hand back any
+     * organization's job.
      */
-    public function show(BackupJob $backupJob): BackupJobResource
+    public function show(string $backupJob): BackupJobResource
     {
-        $backupJob->load([
-            'snapshot.databaseServer',
-            'snapshot.triggeredBy',
-            'restore.snapshot.databaseServer',
-            'restore.targetServer',
-            'restore.triggeredBy',
-        ]);
+        $job = BackupJob::query()
+            ->forCurrentOrg()
+            ->with([
+                'snapshot.databaseServer',
+                'snapshot.triggeredBy',
+                'restore.snapshot.databaseServer',
+                'restore.targetServer',
+                'restore.triggeredBy',
+            ])
+            ->findOrFail($backupJob);
 
-        return new BackupJobResource($backupJob);
+        return new BackupJobResource($job);
     }
 }

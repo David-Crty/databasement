@@ -20,6 +20,7 @@
                             class="btn-error"
                             icon="o-shield-exclamation"
                             wire:click="disable"
+                            spinner
                             label="{{ __('Disable 2FA') }}"
                         />
                     </div>
@@ -38,6 +39,7 @@
                         class="btn-primary"
                         icon="o-shield-check"
                         wire:click="enable"
+                        spinner
                         label="{{ __('Enable 2FA') }}"
                     />
                 </div>
@@ -79,12 +81,14 @@
                         <x-button
                             class="btn-outline flex-1"
                             wire:click="resetVerification"
+                            spinner
                             label="{{ __('Back') }}"
                         />
 
                         <x-button
                             class="btn-primary flex-1"
                             wire:click="confirmTwoFactor"
+                            spinner
                             x-bind:disabled="$wire.code.length < 6"
                             label="{{ __('Confirm') }}"
                         />
@@ -116,6 +120,7 @@
                         :disabled="$errors->has('setupData')"
                         class="btn-primary w-full"
                         wire:click="showVerificationIfNecessary"
+                        spinner
                         label="{{ $this->modalConfig['buttonText'] }}"
                     />
                 </div>

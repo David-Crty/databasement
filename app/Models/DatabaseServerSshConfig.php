@@ -33,6 +33,7 @@ class DatabaseServerSshConfig extends Model
         'port',
         'username',
         'auth_type',
+        'compression',
         'password',
         'private_key',
         'key_passphrase',
@@ -49,6 +50,7 @@ class DatabaseServerSshConfig extends Model
     {
         return [
             'port' => 'integer',
+            'compression' => 'boolean',
             'password' => 'encrypted',
             'private_key' => 'encrypted',
             'key_passphrase' => 'encrypted',
@@ -92,6 +94,7 @@ class DatabaseServerSshConfig extends Model
             'port' => $this->port,
             'username' => $this->username,
             'auth_type' => $this->auth_type,
+            'compression' => $this->compression,
             'password' => $this->password,
             'private_key' => $this->private_key,
             'key_passphrase' => $this->key_passphrase,
@@ -110,6 +113,7 @@ class DatabaseServerSshConfig extends Model
             'port' => $this->port,
             'username' => $this->username,
             'auth_type' => $this->auth_type,
+            'compression' => $this->compression,
         ];
     }
 }

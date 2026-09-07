@@ -5,6 +5,7 @@
     $hasExistingConfigs = count($sshConfigOptions) > 0;
     $isExistingConfig = $form->ssh_config_mode === 'existing' && $form->ssh_config_id;
     $credentialsOptional = $isEdit || $isExistingConfig;
+    $hasSshErrors = $form->hasSshFieldErrors();
 @endphp
 
 <!-- SSH Tunnel Configuration -->
@@ -23,8 +24,8 @@
         <div class="border-t border-base-300 bg-base-100 p-4 rounded-b-lg">
             <div
                 class="space-y-4"
-                wire:key="ssh-config-{{ $form->ssh_config_mode }}"
-                x-data="{ showForm: @js($form->ssh_config_mode !== 'existing') }"
+                wire:key="ssh-config-{{ $form->ssh_config_mode }}{{ $hasSshErrors ? '-invalid' : '' }}"
+                x-data="{ showForm: @js($form->ssh_config_mode !== 'existing' || $hasSshErrors) }"
             >
                 <!-- SSH Configuration Mode -->
                 @if($hasExistingConfigs)
@@ -130,6 +131,18 @@
                     </div>
                 </div>
 
+                <!-- SSH Compression -->
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <x-toggle
+                        wire:model="form.ssh_compression"
+                        class="toggle-primary toggle-sm"
+                    />
+                    <div>
+                        <span class="text-sm font-medium">{{ __('Enable compression') }}</span>
+                        <p class="text-xs text-base-content/60">{{ __('Speeds up backups over slow links, at the cost of extra CPU on both ends.') }}</p>
+                    </div>
+                </label>
+
                 <!-- Authentication Method -->
                 <div class="form-control">
                     <label class="label">
@@ -198,7 +211,7 @@
                                 type="button"
                                 icon="o-sparkles"
                                 wire:click="generateSshKey"
-                                spinner="generateSshKey"
+                                spinner
                             >
                                 {{ __('Generate') }}
                             </x-button>
@@ -236,7 +249,7 @@
                         type="button"
                         icon="{{ $form->sshTestSuccess ? 'o-check-circle' : 'o-signal' }}"
                         wire:click="testSshConnection"
-                        spinner="testSshConnection"
+                        spinner
                     >
                         @if($form->sshTestSuccess)
                             {{ __('Connected') }}

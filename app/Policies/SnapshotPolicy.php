@@ -28,9 +28,30 @@ class SnapshotPolicy
 
     /**
      * Determine whether the user can delete the model.
-     * Requires the delete-snapshots ability.
+     * Requires the delete-snapshots ability, and refuses a locked snapshot:
+     * locking exists to keep it, so no delete path may remove it until it is
+     * unlocked.
      */
     public function delete(User $user, Snapshot $snapshot): bool
+    {
+        return ! $snapshot->locked && $user->can(Ability::DeleteSnapshots->value);
+    }
+
+    /**
+     * Determine whether the user can edit the model's comment.
+     * Requires the run-backups ability.
+     */
+    public function update(User $user, Snapshot $snapshot): bool
+    {
+        return $user->can(Ability::RunBackups->value);
+    }
+
+    /**
+     * Determine whether the user can lock the snapshot against automatic cleanup.
+     * Requires the delete-snapshots ability, since locking and unlocking decide
+     * whether the retention policy is allowed to remove the snapshot.
+     */
+    public function lock(User $user, Snapshot $snapshot): bool
     {
         return $user->can(Ability::DeleteSnapshots->value);
     }

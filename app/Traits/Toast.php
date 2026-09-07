@@ -7,7 +7,9 @@ use Livewire\Features\SupportRedirects\Redirector;
 
 trait Toast
 {
-    public function toast(
+    private const FALLBACK_ICON = 'o-information-circle';
+
+    protected function toast(
         string $type,
         string $title,
         ?string $description = null,
@@ -25,7 +27,9 @@ trait Toast
             'title' => $title,
             'description' => $description,
             'position' => $position,
-            'icon' => Blade::render("<x-mary-icon class='w-7 h-7' name='".$icon."' />"),
+            'icon' => Blade::render('<x-mary-icon class="w-7 h-7" :name="$name" />', [
+                'name' => preg_match('/\\A[A-Za-z0-9._-]+\\z/', $icon) === 1 ? $icon : self::FALLBACK_ICON,
+            ]),
             'css' => $css,
             'timeout' => $timeout,
             'noProgress' => $noProgress,
@@ -48,7 +52,7 @@ trait Toast
         return null;
     }
 
-    public function success(
+    protected function success(
         string $title,
         ?string $description = null,
         ?string $position = 'toast-bottom',
@@ -63,7 +67,7 @@ trait Toast
         return $this->toast('success', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass, $flashAs);
     }
 
-    public function warning(
+    protected function warning(
         string $title,
         ?string $description = null,
         ?string $position = 'toast-bottom',
@@ -78,7 +82,7 @@ trait Toast
         return $this->toast('warning', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass, $flashAs);
     }
 
-    public function error(
+    protected function error(
         string $title,
         ?string $description = null,
         ?string $position = 'toast-bottom',
@@ -93,7 +97,7 @@ trait Toast
         return $this->toast('error', $title, $description, $position, $icon, $css, $timeout, $redirectTo, $noProgress, $progressClass, $flashAs);
     }
 
-    public function info(
+    protected function info(
         string $title,
         ?string $description = null,
         ?string $position = 'toast-bottom',

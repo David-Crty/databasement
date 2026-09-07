@@ -42,7 +42,7 @@ COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 # Add tools
 RUN apk add --no-cache git \
         mariadb-client mariadb-connector-c \
-        postgresql18-client \
+        postgresql16-client postgresql18-client \
         supervisor \
         gzip zstd 7zip \
         tzdata \
@@ -120,6 +120,7 @@ RUN chmod 755 /usr/local/bin/gbak /usr/local/bin/isql
 COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini
 COPY php-custom.ini /usr/local/etc/php/conf.d/zz-php-custom.ini
+COPY Caddyfile /etc/frankenphp/Caddyfile
 
 # Default PUID/PGID for the application user (can be overridden at runtime)
 ENV PUID=1000

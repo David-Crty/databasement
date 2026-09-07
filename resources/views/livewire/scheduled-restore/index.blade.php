@@ -9,6 +9,7 @@
                     :label="__('New Scheduled Restore')"
                     icon="o-plus"
                     wire:click="openCreate"
+                    spinner
                     class="btn-primary btn-sm"
                 />
             @endcan
@@ -133,6 +134,7 @@
                         <x-button
                             icon="o-play"
                             wire:click="runNow('{{ $scheduledRestore->id }}')"
+                            spinner
                             :tooltip="__('Run now')"
                             class="btn-ghost btn-sm"
                         />
@@ -141,6 +143,7 @@
                         <x-button
                             icon="o-pencil"
                             wire:click="openEdit('{{ $scheduledRestore->id }}')"
+                            spinner
                             :tooltip="__('Edit')"
                             class="btn-ghost btn-sm"
                         />
@@ -149,6 +152,7 @@
                         <x-button
                             icon="o-trash"
                             wire:click="confirmDelete('{{ $scheduledRestore->id }}')"
+                            spinner
                             :tooltip="__('Delete')"
                             class="btn-ghost btn-sm text-error"
                         />

@@ -17,7 +17,7 @@
                 class="btn-ghost btn-sm"
             />
             @can('create', \Silber\Bouncer\Database\Role::class)
-                <x-button :label="__('New role')" icon="o-plus" wire:click="openCreate" class="btn-primary btn-sm" />
+                <x-button :label="__('New role')" icon="o-plus" wire:click="openCreate" spinner class="btn-primary btn-sm" />
             @endcan
         </x-card-heading>
 
@@ -43,10 +43,10 @@
             @scope('cell_actions', $role)
                 <div class="flex justify-end flex-nowrap gap-1">
                     @can('update', $role)
-                        <x-button icon="o-pencil" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openEdit({{ $role->id }})" :tooltip-left="__('Edit')" />
+                        <x-button icon="o-pencil" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openEdit({{ $role->id }})" spinner :tooltip-left="__('Edit')" />
                     @endcan
                     @can('delete', $role)
-                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDelete({{ $role->id }})" :tooltip-left="__('Delete')" />
+                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDelete({{ $role->id }})" spinner :tooltip-left="__('Delete')" />
                     @endcan
                 </div>
             @endscope
@@ -66,7 +66,7 @@
 
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showFormModal = false" />
-            <x-button :label="__('Save')" class="btn-primary" wire:click="save" spinner="save" />
+            <x-button :label="__('Save')" class="btn-primary" wire:click="save" spinner />
         </x-slot:actions>
     </x-modal>
 

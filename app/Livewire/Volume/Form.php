@@ -50,8 +50,6 @@ class Form extends \Livewire\Form
 
     public bool $connectionTestSuccess = false;
 
-    public bool $testingConnection = false;
-
     public function __construct(
         Component $component,
         mixed $propertyName,
@@ -216,7 +214,6 @@ class Form extends \Livewire\Form
 
     public function testConnection(): void
     {
-        $this->testingConnection = true;
         $this->connectionTestMessage = null;
 
         $volumeType = VolumeType::from($this->type);
@@ -232,9 +229,8 @@ class Form extends \Livewire\Form
         try {
             $this->validate($filteredRules);
         } catch (ValidationException) {
-            $this->testingConnection = false;
             $this->connectionTestSuccess = false;
-            $this->connectionTestMessage = 'Please fill in all required configuration fields.';
+            $this->connectionTestMessage = __('Please fill in all required configuration fields.');
 
             return;
         }
@@ -257,6 +253,5 @@ class Form extends \Livewire\Form
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
-        $this->testingConnection = false;
     }
 }

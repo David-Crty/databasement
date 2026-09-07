@@ -50,6 +50,33 @@ test('manage-database-servers allows creating a password-based ssh config', func
     expect($config->password)->toBe('ssh_secret');
 });
 
+test('compression is off unless the payload asks for it', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-server-ssh-configs', [
+            'host' => 'bastion.example.com',
+            'username' => 'tunnel_user',
+            'auth_type' => 'password',
+            'password' => 'ssh_secret',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.compression', false);
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-server-ssh-configs', [
+            'host' => 'bastion.example.com',
+            'username' => 'tunnel_user',
+            'auth_type' => 'password',
+            'password' => 'ssh_secret',
+            'compression' => true,
+        ]);
+
+    $response->assertCreated()->assertJsonPath('data.compression', true);
+
+    expect(DatabaseServerSshConfig::findOrFail($response->json('data.id'))->compression)->toBeTrue();
+});
+
 test('the created id can be used as ssh_config_id on a database server', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
@@ -190,6 +217,32 @@ test('updating without credentials keeps the stored ones', function () {
         ->assertJsonPath('data.port', 2222);
 
     expect($config->fresh()->password)->toBe('ssh_password');
+});
+
+test('compression can be toggled on update and is kept when omitted', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $config = DatabaseServerSshConfig::factory()->create(['compression' => true]);
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
+            'host' => 'bastion.example.com',
+            'username' => 'tunnel_user',
+            'auth_type' => 'password',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.compression', true);
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
+            'host' => 'bastion.example.com',
+            'username' => 'tunnel_user',
+            'auth_type' => 'password',
+            'compression' => false,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.compression', false);
+
+    expect($config->fresh()->compression)->toBeFalse();
 });
 
 test('switching to key authentication requires a key', function () {

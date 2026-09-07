@@ -129,6 +129,9 @@ jobs:
       - name: Run phpstan
         run: vendor/bin/phpstan analyse
 
+      # Always the full suite. Pest's Test Impact Analysis (`make test-tia`) is a
+      # local-only convenience and is never enabled here — CI must verify every
+      # test against a clean checkout.
       - name: Run Tests
         run: php artisan test --parallel --coverage-clover=coverage.xml --log-junit junit.xml
 

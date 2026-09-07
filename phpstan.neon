@@ -1,5 +1,9 @@
 includes:
     - vendor/larastan/larastan/extension.neon
+    # Teaches PHPStan Pest's functional API (it/test/expect, closure $this) and
+    # adds Pest-aware rules. Registered explicitly because this project does not
+    # use phpstan/extension-installer.
+    - vendor/pestphp/pest-plugin-phpstan/extension.neon
 
 parameters:
 

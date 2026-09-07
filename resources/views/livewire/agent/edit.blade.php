@@ -25,6 +25,7 @@
                 icon="o-arrow-path"
                 class="btn-warning btn-sm"
                 wire:click="confirmRegenerate"
+                spinner
             />
         </div>
     </x-card>
@@ -35,7 +36,7 @@
 
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showRegenerateModal = false" />
-            <x-button :label="__('Regenerate')" class="btn-warning" wire:click="regenerateToken" spinner="regenerateToken" />
+            <x-button :label="__('Regenerate')" class="btn-warning" wire:click="regenerateToken" spinner />
         </x-slot:actions>
     </x-modal>
 

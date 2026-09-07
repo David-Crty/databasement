@@ -38,6 +38,11 @@
                         <div class="min-w-0">
                             <div class="text-sm text-base-content/70">
                                 {{ $this->selectedJob->snapshot ? __('Backup') : __('Restore') }}
+                                @if($snapshot)
+                                    <div class="badge">
+                                        # {{ $snapshot->id }}
+                                    </div>
+                                @endif
                             </div>
                             <div class="font-semibold truncate">
                                 @if($this->selectedJob->snapshot)

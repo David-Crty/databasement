@@ -73,10 +73,9 @@
                         @enderror
                     </div>
 
-                    <x-button
-                        type="submit"
+                    <x-submit-button
                         class="btn-primary w-full"
-                        label="{{ __('Continue') }}"
+                        :label="__('Continue')"
                     />
                 </div>
 

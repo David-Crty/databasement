@@ -58,7 +58,7 @@
                                 icon="o-clipboard-document"
                                 class="btn-ghost btn-xs btn-circle shrink-0"
                                 x-clipboard="'{{ $server->id }}'"
-                                x-on:clipboard-copied="$wire.success('{{ __('Copied to clipboard!') }}', null, 'toast-bottom')"
+                                x-on:clipboard-copied="successToast('{{ __('Copied to clipboard!') }}')"
                                 :tooltip="__('Copy ID')"
                             />
                         </div>
@@ -123,7 +123,8 @@
                                   class="btn-primary btn-sm" wire:navigate />
                     @endcan
                     @can('delete', $server)
-                        <x-button icon="o-trash" wire:click="confirmDelete" tooltip-left="{{ __('Delete') }}"
+                        <x-button icon="o-trash" wire:click="confirmDelete"
+    spinner tooltip-left="{{ __('Delete') }}"
                                   class="btn-ghost btn-sm text-error" />
                     @endcan
                 </div>

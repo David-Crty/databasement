@@ -5,9 +5,12 @@ namespace App\Policies;
 use App\Enums\Ability;
 use App\Models\User;
 use App\Models\Volume;
+use App\Policies\Concerns\ChecksOrganizationOwnership;
 
 class VolumePolicy
 {
+    use ChecksOrganizationOwnership;
+
     /**
      * Determine whether the user can view any models.
      * All authenticated users can view the list.
@@ -19,11 +22,11 @@ class VolumePolicy
 
     /**
      * Determine whether the user can view the model.
-     * All authenticated users can view details.
+     * All authenticated users in the owning organization can view details.
      */
     public function view(User $user, Volume $volume): bool
     {
-        return true;
+        return $this->ownedByCurrentOrganization($volume->organization_id);
     }
 
     /**
@@ -32,6 +35,10 @@ class VolumePolicy
      */
     public function viewForm(User $user, ?Volume $volume = null): bool
     {
+        if ($volume && ! $this->ownedByCurrentOrganization($volume->organization_id)) {
+            return false;
+        }
+
         return $user->isDemo() || $user->can(Ability::ManageVolumes->value);
     }
 
@@ -50,7 +57,8 @@ class VolumePolicy
      */
     public function update(User $user, Volume $volume): bool
     {
-        return $user->can(Ability::ManageVolumes->value);
+        return $this->ownedByCurrentOrganization($volume->organization_id)
+            && $user->can(Ability::ManageVolumes->value);
     }
 
     /**
@@ -59,6 +67,7 @@ class VolumePolicy
      */
     public function delete(User $user, Volume $volume): bool
     {
-        return $user->can(Ability::ManageVolumes->value);
+        return $this->ownedByCurrentOrganization($volume->organization_id)
+            && $user->can(Ability::ManageVolumes->value);
     }
 }
