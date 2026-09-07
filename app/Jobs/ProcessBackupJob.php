@@ -25,6 +25,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ProcessBackupJob implements ShouldQueue
@@ -216,12 +217,20 @@ class ProcessBackupJob implements ShouldQueue
         }
         $engine = app(S3BucketBackupEngine::class);
 
-        // Retry support: skip volumes whose copy already uploaded successfully.
+        // Every attempt uploads the freshly built archive to every target
+        // volume. The SQL dump path skips volumes whose copy already completed
+        // (a dump is only ever uploaded once per attempt and re-dumped on
+        // retry), but a bucket run's archive is regenerated from the live
+        // bucket on retry, so it can differ from an earlier attempt's archive.
+        // Skipping completed volumes would leave an old archive on those
+        // volumes next to the retry's archive, while the persisted checksum /
+        // object state below describes only the retry's archive — restoring
+        // from the old copy would then return different data for the same run.
+        // The archive filename is stable per snapshot, so re-uploading simply
+        // overwrites the earlier copy in place and every volume stays on the
+        // archive the snapshot row describes.
         $targets = array_values(
             $snapshot->files
-                ->filter(fn (SnapshotFile $file) => $file->status !== SnapshotFileStatus::Completed)
-                ->whenEmpty(fn () => $snapshot->files)
-                ->values()
                 ->map(fn (SnapshotFile $file) => VolumeConfig::fromVolume($file->volume, $file->volume->usedStorageBytes()))
                 ->all()
         );
@@ -254,12 +263,13 @@ class ProcessBackupJob implements ShouldQueue
             ));
 
             if ($failures !== []) {
-                // Successful per-volume copies were recorded above so a retry does
-                // not re-upload them, but the run is not complete until every target
-                // volume holds the archive. Throw so `handle()` marks the job failed
-                // and the queue retries within `backup.job_tries`, then `failed()`
-                // notifies only once the retries are exhausted. Returning here would
-                // acknowledge the attempt and bypass retries entirely.
+                // The run is not complete until every target volume holds the
+                // archive. Throw so `handle()` marks the job failed and the
+                // queue retries within `backup.job_tries`; the next attempt
+                // regenerates the archive and re-uploads it to every volume
+                // (see the target selection above), so all copies converge on
+                // the archive the final attempt persists. `failed()` notifies
+                // only once the retries are exhausted.
                 $names = implode(', ', array_map(fn ($r) => $r->volumeName, $failures));
                 $message = __('Bucket upload failed for volume(s): :volumes', ['volumes' => $names]);
                 $job->log($message, 'error');
@@ -276,6 +286,20 @@ class ProcessBackupJob implements ShouldQueue
 
             $job->markCompleted();
             app(NotificationService::class)->notifyBackupSuccess($snapshot);
+
+            // Notify-only storage limit: a copy was uploaded despite exceeding
+            // its volume's limit, so alert every configured channel — mirroring
+            // the SQL dump path.
+            foreach ($outcome['volume_results'] as $result) {
+                if ($result->storageWarning !== null) {
+                    app(NotificationService::class)->notifyStorageLimitWarning(
+                        $snapshot,
+                        $result->storageWarning,
+                        $result->volumeName,
+                    );
+                }
+            }
+
             Log::info('Bucket backup completed successfully', [
                 'snapshot_id' => $snapshot->id,
                 'database_server_id' => $databaseServer->id,
@@ -293,20 +317,28 @@ class ProcessBackupJob implements ShouldQueue
      */
     private function persistS3Outcome(Snapshot $snapshot, array $outcome): void
     {
-        $snapshot->update([
-            'run_kind' => $outcome['run_kind'],
-            'full_snapshot_id' => $outcome['full_snapshot_id'],
-            'filename' => $outcome['filename'],
-            'checksum' => $outcome['checksum'],
-            'file_size' => $outcome['file_size'],
-            'metadata' => array_merge($snapshot->metadata ?? [], [
-                S3BucketBackupEngine::META_STATE_KEY => $outcome['object_state'],
-            ]),
-        ]);
+        DB::transaction(function () use ($snapshot, $outcome) {
+            $snapshot->update([
+                'run_kind' => $outcome['run_kind'],
+                'full_snapshot_id' => $outcome['full_snapshot_id'],
+                'filename' => $outcome['filename'],
+                'checksum' => $outcome['checksum'],
+                'file_size' => $outcome['file_size'],
+                'metadata' => array_merge($snapshot->metadata ?? [], [
+                    S3BucketBackupEngine::META_STATE_KEY => $outcome['object_state'],
+                ]),
+            ]);
 
-        foreach ($outcome['object_files'] as $row) {
-            $snapshot->objectFiles()->create($row);
-        }
+            // Idempotent per snapshot: a retry regenerates the archive from the
+            // live bucket and may yield different object rows, so replace the
+            // previous attempt's rows instead of appending duplicates — the
+            // persisted rows must always describe exactly the final archive.
+            $snapshot->objectFiles()->delete();
+
+            foreach ($outcome['object_files'] as $row) {
+                $snapshot->objectFiles()->create($row);
+            }
+        });
     }
 
     /**
