@@ -482,6 +482,58 @@ describe('volume deletion', function () {
             ->and(Volume::find($volume->id))->toBeNull('Volume should be deleted')
             ->and(file_exists($backupFilePath))->toBeTrue('Backup file should be preserved on storage');
     });
+
+    test('volume deletion is blocked when a surviving chain descendant loses its anchor', function () {
+        $volume = Volume::factory()->local()->create();
+        $survivor = Volume::factory()->local()->create();
+
+        $server = DatabaseServer::factory()->create(['database_names' => ['chain-scope']]);
+        $backup = $server->backups()->oldest('id')->firstOrFail();
+
+        // A FULL run whose only copy lives on the volume being deleted…
+        $full = Snapshot::factory()->forServer($server)->create([
+            'backup_id' => $backup->id,
+            'database_name' => 'chain-scope',
+            'run_kind' => \App\Enums\RunKind::FULL,
+            'started_at' => now()->subHour(),
+        ]);
+        $full->files()->create([
+            'volume_id' => $volume->id,
+            'filename' => 'full.s3.gz',
+            'status' => SnapshotFileStatus::Failed,
+        ]);
+
+        // …and an incremental descendant that still has a copy elsewhere, so it
+        // would survive the volume deletion while pointing at a deleted anchor.
+        $incremental = Snapshot::factory()->forServer($server)->create([
+            'backup_id' => $backup->id,
+            'database_name' => 'chain-scope',
+            'run_kind' => \App\Enums\RunKind::INCREMENTAL,
+            'full_snapshot_id' => $full->id,
+            'started_at' => now(),
+        ]);
+        $incremental->files()->create([
+            'volume_id' => $survivor->id,
+            'filename' => 'inc.s3.gz',
+            'status' => SnapshotFileStatus::Failed,
+        ]);
+
+        // Snapshot factories may seed their own copy rows; pin the scenario to
+        // exactly one copy per run: the anchor only on the deleted volume, the
+        // descendant only on the surviving volume.
+        \App\Models\SnapshotFile::whereIn('snapshot_id', [$full->id, $incremental->id])->delete();
+        $full->files()->create(['volume_id' => $volume->id, 'filename' => 'full.s3.gz', 'status' => SnapshotFileStatus::Failed]);
+        $incremental->files()->create(['volume_id' => $survivor->id, 'filename' => 'inc.s3.gz', 'status' => SnapshotFileStatus::Failed]);
+
+        // Deleting the volume that hosts the anchor must be refused so the
+        // surviving descendant keeps a resolvable lineage.
+        expect(fn () => $volume->delete())
+            ->toThrow(\RuntimeException::class, 'has a newer run in the same chain');
+
+        expect(Volume::find($volume->id))->not->toBeNull()
+            ->and(Snapshot::find($full->id))->not->toBeNull()
+            ->and(Snapshot::find($incremental->id))->not->toBeNull();
+    });
 });
 
 describe('volume immutability', function () {

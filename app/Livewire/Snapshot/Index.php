@@ -232,6 +232,11 @@ class Index extends Component
         $this->showDeleteModal = true;
     }
 
+    /**
+     * Delete the snapshot confirmed in the delete modal, optionally keeping its
+     * stored files. A chain-lineage violation (non-newest S3 run) is surfaced
+     * as an inline error instead of a 500.
+     */
     public function deleteSnapshot(): void
     {
         if (! $this->deleteSnapshotId) {
@@ -242,8 +247,17 @@ class Index extends Component
 
         $this->authorize('delete', $snapshot);
 
-        $snapshot->skipFileCleanup = $this->keepFiles;
-        $snapshot->delete();
+        try {
+            $snapshot->skipFileCleanup = $this->keepFiles;
+            $snapshot->delete();
+        } catch (\RuntimeException $e) {
+            // Chain-lineage guard: a non-newest S3 run can't be removed yet.
+            $this->error($e->getMessage());
+            $this->deleteSnapshotId = null;
+            $this->showDeleteModal = false;
+
+            return;
+        }
         $this->deleteSnapshotId = null;
         $this->showDeleteModal = false;
 

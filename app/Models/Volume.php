@@ -27,6 +27,11 @@ class Volume extends Model
 
     public bool $skipFileCleanup = false;
 
+    /**
+     * Boot the model: scope every query to the owning organization, forbid
+     * changing the volume type after creation, and clean up stored files when
+     * the volume is removed.
+     */
     protected static function booted(): void
     {
         static::addGlobalScope(new OrganizationScope);
@@ -47,6 +52,68 @@ class Volume extends Model
             // Cascade atomically so a mid-cascade failure can't leave orphaned
             // rows or half-reconciled snapshots.
             DB::transaction(function () use ($volume, $files, $snapshotIds) {
+                // Snapshots whose only copies live on this volume will follow
+                // it (legacy cascade); snapshots with copies on other volumes
+                // survive. Everything is validated BEFORE any physical file is
+                // removed, so a rejected deletion cannot leave archive files
+                // erased while their rows are rolled back.
+                $snapshots = Snapshot::query()->whereKey($snapshotIds)->get();
+                $snapshotIdsWithOtherCopies = SnapshotFile::query()
+                    ->whereIn('snapshot_id', $snapshotIds)
+                    ->where('volume_id', '!=', $volume->getKey())
+                    ->distinct()
+                    ->pluck('snapshot_id')
+                    ->all();
+
+                $orphaned = $snapshots->whereNotIn('id', $snapshotIdsWithOtherCopies);
+                $orphanedIds = $orphaned->pluck('id')->map(
+                    fn ($id) => (string) $id
+                )->all();
+
+                // A deleted volume must not break a surviving chain: if a run
+                // loses its last copy here but a descendant still exists with a
+                // copy on another volume, deleting the anchor would leave that
+                // descendant unable to resolve its lineage (S3BucketRestoreEngine).
+                // Only the whole descendant set may go together, so abort the
+                // volume deletion when a dependent snapshot will survive.
+                foreach ($orphaned as $snapshot) {
+                    if ($snapshot->run_kind === null) {
+                        continue;
+                    }
+
+                    $anchor = $snapshot->run_kind === \App\Enums\RunKind::FULL
+                        ? $snapshot->id
+                        : $snapshot->full_snapshot_id;
+
+                    if ($anchor === null) {
+                        continue;
+                    }
+
+                    $survives = Snapshot::query()
+                        ->where('database_server_id', $snapshot->database_server_id)
+                        ->where('database_name', $snapshot->database_name)
+                        ->where('full_snapshot_id', $anchor)
+                        ->when($snapshot->run_kind === \App\Enums\RunKind::INCREMENTAL, function ($query) use ($snapshot) {
+                            /** @var \Illuminate\Database\Eloquent\Builder<Snapshot> $query */
+                            // Inclusive: started_at stores whole seconds, so a
+                            // survivor that began in the same second still
+                            // restores on top of this run and must block it.
+                            $query->where('started_at', '>=', $snapshot->started_at);
+                        })
+                        ->whereNotIn('id', $orphanedIds)
+                        ->exists();
+
+                    if ($survives) {
+                        throw new \RuntimeException(
+                            'Cannot delete this volume: an S3 backup run on it has a '
+                            .'newer run in the same chain that still has copies on '
+                            .'another volume. Remove those copies first so restores '
+                            .'keep a resolvable lineage.'
+                        );
+                    }
+                }
+
+                // Validation passed: now remove the physical archives and rows.
                 foreach ($files as $file) {
                     if (! $volume->skipFileCleanup && $file->status === SnapshotFileStatus::Completed) {
                         $file->deleteFromVolume();
@@ -54,18 +121,12 @@ class Volume extends Model
                     $file->delete();
                 }
 
-                // Snapshots left without any copy follow the volume (legacy
-                // cascade); multi-volume snapshots survive with their remaining
-                // copies. Batch the lookups instead of querying per snapshot.
-                $snapshots = Snapshot::query()->whereKey($snapshotIds)->get();
-                $snapshotIdsWithFiles = SnapshotFile::query()
-                    ->whereIn('snapshot_id', $snapshotIds)
-                    ->distinct()
-                    ->pluck('snapshot_id')
-                    ->all();
-
-                foreach ($snapshots->whereNotIn('id', $snapshotIdsWithFiles) as $snapshot) {
+                foreach ($orphaned as $snapshot) {
                     $snapshot->skipFileCleanup = true;
+                    // The volume host is gone, so every copy of these chain runs
+                    // is being removed together; the interactive delete guard
+                    // (delete-newest-first) has nothing left to preserve.
+                    $snapshot->allowOutOfOrderChainDelete = true;
                     $snapshot->delete();
                 }
 

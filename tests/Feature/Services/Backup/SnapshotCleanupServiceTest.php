@@ -330,3 +330,137 @@ test('forever policy keeps all snapshots indefinitely', function () {
     expect(Snapshot::find($recentSnapshot->id))->not->toBeNull()
         ->and(Snapshot::find($veryOldSnapshot->id))->not->toBeNull();
 });
+
+/**
+ * Create an S3 bucket run (full or incremental) under the server's first
+ * backup at a given age. The archive filename is left empty so the factory's
+ * per-volume copy rows stay pending and retention deletes never touch a real
+ * volume file.
+ */
+function createBucketRun(DatabaseServer $server, string $runKind, ?string $fullSnapshotId, \Carbon\Carbon $createdAt): Snapshot
+{
+    $snapshot = Snapshot::factory()
+        ->forServer($server)
+        ->create([
+            'filename' => '',
+            'run_kind' => $runKind,
+            'full_snapshot_id' => $fullSnapshotId,
+            'database_name' => 'photos',
+            'started_at' => $createdAt,
+        ]);
+
+    $snapshot->forceFill(['created_at' => $createdAt])->saveQuietly();
+
+    return $snapshot->fresh();
+}
+
+test('days retention keeps an older bucket run when a kept newer run needs its lineage', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(10));
+    $olderIncremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(9));
+    // Survives the cutoff; restoring it overlays the full and the older
+    // incremental above, so both must be retained despite being expired.
+    createBucketRun($server, 'incremental', $full->id, now()->subDays(1));
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and(Snapshot::find($full->id))->not->toBeNull()
+        ->and(Snapshot::find($olderIncremental->id))->not->toBeNull();
+});
+
+test('days retention deletes a whole expired bucket chain together', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(12));
+    $olderIncremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(10));
+    $newestIncremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(8));
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(3)
+        ->and(Snapshot::find($full->id))->toBeNull()
+        ->and(Snapshot::find($olderIncremental->id))->toBeNull()
+        ->and(Snapshot::find($newestIncremental->id))->toBeNull();
+});
+
+test('days retention keeps a run when a kept descendant started in the same second', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(12));
+
+    // started_at is stored without fractional seconds: the expired run and the
+    // kept run begin in the same second, so the restore lineage of the kept
+    // run still overlays the expired archive and cleanup must retain it.
+    $sameSecond = now()->subDays(9)->startOfSecond();
+    $olderIncremental = createBucketRun($server, 'incremental', $full->id, $sameSecond);
+    $keptIncremental = createBucketRun($server, 'incremental', $full->id, $sameSecond->copy());
+    $keptIncremental->forceFill(['created_at' => now()->subDays(1)])->saveQuietly();
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and(Snapshot::find($full->id))->not->toBeNull()
+        ->and(Snapshot::find($olderIncremental->id))->not->toBeNull()
+        ->and(Snapshot::find($keptIncremental->id))->not->toBeNull();
+});
+
+test('cleanup defers deleting a bucket chain while its lineage is being persisted', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(12));
+
+    // ProcessBackupJob holds the per-chain lock while it persists a new run
+    // that anchors onto the expired full. Cleanup must not delete the full in
+    // that interval, or the persisted descendant would lose its anchor (the
+    // nullOnDelete FK clears full_snapshot_id) and become unrestorable.
+    $lock = \Illuminate\Support\Facades\Cache::lock(
+        \App\Support\SnapshotChainLock::key($server->id, 'photos'),
+        60,
+    );
+    expect($lock->get())->toBeTrue();
+
+    try {
+        $result = app(SnapshotCleanupService::class)->run();
+
+        expect($result['deleted'])->toBe(0)
+            ->and(Snapshot::find($full->id))->not->toBeNull();
+    } finally {
+        $lock->release();
+    }
+
+    // The job then persists its descendant against the still-present anchor.
+    $incremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(1));
+    expect($incremental->fresh()->full_snapshot_id)->toBe($full->id);
+
+    // The next pass sees the kept descendant and still retains the anchor.
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and(Snapshot::find($full->id))->not->toBeNull()
+        ->and(Snapshot::find($incremental->id))->not->toBeNull();
+});
+
+test('days retention frees an expired chain whose only descendant failed', function () {
+    $server = DatabaseServer::factory()->s3()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+
+    $full = createBucketRun($server, 'full', null, now()->subDays(12));
+    // A run that persisted its lineage and then failed (job never completed)
+    // is not kept by retention and is not restorable, so it must not pin the
+    // expired anchor forever.
+    $failedIncremental = createBucketRun($server, 'incremental', $full->id, now()->subDays(11));
+    $failedIncremental->job->update(['status' => 'failed', 'completed_at' => null]);
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(1)
+        ->and(Snapshot::find($full->id))->toBeNull()
+        // Retention never touches a non-completed run; it just stops blocking.
+        ->and(Snapshot::find($failedIncremental->id))->not->toBeNull();
+});

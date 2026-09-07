@@ -7,20 +7,25 @@ use App\Exceptions\Backup\VolumeTransferException;
 use App\Facades\AppConfig;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
+use App\Models\Volume;
 use App\Services\Backup\BackupTask;
+use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\BackupResult;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\VolumeConfig;
+use App\Services\Backup\S3BucketBackupEngine;
 use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
 use App\Support\QueueTimeouts;
+use App\Support\SnapshotChainLock;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ProcessBackupJob implements ShouldQueue
@@ -74,6 +79,13 @@ class ProcessBackupJob implements ShouldQueue
 
         try {
             $job->markRunning();
+
+            // S3/object-storage servers are copied as buckets, not SQL-dumped.
+            if ($databaseServer->database_type->isObjectStorage()) {
+                $this->runObjectStorageBackup($snapshot, $databaseServer, $job);
+
+                return;
+            }
 
             $attemptInfo = $this->job ? " (attempt {$this->attempts()}/{$this->tries})" : '';
             $job->log("Starting backup for database: {$snapshot->database_name}{$attemptInfo}", 'info');
@@ -184,6 +196,171 @@ class ProcessBackupJob implements ShouldQueue
                     'error' => $volumeResult->error,
                 ]);
             }
+        }
+    }
+
+    /**
+     * Run a bucket-copy backup for an S3/object-storage snapshot: pick the
+     * folder scope, drive S3BucketBackupEngine (which builds + uploads the
+     * archive to every target volume) and persist the outcome it returned.
+     */
+    private function runObjectStorageBackup(Snapshot $snapshot, \App\Models\DatabaseServer $databaseServer, \App\Models\BackupJob $job): void
+    {
+        $attemptInfo = $this->job ? " (attempt {$this->attempts()}/{$this->tries})" : '';
+        $job->log("Starting bucket backup for folder: {$snapshot->database_name}{$attemptInfo}", 'info');
+
+        $handler = app(DatabaseProvider::class)
+            ->makeForServer($databaseServer, $snapshot->database_name, $databaseServer->host ?? '', $databaseServer->port ?? 0);
+
+        if (! $handler instanceof \App\Services\Backup\Databases\S3Database) {
+            throw new \RuntimeException('Expected an S3 database handler for bucket backup.');
+        }
+        $engine = app(S3BucketBackupEngine::class);
+
+        // Every attempt uploads the freshly built archive to every target
+        // volume. The SQL dump path skips volumes whose copy already completed
+        // (a dump is only ever uploaded once per attempt and re-dumped on
+        // retry), but a bucket run's archive is regenerated from the live
+        // bucket on retry, so it can differ from an earlier attempt's archive.
+        // Skipping completed volumes would leave an old archive on those
+        // volumes next to the retry's archive, while the persisted checksum /
+        // object state below describes only the retry's archive — restoring
+        // from the old copy would then return different data for the same run.
+        // The archive filename is stable per snapshot, so re-uploading simply
+        // overwrites the earlier copy in place and every volume stays on the
+        // archive the snapshot row describes.
+        $targets = array_values(
+            $snapshot->files
+                ->map(fn (SnapshotFile $file) => VolumeConfig::fromVolume($file->volume, $file->volume->usedStorageBytes()))
+                ->all()
+        );
+
+        // Serialize lineage writes with retention cleanup on the same chain.
+        // The engine reads the chain's prior runs to pick its anchor/baseline
+        // and the outcome below persists that lineage onto the snapshot, so
+        // cleanup must not delete those runs in between (the nullOnDelete FK
+        // would then clear full_snapshot_id and orphan this run). Cleanup holds
+        // a chain lock only for one decide-and-delete (its TTL bounds how long
+        // the lock can outlive the holder), so this wait is ample; a same-chain
+        // backup still running after it is retried by the queue.
+        $chainLock = SnapshotChainLock::forSnapshot($snapshot, $this->timeout);
+        $chainLock->block(SnapshotChainLock::CLEANUP_TTL_SECONDS);
+
+        try {
+            $outcome = $engine->run(
+                snapshot: $snapshot,
+                source: $handler->getFilesystem(),
+                scope: rtrim((string) $snapshot->database_name, '/'),
+                targets: $targets,
+                logger: $job,
+            );
+
+            $this->persistS3Outcome($snapshot, $outcome);
+            $this->applyS3VolumeResults($snapshot, $outcome['volume_results']);
+
+            $failures = array_values(array_filter(
+                $outcome['volume_results'],
+                fn (\App\Services\Backup\DTO\VolumeTransferResult $r) => $r->status === SnapshotFileStatus::Failed,
+            ));
+
+            if ($failures !== []) {
+                // The run is not complete until every target volume holds the
+                // archive. Throw so `handle()` marks the job failed and the
+                // queue retries within `backup.job_tries`; the next attempt
+                // regenerates the archive and re-uploads it to every volume
+                // (see the target selection above), so all copies converge on
+                // the archive the final attempt persists. `failed()` notifies
+                // only once the retries are exhausted.
+                $names = implode(', ', array_map(fn ($r) => $r->volumeName, $failures));
+                $message = __('Bucket upload failed for volume(s): :volumes', ['volumes' => $names]);
+                $job->log($message, 'error');
+
+                throw new \RuntimeException($message);
+            }
+
+            $job->log(sprintf(
+                'Bucket backup completed: %s run, %d archive/files, checksum %s',
+                $outcome['run_kind']->value,
+                count($outcome['object_files']),
+                substr($outcome['checksum'], 0, 16).'...',
+            ), 'success');
+
+            $job->markCompleted();
+            app(NotificationService::class)->notifyBackupSuccess($snapshot);
+
+            // Notify-only storage limit: a copy was uploaded despite exceeding
+            // its volume's limit, so alert every configured channel — mirroring
+            // the SQL dump path.
+            foreach ($outcome['volume_results'] as $result) {
+                if ($result->storageWarning !== null) {
+                    app(NotificationService::class)->notifyStorageLimitWarning(
+                        $snapshot,
+                        $result->storageWarning,
+                        $result->volumeName,
+                    );
+                }
+            }
+
+            Log::info('Bucket backup completed successfully', [
+                'snapshot_id' => $snapshot->id,
+                'database_server_id' => $databaseServer->id,
+            ]);
+        } finally {
+            $chainLock->release();
+        }
+    }
+
+    /**
+     * Write the archive run-level fields + object rows + effective state
+     * produced by S3BucketBackupEngine onto the Snapshot.
+     *
+     * @param  array{run_kind: \App\Enums\RunKind, full_snapshot_id: string|null, filename: string, file_size: int, checksum: string, object_files: array<int, array<string, mixed>>, object_state: array<string, array{size: int, mtime: int}>}  $outcome
+     */
+    private function persistS3Outcome(Snapshot $snapshot, array $outcome): void
+    {
+        DB::transaction(function () use ($snapshot, $outcome) {
+            $snapshot->update([
+                'run_kind' => $outcome['run_kind'],
+                'full_snapshot_id' => $outcome['full_snapshot_id'],
+                'filename' => $outcome['filename'],
+                'checksum' => $outcome['checksum'],
+                'file_size' => $outcome['file_size'],
+                'metadata' => array_merge($snapshot->metadata ?? [], [
+                    S3BucketBackupEngine::META_STATE_KEY => $outcome['object_state'],
+                ]),
+            ]);
+
+            // Idempotent per snapshot: a retry regenerates the archive from the
+            // live bucket and may yield different object rows, so replace the
+            // previous attempt's rows instead of appending duplicates — the
+            // persisted rows must always describe exactly the final archive.
+            $snapshot->objectFiles()->delete();
+
+            foreach ($outcome['object_files'] as $row) {
+                $snapshot->objectFiles()->create($row);
+            }
+        });
+    }
+
+    /**
+     * Mark each per-volume copy row Completed/Failed from the engine results.
+     *
+     * @param  list<\App\Services\Backup\DTO\VolumeTransferResult>  $results
+     */
+    private function applyS3VolumeResults(Snapshot $snapshot, array $results): void
+    {
+        foreach ($results as $result) {
+            $file = $snapshot->files->firstWhere('volume_id', $result->volumeId);
+            if ($file === null) {
+                continue;
+            }
+            $isOk = $result->status === SnapshotFileStatus::Completed;
+            $file->update([
+                'status' => $result->status,
+                'file_exists' => $isOk,
+                'file_verified_at' => $isOk ? now() : $file->file_verified_at,
+                'error' => $isOk ? null : $result->error,
+            ]);
         }
     }
 

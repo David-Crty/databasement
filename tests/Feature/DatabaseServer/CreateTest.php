@@ -647,6 +647,67 @@ test('postgres connection database round-trips through the form', function () {
         ->assertSet('form.connection_database', 'app_db');
 });
 
+test('can create an S3 object-storage server and round-trip extra config', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    Livewire::actingAs($user)
+        ->test(\App\Livewire\DatabaseServer\Create::class)
+        ->set('form.name', 'MinIO Photos')
+        ->set('form.database_type', 's3')
+        ->set('form.host', '127.0.0.1')
+        ->set('form.port', 9000)
+        ->set('form.username', 'AKIA1234')
+        ->set('form.password', 'secretkey')
+        ->set('form.s3_bucket', 'photos')
+        ->set('form.s3_region', 'us-east-1')
+        ->set('form.s3_prefix', 'uploads')
+        ->set('form.s3_use_path_style_endpoint', true)
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_policy', 'days')
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_selection_mode', 'all')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'MinIO Photos')->firstOrFail();
+
+    expect($server->database_type->value)->toBe('s3')
+        ->and($server->host)->toBe('127.0.0.1')
+        ->and($server->getExtraConfig('s3_bucket'))->toBe('photos')
+        ->and($server->getExtraConfig('s3_region'))->toBe('us-east-1')
+        ->and($server->getExtraConfig('s3_prefix'))->toBe('uploads')
+        ->and($server->getExtraConfig('s3_use_path_style_endpoint'))->toBe(true);
+
+    // The edit form hydrates them back so editing is lossless.
+    Livewire::actingAs($user)
+        ->test(\App\Livewire\DatabaseServer\Edit::class, ['server' => $server])
+        ->assertSet('form.s3_bucket', 'photos')
+        ->assertSet('form.s3_use_path_style_endpoint', true);
+});
+
+test('creating an S3 server without a bucket fails validation', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    Livewire::actingAs($user)
+        ->test(\App\Livewire\DatabaseServer\Create::class)
+        ->set('form.name', 'Broken S3')
+        ->set('form.database_type', 's3')
+        ->set('form.host', '127.0.0.1')
+        ->set('form.port', 9000)
+        ->set('form.username', 'AKIA')
+        ->set('form.password', 'password')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_policy', 'days')
+        ->set('form.backups.0.retention_days', 14)
+        ->call('save')
+        ->assertHasErrors(['form.s3_bucket']);
+});
+
 test('a failed save points the user at the first invalid field', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();

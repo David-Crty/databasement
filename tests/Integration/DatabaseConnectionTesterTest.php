@@ -48,7 +48,15 @@ test('connection succeeds', function (string $databaseType) {
     if (isset($server)) {
         IntegrationTestHelpers::dropDatabase($databaseType, $server, $config['database']);
     }
-})->with(array_column(DatabaseType::cases(), 'value'));
+    // S3 bucket servers are excluded from the SQL-engine probe matrix: they
+    // carry no engine to query and their connection flow is covered by
+    // S3DatabaseTest / S3ServerEndpointTest instead. The dataset is derived
+    // from DatabaseType::cases() so S3 would otherwise be fed into the
+    // IntegrationTestHelpers SQL config and fail with an unsupported type.
+})->with(array_values(array_filter(
+    array_column(DatabaseType::cases(), 'value'),
+    fn (string $type) => $type !== DatabaseType::S3->value,
+)));
 
 test('connection fails with invalid credentials', function (string $databaseType) {
     $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);

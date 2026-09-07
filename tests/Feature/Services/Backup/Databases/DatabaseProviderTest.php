@@ -10,6 +10,7 @@ use App\Services\Backup\Databases\MongodbDatabase;
 use App\Services\Backup\Databases\MysqlDatabase;
 use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\Databases\RedisDatabase;
+use App\Services\Backup\Databases\S3Database;
 use App\Services\Backup\Databases\SqliteDatabase;
 use App\Services\Backup\Filesystems\SftpFilesystem;
 use App\Services\SshTunnelService;
@@ -25,6 +26,7 @@ test('make returns correct handler for database type', function (DatabaseType $t
     'redis' => [DatabaseType::REDIS, RedisDatabase::class],
     'mongodb' => [DatabaseType::MONGODB, MongodbDatabase::class],
     'firebird' => [DatabaseType::FIREBIRD, FirebirdDatabase::class],
+    's3' => [DatabaseType::S3, S3Database::class],
 ]);
 
 test('makeForServer uses explicit host and port parameters', function () {
@@ -348,6 +350,115 @@ test('makeFromConfig builds correct config for MongoDB with source database', fu
     expect($result->command)->toContain("--nsFrom='sourcedb.*'")
         ->toContain("--nsTo='targetdb.*'")
         ->toContain('authSource=myauth');
+});
+
+test('makeForServer builds an S3 handler from extra_config over allowed loopback HTTP', function () {
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 's3',
+        'host' => '127.0.0.1',
+        'port' => 9000,
+        'username' => 'AKIAEXAMPLE',
+        'password' => 'secretkey',
+        'extra_config' => [
+            's3_bucket' => 'photos',
+            's3_region' => 'us-east-1',
+            's3_use_path_style_endpoint' => true,
+            's3_prefix' => 'hired',
+        ],
+    ]);
+
+    $database = (new DatabaseProvider)->makeForServer($server, '', '127.0.0.1', 9000);
+
+    expect($database)->toBeInstanceOf(S3Database::class);
+
+    $config = (new ReflectionClass($database))->getProperty('config')->getValue($database);
+    expect($config)->toMatchArray([
+        'bucket' => 'photos',
+        'region' => 'us-east-1',
+        'access_key_id' => 'AKIAEXAMPLE',
+        'secret_access_key' => 'secretkey',
+        'use_path_style_endpoint' => true,
+        'root' => 'hired',
+    ])
+        ->and($config['custom_endpoint'])->toBe('http://127.0.0.1:9000');
+});
+
+test('makeForServer refuses cleartext S3 credentials to a non-private host', function () {
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 's3',
+        'host' => 'minio.example.com',
+        'port' => 9000,
+        'username' => 'AKIAEXAMPLE',
+        'password' => 'secretkey',
+        'extra_config' => [
+            's3_bucket' => 'photos',
+            's3_region' => 'us-east-1',
+            's3_use_path_style_endpoint' => true,
+            's3_prefix' => 'hired',
+        ],
+    ]);
+
+    (new DatabaseProvider)->makeForServer($server, '', 'minio.example.com', 9000);
+})->throws(\RuntimeException::class, 'S3 credentials require an HTTPS endpoint');
+
+test('makeFromConfig maps ssl to an https S3 custom endpoint', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::S3,
+        serverName: 'B2 Server',
+        host: 's3.us-west-004.backblazeb2.com',
+        port: 443,
+        username: 'b2-key',
+        password: 'b2-secret',
+        extraConfig: ['s3_bucket' => 'archives', 'ssl_enabled' => true],
+    );
+
+    $database = (new DatabaseProvider)->makeFromConfig($config, '', 's3.us-west-004.backblazeb2.com', 443);
+
+    expect($database)->toBeInstanceOf(S3Database::class);
+
+    $built = (new ReflectionClass($database))->getProperty('config')->getValue($database);
+    expect($built['bucket'])->toBe('archives')
+        ->and($built['custom_endpoint'])->toBe('https://s3.us-west-004.backblazeb2.com:443')
+        ->and($built['region'])->toBe('us-east-1');
+});
+
+test('makeForServer refuses cleartext S3 credentials for an absolute-URI http host', function () {
+    // An absolute http:// URI in `host` must not bypass the transport guard,
+    // even though it carries its own scheme independently of ssl_enabled.
+    $server = DatabaseServer::factory()->create([
+        'database_type' => 's3',
+        'host' => 'http://minio.example.com',
+        'port' => 9000,
+        'username' => 'AKIAEXAMPLE',
+        'password' => 'secretkey',
+        'extra_config' => [
+            's3_bucket' => 'photos',
+            's3_region' => 'us-east-1',
+            's3_use_path_style_endpoint' => true,
+            's3_prefix' => 'hired',
+        ],
+    ]);
+
+    (new DatabaseProvider)->makeForServer($server, '', 'http://minio.example.com', 9000);
+})->throws(\RuntimeException::class, 'S3 credentials require an HTTPS endpoint');
+
+test('makeFromConfig honours an absolute-URI https host without the ssl toggle', function () {
+    $config = new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+        databaseType: DatabaseType::S3,
+        serverName: 'S3 Server',
+        host: 'https://s3.eu-central-1.amazonaws.com',
+        port: 443,
+        username: 'b2-key',
+        password: 'b2-secret',
+        extraConfig: ['s3_bucket' => 'archives'],
+    );
+
+    $database = (new DatabaseProvider)->makeFromConfig($config, '', 'https://s3.eu-central-1.amazonaws.com', 443);
+
+    expect($database)->toBeInstanceOf(S3Database::class);
+
+    $built = (new ReflectionClass($database))->getProperty('config')->getValue($database);
+    expect($built['custom_endpoint'])->toBe('https://s3.eu-central-1.amazonaws.com');
 });
 
 test('testConnectionForServer returns SSH failure', function () {
