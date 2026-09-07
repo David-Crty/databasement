@@ -73,7 +73,14 @@ test('bucket run retries re-upload the regenerated archive to every volume and k
             Mockery::type(Snapshot::class),
             Mockery::type(\League\Flysystem\Filesystem::class),
             'photos',
-            Mockery::on(fn (array $targets) => count($targets) === 2),
+            Mockery::on(function (array $targets) use ($volA, $volB) {
+                // The retry must target exactly the two configured volumes —
+                // not a count of two that could hide a duplicate of one volume.
+                $ids = array_map(fn ($target) => $target->id, $targets);
+                sort($ids);
+
+                return $ids === [$volA->id, $volB->id];
+            }),
             Mockery::type(\App\Contracts\BackupLogger::class),
         )
         ->andReturn(

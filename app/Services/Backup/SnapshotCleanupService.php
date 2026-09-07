@@ -187,43 +187,35 @@ class SnapshotCleanupService
      * archive is not self-contained, so the whole lineage from the anchor full
      * up to a kept run must stay in place.
      *
-     * Real deletions of S3 chain runs are serialized with the backup job that
-     * persists new runs into the same chain: the lineage decision and the
-     * delete must be atomic, or a run persisted in that interval could lose
-     * the anchor/prior run it was built on (the nullOnDelete FK then clears
-     * its full_snapshot_id) and become unrestorable. When the chain is busy,
-     * the deletion is deferred to a later pass rather than risking that.
+     * Real deletions of S3 chain runs take the per-chain lock shared with
+     * ProcessBackupJob ({@see SnapshotChainLock}) for the whole decide-and-
+     * delete below. That makes the retained-descendant check and the actual
+     * delete atomic against a backup job persisting a new run into the same
+     * chain — without it, a run persisted between the two steps could lose the
+     * anchor/prior run it was built on (the nullOnDelete FK then clears its
+     * full_snapshot_id) and become unrestorable. When the chain is busy the
+     * deletion is deferred to a later pass rather than risking that. Dry runs
+     * never delete, so they skip the lock.
      *
      * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds  Ids being deleted in this pass.
      */
     private function deleteSnapshot(Snapshot $snapshot, $deletingIds): void
     {
-        if (! $this->dryRun && $snapshot->run_kind !== null) {
-            $this->deleteChainSnapshot($snapshot, $deletingIds);
+        $age = $snapshot->created_at->diffInDays(now());
+        $database = $snapshot->database_name;
+        $isChainRun = $snapshot->run_kind !== null;
 
-            return;
-        }
+        // Chain runs serialize their check/delete with the backup job that
+        // persists new runs of the same chain; non-chain (SQL) snapshots and
+        // dry runs have no lineage to protect and take no lock.
+        $lock = (! $this->dryRun && $isChainRun)
+            ? SnapshotChainLock::forSnapshot($snapshot, SnapshotChainLock::CLEANUP_TTL_SECONDS)
+            : null;
 
-        $this->deleteSnapshotUnlocked($snapshot, $deletingIds);
-    }
-
-    /**
-     * Delete an S3 chain run under the per-chain lock shared with
-     * ProcessBackupJob, deferring the deletion when a backup for the same
-     * chain is in progress.
-     *
-     * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds
-     */
-    private function deleteChainSnapshot(Snapshot $snapshot, $deletingIds): void
-    {
-        $lock = SnapshotChainLock::forSnapshot($snapshot, SnapshotChainLock::CLEANUP_TTL_SECONDS);
-
-        if (! $lock->get()) {
-            $age = $snapshot->created_at->diffInDays(now());
-
+        if ($lock !== null && ! $lock->get()) {
             Log::warning(sprintf(
                 'Snapshot cleanup: Kept %s (%d days old) - a backup for this chain is in progress.',
-                $snapshot->database_name,
+                $database,
                 $age,
             ));
 
@@ -231,44 +223,38 @@ class SnapshotCleanupService
         }
 
         try {
-            $this->deleteSnapshotUnlocked($snapshot, $deletingIds);
+            // Retention is the chain's whole-chain owner and may free older
+            // runs. But it must not orphan a run that this pass leaves in
+            // place while at least one kept run's restore lineage still
+            // depends on it — that kept run becomes unrestorable. Restore
+            // overlays every archive from the anchor full up to the target, so
+            // an older incremental is just as load-bearing as its anchor full
+            // and is retained too.
+            if ($isChainRun && $this->hasRetainedDescendant($snapshot, $deletingIds)) {
+                Log::warning("Snapshot cleanup: Kept {$database} ({$age} days old) - a newer run's restore lineage depends on it.");
+
+                return;
+            }
+
+            if ($this->dryRun) {
+                Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
+            } else {
+                // Retention-based cleanup is the whole-chain owner: it may
+                // remove an older S3 run even when newer runs exist (the
+                // policy decides which runs to keep). The interactive/UI
+                // delete path stays guarded. The per-chain lock above means no
+                // new run can appear between this check and the delete.
+                $snapshot->allowOutOfOrderChainDelete = true;
+                $snapshot->delete();
+                Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
+            }
+
+            $this->totalDeleted++;
         } finally {
-            $lock->release();
+            if ($lock !== null) {
+                $lock->release();
+            }
         }
-    }
-
-    /**
-     * @param  \Illuminate\Support\Collection<int, string>|\Illuminate\Support\Collection<string, string>  $deletingIds
-     */
-    private function deleteSnapshotUnlocked(Snapshot $snapshot, $deletingIds): void
-    {
-        $age = $snapshot->created_at->diffInDays(now());
-        $database = $snapshot->database_name;
-
-        // Retention is the chain's whole-chain owner and may free older runs.
-        // But it must not orphan a run that this pass leaves in place while at
-        // least one kept run's restore lineage still depends on it — that kept
-        // run becomes unrestorable. Restore overlays every archive from the
-        // anchor full up to the target, so an older incremental is just as
-        // load-bearing as its anchor full and is retained too.
-        if ($snapshot->run_kind !== null && $this->hasRetainedDescendant($snapshot, $deletingIds)) {
-            Log::warning("Snapshot cleanup: Kept {$database} ({$age} days old) - a newer run's restore lineage depends on it.");
-
-            return;
-        }
-
-        if ($this->dryRun) {
-            Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
-        } else {
-            // Retention-based cleanup is the whole-chain owner: it may remove an
-            // older S3 run even when newer runs exist (the policy decides which
-            // runs to keep). The interactive/UI delete path stays guarded.
-            $snapshot->allowOutOfOrderChainDelete = true;
-            $snapshot->delete();
-            Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
-        }
-
-        $this->totalDeleted++;
     }
 
     /**
