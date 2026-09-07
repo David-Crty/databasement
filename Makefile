@@ -35,7 +35,7 @@ PHP_ARTISAN    := $(PHP_EXEC) php artisan
 # so the key is read out once and kept in .env.local. Regenerate it with:
 #   { printf 'ANTHROPIC_API_KEY='; op read 'op://Personal/<item>/credential'; } > .env.local
 # It lives in the main checkout, which is also where a worktree's Compose project runs.
-LOCALES   ?= fr es el zh_TW
+LOCALES   ?= fr es el zh_TW zh_CN
 ENV_LOCAL ?= $(if $(COMPOSE_ROOT),$(COMPOSE_ROOT),.)/.env.local
 
 # --locale is an array option and the JSON command does not split on commas: a
