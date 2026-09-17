@@ -6,7 +6,7 @@
         <div class="flex items-end justify-between">
             <div class="flex items-baseline gap-1.5">
                 <span class="text-3xl font-bold tabular-nums">{{ number_format($totalSnapshots) }}</span>
-                <span class="text-sm text-base-content/40">{{ __('snapshots') }}</span>
+                <span class="text-sm text-base-content/40">{{ __('Snapshots') }}</span>
             </div>
 
             @if($missingSnapshots > 0)

@@ -74,7 +74,7 @@
                                             @php $lastVerifiedAt = $snapshot->lastVerifiedAt(); @endphp
                                             @if($lastVerifiedAt)
                                                 <div class="text-base-content/70">
-                                                    {{ __('Checked') }}: {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }}
+                                                    {{ __('Last checked') }}: {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }}
                                                     ({{ $lastVerifiedAt->diffForHumans() }})
                                                 </div>
                                             @endif

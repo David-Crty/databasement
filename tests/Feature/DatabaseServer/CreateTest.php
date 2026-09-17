@@ -465,7 +465,7 @@ test('backup summary is incomplete until volume and schedule are set, then rende
     $component
         ->assertDontSee('Configuration incomplete')
         ->assertSee('Summary')
-        ->assertSee('all databases')
+        ->assertSee('All databases')
         ->assertSee('Prod Backups')
         ->assertSee('Every day at 2:00am (Daily)')
         ->assertSee('the last 30 days');

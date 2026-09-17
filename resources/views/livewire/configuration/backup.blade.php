@@ -124,8 +124,7 @@
                         <x-slot:description>
                             {{ __('Compression algorithm used for backup files.') }}
                             @if ($form->compression === 'encrypted')
-                                {{ __('To customise the encryption key, check the') }}
-                                <a href="https://david-crty.github.io/databasement/self-hosting/configuration/backup" target="_blank" class="link link-primary underline-offset-2">{{ __('documentation') }}</a>.
+                                <a href="https://david-crty.github.io/databasement/self-hosting/configuration/backup" target="_blank" class="link link-primary underline-offset-2">{{ __('To customise the encryption key, check the documentation.') }}</a>
                             @endif
                         </x-slot:description>
                         <x-select wire:model.live="form.compression" :options="$compressionOptions" :disabled="!$this->canManage" />

@@ -75,7 +75,7 @@
                         {{ __('Backup file is missing from volume') }}
                         @if($lastVerifiedAt)
                             <span class="text-base-content/70">
-                                — {{ __('checked') }} {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }} ({{ $lastVerifiedAt->diffForHumans() }})
+                                — {{ __('Last checked') }} {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }} ({{ $lastVerifiedAt->diffForHumans() }})
                             </span>
                         @endif
                     </x-alert>
