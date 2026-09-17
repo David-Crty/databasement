@@ -174,7 +174,7 @@
                     <x-password
                         wire:model="form.ssh_password"
                         label="{{ __('SSH Password') }}"
-                        placeholder="{{ $credentialsOptional ? __('Leave blank to keep current') : __('SSH password') }}"
+                        placeholder="{{ $credentialsOptional ? __('Leave blank to keep current') : __('SSH Password') }}"
                         :required="!$credentialsOptional"
                         autocomplete="off"
                     />

@@ -77,7 +77,7 @@ class SnapshotQuery
         string $statusFilter = 'all',
         ?string $serverFilter = null,
         ?string $dbTypeFilter = null,
-        bool $fileMissing = false,
+        ?string $flagFilter = null,
         string $sortColumn = 'started_at',
         string $sortDirection = 'desc'
     ): Builder {
@@ -97,8 +97,11 @@ class SnapshotQuery
             ->when($dbTypeFilter, function (Builder $query) use ($dbTypeFilter) {
                 $query->whereRaw('database_type = ?', [$dbTypeFilter]);
             })
-            ->when($fileMissing, function (Builder $query) {
+            ->when($flagFilter === 'missing', function (Builder $query) {
                 $query->fileMissing();
+            })
+            ->when($flagFilter === 'locked', function (Builder $query) {
+                $query->where('locked', true);
             });
 
         $direction = Formatters::sortDirection($sortDirection);

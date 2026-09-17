@@ -27,7 +27,7 @@
 
 @unless($targetLocked)
     <x-select
-        :label="__('Target server')"
+        :label="__('Target Server')"
         wire:model.live="targetServerId"
         :options="$this->targetServerOptions"
         :placeholder="__('Select a target server')"

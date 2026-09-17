@@ -31,7 +31,7 @@
             <x-slot:empty>
                 <div class="flex flex-col items-center justify-center py-12 text-center">
                     <x-icon name="o-archive-box" class="w-10 h-10 text-base-content/30 mb-3" />
-                    @if($search || $statusFilter !== '' || $serverFilter !== '' || $dbTypeFilter !== '' || $fileMissing !== '')
+                    @if($search || $statusFilter !== '' || $serverFilter !== '' || $dbTypeFilter !== '' || $flagFilter !== '')
                         <p class="font-medium">{{ __('No snapshots match your filters') }}</p>
                         <p class="text-sm text-base-content/60 mt-1">{{ __('Try clearing some filters to see more results.') }}</p>
                     @else
@@ -42,7 +42,7 @@
             </x-slot:empty>
 
             @scope('cell_subject', $snapshot)
-                @php $fileMissing = $snapshot->hasMissingFile(); @endphp
+                @php $hasMissingFile = $snapshot->hasMissingFile(); @endphp
                 <div class="flex items-center gap-3 min-w-0">
                     <x-icon :name="$snapshot->database_type->icon()" class="w-6 h-6 shrink-0" />
                     <div class="min-w-0">
@@ -60,7 +60,7 @@
                                     <x-snapshot-volume-badge :file="$file" />
                                 @endif
                             @endforeach
-                            @if($fileMissing)
+                            @if($hasMissingFile)
                                 <x-popover>
                                     <x-slot:trigger>
                                         <span class="badge badge-warning badge-xs gap-1 cursor-help">

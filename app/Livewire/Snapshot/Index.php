@@ -37,7 +37,7 @@ class Index extends Component
     public string $dbTypeFilter = '';
 
     #[Url]
-    public string $fileMissing = '';
+    public string $flagFilter = '';
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
@@ -61,6 +61,17 @@ class Index extends Component
     public ?string $editCommentSnapshotId = null;
 
     public string $commentDraft = '';
+
+    /**
+     * Snapshot notifications sent before the flag dropdown existed link to
+     * `?fileMissing=1`, so keep those deeplinks working.
+     */
+    public function mount(): void
+    {
+        if ($this->flagFilter === '' && request()->query('fileMissing') !== null) {
+            $this->flagFilter = 'missing';
+        }
+    }
 
     /**
      * @return array<int, array<string, mixed>>
@@ -110,6 +121,17 @@ class Index extends Component
             ['id' => 'failed', 'name' => __('Failed')],
             ['id' => 'running', 'name' => __('Running')],
             ['id' => 'pending', 'name' => __('Pending')],
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function flagOptions(): array
+    {
+        return [
+            ['id' => 'missing', 'name' => __('File missing')],
+            ['id' => 'locked', 'name' => __('Locked')],
         ];
     }
 
@@ -281,7 +303,7 @@ class Index extends Component
             statusFilter: $this->statusFilter ?: 'all',
             serverFilter: $this->serverFilter ?: null,
             dbTypeFilter: $this->dbTypeFilter ?: null,
-            fileMissing: $this->fileMissing !== '',
+            flagFilter: $this->flagFilter ?: null,
             sortColumn: $this->sortBy['column'],
             sortDirection: $this->sortBy['direction']
         )->paginate(15);
@@ -290,6 +312,7 @@ class Index extends Component
             'snapshots' => $snapshots,
             'headers' => $this->headers(),
             'statusOptions' => $this->statusOptions(),
+            'flagOptions' => $this->flagOptions(),
             'serverOptions' => $this->serverOptions(),
             'dbTypeOptions' => $this->dbTypeOptions(),
         ]);
@@ -300,6 +323,6 @@ class Index extends Component
      */
     protected function filterProperties(): array
     {
-        return ['search', 'statusFilter', 'serverFilter', 'dbTypeFilter', 'fileMissing'];
+        return ['search', 'statusFilter', 'serverFilter', 'dbTypeFilter', 'flagFilter'];
     }
 }

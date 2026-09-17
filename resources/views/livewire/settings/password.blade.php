@@ -18,7 +18,7 @@
             />
             <x-password
                 wire:model="password_confirmation"
-                label="{{ __('Confirm Password') }}"
+                :label="__('Confirm password')"
                 required
                 autocomplete="new-password"
             />

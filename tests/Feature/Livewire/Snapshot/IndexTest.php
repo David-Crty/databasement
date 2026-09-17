@@ -108,14 +108,30 @@ test('dbType filter narrows the list', function () {
         ->assertDontSee('pg_db');
 });
 
-test('fileMissing filter shows only snapshots with missing files', function () {
+test('flag filter shows only snapshots with missing files', function () {
     Snapshot::factory()->withFile()->create(['database_name' => 'present_db']);
     Snapshot::factory()->fileMissing()->create(['database_name' => 'gone_db']);
 
     Livewire::test(Index::class)
-        ->set('fileMissing', '1')
+        ->set('flagFilter', 'missing')
         ->assertSee('gone_db')
         ->assertDontSee('present_db');
+});
+
+test('flag filter shows only locked snapshots', function () {
+    Snapshot::factory()->withFile()->create(['database_name' => 'unlocked_db']);
+    Snapshot::factory()->withFile()->create(['database_name' => 'locked_db', 'locked' => true]);
+
+    Livewire::test(Index::class)
+        ->set('flagFilter', 'locked')
+        ->assertSee('locked_db')
+        ->assertDontSee('unlocked_db');
+});
+
+test('legacy fileMissing deeplink still selects the missing flag', function () {
+    Livewire::withQueryParams(['fileMissing' => '1'])
+        ->test(Index::class)
+        ->assertSet('flagFilter', 'missing');
 });
 
 test('triggerRestore dispatches open-restore-modal with from-snapshot mode', function () {
@@ -234,13 +250,13 @@ test('clear resets all filters', function () {
         ->set('statusFilter', 'completed')
         ->set('serverFilter', 'x')
         ->set('dbTypeFilter', 'mysql')
-        ->set('fileMissing', '1')
+        ->set('flagFilter', 'locked')
         ->call('clear')
         ->assertSet('search', '')
         ->assertSet('statusFilter', '')
         ->assertSet('serverFilter', '')
         ->assertSet('dbTypeFilter', '')
-        ->assertSet('fileMissing', '');
+        ->assertSet('flagFilter', '');
 });
 
 test('download-snapshots allows opening the copy picker for a multi-volume snapshot', function () {

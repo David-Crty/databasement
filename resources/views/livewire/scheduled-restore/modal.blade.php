@@ -52,7 +52,7 @@
                     </p>
 
                     <x-select
-                        :label="__('Source server')"
+                        :label="__('Source Server')"
                         wire:model.live="sourceServerId"
                         :options="$this->sourceServerOptions"
                         :placeholder="__('Select a source server')"
@@ -105,7 +105,7 @@
                         <x-button :label="__('Next')" icon-right="o-arrow-right" wire:click="nextStep" spinner class="btn-primary" />
                     @else
                         <x-button
-                            :label="$editingId ? __('Save changes') : __('Create scheduled restore')"
+                            :label="$editingId ? __('Save Changes') : __('Create scheduled restore')"
                             icon="o-check"
                             wire:click="save"
                             spinner

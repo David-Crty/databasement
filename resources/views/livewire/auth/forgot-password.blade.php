@@ -17,7 +17,7 @@
                 name="email"
                 error-field="email"
                 :value="old('email')"
-                label="{{ __('Email Address') }}"
+                :label="__('Email address')"
                 type="email"
                 required
                 autofocus
