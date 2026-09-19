@@ -26,10 +26,16 @@ When you restore a snapshot, Databasement:
 
 ### Restore Commands
 
-**MySQL/MariaDB:**
+**MariaDB** (10.2 and later):
 ```bash
 mariadb --host='...' --port='...' --user='...' --password='...' --skip_ssl \
   'database_name' -e "source /path/to/dump.sql"
+```
+
+**MySQL** (and MariaDB below 10.2), using the bundled Oracle client:
+```bash
+/opt/mysql-client/bin/mysql --host='...' --port='...' --user='...' --password='...' --ssl-mode=DISABLED \
+  'database_name' < '/path/to/dump.sql'
 ```
 
 **PostgreSQL:**

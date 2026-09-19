@@ -276,6 +276,25 @@ class DatabaseProvider
     }
 
     /**
+     * Version string a MySQL or MariaDB server reports, or null when it cannot
+     * be read. Other types report nothing.
+     *
+     * @return string|null e.g. "8.4.11" or "11.4.12-MariaDB-ubu2404"
+     */
+    public function serverVersionForServer(DatabaseServer $server): ?string
+    {
+        try {
+            [$host, $port] = $this->resolveHostAndPort($server);
+
+            $database = $this->makeForServer($server, '', $host, $port);
+
+            return $database instanceof MysqlDatabase ? $database->serverVersion() : null;
+        } finally {
+            $this->sshTunnelService->close();
+        }
+    }
+
+    /**
      * Resolve host and port, establishing an SSH tunnel if needed.
      *
      * @return array{0: string, 1: int}
@@ -283,7 +302,12 @@ class DatabaseProvider
     private function resolveHostAndPort(DatabaseServer $server): array
     {
         if ($server->requiresSshTunnel()) {
-            $tunnelEndpoint = $this->sshTunnelService->establish($server);
+            $connectTimeout = $server->getExtraConfig('connect_timeout');
+
+            $tunnelEndpoint = $this->sshTunnelService->establish(
+                $server,
+                is_numeric($connectTimeout) ? (int) $connectTimeout : null,
+            );
 
             return [$tunnelEndpoint['host'], $tunnelEndpoint['port']];
         }

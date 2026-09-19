@@ -13,8 +13,8 @@ class SshTunnelService
 
     private const WAIT_INTERVAL_MS = 100;
 
-    /** Derived from CONNECTION_TIMEOUT_SECONDS * 1000 / WAIT_INTERVAL_MS */
-    private const MAX_WAIT_ATTEMPTS = 300;
+    /** Overrides {@see CONNECTION_TIMEOUT_SECONDS} for the tunnel being opened. */
+    private ?int $connectTimeoutSeconds = null;
 
     private ?Process $tunnelProcess = null;
 
@@ -31,7 +31,7 @@ class SshTunnelService
      *
      * @throws SshTunnelException
      */
-    public function establish(DatabaseServer $server): array
+    public function establish(DatabaseServer $server, ?int $connectTimeoutSeconds = null): array
     {
         if (! $server->requiresSshTunnel()) {
             throw new SshTunnelException('SSH tunnel is not configured for this server');
@@ -42,7 +42,12 @@ class SshTunnelService
             throw new SshTunnelException('SSH configuration not found for this server');
         }
 
-        return $this->establishFromConfig($sshConfig->getDecrypted(), $server->host, $server->port);
+        return $this->establishFromConfig(
+            $sshConfig->getDecrypted(),
+            $server->host,
+            $server->port,
+            $connectTimeoutSeconds,
+        );
     }
 
     /**
@@ -55,8 +60,13 @@ class SshTunnelService
      *
      * @throws SshTunnelException
      */
-    public function establishFromConfig(array $sshConfig, string $remoteHost, int $remotePort): array
-    {
+    public function establishFromConfig(
+        array $sshConfig,
+        string $remoteHost,
+        int $remotePort,
+        ?int $connectTimeoutSeconds = null,
+    ): array {
+        $this->connectTimeoutSeconds = $connectTimeoutSeconds;
         $this->localPort = $this->allocateLocalPort();
         $command = $this->buildSshCommand(
             sshHost: $sshConfig['host'] ?? '',
@@ -98,6 +108,11 @@ class SshTunnelService
         ];
     }
 
+    private function connectTimeout(): int
+    {
+        return $this->connectTimeoutSeconds ?? self::CONNECTION_TIMEOUT_SECONDS;
+    }
+
     /**
      * Close the SSH tunnel and clean up resources.
      */
@@ -109,6 +124,7 @@ class SshTunnelService
 
         $this->tunnelProcess = null;
         $this->localPort = null;
+        $this->connectTimeoutSeconds = null;
         $this->cleanupTempFiles();
     }
 
@@ -288,7 +304,7 @@ class SshTunnelService
         return array_merge([
             '-o', 'StrictHostKeyChecking=accept-new',
             '-o', $batchMode ? 'BatchMode=yes' : 'BatchMode=no',
-            '-o', sprintf('ConnectTimeout=%d', self::CONNECTION_TIMEOUT_SECONDS),
+            '-o', sprintf('ConnectTimeout=%d', $this->connectTimeout()),
             '-p', (string) $sshPort,
         ], $compression ? ['-C'] : [], $additionalOptions);
     }
@@ -409,7 +425,9 @@ class SshTunnelService
      */
     protected function waitForTunnel(): bool
     {
-        for ($i = 0; $i < self::MAX_WAIT_ATTEMPTS; $i++) {
+        $attempts = (int) ceil($this->connectTimeout() * 1000 / self::WAIT_INTERVAL_MS);
+
+        for ($i = 0; $i < $attempts; $i++) {
             // Check if the process has terminated with an error
             if (! $this->tunnelProcess->isRunning()) {
                 return false;

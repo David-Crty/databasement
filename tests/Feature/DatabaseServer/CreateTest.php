@@ -674,3 +674,24 @@ test('a failed save points the user at the first invalid field', function () {
     expect(json_encode($component->effects['xjs'] ?? []))
         ->toContain('1 field needs your attention');
 });
+
+test('the dump preview names the client the detected server needs', function (?string $version, string $expectedBinary) {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $provider = Mockery::mock(DatabaseProvider::class)->makePartial();
+    $provider->shouldReceive('serverVersionForServer')->andReturn($version);
+    app()->instance(DatabaseProvider::class, $provider);
+
+    $form = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.local')
+        ->set('form.username', 'root')
+        ->set('form.password', 'secret')
+        ->viewData('form');
+
+    expect($form->getDumpCommandPreview())->toStartWith($expectedBinary);
+})->with([
+    'MySQL' => ['8.4.11', '/opt/mysql-client/bin/mysqldump '],
+    'unreachable server keeps the previous output' => [null, 'mariadb-dump '],
+]);

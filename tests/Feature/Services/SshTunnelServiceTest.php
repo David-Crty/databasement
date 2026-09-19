@@ -338,3 +338,43 @@ test('the login name is passed as its own argument, never concatenated onto the 
         ->toContain("-l '-oProxyCommand=id' -- 'bastion.example.com'")
         ->not->toContain("@'bastion.example.com'");
 });
+
+test('establish bounds the tunnel by the caller timeout instead of the default', function (?int $timeout, string $expected) {
+    $sshConfig = new DatabaseServerSshConfig;
+    $sshConfig->host = 'bastion.example.com';
+    $sshConfig->port = 22;
+    $sshConfig->username = 'tunneluser';
+    $sshConfig->auth_type = 'password';
+    $sshConfig->password = 'tunnelpass';
+
+    $server = new DatabaseServer;
+    $server->host = 'database.internal';
+    $server->port = 3306;
+    $server->database_type = 'mysql';
+    $server->ssh_config_id = 'temp';
+    $server->setRelation('sshConfig', $sshConfig);
+
+    $mockProcess = Mockery::mock(\Symfony\Component\Process\Process::class);
+    $mockProcess->shouldReceive('setTimeout')->once()->with(null);
+    $mockProcess->shouldReceive('start')->once();
+    $mockProcess->shouldReceive('isRunning')->andReturn(true);
+    $mockProcess->shouldReceive('stop')->andReturn(0);
+
+    $service = Mockery::mock(SshTunnelService::class)->makePartial();
+    $service->shouldAllowMockingProtectedMethods();
+    $service->shouldReceive('allocateLocalPort')->once()->andReturn(54330);
+    $service->shouldReceive('createTunnelProcess')
+        ->once()
+        ->andReturnUsing(function ($command) use ($mockProcess, $expected) {
+            expect($command)->toContain($expected);
+
+            return $mockProcess;
+        });
+    $service->shouldReceive('waitForTunnel')->once()->andReturn(true);
+
+    $service->establish($server, $timeout);
+    $service->close();
+})->with([
+    'caller sets a short bound' => [3, "'ConnectTimeout=3'"],
+    'caller sets none' => [null, "'ConnectTimeout=30'"],
+]);

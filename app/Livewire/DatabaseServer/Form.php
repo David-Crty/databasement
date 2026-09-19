@@ -26,6 +26,7 @@ use App\Services\SshTunnelService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Locked;
 
 class Form extends \Livewire\Form
 {
@@ -35,6 +36,11 @@ class Form extends \Livewire\Form
      * lock the form for PHP's full max_execution_time.
      */
     private const int FORM_CONNECT_TIMEOUT_SECONDS = 5;
+
+    /** Fields a cached server probe is only valid for as long as they hold. */
+    private const array CONNECTION_FIELDS = [
+        'database_type', 'host', 'port', 'username', 'password', 'ssl_enabled', 'ssh_enabled',
+    ];
 
     public ?DatabaseServer $server = null;
 
@@ -110,6 +116,10 @@ class Form extends \Livewire\Form
      */
     public string $ssh_public_key = '';
 
+    /** Version the target reported, '' when unreadable, null before any probe. */
+    #[Locked]
+    public ?string $probedServerVersion = null;
+
     public ?string $sshTestMessage = null;
 
     public bool $sshTestSuccess = false;
@@ -161,6 +171,10 @@ class Form extends \Livewire\Form
      */
     public function updated(string $property, mixed $value): void
     {
+        if (in_array($property, self::CONNECTION_FIELDS, true)) {
+            $this->probedServerVersion = null;
+        }
+
         if (preg_match('/^backups\.(\d+)\.retention_policy$/', $property, $matches)) {
             $this->onBackupRetentionPolicyChanged((int) $matches[1], (string) $value);
 
@@ -1133,32 +1147,14 @@ class Form extends \Livewire\Form
             throw $e;
         }
 
-        // Test connection
         try {
-            $password = $this->password ?: $this->server?->getDecryptedPassword();
+            $server = $this->buildServerForTest();
         } catch (EncryptionException $e) {
             $this->connectionTestSuccess = false;
             $this->connectionTestMessage = $e->getMessage();
 
             return;
         }
-
-        // Build SSH config for connection test
-        $sshConfig = $this->ssh_enabled
-            ? $this->buildSshConfigForTest()
-            : null;
-
-        $server = DatabaseServer::forConnectionTest([
-            'database_type' => $this->database_type,
-            'host' => $this->host,
-            'port' => $this->port,
-            'username' => $this->username,
-            'password' => $password,
-            'database_names' => $this->identifiesDatabasesByPath()
-                ? $this->collectDatabasePaths()
-                : null,
-            'extra_config' => $this->buildExtraConfigForTest(),
-        ], $sshConfig);
 
         $result = app(DatabaseProvider::class)->testConnectionForServer($server);
 
@@ -1241,6 +1237,32 @@ class Form extends \Livewire\Form
     }
 
     /**
+     * Unsaved server describing the connection the form currently holds.
+     *
+     * @throws EncryptionException when the stored password cannot be decrypted
+     */
+    public function buildServerForTest(?int $connectTimeout = null): DatabaseServer
+    {
+        $extraConfig = $this->buildExtraConfigForTest() ?? [];
+
+        if ($connectTimeout !== null) {
+            $extraConfig['connect_timeout'] = $connectTimeout;
+        }
+
+        return DatabaseServer::forConnectionTest([
+            'database_type' => $this->database_type,
+            'host' => $this->host,
+            'port' => $this->port,
+            'username' => $this->username,
+            'password' => $this->password ?: $this->server?->getDecryptedPassword(),
+            'database_names' => $this->identifiesDatabasesByPath()
+                ? $this->collectDatabasePaths()
+                : null,
+            'extra_config' => $extraConfig === [] ? null : $extraConfig,
+        ], $this->ssh_enabled ? $this->buildSshConfigForTest() : null);
+    }
+
+    /**
      * Build SSH config model for connection testing.
      * Creates an unsaved model instance with form values.
      */
@@ -1274,25 +1296,9 @@ class Form extends \Livewire\Form
         $this->availableDatabases = [];
 
         try {
-            $password = $this->password ?: $this->server?->getDecryptedPassword();
-
-            // Build SSH config if enabled
-            $sshConfig = $this->ssh_enabled ? $this->buildSshConfigForTest() : null;
-
-            $extraConfig = $this->buildExtraConfigForTest() ?? [];
-            $extraConfig['connect_timeout'] = self::FORM_CONNECT_TIMEOUT_SECONDS;
-
-            // Create a temporary DatabaseServer object for the service
-            $tempServer = DatabaseServer::forConnectionTest([
-                'host' => $this->host,
-                'port' => $this->port,
-                'database_type' => $this->database_type,
-                'username' => $this->username,
-                'password' => $password,
-                'extra_config' => $extraConfig,
-            ], $sshConfig);
-
-            $databases = app(DatabaseProvider::class)->listDatabasesForServer($tempServer);
+            $databases = app(DatabaseProvider::class)->listDatabasesForServer(
+                $this->buildServerForTest(self::FORM_CONNECT_TIMEOUT_SECONDS)
+            );
 
             // Format for select options
             $this->availableDatabases = collect($databases)
