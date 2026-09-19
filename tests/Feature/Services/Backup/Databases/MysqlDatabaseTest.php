@@ -131,8 +131,6 @@ test("dump uses Oracle's ssl-mode=REQUIRED when ssl_enabled is true", function (
         ->not->toContain('--ssl --ssl-verify-server-cert=0');
 });
 
-// The form's dump preview reads the version once and hands it over, so the
-// command it renders names the client without opening a second connection.
 test('dump trusts a supplied server version instead of connecting', function (string $version, string $expectedBinary) {
     $db = Mockery::mock(MysqlDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
     $db->shouldNotReceive('createPdo');

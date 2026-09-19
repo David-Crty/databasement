@@ -283,10 +283,6 @@ class DatabaseProvider
      */
     public function serverVersionForServer(DatabaseServer $server): ?string
     {
-        if ($server->database_type !== DatabaseType::MYSQL) {
-            return null;
-        }
-
         try {
             [$host, $port] = $this->resolveHostAndPort($server);
 

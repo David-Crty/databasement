@@ -697,10 +697,39 @@ test('the dump preview names the client the detected server needs', function () 
     $probesBeforeRerender = $probes;
     $form = $component->set('form.dump_flags', '--verbose')->viewData('form');
 
-    expect($form->probedServerVersion)->toBe('8.4.11')
+    expect($form->getDumpCommandPreview())->toStartWith('/opt/mysql-client/bin/mysqldump ')
         // Rendering again on the same connection must not reconnect.
         ->and($probes)->toBe($probesBeforeRerender);
+
+    // A different server has to be read again.
+    $component->set('form.host', 'other.local');
+
+    expect($probes)->toBeGreaterThan($probesBeforeRerender);
 });
+
+test('the dump preview does not probe servers it cannot reach from here', function (string $property, mixed $value) {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = Agent::factory()->create();
+
+    $provider = Mockery::mock(DatabaseProvider::class)->makePartial();
+    $provider->shouldNotReceive('serverVersionForServer');
+    app()->instance(DatabaseProvider::class, $provider);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set($property, $value === 'agent' ? $agent->id : $value)
+        ->set('form.host', 'db.local')
+        ->set('form.username', 'root')
+        ->set('form.password', 'secret')
+        ->viewData('form')
+        ->getDumpCommandPreview();
+})->with([
+    // A tunnel takes tens of seconds to time out, and an agent-backed server is
+    // not reachable from here at all.
+    'behind an SSH tunnel' => ['form.ssh_enabled', true],
+    'managed by an agent' => ['form.agent_id', 'agent'],
+]);
 
 test('the dump preview keeps the MariaDB client when the server cannot be read', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
