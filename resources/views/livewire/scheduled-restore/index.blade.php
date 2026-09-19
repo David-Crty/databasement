@@ -168,5 +168,17 @@
         onConfirm="deleteScheduledRestore"
     />
 
+    <x-modal wire:model="showRunDisabledModal" :title="__('Run Disabled Scheduled Restore')" class="backdrop-blur">
+        <p>{{ __('This scheduled restore is disabled. Do you want to run it anyway?') }}</p>
+        <p class="text-sm text-base-content/60 mt-2">
+            {{ __('It stays disabled afterwards and will not run automatically on its schedule.') }}
+        </p>
+
+        <x-slot:actions>
+            <x-button :label="__('Cancel')" @click="$wire.showRunDisabledModal = false" />
+            <x-button :label="__('Run anyway')" class="btn-primary" wire:click="runDisabledNow" spinner />
+        </x-slot:actions>
+    </x-modal>
+
     <livewire:scheduled-restore.modal />
 </div>

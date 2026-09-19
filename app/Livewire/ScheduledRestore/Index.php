@@ -6,11 +6,12 @@ use App\Enums\DatabaseType;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
+use App\Services\Backup\RunScheduledRestoreAction;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
@@ -49,6 +50,11 @@ class Index extends Component
 
     public bool $showDeleteModal = false;
 
+    #[Locked]
+    public ?string $runScheduledRestoreId = null;
+
+    public bool $showRunDisabledModal = false;
+
     #[On('scheduled-restore-saved')]
     public function refreshAfterSave(): void
     {
@@ -84,15 +90,69 @@ class Index extends Component
         $this->dispatch('open-scheduled-restore-modal', id: $id);
     }
 
-    public function runNow(string $id): void
+    public function runNow(string $id, RunScheduledRestoreAction $action): void
     {
         $scheduledRestore = ScheduledRestore::findOrFail($id);
 
         $this->authorize('run', $scheduledRestore);
 
-        Artisan::call('restores:run', ['scheduledRestore' => $scheduledRestore->id]);
+        if (! $scheduledRestore->enabled) {
+            $this->runScheduledRestoreId = $id;
+            $this->showRunDisabledModal = true;
+
+            return;
+        }
+
+        $this->dispatchRun($scheduledRestore, $action);
+    }
+
+    public function runDisabledNow(RunScheduledRestoreAction $action): void
+    {
+        if (! $this->runScheduledRestoreId) {
+            return;
+        }
+
+        $scheduledRestore = ScheduledRestore::findOrFail($this->runScheduledRestoreId);
+
+        $this->authorize('run', $scheduledRestore);
+
+        $this->runScheduledRestoreId = null;
+        $this->showRunDisabledModal = false;
+
+        $this->dispatchRun($scheduledRestore, $action);
+    }
+
+    private function dispatchRun(ScheduledRestore $scheduledRestore, RunScheduledRestoreAction $action): void
+    {
+        try {
+            $result = $action->execute($scheduledRestore);
+        } catch (ValidationException $e) {
+            $this->error($e->getMessage(), timeout: 0);
+
+            return;
+        } catch (\Throwable $e) {
+            report($e);
+            $this->error(__('Unable to run the scheduled restore.'), timeout: 0);
+
+            return;
+        }
+
+        if ($result->skipReason !== null) {
+            $this->warning($this->skipMessage($result->skipReason));
+
+            return;
+        }
 
         $this->success(__('Scheduled restore triggered.'));
+    }
+
+    private function skipMessage(string $reason): string
+    {
+        return match ($reason) {
+            ScheduledRestore::SKIP_NO_SNAPSHOT => __('No snapshot is available to restore from yet.'),
+            ScheduledRestore::SKIP_PREVIOUS_IN_FLIGHT => __('A previous run of this scheduled restore is still in progress.'),
+            default => __('Scheduled restore skipped.'),
+        };
     }
 
     public function confirmDelete(string $id): void
