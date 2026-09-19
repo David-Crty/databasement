@@ -95,6 +95,18 @@ A failing run adds a `failures` array with the file, line, and message for each 
 - **Integration points** - External services, commands, scheduled tasks
 - **Edge cases in YOUR code** - Not edge cases in the framework
 
+#### How Much to Test
+
+"One test per behavior" also decides *where* the test goes and *how many cases* it gets. Use the cheapest harness that can actually fail:
+
+- **Test at the level the logic lives.** A validation rule is settled by `Validator::make([...], ['field' => [new TheRule]])` in `tests/Feature/Rules/` - not by an HTTP round trip or a `Livewire::test(...)->call('save')`. Reach for the heavier harness only when the thing under test *is* the wiring.
+- **One case proves wiring.** When a rule also needs proof that it is attached at a boundary, add a single request that trips it (see `SafeHostTest`). Not a dataset re-sweeping inputs the rule test already covers.
+- **A dataset row must be able to fail differently.** `63 bytes` / `64 bytes` earns two rows because the boundary sits between them. A third passing ASCII case buys runtime, not signal.
+- **Don't follow one behavior through every layer it crosses.** If a value is normalized in one shared helper, test the helper. Asserting the same normalization again through the model, the component and the API is three ways to learn one fact.
+- **Deduping production code means deleting the duplicate tests.** Two implementations that collapse into one delegate need one test, not two.
+
+The suite is a pre-commit gate, so every redundant case is paid on every commit by everyone.
+
 #### Mocking Strategy
 
 **DO Mock:**
