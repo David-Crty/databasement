@@ -674,3 +674,49 @@ test('a failed save points the user at the first invalid field', function () {
     expect(json_encode($component->effects['xjs'] ?? []))
         ->toContain('1 field needs your attention');
 });
+
+test('the dump preview names the client the detected server needs', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $probes = 0;
+    $provider = Mockery::mock(DatabaseProvider::class)->makePartial();
+    $provider->shouldReceive('serverVersionForServer')->andReturnUsing(function () use (&$probes) {
+        $probes++;
+
+        return '8.4.11';
+    });
+    app()->instance(DatabaseProvider::class, $provider);
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.local')
+        ->set('form.username', 'root')
+        ->set('form.password', 'secret');
+
+    $probesBeforeRerender = $probes;
+    $form = $component->set('form.dump_flags', '--verbose')->viewData('form');
+
+    expect($form->probedServerVersion)->toBe('8.4.11')
+        // Rendering again on the same connection must not reconnect.
+        ->and($probes)->toBe($probesBeforeRerender);
+});
+
+test('the dump preview keeps the MariaDB client when the server cannot be read', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $provider = Mockery::mock(DatabaseProvider::class)->makePartial();
+    $provider->shouldReceive('serverVersionForServer')->andReturnNull();
+    app()->instance(DatabaseProvider::class, $provider);
+
+    $form = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.local')
+        ->set('form.username', 'root')
+        ->set('form.password', 'secret')
+        ->viewData('form');
+
+    expect($form->probedServerVersion)->toBe('')
+        ->and($form->getDumpCommandPreview())->toStartWith('mariadb-dump ');
+});

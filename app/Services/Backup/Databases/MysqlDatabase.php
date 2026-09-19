@@ -199,8 +199,16 @@ class MysqlDatabase implements DatabaseInterface
     /**
      * Server version as reported by the server, or null when it cannot be read.
      */
-    protected function serverVersion(): ?string
+    public function serverVersion(): ?string
     {
+        // Set by callers holding a version already read, such as the form's
+        // dump-command preview, which never connects with the config it renders.
+        if (isset($this->config['server_version'])) {
+            $supplied = $this->config['server_version'];
+
+            return is_string($supplied) && $supplied !== '' ? $supplied : null;
+        }
+
         // Unset for configs that never reach a server, such as the UI preview.
         if (empty($this->config['probe_server_version'])) {
             return null;

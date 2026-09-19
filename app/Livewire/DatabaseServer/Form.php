@@ -7,6 +7,7 @@ use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
 use App\Exceptions\Backup\EncryptionException;
 use App\Livewire\DatabaseServer\Connection\ConnectionRules;
+use App\Livewire\DatabaseServer\Connection\MysqlConnectionRules;
 use App\Models\Agent;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
@@ -109,6 +110,16 @@ class Form extends \Livewire\Form
      * the user copies it to their server's authorized_keys before saving.
      */
     public string $ssh_public_key = '';
+
+    /**
+     * Version the target reported, '' when it could not be read, and null when
+     * nothing has been probed yet, paired with the connection it was read from.
+     * Written by {@see MysqlConnectionRules::detectedServerVersion()}; it lives
+     * here because only the form survives between requests.
+     */
+    public ?string $probedServerVersion = null;
+
+    public ?string $probedConnectionKey = null;
 
     public ?string $sshTestMessage = null;
 
@@ -1244,7 +1255,7 @@ class Form extends \Livewire\Form
      * Build SSH config model for connection testing.
      * Creates an unsaved model instance with form values.
      */
-    private function buildSshConfigForTest(): DatabaseServerSshConfig
+    public function buildSshConfigForTest(): DatabaseServerSshConfig
     {
         $config = new DatabaseServerSshConfig;
         $config->host = $this->ssh_host;

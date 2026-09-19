@@ -131,6 +131,27 @@ test("dump uses Oracle's ssl-mode=REQUIRED when ssl_enabled is true", function (
         ->not->toContain('--ssl --ssl-verify-server-cert=0');
 });
 
+// The form's dump preview reads the version once and hands it over, so the
+// command it renders names the client without opening a second connection.
+test('dump trusts a supplied server version instead of connecting', function (string $version, string $expectedBinary) {
+    $db = Mockery::mock(MysqlDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
+    $db->shouldNotReceive('createPdo');
+    $db->shouldReceive('mysqlClientAvailable')->andReturn(true);
+    $db->setConfig([
+        'host' => 'db.local',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+        'server_version' => $version,
+    ]);
+
+    expect($db->dump('/tmp/dump.sql')->command)->toStartWith($expectedBinary);
+})->with([
+    'MySQL' => ['8.4.11', '/opt/mysql-client/bin/mysqldump '],
+    'MariaDB' => ['11.4.12-MariaDB', 'mariadb-dump '],
+]);
+
 // Without Oracle's client — a native install, or an image predating it — MySQL
 // servers stay on mariadb-dump, which clears its own >= 10.3 package gate on
 // the YY.M scheme and dies on SHOW PACKAGE STATUS unless --routines goes (#494).
