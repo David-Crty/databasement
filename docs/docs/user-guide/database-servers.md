@@ -12,8 +12,8 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 
 | Engine     | Supported Versions           | CLI Tool                     | Restore |
 |------------|------------------------------|------------------------------|---------|
-| MySQL      | 5.6, 5.7, 8.x, 9.x, 26.x     | `mariadb-dump`               | Yes     |
-| MariaDB    | 10.x, 11.x, 12.x             | `mariadb-dump`               | Yes     |
+| MySQL      | 5.5, 5.6, 5.7, 8.x, 9.x, 26.x | `mysqldump`                 | Yes     |
+| MariaDB    | 5.x, 10.x, 11.x, 12.x        | `mariadb-dump` / `mysqldump` | Yes     |
 | PostgreSQL | 12, 13, 14, 15, 16, 17, 18   | `pg_dump` v16 / v18          | Yes     |
 | SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.dacpac`)     | Yes     |
 | MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes     |
@@ -23,7 +23,7 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 | Valkey     | 7.2+                         | `redis-cli --rdb`            | No      |
 
 :::info How this works
-- **MySQL / MariaDB**: Databasement ships the MariaDB 11.4 client (`mariadb-dump`), which is wire-protocol compatible with MySQL servers. On MySQL 26.0 and later, stored procedures and functions are left out of the dump: the client reads MySQL's new YY.M version number (9.7 → 26.7) as a MariaDB one and asks for stored packages, which MySQL rejects. Tables, data, views and triggers are unaffected, and the job logs a warning.
+- **MySQL / MariaDB**: Databasement ships both vendors' clients and picks one from the version the server reports. MariaDB servers from 10.2 on are dumped by `mariadb-dump`, the client that knows their own extensions. MySQL servers are dumped by Oracle's `mysqldump`, because the MariaDB client reads MySQL's YY.M version number (9.7 → 26.7) as a MariaDB one and asks for stored packages MySQL rejects. MariaDB servers below 10.2 also go to `mysqldump`: `mariadb-dump` reads a column from `information_schema` that only exists from 10.2 on, and no flag turns that off. Nothing needs configuring, and a server whose version cannot be read keeps `mariadb-dump`.
 - **PostgreSQL**: Databasement ships both the v16 and the v18 client and runs whichever one matches the server: v16 for servers up to 16, v18 for 17 and later. A dump only replays into a server at least as new as the client that wrote it, so a single v18 client would produce snapshots that no server below 17 could restore, not even the one they came from. Each client dumps from any server back to 9.2. Versions below 12 have reached end-of-life and are not recommended.
 - **SQL Server**: Backups are extracted as `.dacpac` files (schema + table data) using Microsoft's `sqlpackage` CLI (`/Action:Extract`) and re-applied with `/Action:Publish`. Server-bound objects (logins, users, permissions, role memberships) are excluded so backups stay portable across instances and don't fail on Windows-auth principals like `[NT AUTHORITY\SYSTEM]`. Works against on-prem SQL Server 2017+ and Azure SQL Database. Connections use the `pdo_sqlsrv` PHP extension.
 - **MongoDB**: The MongoDB Database Tools (`mongodump` / `mongorestore`) officially support server versions 4.2 through 8.0.
