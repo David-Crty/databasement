@@ -20,9 +20,15 @@ When you create a backup, Databasement:
 
 Databasement uses native database tools for reliable backups:
 
-**MySQL/MariaDB:**
+**MariaDB** (10.2 and later):
 ```bash
-mariadb-dump --routines --add-drop-table --complete-insert --hex-blob --quote-names --skip_ssl \
+mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl \
+  --host='...' --port='...' --user='...' --password='...' 'database_name' > dump.sql
+```
+
+**MySQL** (and MariaDB below 10.2), using the bundled Oracle client:
+```bash
+/opt/mysql-client/bin/mysqldump --single-transaction --routines --add-drop-table --hex-blob --quote-names --ssl-mode=DISABLED \
   --host='...' --port='...' --user='...' --password='...' 'database_name' > dump.sql
 ```
 
