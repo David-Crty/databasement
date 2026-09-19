@@ -23,6 +23,14 @@ return [
             'database' => env('TEST_MYSQL_DATABASE', 'databasement_test'),
         ],
 
+        'mariadb' => [
+            'host' => env('TEST_MARIADB_HOST', 'mariadb'),
+            'port' => env('TEST_MARIADB_PORT', 3306),
+            'username' => env('TEST_MARIADB_USERNAME', 'root'),
+            'password' => env('TEST_MARIADB_PASSWORD', 'root'),
+            'database' => env('TEST_MARIADB_DATABASE', 'databasement_test'),
+        ],
+
         'postgres' => [
             'host' => env('TEST_POSTGRES_HOST', 'postgres'),
             'port' => env('TEST_POSTGRES_PORT', 5432),
