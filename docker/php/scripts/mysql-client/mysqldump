@@ -1,0 +1,5 @@
+#!/bin/sh
+exec /opt/mysql-client/compat/ld.so \
+    --library-path /opt/mysql-client/compat \
+    /opt/mysql-client/libexec/mysqldump \
+    --plugin-dir=/opt/mysql-client/plugin "$@"
