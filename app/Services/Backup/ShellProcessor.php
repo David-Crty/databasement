@@ -147,6 +147,10 @@ class ShellProcessor
             '/SSH_ASKPASS=[^\s]+/' => 'SSH_ASKPASS=***',
             // sqlpackage: /SourcePassword:'...' or /TargetPassword:'...' (escapeshellarg single-quotes the value)
             '#/(Source|Target)Password:(?:\'[^\']*\'|"[^"]*"|[^\s]+)#' => '/$1Password:***',
+            // redis-cli --pass VALUE. The `-a` alias is deliberately not matched:
+            // `-a` is a real flag on rsync, tar and 7z, so a pattern for it would
+            // redact unrelated commands. RedisDatabase emits `--pass` for this reason.
+            '#--pass\s+(?:\'[^\']*\'|"[^"]*"|[^\s]+)#' => '--pass ***',
             // MongoDB connection URI userinfo: mongodb://user:PASS@host or mongodb+srv://user:PASS@host
             '#(mongodb(?:\+srv)?://[^:@\s/]+:)[^@\s]+@#' => '$1***@',
         ];

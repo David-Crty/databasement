@@ -62,6 +62,8 @@ class Form extends \Livewire\Form
 
     public bool $connectionTestSuccess = false;
 
+    // True only while an agent is answering a remote test: a local test is
+    // covered by the button spinner for the length of the request.
     public bool $testingConnection = false;
 
     // Id of the agent job carrying a remote test, while it is in flight.
@@ -308,7 +310,6 @@ class Form extends \Livewire\Form
 
     public function testConnection(): void
     {
-        $this->testingConnection = true;
         $this->connectionTestMessage = null;
 
         $volumeType = VolumeType::from($this->type);
@@ -324,9 +325,8 @@ class Form extends \Livewire\Form
         try {
             $this->validate($filteredRules);
         } catch (ValidationException) {
-            $this->testingConnection = false;
             $this->connectionTestSuccess = false;
-            $this->connectionTestMessage = 'Please fill in all required configuration fields.';
+            $this->connectionTestMessage = __('Please fill in all required configuration fields.');
 
             return;
         }
@@ -357,7 +357,6 @@ class Form extends \Livewire\Form
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
-        $this->testingConnection = false;
     }
 
     private function dispatchRemoteConnectionTest(VolumeConfig $volumeConfig): void
@@ -375,6 +374,7 @@ class Form extends \Livewire\Form
         $job = app(RemoteVolumeTester::class)->dispatch($agent, $volumeConfig);
 
         $this->connectionTestJobId = $job->id;
+        $this->testingConnection = true;
         $this->connectionTestSuccess = false;
         $this->connectionTestMessage = __('Waiting for agent :name to test the volume...', ['name' => $agent->name]);
     }

@@ -9,6 +9,10 @@ services:
     volumes:
       - .:/app
       - app-data:/data
+      # Pest's Test Impact Analysis baseline (~/.pest/tia). Kept in a named
+      # volume so `make test-tia` doesn't have to re-record it after every
+      # container recreate.
+      - pest-cache:/home/application/.pest
     ports:
       - "2226:2226"
     environment:
@@ -39,7 +43,7 @@ services:
       - rustfs
 
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4
     container_name: databasement-mysql
     environment:
       MYSQL_ROOT_PASSWORD: root
@@ -50,6 +54,24 @@ services:
       - mysql-data:/var/lib/mysql
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Separate from `mysql` because the two are dumped by different clients:
+  # MySQL servers by Oracle's mysqldump, MariaDB by mariadb-dump.
+  mariadb:
+    image: mariadb:11.8
+    container_name: databasement-mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: databasement
+    ports:
+      - "127.0.0.1:3308:3306"
+    volumes:
+      - mariadb-data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -234,7 +256,9 @@ services:
 
 volumes:
   app-data:
+  pest-cache:
   mysql-data:
+  mariadb-data:
   postgres-data:
   rustfs-data:
   sftp-data:

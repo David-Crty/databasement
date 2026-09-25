@@ -383,7 +383,7 @@ final class BackupForm
         $mode = $entry['database_selection_mode'] ?? DatabaseSelectionMode::All->value;
 
         if ($mode === DatabaseSelectionMode::All->value) {
-            return __('all databases');
+            return __('All databases');
         }
 
         if ($mode === DatabaseSelectionMode::Selected->value) {

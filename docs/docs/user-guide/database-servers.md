@@ -10,21 +10,21 @@ Database servers are the source of your backups. Databasement can connect to and
 
 Databasement uses standard CLI tools to perform backup and restore operations. The table below shows which database engine versions are supported, based on the CLI tools shipped in the Docker image.
 
-| Engine     | Supported Versions           | CLI Tool                     | Restore |
-|------------|------------------------------|------------------------------|---------|
-| MySQL      | 5.6, 5.7, 8.x, 9.x, 26.x     | `mariadb-dump`               | Yes     |
-| MariaDB    | 10.x, 11.x, 12.x             | `mariadb-dump`               | Yes     |
-| PostgreSQL | 12, 13, 14, 15, 16, 17, 18   | `pg_dump` v18                | Yes     |
-| SQL Server | 2017, 2019, 2022, Azure SQL  | `sqlpackage` (`.dacpac`)     | Yes     |
-| MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0 | `mongodump` / `mongorestore` | Yes     |
-| SQLite     | 3.x                          | File copy                    | Yes     |
-| Firebird   | 3.x, 4.x, 5.x                | `gbak` v5                    | Yes     |
-| Redis      | 2.8+                         | `redis-cli --rdb`            | No      |
-| Valkey     | 7.2+                         | `redis-cli --rdb`            | No      |
+| Engine     | Supported Versions            | CLI Tool                     | Restore |
+|------------|-------------------------------|------------------------------|---------|
+| MySQL      | 5.5, 5.6, 5.7, 8.x, 9.x, 26.x | `mysqldump`                  | Yes     |
+| MariaDB    | 5.x, 10.x, 11.x, 12.x         | `mariadb-dump` / `mysqldump` | Yes     |
+| PostgreSQL | 12, 13, 14, 15, 16, 17, 18    | `pg_dump` v16 / v18          | Yes     |
+| SQL Server | 2017, 2019, 2022, Azure SQL   | `sqlpackage` (`.dacpac`)     | Yes     |
+| MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0  | `mongodump` / `mongorestore` | Yes     |
+| SQLite     | 3.x                           | File copy                    | Yes     |
+| Firebird   | 3.x, 4.x, 5.x                 | `gbak` v5                    | Yes     |
+| Redis      | 2.8+                          | `redis-cli --rdb`            | No      |
+| Valkey     | 7.2+                          | `redis-cli --rdb`            | No      |
 
 :::info How this works
-- **MySQL / MariaDB**: Databasement ships the MariaDB 11.4 client (`mariadb-dump`), which is wire-protocol compatible with MySQL servers. On MySQL 26.0 and later, stored procedures and functions are left out of the dump: the client reads MySQL's new YY.M version number (9.7 → 26.7) as a MariaDB one and asks for stored packages, which MySQL rejects. Tables, data, views and triggers are unaffected, and the job logs a warning.
-- **PostgreSQL**: The `pg_dump` v18 client can dump from any server version back to 9.2. Versions below 12 have reached end-of-life and are not recommended.
+- **MySQL / MariaDB**: Databasement ships both vendors' clients and picks one from the version the server reports. MariaDB servers from 10.2 on are dumped by `mariadb-dump`, the client that knows their own extensions. MySQL servers are dumped by Oracle's `mysqldump`, because the MariaDB client reads MySQL's YY.M version number (9.7 → 26.7) as a MariaDB one and asks for stored packages MySQL rejects. MariaDB servers below 10.2 also go to `mysqldump`: `mariadb-dump` reads a column from `information_schema` that only exists from 10.2 on, and no flag turns that off. Nothing needs configuring, and a server whose version cannot be read keeps `mariadb-dump`. Any extra dump flags you set on a server are passed to whichever client it uses, so they have to be flags that client accepts: `--column-statistics=0`, for instance, exists only in `mysqldump`.
+- **PostgreSQL**: Databasement ships both the v16 and the v18 client and runs whichever one matches the server: v16 for servers up to 16, v18 for 17 and later. A dump only replays into a server at least as new as the client that wrote it, so a single v18 client would produce snapshots that no server below 17 could restore, not even the one they came from. Each client dumps from any server back to 9.2. Versions below 12 have reached end-of-life and are not recommended.
 - **SQL Server**: Backups are extracted as `.dacpac` files (schema + table data) using Microsoft's `sqlpackage` CLI (`/Action:Extract`) and re-applied with `/Action:Publish`. Server-bound objects (logins, users, permissions, role memberships) are excluded so backups stay portable across instances and don't fail on Windows-auth principals like `[NT AUTHORITY\SYSTEM]`. Works against on-prem SQL Server 2017+ and Azure SQL Database. Connections use the `pdo_sqlsrv` PHP extension.
 - **MongoDB**: The MongoDB Database Tools (`mongodump` / `mongorestore`) officially support server versions 4.2 through 8.0.
 - **SQLite**: Backups are performed by copying the database file over SFTP. The SQLite 3.x file format has been backwards-compatible since 3.0.0 (2004).
@@ -112,6 +112,14 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO databasement;
 :::note[Single database only]
 For single-database access without `CREATEDB`, the target database must already exist. Grant `ALL PRIVILEGES` on that specific database and its schema. The user won't be able to drop/recreate the database during restore - Databasement will drop and recreate tables instead.
 :::
+
+**In-place restores need ownership, not just privileges.** `GRANT ALL PRIVILEGES` does not make the role the owner of existing tables or of the `public` schema, and only an owner may drop or recreate them, so restoring into a database whose objects belong to another role fails with `must be owner of table ...`. Grant `databasement` membership in the role that owns them: PostgreSQL accepts a member of the owning role wherever it requires the owner, so nothing has to change hands.
+
+```sql
+GRANT owning_role TO databasement;
+```
+
+Restoring into an empty database avoids the problem entirely.
 
 ### Microsoft SQL Server
 

@@ -4,6 +4,7 @@ namespace App\Livewire\Agent;
 
 use App\Livewire\Concerns\HasAgentToken;
 use App\Models\Agent;
+use App\Traits\SurfacesValidationErrors;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -13,7 +14,7 @@ use Livewire\Component;
 #[Title('Edit Agent')]
 class Edit extends Component
 {
-    use AuthorizesRequests, HasAgentToken, Toast;
+    use AuthorizesRequests, HasAgentToken, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -30,7 +31,7 @@ class Edit extends Component
     {
         $this->authorize('update', $this->form->agent);
 
-        $this->form->update();
+        $this->withValidationFeedback(fn () => $this->form->update());
 
         $this->success(
             title: __('Agent updated successfully!'),

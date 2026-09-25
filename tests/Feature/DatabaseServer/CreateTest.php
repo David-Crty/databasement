@@ -491,7 +491,7 @@ test('backup summary is incomplete until volume and schedule are set, then rende
     $component
         ->assertDontSee('Configuration incomplete')
         ->assertSee('Summary')
-        ->assertSee('all databases')
+        ->assertSee('All databases')
         ->assertSee('Prod Backups')
         ->assertSee('Every day at 2:00am (Daily)')
         ->assertSee('the last 30 days');
@@ -788,3 +788,84 @@ test('an agent must be picked when the remote agent toggle is on', function () {
 
     $this->assertDatabaseMissing('database_servers', ['name' => 'Agentless Agent Server']);
 });
+
+test('postgres connection database round-trips through the form', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'postgres')
+        ->assertSee('Connection database')
+        ->set('form.name', 'Managed PG')
+        ->set('form.host', 'pg.example.com')
+        ->set('form.port', 5432)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.connection_database', 'app_db')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_names.0', 'app_db')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $server = DatabaseServer::where('name', 'Managed PG')->firstOrFail();
+
+    expect($server->getExtraConfig('connection_database'))->toBe('app_db')
+        ->and(DatabaseProvider::connectionDatabase($server->extra_config))->toBe('app_db');
+
+    // The edit form must hydrate it back, otherwise saving again silently drops it.
+    Livewire::actingAs($user)
+        ->test(\App\Livewire\DatabaseServer\Edit::class, ['server' => $server])
+        ->assertSet('form.connection_database', 'app_db');
+});
+
+test('a failed save points the user at the first invalid field', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Prod MySQL')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.dump_flags', '--result-file asdasd')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_names.0', 'myapp_production')
+        ->call('save')
+        ->assertHasErrors('form.dump_flags')
+        ->assertDispatched('validation-failed', field: 'form.dump_flags')
+        // The offending field lives in a collapsed section, so the error is
+        // unreachable unless the section is expanded too.
+        ->assertSet('form.dump_config_open', true);
+
+    expect(json_encode($component->effects['xjs'] ?? []))
+        ->toContain('1 field needs your attention');
+});
+
+test('the dump preview names the client the detected server needs', function (?string $version, string $expectedBinary) {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $provider = Mockery::mock(DatabaseProvider::class)->makePartial();
+    $provider->shouldReceive('serverVersionForServer')->andReturn($version);
+    app()->instance(DatabaseProvider::class, $provider);
+
+    $form = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.local')
+        ->set('form.username', 'root')
+        ->set('form.password', 'secret')
+        ->viewData('form');
+
+    expect($form->getDumpCommandPreview())->toStartWith($expectedBinary);
+})->with([
+    'MySQL' => ['8.4.11', '/opt/mysql-client/bin/mysqldump '],
+    'unreachable server keeps the previous output' => [null, 'mariadb-dump '],
+]);

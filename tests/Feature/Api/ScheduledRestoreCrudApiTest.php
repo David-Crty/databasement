@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\Ability;
+use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
+use App\Models\Snapshot;
 use App\Models\User;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Queue;
 
 // ─── Index ───────────────────────────────────────────────────────────────────
 
@@ -172,7 +174,7 @@ test('can delete a scheduled restore via api', function () {
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 test('can trigger a scheduled restore run via api', function () {
-    Artisan::spy();
+    Queue::fake();
 
     // operate-restores alone is sufficient to run a scheduled restore.
     $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
@@ -182,14 +184,36 @@ test('can trigger a scheduled restore run via api', function () {
         'source_server_id' => $source->id,
         'target_server_id' => $target->id,
     ]);
+    Snapshot::factory()->forServer($source)->create(['database_name' => $scheduled->source_database_name]);
 
     $this->actingAs($user, 'sanctum')
         ->postJson("/api/v1/scheduled-restores/{$scheduled->id}/run")
-        ->assertAccepted();
+        ->assertAccepted()
+        ->assertJson(['skip_reason' => null]);
 
-    Artisan::shouldHaveReceived('call')
-        ->with('restores:run', ['scheduledRestore' => $scheduled->id])
-        ->once();
+    Queue::assertPushed(ProcessRestoreJob::class, 1);
+});
+
+test('runs a disabled scheduled restore via api without enabling it', function () {
+    Queue::fake();
+
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    [$source, $target] = createRestoreServerPair();
+
+    $scheduled = ScheduledRestore::factory()->create([
+        'source_server_id' => $source->id,
+        'target_server_id' => $target->id,
+        'enabled' => false,
+    ]);
+    Snapshot::factory()->forServer($source)->create(['database_name' => $scheduled->source_database_name]);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/scheduled-restores/{$scheduled->id}/run")
+        ->assertAccepted()
+        ->assertJson(['skip_reason' => null]);
+
+    Queue::assertPushed(ProcessRestoreJob::class, 1);
+    expect($scheduled->refresh()->enabled)->toBeFalse();
 });
 
 test('without operate-restores, triggering a scheduled restore via api is forbidden', function () {

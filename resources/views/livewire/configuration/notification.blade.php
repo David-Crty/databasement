@@ -22,6 +22,7 @@
                     icon="o-plus"
                     class="btn-primary btn-sm"
                     wire:click="openChannelModal"
+                    spinner
                 />
             @endif
         </x-card-heading>
@@ -50,8 +51,8 @@
                 @if ($this->canManage)
                     <div class="flex justify-end flex-nowrap gap-1">
                         <x-button icon="o-paper-airplane" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="sendTestNotification('{{ $channel->id }}')" spinner="sendTestNotification('{{ $channel->id }}')" :tooltip-left="__('Test')" />
-                        <x-button icon="o-pencil-square" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openChannelModal('{{ $channel->id }}')" :tooltip-left="__('Edit')" />
-                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDeleteChannel('{{ $channel->id }}')" :tooltip-left="__('Delete')" />
+                        <x-button icon="o-pencil-square" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openChannelModal('{{ $channel->id }}')" spinner :tooltip-left="__('Edit')" />
+                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDeleteChannel('{{ $channel->id }}')" spinner :tooltip-left="__('Delete')" />
                     </div>
                 @endif
             @endscope
@@ -118,7 +119,7 @@
                 class="btn-primary"
                 :label="__('Save')"
                 wire:click="saveChannel"
-                spinner="saveChannel"
+                spinner
             />
         </x-slot:actions>
     </x-modal>
@@ -133,7 +134,7 @@
                 class="btn-error"
                 :label="__('Delete')"
                 wire:click="deleteChannel"
-                spinner="deleteChannel"
+                spinner
             />
         </x-slot:actions>
     </x-modal>

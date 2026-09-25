@@ -3,6 +3,7 @@
 namespace App\Livewire\User;
 
 use App\Models\User;
+use App\Traits\SurfacesValidationErrors;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -12,7 +13,7 @@ use Livewire\Component;
 #[Title('Edit User')]
 class Edit extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -27,7 +28,7 @@ class Edit extends Component
     {
         $this->authorize('update', $this->form->user);
 
-        if (! $this->form->update()) {
+        if (! $this->withValidationFeedback(fn (): bool => $this->form->update())) {
             $this->error(__('Cannot change role. At least one super administrator is required.'));
 
             return;

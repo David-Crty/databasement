@@ -68,7 +68,7 @@ The volume system uses dynamic class resolution based on the type value. Use exi
 - `database/factories/VolumeFactory.php` - Add a factory state method for the new type.
 - `tests/Feature/Volume/VolumeTest.php` - Add an entry to the `volume types` dataset (create/edit coverage).
 - `tests/Feature/Services/VolumeConnectionTesterTest.php` - Add to the `remote volume types` dataset for remote types (the filesystem is mocked, so no live connection).
-- `lang/{fr,es,el}.json` - Add translations for every new `__()` string in the connector view (see the Localization section in `CLAUDE.md`; keep Backup/Restore/Snapshot in English, use typographic apostrophes). Enum `label()` values are intentionally **not** translated.
+- `lang/*.json` - Run `make update-translation` to pick up every new `__()` string in the connector view (see the Localization section in `CLAUDE.md`). Enum `label()` values are intentionally **not** translated.
 
 **Optional:**
 - `composer.json` - Add the Flysystem adapter package if needed (`docker compose exec --user application -T app composer require league/flysystem-{adapter}`).

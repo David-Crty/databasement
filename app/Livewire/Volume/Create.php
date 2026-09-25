@@ -4,6 +4,7 @@ namespace App\Livewire\Volume;
 
 use App\Models\Volume;
 use App\Traits\BlocksDemoWrites;
+use App\Traits\SurfacesValidationErrors;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -13,7 +14,7 @@ use Livewire\Component;
 #[Title('Create Volume')]
 class Create extends Component
 {
-    use AuthorizesRequests, BlocksDemoWrites, Toast;
+    use AuthorizesRequests, BlocksDemoWrites, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -30,7 +31,7 @@ class Create extends Component
 
         $this->authorize('create', Volume::class);
 
-        $this->form->store();
+        $this->withValidationFeedback(fn () => $this->form->store());
 
         $this->success(
             title: __('Volume created successfully!'),

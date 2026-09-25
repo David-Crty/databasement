@@ -38,7 +38,7 @@ test('dump includes auth flags when credentials provided', function () {
     $result = $db->dump('/tmp/dump.rdb');
 
     expect($result->command)
-        ->toBe("redis-cli -h 'redis.example.com' -p '6379' --user 'myuser' -a 'secret' --no-auth-warning --rdb '/tmp/dump.rdb'");
+        ->toBe("redis-cli -h 'redis.example.com' -p '6379' --user 'myuser' --pass 'secret' --no-auth-warning --rdb '/tmp/dump.rdb'");
 });
 
 test('dump includes password only when no username', function () {
@@ -53,7 +53,7 @@ test('dump includes password only when no username', function () {
     $result = $db->dump('/tmp/dump.rdb');
 
     expect($result->command)
-        ->toBe("redis-cli -h 'redis.example.com' -p '6379' -a 'secret' --no-auth-warning --rdb '/tmp/dump.rdb'");
+        ->toBe("redis-cli -h 'redis.example.com' -p '6379' --pass 'secret' --no-auth-warning --rdb '/tmp/dump.rdb'");
 });
 
 test('restore throws unsupported exception', function () {

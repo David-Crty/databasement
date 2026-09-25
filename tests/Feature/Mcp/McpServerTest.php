@@ -172,6 +172,17 @@ test('get job status returns status info', function () {
         ->assertSee('status_db');
 });
 
+test('get job status does not reach another organization\'s job', function () {
+    $user = User::factory()->create();
+    $foreign = foreignSnapshot();
+
+    $response = DatabasementServer::actingAs($user)->tool(GetJobStatusTool::class, [
+        'job_id' => $foreign->backup_job_id,
+    ]);
+
+    $response->assertHasErrors();
+});
+
 test('list database servers includes backup configuration', function () {
     $user = User::factory()->create();
     $server = createDatabaseServer(['name' => 'Configured Server', 'backups_enabled' => true]);

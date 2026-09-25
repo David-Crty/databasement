@@ -3,6 +3,7 @@
 namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
+use App\Enums\DatabaseType;
 use App\Exceptions\Backup\ConnectionException;
 use App\Services\Backup\DTO\DatabaseOperationLog;
 use App\Services\Backup\DTO\DatabaseOperationResult;
@@ -22,6 +23,16 @@ class MysqlDatabase implements DatabaseInterface
 
     private const string CLIENT_BINARY = 'mariadb';
 
+    /**
+     * Oracle's client, bundled in the image beside the MariaDB one. Absolute
+     * paths rather than PATH entries: `mysqldump` and `mysql` on PATH are
+     * symlinks the mariadb-client package owns, and shadowing those would
+     * redirect every caller, not just this handler.
+     */
+    private const string MYSQL_DUMP_BINARY = '/opt/mysql-client/bin/mysqldump';
+
+    private const string MYSQL_CLIENT_BINARY = '/opt/mysql-client/bin/mysql';
+
     private const array DUMP_OPTIONS = [
         '--single-transaction', // Consistent snapshot for InnoDB without locking
         '--routines',           // Include stored procedures and functions
@@ -32,6 +43,17 @@ class MysqlDatabase implements DatabaseInterface
 
     /** Server version from which the MariaDB client dumps stored packages. */
     private const string MARIADB_PACKAGES_VERSION = '10.3.0';
+
+    /**
+     * Oldest MariaDB server the bundled MariaDB client can dump.
+     *
+     * From 10.11 on, mariadb-dump reads `generation_expression` out of
+     * information_schema.columns for every table, unconditionally. That column
+     * arrived in MariaDB 10.2, so on anything older the dump dies on the first
+     * table with `Unknown column 'generation_expression' in 'field list'`. No
+     * flag turns the query off, so such servers go to Oracle's client instead.
+     */
+    private const string MARIADB_CLIENT_MIN_SERVER = '10.2.0';
 
     private const array EXCLUDED_DATABASES = [
         'information_schema',
@@ -57,6 +79,18 @@ class MysqlDatabase implements DatabaseInterface
     }
 
     /**
+     * The same intent as {@see getSslFlag()}, spelled the way Oracle's client
+     * spells it: REQUIRED encrypts without checking the certificate, and
+     * DISABLED is plaintext. It rejects `--skip_ssl` and `--ssl` outright.
+     */
+    private function mysqlSslFlag(): string
+    {
+        return ! empty($this->config['ssl_enabled'])
+            ? '--ssl-mode=REQUIRED'
+            : '--ssl-mode=DISABLED';
+    }
+
+    /**
      * @param  array<string, mixed>  $config
      */
     public function setConfig(array $config): void
@@ -66,11 +100,13 @@ class MysqlDatabase implements DatabaseInterface
 
     public function dump(string $outputPath): DatabaseOperationResult
     {
+        $useMysqlClient = $this->usesMysqlClient();
+
         $options = self::DUMP_OPTIONS;
-        $options[] = $this->getSslFlag();
+        $options[] = $useMysqlClient ? $this->mysqlSslFlag() : $this->getSslFlag();
 
         $log = null;
-        if (! $this->canDumpRoutines()) {
+        if (! $useMysqlClient && ! $this->canDumpRoutines()) {
             $options = array_values(array_diff($options, ['--routines']));
             $log = new DatabaseOperationLog(
                 'Stored routines were excluded from this dump: the MariaDB client cannot dump routines from a MySQL server reporting version '.$this->serverVersion().'.',
@@ -80,13 +116,13 @@ class MysqlDatabase implements DatabaseInterface
 
         $extraFlags = '';
         if (! empty($this->config['dump_flags'])) {
-            $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
+            $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::MYSQL);
         }
 
-        // Flags must come before the database name; mariadb-dump treats anything after it as table names
+        // Flags must come before the database name; both clients treat anything after it as table names
         $command = sprintf(
             '%s %s --host=%s --port=%s --user=%s --password=%s%s %s',
-            self::DUMP_BINARY,
+            $useMysqlClient ? self::MYSQL_DUMP_BINARY : self::DUMP_BINARY,
             implode(' ', $options),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
@@ -99,6 +135,48 @@ class MysqlDatabase implements DatabaseInterface
         $command .= ' > '.escapeshellarg($outputPath);
 
         return new DatabaseOperationResult(command: $command, log: $log);
+    }
+
+    /**
+     * Whether this server is dumped and restored with Oracle's client.
+     *
+     * MariaDB servers keep the MariaDB client, which is the one that knows
+     * their own extensions. Everything else goes to Oracle's, for two reasons
+     * that meet here: MySQL servers because the MariaDB client reads their
+     * version as a MariaDB one (see {@see canDumpRoutines()}), and MariaDB
+     * servers below {@see MARIADB_CLIENT_MIN_SERVER} because the MariaDB
+     * client cannot read an information_schema that old.
+     *
+     * A server whose version could not be read keeps the MariaDB client, so a
+     * failed probe changes nothing about how the backup runs.
+     */
+    private function usesMysqlClient(): bool
+    {
+        if (! $this->mysqlClientAvailable()) {
+            return false;
+        }
+
+        $version = $this->serverVersion();
+
+        if ($version === null) {
+            return false;
+        }
+
+        if (! str_contains(strtolower($version), 'mariadb')) {
+            return true;
+        }
+
+        return version_compare($version, self::MARIADB_CLIENT_MIN_SERVER, '<');
+    }
+
+    /**
+     * Whether Oracle's client is installed. Only the Docker image ships it, so
+     * a native install — or an image predating it — keeps the MariaDB client
+     * throughout and behaves exactly as it did before.
+     */
+    protected function mysqlClientAvailable(): bool
+    {
+        return is_executable(self::MYSQL_DUMP_BINARY);
     }
 
     /**
@@ -121,9 +199,15 @@ class MysqlDatabase implements DatabaseInterface
     /**
      * Server version as reported by the server, or null when it cannot be read.
      */
-    protected function serverVersion(): ?string
+    public function serverVersion(): ?string
     {
-        // Unset for configs that never reach a server, such as the UI preview.
+        $supplied = $this->config['server_version'] ?? null;
+
+        if (is_string($supplied) && $supplied !== '') {
+            return $supplied;
+        }
+
+        // Unset for configs that never reach a server.
         if (empty($this->config['probe_server_version'])) {
             return null;
         }
@@ -133,6 +217,7 @@ class MysqlDatabase implements DatabaseInterface
         }
 
         try {
+            logger()->debug('VAMOS');
             $statement = $this->createPdo()->query('SELECT VERSION()');
             $version = $statement === false ? false : $statement->fetchColumn();
         } catch (\PDOException) {
@@ -146,6 +231,22 @@ class MysqlDatabase implements DatabaseInterface
 
     public function restore(string $inputPath): DatabaseOperationResult
     {
+        // `source` is a MariaDB client builtin; Oracle's sends it to the server
+        // and gets a syntax error, so that one reads the dump from stdin.
+        if ($this->usesMysqlClient()) {
+            return new DatabaseOperationResult(command: sprintf(
+                '%s --host=%s --port=%s --user=%s --password=%s %s %s < %s',
+                self::MYSQL_CLIENT_BINARY,
+                escapeshellarg($this->config['host']),
+                escapeshellarg((string) $this->config['port']),
+                escapeshellarg($this->config['user']),
+                escapeshellarg($this->config['pass']),
+                $this->mysqlSslFlag(),
+                escapeshellarg($this->config['database']),
+                escapeshellarg($inputPath)
+            ));
+        }
+
         return new DatabaseOperationResult(command: sprintf(
             '%s --host=%s --port=%s --user=%s --password=%s %s %s -e %s',
             self::CLIENT_BINARY,

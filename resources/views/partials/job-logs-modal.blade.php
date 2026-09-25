@@ -38,6 +38,11 @@
                         <div class="min-w-0">
                             <div class="text-sm text-base-content/70">
                                 {{ $this->selectedJob->snapshot ? __('Backup') : __('Restore') }}
+                                @if($snapshot)
+                                    <div class="badge">
+                                        # {{ $snapshot->id }}
+                                    </div>
+                                @endif
                             </div>
                             <div class="font-semibold truncate">
                                 @if($this->selectedJob->snapshot)
@@ -70,7 +75,7 @@
                         {{ __('Backup file is missing from volume') }}
                         @if($lastVerifiedAt)
                             <span class="text-base-content/70">
-                                — {{ __('checked') }} {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }} ({{ $lastVerifiedAt->diffForHumans() }})
+                                — {{ __('Last checked') }} {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }} ({{ $lastVerifiedAt->diffForHumans() }})
                             </span>
                         @endif
                     </x-alert>

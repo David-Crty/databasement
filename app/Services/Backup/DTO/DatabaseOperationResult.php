@@ -2,6 +2,10 @@
 
 namespace App\Services\Backup\DTO;
 
+use App\Enums\DatabaseType;
+use App\Exceptions\Backup\DatabaseDumpException;
+use App\Rules\SafeDumpFlags;
+
 readonly class DatabaseOperationResult
 {
     public function __construct(
@@ -11,12 +15,24 @@ readonly class DatabaseOperationResult
 
     /**
      * Escape user-provided dump flags by individually quoting each token.
+     *
+     * Quoting stops the shell from reading the tokens, not the dump client, so
+     * an output-redirecting option is refused here as well as at validation.
+     * Stored configurations are not revalidated, so this is the only check that
+     * sees them.
+     *
+     * @throws DatabaseDumpException
      */
-    public static function escapeFlags(string $flags): string
+    public static function escapeFlags(string $flags, DatabaseType $type): string
     {
-        /** @var list<string> $tokens */
-        $tokens = preg_split('/\s+/', trim($flags), -1, PREG_SPLIT_NO_EMPTY);
+        $violation = SafeDumpFlags::violation($flags, $type);
 
-        return implode(' ', array_map('escapeshellarg', $tokens));
+        if ($violation !== null) {
+            throw new DatabaseDumpException(
+                "Dump flag '{$violation}' is not allowed: it redirects where the dump is written."
+            );
+        }
+
+        return implode(' ', array_map('escapeshellarg', SafeDumpFlags::tokenize($flags)));
     }
 }

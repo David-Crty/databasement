@@ -189,6 +189,8 @@ class DatabaseServerController extends Controller
      * Trigger a restore.
      *
      * Queues a restore job to restore a snapshot to the specified database server.
+     * `options.owner_user` names the PostgreSQL role the restored database is
+     * handed to, the same option the scheduled restores accept.
      *
      * @response 202
      */
@@ -207,11 +209,14 @@ class DatabaseServerController extends Controller
         /** @var int|null $userId */
         $userId = auth()->id();
 
+        $ownerUser = trim((string) $request->validated('options.owner_user'));
+
         $restore = $backupJobFactory->createRestore(
             snapshot: $snapshot,
             targetServer: $databaseServer,
             schemaName: $request->validated('schema_name'),
-            triggeredByUserId: $userId
+            triggeredByUserId: $userId,
+            options: array_filter(['owner_user' => $ownerUser]),
         );
 
         ProcessRestoreJob::dispatch($restore->id);

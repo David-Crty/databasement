@@ -38,7 +38,7 @@ class Index extends Component
     public string $dbTypeFilter = '';
 
     #[Url]
-    public string $fileMissing = '';
+    public string $flagFilter = '';
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
@@ -57,6 +57,22 @@ class Index extends Component
     public ?string $downloadSnapshotId = null;
 
     public bool $showDownloadModal = false;
+
+    #[Locked]
+    public ?string $editCommentSnapshotId = null;
+
+    public string $commentDraft = '';
+
+    /**
+     * Snapshot notifications sent before the flag dropdown existed link to
+     * `?fileMissing=1`, so keep those deeplinks working.
+     */
+    public function mount(): void
+    {
+        if ($this->flagFilter === '' && request()->query('fileMissing') !== null) {
+            $this->flagFilter = 'missing';
+        }
+    }
 
     /**
      * @return array<int, array<string, mixed>>
@@ -79,12 +95,12 @@ class Index extends Component
         // Bypass the OrganizationScope on DatabaseServer/Volume so cross-org
         // deeplinks (e.g. a notification opened while the user is in another
         // org) can still render the snapshot/server context in the logs modal.
-        // The job-view policy already gates access to this data.
-        return BackupJob::with([
+        // guardSelectedJob() applies the view policy to what comes back.
+        return $this->guardSelectedJob(BackupJob::with([
             'snapshot.databaseServer' => fn ($q) => $q->withoutGlobalScopes(),
             'snapshot.files.volume' => fn ($q) => $q->withoutGlobalScopes(),
             'snapshot.triggeredBy',
-        ])->find($this->selectedJobId);
+        ])->find($this->selectedJobId));
     }
 
     public function triggerRestore(string $snapshotId): void
@@ -106,6 +122,17 @@ class Index extends Component
             ['id' => 'failed', 'name' => __('Failed')],
             ['id' => 'running', 'name' => __('Running')],
             ['id' => 'pending', 'name' => __('Pending')],
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function flagOptions(): array
+    {
+        return [
+            ['id' => 'missing', 'name' => __('File missing')],
+            ['id' => 'locked', 'name' => __('Locked')],
         ];
     }
 
@@ -152,6 +179,57 @@ class Index extends Component
         }
 
         return Snapshot::with('files.volume')->find($this->downloadSnapshotId);
+    }
+
+    public function editComment(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('update', $snapshot);
+
+        $this->editCommentSnapshotId = $snapshotId;
+        $this->commentDraft = (string) $snapshot->comment;
+        $this->resetValidation();
+    }
+
+    public function cancelEditComment(): void
+    {
+        $this->reset('editCommentSnapshotId', 'commentDraft');
+        $this->resetValidation();
+    }
+
+    public function saveComment(): void
+    {
+        $snapshot = Snapshot::findOrFail($this->editCommentSnapshotId);
+
+        $this->authorize('update', $snapshot);
+
+        $this->validate([
+            'commentDraft' => 'nullable|string|max:1000',
+        ]);
+
+        $comment = trim($this->commentDraft);
+
+        $snapshot->update([
+            'comment' => $comment !== '' ? $comment : null,
+        ]);
+
+        $this->reset('editCommentSnapshotId', 'commentDraft');
+
+        $this->success(__('Snapshot comment saved.'));
+    }
+
+    public function toggleLock(string $snapshotId): void
+    {
+        $snapshot = Snapshot::findOrFail($snapshotId);
+
+        $this->authorize('lock', $snapshot);
+
+        $snapshot->update(['locked' => ! $snapshot->locked]);
+
+        $this->success($snapshot->locked
+            ? __('Snapshot locked. Automatic cleanup will keep it.')
+            : __('Snapshot unlocked.'));
     }
 
     public function confirmDeleteSnapshot(string $snapshotId): void
@@ -228,7 +306,7 @@ class Index extends Component
             statusFilter: $this->statusFilter ?: 'all',
             serverFilter: $this->serverFilter ?: null,
             dbTypeFilter: $this->dbTypeFilter ?: null,
-            fileMissing: $this->fileMissing !== '',
+            flagFilter: $this->flagFilter ?: null,
             sortColumn: $this->sortBy['column'],
             sortDirection: $this->sortBy['direction']
         )->paginate(15);
@@ -237,6 +315,7 @@ class Index extends Component
             'snapshots' => $snapshots,
             'headers' => $this->headers(),
             'statusOptions' => $this->statusOptions(),
+            'flagOptions' => $this->flagOptions(),
             'serverOptions' => $this->serverOptions(),
             'dbTypeOptions' => $this->dbTypeOptions(),
         ]);
@@ -247,6 +326,6 @@ class Index extends Component
      */
     protected function filterProperties(): array
     {
-        return ['search', 'statusFilter', 'serverFilter', 'dbTypeFilter', 'fileMissing'];
+        return ['search', 'statusFilter', 'serverFilter', 'dbTypeFilter', 'flagFilter'];
     }
 }

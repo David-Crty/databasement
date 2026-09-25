@@ -62,6 +62,7 @@ class DatabaseServerSshConfigController extends Controller
         $publicKey = $this->generateKeyIfRequested($request, $keyGenerator, $validated);
 
         $validated['port'] ??= 22;
+        $validated['compression'] ??= false;
         $validated['organization_id'] = app(CurrentOrganization::class)->id();
 
         $sshConfig = DatabaseServerSshConfig::create($this->clearUnusedCredentials($validated));

@@ -1,5 +1,9 @@
 FROM firebirdsql/firebird:5 AS firebird
 
+# Source of the mysqldump/mysql binaries copied into the final image below.
+# Pinned so a client bump is a deliberate change.
+FROM mysql:26.7 AS mysqlclient
+
 # Build the sqlpackage CLI for the target arch. Microsoft only ships a self-contained
 # x64 zip (no arm64 build), so for multi-arch we install the framework-dependent
 # dotnet tool, which runs on the .NET runtime present in the final image. The Alpine
@@ -42,7 +46,7 @@ COPY --from=composer/composer:latest-bin /composer /usr/bin/composer
 # Add tools
 RUN apk add --no-cache git \
         mariadb-client mariadb-connector-c \
-        postgresql18-client \
+        postgresql16-client postgresql18-client \
         supervisor \
         gzip zstd 7zip \
         tzdata \
@@ -117,9 +121,37 @@ RUN ln -s /opt/firebird/compat/ld-linux-*.so.* /opt/firebird/compat/ld.so
 COPY scripts/firebird/gbak scripts/firebird/isql /usr/local/bin/
 RUN chmod 755 /usr/local/bin/gbak /usr/local/bin/isql
 
+# Oracle's MySQL client, which reads servers mariadb-dump cannot: those whose
+# information_schema predates MariaDB 10.2 / MySQL 5.7.
+# Oracle Linux (glibc) builds, so as with Firebird above the loader and
+# libraries travel with them and a wrapper runs them through it. The loader
+# comes from /usr/bin/ld.so because the real one sits in /lib64 on amd64 and
+# /lib on arm64, so a globbed path builds on one arch and fails on the other.
+# mysql_native_password is the only plugin kept; the rest (Kerberos, WebAuthn,
+# LDAP) would add ~18MB.
+COPY --from=mysqlclient /usr/bin/mysqldump /usr/bin/mysql /opt/mysql-client/libexec/
+COPY --from=mysqlclient /usr/lib64/mysql/plugin/mysql_native_password.so /opt/mysql-client/plugin/
+COPY --from=mysqlclient /usr/bin/ld.so /opt/mysql-client/compat/ld.so
+COPY --from=mysqlclient \
+    /lib64/libc.so.6 \
+    /lib64/libcrypto.so.3 \
+    /lib64/libgcc_s.so.1 \
+    /lib64/libm.so.6 \
+    /lib64/libncurses.so.6 \
+    /lib64/libresolv.so.2 \
+    /lib64/libssl.so.3 \
+    /lib64/libstdc++.so.6 \
+    /lib64/libtinfo.so.6 \
+    /lib64/libz.so.1 \
+    /opt/mysql-client/compat/
+
+COPY scripts/mysql-client/mysqldump scripts/mysql-client/mysql /opt/mysql-client/bin/
+RUN chmod 755 /opt/mysql-client/bin/mysqldump /opt/mysql-client/bin/mysql
+
 COPY supervisord.conf /config/supervisord.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini
 COPY php-custom.ini /usr/local/etc/php/conf.d/zz-php-custom.ini
+COPY Caddyfile /etc/frankenphp/Caddyfile
 
 # Default PUID/PGID for the application user (can be overridden at runtime)
 ENV PUID=1000

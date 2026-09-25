@@ -116,7 +116,7 @@ class FortifyServiceProvider extends ServiceProvider
 
         Fortify::registerView(function () {
             if (User::count() > 0) {
-                abort(401, 'Registration is disabled. Please contact an administrator for an invitation.');
+                abort(401, __('Registration is disabled. Please contact an administrator for an invitation.'));
             }
 
             return view('livewire.auth.register');

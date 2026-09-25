@@ -2,6 +2,7 @@
 
 use App\Livewire\Auth\AcceptInvitation;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 
@@ -80,4 +81,45 @@ test('password must be at least 8 characters', function () {
         ->set('password_confirmation', 'short')
         ->call('accept')
         ->assertHasErrors(['password']);
+});
+
+test('an accepted invitation cannot be accepted a second time', function () {
+    $token = Str::random(64);
+    $user = User::factory()->create([
+        'password' => null,
+        'invitation_token' => $token,
+        'invitation_accepted_at' => null,
+    ]);
+
+    $component = Livewire::test(AcceptInvitation::class, ['token' => $token])
+        ->set('password', 'newpassword123')
+        ->set('password_confirmation', 'newpassword123')
+        ->call('accept');
+
+    $component->set('password', 'otherpassword123')
+        ->set('password_confirmation', 'otherpassword123')
+        ->call('accept')
+        ->assertStatus(404);
+
+    expect(Hash::check('newpassword123', $user->fresh()->password))->toBeTrue();
+});
+
+test('a revoked invitation cannot be accepted', function () {
+    $token = Str::random(64);
+    $user = User::factory()->create([
+        'password' => null,
+        'invitation_token' => $token,
+        'invitation_accepted_at' => null,
+    ]);
+
+    $component = Livewire::test(AcceptInvitation::class, ['token' => $token]);
+
+    $user->update(['invitation_token' => Str::random(64)]);
+
+    $component->set('password', 'newpassword123')
+        ->set('password_confirmation', 'newpassword123')
+        ->call('accept')
+        ->assertStatus(404);
+
+    expect($user->fresh()->password)->toBeNull();
 });

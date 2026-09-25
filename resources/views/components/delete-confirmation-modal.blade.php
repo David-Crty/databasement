@@ -22,6 +22,6 @@
 
     <x-slot:actions>
         <x-button :label="__('Cancel')" @click="$wire.showDeleteModal = false" />
-        <x-button :label="__('Delete')" class="btn-error" wire:click="{{ $onConfirm }}" spinner="{{ $onConfirm }}" />
+        <x-button :label="__('Delete')" class="btn-error" wire:click="{{ $onConfirm }}" spinner />
     </x-slot:actions>
 </x-modal>

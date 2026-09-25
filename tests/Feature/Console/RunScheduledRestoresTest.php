@@ -13,20 +13,23 @@ test('fails when scheduled restore ID does not exist', function () {
         ->assertExitCode(1);
 });
 
-test('skips disabled scheduled restore', function () {
+test('runs a disabled scheduled restore without enabling it', function () {
+    // `enabled` gates the scheduler (routes/console.php), not this command:
+    // invoking it at all is already a deliberate, manual act.
     Queue::fake();
 
     $scheduled = createScheduledRestore(['enabled' => false]);
+    Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
 
     $this->artisan('restores:run', ['scheduledRestore' => $scheduled->id])
-        ->expectsOutputToContain('disabled')
+        ->expectsOutputToContain('Dispatched restore')
         ->assertExitCode(0);
 
-    Queue::assertNothingPushed();
+    Queue::assertPushed(ProcessRestoreJob::class, 1);
 
     $scheduled->refresh();
-    expect($scheduled->last_skip_reason)->toBe(ScheduledRestore::SKIP_DISABLED)
-        ->and($scheduled->last_executed_at)->not->toBeNull();
+    expect($scheduled->enabled)->toBeFalse()
+        ->and($scheduled->last_skip_reason)->toBeNull();
 });
 
 test('skips when no eligible snapshot exists', function () {

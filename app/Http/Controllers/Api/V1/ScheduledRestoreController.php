@@ -6,12 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveScheduledRestoreRequest;
 use App\Http\Resources\ScheduledRestoreResource;
 use App\Models\ScheduledRestore;
+use App\Services\Backup\RunScheduledRestoreAction;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Artisan;
 
 /**
  * @tags Scheduled Restores
@@ -90,16 +90,23 @@ class ScheduledRestoreController extends Controller
     /**
      * Run a scheduled restore immediately.
      *
+     * Works on a disabled scheduled restore too: `enabled` only decides whether
+     * the scheduler runs it, and a run triggered here leaves it disabled.
+     *
      * @response 202
      */
-    public function run(ScheduledRestore $scheduledRestore): JsonResponse
+    public function run(ScheduledRestore $scheduledRestore, RunScheduledRestoreAction $action): JsonResponse
     {
         $this->authorize('run', $scheduledRestore);
 
-        Artisan::call('restores:run', ['scheduledRestore' => $scheduledRestore->id]);
+        $result = $action->execute($scheduledRestore);
 
         return response()->json([
-            'message' => __('Scheduled restore triggered.'),
+            'message' => $result->skipReason !== null
+                ? __('Scheduled restore skipped.')
+                : __('Scheduled restore triggered.'),
+            'restore_id' => $result->restore?->id,
+            'skip_reason' => $result->skipReason,
         ], 202);
     }
 }

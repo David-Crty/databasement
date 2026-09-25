@@ -78,15 +78,14 @@ class Index extends Component
         // Bypass the organization scopes so cross-org deeplinks (e.g. a
         // notification opened while the user is in another org) can still
         // render source/target server context in the logs modal. Read-only:
-        // BackupJobPolicy@view has already confirmed membership of the owning
-        // org in mountHandlesJobLogsModal(), and a non-member gets a 403 there.
-        return BackupJob::with([
+        // guardSelectedJob() applies BackupJobPolicy@view to what comes back.
+        return $this->guardSelectedJob(BackupJob::with([
             'restore' => fn ($q) => $q->withoutGlobalScopes(),
             'restore.snapshot.databaseServer' => fn ($q) => $q->withoutGlobalScopes(),
             'restore.snapshot.files.volume' => fn ($q) => $q->withoutGlobalScopes(),
             'restore.targetServer' => fn ($q) => $q->withoutGlobalScopes(),
             'restore.triggeredBy',
-        ])->find($this->selectedJobId);
+        ])->find($this->selectedJobId));
     }
 
     public function openNewRestore(): void

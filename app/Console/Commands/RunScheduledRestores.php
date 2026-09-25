@@ -2,14 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\ProcessRestoreJob;
-use App\Models\BackupJob;
-use App\Models\Restore;
 use App\Models\ScheduledRestore;
-use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\LatestSnapshotResolver;
+use App\Services\Backup\RunScheduledRestoreAction;
 use Illuminate\Console\Command;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
@@ -19,13 +14,11 @@ class RunScheduledRestores extends Command
 
     protected $description = 'Run a scheduled restore for a given scheduled restore ID';
 
-    public function handle(BackupJobFactory $backupJobFactory, LatestSnapshotResolver $resolver): int
+    public function handle(RunScheduledRestoreAction $action): int
     {
         $id = $this->argument('scheduledRestore');
 
-        $scheduledRestore = ScheduledRestore::query()
-            ->with(['sourceServer', 'targetServer'])
-            ->find($id);
+        $scheduledRestore = ScheduledRestore::find($id);
 
         if (! $scheduledRestore) {
             $this->error("Scheduled restore not found: {$id}");
@@ -33,38 +26,8 @@ class RunScheduledRestores extends Command
             return self::FAILURE;
         }
 
-        if (! $scheduledRestore->enabled) {
-            $this->info("Scheduled restore is disabled: {$scheduledRestore->name}");
-            $this->markSkipped($scheduledRestore, ScheduledRestore::SKIP_DISABLED);
-
-            return self::SUCCESS;
-        }
-
-        if ($this->hasInflightRestore($scheduledRestore)) {
-            $this->info("Skipping {$scheduledRestore->name}: previous restore still in flight.");
-            $this->markSkipped($scheduledRestore, ScheduledRestore::SKIP_PREVIOUS_IN_FLIGHT);
-
-            return self::SUCCESS;
-        }
-
-        $snapshot = $resolver->resolve($scheduledRestore);
-
-        if (! $snapshot) {
-            $this->info("No eligible snapshot for scheduled restore: {$scheduledRestore->name}");
-            $this->markSkipped($scheduledRestore, ScheduledRestore::SKIP_NO_SNAPSHOT);
-
-            return self::SUCCESS;
-        }
-
         try {
-            $restore = $backupJobFactory->createRestore(
-                snapshot: $snapshot,
-                targetServer: $scheduledRestore->targetServer,
-                schemaName: $scheduledRestore->schema_name,
-                triggeredByUserId: null,
-                options: $scheduledRestore->options ?? [],
-                scheduledRestoreId: $scheduledRestore->id,
-            );
+            $result = $action->execute($scheduledRestore);
         } catch (ValidationException $e) {
             $errors = collect($e->errors())->flatten()->implode(' ');
             Log::error("Failed to create scheduled restore [{$scheduledRestore->name}]: {$errors}");
@@ -73,34 +36,25 @@ class RunScheduledRestores extends Command
             return self::FAILURE;
         }
 
-        ProcessRestoreJob::dispatch($restore->id);
+        $restore = $result->restore;
 
-        $scheduledRestore->forceFill([
-            'last_executed_at' => now(),
-            'last_skip_reason' => null,
-        ])->save();
+        if ($restore === null) {
+            $this->info($this->skipMessage($scheduledRestore, $result->skipReason));
 
-        $this->info("Dispatched restore [{$restore->id}] from snapshot [{$snapshot->id}] for: {$scheduledRestore->name}");
+            return self::SUCCESS;
+        }
+
+        $this->info("Dispatched restore [{$restore->id}] from snapshot [{$restore->snapshot_id}] for: {$scheduledRestore->name}");
 
         return self::SUCCESS;
     }
 
-    private function hasInflightRestore(ScheduledRestore $scheduledRestore): bool
+    private function skipMessage(ScheduledRestore $scheduledRestore, ?string $reason): string
     {
-        return Restore::query()
-            ->where('scheduled_restore_id', $scheduledRestore->id)
-            ->whereHas('job', function (Builder $q) {
-                /** @var Builder<BackupJob> $q */
-                $q->inProgress();
-            })
-            ->exists();
-    }
-
-    private function markSkipped(ScheduledRestore $scheduledRestore, string $reason): void
-    {
-        $scheduledRestore->forceFill([
-            'last_executed_at' => now(),
-            'last_skip_reason' => $reason,
-        ])->save();
+        return match ($reason) {
+            ScheduledRestore::SKIP_PREVIOUS_IN_FLIGHT => "Skipping {$scheduledRestore->name}: previous restore still in flight.",
+            ScheduledRestore::SKIP_NO_SNAPSHOT => "No eligible snapshot for scheduled restore: {$scheduledRestore->name}",
+            default => "Skipping {$scheduledRestore->name}: {$reason}",
+        };
     }
 }

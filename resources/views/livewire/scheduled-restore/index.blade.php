@@ -9,6 +9,7 @@
                     :label="__('New Scheduled Restore')"
                     icon="o-plus"
                     wire:click="openCreate"
+                    spinner
                     class="btn-primary btn-sm"
                 />
             @endcan
@@ -133,6 +134,7 @@
                         <x-button
                             icon="o-play"
                             wire:click="runNow('{{ $scheduledRestore->id }}')"
+                            spinner
                             :tooltip="__('Run now')"
                             class="btn-ghost btn-sm"
                         />
@@ -141,6 +143,7 @@
                         <x-button
                             icon="o-pencil"
                             wire:click="openEdit('{{ $scheduledRestore->id }}')"
+                            spinner
                             :tooltip="__('Edit')"
                             class="btn-ghost btn-sm"
                         />
@@ -149,6 +152,7 @@
                         <x-button
                             icon="o-trash"
                             wire:click="confirmDelete('{{ $scheduledRestore->id }}')"
+                            spinner
                             :tooltip="__('Delete')"
                             class="btn-ghost btn-sm text-error"
                         />
@@ -163,6 +167,18 @@
         :message="__('Are you sure you want to delete this scheduled restore?')"
         onConfirm="deleteScheduledRestore"
     />
+
+    <x-modal wire:model="showRunDisabledModal" :title="__('Run Disabled Scheduled Restore')" class="backdrop-blur">
+        <p>{{ __('This scheduled restore is disabled. Do you want to run it anyway?') }}</p>
+        <p class="text-sm text-base-content/60 mt-2">
+            {{ __('It stays disabled afterwards and will not run automatically on its schedule.') }}
+        </p>
+
+        <x-slot:actions>
+            <x-button :label="__('Cancel')" @click="$wire.showRunDisabledModal = false" />
+            <x-button :label="__('Run anyway')" class="btn-primary" wire:click="runDisabledNow" spinner />
+        </x-slot:actions>
+    </x-modal>
 
     <livewire:scheduled-restore.modal />
 </div>

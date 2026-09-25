@@ -9,7 +9,7 @@ readonly class DatabaseConnectionConfig
 {
     /**
      * @param  array<string, mixed>|null  $extraConfig
-     * @param  array<string, mixed>|null  $sshConfig  Decrypted SSH config array (host, port, username, auth_type, password, private_key, key_passphrase)
+     * @param  array<string, mixed>|null  $sshConfig  Decrypted SSH config array (host, port, username, auth_type, compression, password, private_key, key_passphrase)
      */
     public function __construct(
         public DatabaseType $databaseType,

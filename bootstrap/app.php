@@ -55,6 +55,13 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetCurrentOrganization::class,
             \App\Http\Middleware\ScopeBouncer::class,
         ]);
+        // OrganizationScope is a no-op while no organization is resolved, so
+        // SetCurrentOrganization has to run ahead of SubstituteBindings: a route
+        // {model} parameter bound before it resolves across every tenant.
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\SetCurrentOrganization::class,
+        );
         $middleware->preventRequestForgery(except: [
             'adminer',
         ]);

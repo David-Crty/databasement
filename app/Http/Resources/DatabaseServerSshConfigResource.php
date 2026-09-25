@@ -42,6 +42,7 @@ class DatabaseServerSshConfigResource extends JsonResource
             'port' => $this->port,
             'username' => $this->username,
             'auth_type' => $this->auth_type,
+            'compression' => $this->compression,
             ...($this->publicKey !== null ? ['public_key' => $this->publicKey] : []),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

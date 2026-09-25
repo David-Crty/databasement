@@ -46,7 +46,7 @@ afterEach(function () {
     }
 });
 
-test('mysql backup and restore workflow', function (string $compression, string $expectedExt) {
+test('mysql backup and restore workflow', function (string $target, string $compression, string $expectedExt) {
     AppConfig::set('backup.compression', $compression);
     if ($compression === 'encrypted') {
         config(['backup.encryption_key' => 'base64:'.base64_encode('0123456789abcdef0123456789abcdef')]);
@@ -57,12 +57,12 @@ test('mysql backup and restore workflow', function (string $compression, string 
     app()->forgetInstance(BackupTask::class);
     app()->forgetInstance(RestoreTask::class);
 
-    $this->volume = IntegrationTestHelpers::createVolume('mysql');
-    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('mysql');
+    $this->volume = IntegrationTestHelpers::createVolume($target);
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer($target);
     $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
     $this->databaseServer->load('backups.volumes');
 
-    IntegrationTestHelpers::loadTestData('mysql', $this->databaseServer);
+    IntegrationTestHelpers::loadTestData($target, $this->databaseServer);
 
     $snapshots = $this->backupJobFactory->createSnapshots(
         backup: $this->backup,
@@ -90,14 +90,16 @@ test('mysql backup and restore workflow', function (string $compression, string 
     );
     ProcessRestoreJob::dispatchSync($restore->id);
 
-    $pdo = IntegrationTestHelpers::connectToDatabase('mysql', $this->databaseServer, $this->restoredDatabaseName);
+    $pdo = IntegrationTestHelpers::connectToDatabase($target, $this->databaseServer, $this->restoredDatabaseName);
     $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
     expect($tables)->toContain('users')->toContain('products')
         ->and((int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn())->toBe(2)
         ->and((int) $pdo->query('SELECT COUNT(*) FROM products')->fetchColumn())->toBe(2);
 })->with([
-    'zstd' => ['zstd', 'zst'],
-    'encrypted' => ['encrypted', '7z'],
+    // Both engines, because they are dumped and restored by different clients.
+    'mysql, zstd' => ['mysql', 'zstd', 'zst'],
+    'mysql, encrypted' => ['mysql', 'encrypted', '7z'],
+    'mariadb, zstd' => ['mariadb', 'zstd', 'zst'],
 ]);
 
 test('postgres backup and restore workflow', function (?string $dumpFormat) {
@@ -189,6 +191,7 @@ test('backup with extra dump flags succeeds', function (string $type, string $fl
         ->and($this->snapshot->file_size)->toBeGreaterThan(0);
 })->with([
     'mysql with --verbose' => ['mysql', '--verbose'],
+    'mariadb with --verbose' => ['mariadb', '--verbose'],
     'postgres with --verbose' => ['postgres', '--verbose'],
     'mongodb with --verbose' => ['mongodb', '--verbose'],
 ]);
