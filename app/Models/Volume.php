@@ -82,6 +82,7 @@ class Volume extends Model
     protected $fillable = [
         'name',
         'type',
+        'agent_id',
         'config',
         'organization_id',
     ];
@@ -99,6 +100,47 @@ class Volume extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * The agent that can reach this volume, or null when the app reaches it
+     * directly.
+     *
+     * @return BelongsTo<Agent, Volume>
+     */
+    public function agent(): BelongsTo
+    {
+        return $this->belongsTo(Agent::class);
+    }
+
+    /**
+     * True when this volume lives behind an agent, so every operation on it
+     * (connection test included) has to be performed by that agent.
+     */
+    public function isRemote(): bool
+    {
+        return $this->agent_id !== null;
+    }
+
+    /**
+     * True when a database server can actually write its backups here.
+     *
+     * A volume bound to an agent is reachable only by that very agent. An
+     * unbound local volume is this app's own disk, which no agent can see —
+     * but a local volume bound to an agent is a path on the agent's machine
+     * and therefore perfectly valid. Every other type is reachable from both
+     * sides, as long as it is not bound to some other agent.
+     *
+     * @param  bool  $usesAgent  Whether the server routes through an agent
+     * @param  string|null  $agentId  Which agent, when one is already picked
+     */
+    public function isReachableBy(bool $usesAgent, ?string $agentId): bool
+    {
+        if ($this->isRemote()) {
+            return $usesAgent && $this->agent_id === $agentId;
+        }
+
+        return ! $usesAgent || $this->getVolumeType() !== VolumeType::LOCAL;
     }
 
     /**

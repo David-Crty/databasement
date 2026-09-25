@@ -13,18 +13,28 @@ class SnapshotCleanupService
 
     private int $totalDeleted = 0;
 
+    private int $totalDelegated = 0;
+
+    public function __construct(private DeleteSnapshotAction $deleteSnapshot) {}
+
     /**
      * Run the cleanup process.
+     *
+     * `deleted` counts snapshots whose records are actually gone. Snapshots on
+     * an agent-backed volume are only handed to the agent here, so they are
+     * reported separately as `delegated` rather than inflating a count that
+     * operators read as "files removed".
      *
      * Locked snapshots are excluded before any tier is computed, so they are
      * never deleted and never occupy a GFS keep slot.
      *
-     * @return array{deleted: int, dry_run: bool}
+     * @return array{deleted: int, delegated: int, dry_run: bool}
      */
     public function run(bool $dryRun = false): array
     {
         $this->dryRun = $dryRun;
         $this->totalDeleted = 0;
+        $this->totalDelegated = 0;
 
         $backupsWithRetention = Backup::whereIn('retention_policy', [Backup::RETENTION_DAYS, Backup::RETENTION_GFS])
             ->with('databaseServer')
@@ -33,7 +43,7 @@ class SnapshotCleanupService
         if ($backupsWithRetention->isEmpty()) {
             Log::info('Snapshot cleanup: no backups with retention period configured.');
 
-            return ['deleted' => 0, 'dry_run' => $dryRun];
+            return ['deleted' => 0, 'delegated' => 0, 'dry_run' => $dryRun];
         }
 
         foreach ($backupsWithRetention as $backup) {
@@ -47,7 +57,11 @@ class SnapshotCleanupService
         $action = $dryRun ? 'would be deleted' : 'deleted';
         Log::info("Snapshot cleanup: {$this->totalDeleted} snapshot(s) {$action}.");
 
-        return ['deleted' => $this->totalDeleted, 'dry_run' => $dryRun];
+        if ($this->totalDelegated > 0) {
+            Log::info("Snapshot cleanup: {$this->totalDelegated} snapshot(s) awaiting their agent's confirmation.");
+        }
+
+        return ['deleted' => $this->totalDeleted, 'delegated' => $this->totalDelegated, 'dry_run' => $dryRun];
     }
 
     private function cleanupDays(Backup $backup): void
@@ -170,11 +184,21 @@ class SnapshotCleanupService
 
         if ($this->dryRun) {
             Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
-        } else {
-            $snapshot->delete();
-            Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
+            $this->totalDeleted++;
+
+            return;
         }
 
-        $this->totalDeleted++;
+        if ($this->deleteSnapshot->execute($snapshot)) {
+            Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
+            $this->totalDeleted++;
+
+            return;
+        }
+
+        // The volume is only reachable from the agent: the record stays until
+        // the agent confirms the file is gone, so this is not a deletion yet.
+        Log::info("Snapshot cleanup: Delegated deletion of {$database} ({$age} days old) to its agent");
+        $this->totalDelegated++;
     }
 }

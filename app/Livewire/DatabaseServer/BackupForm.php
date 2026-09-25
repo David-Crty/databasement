@@ -194,6 +194,7 @@ final class BackupForm
         array $entry,
         DatabaseType $serverType,
         bool $isAgent,
+        ?string $agentId = null,
     ): array {
         $prefix = "backups.{$index}.";
 
@@ -202,12 +203,16 @@ final class BackupForm
             $prefix.'volume_ids.*' => [
                 'required',
                 Rule::exists('volumes', 'id')->where('organization_id', app(CurrentOrganization::class)->id()),
-                function (string $attribute, mixed $value, \Closure $fail) use ($isAgent): void {
-                    if ($isAgent
-                        && Volume::whereKey($value)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
-                    ) {
-                        $fail(__('Local volumes cannot be used with remote agents.'));
+                function (string $attribute, mixed $value, \Closure $fail) use ($isAgent, $agentId): void {
+                    $volume = Volume::whereKey($value)->first();
+
+                    if ($volume === null || $volume->isReachableBy($isAgent, $agentId)) {
+                        return;
                     }
+
+                    $fail($volume->isRemote()
+                        ? __('This volume is only reachable from agent :name.', ['name' => $volume->agent->name])
+                        : __('Local volumes cannot be used with remote agents.'));
                 },
             ],
             $prefix.'path' => ['nullable', 'string', 'max:255', new SafePath],

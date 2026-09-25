@@ -1101,5 +1101,21 @@
   "{1} :count running|[2,*] :count running": "{1} :count en ejecución|[2,*] :count en ejecución",
   "{1} :count weekly|[2,*] :count weekly": "{1} :count semanal|[2,*] :count semanales",
   "{1} Snapshots older than :count day will be deleted automatically during the next cleanup run.|[2,*] Snapshots older than :count days will be deleted automatically during the next cleanup run.": "{1} Los snapshots con más de :count día de antigüedad se eliminarán automáticamente durante la próxima ejecución de limpieza.|[2,*] Los snapshots con más de :count días de antigüedad se eliminarán automáticamente durante la próxima ejecución de limpieza.",
-  "{1} the last :count day|[2,*] the last :count days": "{1} el último :count día|[2,*] los últimos :count días"
+  "{1} the last :count day|[2,*] the last :count days": "{1} el último :count día|[2,*] los últimos :count días",
+  "Connection successful!": "¡Conexión exitosa!",
+  "Enable this when the storage lives inside your private network. Connection tests, uploads and deletions all run on the agent instead of this app.": "Actívalo cuando el almacenamiento esté dentro de tu red privada. Las pruebas de conexión, las subidas y las eliminaciones se ejecutan en el agente en lugar de en esta aplicación.",
+  "No volume is available. Volumes bound to an agent are only offered to servers using that agent.": "No hay volúmenes disponibles. Los volúmenes vinculados a un agente solo se ofrecen a servidores que usan ese agente.",
+  "No volume is reachable from this agent. Create one and mark it as reachable from the agent.": "Ningún volumen es accesible desde este agente. Crea uno y márcalo como accesible desde el agente.",
+  "Select the agent that can reach this volume first.": "Selecciona primero el agente que puede acceder a este volumen.",
+  "Snapshot deletion sent to the agent. It will disappear once the agent confirms the file was removed.": "Eliminación del snapshot enviada al agente. Desaparecerá cuando el agente confirme que el archivo fue eliminado.",
+  "Test Connection on the agent": "Probar conexión en el agente",
+  "The agent could not delete this file": "El agente no pudo eliminar este archivo",
+  "The agent could not reach this volume.": "El agente no pudo acceder a este volumen.",
+  "The agent did not respond. Check that it is running and connected.": "El agente no respondió. Comprueba que esté en ejecución y conectado.",
+  "The volume test was cancelled.": "La prueba del volumen fue cancelada.",
+  "This volume is only reachable from agent :name.": "Este volumen solo es accesible desde el agente :name.",
+  "Volume is only reachable from an agent": "El volumen solo es accesible desde un agente",
+  "Waiting for agent :name to test the volume...": "Esperando a que el agente :name pruebe el volumen...",
+  "Waiting for the agent to delete this file": "Esperando a que el agente elimine este archivo",
+  "Testing Connection...": "Probando la conexión..."
 }

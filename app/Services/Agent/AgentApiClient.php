@@ -96,6 +96,37 @@ class AgentApiClient
     }
 
     /**
+     * Report the per-target outcome of a cleanup job. The app finalises the
+     * snapshot record only when every target was removed.
+     *
+     * @param  array<int, array<string, mixed>>  $results
+     */
+    public function reportCleanupResult(string $jobId, array $results): bool
+    {
+        $response = $this->post("/agent/jobs/{$jobId}/cleaned", [
+            'targets' => $results,
+        ], timeout: 30);
+
+        $response->throw();
+
+        // The app decides whether the snapshot record can go: it may refuse
+        // because a copy went unreported or a target could not be matched.
+        // Reporting only that the POST succeeded would hide that.
+        return (bool) $response->json('deleted');
+    }
+
+    /**
+     * Report the outcome of a volume connection test.
+     */
+    public function reportVolumeTestResult(string $jobId, bool $success, string $message): void
+    {
+        $this->post("/agent/jobs/{$jobId}/volume-tested", [
+            'success' => $success,
+            'message' => Str::limit($message, 10000, ''),
+        ], timeout: 30)->throw();
+    }
+
+    /**
      * @param  string[]  $databases
      */
     public function reportDiscoveredDatabases(string $jobId, array $databases): void

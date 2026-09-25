@@ -1101,5 +1101,21 @@
   "{1} :count running|[2,*] :count running": "{1} :count σε εξέλιξη|[2,*] :count σε εξέλιξη",
   "{1} :count weekly|[2,*] :count weekly": "{1} :count εβδομαδιαίο|[2,*] :count εβδομαδιαία",
   "{1} Snapshots older than :count day will be deleted automatically during the next cleanup run.|[2,*] Snapshots older than :count days will be deleted automatically during the next cleanup run.": "{1} Τα snapshots που είναι παλαιότερα από :count ημέρα θα διαγραφούν αυτόματα κατά την επόμενη εκτέλεση καθαρισμού.|[2,*] Τα snapshots που είναι παλαιότερα από :count ημέρες θα διαγραφούν αυτόματα κατά την επόμενη εκτέλεση καθαρισμού.",
-  "{1} the last :count day|[2,*] the last :count days": "{1} την τελευταία :count ημέρα|[2,*] τις τελευταίες :count ημέρες"
+  "{1} the last :count day|[2,*] the last :count days": "{1} την τελευταία :count ημέρα|[2,*] τις τελευταίες :count ημέρες",
+  "Connection successful!": "Επιτυχής σύνδεση!",
+  "Enable this when the storage lives inside your private network. Connection tests, uploads and deletions all run on the agent instead of this app.": "Ενεργοποιήστε το όταν ο αποθηκευτικός χώρος βρίσκεται στο ιδιωτικό σας δίκτυο. Οι δοκιμές σύνδεσης, οι μεταφορτώσεις και οι διαγραφές εκτελούνται στον agent αντί για αυτήν την εφαρμογή.",
+  "No volume is available. Volumes bound to an agent are only offered to servers using that agent.": "Δεν υπάρχει διαθέσιμος τόμος. Οι τόμοι που συνδέονται με έναν agent προσφέρονται μόνο σε διακομιστές που χρησιμοποιούν αυτόν τον agent.",
+  "No volume is reachable from this agent. Create one and mark it as reachable from the agent.": "Κανένας τόμος δεν είναι προσβάσιμος από αυτόν τον agent. Δημιουργήστε έναν και σημειώστε τον ως προσβάσιμο από τον agent.",
+  "Select the agent that can reach this volume first.": "Επιλέξτε πρώτα τον agent που μπορεί να προσπελάσει αυτόν τον τόμο.",
+  "Snapshot deletion sent to the agent. It will disappear once the agent confirms the file was removed.": "Η διαγραφή του snapshot στάλθηκε στον agent. Θα εξαφανιστεί μόλις ο agent επιβεβαιώσει ότι το αρχείο διαγράφηκε.",
+  "Test Connection on the agent": "Δοκιμή σύνδεσης στον agent",
+  "The agent could not delete this file": "Ο agent δεν μπόρεσε να διαγράψει αυτό το αρχείο",
+  "The agent could not reach this volume.": "Ο agent δεν μπόρεσε να προσπελάσει αυτόν τον τόμο.",
+  "The agent did not respond. Check that it is running and connected.": "Ο agent δεν απάντησε. Ελέγξτε ότι εκτελείται και είναι συνδεδεμένος.",
+  "The volume test was cancelled.": "Η δοκιμή του τόμου ακυρώθηκε.",
+  "This volume is only reachable from agent :name.": "Αυτός ο τόμος είναι προσβάσιμος μόνο από τον agent :name.",
+  "Volume is only reachable from an agent": "Ο τόμος είναι προσβάσιμος μόνο από agent",
+  "Waiting for agent :name to test the volume...": "Αναμονή για τον agent :name να δοκιμάσει τον τόμο...",
+  "Waiting for the agent to delete this file": "Αναμονή για τη διαγραφή αυτού του αρχείου από τον agent",
+  "Testing Connection...": "Δοκιμή σύνδεσης..."
 }
