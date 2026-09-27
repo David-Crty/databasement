@@ -291,3 +291,158 @@ test('discovery job with pattern filters databases', function () {
         && $request['databases'] === ['prod_users', 'prod_orders']
     );
 });
+
+describe('cleanup jobs', function () {
+    /**
+     * Build a claimable cleanup job payload targeting a real local directory,
+     * so the agent's own filesystem work is exercised rather than mocked.
+     *
+     * @return array{dir: string, file: string, job: array<string, mixed>}
+     */
+    function cleanupJobFixture(bool $createFile = true): array
+    {
+        $dir = sys_get_temp_dir().'/volume-test-'.uniqid('', true);
+        mkdir($dir.'/2026/02', 0755, true);
+
+        if ($createFile) {
+            file_put_contents($dir.'/2026/02/backup_testdb.sql.gz', 'archive');
+        }
+
+        return [
+            'dir' => $dir,
+            'file' => $dir.'/2026/02/backup_testdb.sql.gz',
+            'job' => [
+                'id' => 'job-cleanup-1',
+                'snapshot_id' => 'snap-456',
+                'payload' => [
+                    'type' => 'cleanup',
+                    'server_name' => 'prod-mysql',
+                    'snapshot_id' => 'snap-456',
+                    'targets' => [
+                        [
+                            'volume_id' => 'vol-1',
+                            'filename' => '2026/02/backup_testdb.sql.gz',
+                            'volume' => [
+                                'id' => 'vol-1',
+                                'type' => 'local',
+                                'name' => 'Test Volume',
+                                'config' => ['path' => $dir],
+                            ],
+                        ],
+                    ],
+                ],
+                'attempts' => 1,
+                'max_attempts' => 3,
+            ],
+        ];
+    }
+
+    test('deletes the file from the volume and reports the target as deleted', function () {
+        ['file' => $file, 'job' => $job] = cleanupJobFixture();
+
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => $job]),
+            '*/agent/jobs/job-cleanup-1/cleaned' => Http::response(['status' => 'ok', 'deleted' => true]),
+        ]);
+
+        $this->artisan('agent:run --once')
+            ->expectsOutputToContain('Processing cleanup job job-cleanup-1: 1 target(s)')
+            ->assertSuccessful();
+
+        expect(file_exists($file))->toBeFalse();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/cleaned')
+            && $request['targets'][0]['volume_id'] === 'vol-1'
+            && $request['targets'][0]['status'] === 'deleted'
+        );
+    });
+
+    test('reports an already absent file as deleted so a retry is idempotent', function () {
+        ['job' => $job] = cleanupJobFixture(createFile: false);
+
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => $job]),
+            '*/agent/jobs/job-cleanup-1/cleaned' => Http::response(['status' => 'ok', 'deleted' => true]),
+        ]);
+
+        $this->artisan('agent:run --once')->assertSuccessful();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/cleaned')
+            && $request['targets'][0]['status'] === 'deleted'
+        );
+    });
+
+    test('reports a target it cannot reach as failed instead of claiming success', function () {
+        ['job' => $job] = cleanupJobFixture();
+        $job['payload']['targets'][0]['volume']['type'] = 'nonexistent-driver';
+
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => $job]),
+            '*/agent/jobs/job-cleanup-1/cleaned' => Http::response(['status' => 'ok', 'deleted' => false]),
+        ]);
+
+        $this->artisan('agent:run --once')->assertSuccessful();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/cleaned')
+            && $request['targets'][0]['status'] === 'failed'
+            && $request['targets'][0]['error'] !== null
+        );
+    });
+});
+
+describe('volume test jobs', function () {
+    test('probes the volume and reports success', function () {
+        $dir = sys_get_temp_dir().'/volume-test-'.uniqid('', true);
+        mkdir($dir, 0755, true);
+
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => [
+                'id' => 'job-voltest-1',
+                'snapshot_id' => null,
+                'payload' => [
+                    'type' => 'volume_test',
+                    'volume' => ['id' => null, 'type' => 'local', 'name' => 'NAS', 'config' => ['path' => $dir]],
+                ],
+                'attempts' => 1,
+                'max_attempts' => 1,
+            ]]),
+            '*/agent/jobs/job-voltest-1/volume-tested' => Http::response(['status' => 'ok']),
+        ]);
+
+        $this->artisan('agent:run --once')
+            ->expectsOutputToContain('Processing volume test job job-voltest-1: NAS')
+            ->assertSuccessful();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/volume-tested')
+            && $request['success'] === true
+        );
+    });
+
+    test('reports the failure reason when the volume is unreachable', function () {
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => [
+                'id' => 'job-voltest-2',
+                'snapshot_id' => null,
+                'payload' => [
+                    'type' => 'volume_test',
+                    'volume' => ['id' => null, 'type' => 'sftp', 'name' => 'NAS', 'config' => ['host' => '203.0.113.1', 'port' => 22, 'username' => 'x', 'password' => 'y', 'root' => '/tmp', 'timeout' => 1]],
+                ],
+                'attempts' => 1,
+                'max_attempts' => 1,
+            ]]),
+            '*/agent/jobs/job-voltest-2/volume-tested' => Http::response(['status' => 'ok']),
+        ]);
+
+        $this->artisan('agent:run --once')->assertSuccessful();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/volume-tested')
+            && $request['success'] === false
+            && filled($request['message'])
+        );
+    });
+});

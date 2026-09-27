@@ -13,6 +13,7 @@ use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
+use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use Illuminate\Support\Facades\Crypt;
 use Livewire\Livewire;
@@ -578,11 +579,11 @@ describe('connection testing', function () {
         $mockFilesystem->shouldReceive('delete')->once();
 
         $mockProvider = Mockery::mock(FilesystemProvider::class);
-        $mockProvider->shouldReceive('getForVolume')
+        $mockProvider->shouldReceive('getForVolumeConfig')
             ->once()
-            ->withArgs(function (Volume $testedVolume) {
+            ->withArgs(function (VolumeConfig $testedConfig) {
                 // Verify the password was merged from persisted config
-                return $testedVolume->config['password'] === 'secret-password';
+                return $testedConfig->config['password'] === 'secret-password';
             })
             ->andReturn($mockFilesystem);
 

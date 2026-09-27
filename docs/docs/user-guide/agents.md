@@ -72,7 +72,27 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
 
 The **Agents** page shows each agent's connection status, so you can confirm it's polling.
 
+## Volumes behind an agent
+
+Storage that only exists inside the private network — a NAS, an internal S3, a mounted path on the agent's own machine — can be registered as a volume of its own. On the volume form, enable **Volume is only reachable from an agent** and pick the agent. From then on every operation on that volume runs there: the connection test, the uploads, and the deletions retention performs.
+
+The destination picker on a database server only offers volumes that server can actually write to:
+
+| Server | Volumes offered |
+|---|---|
+| Through agent X | volumes bound to agent X, plus network volumes bound to no agent |
+| No agent | volumes bound to no agent |
+
+A volume bound to an agent is never offered to another agent's servers, and the app's own local storage is never offered to an agent-backed server.
+
+## Retention and deletion
+
+Retention (days or GFS) is decided on the server, but the file removal is performed by the agent, because the volume is usually unreachable from the app. The server queues a cleanup job, the agent deletes the archives, and only once the agent confirms every copy is gone does the snapshot record disappear.
+
+If the agent cannot delete a copy, **the snapshot record is kept** and the copy is flagged on the snapshot, so the file stays visible and tracked instead of silently becoming an orphan on your storage. The next retention run tries again.
+
 ## Constraints
 
-- **No local volume** — the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
+- **No app-local volume** — the app's own local storage lives on the Databasement server's disk, which the agent cannot see. A **Local** volume *bound to the agent* is fine: that path is on the agent's machine.
 - **Backups only** — restore is not available for agent-backed servers.
+- **Deletion needs the agent online** — snapshots on an agent-backed volume are only removed once the agent confirms the file is gone.

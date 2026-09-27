@@ -259,6 +259,7 @@ use App\Enums\DatabaseType;
             $volumes = $form->getAllVolumes();
             $schedules = $form->getBackupSchedules();
             $volumeOptions = $form->getVolumeOptions();
+            $volumeOptionsKey = $form->getVolumeOptionsKey();
             $scheduleOptions = $form->getScheduleOptions();
         @endphp
 
@@ -285,6 +286,7 @@ use App\Enums\DatabaseType;
                             'volumes' => $volumes,
                             'schedules' => $schedules,
                             'volumeOptions' => $volumeOptions,
+                            'volumeOptionsKey' => $volumeOptionsKey,
                             'scheduleOptions' => $scheduleOptions,
                         ])
                     @endforeach

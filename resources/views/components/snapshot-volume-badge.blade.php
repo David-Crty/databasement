@@ -10,6 +10,14 @@
             'badge-ghost opacity-60',
             __('Upload pending'),
         ],
+        $file->status === \App\Enums\SnapshotFileStatus::Deleting => [
+            'badge-ghost opacity-60',
+            __('Waiting for the agent to delete this file'),
+        ],
+        $file->status === \App\Enums\SnapshotFileStatus::DeletionFailed => [
+            'badge-error',
+            $file->error ?: __('The agent could not delete this file'),
+        ],
         ! $file->file_exists => [
             'badge-warning',
             __('Backup file not found on volume'),

@@ -20,6 +20,19 @@ class AgentJob extends Model
 
     public const TYPE_DISCOVER = 'discover';
 
+    public const TYPE_CLEANUP = 'cleanup';
+
+    public const TYPE_VOLUME_TEST = 'volume_test';
+
+    /**
+     * Job types that target an agent directly instead of inheriting it from a
+     * database server. They carry no `database_server_id`, so `agent_id` is set
+     * at creation time rather than at claim time.
+     */
+    public const AGENT_TARGETED_TYPES = [
+        self::TYPE_VOLUME_TEST,
+    ];
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_CLAIMED = 'claimed';

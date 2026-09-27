@@ -1101,5 +1101,21 @@
   "{1} :count running|[2,*] :count running": "{1} 一個執行中|{2} 兩個執行中|[3,*] :count個執行中",
   "{1} :count weekly|[2,*] :count weekly": "{1} 一個每週|{2} 兩個每週|[3,*] :count個每週",
   "{1} Snapshots older than :count day will be deleted automatically during the next cleanup run.|[2,*] Snapshots older than :count days will be deleted automatically during the next cleanup run.": "{1} 超過一天的 Snapshots 將在下次清理時自動刪除。|{2} 超過兩天的 Snapshots 將在下次清理時自動刪除。|[3,*] 超過:count天的 Snapshots 將在下次清理時自動刪除。",
-  "{1} the last :count day|[2,*] the last :count days": "{1} 最近一天|{2} 最近兩天|[3,*] 最近:count天"
+  "{1} the last :count day|[2,*] the last :count days": "{1} 最近一天|{2} 最近兩天|[3,*] 最近:count天",
+  "Connection successful!": "連線成功！",
+  "Enable this when the storage lives inside your private network. Connection tests, uploads and deletions all run on the agent instead of this app.": "當儲存空間位於您的私有網路內時請啟用。連線測試、上傳與刪除都會在 agent 上執行，而非本應用程式。",
+  "No volume is available. Volumes bound to an agent are only offered to servers using that agent.": "沒有可用的儲存區。綁定到 agent 的儲存區只會提供給使用該 agent 的伺服器。",
+  "No volume is reachable from this agent. Create one and mark it as reachable from the agent.": "此 agent 無法存取任何儲存區。請建立一個並標記為可由該 agent 存取。",
+  "Select the agent that can reach this volume first.": "請先選擇可以存取此儲存區的 agent。",
+  "Snapshot deletion sent to the agent. It will disappear once the agent confirms the file was removed.": "已將 Snapshot 刪除請求送至 agent。待 agent 確認檔案已移除後即會消失。",
+  "Test Connection on the agent": "在 agent 上測試連線",
+  "The agent could not delete this file": "agent 無法刪除此檔案",
+  "The agent could not reach this volume.": "agent 無法存取此儲存區。",
+  "The agent did not respond. Check that it is running and connected.": "agent 沒有回應。請確認它正在執行且已連線。",
+  "The volume test was cancelled.": "此儲存區測試已取消。",
+  "This volume is only reachable from agent :name.": "此儲存區僅能由 agent :name 存取。",
+  "Volume is only reachable from an agent": "此儲存區僅能由 agent 存取",
+  "Waiting for agent :name to test the volume...": "等待 agent :name 測試此儲存區...",
+  "Waiting for the agent to delete this file": "等待 agent 刪除此檔案",
+  "Testing Connection...": "正在測試連線…"
 }

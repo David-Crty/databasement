@@ -6,10 +6,12 @@ use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Support\Formatters;
+use Illuminate\Support\Collection;
 
 class AgentJobPayloadBuilder
 {
@@ -50,6 +52,34 @@ class AgentJobPayloadBuilder
     }
 
     /**
+     * Build a self-contained work order payload for a cleanup agent job.
+     *
+     * Agents have no access to the app database, so every target carries the
+     * decrypted volume config and the exact key to remove.
+     *
+     * @param  Collection<int, SnapshotFile>  $files  Copies whose files must be removed
+     * @return array{
+     *     type: 'cleanup',
+     *     server_name: string|null,
+     *     snapshot_id: string,
+     *     targets: list<array{volume_id: string, filename: string, volume: array{id: string|null, type: string, name: string, config: array<string, mixed>}}>,
+     * }
+     */
+    public function buildCleanup(Snapshot $snapshot, Collection $files): array
+    {
+        return [
+            'type' => 'cleanup',
+            'server_name' => $snapshot->databaseServer->name,
+            'snapshot_id' => $snapshot->id,
+            'targets' => array_values($files->map(fn (SnapshotFile $file) => [
+                'volume_id' => $file->volume_id,
+                'filename' => $file->storedFilename(),
+                'volume' => VolumeConfig::fromVolume($file->volume)->toPayload(),
+            ])->all()),
+        ];
+    }
+
+    /**
      * Build a payload for a discovery agent job targeting one backup config.
      *
      * @param  'manual'|'scheduled'  $method
@@ -77,6 +107,25 @@ class AgentJobPayloadBuilder
             'server_name' => $server->name,
             'method' => $method,
             'triggered_by_user_id' => $triggeredByUserId,
+        ];
+    }
+
+    /**
+     * Build a self-contained work order for a volume connection test.
+     *
+     * The volume may not exist in the database yet (the form tests before
+     * saving), so the config is passed in rather than read from a model.
+     *
+     * @return array{
+     *     type: 'volume_test',
+     *     volume: array{id: string|null, type: string, name: string, config: array<string, mixed>},
+     * }
+     */
+    public function buildVolumeTest(VolumeConfig $volume): array
+    {
+        return [
+            'type' => 'volume_test',
+            'volume' => $volume->toPayload(),
         ];
     }
 
