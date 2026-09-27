@@ -73,6 +73,21 @@ describe('dispatch', function () {
         expect($agentJob->payload['volume']['id'])->toBe($s3->id);
     });
 
+    test('a restore whose copy vanishes before dispatch is failed instead of left pending', function () {
+        $target = DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => Agent::factory()->create()->id]);
+        $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+        $snapshot = Snapshot::factory()->forServer($source)->onVolumes(Volume::factory()->s3()->create())->create();
+        $restore = app(BackupJobFactory::class)->createRestore($snapshot, $target, 'restored_db');
+
+        $snapshot->files()->update(['file_exists' => false]);
+
+        expect(fn () => app(DispatchRestoreAction::class)->execute($restore))
+            ->toThrow(RuntimeException::class, 'No copy of this snapshot is available');
+
+        expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Failed)
+            ->and(AgentJob::where('restore_id', $restore->id)->exists())->toBeFalse();
+    });
+
     test('an agent-backed target is rejected when the snapshot only exists on a local volume', function () {
         dispatchAgentRestore(Agent::factory()->create(), Volume::factory()->local()->create());
     })->throws(ValidationException::class, 'cannot read snapshots stored on a local volume');

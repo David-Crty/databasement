@@ -6,6 +6,7 @@ use App\Jobs\ProcessRestoreJob;
 use App\Models\AgentJob;
 use App\Models\Restore;
 use App\Services\Agent\AgentJobPayloadBuilder;
+use RuntimeException;
 
 class DispatchRestoreAction
 {
@@ -27,6 +28,17 @@ class DispatchRestoreAction
             return;
         }
 
+        // Without a payload no agent job exists to fail the restore later, so
+        // fail it here rather than leave it pending until it times out.
+        try {
+            $payload = $this->payloadBuilder->buildRestore($restore);
+        } catch (RuntimeException $e) {
+            $restore->job->log("Restore failed: {$e->getMessage()}", 'error');
+            $restore->job->markFailed($e);
+
+            throw $e;
+        }
+
         // Never retried: a restore drops and recreates the target database,
         // so a second run after a lost agent is worse than a reported failure.
         AgentJob::create([
@@ -34,7 +46,7 @@ class DispatchRestoreAction
             'database_server_id' => $targetServer->id,
             'restore_id' => $restore->id,
             'status' => AgentJob::STATUS_PENDING,
-            'payload' => $this->payloadBuilder->buildRestore($restore),
+            'payload' => $payload,
             'max_attempts' => 1,
         ]);
     }
