@@ -2062,14 +2062,16 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.8] - 2026-09-20 {#v1-8}
+## [1.8] - 2026-09-28 {#v1-8}
 
 ### Added
 
+- `1.8.1` Database servers behind a remote agent can be restored onto, so a staging database the app cannot reach directly can be refreshed from a snapshot. Restores from the UI, the API, the MCP server and scheduled restores are all handed to the server's agent, which must run 1.8.1 or later; an agent restore runs once and is failed rather than retried when its agent disappears or never claims it. Before this, API, MCP and scheduled restores onto such a server were queued on the app, which cannot reach it ([#633](https://github.com/David-Crty/databasement/pull/633))
 - `1.8.0` A scheduled restore that is disabled can still be run on demand: "Run now" asks for confirmation, runs the flow and leaves it paused, so a flow meant to run only manually no longer has to be enabled and disabled around every run. The button also reports the real outcome instead of always claiming success ([#626](https://github.com/David-Crty/databasement/pull/626))
 
 ### Fixed
 
+- `1.8.1` Jobs run by remote agents are reported like jobs on the app's own queue: a backup completed by an agent sends the success notification, a backup or restore whose agent stops responding is failed with a notification, and a database discovery the agent cannot run records a failed snapshot and notifies instead of failing silently. A discovery whose pattern matches no database completes without backups rather than failing, and a manually triggered discovery is skipped while one is already running for the same backup ([#634](https://github.com/David-Crty/databasement/pull/634))
 - `1.8.0` MySQL 5.5 and 5.6 and MariaDB below 10.2 can be backed up: the image now ships Oracle's MySQL client alongside `mariadb-dump` and each server is dumped with the client its version needs, which also retires the 1.7.1 workaround that dropped stored routines from the dumps of MySQL 26.x servers. The dump command preview on the server form names the client the backup would really run ([#627](https://github.com/David-Crty/databasement/pull/627)) ([#628](https://github.com/David-Crty/databasement/pull/628))
 
 ## [1.7] - 2026-09-18 {#v1-7}
@@ -3822,7 +3824,7 @@ For significant changes, open an issue first to discuss the approach.
 ## Remote Agents
 
 
-A remote **agent** backs up databases that Databasement cannot reach directly — without opening any inbound port to them.
+A remote **agent** backs up and restores databases that Databasement cannot reach directly — without opening any inbound port to them.
 
 Instead of Databasement connecting **in** to your database (as an [SSH tunnel](./ssh-tunnel.md) does), you run a small agent next to the database that connects **out** to Databasement. The database stays completely private; only outbound HTTPS is ever needed.
 
@@ -3832,7 +3834,7 @@ The SSH tunnel needs **inbound** access (Databasement reaches into the network).
 
 ## How it works
 
-The agent is the same Databasement image running in agent mode (`agent:run`). It polls the server over HTTPS, claims any job assigned to it, runs the dump on its own network, uploads the result straight to your storage volume, and reports back. It never receives an inbound connection and never touches the server's database.
+The agent is the same Databasement image running in agent mode (`agent:run`). It polls the server over HTTPS, claims any job assigned to it, runs the dump (or the restore) on its own network, moves the snapshot straight between the database and your storage volume, and reports back. It never receives an inbound connection and never touches the server's database.
 
 ```mermaid
 flowchart TB
@@ -3886,14 +3888,25 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
 
    When `DATABASEMENT_URL` is set, the container runs in agent mode — it only executes `agent:run` and needs no database configuration of its own.
 
-3. **Assign the agent** to a database server by setting its **Agent** field. From then on, that server's backups run through the agent.
+3. **Assign the agent** to a database server by setting its **Agent** field. From then on, that server's backups, and any restore that targets it, run through the agent.
 
 The **Agents** page shows each agent's connection status, so you can confirm it's polling.
 
 ## Constraints
 
 - **No local volume** — the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
-- **Backups only** — restore is not available for agent-backed servers.
+- **Restores read from a reachable volume** — a restore onto an agent-backed server downloads the snapshot on the agent's network, so the snapshot must have a copy on a volume the agent can reach. Copies on the server's local storage are not offered as a source.
+- **Restores are never retried** — a restore drops and recreates the target database, so a restore interrupted by a lost agent is reported as failed rather than run again. It is given the full backup job timeout to finish, and fails if no agent claims it within that time.
+
+## Restoring through an agent
+
+Restoring onto an agent-backed server works like any other restore: pick the server as the target from the UI, the API, the MCP server, or a [scheduled restore](./snapshots.md#scheduled-restores). Instead of running on Databasement's queue, the restore is handed to the server's agent, which downloads the snapshot, restores it, and streams its logs back to the restore's job.
+
+This makes agent-backed servers usable for recurring production-to-staging refreshes, where staging sits in a network Databasement cannot reach.
+
+:::info Update your agents
+Agents only pick up restore jobs once they run a version that supports them. An older agent keeps running backups but leaves restores pending until they time out, so update the agent image before restoring onto its servers.
+:::
 
 ---
 

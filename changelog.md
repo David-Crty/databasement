@@ -14,14 +14,16 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.8] - 2026-09-20 {#v1-8}
+## [1.8] - 2026-09-28 {#v1-8}
 
 ### Added
 
+- `1.8.1` Database servers behind a remote agent can be restored onto, so a staging database the app cannot reach directly can be refreshed from a snapshot. Restores from the UI, the API, the MCP server and scheduled restores are all handed to the server's agent, which must run 1.8.1 or later; an agent restore runs once and is failed rather than retried when its agent disappears or never claims it. Before this, API, MCP and scheduled restores onto such a server were queued on the app, which cannot reach it ([#633](https://github.com/David-Crty/databasement/pull/633))
 - `1.8.0` A scheduled restore that is disabled can still be run on demand: "Run now" asks for confirmation, runs the flow and leaves it paused, so a flow meant to run only manually no longer has to be enabled and disabled around every run. The button also reports the real outcome instead of always claiming success ([#626](https://github.com/David-Crty/databasement/pull/626))
 
 ### Fixed
 
+- `1.8.1` Jobs run by remote agents are reported like jobs on the app's own queue: a backup completed by an agent sends the success notification, a backup or restore whose agent stops responding is failed with a notification, and a database discovery the agent cannot run records a failed snapshot and notifies instead of failing silently. A discovery whose pattern matches no database completes without backups rather than failing, and a manually triggered discovery is skipped while one is already running for the same backup ([#634](https://github.com/David-Crty/databasement/pull/634))
 - `1.8.0` MySQL 5.5 and 5.6 and MariaDB below 10.2 can be backed up: the image now ships Oracle's MySQL client alongside `mariadb-dump` and each server is dumped with the client its version needs, which also retires the 1.7.1 workaround that dropped stored routines from the dumps of MySQL 26.x servers. The dump command preview on the server form names the client the backup would really run ([#627](https://github.com/David-Crty/databasement/pull/627)) ([#628](https://github.com/David-Crty/databasement/pull/628))
 
 ## [1.7] - 2026-09-18 {#v1-7}
