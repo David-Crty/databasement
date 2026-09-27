@@ -152,7 +152,7 @@ class BackupJobFactory
      *
      * @param  'manual'|'scheduled'  $method
      */
-    private function recordPreflightFailure(
+    public function recordPreflightFailure(
         Backup $backup,
         string $method,
         ?int $triggeredByUserId,

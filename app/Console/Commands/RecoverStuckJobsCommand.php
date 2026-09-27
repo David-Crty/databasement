@@ -59,9 +59,7 @@ class RecoverStuckJobsCommand extends Command
                 $errorMessage = "Max attempts ({$job->max_attempts}) exceeded with expired lease.";
                 $job->markFailed($errorMessage);
 
-                $job->trackedJob()?->markFailed(
-                    new RuntimeException("Agent job failed: {$errorMessage}")
-                );
+                $job->handler()->fail($job, new RuntimeException("Agent job failed: {$errorMessage}"), []);
                 $failedCount++;
             }
         }

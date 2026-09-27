@@ -31,10 +31,14 @@ class DiscoveryJobHandler implements AgentJobHandler
         return null;
     }
 
+    /**
+     * A pattern may match no database, which completes without backups,
+     * as it does on the app's own queue.
+     */
     public function completionRules(): array
     {
         return [
-            'databases' => 'required|array|min:1',
+            'databases' => 'present|array',
             'databases.*' => 'required|string|max:255|distinct',
         ];
     }
@@ -45,15 +49,7 @@ class DiscoveryJobHandler implements AgentJobHandler
     public function complete(AgentJob $agentJob, array $result): array
     {
         $payload = $agentJob->payload;
-        $backupId = $payload['backup_id'] ?? null;
-
-        /** @var Backup|null $backup */
-        $backup = $backupId !== null
-            ? Backup::with(['databaseServer', 'volumes'])
-                ->where('id', $backupId)
-                ->where('database_server_id', $agentJob->database_server_id)
-                ->first()
-            : null;
+        $backup = $this->backup($agentJob);
 
         abort_if($backup === null, 422, 'Backup configuration not found for this discovery job.');
 
@@ -78,5 +74,38 @@ class DiscoveryJobHandler implements AgentJobHandler
         return [];
     }
 
-    public function fail(AgentJob $agentJob, Throwable $exception, array $result): void {}
+    /**
+     * Record a failed snapshot and notify, as the app's own queue does when
+     * it cannot list a server's databases.
+     */
+    public function fail(AgentJob $agentJob, Throwable $exception, array $result): void
+    {
+        $payload = $agentJob->payload;
+        $backup = $this->backup($agentJob);
+
+        if ($backup === null) {
+            return;
+        }
+
+        $this->backupJobFactory->recordPreflightFailure(
+            $backup,
+            $payload['method'] ?? 'manual',
+            $payload['triggered_by_user_id'] ?? null,
+            $exception,
+        );
+    }
+
+    private function backup(AgentJob $agentJob): ?Backup
+    {
+        $backupId = $agentJob->payload['backup_id'] ?? null;
+
+        if ($backupId === null) {
+            return null;
+        }
+
+        return Backup::with(['databaseServer', 'volumes'])
+            ->where('id', $backupId)
+            ->where('database_server_id', $agentJob->database_server_id)
+            ->first();
+    }
 }

@@ -71,6 +71,8 @@ class BackupJobHandler implements AgentJobHandler
         } else {
             $snapshot->markCompleted($result['checksum'] ?? null);
             $backupJob->markCompleted();
+
+            $this->notificationService->notifyBackupSuccess($snapshot);
         }
 
         return [];

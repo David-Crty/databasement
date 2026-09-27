@@ -5,7 +5,10 @@ use App\Facades\AppConfig;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
+use App\Models\NotificationChannel;
 use App\Models\Snapshot;
+use App\Notifications\BackupFailedNotification;
+use Illuminate\Support\Facades\Notification;
 
 // --- Agent job recovery (existing behavior) ---
 
@@ -25,7 +28,10 @@ test('recovers expired claimed agent jobs by resetting to pending', function () 
         ->and($job->lease_expires_at)->toBeNull();
 });
 
-test('fails agent jobs that exceeded max attempts', function () {
+test('fails agent jobs that exceeded max attempts and notifies', function () {
+    Notification::fake();
+    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
     $agent = Agent::factory()->create();
     $job = AgentJob::factory()->expiredLease($agent)->create([
         'attempts' => 3,
@@ -41,6 +47,7 @@ test('fails agent jobs that exceeded max attempts', function () {
 
     // BackupJob should be failed too
     expect($job->snapshot->fresh()->job->status)->toBe(BackupJobStatus::Failed);
+    Notification::assertSentTimes(BackupFailedNotification::class, 1);
 });
 
 test('fails expired discovery jobs without a snapshot', function () {
