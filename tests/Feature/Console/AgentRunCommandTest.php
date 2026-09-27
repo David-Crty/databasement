@@ -4,7 +4,9 @@ use App\Enums\SnapshotFileStatus;
 use App\Exceptions\Backup\VolumeTransferException;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
+use App\Services\Backup\RestoreTask;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -290,4 +292,74 @@ test('discovery job with pattern filters databases', function () {
     Http::assertSent(fn ($request) => str_contains($request->url(), '/discovered-databases')
         && $request['databases'] === ['prod_users', 'prod_orders']
     );
+});
+
+describe('restore jobs', function () {
+    beforeEach(function () {
+        $this->restoreJob = [
+            'id' => 'job-789',
+            'snapshot_id' => null,
+            'payload' => (new \App\Services\Backup\DTO\RestoreConfig(
+                targetServer: new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+                    databaseType: \App\Enums\DatabaseType::MYSQL,
+                    serverName: 'staging-mysql',
+                    host: '127.0.0.1',
+                    port: 3306,
+                    username: 'root',
+                    password: 'secret',
+                ),
+                snapshotVolume: new \App\Services\Backup\DTO\VolumeConfig('s3', 'Offsite', ['bucket' => 'backups']),
+                snapshotFilename: 'backup_testdb.sql.gz',
+                snapshotFileSize: 1024,
+                snapshotCompressionType: \App\Enums\CompressionType::GZIP,
+                snapshotDatabaseType: \App\Enums\DatabaseType::MYSQL,
+                snapshotDatabaseName: 'testdb',
+                schemaName: 'restored_db',
+                workingDirectory: '',
+            ))->toPayload(),
+            'attempts' => 1,
+            'max_attempts' => 1,
+        ];
+    });
+
+    test('advertises restore support and acknowledges a completed restore', function () {
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => $this->restoreJob]),
+            '*/agent/jobs/job-789/ack' => Http::response(['status' => 'ok']),
+        ]);
+
+        $this->mock(RestoreTask::class)->shouldReceive('execute')->once()
+            ->withArgs(fn (RestoreConfig $config) => $config->schemaName === 'restored_db'
+                && $config->snapshotVolume->type === 's3'
+                && $config->targetServer->serverName === 'staging-mysql');
+
+        $this->artisan('agent:run --once')
+            ->expectsOutputToContain('Processing restore job job-789: staging-mysql / restored_db')
+            ->expectsOutputToContain('Restore completed: restored_db')
+            ->assertSuccessful();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/claim')
+            && in_array('restore', $request['job_types'], true));
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-789/ack')
+            && ! isset($request['filename']));
+    });
+
+    test('reports a failed restore', function () {
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => $this->restoreJob]),
+            '*/agent/jobs/job-789/fail' => Http::response(['status' => 'ok']),
+        ]);
+
+        $this->mock(RestoreTask::class)->shouldReceive('execute')->once()
+            ->andThrow(new RuntimeException('Access denied for user'));
+
+        $this->artisan('agent:run --once')
+            ->expectsOutputToContain('Restore failed: Access denied for user')
+            ->assertSuccessful();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-789/fail')
+            && $request['error_message'] === 'Access denied for user');
+    });
 });

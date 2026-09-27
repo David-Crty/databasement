@@ -5,11 +5,14 @@ namespace App\Services\Agent;
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use App\Models\Backup;
+use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
+use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Support\Formatters;
+use RuntimeException;
 
 class AgentJobPayloadBuilder
 {
@@ -78,6 +81,31 @@ class AgentJobPayloadBuilder
             'method' => $method,
             'triggered_by_user_id' => $triggeredByUserId,
         ];
+    }
+
+    /**
+     * Build a self-contained work order payload for a restore agent job.
+     *
+     * The source copy is fixed here rather than at run time: the agent cannot
+     * look it up, so it reads the user's pick or the first copy it can reach.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildRestore(Restore $restore): array
+    {
+        $copies = $restore->snapshot->files()->completed()->fileExists()->reachableByAgent()->with('volume');
+
+        if ($restore->snapshot_file_id !== null) {
+            $copies->whereKey($restore->snapshot_file_id);
+        }
+
+        $sourceFile = $copies->oldest('id')->first();
+
+        if ($sourceFile === null) {
+            throw new RuntimeException('No copy of this snapshot is available on a volume the agent can reach.');
+        }
+
+        return RestoreConfig::fromRestore($restore, $sourceFile, '')->toPayload();
     }
 
     private function resolveBackupPath(?string $path): string

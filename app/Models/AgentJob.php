@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Facades\AppConfig;
 use Database\Factories\AgentJobFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,6 +21,8 @@ class AgentJob extends Model
 
     public const TYPE_DISCOVER = 'discover';
 
+    public const TYPE_RESTORE = 'restore';
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_CLAIMED = 'claimed';
@@ -35,6 +38,7 @@ class AgentJob extends Model
         'database_server_id',
         'agent_id',
         'snapshot_id',
+        'restore_id',
         'status',
         'payload',
         'lease_expires_at',
@@ -81,6 +85,44 @@ class AgentJob extends Model
     public function snapshot(): BelongsTo
     {
         return $this->belongsTo(Snapshot::class);
+    }
+
+    /**
+     * @return BelongsTo<Restore, AgentJob>
+     */
+    public function restore(): BelongsTo
+    {
+        return $this->belongsTo(Restore::class);
+    }
+
+    /**
+     * The app-side job record this agent job reports its status and logs to:
+     * the snapshot's job for backups, the restore's job for restores, and
+     * none for discovery.
+     */
+    public function trackedJob(): ?BackupJob
+    {
+        return match ($this->type) {
+            self::TYPE_BACKUP => $this->snapshot?->job,
+            self::TYPE_RESTORE => $this->restore?->job,
+            default => null,
+        };
+    }
+
+    /**
+     * Seconds a claim or heartbeat keeps this job leased.
+     *
+     * A restore runs one long, uninterruptible command that cannot heartbeat
+     * midway, and it is never retried, so its lease spans the whole job
+     * timeout, as the queued restore path does.
+     */
+    public function leaseDuration(): int
+    {
+        if ($this->type === self::TYPE_RESTORE) {
+            return max(1, (int) AppConfig::get('backup.job_timeout'));
+        }
+
+        return max(1, (int) config('agent.lease_duration', 300));
     }
 
     /**

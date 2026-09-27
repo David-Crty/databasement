@@ -38,9 +38,11 @@ class RestoreTask
      * Execute the core restore workflow: download, decompress, prepare, restore.
      *
      * This is the pure restore engine with no model persistence.
-     * `ProcessRestoreJob` delegates to this method.
+     * `ProcessRestoreJob` and the remote agent delegate to this method.
+     *
+     * @param  callable|null  $onProgress  Called after the download, decompression, and restore steps
      */
-    public function execute(RestoreConfig $config, BackupLogger $logger): void
+    public function execute(RestoreConfig $config, BackupLogger $logger, ?callable $onProgress = null): void
     {
         $this->shellProcessor->setLogger($logger);
         $target = $config->targetServer;
@@ -74,8 +76,16 @@ class RestoreTask
             $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
             $logger->log('Download completed successfully in '.$transferDuration, 'success');
 
+            if ($onProgress !== null) {
+                $onProgress();
+            }
+
             // Decompress the archive
             $workingFile = $compressor->decompress($compressedFile);
+
+            if ($onProgress !== null) {
+                $onProgress();
+            }
 
             $database = $this->databaseProvider->makeFromConfig(
                 $target,
@@ -100,6 +110,10 @@ class RestoreTask
             }
             if ($result->log !== null) {
                 $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
+            }
+
+            if ($onProgress !== null) {
+                $onProgress();
             }
 
             if ($config->ownerUser !== null && $database instanceof Databases\PostgresqlDatabase) {

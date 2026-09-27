@@ -29,7 +29,7 @@ class AgentApiClient
      */
     public function claimJob(): ?array
     {
-        $response = $this->post('/agent/jobs/claim');
+        $response = $this->post('/agent/jobs/claim', ['job_types' => ['backup', 'discover', 'restore']]);
 
         if ($response->status() === 401 || $response->status() === 403) {
             throw new AgentAuthenticationException('Authentication failed. Please check your DATABASEMENT_AGENT_TOKEN.');
@@ -74,6 +74,22 @@ class AgentApiClient
                 'file_size' => $fileSize,
                 'checksum' => $checksum,
                 'volumes' => $volumeResults,
+                'logs' => $logs,
+            ])->throw();
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $logs
+     */
+    public function ackRestore(string $jobId, array $logs = []): void
+    {
+        $baseUrl = rtrim($this->url, '/');
+
+        Http::withToken($this->token)
+            ->accept('application/json')
+            ->timeout(30)
+            ->retry(3, 1000)
+            ->post("{$baseUrl}/api/v1/agent/jobs/{$jobId}/ack", [
                 'logs' => $logs,
             ])->throw();
     }

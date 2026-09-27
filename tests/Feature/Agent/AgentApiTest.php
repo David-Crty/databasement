@@ -609,7 +609,7 @@ describe('job state guards', function () {
         $this->withToken($token)
             ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack")
             ->assertStatus(422)
-            ->assertJsonPath('message', 'Only backup jobs can be acknowledged.');
+            ->assertJsonPath('message', 'Only backup and restore jobs can be acknowledged.');
     });
 });
 

@@ -34,7 +34,7 @@ class RecoverStuckJobsCommand extends Command
     private function recoverAgentJobs(): bool
     {
         $expiredJobs = AgentJob::query()
-            ->with(['snapshot.job'])
+            ->with(['snapshot.job', 'restore.job'])
             ->whereIn('status', [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])
             ->where('lease_expires_at', '<', now())
             ->get();
@@ -58,8 +58,7 @@ class RecoverStuckJobsCommand extends Command
                 $errorMessage = "Max attempts ({$job->max_attempts}) exceeded with expired lease.";
                 $job->markFailed($errorMessage);
 
-                // Discovery jobs have no snapshot; only backup jobs carry one to fail.
-                $job->snapshot?->job->markFailed(
+                $job->trackedJob()?->markFailed(
                     new RuntimeException("Agent job failed: {$errorMessage}")
                 );
                 $failedCount++;
@@ -106,6 +105,14 @@ class RecoverStuckJobsCommand extends Command
                 new RuntimeException('Job timed out: stuck in '.$job->status->value.' state beyond the configured timeout.')
             );
         }
+
+        // A restore an agent never picked up must not run once it is reported failed.
+        AgentJob::query()
+            ->where('type', AgentJob::TYPE_RESTORE)
+            ->where('status', AgentJob::STATUS_PENDING)
+            ->whereHas('restore', fn ($query) => $query->whereIn('backup_job_id', $stuckJobs->modelKeys()))
+            ->get()
+            ->each(fn (AgentJob $agentJob) => $agentJob->markFailed('Restore timed out before an agent claimed it.'));
 
         $this->info("Backup jobs: failed {$stuckJobs->count()} stuck job(s).");
 

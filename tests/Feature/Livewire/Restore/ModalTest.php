@@ -71,24 +71,42 @@ test('from-server mode: queues restore job and dispatches restore-created', func
         ->and($restore->job->status)->toBe(BackupJobStatus::Pending);
 });
 
-test('rejects restore when the target server is agent-backed', function () {
+test('restoring onto an agent-backed server hands the job to its agent', function () {
     Queue::fake();
 
     $agent = \App\Models\Agent::factory()->create();
     $agentTarget = DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => $agent->id]);
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
-    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
+    $snapshot = Snapshot::factory()->forServer($source)
+        ->onVolumes(\App\Models\Volume::factory()->s3()->create())
+        ->create();
 
-    // Craft a request that bypasses the UI picker, which hides agent-backed servers.
     Livewire::test(Modal::class)
-        ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
-        ->set('targetServerId', $agentTarget->id)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $agentTarget->id)
+        ->call('selectSnapshot', $snapshot->id)
         ->set('schemaName', 'restored_db')
         ->call('restore')
-        ->assertNotDispatched('restore-created');
+        ->assertDispatched('restore-created');
 
     Queue::assertNothingPushed();
-    expect(Restore::count())->toBe(0);
+    expect(\App\Models\AgentJob::where('type', \App\Models\AgentJob::TYPE_RESTORE)->count())->toBe(1);
+});
+
+test('an agent-backed target only offers source copies its agent can reach', function () {
+    $agent = \App\Models\Agent::factory()->create();
+    $agentTarget = DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => $agent->id]);
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $local = \App\Models\Volume::factory()->local()->create();
+    $s3 = \App\Models\Volume::factory()->s3()->create();
+    $otherS3 = \App\Models\Volume::factory()->s3()->create();
+    $snapshot = Snapshot::factory()->forServer($source)->onVolumes($local, $s3, $otherS3)->create();
+
+    $component = Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
+        ->set('targetServerId', $agentTarget->id);
+
+    expect(array_column($component->get('sourceFileOptions'), 'name'))->toBe([$s3->name, $otherS3->name])
+        ->and($component->get('selectedSnapshotFileId'))->toBe($snapshot->files()->where('volume_id', $s3->id)->value('id'));
 });
 
 test('from-server mode: only shows snapshots matching target database type', function () {

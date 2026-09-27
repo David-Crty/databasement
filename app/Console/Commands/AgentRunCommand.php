@@ -9,8 +9,10 @@ use App\Services\Agent\AgentAuthenticationException;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\BackupConfig;
+use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Services\Backup\InMemoryBackupLogger;
+use App\Services\Backup\RestoreTask;
 use App\Support\FilesystemSupport;
 use Illuminate\Console\Command;
 
@@ -18,11 +20,11 @@ class AgentRunCommand extends Command
 {
     protected $signature = 'agent:run {--once : Run a single poll iteration and exit}';
 
-    protected $description = 'Run the remote backup agent (polls for jobs from the Databasement server)';
+    protected $description = 'Run the remote agent (polls the Databasement server for backup and restore jobs)';
 
     private bool $shouldStop = false;
 
-    public function handle(BackupTask $backupTask): int
+    public function handle(BackupTask $backupTask, RestoreTask $restoreTask): int
     {
         $url = config('agent.url');
         $token = config('agent.token');
@@ -53,6 +55,8 @@ class AgentRunCommand extends Command
 
                     if ($jobType === 'discover') {
                         $this->executeDiscoveryJob($job, $client);
+                    } elseif ($jobType === 'restore') {
+                        $this->executeRestoreJob($job, $client, $restoreTask);
                     } else {
                         $this->executeBackupJob($job, $client, $backupTask);
                     }
@@ -138,6 +142,41 @@ class AgentRunCommand extends Command
         } catch (\Throwable $e) {
             $logger->log("Backup failed: {$e->getMessage()}", 'error');
             $this->log("Job failed: {$e->getMessage()}", 'error');
+            $client->fail($job['id'], $e->getMessage(), $logger->flush());
+        }
+    }
+
+    /**
+     * @param  array{id: string, payload: array<string, mixed>}  $job
+     */
+    private function executeRestoreJob(array $job, AgentApiClient $client, RestoreTask $restoreTask): void
+    {
+        $logger = new InMemoryBackupLogger;
+
+        try {
+            $payload = $job['payload'];
+            $schemaName = $payload['schema_name'] ?? '';
+
+            $this->log("Processing restore job {$job['id']}: {$payload['server_name']} / {$schemaName}");
+
+            $logger->log("Starting restore to database: {$schemaName}", 'info');
+
+            $config = RestoreConfig::fromPayload(
+                $payload, // @phpstan-ignore argument.type
+                FilesystemSupport::createWorkingDirectory('restore', $job['id']),
+            );
+
+            $restoreTask->execute(
+                $config,
+                $logger,
+                onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
+            );
+
+            $client->ackRestore($job['id'], $logger->flush());
+            $this->log("Restore completed: {$schemaName}");
+        } catch (\Throwable $e) {
+            $logger->log("Restore failed: {$e->getMessage()}", 'error');
+            $this->log("Restore failed: {$e->getMessage()}", 'error');
             $client->fail($job['id'], $e->getMessage(), $logger->flush());
         }
     }

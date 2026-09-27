@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\Backup;
+use App\Models\BackupJob;
 use App\Models\DatabaseServer;
+use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Rules\SafePath;
 use App\Services\Agent\AgentJobPayloadBuilder;
@@ -63,16 +65,23 @@ class AgentController extends Controller
     /**
      * Claim the next available job.
      *
-     * Atomically claims the next pending job for this agent.
+     * Atomically claims the next pending job for this agent. `job_types`
+     * lists the job types the agent can run; agents that predate restore
+     * support send none and are only handed backup and discovery jobs.
      */
     public function claimJob(Request $request): JsonResponse
     {
         /** @var Agent $agent */
         $agent = $request->user();
 
-        $leaseDuration = max(1, (int) config('agent.lease_duration', 300));
+        $validated = $request->validate([
+            'job_types' => 'nullable|array',
+            'job_types.*' => 'string',
+        ]);
 
-        $job = DB::transaction(function () use ($agent, $leaseDuration): ?AgentJob {
+        $jobTypes = $validated['job_types'] ?? [AgentJob::TYPE_BACKUP, AgentJob::TYPE_DISCOVER];
+
+        $job = DB::transaction(function () use ($agent, $jobTypes): ?AgentJob {
             /** @var AgentJob|null $job */
             $job = AgentJob::query()
                 ->where(function ($query) {
@@ -83,6 +92,7 @@ class AgentController extends Controller
                         });
                 })
                 ->whereColumn('attempts', '<', 'max_attempts')
+                ->whereIn('type', $jobTypes)
                 ->whereRelation('databaseServer', 'agent_id', $agent->id)
                 ->orderBy('created_at')
                 ->lockForUpdate()
@@ -92,12 +102,9 @@ class AgentController extends Controller
                 return null;
             }
 
-            $job->claim($agent, $leaseDuration);
+            $job->claim($agent, $job->leaseDuration());
 
-            // Mark the backup job as running (only for backup jobs with a snapshot)
-            if ($job->type === AgentJob::TYPE_BACKUP && $job->snapshot) {
-                $job->snapshot->job->markRunning();
-            }
+            $job->trackedJob()?->markRunning();
 
             return $job;
         });
@@ -137,14 +144,10 @@ class AgentController extends Controller
 
         $validated = $request->validate(self::logRules());
 
-        $leaseDuration = max(1, (int) config('agent.lease_duration', 300));
-        $agentJob->extendLease($leaseDuration);
+        $agentJob->extendLease($agentJob->leaseDuration());
 
-        if (! empty($validated['logs']) && $agentJob->snapshot) {
-            $backupJob = $agentJob->snapshot->job;
-            $backupJob->update([
-                'logs' => array_merge($backupJob->logs ?? [], $validated['logs']),
-            ]);
+        if (! empty($validated['logs']) && ($trackedJob = $agentJob->trackedJob()) !== null) {
+            $this->appendLogs($trackedJob, $validated['logs']);
         }
 
         return response()->json(['status' => 'ok']);
@@ -168,8 +171,12 @@ class AgentController extends Controller
             return response()->json(['message' => "Cannot acknowledge a job with status '{$agentJob->status}'."], 409);
         }
 
+        if ($agentJob->type === AgentJob::TYPE_RESTORE && $agentJob->restore) {
+            return $this->ackRestore($request, $agentJob, $agentJob->restore);
+        }
+
         if ($agentJob->type !== AgentJob::TYPE_BACKUP || ! $agentJob->snapshot) {
-            return response()->json(['message' => 'Only backup jobs can be acknowledged.'], 422);
+            return response()->json(['message' => 'Only backup and restore jobs can be acknowledged.'], 422);
         }
 
         $validated = $request->validate([
@@ -219,6 +226,35 @@ class AgentController extends Controller
         }
 
         return response()->json(['status' => 'ok']);
+    }
+
+    private function ackRestore(Request $request, AgentJob $agentJob, Restore $restore): JsonResponse
+    {
+        $validated = $request->validate(self::logRules());
+
+        $restoreJob = $restore->job;
+        $this->appendLogs($restoreJob, $validated['logs'] ?? []);
+
+        $agentJob->markCompleted();
+        $restoreJob->markCompleted();
+
+        app(NotificationService::class)->notifyRestoreSuccess($restore);
+
+        return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $logs
+     */
+    private function appendLogs(BackupJob $job, array $logs): void
+    {
+        if ($logs === []) {
+            return;
+        }
+
+        $job->update([
+            'logs' => array_merge($job->logs ?? [], $logs),
+        ]);
     }
 
     /**
@@ -319,6 +355,18 @@ class AgentController extends Controller
         ]);
 
         $agentJob->markFailed($validated['error_message']);
+
+        if ($agentJob->type === AgentJob::TYPE_RESTORE && $agentJob->restore) {
+            $restore = $agentJob->restore;
+            $this->appendLogs($restore->job, $validated['logs'] ?? []);
+
+            $exception = new RuntimeException($validated['error_message']);
+            $restore->job->markFailed($exception);
+
+            app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
+
+            return response()->json(['status' => 'ok']);
+        }
 
         // Only update backup job logs/status for backup jobs (discovery jobs have no snapshot)
         if ($agentJob->snapshot) {

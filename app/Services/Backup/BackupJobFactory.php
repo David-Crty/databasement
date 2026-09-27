@@ -210,6 +210,20 @@ class BackupJobFactory
             ]);
         }
 
+        if ($targetServer->agent_id !== null) {
+            $reachableCopies = $snapshot->files()->completed()->fileExists()->reachableByAgent();
+
+            if ($snapshotFileId !== null) {
+                $reachableCopies->whereKey($snapshotFileId);
+            }
+
+            if ($reachableCopies->doesntExist()) {
+                throw ValidationException::withMessages([
+                    $snapshotFileId !== null ? 'snapshot_file_id' : 'snapshot_id' => 'The target server runs through a remote agent, which cannot read snapshots stored on a local volume.',
+                ]);
+            }
+        }
+
         // Tenant boundary, enforced here because scheduled restores reach this
         // factory from the CLI, where no organization scope is active.
         $sourceOrganizationId = DatabaseServer::withoutGlobalScope(OrganizationScope::class)

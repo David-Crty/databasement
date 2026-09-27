@@ -2,7 +2,6 @@
 
 namespace App\Services\Backup;
 
-use App\Jobs\ProcessRestoreJob;
 use App\Models\BackupJob;
 use App\Models\Restore;
 use App\Models\ScheduledRestore;
@@ -15,6 +14,7 @@ class RunScheduledRestoreAction
     public function __construct(
         private BackupJobFactory $backupJobFactory,
         private LatestSnapshotResolver $resolver,
+        private DispatchRestoreAction $dispatchRestore,
     ) {}
 
     /**
@@ -50,7 +50,7 @@ class RunScheduledRestoreAction
             scheduledRestoreId: $scheduledRestore->id,
         );
 
-        ProcessRestoreJob::dispatch($restore->id);
+        $this->dispatchRestore->execute($restore);
 
         $scheduledRestore->forceFill([
             'last_executed_at' => now(),
