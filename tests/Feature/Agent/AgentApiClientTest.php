@@ -31,7 +31,7 @@ describe('claimJob', function () {
             ]),
         ]);
 
-        $result = $this->client->claimJob();
+        $result = $this->client->claimJob(['backup']);
 
         expect($result)->toBe(['id' => 'job-1', 'snapshot_id' => 'snap-1', 'payload' => ['test' => true]]);
     });
@@ -41,7 +41,7 @@ describe('claimJob', function () {
             'http://server.test/api/v1/agent/jobs/claim' => Http::response(['job' => null]),
         ]);
 
-        expect($this->client->claimJob())->toBeNull();
+        expect($this->client->claimJob(['backup']))->toBeNull();
     });
 
     test('returns null on failure response', function () {
@@ -49,7 +49,7 @@ describe('claimJob', function () {
             'http://server.test/api/v1/agent/jobs/claim' => Http::response('Server Error', 500),
         ]);
 
-        expect($this->client->claimJob())->toBeNull();
+        expect($this->client->claimJob(['backup']))->toBeNull();
     });
 
     test('throws authentication exception on 401/403 instead of masking it', function (int $status) {
@@ -57,7 +57,7 @@ describe('claimJob', function () {
             'http://server.test/api/v1/agent/jobs/claim' => Http::response('Unauthorized', $status),
         ]);
 
-        expect(fn () => $this->client->claimJob())->toThrow(AgentAuthenticationException::class);
+        expect(fn () => $this->client->claimJob(['backup']))->toThrow(AgentAuthenticationException::class);
     })->with([401, 403]);
 
     test('returns null when job payload is not an array', function () {
@@ -65,7 +65,7 @@ describe('claimJob', function () {
             'http://server.test/api/v1/agent/jobs/claim' => Http::response(['job' => 'unexpected-string']),
         ]);
 
-        expect($this->client->claimJob())->toBeNull();
+        expect($this->client->claimJob(['backup']))->toBeNull();
     });
 });
 

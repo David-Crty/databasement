@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Enums\SnapshotFileStatus;
 use App\Http\Middleware\ThrottleFailedAgentAuth;
@@ -515,7 +516,7 @@ describe('discovery jobs', function () {
 
         // 3 backup agent jobs should have been created
         $backupJobs = AgentJob::where('database_server_id', $server->id)
-            ->where('type', AgentJob::TYPE_BACKUP)
+            ->where('type', AgentJobType::Backup)
             ->get();
 
         expect($backupJobs)->toHaveCount(3);
@@ -602,14 +603,35 @@ describe('job state guards', function () {
         'discovered-databases' => ['discovered-databases'],
     ]);
 
-    test('discovery jobs cannot be acknowledged', function () {
+    test('acknowledging a discovery job with its databases works like discovered-databases', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
-        $agentJob = AgentJob::factory()->discover()->claimed($agent)->create();
+        $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
+        $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
+            'database_server_id' => $server->id,
+            'payload' => ['type' => 'discover', 'backup_id' => $server->backups()->first()->id],
+        ]);
 
         $this->withToken($token)
-            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack")
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Only backup and restore jobs can be acknowledged.');
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", ['databases' => ['db1', 'db2']])
+            ->assertOk()
+            ->assertJsonPath('jobs_created', 2);
+
+        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_COMPLETED);
+    });
+});
+
+describe('compatibility with agents up to 1.8', function () {
+    test('a discovery job still carries its type inside the payload', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
+        AgentJob::factory()->discover()->create(['database_server_id' => $server->id]);
+
+        // Agents up to 1.8 claim without job_types and read payload.type.
+        $this->withToken($token)
+            ->postJson('/api/v1/agent/jobs/claim')
+            ->assertOk()
+            ->assertJsonPath('job.type', 'discover')
+            ->assertJsonPath('job.payload.type', 'discover');
     });
 });
 

@@ -2,14 +2,12 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\ProcessBackupJob;
-use App\Models\AgentJob;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
-use App\Services\Agent\AgentJobPayloadBuilder;
 use App\Services\Backup\BackupJobFactory;
+use App\Services\Backup\DispatchBackupAction;
+use App\Services\Backup\DispatchDiscoveryAction;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class RunScheduledBackups extends Command
@@ -18,7 +16,7 @@ class RunScheduledBackups extends Command
 
     protected $description = 'Run scheduled backups for a given backup schedule';
 
-    public function handle(BackupJobFactory $backupJobFactory, AgentJobPayloadBuilder $payloadBuilder): int
+    public function handle(BackupJobFactory $backupJobFactory, DispatchBackupAction $dispatchBackup, DispatchDiscoveryAction $dispatchDiscovery): int
     {
         $scheduleId = $this->argument('schedule');
 
@@ -47,7 +45,7 @@ class RunScheduledBackups extends Command
 
         foreach ($backups as $backup) {
             try {
-                $this->dispatch($backup, $backupJobFactory, $payloadBuilder);
+                $this->dispatch($backup, $backupJobFactory, $dispatchBackup, $dispatchDiscovery);
             } catch (\Throwable $e) {
                 $failedCount++;
                 Log::error("Failed to dispatch backup job for server [{$backup->databaseServer->name} / {$backup->getDisplayLabel()}]", [
@@ -65,7 +63,7 @@ class RunScheduledBackups extends Command
         return self::SUCCESS;
     }
 
-    private function dispatch(Backup $backup, BackupJobFactory $backupJobFactory, AgentJobPayloadBuilder $payloadBuilder): void
+    private function dispatch(Backup $backup, BackupJobFactory $backupJobFactory, DispatchBackupAction $dispatchBackup, DispatchDiscoveryAction $dispatchDiscovery): void
     {
         $server = $backup->databaseServer;
 
@@ -77,36 +75,7 @@ class RunScheduledBackups extends Command
         // Agent-backed servers with all/pattern mode return empty snapshots —
         // dispatch a discovery job so the agent can list databases first.
         if (empty($snapshots) && $server->agent_id) {
-            // Lock the backup row so the in-flight check and create are atomic;
-            // concurrent dispatches for the same backup serialize and only one
-            // discovery job is created (backup_id lives in the JSON payload, so
-            // it cannot be deduplicated via a unique column or firstOrCreate()).
-            $created = DB::transaction(function () use ($server, $backup, $payloadBuilder): bool {
-                Backup::whereKey($backup->id)->lockForUpdate()->first();
-
-                $hasInflightDiscovery = AgentJob::query()
-                    ->where('database_server_id', $server->id)
-                    ->where('type', AgentJob::TYPE_DISCOVER)
-                    ->whereIn('status', [AgentJob::STATUS_PENDING, AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])
-                    ->get()
-                    ->contains(fn (AgentJob $job) => ($job->payload['backup_id'] ?? null) === $backup->id);
-
-                if ($hasInflightDiscovery) {
-                    return false;
-                }
-
-                AgentJob::create([
-                    'type' => AgentJob::TYPE_DISCOVER,
-                    'database_server_id' => $server->id,
-                    'snapshot_id' => null,
-                    'status' => AgentJob::STATUS_PENDING,
-                    'payload' => $payloadBuilder->buildDiscovery($backup, 'scheduled', null),
-                ]);
-
-                return true;
-            });
-
-            if ($created) {
+            if ($dispatchDiscovery->execute($backup, 'scheduled')) {
                 $this->line("  → Dispatched discovery for: {$server->name} [{$backup->getDisplayLabel()}] via agent");
             } else {
                 $this->line("  → Skipped discovery for: {$server->name} [{$backup->getDisplayLabel()}] (already in-flight)");
@@ -116,17 +85,7 @@ class RunScheduledBackups extends Command
         }
 
         foreach ($snapshots as $snapshot) {
-            if ($server->agent_id) {
-                AgentJob::create([
-                    'type' => AgentJob::TYPE_BACKUP,
-                    'database_server_id' => $server->id,
-                    'snapshot_id' => $snapshot->id,
-                    'status' => AgentJob::STATUS_PENDING,
-                    'payload' => $payloadBuilder->build($snapshot),
-                ]);
-            } else {
-                ProcessBackupJob::dispatch($snapshot->id);
-            }
+            $dispatchBackup->execute($snapshot);
         }
 
         $count = count($snapshots);

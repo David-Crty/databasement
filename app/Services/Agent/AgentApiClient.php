@@ -25,11 +25,12 @@ class AgentApiClient
     }
 
     /**
-     * @return array{id: string, snapshot_id: string, payload: array<string, mixed>}|null
+     * @param  list<string>  $jobTypes  The job types this agent can run
+     * @return array{id: string, type?: string, snapshot_id: string|null, payload: array<string, mixed>}|null
      */
-    public function claimJob(): ?array
+    public function claimJob(array $jobTypes): ?array
     {
-        $response = $this->post('/agent/jobs/claim', ['job_types' => ['backup', 'discover', 'restore']]);
+        $response = $this->post('/agent/jobs/claim', ['job_types' => $jobTypes]);
 
         if ($response->status() === 401 || $response->status() === 403) {
             throw new AgentAuthenticationException('Authentication failed. Please check your DATABASEMENT_AGENT_TOKEN.');
@@ -45,7 +46,7 @@ class AgentApiClient
             return null;
         }
 
-        /** @var array{id: string, snapshot_id: string, payload: array<string, mixed>} $job */
+        /** @var array{id: string, type?: string, snapshot_id: string|null, payload: array<string, mixed>} $job */
         return $job;
     }
 

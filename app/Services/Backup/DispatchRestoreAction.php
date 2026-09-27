@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\AgentJobType;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\AgentJob;
 use App\Models\Restore;
@@ -39,15 +40,8 @@ class DispatchRestoreAction
             throw $e;
         }
 
-        // Never retried: a restore drops and recreates the target database,
-        // so a second run after a lost agent is worse than a reported failure.
-        AgentJob::create([
-            'type' => AgentJob::TYPE_RESTORE,
-            'database_server_id' => $targetServer->id,
+        AgentJob::enqueue(AgentJobType::Restore, $targetServer->id, $payload, [
             'restore_id' => $restore->id,
-            'status' => AgentJob::STATUS_PENDING,
-            'payload' => $payload,
-            'max_attempts' => 1,
         ]);
     }
 }

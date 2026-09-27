@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Facades\AppConfig;
 use App\Models\Agent;
@@ -41,7 +42,7 @@ function dispatchAgentRestore(Agent $agent, Volume ...$volumes): array
 
 function claimAsAgent(Agent $agent, AgentJob $agentJob): string
 {
-    $agentJob->claim($agent, $agentJob->leaseDuration());
+    $agentJob->claim($agent);
 
     return $agent->createToken('agent')->plainTextToken;
 }
@@ -53,7 +54,7 @@ describe('dispatch', function () {
         ['restore' => $restore, 'agentJob' => $agentJob] = dispatchAgentRestore(Agent::factory()->create());
 
         Queue::assertNothingPushed();
-        expect($agentJob->type)->toBe(AgentJob::TYPE_RESTORE)
+        expect($agentJob->type)->toBe(AgentJobType::Restore)
             ->and($agentJob->database_server_id)->toBe($restore->target_server_id)
             ->and($agentJob->max_attempts)->toBe(1);
 

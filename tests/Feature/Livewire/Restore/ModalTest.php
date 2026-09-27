@@ -89,7 +89,7 @@ test('restoring onto an agent-backed server hands the job to its agent', functio
         ->assertDispatched('restore-created');
 
     Queue::assertNothingPushed();
-    expect(\App\Models\AgentJob::where('type', \App\Models\AgentJob::TYPE_RESTORE)->count())->toBe(1);
+    expect(\App\Models\AgentJob::where('type', \App\Enums\AgentJobType::Restore)->count())->toBe(1);
 });
 
 test('an agent-backed target only offers source copies its agent can reach', function () {

@@ -288,6 +288,20 @@ class BackupJob extends Model implements BackupLogger
     }
 
     /**
+     * Append log entries recorded elsewhere, such as by a remote agent.
+     *
+     * @param  array<int, array<string, mixed>>  $entries
+     */
+    public function appendLogs(array $entries): void
+    {
+        if ($entries === []) {
+            return;
+        }
+
+        $this->update(['logs' => array_merge($this->logs ?? [], $entries)]);
+    }
+
+    /**
      * Get all logs
      *
      * @return array<int, array<string, mixed>>

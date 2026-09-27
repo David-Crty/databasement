@@ -169,6 +169,8 @@ Config files check `env('DATABASEMENT_URL')` to swap database-dependent drivers 
 
 This means agent mode requires zero database configuration.
 
+**Agent job types** (`App\Enums\AgentJobType`) each have two halves: an app-side `AgentJobHandler` (`app/Services/Agent/Handlers/`: lease, max attempts, the job record it reports to, what ack/fail do) and an agent-side `AgentJobRunner` (`app/Services/Agent/Runners/`, registered in `AgentRunCommand::RUNNERS`). A new type needs an enum case, both halves, and a `Dispatch*Action` that routes to the agent or the app queue. Agents advertise their runners' types when claiming and are only handed those, so an older agent never receives a type it cannot run; agents up to 1.8 advertise nothing and get backup + discover. Keep `payload.type` on non-backup payloads and the `discovered-databases` endpoint: 1.8 agents rely on both.
+
 ## Architecture
 
 ### Application Structure

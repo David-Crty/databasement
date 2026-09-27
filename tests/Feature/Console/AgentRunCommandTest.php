@@ -363,3 +363,18 @@ describe('restore jobs', function () {
             && $request['error_message'] === 'Access denied for user');
     });
 });
+
+test('fails a job whose type this agent cannot run', function () {
+    Http::fake([
+        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/claim' => Http::response(['job' => [...$this->jobPayload, 'type' => 'cleanup']]),
+        '*/agent/jobs/job-123/fail' => Http::response(['status' => 'ok']),
+    ]);
+
+    $this->artisan('agent:run --once')
+        ->expectsOutputToContain("Job job-123 has unsupported type 'cleanup'.")
+        ->assertSuccessful();
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-123/fail')
+        && str_contains($request['error_message'], 'Update the agent'));
+});

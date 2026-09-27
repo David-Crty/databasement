@@ -2,19 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\SnapshotFileStatus;
+use App\Enums\AgentJobType;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentJob;
-use App\Models\Backup;
-use App\Models\BackupJob;
-use App\Models\DatabaseServer;
-use App\Models\Restore;
-use App\Models\Snapshot;
-use App\Rules\SafePath;
-use App\Services\Agent\AgentJobPayloadBuilder;
-use App\Services\Backup\BackupJobFactory;
-use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -79,7 +70,7 @@ class AgentController extends Controller
             'job_types.*' => 'string',
         ]);
 
-        $jobTypes = $validated['job_types'] ?? [AgentJob::TYPE_BACKUP, AgentJob::TYPE_DISCOVER];
+        $jobTypes = $validated['job_types'] ?? AgentJobType::legacyValues();
 
         $job = DB::transaction(function () use ($agent, $jobTypes): ?AgentJob {
             /** @var AgentJob|null $job */
@@ -102,7 +93,7 @@ class AgentController extends Controller
                 return null;
             }
 
-            $job->claim($agent, $job->leaseDuration());
+            $job->claim($agent);
 
             $job->trackedJob()?->markRunning();
 
@@ -113,9 +104,12 @@ class AgentController extends Controller
             return response()->json(['job' => null]);
         }
 
+        // Agents up to 1.8 read the job type from `payload.type`, so the
+        // payload keeps carrying it alongside the top-level `type`.
         return response()->json([
             'job' => [
                 'id' => $job->id,
+                'type' => $job->type->value,
                 'snapshot_id' => $job->snapshot_id,
                 'payload' => $job->payload,
                 'attempts' => $job->attempts,
@@ -131,24 +125,15 @@ class AgentController extends Controller
      */
     public function jobHeartbeat(Request $request, AgentJob $agentJob): JsonResponse
     {
-        /** @var Agent $agent */
-        $agent = $request->user();
-
-        if ($agentJob->agent_id !== $agent->id) {
-            return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
-        }
-
-        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
-            return response()->json(['message' => "Cannot heartbeat a job with status '{$agentJob->status}'."], 409);
+        if ($rejection = $this->rejectUnlessActive($request, $agentJob, 'heartbeat')) {
+            return $rejection;
         }
 
         $validated = $request->validate(self::logRules());
 
-        $agentJob->extendLease($agentJob->leaseDuration());
+        $agentJob->extendLease();
 
-        if (! empty($validated['logs']) && ($trackedJob = $agentJob->trackedJob()) !== null) {
-            $this->appendLogs($trackedJob, $validated['logs']);
-        }
+        $agentJob->trackedJob()?->appendLogs($validated['logs'] ?? []);
 
         return response()->json(['status' => 'ok']);
     }
@@ -156,176 +141,29 @@ class AgentController extends Controller
     /**
      * Acknowledge job completion.
      *
-     * Reports that a job has been completed successfully with file metadata.
+     * Reports that a job has been completed successfully with its result:
+     * file metadata for a backup, the database list for a discovery, nothing
+     * beyond logs for a restore.
      */
     public function ack(Request $request, AgentJob $agentJob): JsonResponse
     {
-        /** @var Agent $agent */
-        $agent = $request->user();
-
-        if ($agentJob->agent_id !== $agent->id) {
-            return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
+        if ($rejection = $this->rejectUnlessActive($request, $agentJob, 'acknowledge')) {
+            return $rejection;
         }
 
-        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
-            return response()->json(['message' => "Cannot acknowledge a job with status '{$agentJob->status}'."], 409);
-        }
-
-        if ($agentJob->type === AgentJob::TYPE_RESTORE && $agentJob->restore) {
-            return $this->ackRestore($request, $agentJob, $agentJob->restore);
-        }
-
-        if ($agentJob->type !== AgentJob::TYPE_BACKUP || ! $agentJob->snapshot) {
-            return response()->json(['message' => 'Only backup and restore jobs can be acknowledged.'], 422);
-        }
+        $handler = $agentJob->handler();
 
         $validated = $request->validate([
-            'filename' => ['required', 'string', 'max:1000', new SafePath],
-            'file_size' => 'required|integer|min:0',
-            'checksum' => 'nullable|string|max:255',
-            ...self::volumeResultRules(),
+            ...$handler->completionRules(),
             ...self::logRules(),
         ]);
 
-        $snapshot = $agentJob->snapshot;
-        $snapshot->update([
-            'filename' => $validated['filename'],
-            'file_size' => $validated['file_size'],
+        $agentJob->trackedJob()?->appendLogs($validated['logs'] ?? []);
+
+        return response()->json([
+            'status' => 'ok',
+            ...$handler->complete($agentJob, $validated),
         ]);
-
-        // An empty volumes array carries no outcomes — treat it like a legacy
-        // (null) payload rather than a silent success, mirroring the fail() path.
-        $this->applyVolumeResults(
-            $snapshot,
-            ! empty($validated['volumes']) ? $validated['volumes'] : null,
-        );
-
-        $backupJob = $snapshot->job;
-        if (! empty($validated['logs'])) {
-            $backupJob->update([
-                'logs' => array_merge($backupJob->logs ?? [], $validated['logs']),
-            ]);
-        }
-
-        $agentJob->markCompleted();
-
-        // Whole-job-fails rule: an ack that leaves failed copies (or targets a
-        // legacy agent couldn't upload to) fails the backup job even though
-        // the agent finished its part.
-        if ($snapshot->files()->where('status', SnapshotFileStatus::Failed)->exists()) {
-            $exception = new RuntimeException(
-                'Some volume uploads failed. If this backup targets multiple volumes, make sure the agent is up to date — older agents only upload to the first volume.',
-            );
-            $backupJob->log("Backup failed: {$exception->getMessage()}", 'error');
-            $backupJob->markFailed($exception);
-
-            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
-        } else {
-            $snapshot->markCompleted($validated['checksum'] ?? null);
-            $backupJob->markCompleted();
-        }
-
-        return response()->json(['status' => 'ok']);
-    }
-
-    private function ackRestore(Request $request, AgentJob $agentJob, Restore $restore): JsonResponse
-    {
-        $validated = $request->validate(self::logRules());
-
-        $restoreJob = $restore->job;
-        $this->appendLogs($restoreJob, $validated['logs'] ?? []);
-
-        $agentJob->markCompleted();
-        $restoreJob->markCompleted();
-
-        app(NotificationService::class)->notifyRestoreSuccess($restore);
-
-        return response()->json(['status' => 'ok']);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $logs
-     */
-    private function appendLogs(BackupJob $job, array $logs): void
-    {
-        if ($logs === []) {
-            return;
-        }
-
-        $job->update([
-            'logs' => array_merge($job->logs ?? [], $logs),
-        ]);
-    }
-
-    /**
-     * Shared validation rules for per-volume upload results.
-     *
-     * @return array<string, string>
-     */
-    private static function volumeResultRules(): array
-    {
-        return [
-            'volumes' => 'nullable|array|max:100',
-            'volumes.*.volume_id' => 'nullable|string|max:26',
-            'volumes.*.status' => sprintf(
-                'required_with:volumes|string|in:%s,%s',
-                SnapshotFileStatus::Completed->value,
-                SnapshotFileStatus::Failed->value,
-            ),
-            'volumes.*.error' => 'nullable|string|max:10000',
-        ];
-    }
-
-    /**
-     * Persist per-volume upload outcomes onto the snapshot's copy rows.
-     *
-     * A null $volumeResults means the agent predates multi-volume support:
-     * its single reported result applies to the first copy, and any further
-     * targets were never uploaded, so they are marked failed.
-     *
-     * @param  list<array{volume_id?: string|null, status: string, error?: string|null}>|null  $volumeResults
-     */
-    private function applyVolumeResults(Snapshot $snapshot, ?array $volumeResults): void
-    {
-        $files = $snapshot->files()->get();
-
-        if ($volumeResults === null) {
-            $volumeResults = [['volume_id' => $files->first()?->volume_id, 'status' => SnapshotFileStatus::Completed->value]];
-
-            foreach ($files->skip(1) as $staleFile) {
-                $staleFile->update([
-                    'status' => SnapshotFileStatus::Failed,
-                    'error' => 'Agent version does not support multiple volumes; update the agent.',
-                ]);
-            }
-        }
-
-        foreach ($volumeResults as $volumeResult) {
-            $volumeId = $volumeResult['volume_id'] ?? null;
-
-            // Legacy payloads carry no volume id — fall back to the first
-            // still-pending copy (pre-migration snapshots have exactly one).
-            $file = $files->firstWhere('volume_id', $volumeId)
-                ?? ($volumeId === null ? $files->firstWhere('status', SnapshotFileStatus::Pending) : null);
-
-            if ($file === null) {
-                continue;
-            }
-
-            if ($volumeResult['status'] === SnapshotFileStatus::Completed->value) {
-                $file->update([
-                    'status' => SnapshotFileStatus::Completed,
-                    'file_exists' => true,
-                    'file_verified_at' => now(),
-                    'error' => null,
-                ]);
-            } else {
-                $file->update([
-                    'status' => SnapshotFileStatus::Failed,
-                    'error' => $volumeResult['error'] ?? 'Upload failed',
-                ]);
-            }
-        }
     }
 
     /**
@@ -335,67 +173,23 @@ class AgentController extends Controller
      */
     public function fail(Request $request, AgentJob $agentJob): JsonResponse
     {
-        /** @var Agent $agent */
-        $agent = $request->user();
-
-        if ($agentJob->agent_id !== $agent->id) {
-            return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
+        if ($rejection = $this->rejectUnlessActive($request, $agentJob, 'fail')) {
+            return $rejection;
         }
 
-        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
-            return response()->json(['message' => "Cannot fail a job with status '{$agentJob->status}'."], 409);
-        }
+        $handler = $agentJob->handler();
 
         $validated = $request->validate([
             'error_message' => 'required|string|max:10000',
-            'filename' => ['nullable', 'string', 'max:1000', new SafePath],
-            'file_size' => 'nullable|integer|min:0',
-            ...self::volumeResultRules(),
+            ...$handler->failureRules(),
             ...self::logRules(),
         ]);
 
         $agentJob->markFailed($validated['error_message']);
 
-        if ($agentJob->type === AgentJob::TYPE_RESTORE && $agentJob->restore) {
-            $restore = $agentJob->restore;
-            $this->appendLogs($restore->job, $validated['logs'] ?? []);
+        $agentJob->trackedJob()?->appendLogs($validated['logs'] ?? []);
 
-            $exception = new RuntimeException($validated['error_message']);
-            $restore->job->markFailed($exception);
-
-            app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
-
-            return response()->json(['status' => 'ok']);
-        }
-
-        // Only update backup job logs/status for backup jobs (discovery jobs have no snapshot)
-        if ($agentJob->snapshot) {
-            $snapshot = $agentJob->snapshot;
-            $backupJob = $snapshot->job;
-
-            // Partial failure: record the copies that did upload so their
-            // files stay tracked (deletable, restorable) despite the failure.
-            if (! empty($validated['volumes'])) {
-                if (($validated['filename'] ?? '') !== '') {
-                    $snapshot->update([
-                        'filename' => $validated['filename'],
-                        'file_size' => $validated['file_size'] ?? 0,
-                    ]);
-                }
-
-                $this->applyVolumeResults($snapshot, $validated['volumes']);
-            }
-            if (! empty($validated['logs'])) {
-                $backupJob->update([
-                    'logs' => array_merge($backupJob->logs ?? [], $validated['logs']),
-                ]);
-            }
-
-            $exception = new RuntimeException($validated['error_message']);
-            $backupJob->markFailed($exception);
-
-            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
-        }
+        $handler->fail($agentJob, new RuntimeException($validated['error_message']), $validated);
 
         return response()->json(['status' => 'ok']);
     }
@@ -404,13 +198,23 @@ class AgentController extends Controller
      * Report discovered databases from a discovery job.
      *
      * Creates backup snapshots and agent jobs for each discovered database.
+     * Equivalent to acknowledging the discovery job; kept for agents up to 1.8.
      */
-    public function discoveredDatabases(
-        Request $request,
-        AgentJob $agentJob,
-        BackupJobFactory $backupJobFactory,
-        AgentJobPayloadBuilder $payloadBuilder,
-    ): JsonResponse {
+    public function discoveredDatabases(Request $request, AgentJob $agentJob): JsonResponse
+    {
+        if ($rejection = $this->rejectUnlessActive($request, $agentJob, 'report databases for')) {
+            return $rejection;
+        }
+
+        if ($agentJob->type !== AgentJobType::Discover) {
+            return response()->json(['message' => 'This endpoint is only for discovery jobs.'], 422);
+        }
+
+        return $this->ack($request, $agentJob);
+    }
+
+    private function rejectUnlessActive(Request $request, AgentJob $agentJob, string $action): ?JsonResponse
+    {
         /** @var Agent $agent */
         $agent = $request->user();
 
@@ -419,66 +223,9 @@ class AgentController extends Controller
         }
 
         if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
-            return response()->json(['message' => "Cannot report databases for a job with status '{$agentJob->status}'."], 409);
+            return response()->json(['message' => "Cannot {$action} a job with status '{$agentJob->status}'."], 409);
         }
 
-        if ($agentJob->type !== AgentJob::TYPE_DISCOVER) {
-            return response()->json(['message' => 'This endpoint is only for discovery jobs.'], 422);
-        }
-
-        $validated = $request->validate([
-            'databases' => 'required|array|min:1',
-            'databases.*' => 'required|string|max:255|distinct',
-            ...self::logRules(),
-        ]);
-
-        /** @var DatabaseServer $server */
-        $server = $agentJob->databaseServer;
-        $payload = $agentJob->payload;
-        $method = $payload['method'] ?? 'manual';
-        $triggeredByUserId = $payload['triggered_by_user_id'] ?? null;
-        $backupId = $payload['backup_id'] ?? null;
-
-        /** @var Backup|null $backup */
-        $backup = $backupId !== null
-            ? Backup::with(['databaseServer', 'volumes'])
-                ->where('id', $backupId)
-                ->where('database_server_id', $server->id)
-                ->first()
-            : null;
-
-        if ($backup === null) {
-            return response()->json([
-                'message' => 'Backup configuration not found for this discovery job.',
-            ], 422);
-        }
-
-        $jobsCreated = 0;
-
-        foreach ($validated['databases'] as $databaseName) {
-            $snapshot = $backupJobFactory->createSnapshot(
-                $backup,
-                $databaseName,
-                $method,
-                $triggeredByUserId
-            );
-
-            AgentJob::create([
-                'type' => AgentJob::TYPE_BACKUP,
-                'database_server_id' => $server->id,
-                'snapshot_id' => $snapshot->id,
-                'status' => AgentJob::STATUS_PENDING,
-                'payload' => $payloadBuilder->build($snapshot),
-            ]);
-
-            $jobsCreated++;
-        }
-
-        $agentJob->markCompleted();
-
-        return response()->json([
-            'status' => 'ok',
-            'jobs_created' => $jobsCreated,
-        ]);
+        return null;
     }
 }
