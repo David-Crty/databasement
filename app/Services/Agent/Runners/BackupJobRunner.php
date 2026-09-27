@@ -44,28 +44,23 @@ class BackupJobRunner implements AgentJobRunner
                 onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
             );
 
-            $client->ack(
-                $job['id'],
-                $result->filename,
-                $result->fileSize,
-                $result->checksum,
-                $this->volumeResultPayloads($result->volumeResults),
-                $logger->flush(),
-            );
+            $client->ack($job['id'], [
+                'filename' => $result->filename,
+                'file_size' => $result->fileSize,
+                'checksum' => $result->checksum,
+                'volumes' => $this->volumeResultPayloads($result->volumeResults),
+            ], $logger->flush());
             $log("Job completed: {$result->filename}");
         } catch (VolumeTransferException $e) {
             // Some uploads may have succeeded — report the per-volume
             // outcomes so the app records the good copies before failing.
             $logger->log("Backup failed: {$e->getMessage()}", 'error');
             $log("Job failed: {$e->getMessage()}", 'error');
-            $client->fail(
-                $job['id'],
-                $e->getMessage(),
-                $logger->flush(),
-                $this->volumeResultPayloads($e->result->volumeResults),
-                $e->result->filename,
-                $e->result->fileSize,
-            );
+            $client->fail($job['id'], $e->getMessage(), $logger->flush(), [
+                'filename' => $e->result->filename,
+                'file_size' => $e->result->fileSize,
+                'volumes' => $this->volumeResultPayloads($e->result->volumeResults),
+            ]);
         } catch (\Throwable $e) {
             $logger->log("Backup failed: {$e->getMessage()}", 'error');
             $log("Job failed: {$e->getMessage()}", 'error');

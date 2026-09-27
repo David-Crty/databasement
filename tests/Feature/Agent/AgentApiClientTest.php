@@ -97,13 +97,18 @@ describe('jobHeartbeat', function () {
 });
 
 describe('ack', function () {
-    test('sends all fields to ack endpoint', function () {
+    test('sends the result fields flat alongside the logs', function () {
         Http::fake();
         $logs = [['timestamp' => '2026-01-01T00:00:00+00:00', 'type' => 'log', 'level' => 'success', 'message' => 'Done']];
 
         $volumeResults = [['volume_id' => 'vol-1', 'volume_name' => 'Local', 'status' => SnapshotFileStatus::Completed->value, 'error' => null, 'storage_warning' => null, 'quota_exceeded' => false]];
 
-        $this->client->ack('job-1', 'backup.sql.gz', 12345, 'sha256hash', $volumeResults, $logs);
+        $this->client->ack('job-1', [
+            'filename' => 'backup.sql.gz',
+            'file_size' => 12345,
+            'checksum' => 'sha256hash',
+            'volumes' => $volumeResults,
+        ], $logs);
 
         Http::assertSent(function ($request) {
             return $request->url() === 'http://server.test/api/v1/agent/jobs/job-1/ack'

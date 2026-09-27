@@ -44,7 +44,7 @@ class RestoreJobRunner implements AgentJobRunner
                 onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
             );
 
-            $client->ackRestore($job['id'], $logger->flush());
+            $client->ack($job['id'], logs: $logger->flush());
             $log("Restore completed: {$schemaName}");
         } catch (\Throwable $e) {
             $logger->log("Restore failed: {$e->getMessage()}", 'error');
