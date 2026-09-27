@@ -84,6 +84,6 @@ Restoring onto an agent-backed server works like any other restore: pick the ser
 
 This makes agent-backed servers usable for recurring production-to-staging refreshes, where staging sits in a network Databasement cannot reach.
 
-:::caution Update your agents
+:::info Update your agents
 Agents only pick up restore jobs once they run a version that supports them. An older agent keeps running backups but leaves restores pending until they time out, so update the agent image before restoring onto its servers.
 :::
