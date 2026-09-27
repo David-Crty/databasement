@@ -10,6 +10,7 @@ use App\Models\BackupJob;
 use App\Support\QueueTimeouts;
 use Illuminate\Console\Command;
 use RuntimeException;
+use Throwable;
 
 class RecoverStuckJobsCommand extends Command
 {
@@ -59,7 +60,11 @@ class RecoverStuckJobsCommand extends Command
                 $errorMessage = "Max attempts ({$job->max_attempts}) exceeded with expired lease.";
                 $job->markFailed($errorMessage);
 
-                $job->handler()->fail($job, new RuntimeException("Agent job failed: {$errorMessage}"), []);
+                try {
+                    $job->handler()->fail($job, new RuntimeException("Agent job failed: {$errorMessage}"), []);
+                } catch (Throwable $e) {
+                    report($e);
+                }
                 $failedCount++;
             }
         }
