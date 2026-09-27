@@ -298,6 +298,7 @@ describe('restore jobs', function () {
     beforeEach(function () {
         $this->restoreJob = [
             'id' => 'job-789',
+            'type' => 'restore',
             'snapshot_id' => null,
             'payload' => (new \App\Services\Backup\DTO\RestoreConfig(
                 targetServer: new \App\Services\Backup\DTO\DatabaseConnectionConfig(

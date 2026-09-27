@@ -73,7 +73,6 @@ class AgentJobFactory extends Factory
             'type' => AgentJobType::Discover,
             'snapshot_id' => null,
             'payload' => [
-                'type' => 'discover',
                 'database' => [
                     'type' => 'mysql',
                     'host' => 'localhost',

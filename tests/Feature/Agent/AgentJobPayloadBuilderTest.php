@@ -16,7 +16,7 @@ test('resolveBackupPath returns empty string when path is empty', function () {
     ]);
 
     $builder = new AgentJobPayloadBuilder;
-    $payload = $builder->build($snapshot);
+    $payload = $builder->buildBackup($snapshot);
 
     expect($payload['backup_path'])->toBe('');
 });
@@ -32,7 +32,7 @@ test('build includes the configured post-backup script so agents run it', functi
         'database_name' => 'testdb',
     ]);
 
-    $payload = (new AgentJobPayloadBuilder)->build($snapshot);
+    $payload = (new AgentJobPayloadBuilder)->buildBackup($snapshot);
 
     expect($payload['post_backup_script'])->toBe('echo "$BACKUP_FILENAME"');
 });

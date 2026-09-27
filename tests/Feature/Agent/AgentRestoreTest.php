@@ -113,7 +113,7 @@ describe('claiming', function () {
             ->postJson('/api/v1/agent/jobs/claim', ['job_types' => ['backup', 'discover', 'restore']])
             ->assertOk()
             ->assertJsonPath('job.id', $agentJob->id)
-            ->assertJsonPath('job.payload.type', 'restore');
+            ->assertJsonPath('job.type', 'restore');
 
         expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Running)
             ->and($agentJob->fresh()->lease_expires_at->timestamp)

@@ -28,7 +28,7 @@ class DispatchBackupAction
             return;
         }
 
-        AgentJob::enqueue(AgentJobType::Backup, $server->id, $this->payloadBuilder->build($snapshot), [
+        AgentJob::enqueue(AgentJobType::Backup, $server->id, $this->payloadBuilder->buildBackup($snapshot), [
             'snapshot_id' => $snapshot->id,
         ]);
     }

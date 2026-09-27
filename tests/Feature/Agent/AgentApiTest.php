@@ -484,7 +484,7 @@ describe('discovery jobs', function () {
         expect($jobData)->not->toBeNull()
             ->and($jobData['id'])->toBe($agentJob->id)
             ->and($jobData['snapshot_id'])->toBeNull()
-            ->and($jobData['payload']['type'])->toBe('discover');
+            ->and($jobData['type'])->toBe('discover');
     });
 
     test('can report discovered databases', function () {
@@ -499,7 +499,7 @@ describe('discovery jobs', function () {
 
         $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
             'database_server_id' => $server->id,
-            'payload' => ['type' => 'discover', 'backup_id' => $backup->id],
+            'payload' => ['backup_id' => $backup->id],
         ]);
 
         $response = $this->withToken($token)
@@ -540,7 +540,7 @@ describe('discovery jobs', function () {
         // snapshots with an unknown parent.
         $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
             'database_server_id' => $server->id,
-            'payload' => ['type' => 'discover'],
+            'payload' => [],
         ]);
 
         $this->withToken($token)
@@ -575,7 +575,7 @@ describe('discovery jobs', function () {
 
         $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
             'database_server_id' => $server->id,
-            'payload' => ['type' => 'discover', 'backup_id' => $backup->id],
+            'payload' => ['backup_id' => $backup->id],
         ]);
 
         $this->withToken($token)
@@ -608,7 +608,7 @@ describe('job state guards', function () {
         $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
         $agentJob = AgentJob::factory()->discover()->claimed($agent)->create([
             'database_server_id' => $server->id,
-            'payload' => ['type' => 'discover', 'backup_id' => $server->backups()->first()->id],
+            'payload' => ['backup_id' => $server->backups()->first()->id],
         ]);
 
         $this->withToken($token)

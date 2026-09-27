@@ -53,7 +53,6 @@ readonly class RestoreConfig
      * Serialize to a self-contained agent payload.
      *
      * @return array{
-     *     type: 'restore',
      *     server_name: string,
      *     database: array<string, mixed>,
      *     volume: array<string, mixed>,
@@ -67,7 +66,6 @@ readonly class RestoreConfig
     public function toPayload(): array
     {
         return [
-            'type' => 'restore',
             'server_name' => $this->targetServer->serverName,
             'database' => $this->targetServer->toPayload(),
             'volume' => $this->snapshotVolume->toPayload(),

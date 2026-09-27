@@ -29,7 +29,7 @@ class AgentJobPayloadBuilder
      *     post_backup_script: string|null,
      * }
      */
-    public function build(Snapshot $snapshot): array
+    public function buildBackup(Snapshot $snapshot): array
     {
         $server = $snapshot->databaseServer;
 
@@ -57,7 +57,6 @@ class AgentJobPayloadBuilder
      *
      * @param  'manual'|'scheduled'  $method
      * @return array{
-     *     type: 'discover',
      *     backup_id: string,
      *     database: array{type: string, host: string, port: int, username: string, password: string, extra_config: array<string, mixed>|null},
      *     selection_mode: string,
@@ -72,7 +71,6 @@ class AgentJobPayloadBuilder
         $server = $backup->databaseServer;
 
         return [
-            'type' => 'discover',
             'backup_id' => $backup->id,
             'database' => DatabaseConnectionConfig::fromServer($server)->toPayload(),
             'selection_mode' => $backup->database_selection_mode->value,

@@ -107,7 +107,6 @@ test('agent server with all mode dispatches discovery job instead of snapshots',
     $discoveryJob = AgentJob::where('database_server_id', $server->id)->sole();
     expect($discoveryJob->type)->toBe(AgentJobType::Discover)
         ->and($discoveryJob->snapshot_id)->toBeNull()
-        ->and($discoveryJob->payload['type'])->toBe('discover')
         ->and($discoveryJob->payload['selection_mode'])->toBe('all')
         ->and($discoveryJob->payload['backup_id'])->toBe($backup->id);
 });

@@ -104,14 +104,13 @@ class AgentController extends Controller
             return response()->json(['job' => null]);
         }
 
-        // Agents up to 1.8 read the job type from `payload.type`, so the
-        // payload keeps carrying it alongside the top-level `type`.
         return response()->json([
             'job' => [
                 'id' => $job->id,
                 'type' => $job->type->value,
                 'snapshot_id' => $job->snapshot_id,
-                'payload' => $job->payload,
+                // Agents up to 1.8 read the job type from the payload.
+                'payload' => [...$job->payload, 'type' => $job->type->value],
                 'attempts' => $job->attempts,
                 'max_attempts' => $job->max_attempts,
             ],
