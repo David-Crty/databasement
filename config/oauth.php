@@ -56,6 +56,10 @@ return [
     | account will automatically have one created with the default role.
     | This effectively allows OAuth registration without a public register page.
     |
+    | Google, GitHub and gitlab.com accept any account holder, so they do not
+    | create users unless their own OAUTH_<PROVIDER>_AUTO_CREATE_USERS is set.
+    | Self-hosted GitLab and OIDC follow this setting.
+    |
     */
     'auto_create_users' => env('OAUTH_AUTO_CREATE_USERS', true),
 
@@ -106,6 +110,7 @@ return [
             'enabled' => env('OAUTH_GOOGLE_ENABLED', false),
             'client_id' => env('OAUTH_GOOGLE_CLIENT_ID'),
             'client_secret' => env('OAUTH_GOOGLE_CLIENT_SECRET'),
+            'auto_create_users' => env('OAUTH_GOOGLE_AUTO_CREATE_USERS', false),
             'icon' => 'bi.google',
             'label' => 'Google',
         ],
@@ -113,6 +118,7 @@ return [
             'enabled' => env('OAUTH_GITHUB_ENABLED', false),
             'client_id' => env('OAUTH_GITHUB_CLIENT_ID'),
             'client_secret' => env('OAUTH_GITHUB_CLIENT_SECRET'),
+            'auto_create_users' => env('OAUTH_GITHUB_AUTO_CREATE_USERS', false),
             'icon' => 'bi.github',
             'label' => 'GitHub',
         ],
@@ -121,6 +127,10 @@ return [
             'client_id' => env('OAUTH_GITLAB_CLIENT_ID'),
             'client_secret' => env('OAUTH_GITLAB_CLIENT_SECRET'),
             'host' => env('OAUTH_GITLAB_HOST', 'https://gitlab.com'),
+            'auto_create_users' => env(
+                'OAUTH_GITLAB_AUTO_CREATE_USERS',
+                parse_url(env('OAUTH_GITLAB_HOST', 'https://gitlab.com'), PHP_URL_HOST) === 'gitlab.com' ? false : null,
+            ),
             'icon' => 'bi.gitlab',
             'label' => 'GitLab',
         ],

@@ -149,6 +149,16 @@ OAUTH_AUTO_CREATE_USERS=true  # Default: true
 
 Set to `false` to only allow existing users to log in via OAuth.
 
+Google, GitHub and gitlab.com let anyone with an account sign in, so they do not create users by default: only users who already exist in Databasement can log in through them. To let them create users, set the provider's own variable:
+
+```env
+OAUTH_GOOGLE_AUTO_CREATE_USERS=true  # Default: false
+OAUTH_GITHUB_AUTO_CREATE_USERS=true  # Default: false
+OAUTH_GITLAB_AUTO_CREATE_USERS=true  # Default: false on gitlab.com, OAUTH_AUTO_CREATE_USERS on a self-hosted OAUTH_GITLAB_HOST
+```
+
+Only do this when access is restricted on the provider side (for example a Google Workspace app with an *Internal* consent screen), since every new account gets `OAUTH_DEFAULT_ROLE`. Generic OIDC and self-hosted GitLab follow `OAUTH_AUTO_CREATE_USERS`.
+
 ### Default Role
 
 New users created via OAuth are assigned this role:
