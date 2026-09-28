@@ -233,7 +233,7 @@ test('prepareForRestore allows recreating a database other than the connection o
 });
 
 /** A handler whose connections are the given mocks, configured to restore as `databasement`. */
-function postgresHandlerConnectingWith(PDO $adminPdo, bool $dumpPrivileges): PostgresqlDatabase
+function postgresHandlerConnectingWith(PDO $adminPdo, bool $dumpPrivileges, array $config = []): PostgresqlDatabase
 {
     $db = Mockery::mock(PostgresqlDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
     $db->shouldReceive('createPdo')->once()->andReturn($adminPdo);
@@ -241,23 +241,39 @@ function postgresHandlerConnectingWith(PDO $adminPdo, bool $dumpPrivileges): Pos
         'user' => 'databasement',
         'database' => 'restored_db',
         'dump_privileges' => $dumpPrivileges,
+        ...$config,
     ]));
 
     return $db;
 }
 
-test('ownership transfer hands the database over and reassigns what a portable restore created', function () {
+// REASSIGN OWNED BY after the restore failed outright when the server was
+// connected as its bootstrap superuser, which owns the system catalogs (#607).
+test('ownership transfer hands the database over and makes a portable restore run as the owner', function (?string $dumpFormat, string $expected) {
     $adminPdo = Mockery::mock(PDO::class);
     $adminPdo->shouldReceive('exec')->once()->with('ALTER DATABASE "restored_db" OWNER TO "webapp"');
 
-    $targetPdo = Mockery::mock(PDO::class);
-    $targetPdo->shouldReceive('exec')->once()->with('REASSIGN OWNED BY "databasement" TO "webapp"');
+    $db = postgresHandlerConnectingWith($adminPdo, dumpPrivileges: false, config: ['dump_format' => $dumpFormat]);
+    $db->transferOwnership('restored_db', 'webapp', new InMemoryBackupLogger);
+
+    expect($db->restore('/tmp/snapshot.sql')->command)->toContain($expected);
+})->with([
+    'plain format' => [null, "'restored_db' -c 'SET ROLE \"webapp\"' -f '/tmp/snapshot.sql'"],
+    'custom format' => ['custom', "--username='databasement' --role='webapp' --dbname='restored_db'"],
+]);
+
+test('ownership transfer refused for want of role membership says which GRANT is missing', function (string $refusal) {
+    $adminPdo = Mockery::mock(PDO::class);
+    $adminPdo->shouldReceive('exec')->andThrow(new PDOException($refusal));
 
     $db = postgresHandlerConnectingWith($adminPdo, dumpPrivileges: false);
-    $db->shouldReceive('createPdoForDatabase')->once()->with('restored_db')->andReturn($targetPdo);
 
-    $db->transferOwnership('restored_db', 'webapp', new InMemoryBackupLogger);
-});
+    expect(fn () => $db->transferOwnership('restored_db', 'webapp', new InMemoryBackupLogger))
+        ->toThrow(ConnectionException::class, 'GRANT "webapp" TO "databasement";');
+})->with([
+    'PostgreSQL 16+' => ['SQLSTATE[42501]: Insufficient privilege: 7 ERROR:  must be able to SET ROLE "webapp"'],
+    'PostgreSQL 15 and older' => ['SQLSTATE[42501]: Insufficient privilege: 7 ERROR:  must be member of role "webapp"'],
+]);
 
 // A privilege-preserving snapshot restores its objects under their original
 // owners, so only the database itself is left to hand over: pg_dump never
@@ -267,9 +283,9 @@ test('ownership transfer leaves the restored objects alone for a snapshot that c
     $adminPdo->shouldReceive('exec')->once()->with('ALTER DATABASE "restored_db" OWNER TO "webapp"');
 
     $db = postgresHandlerConnectingWith($adminPdo, dumpPrivileges: true);
-    $db->shouldNotReceive('createPdoForDatabase');
-
     $db->transferOwnership('restored_db', 'webapp', new InMemoryBackupLogger);
+
+    expect($db->restore('/tmp/snapshot.sql')->command)->not->toContain('ROLE');
 });
 
 /**

@@ -973,7 +973,7 @@
   "This snapshot is locked. Unlock it to delete.": "Αυτό το snapshot είναι κλειδωμένο. Ξεκλειδώστε το για να το διαγράψετε.",
   "This snapshot is stored on several volumes. Choose which copy to download.": "Αυτό το snapshot είναι αποθηκευμένο σε πολλά volumes. Επιλέξτε ποιο αντίγραφο θέλετε να κατεβάσετε.",
   "This snapshot is stored on several volumes; choose which copy to read from.": "Αυτό το snapshot είναι αποθηκευμένο σε πολλά volumes· επιλέξτε από ποιο αντίγραφο θα γίνει η ανάγνωση.",
-  "This SQL will be run after the restore:": "Αυτό το SQL θα εκτελεστεί μετά το restore:",
+  "This SQL will be run before the restore:": "Αυτό το SQL θα εκτελεστεί πριν από το restore:",
   "This user belongs to multiple organizations. Remove them from this organization instead.": "Αυτός ο χρήστης ανήκει σε πολλούς οργανισμούς. Αντ’ αυτού, αφαιρέστε τον από αυτόν τον οργανισμό.",
   "This user is already a member of this organization.": "Αυτός ο χρήστης είναι ήδη μέλος αυτού του οργανισμού.",
   "This user only belongs to this organization. Removing them would leave them without access.": "Αυτός ο χρήστης ανήκει μόνο σε αυτόν τον οργανισμό. Η αφαίρεσή του θα τον αφήσει χωρίς πρόσβαση.",

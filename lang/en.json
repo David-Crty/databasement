@@ -973,7 +973,7 @@
     "This snapshot is locked. Unlock it to delete.": "This snapshot is locked. Unlock it to delete.",
     "This snapshot is stored on several volumes. Choose which copy to download.": "This snapshot is stored on several volumes. Choose which copy to download.",
     "This snapshot is stored on several volumes; choose which copy to read from.": "This snapshot is stored on several volumes; choose which copy to read from.",
-    "This SQL will be run after the restore:": "This SQL will be run after the restore:",
+    "This SQL will be run before the restore:": "This SQL will be run before the restore:",
     "This user belongs to multiple organizations. Remove them from this organization instead.": "This user belongs to multiple organizations. Remove them from this organization instead.",
     "This user is already a member of this organization.": "This user is already a member of this organization.",
     "This user only belongs to this organization. Removing them would leave them without access.": "This user only belongs to this organization. Removing them would leave them without access.",

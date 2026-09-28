@@ -9,16 +9,20 @@
 
 use App\Enums\BackupJobStatus;
 use App\Enums\CompressionType;
+use App\Enums\DatabaseType;
 use App\Facades\AppConfig;
 use App\Jobs\ProcessBackupJob;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\Backup;
+use App\Models\DatabaseServer;
+use App\Models\Restore;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\RestoreTask;
 use Tests\Support\IntegrationTestHelpers;
+use Tests\TestCase;
 
 beforeEach(function () {
     $this->backupJobFactory = app(BackupJobFactory::class);
@@ -29,6 +33,7 @@ beforeEach(function () {
     $this->backup = null;
     $this->snapshot = null;
     $this->restoredDatabaseName = null;
+    $this->postgresRoles = [];
 });
 
 afterEach(function () {
@@ -44,7 +49,83 @@ afterEach(function () {
             // Ignore cleanup errors
         }
     }
+
+    foreach ($this->postgresRoles as $role) {
+        try {
+            DatabaseType::POSTGRESQL->createPdo($this->databaseServer)->exec("DROP ROLE IF EXISTS \"{$role}\"");
+        } catch (Exception) {
+            // Ignore cleanup errors
+        }
+    }
 });
+
+/**
+ * Back up the Postgres fixture data as the integration server's own user,
+ * its bootstrap superuser, leaving the completed snapshot in $this->snapshot.
+ */
+function backUpPostgresFixture(TestCase $test, ?string $dumpFormat): void
+{
+    AppConfig::set('backup.compression', 'gzip');
+
+    app()->forgetInstance(CompressorInterface::class);
+    app()->forgetInstance(BackupTask::class);
+    app()->forgetInstance(RestoreTask::class);
+
+    $test->volume = IntegrationTestHelpers::createVolume('postgres');
+    $test->databaseServer = IntegrationTestHelpers::createDatabaseServer('postgres');
+    if ($dumpFormat !== null) {
+        $test->databaseServer->update([
+            'extra_config' => array_merge($test->databaseServer->extra_config ?? [], ['dump_format' => $dumpFormat]),
+        ]);
+    }
+    $test->backup = IntegrationTestHelpers::createBackup($test->databaseServer, $test->volume);
+    $test->databaseServer->load('backups.volumes');
+
+    IntegrationTestHelpers::loadTestData('postgres', $test->databaseServer);
+
+    $test->snapshot = $test->backupJobFactory->createSnapshots(backup: $test->backup, method: 'manual')[0];
+    ProcessBackupJob::dispatchSync($test->snapshot->id);
+    $test->snapshot->refresh();
+}
+
+/** Create a role as $creator's user, dropped again after the test. */
+function createPostgresRole(TestCase $test, DatabaseServer $creator, string $prefix, string $attributes): string
+{
+    $role = $prefix.'_'.hrtime(true).IntegrationTestHelpers::getParallelSuffix();
+
+    DatabaseType::POSTGRESQL->createPdo($creator)->exec("CREATE ROLE \"{$role}\" {$attributes}");
+    array_unshift($test->postgresRoles, $role);
+
+    return $role;
+}
+
+function restorePostgresSnapshotAsOwner(TestCase $test, DatabaseServer $target, string $owner): Restore
+{
+    $test->restoredDatabaseName ??= 'testdb_restored_'.hrtime(true).IntegrationTestHelpers::getParallelSuffix();
+
+    $restore = $test->backupJobFactory->createRestore(
+        snapshot: $test->snapshot,
+        targetServer: $target,
+        schemaName: $test->restoredDatabaseName,
+        options: ['owner_user' => $owner],
+    );
+    ProcessRestoreJob::dispatchSync($restore->id);
+
+    return $restore->refresh();
+}
+
+/**
+ * @return array{database: string, tables: list<string>}
+ */
+function restoredPostgresOwners(TestCase $test): array
+{
+    $pdo = IntegrationTestHelpers::connectToDatabase('postgres', $test->databaseServer, $test->restoredDatabaseName);
+
+    return [
+        'database' => $pdo->query('SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database()')->fetchColumn(),
+        'tables' => $pdo->query("SELECT DISTINCT tableowner FROM pg_tables WHERE schemaname = 'public'")->fetchAll(PDO::FETCH_COLUMN),
+    ];
+}
 
 test('mysql backup and restore workflow', function (string $target, string $compression, string $expectedExt) {
     AppConfig::set('backup.compression', $compression);
@@ -160,6 +241,45 @@ test('postgres backup and restore workflow', function (?string $dumpFormat) {
     'plain format' => [null],
     'custom dump format' => ['custom'],
 ]);
+
+// The integration server connects as its bootstrap superuser, for which
+// PostgreSQL refuses REASSIGN OWNED BY outright (#607).
+test('postgres restore hands the database and its objects to the owner user', function (?string $dumpFormat) {
+    backUpPostgresFixture($this, $dumpFormat);
+    $owner = createPostgresRole($this, $this->databaseServer, 'restore_owner', 'LOGIN');
+
+    $restore = restorePostgresSnapshotAsOwner($this, $this->databaseServer, $owner);
+
+    expect($restore->job->status)->toBe(BackupJobStatus::Completed)
+        ->and(restoredPostgresOwners($this))->toBe(['database' => $owner, 'tables' => [$owner]]);
+})->with([
+    'plain format' => [null],
+    'custom dump format' => ['custom'],
+]);
+
+// Managed services (RDS, Azure, Cloud SQL) connect as a CREATEROLE user short
+// of superuser, which from PostgreSQL 16 on is not a member of the roles it
+// creates until it grants itself one.
+test('postgres restore as a non-superuser needs membership in the owner role', function () {
+    backUpPostgresFixture($this, null);
+    $admin = createPostgresRole($this, $this->databaseServer, 'managed_admin', "LOGIN CREATEDB CREATEROLE PASSWORD 'managed_secret'");
+
+    $target = $this->databaseServer->replicate();
+    $target->fill(['name' => 'Managed-like Postgres', 'username' => $admin, 'password' => 'managed_secret'])->save();
+    $owner = createPostgresRole($this, $target, 'restore_owner', 'LOGIN');
+
+    $refused = rescue(fn () => restorePostgresSnapshotAsOwner($this, $target, $owner), report: false);
+    expect($refused)->toBeNull()
+        ->and(Restore::latest('created_at')->first()->job->error_message)
+        ->toContain(sprintf('GRANT "%s" TO "%s";', $owner, $admin));
+
+    DatabaseType::POSTGRESQL->createPdo($target)->exec(sprintf('GRANT "%s" TO "%s"', $owner, $admin));
+
+    $restore = restorePostgresSnapshotAsOwner($this, $target, $owner);
+
+    expect($restore->job->status)->toBe(BackupJobStatus::Completed)
+        ->and(restoredPostgresOwners($this))->toBe(['database' => $owner, 'tables' => [$owner]]);
+});
 
 test('backup with extra dump flags succeeds', function (string $type, string $flag) {
     // Create models with dump flags in extra_config

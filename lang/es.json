@@ -973,7 +973,7 @@
   "This snapshot is locked. Unlock it to delete.": "Este snapshot está bloqueado. Desbloquéalo para eliminarlo.",
   "This snapshot is stored on several volumes. Choose which copy to download.": "Este snapshot está almacenado en varios volúmenes. Elige qué copia descargar.",
   "This snapshot is stored on several volumes; choose which copy to read from.": "Este snapshot está almacenado en varios volúmenes; elige de qué copia leer.",
-  "This SQL will be run after the restore:": "Este SQL se ejecutará después del restore:",
+  "This SQL will be run before the restore:": "Este SQL se ejecutará antes de la restauración:",
   "This user belongs to multiple organizations. Remove them from this organization instead.": "Este usuario pertenece a varias organizaciones. Elimínalo de esta organización en su lugar.",
   "This user is already a member of this organization.": "Este usuario ya es miembro de esta organización.",
   "This user only belongs to this organization. Removing them would leave them without access.": "Este usuario solo pertenece a esta organización. Eliminarlo lo dejaría sin acceso.",

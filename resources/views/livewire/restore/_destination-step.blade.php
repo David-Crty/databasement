@@ -65,14 +65,13 @@
             $ownershipStatements = $owner === '' ? [] : PostgresqlDatabase::ownershipStatements(
                 $schemaName,
                 $owner,
-                (string) $this->targetServer?->username,
                 $preservesPrivileges,
             );
         @endphp
 
         @if($ownershipStatements)
             <div class="fieldset-label mt-1 block text-xs">
-                {{ __('This SQL will be run after the restore:') }}
+                {{ __('This SQL will be run before the restore:') }}
                 <pre class="bg-base-200 rounded-box mt-1 overflow-x-auto p-3"><code class="select-all">{{ implode(PHP_EOL, $ownershipStatements) }}</code></pre>
             </div>
         @endif

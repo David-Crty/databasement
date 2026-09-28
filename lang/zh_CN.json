@@ -973,7 +973,7 @@
   "This snapshot is locked. Unlock it to delete.": "此 snapshot 已锁定，解锁后才能删除。",
   "This snapshot is stored on several volumes. Choose which copy to download.": "此 snapshot 存储在多个卷上，请选择要下载的副本。",
   "This snapshot is stored on several volumes; choose which copy to read from.": "此 snapshot 存储在多个卷上，请选择要读取的副本。",
-  "This SQL will be run after the restore:": "以下 SQL 将在 restore 后执行：",
+  "This SQL will be run before the restore:": "将在 restore 前执行以下 SQL：",
   "This user belongs to multiple organizations. Remove them from this organization instead.": "此用户属于多个组织，请改为将其从当前组织中移除。",
   "This user is already a member of this organization.": "该用户已经是此组织的成员。",
   "This user only belongs to this organization. Removing them would leave them without access.": "该用户仅属于此组织，移除后他们将无法访问。",

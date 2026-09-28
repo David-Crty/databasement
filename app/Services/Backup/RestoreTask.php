@@ -99,6 +99,11 @@ class RestoreTask
 
             $this->prepareDatabase($database, $config->schemaName, $logger, $config->forceDatabase);
 
+            if ($config->ownerUser !== null && $database instanceof Databases\PostgresqlDatabase) {
+                $logger->log("Transferring ownership of database \"{$config->schemaName}\" to user \"{$config->ownerUser}\"", 'info');
+                $database->transferOwnership($config->schemaName, $config->ownerUser, $logger);
+            }
+
             $logger->log('Restoring database from snapshot', 'info', [
                 'source_database' => $config->snapshotDatabaseName,
                 'target_database' => $config->schemaName,
@@ -114,11 +119,6 @@ class RestoreTask
 
             if ($onProgress !== null) {
                 $onProgress();
-            }
-
-            if ($config->ownerUser !== null && $database instanceof Databases\PostgresqlDatabase) {
-                $logger->log("Transferring ownership of database \"{$config->schemaName}\" to user \"{$config->ownerUser}\"", 'info');
-                $database->transferOwnership($config->schemaName, $config->ownerUser, $logger);
             }
 
             // Mark job as completed
