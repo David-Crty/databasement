@@ -77,8 +77,17 @@ test('restore uses pg_restore when dump_format config is custom', function () {
     $result = $db->restore('/tmp/snapshot.sql');
 
     expect($result->command)->toBe(
-        "PGPASSWORD='pg_secret' pg_restore --clean --if-exists --no-owner --no-privileges --jobs=4 --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' '/tmp/snapshot.sql'"
+        "PGPASSWORD='pg_secret' pg_restore --clean --if-exists --no-owner --no-privileges --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' '/tmp/snapshot.sql'"
     );
+});
+
+// Serial by default: a parallel pg_restore loads the data of an extension's
+// tables (pgAgent's pga_job, pga_joblog) in any order, and CREATE EXTENSION has
+// already put their foreign keys in place (#635).
+test('custom format restore runs parallel jobs only when parallel_restore is requested', function () {
+    expect(postgresHandler(['dump_format' => 'custom'])->restore('/tmp/snapshot.sql')->command)->not->toContain('--jobs')
+        ->and(postgresHandler(['dump_format' => 'custom', 'parallel_restore' => true])->restore('/tmp/snapshot.sql')->command)
+        ->toContain('--no-privileges --jobs=4 --host=');
 });
 
 test('dump keeps ownership and privileges when dump_privileges is enabled', function () {
@@ -95,7 +104,7 @@ test('custom format restore keeps ownership and privileges when dump_privileges 
     $result = $db->restore('/tmp/snapshot.sql');
 
     expect($result->command)->toBe(
-        "PGPASSWORD='pg_secret' pg_restore --clean --if-exists --jobs=4 --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' '/tmp/snapshot.sql'"
+        "PGPASSWORD='pg_secret' pg_restore --clean --if-exists --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' '/tmp/snapshot.sql'"
     );
 });
 

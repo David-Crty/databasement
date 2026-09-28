@@ -94,6 +94,7 @@ class DatabaseProvider
         ?string $sourceDatabaseName = null,
         ?string $snapshotDumpFormat = null,
         ?bool $snapshotDumpPrivileges = null,
+        bool $parallelRestore = false,
     ): DatabaseInterface {
         if ($config->databaseType === DatabaseType::SQLITE) {
             return $this->makeConfigured(DatabaseType::SQLITE, $this->sqliteConfig($databaseName, $config->sshConfig));
@@ -130,6 +131,10 @@ class DatabaseProvider
         if ($config->databaseType === DatabaseType::POSTGRESQL
             && ($snapshotDumpPrivileges ?? ! empty($extra['dump_privileges']))) {
             $dbConfig['dump_privileges'] = true;
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL && $parallelRestore) {
+            $dbConfig['parallel_restore'] = true;
         }
 
         // Optional short timeout used by interactive UI lookups; jobs leave

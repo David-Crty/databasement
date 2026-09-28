@@ -66,6 +66,19 @@ describe('dispatch', function () {
             ->and($config->snapshotVolume->type)->toBe('s3');
     });
 
+    test('the parallel restore option reaches the agent', function () {
+        $agent = Agent::factory()->create();
+        $target = DatabaseServer::factory()->create(['database_type' => 'postgres', 'agent_id' => $agent->id]);
+        $snapshot = Snapshot::factory()->forServer(DatabaseServer::factory()->create(['database_type' => 'postgres']))
+            ->onVolumes(Volume::factory()->s3()->create())
+            ->create();
+
+        $restore = app(BackupJobFactory::class)->createRestore($snapshot, $target, 'restored_db', options: ['parallel_restore' => true]);
+        app(DispatchRestoreAction::class)->execute($restore);
+
+        expect(RestoreConfig::fromPayload(AgentJob::where('restore_id', $restore->id)->sole()->payload, '/tmp/work')->parallelRestore)->toBeTrue();
+    });
+
     test('the agent reads the copy it can reach, not the local one', function () {
         $s3 = Volume::factory()->s3()->create();
 

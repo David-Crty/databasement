@@ -95,6 +95,7 @@ class RestoreTask
                 $config->snapshotDatabaseName,
                 $config->snapshotDumpFormat,
                 $config->snapshotDumpPrivileges,
+                $config->parallelRestore,
             );
 
             $this->prepareDatabase($database, $config->schemaName, $logger, $config->forceDatabase);

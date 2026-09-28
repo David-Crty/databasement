@@ -161,6 +161,7 @@
                     @include('livewire.restore._destination-step', [
                         'targetLocked' => $mode->targetServerLocked(),
                         'snapshotPreservesPrivileges' => (bool) ($snapshot?->metadata['dump_privileges'] ?? false),
+                        'snapshotIsCustomFormat' => ($snapshot?->metadata['dump_format'] ?? null) === 'custom',
                     ])
 
                     @if($snapshot)

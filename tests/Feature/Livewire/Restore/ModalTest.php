@@ -531,3 +531,24 @@ test('the owner of a privilege-preserving restore reaches the queued job', funct
 
     expect(Restore::firstOrFail()->getOption('owner_user'))->toBe('webapp');
 });
+
+test('parallel restore is offered for custom-format snapshots and reaches the restore options', function () {
+    Queue::fake();
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $plain = Snapshot::factory()->forServer($source)->withFile()->create();
+    $custom = Snapshot::factory()->forServer($source)->withFile()->create(['metadata' => ['dump_format' => 'custom']]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $plain->id)
+        ->assertDontSee('Parallel restore (4 jobs)')
+        ->call('selectSnapshot', $custom->id)
+        ->assertSee('Parallel restore (4 jobs)')
+        ->set('schemaName', 'restored_db')
+        ->set('parallelRestore', true)
+        ->call('restore');
+
+    expect(Restore::firstOrFail()->getOption('parallel_restore'))->toBeTrue();
+});

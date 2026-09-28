@@ -77,7 +77,7 @@ class Modal extends Component
         $this->reset([
             'targetServer', 'targetServerId', 'selectedSnapshotId', 'selectedSnapshotFileId',
             'schemaName', 'forceDatabase',
-            'ownerUser', 'currentStep', 'existingDatabases', 'snapshotSearch',
+            'ownerUser', 'parallelRestore', 'currentStep', 'existingDatabases', 'snapshotSearch',
             'serverFilter', 'dbTypeFilter',
         ]);
         $this->resetPage('snapshots');
@@ -167,6 +167,7 @@ class Modal extends Component
         $this->schemaName = $restore->schema_name;
         $this->forceDatabase = (bool) ($restore->options['force_database'] ?? false);
         $this->ownerUser = (string) ($restore->options['owner_user'] ?? '');
+        $this->parallelRestore = (bool) ($restore->options['parallel_restore'] ?? false);
         $this->loadExistingDatabases($this->targetServer);
         $this->currentStep = 2;
 

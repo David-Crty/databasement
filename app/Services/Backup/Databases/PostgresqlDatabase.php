@@ -45,15 +45,15 @@ class PostgresqlDatabase implements DatabaseInterface
      * Restore-side flags applied by pg_restore when reading a custom-format archive.
      * Only used by the custom-format branch of restore() — plain format uses psql -f
      * which accepts none of these. --clean/--if-exists must be passed at restore time
-     * (not dump time) for custom archives. --jobs=4 enables parallel restore, which is
-     * the main reason custom format exists.
+     * (not dump time) for custom archives. --jobs only on request (parallel_restore):
+     * extension tables such as pgAgent's have their foreign keys before their data
+     * loads, so a parallel restore of them fails where a serial one follows dump order.
      */
     private const array RESTORE_CUSTOM_FORMAT_OPTIONS = [
         '--clean',
         '--if-exists',
         '--no-owner',
         '--no-privileges',
-        '--jobs=4',
     ];
 
     /**
@@ -138,7 +138,10 @@ class PostgresqlDatabase implements DatabaseInterface
                 $this->sslEnvPrefix(),
                 escapeshellarg($this->config['pass']),
                 $binary,
-                implode(' ', $this->withPrivilegeOptions(self::RESTORE_CUSTOM_FORMAT_OPTIONS)),
+                implode(' ', [
+                    ...$this->withPrivilegeOptions(self::RESTORE_CUSTOM_FORMAT_OPTIONS),
+                    ...(empty($this->config['parallel_restore']) ? [] : ['--jobs=4']),
+                ]),
                 escapeshellarg($this->config['host']),
                 escapeshellarg((string) $this->config['port']),
                 escapeshellarg($this->config['user']),

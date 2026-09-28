@@ -25,6 +25,7 @@ readonly class RestoreConfig
         public ?string $snapshotDumpFormat = null,
         public bool $snapshotDumpPrivileges = false,
         public ?string $postRestoreScript = null,
+        public bool $parallelRestore = false,
     ) {}
 
     public static function fromRestore(Restore $restore, SnapshotFile $sourceFile, string $workingDirectory): self
@@ -46,6 +47,7 @@ readonly class RestoreConfig
             snapshotDumpFormat: is_string($format = ($snapshot->metadata['dump_format'] ?? null)) ? $format : null,
             snapshotDumpPrivileges: (bool) ($snapshot->metadata['dump_privileges'] ?? false),
             postRestoreScript: AppConfig::get('backup.post_restore_script'),
+            parallelRestore: filter_var($restore->getOption('parallel_restore', false), FILTER_VALIDATE_BOOLEAN),
         );
     }
 
@@ -61,6 +63,7 @@ readonly class RestoreConfig
      *     force_database: bool,
      *     owner_user: string|null,
      *     post_restore_script: string|null,
+     *     parallel_restore: bool,
      * }
      */
     public function toPayload(): array
@@ -82,6 +85,7 @@ readonly class RestoreConfig
             'force_database' => $this->forceDatabase,
             'owner_user' => $this->ownerUser,
             'post_restore_script' => $this->postRestoreScript,
+            'parallel_restore' => $this->parallelRestore,
         ];
     }
 
@@ -95,6 +99,7 @@ readonly class RestoreConfig
      *     force_database?: bool,
      *     owner_user?: string|null,
      *     post_restore_script?: string|null,
+     *     parallel_restore?: bool,
      * }  $payload
      */
     public static function fromPayload(array $payload, string $workingDirectory): self
@@ -116,6 +121,7 @@ readonly class RestoreConfig
             snapshotDumpFormat: $snapshot['dump_format'] ?? null,
             snapshotDumpPrivileges: (bool) ($snapshot['dump_privileges'] ?? false),
             postRestoreScript: $payload['post_restore_script'] ?? null,
+            parallelRestore: (bool) ($payload['parallel_restore'] ?? false),
         );
     }
 }
