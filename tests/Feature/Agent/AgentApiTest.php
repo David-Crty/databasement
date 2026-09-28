@@ -40,6 +40,29 @@ describe('agent authentication', function () {
             ->assertForbidden();
     });
 
+    test('agent tokens are rejected by the user api', function () {
+        ['token' => $token] = createAgentWithToken();
+        createDatabaseServer();
+
+        $this->withToken($token)
+            ->getJson('/api/v1/database-servers')
+            ->assertForbidden()
+            ->assertJsonMissingPath('data');
+    });
+
+    test('agent tokens are rejected by the mcp endpoint', function () {
+        ['token' => $token] = createAgentWithToken();
+
+        $this->withToken($token)
+            ->withHeaders(['Accept' => 'application/json, text/event-stream'])
+            ->postJson('/mcp', [
+                'jsonrpc' => '2.0',
+                'id' => 1,
+                'method' => 'tools/list',
+            ])
+            ->assertForbidden();
+    });
+
     test('agent tokens are accepted', function () {
         ['token' => $token] = createAgentWithToken();
 

@@ -11,4 +11,4 @@ Mcp::local('databasement', DatabasementServer::class);
 // the resolved org so a user's org-scoped role abilities resolve when tools call
 // $user->can(...). Without it, non-super-admin members are wrongly denied.
 Mcp::web('/mcp', DatabasementServer::class)
-    ->middleware(['auth:sanctum', SetCurrentOrganization::class, ScopeBouncer::class]);
+    ->middleware(['auth:sanctum', 'user', SetCurrentOrganization::class, ScopeBouncer::class]);

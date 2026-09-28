@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\V1\UserOrganizationController;
 use App\Http\Controllers\Api\V1\VolumeController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum', 'throttle:api'])->name('api.')->prefix('v1')->group(function () {
+Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->name('api.')->prefix('v1')->group(function () {
     Route::apiResource('database-servers', DatabaseServerController::class)
         ->only(['index', 'show', 'store', 'destroy']);
     Route::put('database-servers/{database_server}', [DatabaseServerController::class, 'update'])

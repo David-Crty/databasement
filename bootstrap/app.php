@@ -67,6 +67,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->alias([
             'agent' => \App\Http\Middleware\EnsureAgentToken::class,
+            'user' => \App\Http\Middleware\EnsureUserToken::class,
             'throttle-failed-agent-auth' => \App\Http\Middleware\ThrottleFailedAgentAuth::class,
         ]);
     })
