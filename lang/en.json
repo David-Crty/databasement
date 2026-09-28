@@ -1089,6 +1089,7 @@
     "Your account has been deleted.": "Your account has been deleted.",
     "Your account is not a member of any organization. Please contact an administrator.": "Your account is not a member of any organization. Please contact an administrator.",
     "Your account is not authorized to access this application.": "Your account is not authorized to access this application.",
+    "Your sign-in provider did not confirm this email address is verified, so it cannot be linked to an existing account. Please log in with your password or contact an administrator.": "Your sign-in provider did not confirm this email address is verified, so it cannot be linked to an existing account. Please log in with your password or contact an administrator.",
     "{0} Backups enabled (no config)|{1} Backups enabled (:count config)|[2,*] Backups enabled (:count configs)": "{0} Backups enabled (no config)|{1} Backups enabled (:count config)|[2,*] Backups enabled (:count configs)",
     "{1} :count channel|[2,*] :count channels": "{1} :count channel|[2,*] :count channels",
     "{1} :count daily|[2,*] :count daily": "{1} :count daily|[2,*] :count daily",

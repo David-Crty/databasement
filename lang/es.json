@@ -1089,6 +1089,7 @@
   "Your account has been deleted.": "Tu cuenta ha sido eliminada.",
   "Your account is not a member of any organization. Please contact an administrator.": "Tu cuenta no pertenece a ninguna organización. Por favor, contacta a un administrador.",
   "Your account is not authorized to access this application.": "Tu cuenta no está autorizada para acceder a esta aplicación.",
+  "Your sign-in provider did not confirm this email address is verified, so it cannot be linked to an existing account. Please log in with your password or contact an administrator.": "Tu proveedor de inicio de sesión no confirmó que esta dirección de correo esté verificada, por lo que no puede vincularse a una cuenta existente. Inicia sesión con tu contraseña o contacta a un administrador.",
   "{0} Backups enabled (no config)|{1} Backups enabled (:count config)|[2,*] Backups enabled (:count configs)": "{0} Backups habilitados (sin configuración)|{1} Backups habilitados (:count configuración)|[2,*] Backups habilitados (:count configuraciones)",
   "{1} :count channel|[2,*] :count channels": "{1} :count canal|[2,*] :count canales",
   "{1} :count daily|[2,*] :count daily": "{1} :count diario|[2,*] :count diarios",

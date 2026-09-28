@@ -92,15 +92,12 @@ test('oauth callback creates new user when email not found', function () {
         ->and($identity->email)->toBe('newuser@example.com');
 });
 
-test('oauth callback links to existing user by email and clears password', function () {
+test('oauth callback links to existing user by verified email and keeps password', function () {
     $existingUser = User::factory()->create([
         'email' => 'existing@example.com',
         'role' => 'admin',
-        'password' => 'original-password',
     ]);
-
-    // Verify user has password before OAuth
-    expect($existingUser->password)->not->toBeNull();
+    $originalPassword = $existingUser->password;
 
     Socialite::fake('github', (new SocialiteUser)->map([
         'id' => 'github-456',
@@ -112,13 +109,80 @@ test('oauth callback links to existing user by email and clears password', funct
     $response = $this->get(route('oauth.callback', 'github'));
 
     $response->assertRedirect(route('dashboard'));
+    $this->assertAuthenticatedAs($existingUser);
 
     expect(User::count())->toBe(1);
 
     $existingUser->refresh();
     expect($existingUser->oauthIdentities)->toHaveCount(1)
-        ->and($existingUser->roleNameIn(\App\Models\Organization::default()))->toBe('admin') // unchanged
-        ->and($existingUser->password)->toBeNull(); // cleared to enforce OAuth-only login
+        ->and($existingUser->roleNameIn(\App\Models\Organization::default()))->toBe('admin')
+        ->and($existingUser->password)->toBe($originalPassword);
+});
+
+test('oauth callback does not link existing user when provider email is not verified', function (string $provider, array $raw) {
+    Config::set("oauth.providers.{$provider}.enabled", true);
+    if ($provider === 'oidc') {
+        enableOidcProvider();
+    }
+
+    $existingUser = User::factory()->create(['email' => 'existing@example.com']);
+
+    Socialite::fake($provider, (new SocialiteUser)->setRaw($raw + ['email' => 'existing@example.com'])->map([
+        'id' => "{$provider}-unverified",
+        'name' => 'Unverified',
+        'email' => 'existing@example.com',
+        'nickname' => 'unverified',
+    ])->setToken('token'));
+
+    $response = $this->get(route('oauth.callback', $provider));
+
+    $response->assertRedirect(route('login'));
+    $response->assertSessionHas('error');
+    $this->assertGuest();
+    expect($existingUser->oauthIdentities()->count())->toBe(0);
+})->with([
+    'oidc without claim' => ['oidc', []],
+    'oidc claim false' => ['oidc', ['email_verified' => false]],
+    'google claim false' => ['google', ['email_verified' => false]],
+    'gitlab unconfirmed' => ['gitlab', ['confirmed_at' => null]],
+]);
+
+test('oauth callback links existing user when oidc provider reports email as verified', function () {
+    enableOidcProvider();
+    $existingUser = User::factory()->create(['email' => 'existing@example.com']);
+
+    Socialite::fake('oidc', (new SocialiteUser)->setRaw([
+        'sub' => 'oidc-verified',
+        'email' => 'existing@example.com',
+        'email_verified' => true,
+    ])->map([
+        'id' => 'oidc-verified',
+        'name' => 'Verified',
+        'email' => 'existing@example.com',
+        'nickname' => 'verified',
+    ])->setToken('token'));
+
+    $this->get(route('oauth.callback', 'oidc'))->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($existingUser);
+    expect($existingUser->oauthIdentities()->count())->toBe(1);
+});
+
+test('oauth callback links existing user without verification claim when oidc emails are trusted', function () {
+    enableOidcProvider();
+    Config::set('oauth.providers.oidc.trust_email', true);
+    $existingUser = User::factory()->create(['email' => 'existing@example.com']);
+
+    Socialite::fake('oidc', (new SocialiteUser)->setRaw(['sub' => 'oidc-trusted', 'email' => 'existing@example.com'])->map([
+        'id' => 'oidc-trusted',
+        'name' => 'Trusted',
+        'email' => 'existing@example.com',
+        'nickname' => 'trusted',
+    ])->setToken('token'));
+
+    $this->get(route('oauth.callback', 'oidc'))->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($existingUser);
 });
 
 test('oauth callback logs in returning oauth user', function () {
@@ -235,7 +299,7 @@ test('user can have multiple oauth providers linked', function () {
     Config::set('oauth.providers.google.enabled', true);
 
     // Second OAuth login - Google (same email, should link to same user)
-    Socialite::fake('google', (new SocialiteUser)->map([
+    Socialite::fake('google', (new SocialiteUser)->setRaw(['email_verified' => true])->map([
         'id' => 'google-multi',
         'name' => $user->name,
         'email' => 'multi@example.com',

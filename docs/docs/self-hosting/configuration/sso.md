@@ -169,11 +169,21 @@ You can find the organization ID in **Configuration > Organizations**. See the [
 
 ### Auto-Link by Email
 
-When enabled (default), OAuth logins are automatically linked to existing users with matching email addresses:
+When enabled (default), OAuth logins are linked to existing users with matching email addresses:
 
 ```env
 OAUTH_AUTO_LINK_BY_EMAIL=true  # Default: true
 ```
+
+An identity is only linked when the provider reports the email as verified: GitHub (primary verified email), Google and Generic OIDC (`email_verified` claim is `true`), GitLab (`confirmed_at` is set). Otherwise the login is refused and the user can sign in with their password. Linking does not remove the user's password; use `OAUTH_ONLY_MODE` to require OAuth sign-in.
+
+If your OIDC provider does not send `email_verified` (or sends `false`) but you control every account on it, you can tell Databasement to trust its email addresses:
+
+```env
+OAUTH_OIDC_TRUST_EMAIL=true  # Default: false
+```
+
+Only enable this when users cannot set an arbitrary email address on the provider themselves.
 
 ## OIDC Group-Based Role Mapping
 

@@ -1089,6 +1089,7 @@
   "Your account has been deleted.": "你的账户已被删除。",
   "Your account is not a member of any organization. Please contact an administrator.": "你的账户不属于任何组织。请联系管理员。",
   "Your account is not authorized to access this application.": "你的账户无权访问此应用程序。",
+  "Your sign-in provider did not confirm this email address is verified, so it cannot be linked to an existing account. Please log in with your password or contact an administrator.": "您的登录服务商未确认此邮箱地址已通过验证，因此无法关联到现有账户。请使用密码登录，或联系管理员。",
   "{0} Backups enabled (no config)|{1} Backups enabled (:count config)|[2,*] Backups enabled (:count configs)": "{0} 已启用 Backups（无配置）|{1} 已启用 Backups（:count 个配置）|[2,*] 已启用 Backups（:count 个配置）",
   "{1} :count channel|[2,*] :count channels": "{1} 一个频道|{2} 两个频道|[3,*] :count 个频道",
   "{1} :count daily|[2,*] :count daily": "{1} 一个每日|{2} 两个每日|[3,*] :count 个每日",

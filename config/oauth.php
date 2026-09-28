@@ -42,7 +42,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | When enabled, if an OAuth login's email matches an existing user,
-    | the OAuth identity will be automatically linked to that user.
+    | the OAuth identity will be automatically linked to that user, provided
+    | the provider reports the email address as verified.
     |
     */
     'auto_link_by_email' => env('OAUTH_AUTO_LINK_BY_EMAIL', true),
@@ -130,6 +131,7 @@ return [
             'client_secret' => env('OAUTH_OIDC_CLIENT_SECRET'),
             'base_url' => env('OAUTH_OIDC_BASE_URL'),
             'extra_scopes' => env('OAUTH_OIDC_SCOPES', ''),
+            'trust_email' => env('OAUTH_OIDC_TRUST_EMAIL', false),
             'icon' => 'o-key',
             'label' => env('OAUTH_OIDC_LABEL', 'SSO'),
         ],

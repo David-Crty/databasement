@@ -59,8 +59,11 @@ class OAuthService
             : null;
 
         if (config('oauth.auto_link_by_email') && $existingUser) {
-            $existingUser->password = null;
-            $existingUser->save();
+            if (! $this->providerVerifiedEmail($socialiteUser, $provider)) {
+                throw new \RuntimeException(
+                    __('Your sign-in provider did not confirm this email address is verified, so it cannot be linked to an existing account. Please log in with your password or contact an administrator.')
+                );
+            }
 
             $this->syncUserRole($existingUser, $socialiteUser, $provider, $resolvedRole);
 
@@ -80,6 +83,25 @@ class OAuthService
         }
 
         return $this->createUser($socialiteUser, $resolvedRole);
+    }
+
+    /**
+     * Whether the provider asserts that the returned email address is verified.
+     * Providers without a known verification signal are treated as unverified.
+     */
+    private function providerVerifiedEmail(SocialiteUser $socialiteUser, string $provider): bool
+    {
+        $raw = method_exists($socialiteUser, 'getRaw') ? $socialiteUser->getRaw() : [];
+
+        return match ($provider) {
+            // Socialite only returns the primary email when GitHub marks it verified.
+            'github' => true,
+            'google' => in_array($raw['email_verified'] ?? null, [true, 'true'], true),
+            'oidc' => config('oauth.providers.oidc.trust_email')
+                || in_array($raw['email_verified'] ?? null, [true, 'true'], true),
+            'gitlab' => ! empty($raw['confirmed_at']),
+            default => false,
+        };
     }
 
     /**

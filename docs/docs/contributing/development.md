@@ -146,7 +146,7 @@ OAUTH_OIDC_LABEL=SSO
 ### OAuth Behavior Notes
 
 - **New users**: Created automatically with the role defined by `OAUTH_DEFAULT_ROLE`
-- **Existing users**: When an existing user logs in via OAuth (matching email), their account is linked and their password is cleared
+- **Existing users**: An OAuth login whose email matches an existing user is linked to that account when the provider reports the email as verified. The user keeps their password
 - **OAuth-only users**: Cannot use password login — they must use the OAuth button
 - **Settings access**: OAuth-only users don't see Password or Two-Factor settings (managed by the OAuth provider)
 
