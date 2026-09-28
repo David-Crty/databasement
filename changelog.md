@@ -23,8 +23,16 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.8.2` Restoring a PostgreSQL snapshot with an owner works on servers connected as their bootstrap superuser (usually `postgres`), where it failed on `REASSIGN OWNED`: the database is handed to the owner before the restore and the dump is restored as that owner. On managed servers (RDS, Azure, Cloud SQL) the connection user still needs membership in the owner role, and the error now names the missing `GRANT` ([#636](https://github.com/David-Crty/databasement/pull/636))
 - `1.8.1` Jobs run by remote agents are reported like jobs on the app's own queue: a backup completed by an agent sends the success notification, a backup or restore whose agent stops responding is failed with a notification, and a database discovery the agent cannot run records a failed snapshot and notifies instead of failing silently. A discovery whose pattern matches no database completes without backups rather than failing, and a manually triggered discovery is skipped while one is already running for the same backup ([#634](https://github.com/David-Crty/databasement/pull/634))
 - `1.8.0` MySQL 5.5 and 5.6 and MariaDB below 10.2 can be backed up: the image now ships Oracle's MySQL client alongside `mariadb-dump` and each server is dumped with the client its version needs, which also retires the 1.7.1 workaround that dropped stored routines from the dumps of MySQL 26.x servers. The dump command preview on the server form names the client the backup would really run ([#627](https://github.com/David-Crty/databasement/pull/627)) ([#628](https://github.com/David-Crty/databasement/pull/628))
+
+### Security
+
+- `1.8.2` **Breaking:** Google, GitHub and gitlab.com sign-in only logs in users who already exist, since these providers accept any account holder. To let one of them create accounts again, set `OAUTH_GOOGLE_AUTO_CREATE_USERS`, `OAUTH_GITHUB_AUTO_CREATE_USERS` or `OAUTH_GITLAB_AUTO_CREATE_USERS` to `true`, ideally after restricting access on the provider side; generic OIDC and self-hosted GitLab still follow `OAUTH_AUTO_CREATE_USERS` ([#641](https://github.com/David-Crty/databasement/pull/641))
+- `1.8.2` The v1 REST API and the `/mcp` endpoint accept only user tokens; agent tokens are limited to the agent endpoints ([#637](https://github.com/David-Crty/databasement/pull/637))
+- `1.8.2` Database names reach the dump and restore clients in a form they cannot mistake for one of their own options, and names starting with a dash are rejected by the backup form, the API, scheduled restores and the MCP restore tool ([#640](https://github.com/David-Crty/databasement/pull/640))
+- `1.8.2` Extra dump flags are checked against the denied options in their abbreviated and `--loose-` prefixed spellings too, which `mysqldump`, `mariadb-dump` and `pg_dump` all accept ([#639](https://github.com/David-Crty/databasement/pull/639))
 
 ## [1.7] - 2026-09-18 {#v1-7}
 
@@ -291,7 +299,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.0
+[1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.2
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
 [1.5]: https://github.com/David-Crty/databasement/compare/v1.4.2...v1.5.6

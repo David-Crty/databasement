@@ -23,13 +23,13 @@ Databasement uses native database tools for reliable backups:
 **MariaDB** (10.2 and later):
 ```bash
 mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl \
-  --host='...' --port='...' --user='...' --password='...' 'database_name' > dump.sql
+  --host='...' --port='...' --user='...' --password='...' --result-file='dump.sql' 'database_name'
 ```
 
 **MySQL** (and MariaDB below 10.2), using the bundled Oracle client:
 ```bash
 /opt/mysql-client/bin/mysqldump --single-transaction --routines --add-drop-table --hex-blob --quote-names --ssl-mode=DISABLED \
-  --host='...' --port='...' --user='...' --password='...' 'database_name' > dump.sql
+  --host='...' --port='...' --user='...' --password='...' --result-file='dump.sql' 'database_name'
 ```
 
 **PostgreSQL:**

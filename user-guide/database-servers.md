@@ -121,6 +121,21 @@ GRANT owning_role TO databasement;
 
 Restoring into an empty database avoids the problem entirely.
 
+#### Handing the restored database to another role
+
+A PostgreSQL restore can name an owner (the "Transfer database ownership" field, or `options.owner_user` in the API). Databasement then makes that role the owner of the database before restoring into it, and, unless the snapshot preserved ownership and privileges, runs the restore as that role (`SET ROLE`), so every object the restore creates belongs to it.
+
+A superuser can hand a database to any role. Any other user, such as the admin user of RDS, Azure or Cloud SQL, needs membership in the owner role. Creating the role is not enough on PostgreSQL 16 and later:
+
+```sql
+GRANT app_owner TO databasement;
+```
+
+Because the restore runs as the owner:
+
+- restoring into an existing database without recreating it needs the owner to own the objects already there, as the dump drops and recreates them;
+- a snapshot that creates an extension the owner may not create (an untrusted one, such as PostGIS) fails; restore such snapshots without an owner.
+
 ### Microsoft SQL Server
 
 SQL Server uses `sqlpackage` to extract and publish `.dacpac` files (schema + table data). Supports on-prem SQL Server 2017+ and Azure SQL Database (default port: 1433). Server-level objects (logins, users, permissions, role memberships) are excluded from the backup.
