@@ -44,6 +44,8 @@ PGPASSWORD='...' psql --host='...' --port='...' --username='...' \
   'database_name' -f '/path/to/dump.sql'
 ```
 
+Custom-format snapshots are restored with `pg_restore` instead, one table at a time by default. For large databases, tick **Parallel restore (4 jobs)** in the restore dialog to run it with `--jobs=4`. Leave it off when the database uses an extension whose tables reference each other, such as pgAgent: a parallel restore loads their data in any order and fails their foreign keys.
+
 **SQLite:**
 ```bash
 cp '/path/to/snapshot' '/path/to/database.sqlite'
