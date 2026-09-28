@@ -3,6 +3,7 @@
 namespace App\Services\Backup\DTO;
 
 use App\Enums\DatabaseType;
+use App\Exceptions\Backup\BackupException;
 use App\Exceptions\Backup\DatabaseDumpException;
 use App\Rules\SafeDumpFlags;
 
@@ -34,5 +35,23 @@ readonly class DatabaseOperationResult
         }
 
         return implode(' ', array_map('escapeshellarg', SafeDumpFlags::tokenize($flags)));
+    }
+
+    /**
+     * Quote a database name or path for a client command line.
+     *
+     * Shell quoting does not stop a client from reading a leading dash as an
+     * option, and names discovered on the server or stored before validation
+     * existed never pass through a form, so they are checked here.
+     *
+     * @throws BackupException
+     */
+    public static function escapeDatabaseName(string $name): string
+    {
+        if (str_starts_with($name, '-')) {
+            throw new BackupException("Database name '{$name}' is not supported: it must not start with a dash.");
+        }
+
+        return escapeshellarg($name);
     }
 }

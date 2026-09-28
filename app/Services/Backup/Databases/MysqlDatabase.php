@@ -119,10 +119,10 @@ class MysqlDatabase implements DatabaseInterface
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::MYSQL);
         }
 
-        // Flags must come before the database name; both clients treat anything after it as table names.
+        // Flags must come before `--` and the database name; both clients treat anything after it as table names.
         // The output file comes after the extra flags, so it is the one the client keeps.
         $command = sprintf(
-            '%s %s --host=%s --port=%s --user=%s --password=%s%s --result-file=%s %s',
+            '%s %s --host=%s --port=%s --user=%s --password=%s%s --result-file=%s -- %s',
             $useMysqlClient ? self::MYSQL_DUMP_BINARY : self::DUMP_BINARY,
             implode(' ', $options),
             escapeshellarg($this->config['host']),
@@ -131,7 +131,7 @@ class MysqlDatabase implements DatabaseInterface
             escapeshellarg($this->config['pass']),
             $extraFlags,
             escapeshellarg($outputPath),
-            escapeshellarg($this->config['database']),
+            DatabaseOperationResult::escapeDatabaseName($this->config['database']),
         );
 
         return new DatabaseOperationResult(command: $command, log: $log);
@@ -234,27 +234,27 @@ class MysqlDatabase implements DatabaseInterface
         // and gets a syntax error, so that one reads the dump from stdin.
         if ($this->usesMysqlClient()) {
             return new DatabaseOperationResult(command: sprintf(
-                '%s --host=%s --port=%s --user=%s --password=%s %s %s < %s',
+                '%s --host=%s --port=%s --user=%s --password=%s %s --database=%s < %s',
                 self::MYSQL_CLIENT_BINARY,
                 escapeshellarg($this->config['host']),
                 escapeshellarg((string) $this->config['port']),
                 escapeshellarg($this->config['user']),
                 escapeshellarg($this->config['pass']),
                 $this->mysqlSslFlag(),
-                escapeshellarg($this->config['database']),
+                DatabaseOperationResult::escapeDatabaseName($this->config['database']),
                 escapeshellarg($inputPath)
             ));
         }
 
         return new DatabaseOperationResult(command: sprintf(
-            '%s --host=%s --port=%s --user=%s --password=%s %s %s -e %s',
+            '%s --host=%s --port=%s --user=%s --password=%s %s --database=%s -e %s',
             self::CLIENT_BINARY,
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
             $this->getSslFlag(),
-            escapeshellarg($this->config['database']),
+            DatabaseOperationResult::escapeDatabaseName($this->config['database']),
             escapeshellarg('source '.$inputPath)
         ));
     }

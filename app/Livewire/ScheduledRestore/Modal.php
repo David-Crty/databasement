@@ -8,6 +8,7 @@ use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
+use App\Rules\SafeDatabaseName;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -141,7 +142,7 @@ class Modal extends Component
     {
         $this->validate([
             'sourceServerId' => 'required|exists:database_servers,id',
-            'sourceDatabaseName' => 'required|string|max:255',
+            'sourceDatabaseName' => ['required', 'string', 'max:255', new SafeDatabaseName],
         ], [
             'sourceServerId.required' => __('Please select a source server.'),
             'sourceDatabaseName.required' => __('Please select the source database.'),

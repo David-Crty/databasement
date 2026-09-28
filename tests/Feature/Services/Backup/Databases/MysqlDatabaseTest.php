@@ -19,7 +19,7 @@ test('dump builds correct command with skip_ssl by default', function () {
     $result = $this->db->dump('/tmp/dump.sql');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' --result-file='/tmp/dump.sql' 'myapp'");
+        ->and($result->command)->toBe("mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' --result-file='/tmp/dump.sql' -- 'myapp'");
 });
 
 test('dump uses ssl-verify-server-cert=0 when ssl_enabled is true', function () {
@@ -54,7 +54,7 @@ test('dump includes extra dump flags', function () {
     $result = $db->dump('/tmp/dump.sql');
 
     // Flags must appear before the database name (mariadb-dump treats post-db args as table names)
-    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0' --result-file='/tmp/dump.sql' 'myapp'");
+    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0' --result-file='/tmp/dump.sql' -- 'myapp'");
 });
 
 /**
@@ -165,7 +165,7 @@ test("restore feeds the dump to Oracle's client on stdin", function () {
     $result = mysqlDatabaseReportingVersion('8.4.11')->restore('/tmp/restore.sql');
 
     expect($result->command)->toBe(
-        "/opt/mysql-client/bin/mysql --host='db.local' --port='3306' --user='root' --password='secret' --ssl-mode=DISABLED 'myapp' < '/tmp/restore.sql'"
+        "/opt/mysql-client/bin/mysql --host='db.local' --port='3306' --user='root' --password='secret' --ssl-mode=DISABLED --database='myapp' < '/tmp/restore.sql'"
     );
 });
 
@@ -188,7 +188,7 @@ test('restore builds correct command with skip_ssl by default', function () {
     $result = $this->db->restore('/tmp/restore.sql');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("mariadb --host='db.local' --port='3306' --user='root' --password='secret' --skip_ssl 'myapp' -e 'source /tmp/restore.sql'");
+        ->and($result->command)->toBe("mariadb --host='db.local' --port='3306' --user='root' --password='secret' --skip_ssl --database='myapp' -e 'source /tmp/restore.sql'");
 });
 
 test('restore uses ssl-verify-server-cert=0 when ssl_enabled is true', function () {

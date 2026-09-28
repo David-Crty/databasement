@@ -48,7 +48,7 @@ class SqliteDatabase implements DatabaseInterface
         return new DatabaseOperationResult(
             command: sprintf(
                 'sqlite3 %s %s',
-                escapeshellarg($sourcePath),
+                DatabaseOperationResult::escapeDatabaseName($sourcePath),
                 escapeshellarg('.backup '.$outputPath),
             ),
             log: new DatabaseOperationLog(

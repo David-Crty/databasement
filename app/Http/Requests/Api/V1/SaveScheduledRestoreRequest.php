@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Models\DatabaseServer;
+use App\Rules\SafeDatabaseName;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -16,15 +17,31 @@ class SaveScheduledRestoreRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:100'],
             'source_server_id' => ['required', 'string', 'exists:database_servers,id'],
-            'source_database_name' => ['required', 'string', 'max:255'],
+            'source_database_name' => ['required', 'string', 'max:255', new SafeDatabaseName],
             'target_server_id' => ['required', 'string', 'exists:database_servers,id'],
-            'schema_name' => ['required', 'string', 'max:255'],
+            'schema_name' => $this->targetServer()?->database_type->databaseNameRules()
+                ?? ['required', 'string', 'max:255', new SafeDatabaseName],
             'backup_schedule_id' => ['required', 'string', 'exists:backup_schedules,id'],
             'options' => ['nullable', 'array'],
             'options.force_database' => ['nullable', 'boolean'],
             'options.owner_user' => ['nullable', 'string', 'max:255'],
             'enabled' => ['sometimes', 'boolean'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->targetServer()?->database_type->databaseNameMessages('schema_name') ?? [];
+    }
+
+    private function targetServer(): ?DatabaseServer
+    {
+        $targetId = $this->input('target_server_id');
+
+        return is_string($targetId) ? DatabaseServer::find($targetId) : null;
     }
 
     public function withValidator(Validator $validator): void

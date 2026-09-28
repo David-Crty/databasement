@@ -107,9 +107,8 @@ class PostgresqlDatabase implements DatabaseInterface
         $major = $this->serverMajorVersion();
         $binary = $this->binary('pg_dump', $major);
 
-        // Flags must come before the database name (last positional argument)
         $command = sprintf(
-            '%sPGPASSWORD=%s %s %s --host=%s --port=%s --username=%s%s %s',
+            '%sPGPASSWORD=%s %s %s --host=%s --port=%s --username=%s%s --dbname=%s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
             $binary,
@@ -118,7 +117,7 @@ class PostgresqlDatabase implements DatabaseInterface
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
             $extraFlags,
-            escapeshellarg($this->config['database']),
+            DatabaseOperationResult::escapeDatabaseName($this->config['database']),
         );
 
         $command .= ' -f '.escapeshellarg($outputPath);
@@ -144,7 +143,7 @@ class PostgresqlDatabase implements DatabaseInterface
                 escapeshellarg((string) $this->config['port']),
                 escapeshellarg($this->config['user']),
                 $role !== null ? ' --role='.escapeshellarg($role) : '',
-                escapeshellarg($this->config['database']),
+                DatabaseOperationResult::escapeDatabaseName($this->config['database']),
                 escapeshellarg($inputPath),
             ), log: $this->legacyClientLog($binary, $major));
         }
@@ -156,14 +155,14 @@ class PostgresqlDatabase implements DatabaseInterface
         // replays are not an error when the object is absent. psql runs -c and
         // -f in order in one session, so a SET ROLE covers the whole dump.
         return new DatabaseOperationResult(command: sprintf(
-            '%sPGPASSWORD=%s %s --set=ON_ERROR_STOP=1 --host=%s --port=%s --username=%s %s%s -f %s',
+            '%sPGPASSWORD=%s %s --set=ON_ERROR_STOP=1 --host=%s --port=%s --username=%s --dbname=%s%s -f %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
             $this->binary('psql', $major),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
-            escapeshellarg($this->config['database']),
+            DatabaseOperationResult::escapeDatabaseName($this->config['database']),
             $role !== null ? ' -c '.escapeshellarg('SET ROLE '.self::quoteIdentifier($role)) : '',
             escapeshellarg($inputPath)
         ));
@@ -532,13 +531,13 @@ class PostgresqlDatabase implements DatabaseInterface
     private function getQueryCommand(string $query): string
     {
         return sprintf(
-            '%sPGPASSWORD=%s psql --host=%s --port=%s --user=%s %s -t -c %s',
+            '%sPGPASSWORD=%s psql --host=%s --port=%s --user=%s --dbname=%s -t -c %s',
             $this->sslEnvPrefix(),
             escapeshellarg($this->config['pass']),
             escapeshellarg($this->config['host']),
             escapeshellarg((string) $this->config['port']),
             escapeshellarg($this->config['user']),
-            escapeshellarg($this->config['database']),
+            DatabaseOperationResult::escapeDatabaseName($this->config['database']),
             escapeshellarg($query)
         );
     }

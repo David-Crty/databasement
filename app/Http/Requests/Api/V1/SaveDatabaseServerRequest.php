@@ -9,6 +9,7 @@ use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
 use App\Rules\MaxBytes;
+use App\Rules\SafeDatabaseName;
 use App\Rules\SafeDatabasePath;
 use App\Rules\SafeDumpFlags;
 use App\Rules\SafeHost;
@@ -116,7 +117,7 @@ class SaveDatabaseServerRequest extends FormRequest
             } elseif (in_array($type, ['mysql', 'postgres', 'mongodb'])) {
                 $rules['backups.*.database_selection_mode'] = ['required', 'string', Rule::in(array_map(fn (DatabaseSelectionMode $m) => $m->value, DatabaseSelectionMode::cases()))];
                 $rules['backups.*.database_names'] = 'nullable|array';
-                $rules['backups.*.database_names.*'] = 'string|max:255';
+                $rules['backups.*.database_names.*'] = ['string', 'max:255', new SafeDatabaseName];
                 $rules['backups.*.database_include_pattern'] = 'nullable|string|max:500';
             }
         }

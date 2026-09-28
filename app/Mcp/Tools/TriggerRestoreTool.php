@@ -37,6 +37,11 @@ class TriggerRestoreTool extends Tool
             return Response::error('Snapshot or database server not found.');
         }
 
+        $request->validate(
+            ['schema_name' => $targetServer->database_type->databaseNameRules()],
+            $targetServer->database_type->databaseNameMessages('schema_name'),
+        );
+
         $user = $request->user();
 
         if (! $user?->can('restore', $targetServer) || ! $user->can('restoreFrom', $snapshot)) {

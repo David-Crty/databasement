@@ -104,6 +104,24 @@ test('store rejects mismatched server types', function () {
         ->assertJsonValidationErrors(['target_server_id']);
 });
 
+test('store validates the schema name against the target server type', function () {
+    $user = User::factory()->create();
+    [$source, $target] = createRestoreServerPair();
+    $schedule = dailySchedule();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/scheduled-restores', [
+            'name' => 'Nightly',
+            'source_server_id' => $source->id,
+            'source_database_name' => 'app',
+            'target_server_id' => $target->id,
+            'schema_name' => '-restored',
+            'backup_schedule_id' => $schedule->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['schema_name']);
+});
+
 test('without operate-restores, creating a scheduled restore via api is forbidden', function () {
     // Necessity proof: holding every ability except operate-restores must still be forbidden.
     $user = User::factory()->withAllAbilitiesExcept(Ability::OperateRestores->value)->create();
