@@ -19,7 +19,7 @@ test('dump builds correct command with skip_ssl by default', function () {
     $result = $this->db->dump('/tmp/dump.sql');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' 'myapp' > '/tmp/dump.sql'");
+        ->and($result->command)->toBe("mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' --result-file='/tmp/dump.sql' 'myapp'");
 });
 
 test('dump uses ssl-verify-server-cert=0 when ssl_enabled is true', function () {
@@ -54,8 +54,7 @@ test('dump includes extra dump flags', function () {
     $result = $db->dump('/tmp/dump.sql');
 
     // Flags must appear before the database name (mariadb-dump treats post-db args as table names)
-    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0' 'myapp'")
-        ->and($result->command)->toEndWith("> '/tmp/dump.sql'");
+    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0' --result-file='/tmp/dump.sql' 'myapp'");
 });
 
 /**

@@ -119,9 +119,10 @@ class MysqlDatabase implements DatabaseInterface
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::MYSQL);
         }
 
-        // Flags must come before the database name; both clients treat anything after it as table names
+        // Flags must come before the database name; both clients treat anything after it as table names.
+        // The output file comes after the extra flags, so it is the one the client keeps.
         $command = sprintf(
-            '%s %s --host=%s --port=%s --user=%s --password=%s%s %s',
+            '%s %s --host=%s --port=%s --user=%s --password=%s%s --result-file=%s %s',
             $useMysqlClient ? self::MYSQL_DUMP_BINARY : self::DUMP_BINARY,
             implode(' ', $options),
             escapeshellarg($this->config['host']),
@@ -129,10 +130,9 @@ class MysqlDatabase implements DatabaseInterface
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
             $extraFlags,
+            escapeshellarg($outputPath),
             escapeshellarg($this->config['database']),
         );
-
-        $command .= ' > '.escapeshellarg($outputPath);
 
         return new DatabaseOperationResult(command: $command, log: $log);
     }

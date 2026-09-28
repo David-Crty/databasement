@@ -43,7 +43,7 @@ readonly class SafeDumpFlags implements ValidationRule
             '--tab', '-T',           // one .sql file per table, into a directory
             '--dir', '-D',           // directory-format backup (MariaDB 11+)
             '--log-error',           // warnings and errors
-            '--defaults-file', '--defaults-extra-file', // options, --result-file among them
+            '--defaults-file', '--defaults-extra-file', '--defaults-group-suffix', // options, --result-file among them
             '--plugin-dir',          // client-side plugins, loaded as code
         ],
         // pg_dump
@@ -69,6 +69,25 @@ readonly class SafeDumpFlags implements ValidationRule
             '/profile', '/pr',       // publish profile, TargetFile among its settings
         ],
     ];
+
+    /**
+     * Engines whose client accepts any unambiguous prefix of a long option
+     * name, as getopt_long and MySQL's my_getopt both do: `--result-f` is
+     * `--result-file` to mariadb-dump, and `--fi` is `--file` to pg_dump.
+     *
+     * The other clients match long names whole, and sqlpackage's `/p:` is a
+     * common property setting that merely starts like `/profile`.
+     */
+    private const array ABBREVIATING = [
+        DatabaseType::MYSQL,
+        DatabaseType::POSTGRESQL,
+    ];
+
+    /**
+     * Prefixes my_getopt strips from a long name before looking it up, so
+     * `--loose-result-file` names `--result-file`.
+     */
+    private const string MYSQL_OPTION_PREFIXES = '/\A--(?:(?:loose|skip|disable|enable|maximum)-)+/';
 
     public function __construct(private ?DatabaseType $type) {}
 
@@ -99,6 +118,11 @@ readonly class SafeDumpFlags implements ValidationRule
      * Both `--result-file=path` and `--result-file path` reduce to the same
      * name here, since the name is always its own whitespace-delimited token.
      *
+     * A long name also matches when it is an abbreviation of a denied one, on
+     * the engines whose client expands abbreviations. An abbreviation shared
+     * with an allowed option is refused too, although the client would reject
+     * it as ambiguous anyway.
+     *
      * Long names are compared case-insensitively, which only ever refuses more
      * than the client would accept. Short ones are compared as written, because
      * their case is what distinguishes them: to mariadb-dump `-R` is
@@ -113,13 +137,39 @@ readonly class SafeDumpFlags implements ValidationRule
             return null;
         }
 
+        $abbreviating = in_array($type, self::ABBREVIATING, true);
+
         foreach (self::tokenize($flags) as $token) {
-            if (array_intersect(self::optionNames($token, $type), $denied) !== []) {
-                return $token;
+            foreach (self::optionNames($token, $type) as $name) {
+                if (self::isDenied($name, $denied, $abbreviating)) {
+                    return $token;
+                }
             }
         }
 
         return null;
+    }
+
+    /**
+     * @param  list<string>  $denied
+     */
+    private static function isDenied(string $name, array $denied, bool $abbreviating): bool
+    {
+        if (in_array($name, $denied, true)) {
+            return true;
+        }
+
+        if (! $abbreviating || ! str_starts_with($name, '--') || strlen($name) <= 2) {
+            return false;
+        }
+
+        foreach ($denied as $option) {
+            if (str_starts_with($option, $name)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -142,6 +192,10 @@ readonly class SafeDumpFlags implements ValidationRule
      * here does: pg_dump, mongodump and redis-cli all refuse the underscored
      * spelling outright.
      *
+     * my_getopt also reads a long name behind a `--loose-`, `--skip-`,
+     * `--disable-`, `--enable-` or `--maximum-` prefix, so for MySQL the name
+     * with those removed is returned as well.
+     *
      * @return list<string>
      */
     private static function optionNames(string $token, ?DatabaseType $type): array
@@ -153,7 +207,14 @@ readonly class SafeDumpFlags implements ValidationRule
         if (str_starts_with($token, '--')) {
             $name = strtolower(strstr($token, '=', true) ?: $token);
 
-            return [$type === DatabaseType::MYSQL ? str_replace('_', '-', $name) : $name];
+            if ($type !== DatabaseType::MYSQL) {
+                return [$name];
+            }
+
+            $name = str_replace('_', '-', $name);
+            $unprefixed = (string) preg_replace(self::MYSQL_OPTION_PREFIXES, '--', $name);
+
+            return array_values(array_unique([$name, $unprefixed]));
         }
 
         if (! str_starts_with($token, '-')) {

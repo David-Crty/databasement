@@ -33,7 +33,8 @@ class TestShellProcessor extends ShellProcessor
     private function simulateCommandEffects(string $command): void
     {
         // For mysqldump/pg_dump: extract output path and create fake dump file
-        if (preg_match('/>\s*([^\s]+)$/', $command, $matches)) {
+        if (preg_match('/>\s*([^\s]+)$/', $command, $matches)
+            || preg_match('/\s--result-file=(\'[^\']+\')/', $command, $matches)) {
             $outputPath = trim($matches[1], '"\'');
             if ($outputPath && $outputPath !== '&1') {
                 file_put_contents($outputPath, "-- Fake database dump\nCREATE TABLE test (id INT);\n");

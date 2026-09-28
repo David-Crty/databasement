@@ -37,9 +37,10 @@ test('SafeDumpFlags accepts or rejects dump flags', function (DatabaseType $type
     'clustered short names, mysql' => [DatabaseType::MYSQL, '-vr/app/public/shell.php', false],
     'cluster of short names that are all allowed' => [DatabaseType::MYSQL, '-Rd', true],
 
-    // A denied name must match whole, not as a prefix.
+    // A longer name that merely starts like a denied one is a different option.
     'longer option starting the same way' => [DatabaseType::MYSQL, '--result-file-suffix=x', true],
     'longer sqlpackage option starting the same way' => [DatabaseType::MSSQL, '/tfoo:x', true],
+    'sqlpackage property, which starts like /profile' => [DatabaseType::MSSQL, '/p:VerifyExtraction=False', true],
 
     // One per engine, so a mis-keyed list does not go unnoticed.
     'mysql config file, an indirect route to the same write' => [DatabaseType::MYSQL, '--defaults-extra-file=/tmp/evil.cnf', false],
@@ -51,6 +52,33 @@ test('SafeDumpFlags accepts or rejects dump flags', function (DatabaseType $type
     // The same spelling is a legitimate option on another engine.
     'mysql --force is not the postgres --file' => [DatabaseType::MYSQL, '-f', true],
     'redis repeat count is not the mysql --result-file' => [DatabaseType::REDIS, '-r 5', true],
+]);
+
+// mariadb-dump and pg_dump expand any unambiguous prefix of a long name, and
+// my_getopt also reads a name behind --loose- and similar prefixes.
+test('SafeDumpFlags rejects abbreviated spellings of a denied option', function (DatabaseType $type, string $flags) {
+    expect(SafeDumpFlags::violation($flags, $type))->toBe($flags);
+})->with([
+    [DatabaseType::MYSQL, '--result-fi=/tmp/x'],
+    [DatabaseType::MYSQL, '--result_f=/tmp/x'],
+    [DatabaseType::MYSQL, '--RESULT-F=/tmp/x'],
+    [DatabaseType::MYSQL, '--ta=/tmp'],
+    [DatabaseType::MYSQL, '--log-e=/tmp/x'],
+    [DatabaseType::MYSQL, '--defaults-e=/tmp/x.cnf'],
+    [DatabaseType::MYSQL, '--defaults-group-suffix=x'],
+    [DatabaseType::MYSQL, '--plugin-d=/tmp'],
+    [DatabaseType::MYSQL, '--loose-result-file=/tmp/x'],
+    [DatabaseType::MYSQL, '--loose_log_e=/tmp/x'],
+    [DatabaseType::POSTGRESQL, '--fi=/tmp/x'],
+    [DatabaseType::POSTGRESQL, '--FIL=/tmp/x'],
+]);
+
+test('SafeDumpFlags accepts ordinary flags on engines that expand abbreviations', function (DatabaseType $type, string $flags) {
+    expect(SafeDumpFlags::violation($flags, $type))->toBeNull();
+})->with([
+    [DatabaseType::MYSQL, '--single-transaction --skip-lock-tables --ignore-table=db.t --hex-blob --column-statistics=0'],
+    [DatabaseType::MYSQL, '--tables --skip-tz-utc --disable-keys --skip-dump-date --skip_ssl'],
+    [DatabaseType::POSTGRESQL, '--filter=/tmp/filter.txt --format=plain --exclude-table=logs'],
 ]);
 
 test('SafeDumpFlags names the offending option', function () {
