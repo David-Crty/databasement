@@ -509,8 +509,8 @@ test('destination step offers a database owner field whatever the snapshot prese
         $component->assertSee('SET ROLE "webapp"');
     }
 })->with([
-    'snapshot preserving ownership' => [true, 'Set database owner after restore'],
-    'portable snapshot' => [false, 'Transfer database ownership to user after restore'],
+    'snapshot preserving ownership' => [true, 'Set database owner before restore'],
+    'portable snapshot' => [false, 'Transfer database ownership to user before restore'],
 ]);
 
 test('the owner of a privilege-preserving restore reaches the queued job', function () {

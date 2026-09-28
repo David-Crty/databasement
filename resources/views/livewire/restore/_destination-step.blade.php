@@ -54,8 +54,8 @@
         <x-input
             wire:model.live.debounce.300ms="ownerUser"
             :label="$preservesPrivileges
-                ? __('Set database owner after restore')
-                : __('Transfer database ownership to user after restore')"
+                ? __('Set database owner before restore')
+                : __('Transfer database ownership to user before restore')"
             :placeholder="__('PostgreSQL username (leave empty to skip)')"
         />
 
