@@ -81,8 +81,11 @@ installed. If it fails, fix the cause; never commit with `--no-verify`.
 
 ## Reviewing someone else's PR here
 
-`git reset --hard` discards everything in the worktree. Run `git status --short`
-first and commit (or throw away, deliberately) any local changes.
+`git reset --hard` discards staged changes and edits to tracked files, and
+moves the current branch to the PR, so commits only on that branch drop off it.
+It normally leaves untracked files alone. Run `git status --short` first, and
+keep any work you want on a branch of its own before resetting. Remove untracked
+files separately (`git clean`) only if you mean to delete them.
 
 ```bash
 git fetch origin refs/pull/<n>/head:refs/remotes/origin/pr/<n>
