@@ -45,6 +45,8 @@ make test-tia-baseline              # (Re)record the TIA baseline
 
 Tests run in parallel by default using Pest's parallel testing feature. The full suite is about 1700 tests. Use `make test-sequential` if you need to debug test order issues.
 
+`make test` and the pre-commit hook can take a few minutes depending on the machine (around 5 minutes in CI). Give the Bash call a long timeout (up to 600000 ms) or run it in the background.
+
 #### Test Impact Analysis (`make test-tia`)
 
 Pest 5's TIA replays cached results and re-runs only the tests affected by the working tree, turning the ~110s suite into a ~2s replay. It is **opt-in only** — it is deliberately absent from `make test`, the pre-commit hook, and CI.
