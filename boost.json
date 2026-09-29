@@ -18,6 +18,9 @@
         "livewire-development",
         "ai-sdk-development",
         "pest-testing",
-        "pest-plugin-agent"
+        "pest-plugin-agent",
+        "changelog",
+        "mary-ui",
+        "worktree-development"
     ]
 }

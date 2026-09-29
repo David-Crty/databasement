@@ -10,7 +10,7 @@ This is a Laravel application for managing database server backups. It uses Live
 
 **IMPORTANT**: All PHP commands MUST be run through Docker. Never run `php`, `composer`, or `vendor/bin/*` commands directly on the host. Use the Makefile targets or `docker compose exec --user application -T app <command>` instead. Always include `--user application` to ensure correct file permissions. 
 
-**In a git worktree, prefer the Makefile targets.** They resolve the Compose project from the shared git dir and run in the worktree's own path inside the container, so `make test` and friends work unchanged. A bare `docker compose` there starts a *second* project named after the worktree directory and reports `service "app" is not running`; it needs `--project-directory <main checkout>` plus `-w /app/<path to worktree>` spelled out. Run `make install` once in a new worktree: `vendor/` is gitignored, and symlinking the main checkout's would run the main branch's `app/` classes.
+**In a git worktree, use the Makefile targets** (they work unchanged there, a bare `docker compose` does not). Load the `worktree-development` skill before running anything in one.
 
 This overrides any bundled guideline or skill that shows a bare command — notably the `pestphp/pest-plugin-agent` rules at the end of this file, whose `vendor/bin/pest --agent='…'` examples must be run as `docker compose exec --user application -T app vendor/bin/pest --agent='…'`.
 
@@ -43,7 +43,7 @@ make test-tia                       # Fast TIA replay - a hint only, never a gat
 make test-tia-baseline              # (Re)record the TIA baseline
 ```
 
-Tests run in parallel by default using Pest's parallel testing feature. This significantly speeds up the test suite (~12-18s for 350+ tests). Use `make test-sequential` if you need to debug test order issues.
+Tests run in parallel by default using Pest's parallel testing feature. The full suite is about 1700 tests. Use `make test-sequential` if you need to debug test order issues.
 
 #### Test Impact Analysis (`make test-tia`)
 
@@ -205,12 +205,7 @@ This means agent mode requires zero database configuration.
 
 1. **Livewire Architecture**: The app uses class-based Livewire components for all main pages (CRUD operations, settings). Authentication flows use plain Blade views rendered by Laravel Fortify. All full-page components use `Route::livewire()` routing.
 
-2. **Mary UI Components**: All UI components use Mary UI (built on daisyUI). Components are used without prefixes (e.g., `<x-button>`, `<x-input>`, `<x-card>`). Key patterns:
-   - Modals use `wire:model` with boolean properties (e.g., `$showDeleteModal`)
-   - Tables use `<table class="table-default">` with custom styling
-   - Alerts use `class="alert-success"` format (not `variant`)
-   - Selects use `:options` prop with `[['id' => '', 'name' => '']]` format
-   - Dark mode follows system preference (`prefers-color-scheme`)
+2. **Mary UI Components**: All UI components use Mary UI (built on daisyUI), without a prefix (`<x-button>`, `<x-input>`, `<x-card>`). See "Working with Mary UI Components" below. Dark mode follows system preference (`prefers-color-scheme`).
 
 3. **Database Connection Testing**: `DatabaseProvider::testConnectionForServer()` orchestrates connection tests (including SSH tunnels and SFTP for remote SQLite), delegating to the appropriate `DatabaseInterface` handler. Each handler implements its own `testConnection()` method.
 
@@ -268,7 +263,7 @@ Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and ren
 
 `make release VERSION=x.y.z` does everything from a clean, up-to-date `main`:
 
-1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the commits since the last tag under the `[x.y]` section tagged with the patch, commits to `main` (pre-commit hook included, so Docker must be up) and pushes.
+1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the commits since the last tag under the `[x.y]` section tagged with the patch, commits to `main` with `--no-verify` (`main` already passed the hook and the commit only touches `CHANGELOG.md`) and pushes.
 2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
 3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
 
@@ -319,21 +314,16 @@ Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bounc
 - Public properties are automatically bound to views
 - Use `#[Validate]` attributes or Form objects for validation
 - Call `$this->validate()` before processing data
-- Use `Session::flash()` for one-time messages (shown via `@if (session('success'))`)
+- Feedback messages use `App\Traits\Toast` (`$this->success(...)`, `$this->error(...)`), never `Mary\Traits\Toast`, whose public helpers become client-callable actions. See the `mary-ui` skill.
 - Return `$this->redirect()` with `navigate: true` for SPA-like navigation
 - Blade files contain only view markup; all PHP logic is in component classes
 
 ### Working with Mary UI Components
 
-- All components are prefixed with `x-` (e.g., `<x-button>`, `<x-input>`, `<x-card>`)
-- Use Heroicons for icons (e.g., `icon="o-user"` for outline icons, `icon="s-user"` for solid)
-- Modal pattern: Add boolean property to component class, use `wire:model` in blade
-- Select pattern: Use `:options` prop with array format `[['id' => 'value', 'name' => 'Label']]`
-- Alert pattern: Use `class="alert-success"`, `class="alert-error"`, etc.
-- Form components: `<x-input>`, `<x-password>`, `<x-select>`, `<x-checkbox>`, etc.
-- Translated attributes: always use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"` — interpolation double-encodes special characters (see "Avoiding HTML Encoding Artifacts" below)
-- Loading states: every `<x-button>` / `<x-menu-item>` with `wire:click` takes the bare `spinner` prop (it targets the click expression, parameters included, so per-row buttons spin individually); `type="submit"` buttons of `wire:submit` forms take `spinner="method"`; `$set`/`$toggle` clicks take `spinner="property"`; classic POST forms (auth pages, logout) use `<x-submit-button>`.
-- Documentation: https://mary-ui.com/docs/components/button
+The `mary-ui` skill is the reference (props per installed version, patterns, gotchas). The rules that apply to every view:
+
+- Translated attributes use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"`, which double-encodes (see "Avoiding HTML Encoding Artifacts" below).
+- Every `<x-button>` / `<x-menu-item>` with `wire:click` takes the bare `spinner` prop; the skill covers submit buttons and the other cases.
 
 ### Resource Index Pages
 
@@ -359,7 +349,7 @@ Translations are kept in step with the code by one command, which runs five step
 
 `make check-translation` runs steps 1 and 5 only -- no API key, no cost. Both packages are dev dependencies; nothing in this pipeline runs in production.
 
-The API key comes from 1Password via `op run` (see the global CLAUDE.md): `~/.config/op-env/anthropic.env` holds an `ANTHROPIC_API_KEY=op://...` reference, and the Makefile forwards the resolved value into the container with a bare `-e ANTHROPIC_API_KEY`, so it never reaches a command line. Target locales are the `LOCALES` variable at the top of the `Makefile`.
+The API key is read from `.env.local` in the main checkout (gitignored, one `ANTHROPIC_API_KEY=...` line; worktrees use the main checkout's). The Makefile forwards it into the container with a bare `-e ANTHROPIC_API_KEY`, so it never reaches a command line. Target locales are the `LOCALES` variable at the top of the `Makefile`.
 
 **Do not use `ai-translator:find-unused`.** Its scanner regex cannot match keys containing `)` or `'` (47 of ours), reports them as unused, and deletes them with `--force`. Pruning is `translations:sync`'s job.
 
@@ -534,7 +524,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Always use curly braces for control structures, even for single-line bodies.
 - Use PHP 8 constructor property promotion: `public function __construct(public GitHub $github) { }`. Do not leave empty zero-parameter `__construct()` methods unless the constructor is private.
 - Use explicit return type declarations and type hints for all method parameters: `function isAccessible(User $user, ?string $path = null): bool`
-- Follow existing application Enum naming conventions.
+- Use TitleCase for Enum keys: `FavoritePerson`, `BestLake`, `Monthly`.
 - Prefer PHPDoc blocks over inline comments. Only add inline comments for exceptionally complex logic.
 - Use array shape type definitions in PHPDoc blocks.
 

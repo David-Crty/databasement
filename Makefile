@@ -30,11 +30,8 @@ PHP_COMPOSER   := $(PHP_EXEC) composer
 PHP_ARTISAN    := $(PHP_EXEC) php artisan
 
 # Localization: target locales for `make update-translation`, and the gitignored
-# file holding the Anthropic key. `op run` would raise a 1Password authorization
-# prompt on every invocation, and the translator makes one process call per locale,
-# so the key is read out once and kept in .env.local. Regenerate it with:
-#   { printf 'ANTHROPIC_API_KEY='; op read 'op://Personal/<item>/credential'; } > .env.local
-# It lives in the main checkout, which is also where a worktree's Compose project runs.
+# file holding the Anthropic key, a single `ANTHROPIC_API_KEY=...` line. It lives
+# in the main checkout, which is also where a worktree's Compose project runs.
 LOCALES   ?= fr es el zh_TW zh_CN
 ENV_LOCAL ?= $(if $(COMPOSE_ROOT),$(COMPOSE_ROOT),.)/.env.local
 
@@ -53,7 +50,7 @@ help: ## Display this help message
 
 install: ## Install dependencies (composer + npm)
 	$(PHP_COMPOSER) install
-	$(NPM_EXEC) install
+	$(NPM_EXEC) ci
 
 setup: start install
 	$(DOCKER_COMPOSE) restart app
@@ -229,7 +226,7 @@ release: ## Create a new release (usage: make release VERSION=1.0.1)
 	@if ! grep -q '^- `$(VERSION)`' CHANGELOG.md; then \
 		echo "$(GREEN)No $(VERSION) entries in CHANGELOG.md, writing them with Claude Code (/changelog $(VERSION))...$(NC)"; \
 		claude -p "/changelog $(VERSION)" \
-			--allowedTools "Bash(git *),Bash(gh *),Read,Edit,Write" || exit 1; \
+			--allowedTools "Bash(git *),Bash(gh *),Bash(date *),Read,Edit,Write" || exit 1; \
 	fi
 	@if ! grep -q '^- `$(VERSION)`' CHANGELOG.md; then \
 		echo "$(YELLOW)Error: CHANGELOG.md still has no $(VERSION) entries. Run /changelog $(VERSION) in Claude Code and check its output.$(NC)"; \
