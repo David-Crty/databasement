@@ -66,11 +66,12 @@ explicitly:
 
 ```bash
 git fetch origin
-git checkout --no-track -B <branch> origin/main
+git checkout --no-track -b <branch> origin/main
 ```
 
 `--no-track` keeps the branch from tracking `origin/main`; the first
-`git push -u origin <branch>` sets its own upstream.
+`git push -u origin <branch>` sets its own upstream. `-b` fails if the branch
+already exists instead of resetting it; pick another name or check it out.
 
 ## Committing
 
@@ -79,6 +80,9 @@ PHPStan, the full suite), so it passes from a worktree once vendor is
 installed. If it fails, fix the cause; never commit with `--no-verify`.
 
 ## Reviewing someone else's PR here
+
+`git reset --hard` discards everything in the worktree. Run `git status --short`
+first and commit (or throw away, deliberately) any local changes.
 
 ```bash
 git fetch origin refs/pull/<n>/head:refs/remotes/origin/pr/<n>
