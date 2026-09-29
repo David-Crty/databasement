@@ -325,7 +325,7 @@ Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bounc
 The `mary-ui` skill is the reference (props per installed version, patterns, gotchas). The rules that apply to every view:
 
 - Translated attributes use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"`, which double-encodes (see "Avoiding HTML Encoding Artifacts" below).
-- Every `<x-button>` / `<x-menu-item>` with `wire:click` takes the bare `spinner` prop; the skill covers submit buttons and the other cases.
+- Every `<x-button>` / `<x-menu-item>` whose `wire:click` calls a method takes the bare `spinner` prop; a `$set('x', …)` / `$toggle('x')` click takes `spinner="x"` instead. The skill covers submit buttons and the other cases.
 
 ### Resource Index Pages
 

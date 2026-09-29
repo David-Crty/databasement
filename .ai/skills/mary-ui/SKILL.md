@@ -91,7 +91,7 @@ Bare `spinner` targets the button's own `wire:click` expression, parameters incl
 `spinner="name"` targets that name. Either form adds `wire:target` plus
 `wire:loading.attr="disabled"` and swaps the icon for a spinner while loading.
 
-- every `<x-button>` / `<x-menu-item>` with `wire:click` takes bare `spinner`;
+- every `<x-button>` / `<x-menu-item>` whose `wire:click` calls a method takes bare `spinner`;
 - a `type="submit"` button of a `wire:submit="save"` form takes `spinner="save"` (there is no
   `wire:click` to resolve, and an empty `wire:target` never matches);
 - a `wire:click="$set('form.x', …)"` / `$toggle('form.x')` button takes `spinner="form.x"`, because
