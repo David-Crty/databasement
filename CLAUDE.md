@@ -331,7 +331,7 @@ The `mary-ui` skill is the reference (props per installed version, patterns, got
 
 For new index pages (listing resources with tables, search, filters), follow the existing patterns in:
 - `app/Livewire/DatabaseServer/Index.php` + `resources/views/livewire/database-server/index.blade.php`
-- `app/Livewire/BackupJob/Index.php` + `resources/views/livewire/backup-job/index.blade.php`
+- `app/Livewire/Snapshot/Index.php` + `resources/views/livewire/snapshot/index.blade.php`
 
 Use Mary UI's `<x-table>` component with `@scope` directives for cell rendering.
 

@@ -5,8 +5,8 @@ description: >-
   whenever writing or editing markup under resources/views that uses `<x-…>` components (forms,
   x-table and @scope cells, modals, buttons and `spinner`, badges, alerts, cards, selects, tabs,
   menus, popovers, icons), styling one with daisyUI/Tailwind classes, or debugging a class, attribute
-  or prop that has no effect. Covers exact props per installed version, where attributes land, and
-  this project's local components. Not for mail templates (`<x-mail::*>`) or the Docusaurus docs
+  or prop that has no effect. Lists the available components and how to read their source for props,
+  plus this project's rules, toasts and local components. Not for mail templates (`<x-mail::*>`) or the Docusaurus docs
   site.
 ---
 
@@ -29,7 +29,46 @@ The practical consequence: **styling is done with classes, not with variant prop
 
 Alerts take `class="alert-success"` / `alert-error` / `alert-warning` / `alert-info`. Any daisyUI
 class or Tailwind utility can be added this way, but *where* it lands differs per component (see
-"Not every component forwards `$attributes`" below).
+"Check where `$attributes` land" below).
+
+## Using a component
+
+This skill does not document props: the installed source does, exactly. For any `<x-name>`, read
+`vendor/robsontenorio/mary/src/View/Components/<Name>.php` (kebab-case to PascalCase:
+`x-menu-item` is `MenuItem.php`, `x-choices-offline` is `ChoicesOffline.php`).
+
+- The **constructor** is the complete prop list with defaults. A prop that is not a constructor
+  parameter does not exist; it falls through to `$attributes`.
+- The **`render()` heredoc** is the exact markup: which daisyUI classes it applies, which slots it
+  reads, and where `{{ $attributes }}` lands.
+- `https://mary-ui.com/docs/components/<name>` tracks the latest release, not the installed one
+  (2.9.9 at the time of writing, see `composer.lock`). When it disagrees with the class, the class
+  wins.
+
+For house style, copy an existing screen rather than composing from scratch:
+`livewire/volume/index.blade.php` and `livewire/snapshot/index.blade.php` (index tables, filters,
+`@scope` cells, pagination), `livewire/volume/_form.blade.php` (form fields),
+`livewire/configuration/backup.blade.php` (modals with forms), `layouts/app.blade.php` (the only
+use of `x-main`, `x-nav` and `x-menu`).
+
+### Available components
+
+- **Form:** `input`, `password`, `textarea`, `select`, `select-group`, `choices`, `choices-offline`,
+  `checkbox`, `toggle`, `radio`, `group`, `range`, `file`, `image-library`, `datetime`, `datepicker`,
+  `colorpicker`, `tags`, `pin`, `signature`, `editor`, `markdown`, `form`, `errors`
+- **Actions:** `button`, `dropdown`, `swap`, `theme-toggle`
+- **Layout and navigation:** `main`, `nav`, `menu`, `menu-item`, `menu-sub`, `menu-separator`,
+  `menu-title`, `header`, `card`, `tabs`, `tab`, `steps`, `step`, `collapse`, `accordion`, `drawer`,
+  `breadcrumbs`, `hr`
+- **Data display:** `table`, `pagination`, `badge`, `stat`, `avatar`, `list-item`, `timeline-item`,
+  `icon`, `kbd`, `code`, `diff`, `chart`, `calendar`, `image-gallery`, `carousel`, `rating`
+- **Feedback and overlays:** `modal`, `alert`, `toast`, `popover`, `loading`, `progress`,
+  `progress-radial`, `spotlight`
+
+`chart`, `editor`, `markdown`, `code`, `calendar`, `signature`, `diff` and `image-gallery` need a
+JS library this app does not load, and `spotlight` needs an `App\Support\Spotlight` class that does
+not exist. Wire those up before using them. `radio` is unused here in favour of the local
+`x-radio-card`.
 
 ## Rules and gotchas
 
@@ -72,15 +111,14 @@ and backdrop clicks set it false. Destructive confirmations use `<x-delete-confi
 `x-input`, `x-select`, `x-textarea`, `x-password`, `x-checkbox`, `x-toggle` and the rest derive the
 error field from their `wire:model` value, render every message themselves, and add `!input-error` /
 `!select-error` / `!textarea-error` to the control. Do not write an `@error` block next to one, and
-do not add `x-errors` for the same field. `error-field="other.field"` overrides the field name,
-`omit-error` suppresses it, `first-error-only` renders one message, `error-class` restyles them.
+do not add `x-errors` for the same field.
 
 ### `@scope` slots do not see the component's public properties
 
 `Blade::directive('scope')` compiles to `function ($row) use ($__env, $__bladeCompiler)`, so
 Livewire's public properties are undefined inside it, including in anything it `@include`s. Use
 `$this->property` (the closure inherits `$this`), or list extra variables after the row:
-`@scope('cell_actions', $server, $canAdminer)`. Details in `references/table.md`.
+`@scope('cell_actions', $server, $canAdminer)`.
 
 ### Never put a Blade directive inside a component tag
 
@@ -100,24 +138,16 @@ works on a plain HTML element, which is why the mistake is easy to make.
 Symptom: a control silently disappears and raw attribute text shows up nearby. An
 `->assertDontSee('icon="s-lock-closed"', false)` in a Livewire test catches the regression.
 
-### Not every component forwards `$attributes`
+### Check where `$attributes` land
 
-`x-popover`, `x-main`, `x-toast`, `x-spotlight`, `x-menu-sub`, `x-timeline-item`, `x-calendar`,
-`x-diff` and `x-markdown` never emit `$attributes`, so a `class` on them is dropped silently. Wrap
-them in your own div. Form inputs forward to an inner element, not the outer wrapper, so `flex-1` and
-`w-full` on an `<x-input>` do not size the box its parent sees, and a size modifier may need `!`
-(`class="!select-sm"`) to beat Mary's base class. Full map in `references/attributes.md`.
-
-### `:row-decoration` is the only way to class a `<tr>`
-
-`['class-name' => fn ($row) => bool]`; the keys whose closure returns true are joined.
-`'group' => fn () => true` adds a class unconditionally. `:cell-decoration` is the same, keyed by
-column.
+A `class` or Alpine binding goes wherever the component's `render()` prints `{{ $attributes }}`,
+which is often an inner element (inputs forward to the `<input>`, not the wrapper) and sometimes
+nowhere: `x-popover`, `x-main`, `x-toast` and a few others drop them silently. Read the heredoc
+before assuming a class will apply; a size modifier may need `!` (`class="!select-sm"`) to beat
+Mary's base class.
 
 ### Other sharp edges
 
-- **Duplicate `placeholder`.** Inputs and textareas emit `placeholder` twice in the HTML. Harmless;
-  leave it alone.
 - **`x-dropdown` clips inside tables.** It is a `<details class="dropdown">` inside the table's
   `overflow-x-auto` container. Use the local `<x-floating-dropdown>`, which teleports to `<body>`.
 - **`x-card`'s header keeps title and actions on one row.** `<x-card-heading>` is the responsive
@@ -125,10 +155,6 @@ column.
 - **Tailwind scans the vendor source.** `resources/css/app.css` has
   `@source '../../vendor/robsontenorio/mary/src/View/Components/**/*.php';`, which is what makes
   Mary's hardcoded classes survive the build. Do not remove it.
-- **Some components need JS this app does not load.** `x-chart`, `x-editor`, `x-markdown`, `x-code`,
-  `x-calendar`, `x-signature`, `x-diff` and `x-image-gallery` each expect a third-party library on
-  `window`. None is used here; do not reach for them without wiring the asset first.
-- **`x-spotlight` needs `App\Support\Spotlight`**, which does not exist in this repo.
 
 ## Toasts
 
@@ -152,8 +178,7 @@ Differences from Mary's trait:
 
 `redirectTo:` redirects with `navigate: true`; the toast stays on screen because `<x-toast>` wraps
 itself in `@persist('mary-toaster')`. `flashAs:` exists for `App\Traits\BlocksDemoWrites`, which
-passes `'demo_notice'` so tests can `assertSessionHas('demo_notice')`. Both traits also flash
-`mary.toast.title` / `mary.toast.description`, which nothing in the app reads.
+passes `'demo_notice'` so tests can `assertSessionHas('demo_notice')`. 
 
 `<x-toast>` renders `title` and `description` with `x-html`, so wrap untrusted values in `e()`.
 
@@ -166,23 +191,6 @@ x-on:clipboard-copied="successToast('{{ __('Copied to clipboard!') }}')"
 
 `<x-toast />` is mounted once in `layouts/app.blade.php` and once in `layouts/auth.blade.php`. Do not
 add another.
-
-## References
-
-- `references/patterns.md`: worked examples of this repo's tables, modals, selects, forms, buttons,
-  icons and layout. Read it before writing a new screen, to match the house style.
-- `references/components.md`: tag, props, defaults and slots for all 70 components. Read it when you
-  need a prop you have not used before, or to check one exists.
-- `references/table.md`: headers, scoped slots, sorting, pagination, row links. Read it when building
-  or changing an `<x-table>`.
-- `references/attributes.md`: where `class`, `id` and Alpine bindings land per component. Read it when
-  a class or attribute has no effect.
-
-The vendor source is authoritative: `vendor/robsontenorio/mary/src/View/Components/<Name>.php`. The
-constructor is the exact prop list and the heredoc is the exact rendered markup. The public docs at
-`https://mary-ui.com/docs/components/<component>` track the latest release and drift from what is
-installed, so when they disagree with observed behaviour, open the class. Never invent a prop: if it
-is not a constructor parameter it falls through to `$attributes`.
 
 ## Registration and naming
 
