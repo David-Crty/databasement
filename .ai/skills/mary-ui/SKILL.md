@@ -186,11 +186,13 @@ Because the methods are protected, Alpine cannot call `$wire.success(...)`. Clie
 clipboard copy, say) use the global `successToast(title, timeout = 6000)` from `resources/js/app.js`:
 
 ```blade
-x-on:clipboard-copied="successToast(@js(__('Copied to clipboard!')))"
+x-on:clipboard-copied="successToast({{ Js::from(__('Copied to clipboard!')) }})"
 ```
 
-Pass the text through `@js()`, not `'{{ … }}'`: the browser decodes `&#039;` back to `'` before
-Alpine evaluates the attribute, so a translation with an apostrophe would end the JS string early.
+Pass the text through `Js::from()`, not `'{{ … }}'`: the browser decodes `&#039;` back to `'`
+before Alpine evaluates the attribute, so a translation with an apostrophe would end the JS string
+early. Not `@js()` either: these handlers sit on `<x-button>`, and a directive inside a component
+tag is emitted as literal text (or breaks the view's compilation).
 
 `<x-toast />` is mounted once in `layouts/app.blade.php` and once in `layouts/auth.blade.php`. Do not
 add another.
