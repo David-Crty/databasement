@@ -36,6 +36,9 @@ that second project is no fix either: its host ports are already taken.
 If the Makefile has no `COMPOSE_ROOT` block, the branch predates worktree
 support. Merge `origin/main` first.
 
+`make test` and the pre-commit hook can take a few minutes. Give the Bash call a
+long timeout (up to 600000 ms) or run it in the background.
+
 ## Setting up a fresh worktree
 
 1. `make install`. `vendor/` is gitignored and absent, so Pest, PHPStan and
