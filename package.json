@@ -22,7 +22,7 @@
     "lightningcss-linux-x64-gnu": "^1.33.0"
   },
   "devDependencies": {
-    "daisyui": "^5.7.7",
+    "daisyui": "^5.7.46",
     "husky": "^9.1.7"
   }
 }
