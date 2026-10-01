@@ -14,7 +14,7 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.8] - 2026-09-29 {#v1-8}
+## [1.8] - 2026-10-01 {#v1-8}
 
 ### Added
 
@@ -23,6 +23,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.8.4` Backups run by a remote agent whose dump takes longer than five minutes are no longer reset and handed out again mid-dump, which restarted them: the agent's claim on a backup now lasts as long as `backup.job_timeout`, as it already did for restores. A backup that times out stays failed even if its agent reports back late ([#651](https://github.com/David-Crty/databasement/pull/651))
 - `1.8.3` Custom-format PostgreSQL snapshots are restored one table at a time by default, so databases using extensions that bring their own tables and foreign keys (such as pgAgent) no longer fail to restore on foreign key errors. The restore dialog offers "Parallel restore (4 jobs)" for custom-format snapshots of large databases that do not use such extensions ([#642](https://github.com/David-Crty/databasement/pull/642))
 - `1.8.2` Restoring a PostgreSQL snapshot with an owner works on servers connected as their bootstrap superuser (usually `postgres`), where it failed on `REASSIGN OWNED`: the database is handed to the owner before the restore and the dump is restored as that owner. On managed servers (RDS, Azure, Cloud SQL) the connection user still needs membership in the owner role, and the error now names the missing `GRANT` ([#636](https://github.com/David-Crty/databasement/pull/636))
 - `1.8.1` Jobs run by remote agents are reported like jobs on the app's own queue: a backup completed by an agent sends the success notification, a backup or restore whose agent stops responding is failed with a notification, and a database discovery the agent cannot run records a failed snapshot and notifies instead of failing silently. A discovery whose pattern matches no database completes without backups rather than failing, and a manually triggered discovery is skipped while one is already running for the same backup ([#634](https://github.com/David-Crty/databasement/pull/634))
@@ -300,7 +301,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.3
+[1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
 [1.5]: https://github.com/David-Crty/databasement/compare/v1.4.2...v1.5.6
