@@ -9,6 +9,7 @@ use App\Exceptions\Backup\EncryptionException;
 use App\Models\Scopes\OrganizationScope;
 use Database\Factories\DatabaseServerFactory;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -74,6 +75,8 @@ class DatabaseServer extends Model
         'password',
         'description',
         'backups_enabled',
+        'exports_enabled',
+        'restores_enabled',
         'ssh_config_id',
         'agent_id',
         'extra_config',
@@ -93,6 +96,8 @@ class DatabaseServer extends Model
             'port' => 'integer',
             'database_type' => DatabaseType::class,
             'backups_enabled' => 'boolean',
+            'exports_enabled' => 'boolean',
+            'restores_enabled' => 'boolean',
             'password' => 'encrypted',
             'extra_config' => 'array',
             'notification_trigger' => NotificationTrigger::class,
@@ -428,6 +433,48 @@ class DatabaseServer extends Model
         restore_error_handler();
 
         return $result;
+    }
+
+    /**
+     * Whether this server allows Backup operations (manual, API, MCP, scheduled).
+     * Org abilities are checked separately in policy; this is server capability only.
+     *
+     * Treats null as allowed so freshly created models (DB default not yet hydrated
+     * onto the instance) match the column default of true — same pattern as
+     * {@see DatabaseServerPolicy::backup()} checking backups_enabled === false.
+     */
+    public function allowsExport(): bool
+    {
+        return $this->exports_enabled !== false;
+    }
+
+    /**
+     * Whether this server may be used as a Restore target.
+     * Org abilities are checked separately in policy; this is server capability only.
+     *
+     * @see allowsExport() for null-handling rationale
+     */
+    public function allowsRestore(): bool
+    {
+        return $this->restores_enabled !== false;
+    }
+
+    /**
+     * @param  Builder<DatabaseServer>  $query
+     * @return Builder<DatabaseServer>
+     */
+    public function scopeAllowsExport(Builder $query): Builder
+    {
+        return $query->where('exports_enabled', true);
+    }
+
+    /**
+     * @param  Builder<DatabaseServer>  $query
+     * @return Builder<DatabaseServer>
+     */
+    public function scopeAllowsRestore(Builder $query): Builder
+    {
+        return $query->where('restores_enabled', true);
     }
 
     /**

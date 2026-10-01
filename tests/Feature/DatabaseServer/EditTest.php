@@ -165,6 +165,30 @@ test('disabling backups preserves backup config when snapshots exist', function 
 
 });
 
+test('can independently toggle export and restore flags', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create([
+        'exports_enabled' => true,
+        'restores_enabled' => true,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->assertSet('form.exports_enabled', true)
+        ->assertSet('form.restores_enabled', true)
+        ->set('form.exports_enabled', false)
+        ->set('form.restores_enabled', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $server->refresh();
+
+    expect($server->exports_enabled)->toBeFalse()
+        ->and($server->restores_enabled)->toBeFalse()
+        ->and($server->allowsExport())->toBeFalse()
+        ->and($server->allowsRestore())->toBeFalse();
+});
+
 test('loadDatabases calls form method for non-SQLite servers', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create([

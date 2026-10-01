@@ -23,6 +23,8 @@ class ScheduledRestore extends Model
 
     public const string SKIP_PREVIOUS_IN_FLIGHT = 'previous_in_flight';
 
+    public const string SKIP_RESTORES_DISABLED = 'restores_disabled';
+
     /**
      * Tenancy is inherited from the target server; the source server is
      * constrained to the same organization at validation time.

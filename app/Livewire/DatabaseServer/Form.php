@@ -134,6 +134,10 @@ class Form extends \Livewire\Form
 
     public bool $backups_enabled = true;
 
+    public bool $exports_enabled = true;
+
+    public bool $restores_enabled = true;
+
     // Notification preferences (server-level)
     public string $notification_trigger = 'failure';
 
@@ -495,6 +499,8 @@ class Form extends \Livewire\Form
         $this->agent_id = $server->agent_id;
         $this->use_agent = ! empty($server->agent_id);
         $this->backups_enabled = $server->backups_enabled ?? true;
+        $this->exports_enabled = $server->exports_enabled ?? true;
+        $this->restores_enabled = $server->restores_enabled ?? true;
         $this->notification_trigger = $server->notification_trigger?->value ?? 'failure'; // @phpstan-ignore nullCoalesce.expr
         $this->notification_channel_selection = $server->notification_channel_selection?->value ?? 'all'; // @phpstan-ignore nullCoalesce.expr
         $this->notification_channel_ids = $server->notificationChannels()->pluck('notification_channels.id')->toArray();
@@ -933,6 +939,8 @@ class Form extends \Livewire\Form
             'description' => 'nullable|string|max:1000',
             'agent_id' => ['nullable', Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
             'backups_enabled' => 'boolean',
+            'exports_enabled' => 'boolean',
+            'restores_enabled' => 'boolean',
             'dump_flags' => ['nullable', 'string', 'max:500', new SafeDumpFlags(DatabaseType::tryFrom($this->database_type))],
             'dump_format' => ['nullable', 'string', Rule::in(['plain', 'custom'])],
             'dump_privileges' => 'boolean',

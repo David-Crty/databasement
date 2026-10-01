@@ -299,6 +299,34 @@ test('skips disabled backups', function () {
     Queue::assertPushed(ProcessBackupJob::class, 1);
 });
 
+test('skips servers with exports disabled', function () {
+    Queue::fake();
+
+    $schedule = dailySchedule();
+
+    $allowed = DatabaseServer::factory()->create([
+        'name' => 'Exports On',
+        'database_names' => ['db1'],
+        'backups_enabled' => true,
+        'exports_enabled' => true,
+    ]);
+    $allowed->backups->first()->update(['backup_schedule_id' => $schedule->id]);
+
+    $blocked = DatabaseServer::factory()->create([
+        'name' => 'Exports Off',
+        'database_names' => ['db2'],
+        'backups_enabled' => true,
+        'exports_enabled' => false,
+    ]);
+    $blocked->backups->first()->update(['backup_schedule_id' => $schedule->id]);
+
+    $this->artisan('backups:run', ['schedule' => $schedule->id])
+        ->expectsOutputToContain('Dispatching 1 backup(s)')
+        ->assertExitCode(0);
+
+    Queue::assertPushed(ProcessBackupJob::class, 1);
+});
+
 test('runs both backup configs when a server has two on the same schedule', function () {
     Queue::fake();
 

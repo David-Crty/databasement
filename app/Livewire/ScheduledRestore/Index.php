@@ -151,6 +151,7 @@ class Index extends Component
         return match ($reason) {
             ScheduledRestore::SKIP_NO_SNAPSHOT => __('No snapshot is available to restore from yet.'),
             ScheduledRestore::SKIP_PREVIOUS_IN_FLIGHT => __('A previous run of this scheduled restore is still in progress.'),
+            ScheduledRestore::SKIP_RESTORES_DISABLED => __('Restores are disabled on the target server.'),
             default => __('Scheduled restore skipped.'),
         };
     }

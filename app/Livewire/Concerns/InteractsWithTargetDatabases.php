@@ -89,6 +89,43 @@ trait InteractsWithTargetDatabases
     }
 
     /**
+     * Mary select option for a restore target. Servers with restores disabled
+     * stay visible but greyed out (same shape as volume options for agents).
+     *
+     * @return array{id: string, name: string, disabled: bool}
+     */
+    protected function targetServerOption(DatabaseServer $server): array
+    {
+        $label = $this->serverOptionLabel($server);
+        $allowed = $server->allowsRestore();
+
+        return [
+            'id' => $server->id,
+            'name' => $allowed
+                ? $label
+                : $label.' — '.__('Restore disabled'),
+            'disabled' => ! $allowed,
+        ];
+    }
+
+    /**
+     * Reject a restore target whose restores are disabled without a hard 403 —
+     * the option is already greyed out; this covers a stale selection.
+     */
+    protected function rejectIfRestoresDisabled(DatabaseServer $server): bool
+    {
+        if ($server->allowsRestore()) {
+            return false;
+        }
+
+        $this->targetServerId = null;
+        $this->existingDatabases = [];
+        $this->addError('targetServerId', __('Restores are disabled on the target server.'));
+
+        return true;
+    }
+
+    /**
      * Populate {@see $existingDatabases} from the target server, swallowing
      * connection errors so the modal stays usable when the server is offline.
      */

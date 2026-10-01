@@ -51,6 +51,8 @@ class ListDatabaseServersTool extends Tool
             }
 
             $parts[] = '  Backups enabled: '.($server->backups_enabled ? 'yes' : 'no');
+            $parts[] = '  Allow Backup: '.($server->allowsExport() ? 'yes' : 'no');
+            $parts[] = '  Allow Restore: '.($server->allowsRestore() ? 'yes' : 'no');
 
             return implode("\n", $parts);
         });

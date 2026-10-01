@@ -31,6 +31,10 @@ class RunScheduledRestoreAction
     {
         $scheduledRestore->loadMissing('targetServer');
 
+        if (! $scheduledRestore->targetServer->allowsRestore()) {
+            return $this->markSkipped($scheduledRestore, ScheduledRestore::SKIP_RESTORES_DISABLED);
+        }
+
         if ($this->hasInflightRestore($scheduledRestore)) {
             return $this->markSkipped($scheduledRestore, ScheduledRestore::SKIP_PREVIOUS_IN_FLIGHT);
         }

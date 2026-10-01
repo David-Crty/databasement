@@ -99,6 +99,58 @@ test('can create a server with backups disabled', function () {
     expect($server->backups->first())->toBeNull();
 });
 
+test('can create a server with export and restore flags via api', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Flags Server',
+            'database_type' => 'mysql',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'backups_enabled' => false,
+            'exports_enabled' => false,
+            'restores_enabled' => false,
+        ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.exports_enabled', false)
+        ->assertJsonPath('data.restores_enabled', false);
+
+    $server = DatabaseServer::where('name', 'Flags Server')->firstOrFail();
+    expect($server->allowsExport())->toBeFalse()
+        ->and($server->allowsRestore())->toBeFalse();
+});
+
+test('can update export and restore flags via api', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create([
+        'exports_enabled' => true,
+        'restores_enabled' => true,
+        'backups_enabled' => false,
+    ]);
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-servers/{$server->id}", [
+            'name' => $server->name,
+            'database_type' => $server->database_type->value,
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'backups_enabled' => false,
+            'exports_enabled' => false,
+            'restores_enabled' => true,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.exports_enabled', false)
+        ->assertJsonPath('data.restores_enabled', true);
+
+    $server->refresh();
+    expect($server->allowsExport())->toBeFalse()
+        ->and($server->allowsRestore())->toBeTrue();
+});
+
 test('store normalizes redis selection mode to all', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
