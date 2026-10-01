@@ -125,6 +125,29 @@ test('fails backup jobs stuck in running state beyond timeout', function () {
         ->and($job->error_message)->toContain('stuck in running state');
 });
 
+test('a timed-out backup cannot be revived by its agent job', function () {
+    AppConfig::set('backup.job_timeout', 3600);
+
+    $job = BackupJob::create([
+        'status' => 'running',
+        'started_at' => now()->subSeconds(3600 + 300 + 1),
+    ]);
+    $snapshot = Snapshot::factory()->create(['backup_job_id' => $job->id]);
+    $agent = Agent::factory()->create();
+    $agentJob = AgentJob::factory()->claimed($agent)->create(['snapshot_id' => $snapshot->id]);
+
+    $this->artisan('jobs:recover-stuck')
+        ->assertExitCode(0);
+
+    expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED);
+
+    $this->withToken($agent->createToken('agent')->plainTextToken)
+        ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", ['filename' => 'backup.sql.gz', 'file_size' => 1])
+        ->assertConflict();
+
+    expect($job->fresh()->status)->toBe(BackupJobStatus::Failed);
+});
+
 test('fails backup jobs stuck in pending state beyond timeout', function () {
     AppConfig::set('backup.job_timeout', 3600);
 

@@ -118,6 +118,14 @@ class RecoverStuckJobsCommand extends Command
             ->get()
             ->each(fn (AgentJob $agentJob) => $agentJob->markFailed('Restore timed out before an agent claimed it.'));
 
+        // A timed-out backup must not be revived by an agent claiming or finishing it later.
+        AgentJob::query()
+            ->where('type', AgentJobType::Backup)
+            ->whereIn('status', [AgentJob::STATUS_PENDING, AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])
+            ->whereHas('snapshot', fn ($query) => $query->whereIn('backup_job_id', $stuckJobs->modelKeys()))
+            ->get()
+            ->each(fn (AgentJob $agentJob) => $agentJob->markFailed('Backup timed out.'));
+
         $this->info("Backup jobs: failed {$stuckJobs->count()} stuck job(s).");
 
         return true;

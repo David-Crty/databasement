@@ -3,6 +3,7 @@
 namespace App\Services\Agent\Handlers;
 
 use App\Enums\SnapshotFileStatus;
+use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\Snapshot;
@@ -22,9 +23,13 @@ class BackupJobHandler implements AgentJobHandler
         return 3;
     }
 
+    /**
+     * The dump command cannot heartbeat midway, so the lease spans the whole
+     * job timeout rather than expiring under a long-running dump.
+     */
     public function leaseSeconds(): int
     {
-        return max(1, (int) config('agent.lease_duration', 300));
+        return max(1, (int) AppConfig::get('backup.job_timeout'));
     }
 
     public function trackedJob(AgentJob $agentJob): ?BackupJob

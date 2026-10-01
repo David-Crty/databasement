@@ -23,7 +23,7 @@ class DiscoveryJobHandler implements AgentJobHandler
 
     public function leaseSeconds(): int
     {
-        return max(1, (int) config('agent.lease_duration', 300));
+        return 300;
     }
 
     public function trackedJob(AgentJob $agentJob): ?BackupJob
