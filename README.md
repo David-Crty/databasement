@@ -1,4 +1,6 @@
 <p align="center">
+
+[![Deploy to Railyard](https://app.railyard.run/deploy/badge)](https://app.railyard.run/deploy?repo=https://github.com/David-Crty/databasement)
   <a href="https://github.com/David-Crty/databasement">
     <img src="docs/static/img/banner-v2.png" alt="Databasement Banner" />
   </a>
