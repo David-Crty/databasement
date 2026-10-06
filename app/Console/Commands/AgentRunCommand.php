@@ -99,7 +99,7 @@ class AgentRunCommand extends Command
     }
 
     /**
-     * @param  array{id: string, type?: string, payload: array<string, mixed>}  $job
+     * @param  array{id: string, type?: string, payload: array<string, mixed>, merges_logs?: bool}  $job
      * @param  array<string, AgentJobRunner>  $runners
      */
     private function runJob(array $job, array $runners, AgentApiClient $client): void

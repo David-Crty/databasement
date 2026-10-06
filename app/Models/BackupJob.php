@@ -171,11 +171,35 @@ class BackupJob extends Model implements BackupLogger
     }
 
     /**
-     * A command log entry can be left at `status: 'running'` if the job dies
-     * between `startCommandLog()` and `ShellProcessor`'s finalize step (queue
-     * timeout, worker kill, uncaught fatal error). Without this, the log-modal
-     * UI keeps showing a "Running" spinner on that command forever, even
-     * though the job itself is already marked failed.
+     * Mark job as running, on its first attempt or a retry
+     */
+    public function markRunning(): void
+    {
+        $this->update([
+            'status' => BackupJobStatus::Running,
+            'started_at' => now(),
+            'command_heartbeat_at' => null,
+            'logs' => $this->logsWithDanglingCommandsFailed(),
+        ]);
+    }
+
+    /**
+     * Record that the agent running this job was lost before it finished.
+     */
+    public function markAgentLost(): void
+    {
+        $this->saveLogs([
+            ...$this->logsWithDanglingCommandsFailed(),
+            self::logEntry('Lost contact with the agent, the job will be retried.', 'warning'),
+        ]);
+    }
+
+    /**
+     * A command log entry is left at `status: 'running'` when its runner dies
+     * mid-command (queue timeout, worker or agent killed). Once the job ends,
+     * is retried or loses its agent, that command will never finish: marking
+     * it failed keeps the log modal from showing it running forever, and
+     * keeps it from counting as a running command in {@see self::saveLogs()}.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -203,43 +227,18 @@ class BackupJob extends Model implements BackupLogger
     }
 
     /**
-     * Mark job as running
-     */
-    public function markRunning(): void
-    {
-        $this->update([
-            'status' => BackupJobStatus::Running,
-            'started_at' => now(),
-            'command_heartbeat_at' => null,
-        ]);
-    }
-
-    /**
-     * Record that a shell command is still running, or clear the mark once it
-     * has ended. A stale mark means the command's runner stopped responding.
-     */
-    public function recordCommandHeartbeat(bool $running): void
-    {
-        $this->update(['command_heartbeat_at' => $running ? now() : null]);
-    }
-
-    /**
      * Add a command log entry
      */
     public function logCommand(string $command, ?string $output = null, ?int $exitCode = null, ?float $startTime = null): void
     {
-        $logs = $this->logs ?? [];
-
-        $logs[] = [
+        $this->saveLogs([...($this->logs ?? []), [
             'timestamp' => now()->toIso8601String(),
             'type' => 'command',
             'command' => $command,
             'output' => $output,
             'exit_code' => $exitCode,
             'duration_ms' => $startTime ? round((microtime(true) - $startTime) * 1000, 2) : null,
-        ];
-
-        $this->update(['logs' => $logs]);
+        ]]);
     }
 
     /**
@@ -248,9 +247,7 @@ class BackupJob extends Model implements BackupLogger
      */
     public function startCommandLog(string $command): int
     {
-        $logs = $this->logs ?? [];
-
-        $logs[] = [
+        $logs = [...($this->logs ?? []), [
             'timestamp' => now()->toIso8601String(),
             'type' => 'command',
             'command' => $command,
@@ -258,9 +255,9 @@ class BackupJob extends Model implements BackupLogger
             'output' => null,
             'exit_code' => null,
             'duration_ms' => null,
-        ];
+        ]];
 
-        $this->update(['logs' => $logs]);
+        $this->saveLogs($logs);
 
         return count($logs) - 1;
     }
@@ -280,7 +277,7 @@ class BackupJob extends Model implements BackupLogger
 
         $logs[$index] = array_merge($logs[$index], $data);
 
-        $this->update(['logs' => $logs]);
+        $this->saveLogs($logs);
     }
 
     /**
@@ -290,8 +287,73 @@ class BackupJob extends Model implements BackupLogger
      */
     public function log(string $message, string $level = 'info', ?array $context = null): void
     {
+        $this->saveLogs([...($this->logs ?? []), self::logEntry($message, $level, $context)]);
+    }
+
+    /**
+     * Merge log entries recorded by a remote agent. A runner runs one command
+     * at a time and resends it while it runs, with more output and finally
+     * its result: an incoming command entry replaces the job's running
+     * command, if there is one. Everything else is appended.
+     *
+     * @param  array<int, array<string, mixed>>  $entries
+     */
+    public function mergeLogs(array $entries): void
+    {
+        if ($entries === []) {
+            return;
+        }
+
         $logs = $this->logs ?? [];
 
+        foreach ($entries as $entry) {
+            $running = ($entry['type'] ?? null) === 'command' ? self::runningCommandIndex($logs) : null;
+
+            if ($running === null) {
+                $logs[] = $entry;
+            } else {
+                $logs[$running] = $entry;
+            }
+        }
+
+        $this->saveLogs($logs);
+    }
+
+    /**
+     * Every log write goes through here. While a command is running, each
+     * write refreshes `command_heartbeat_at`: runners report a running
+     * command every 30 seconds, so a stale value means its runner was lost.
+     *
+     * @param  array<int, array<string, mixed>>  $logs
+     */
+    private function saveLogs(array $logs): void
+    {
+        $this->update([
+            'logs' => $logs,
+            'command_heartbeat_at' => self::runningCommandIndex($logs) === null ? null : now(),
+        ]);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $logs
+     */
+    private static function runningCommandIndex(array $logs): ?int
+    {
+        foreach (array_reverse($logs, preserve_keys: true) as $index => $entry) {
+            if (($entry['status'] ?? null) === 'running') {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $context
+     * @return array<string, mixed>
+     */
+    private static function logEntry(string $message, string $level, ?array $context = null): array
+    {
         $entry = [
             'timestamp' => now()->toIso8601String(),
             'type' => 'log',
@@ -303,23 +365,7 @@ class BackupJob extends Model implements BackupLogger
             $entry['context'] = $context;
         }
 
-        $logs[] = $entry;
-
-        $this->update(['logs' => $logs]);
-    }
-
-    /**
-     * Append log entries recorded elsewhere, such as by a remote agent.
-     *
-     * @param  array<int, array<string, mixed>>  $entries
-     */
-    public function appendLogs(array $entries): void
-    {
-        if ($entries === []) {
-            return;
-        }
-
-        $this->update(['logs' => array_merge($this->logs ?? [], $entries)]);
+        return $entry;
     }
 
     /**

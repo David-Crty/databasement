@@ -17,7 +17,7 @@ interface AgentJobRunner
     /**
      * Run a claimed job and report its outcome, including failures, to the server.
      *
-     * @param  array{id: string, payload: array<string, mixed>}  $job
+     * @param  array{id: string, payload: array<string, mixed>, merges_logs?: bool}  $job
      * @param  Closure(string, string=): void  $log  Writes a line to the agent's console output
      */
     public function run(array $job, AgentApiClient $client, Closure $log): void;

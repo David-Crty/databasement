@@ -77,8 +77,6 @@ test('handle builds config from models and marks job completed', function () {
                 && str_contains($config->workingDirectory, 'restore-')
             ),
             Mockery::any(), // BackupLogger (the job itself)
-            null,
-            Mockery::type(Closure::class),
         );
 
     (new ProcessRestoreJob($restore->id))->handle($mockRestoreTask);
@@ -189,8 +187,6 @@ test('handle reads from the copy chosen on the restore', function () {
         ->with(
             Mockery::on(fn (RestoreConfig $config) => $config->snapshotVolume->name === 'Second Copy'),
             Mockery::any(),
-            null,
-            Mockery::type(Closure::class),
         );
 
     (new ProcessRestoreJob($restore->id))->handle($mockRestoreTask);

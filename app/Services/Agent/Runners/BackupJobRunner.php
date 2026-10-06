@@ -3,12 +3,13 @@
 namespace App\Services\Agent\Runners;
 
 use App\Enums\AgentJobType;
+use App\Exceptions\Backup\JobRevokedException;
 use App\Exceptions\Backup\VolumeTransferException;
 use App\Services\Agent\AgentApiClient;
+use App\Services\Agent\AgentJobLogger;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
-use App\Services\Backup\InMemoryBackupLogger;
 use App\Support\FilesystemSupport;
 use Closure;
 
@@ -25,7 +26,7 @@ class BackupJobRunner implements AgentJobRunner
 
     public function run(array $job, AgentApiClient $client, Closure $log): void
     {
-        $logger = new InMemoryBackupLogger;
+        $logger = new AgentJobLogger($client, $job['id'], $job['merges_logs'] ?? false);
 
         try {
             $payload = $job['payload'];
@@ -38,26 +39,23 @@ class BackupJobRunner implements AgentJobRunner
             $workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $job['id']);
             $config = BackupConfig::fromPayload($payload, $workingDirectory); // @phpstan-ignore argument.type
 
-            $result = $this->backupTask->execute(
-                $config,
-                $logger,
-                onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
-                onCommandHeartbeat: fn (bool $running) => $client->commandHeartbeat($job['id'], $running),
-            );
+            $result = $this->backupTask->execute($config, $logger);
 
             $client->ack($job['id'], [
                 'filename' => $result->filename,
                 'file_size' => $result->fileSize,
                 'checksum' => $result->checksum,
                 'volumes' => $this->volumeResultPayloads($result->volumeResults),
-            ], $logger->flush());
+            ], $logger->unsentLogs());
             $log("Job completed: {$result->filename}");
+        } catch (JobRevokedException $e) {
+            $log("Job {$job['id']} stopped: {$e->getMessage()}", 'warning');
         } catch (VolumeTransferException $e) {
             // Some uploads may have succeeded — report the per-volume
             // outcomes so the app records the good copies before failing.
             $logger->log("Backup failed: {$e->getMessage()}", 'error');
             $log("Job failed: {$e->getMessage()}", 'error');
-            $client->fail($job['id'], $e->getMessage(), $logger->flush(), [
+            $client->fail($job['id'], $e->getMessage(), $logger->unsentLogs(), [
                 'filename' => $e->result->filename,
                 'file_size' => $e->result->fileSize,
                 'volumes' => $this->volumeResultPayloads($e->result->volumeResults),
@@ -65,7 +63,7 @@ class BackupJobRunner implements AgentJobRunner
         } catch (\Throwable $e) {
             $logger->log("Backup failed: {$e->getMessage()}", 'error');
             $log("Job failed: {$e->getMessage()}", 'error');
-            $client->fail($job['id'], $e->getMessage(), $logger->flush());
+            $client->fail($job['id'], $e->getMessage(), $logger->unsentLogs());
         }
     }
 

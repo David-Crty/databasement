@@ -75,7 +75,7 @@ class RecoverStuckJobsCommand extends Command
                     'agent_id' => null,
                     'lease_expires_at' => null,
                 ]);
-                $job->trackedJob()?->log('Lost contact with the agent, the job will be retried.', 'warning');
+                $job->trackedJob()?->markAgentLost();
                 $resetCount++;
             } else {
                 $errorMessage = "Max attempts ({$job->max_attempts}) exceeded after losing contact with the agent.";

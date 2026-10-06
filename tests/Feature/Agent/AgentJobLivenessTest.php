@@ -19,9 +19,10 @@ use Illuminate\Testing\TestResponse;
  * - Lease: claiming a job leases it to the agent and every heartbeat extends
  *   the lease. Backups and restores are leased for the whole job timeout,
  *   discoveries for five minutes.
- * - Command heartbeat: while a shell command runs, the agent reports every
- *   30 seconds (`in_command`), recorded as the job's `command_heartbeat_at`.
- *   Agents up to 1.8.4 never send it.
+ * - Command heartbeat: a runner reports a running command's log entry every
+ *   30 seconds (the queue worker to the database, an agent in a heartbeat),
+ *   and every log write made while a command runs refreshes the job's
+ *   `command_heartbeat_at`. Agents up to 1.8.4 never report a running command.
  * - Recovery (`jobs:recover-stuck`): a job whose lease expired, or a backup
  *   whose command heartbeat went stale, is retried while attempts remain and
  *   failed otherwise. Restores are only recovered by lease and never retried.
@@ -83,48 +84,60 @@ describe('lease', function () {
 });
 
 describe('command heartbeat', function () {
-    test('a heartbeat records whether the agent is running a command', function () {
-        $agent = Agent::factory()->create();
-        $agentJob = AgentJob::factory()->claimed($agent)->create();
-        $backupJob = $agentJob->trackedJob();
-        $heartbeat = fn (array $data) => $this->withToken($agent->createToken('agent')->plainTextToken)
-            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", $data)
-            ->assertOk();
+    test('a running command keeps its job heartbeat fresh until it finishes, on the queue', function () {
+        $backupJob = BackupJob::create(['status' => 'running']);
 
-        $heartbeat(['in_command' => true]);
+        $index = $backupJob->startCommandLog('pg_dump app');
         expect($backupJob->fresh()->command_heartbeat_at)->not->toBeNull();
 
-        // Agents up to 1.8.4 send no in_command field: the mark is left as is.
-        $heartbeat([]);
-        expect($backupJob->fresh()->command_heartbeat_at)->not->toBeNull();
-
-        $heartbeat(['in_command' => false]);
+        $backupJob->updateCommandLog($index, ['status' => 'completed', 'exit_code' => 0]);
         expect($backupJob->fresh()->command_heartbeat_at)->toBeNull();
     });
 
-    test('a claim clears the heartbeat a previous attempt left behind', function () {
+    test('a running command keeps its job heartbeat fresh until it finishes, through an agent', function () {
+        $agent = Agent::factory()->create();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+        $backupJob = $agentJob->trackedJob();
+        $heartbeat = fn (string $status) => $this->withToken($agent->createToken('agent')->plainTextToken)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", ['logs' => [
+                ['timestamp' => now()->toIso8601String(), 'type' => 'command', 'command' => 'pg_dump app', 'status' => $status],
+            ]])
+            ->assertOk();
+
+        $heartbeat('running');
+        expect($backupJob->fresh()->command_heartbeat_at)->not->toBeNull();
+
+        $heartbeat('completed');
+        expect($backupJob->fresh()->command_heartbeat_at)->toBeNull();
+    });
+
+    test('a claim fails the command a previous attempt left running', function () {
         $agent = Agent::factory()->create();
         $agentJob = pendingBackupFor($agent);
-        $agentJob->trackedJob()->update(['command_heartbeat_at' => now()->subHour()]);
+        $agentJob->trackedJob()->startCommandLog('pg_dump app');
 
         claimNextJob($agent)->assertJsonPath('job.id', $agentJob->id);
 
-        expect($agentJob->trackedJob()->fresh()->command_heartbeat_at)->toBeNull();
+        $backupJob = $agentJob->trackedJob()->fresh();
+        expect($backupJob->command_heartbeat_at)->toBeNull()
+            ->and($backupJob->logs[0]['status'])->toBe('failed');
     });
 });
 
 describe('recovery', function () {
     test('a job whose lease expired is retried while attempts remain', function () {
         $agentJob = AgentJob::factory()->expiredLease()->create(['attempts' => 1, 'max_attempts' => 3]);
+        $agentJob->trackedJob()->startCommandLog('pg_dump app');
 
         $this->artisan('jobs:recover-stuck')->assertSuccessful();
 
         $agentJob->refresh();
+        $logs = $agentJob->trackedJob()->logs;
         expect($agentJob->status)->toBe(AgentJob::STATUS_PENDING)
             ->and($agentJob->agent_id)->toBeNull()
             ->and($agentJob->lease_expires_at)->toBeNull()
-            ->and(collect($agentJob->trackedJob()->logs)->pluck('message'))
-            ->toContain('Lost contact with the agent, the job will be retried.');
+            ->and($logs[0]['status'])->toBe('failed')
+            ->and($logs[1]['message'])->toBe('Lost contact with the agent, the job will be retried.');
     });
 
     test('a job whose lease expired is failed and notified once attempts run out', function () {

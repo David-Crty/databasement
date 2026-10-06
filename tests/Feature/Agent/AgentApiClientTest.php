@@ -1,9 +1,9 @@
 <?php
 
 use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\JobRevokedException;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Agent\AgentAuthenticationException;
-use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
@@ -86,41 +86,22 @@ describe('jobHeartbeat', function () {
         });
     });
 
-    test('reports no running command and omits logs when there are none', function () {
-        Http::fake();
-
-        $this->client->jobHeartbeat('job-1');
-
-        Http::assertSent(function ($request) {
-            return $request->url() === 'http://server.test/api/v1/agent/jobs/job-1/heartbeat'
-                && $request->data() === ['in_command' => false];
-        });
-    });
-});
-
-describe('commandHeartbeat', function () {
-    test('an unreachable server does not abort the running command', function () {
-        Http::fake(fn () => throw new ConnectionException('Connection refused'));
-
-        $this->client->commandHeartbeat('job-1', true);
-    })->throwsNoExceptions();
-
-    test('a server error does not abort the running command', function () {
-        Http::fake(['*' => Http::response(['message' => 'Server Error'], 503)]);
-
-        $this->client->commandHeartbeat('job-1', true);
-    })->throwsNoExceptions();
-
-    test('a job taken away from the agent aborts the running command', function (int $status) {
+    test('a job the server rejects is revoked', function (int $status) {
         Http::fake(['*' => Http::response(['message' => 'Rejected'], $status)]);
 
-        $this->client->commandHeartbeat('job-1', true);
+        $this->client->jobHeartbeat('job-1');
     })->with([
         'token revoked' => [401],
         'job reassigned' => [403],
         'job deleted' => [404],
         'job failed' => [409],
-    ])->throws(RequestException::class);
+    ])->throws(JobRevokedException::class);
+
+    test('any other failure is thrown as is', function () {
+        Http::fake(['*' => Http::response(['message' => 'Server Error'], 503)]);
+
+        $this->client->jobHeartbeat('job-1');
+    })->throws(RequestException::class);
 });
 
 describe('ack', function () {

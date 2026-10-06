@@ -96,7 +96,8 @@ describe('job claiming', function () {
 
         $response = $this->withToken($token)
             ->postJson('/api/v1/agent/jobs/claim')
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('job.merges_logs', true);
 
         $jobData = $response->json('job');
         expect($jobData)->not->toBeNull()
@@ -158,26 +159,26 @@ describe('job claiming', function () {
 });
 
 describe('job heartbeat', function () {
-    test('heartbeat appends logs to existing logs', function () {
+    test('a heartbeat merges logs: a command sent again replaces the running one, the rest is appended', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
+        $heartbeat = fn (array $logs) => $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", ['logs' => $logs])
+            ->assertOk();
+        $log = fn (string $message) => ['timestamp' => now()->toIso8601String(), 'type' => 'log', 'level' => 'info', 'message' => $message];
+        $command = fn (string $command, string $status, string $output = '') => ['timestamp' => now()->toIso8601String(), 'type' => 'command', 'command' => $command, 'status' => $status, 'output' => $output];
 
-        // First heartbeat with initial logs
-        $this->withToken($token)
-            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", [
-                'logs' => [['timestamp' => now()->toIso8601String(), 'type' => 'log', 'level' => 'info', 'message' => 'Dump started']],
+        $heartbeat([$log('Starting backup'), $command('pg_dump app', 'running')]);
+        $heartbeat([$command('pg_dump app', 'running', 'line 1')]);
+        $heartbeat([$command('pg_dump app', 'completed', "line 1\nline 2"), $log('Dump done'), $command('gzip dump.sql', 'running')]);
+
+        expect(collect($agentJob->trackedJob()->fresh()->logs)->map(fn (array $entry) => $entry['message'] ?? "{$entry['command']} [{$entry['status']}] {$entry['output']}")->all())
+            ->toBe([
+                'Starting backup',
+                "pg_dump app [completed] line 1\nline 2",
+                'Dump done',
+                'gzip dump.sql [running] ',
             ]);
-
-        // Second heartbeat with more logs
-        $this->withToken($token)
-            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat", [
-                'logs' => [['timestamp' => now()->toIso8601String(), 'type' => 'log', 'level' => 'info', 'message' => 'Compression done']],
-            ]);
-
-        $backupJob = $agentJob->snapshot->job->fresh();
-        expect($backupJob->logs)->toHaveCount(2)
-            ->and($backupJob->logs[0]['message'])->toBe('Dump started')
-            ->and($backupJob->logs[1]['message'])->toBe('Compression done');
     });
 });
 

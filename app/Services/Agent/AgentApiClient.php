@@ -2,11 +2,10 @@
 
 namespace App\Services\Agent;
 
-use Illuminate\Http\Client\ConnectionException;
+use App\Exceptions\Backup\JobRevokedException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AgentApiClient
@@ -29,7 +28,7 @@ class AgentApiClient
 
     /**
      * @param  list<string>  $jobTypes  The job types this agent can run
-     * @return array{id: string, type?: string, snapshot_id: string|null, payload: array<string, mixed>}|null
+     * @return array{id: string, type?: string, snapshot_id: string|null, payload: array<string, mixed>, merges_logs?: bool}|null
      */
     public function claimJob(array $jobTypes): ?array
     {
@@ -49,46 +48,29 @@ class AgentApiClient
             return null;
         }
 
-        /** @var array{id: string, type?: string, snapshot_id: string|null, payload: array<string, mixed>} $job */
+        /** @var array{id: string, type?: string, snapshot_id: string|null, payload: array<string, mixed>, merges_logs?: bool} $job */
         return $job;
     }
 
     /**
+     * Extend the job's lease and send the log entries recorded since the last
+     * report.
+     *
      * @param  array<int, array<string, mixed>>  $logs
+     *
+     * @throws JobRevokedException When the server no longer accepts reports for this job
      */
     public function jobHeartbeat(string $jobId, array $logs = []): void
     {
-        $this->post("/agent/jobs/{$jobId}/heartbeat", [
-            'in_command' => false,
-            ...(empty($logs) ? [] : ['logs' => $logs]),
-        ])->throw();
-    }
+        $response = $this->post("/agent/jobs/{$jobId}/heartbeat", ['logs' => $logs]);
 
-    /**
-     * Report that a shell command is still running, or that it has ended.
-     *
-     * A server that is briefly unreachable must not abort a dump that may have
-     * run for hours, so only a rejection of the job itself is thrown: 401 once
-     * the token is revoked, 403 once the job is reassigned, 404 once it is
-     * deleted, 409 once it has failed.
-     */
-    public function commandHeartbeat(string $jobId, bool $running): void
-    {
-        try {
-            $response = $this->post("/agent/jobs/{$jobId}/heartbeat", ['in_command' => $running]);
-        } catch (ConnectionException $e) {
-            Log::warning("Command heartbeat for job {$jobId} failed: {$e->getMessage()}");
-
-            return;
-        }
-
+        // 401 once the token is revoked, 403 once the job is reassigned,
+        // 404 once it is deleted, 409 once it has failed or completed.
         if (in_array($response->status(), [401, 403, 404, 409], true)) {
-            $response->throw();
+            throw new JobRevokedException($response->json('message') ?? "Job {$jobId} was rejected by the server.");
         }
 
-        if ($response->failed()) {
-            Log::warning("Command heartbeat for job {$jobId} returned HTTP {$response->status()}");
-        }
+        $response->throw();
     }
 
     /**

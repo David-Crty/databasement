@@ -60,8 +60,6 @@ test('handle builds config from models and updates snapshot on success', functio
                 && str_contains($config->workingDirectory, 'backup-')
             ),
             Mockery::type(BackupLogger::class),
-            null,
-            Mockery::type(Closure::class),
         )
         ->andReturn(new BackupResult('prod-myapp-2024.sql.gz', 2048, 'abc123def456'));
 
@@ -92,8 +90,6 @@ test('handle passes backup path from model to config', function () {
         ->with(
             Mockery::on(fn (BackupConfig $config) => $config->backupPath === 'mysql/production'),
             Mockery::type(BackupLogger::class),
-            null,
-            Mockery::type(Closure::class),
         )
         ->andReturn(new BackupResult('test.sql.gz', 100, 'checksum'));
 
@@ -118,8 +114,6 @@ test('handle defaults backup path to empty string when null', function () {
         ->with(
             Mockery::on(fn (BackupConfig $config) => $config->backupPath === ''),
             Mockery::type(BackupLogger::class),
-            null,
-            Mockery::type(Closure::class),
         )
         ->andReturn(new BackupResult('test.sql.gz', 100, 'checksum'));
 
@@ -208,8 +202,6 @@ test('handle uses empty backupPath when the snapshot is orphaned (backup removed
                 return true;
             }),
             Mockery::type(BackupLogger::class),
-            null,
-            Mockery::type(Closure::class),
         )
         ->andReturn(new BackupResult('myapp.sql.gz', 1024, 'sha'));
 
@@ -233,8 +225,6 @@ test('handle passes the volume used storage (completed snapshots only) to the ba
         ->with(
             Mockery::on(fn (BackupConfig $config) => $config->volumes[0]->usedBytes === 500),
             Mockery::type(BackupLogger::class),
-            null,
-            Mockery::type(Closure::class),
         )
         ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123'));
 
@@ -311,8 +301,6 @@ test('handle uploads once and records a completed file row per target volume', f
         ->with(
             Mockery::on(fn (BackupConfig $config) => count($config->volumes) === 2),
             Mockery::type(BackupLogger::class),
-            null,
-            Mockery::type(Closure::class),
         )
         ->andReturnUsing(fn (BackupConfig $config) => new BackupResult('myapp.sql.gz', 2048, 'abc123', array_map(
             fn ($volume) => new VolumeTransferResult(
@@ -380,8 +368,6 @@ test('handle retries only the copies that have not completed yet', function () {
             Mockery::on(fn (BackupConfig $config) => count($config->volumes) === 1
                 && $config->volumes[0]->id === $pendingFile->volume_id),
             Mockery::type(BackupLogger::class),
-            null,
-            Mockery::type(Closure::class),
         )
         ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123', [
             new VolumeTransferResult(volumeId: $pendingFile->volume_id, volumeName: 'v', status: SnapshotFileStatus::Completed),

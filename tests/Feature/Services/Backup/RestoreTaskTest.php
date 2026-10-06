@@ -244,31 +244,6 @@ test('execute restores successfully', function () {
     expect($successLogs)->toContain('Restore completed successfully');
 });
 
-test('execute reports every shell command to the command heartbeat, for this run only', function () {
-    setupDownloadMock();
-
-    $restoreTask = new RestoreTask(
-        buildMockRestoreProvider(),
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
-
-    $config = buildRestoreConfig();
-    mkdir($config->workingDirectory, 0755, true);
-
-    $beats = [];
-    $restoreTask->execute($config, new InMemoryBackupLogger, onCommandHeartbeat: function (bool $running) use (&$beats) {
-        $beats[] = $running;
-    });
-
-    // The decompression and the restore each report their start and their end.
-    expect($beats)->toBe([true, false, true, false])
-        ->and($this->shellProcessor->heartbeat)->toBeNull();
-});
-
 test('execute throws when database types are incompatible', function () {
     $restoreTask = new RestoreTask(
         new DatabaseProvider,
@@ -457,7 +432,6 @@ test('execute cleans up working directory on failure', function () {
 
     $shellProcessor = Mockery::mock(\App\Services\Backup\ShellProcessor::class);
     $shellProcessor->shouldReceive('setLogger')->once();
-    $shellProcessor->shouldReceive('setHeartbeat');
     $shellProcessor->shouldReceive('process')
         ->once()
         ->andThrow(new \App\Exceptions\ShellProcessFailed('Command failed'));

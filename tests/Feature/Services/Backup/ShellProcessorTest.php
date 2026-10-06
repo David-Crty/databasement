@@ -1,7 +1,9 @@
 <?php
 
+use App\Exceptions\Backup\JobRevokedException;
 use App\Exceptions\ShellProcessFailed;
 use App\Models\BackupJob;
+use App\Services\Backup\InMemoryBackupLogger;
 use App\Services\Backup\ShellProcessor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;
@@ -154,43 +156,6 @@ test('process bounds the error message thrown for a failing chatty command', fun
     );
 });
 
-test('process throttles incremental log writes while a command runs', function () {
-    $logger = new class implements \App\Contracts\BackupLogger
-    {
-        public int $updates = 0;
-
-        public function logCommand(string $command, ?string $output = null, ?int $exitCode = null, ?float $startTime = null): void {}
-
-        public function startCommandLog(string $command): int
-        {
-            return 0;
-        }
-
-        public function updateCommandLog(int $index, array $data): void
-        {
-            $this->updates++;
-        }
-
-        public function log(string $message, string $level = 'info', ?array $context = null): void {}
-
-        public function getLogs(): array
-        {
-            return [];
-        }
-    };
-
-    // An interval no test run can reach, so every write after the first is skipped.
-    $processor = new ShellProcessor(flushIntervalSeconds: 3600);
-    $processor->setLogger($logger);
-
-    // ~2 MB delivered as many read chunks. Unthrottled this is one database
-    // write per chunk, each re-serializing the whole growing `logs` blob.
-    $processor->process('seq 1 300000');
-
-    // The first chunk, then the final write once the command exits.
-    expect($logger->updates)->toBe(2);
-});
-
 test('process creates log entry before command starts', function () {
     $backupJob = BackupJob::create([
         'status' => 'running',
@@ -210,37 +175,73 @@ test('process creates log entry before command starts', function () {
         ->and($logs[0]['timestamp'])->not->toBeNull();
 });
 
-test('process sends heartbeats while a command runs and ends with a stop beat', function () {
-    $beats = [];
+/**
+ * A logger recording every report of a command, or failing them all with $failure.
+ */
+function commandReportSpy(?Throwable $failure = null): InMemoryBackupLogger
+{
+    return new class($failure) extends InMemoryBackupLogger
+    {
+        /** @var list<array<string, mixed>> */
+        public array $reports = [];
 
-    $processor = new ShellProcessor(heartbeatIntervalSeconds: 0.1);
-    $processor->setHeartbeat(function (bool $running) use (&$beats) {
-        $beats[] = $running;
-    });
+        public function __construct(private readonly ?Throwable $failure) {}
 
-    $processor->process('sleep 1');
+        public function updateCommandLog(int $index, array $data): void
+        {
+            if ($this->failure !== null) {
+                throw $this->failure;
+            }
 
-    expect($beats[0])->toBeTrue()
-        ->and(count(array_filter($beats)))->toBeGreaterThan(2)
-        ->and(end($beats))->toBeFalse();
-});
-
-test('a failing heartbeat stops the command and fails its log entry', function () {
-    $backupJob = BackupJob::create(['status' => 'running']);
-    $calls = 0;
-
-    $processor = new ShellProcessor(heartbeatIntervalSeconds: 0.1);
-    $processor->setLogger($backupJob);
-    $processor->setHeartbeat(function (bool $running) use (&$calls) {
-        if ($running && ++$calls > 1) {
-            throw new RuntimeException('Job was reassigned');
+            $this->reports[] = $data;
+            parent::updateCommandLog($index, $data);
         }
+    };
+}
+
+describe('reporting a running command', function () {
+    test('it is reported every interval with its output so far, then once finished', function () {
+        $logger = commandReportSpy();
+        $processor = new ShellProcessor(progressIntervalSeconds: 0.2);
+        $processor->setLogger($logger);
+
+        $processor->process('echo first; sleep 1; echo second');
+
+        $whileRunning = collect($logger->reports)->reject(fn (array $report) => isset($report['status']));
+        $final = collect($logger->reports)->last();
+
+        expect($whileRunning)->not->toBeEmpty()
+            ->and($whileRunning->first()['output'])->toBe('first')
+            ->and($final['status'])->toBe('completed')
+            ->and($final['output'])->toBe("first\nsecond");
     });
 
-    $startedAt = microtime(true);
+    test('a chatty command is reported once per interval, not once per output chunk', function () {
+        $logger = commandReportSpy();
+        $processor = new ShellProcessor(progressIntervalSeconds: 3600);
+        $processor->setLogger($logger);
 
-    expect(fn () => $processor->process('sleep 10'))->toThrow(RuntimeException::class, 'Job was reassigned');
+        // ~2 MB delivered as many read chunks: every report re-serializes the
+        // job's whole `logs` blob, so one per chunk would be quadratic.
+        $processor->process('seq 1 300000');
 
-    expect(microtime(true) - $startedAt)->toBeLessThan(5)
-        ->and($backupJob->fresh()->getLogs()[0]['status'])->toBe('failed');
+        expect($logger->reports)->toHaveCount(1);
+    });
+
+    test('a report that fails never stops the command', function () {
+        Log::spy();
+        $processor = new ShellProcessor(progressIntervalSeconds: 0.1);
+        $processor->setLogger(commandReportSpy(new RuntimeException('Server unreachable')));
+
+        expect($processor->process('sleep 0.3; echo done'))->toBe("done\n");
+    });
+
+    test('a job the server revoked stops the command', function () {
+        $processor = new ShellProcessor(progressIntervalSeconds: 0.1);
+        $processor->setLogger(commandReportSpy(new JobRevokedException('Job was reassigned')));
+        $startedAt = microtime(true);
+
+        expect(fn () => $processor->process('sleep 10'))->toThrow(JobRevokedException::class);
+        expect(microtime(true) - $startedAt)->toBeLessThan(5);
+    });
 });

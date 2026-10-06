@@ -102,7 +102,7 @@ class ProcessBackupJob implements ShouldQueue
                 postBackupScript: AppConfig::get('backup.post_backup_script'),
             );
 
-            $result = $backupTask->execute($config, $job, onCommandHeartbeat: fn (bool $running) => rescue(fn () => $job->recordCommandHeartbeat($running), report: false));
+            $result = $backupTask->execute($config, $job);
 
             $this->persistResult($snapshot, $result);
 

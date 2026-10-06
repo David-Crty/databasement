@@ -15,7 +15,6 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
 use App\Support\Formatters;
-use Closure;
 
 class RestoreTask
 {
@@ -40,14 +39,10 @@ class RestoreTask
      *
      * This is the pure restore engine with no model persistence.
      * `ProcessRestoreJob` and the remote agent delegate to this method.
-     *
-     * @param  callable|null  $onProgress  Called after the download, decompression, and restore steps
-     * @param  (Closure(bool): void)|null  $onCommandHeartbeat  See {@see ShellProcessor::setHeartbeat()}
      */
-    public function execute(RestoreConfig $config, BackupLogger $logger, ?callable $onProgress = null, ?Closure $onCommandHeartbeat = null): void
+    public function execute(RestoreConfig $config, BackupLogger $logger): void
     {
         $this->shellProcessor->setLogger($logger);
-        $this->shellProcessor->setHeartbeat($onCommandHeartbeat);
         $target = $config->targetServer;
 
         try {
@@ -79,16 +74,8 @@ class RestoreTask
             $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
             $logger->log('Download completed successfully in '.$transferDuration, 'success');
 
-            if ($onProgress !== null) {
-                $onProgress();
-            }
-
             // Decompress the archive
             $workingFile = $compressor->decompress($compressedFile);
-
-            if ($onProgress !== null) {
-                $onProgress();
-            }
 
             $database = $this->databaseProvider->makeFromConfig(
                 $target,
@@ -121,10 +108,6 @@ class RestoreTask
                 $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
             }
 
-            if ($onProgress !== null) {
-                $onProgress();
-            }
-
             // Mark job as completed
             $logger->log('Restore completed successfully', 'success');
 
@@ -145,8 +128,6 @@ class RestoreTask
                 ],
             );
         } finally {
-            $this->shellProcessor->setHeartbeat(null);
-
             // Close SSH tunnel if active
             $this->closeSshTunnel($logger);
 
