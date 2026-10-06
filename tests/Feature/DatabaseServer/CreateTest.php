@@ -705,7 +705,7 @@ test('postgres connection database round-trips through the form', function () {
         ->assertSet('form.connection_database', 'app_db');
 });
 
-test('a failed save points the user at the first invalid field', function () {
+test('a failed save points the user at the first invalid field', function (string $field, string $value) {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();
 
@@ -717,21 +717,24 @@ test('a failed save points the user at the first invalid field', function () {
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
-        ->set('form.dump_flags', '--result-file asdasd')
+        ->set("form.{$field}", $value)
         ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         ->set('form.backups.0.database_names.0', 'myapp_production')
         ->call('save')
-        ->assertHasErrors('form.dump_flags')
-        ->assertDispatched('validation-failed', field: 'form.dump_flags')
+        ->assertHasErrors("form.{$field}")
+        ->assertDispatched('validation-failed', field: "form.{$field}")
         // The offending field lives in a collapsed section, so the error is
         // unreachable unless the section is expanded too.
         ->assertSet('form.dump_config_open', true);
 
     expect(json_encode($component->effects['xjs'] ?? []))
         ->toContain('1 field needs your attention');
-});
+})->with([
+    'dump flags' => ['dump_flags', '--result-file asdasd'],
+    'excluded tables' => ['excluded_tables', 'audit.log'],
+]);
 
 test('the dump preview names the client the detected server needs', function (?string $version, string $expectedBinary) {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();

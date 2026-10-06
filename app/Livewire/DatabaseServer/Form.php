@@ -928,7 +928,7 @@ class Form extends \Livewire\Form
     private function revealSectionsForErrors(array $fields): void
     {
         foreach ($fields as $field) {
-            if (str_starts_with($field, 'form.dump_')) {
+            if (str_starts_with($field, 'form.dump_') || $field === 'form.excluded_tables') {
                 $this->dump_config_open = true;
             }
         }

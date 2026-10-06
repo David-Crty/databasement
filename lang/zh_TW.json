@@ -387,7 +387,7 @@
   "e.g., Production Network Agent": "例如：Production Network Agent",
   "e.g., Production S3 Bucket": "例如：Production S3 Bucket",
   "e.g., sftp.example.com": "例如：sftp.example.com",
-  "e.g., web_api_log, web_service_log": "例如：web_api_log、web_service_log",
+  "e.g., web_api_log, web_service_log": "例如：web_api_log, web_service_log",
   "Each recovery code can be used once to access your account and will be removed after use. If you need more, click Regenerate Codes above.": "每組復原碼只能使用一次來存取你的帳號，使用後就會被移除。如果需要更多復原碼，請點擊上方的「重新產生代碼」。",
   "Edit": "編輯",
   "Edit Agent": "編輯 Agent",
