@@ -15,6 +15,7 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\FilesystemSupport;
 use App\Support\Formatters;
+use Closure;
 
 class RestoreTask
 {
@@ -41,10 +42,12 @@ class RestoreTask
      * `ProcessRestoreJob` and the remote agent delegate to this method.
      *
      * @param  callable|null  $onProgress  Called after the download, decompression, and restore steps
+     * @param  (Closure(bool): void)|null  $onCommandHeartbeat  See {@see ShellProcessor::setHeartbeat()}
      */
-    public function execute(RestoreConfig $config, BackupLogger $logger, ?callable $onProgress = null): void
+    public function execute(RestoreConfig $config, BackupLogger $logger, ?callable $onProgress = null, ?Closure $onCommandHeartbeat = null): void
     {
         $this->shellProcessor->setLogger($logger);
+        $this->shellProcessor->setHeartbeat($onCommandHeartbeat);
         $target = $config->targetServer;
 
         try {
@@ -142,6 +145,8 @@ class RestoreTask
                 ],
             );
         } finally {
+            $this->shellProcessor->setHeartbeat(null);
+
             // Close SSH tunnel if active
             $this->closeSshTunnel($logger);
 

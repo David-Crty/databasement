@@ -431,3 +431,21 @@ test('viewLogs does not render a job from another organization', function () {
         ->call('viewLogs', $job->id)
         ->assertDontSee('other-org-host');
 });
+
+test('the logs modal shows the command heartbeat only while a command runs', function (string $status, bool $withHeartbeat, bool $shown) {
+    $job = Snapshot::factory()->create()->job;
+    $job->update([
+        'status' => $status,
+        'command_heartbeat_at' => $withHeartbeat ? now()->subSeconds(10) : null,
+    ]);
+
+    $component = Livewire::withQueryParams(['job' => $job->id])->test(Index::class);
+
+    $shown
+        ? $component->assertSee('Command running, last heartbeat')
+        : $component->assertDontSee('Command running, last heartbeat');
+})->with([
+    'running command' => ['running', true, true],
+    'no command running, or an agent up to 1.8.4' => ['running', false, false],
+    'finished job' => ['completed', true, false],
+]);

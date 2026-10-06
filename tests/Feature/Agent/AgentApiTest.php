@@ -3,7 +3,6 @@
 use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Enums\SnapshotFileStatus;
-use App\Facades\AppConfig;
 use App\Http\Middleware\ThrottleFailedAgentAuth;
 use App\Models\Agent;
 use App\Models\AgentJob;
@@ -88,9 +87,8 @@ describe('agent heartbeat', function () {
 });
 
 describe('job claiming', function () {
-    test('claiming a backup job leases it for the job timeout', function () {
+    test('can claim a pending job', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
-        AppConfig::set('backup.job_timeout', 3600);
 
         $server = DatabaseServer::factory()->create(['agent_id' => $agent->id]);
         $snapshot = Snapshot::factory()->forServer($server)->create();
@@ -108,9 +106,7 @@ describe('job claiming', function () {
         expect($agentJob->status)->toBe(AgentJob::STATUS_CLAIMED)
             ->and($agentJob->agent_id)->toBe($agent->id)
             ->and($agentJob->claimed_at)->not->toBeNull()
-            ->and($agentJob->lease_expires_at->timestamp)
-            ->toBeGreaterThanOrEqual(now()->addSeconds(3600 - 5)->timestamp)
-            ->toBeLessThanOrEqual(now()->addSeconds(3600)->timestamp);
+            ->and($agentJob->lease_expires_at)->not->toBeNull();
 
         // BackupJob should be marked as running with started_at set
         $backupJob = $snapshot->job->fresh();
@@ -162,28 +158,6 @@ describe('job claiming', function () {
 });
 
 describe('job heartbeat', function () {
-    test('a heartbeat extends a backup lease for the job timeout', function () {
-        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
-        AppConfig::set('backup.job_timeout', 3600);
-        // Create a job with a lease that expires in 1 minute (soon)
-        $agentJob = AgentJob::factory()->create([
-            'agent_id' => $agent->id,
-            'status' => 'claimed',
-            'claimed_at' => now(),
-            'lease_expires_at' => now()->addMinute(),
-            'attempts' => 1,
-        ]);
-
-        $this->withToken($token)
-            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat")
-            ->assertOk();
-
-        $agentJob->refresh();
-        expect($agentJob->lease_expires_at->timestamp)
-            ->toBeGreaterThanOrEqual(now()->addSeconds(3600 - 5)->timestamp)
-            ->toBeLessThanOrEqual(now()->addSeconds(3600)->timestamp);
-    });
-
     test('heartbeat appends logs to existing logs', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();

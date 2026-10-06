@@ -120,7 +120,8 @@ class AgentController extends Controller
     /**
      * Job heartbeat.
      *
-     * Extends the lease on a claimed job.
+     * Extends the lease on a claimed job. `in_command` reports whether a shell
+     * command is running; agents up to 1.8.4 never send it.
      */
     public function jobHeartbeat(Request $request, AgentJob $agentJob): JsonResponse
     {
@@ -128,11 +129,19 @@ class AgentController extends Controller
             return $rejection;
         }
 
-        $validated = $request->validate(self::logRules());
+        $validated = $request->validate([
+            'in_command' => 'sometimes|boolean',
+            ...self::logRules(),
+        ]);
 
         $agentJob->extendLease();
 
-        $agentJob->trackedJob()?->appendLogs($validated['logs'] ?? []);
+        $trackedJob = $agentJob->trackedJob();
+        $trackedJob?->appendLogs($validated['logs'] ?? []);
+
+        if (array_key_exists('in_command', $validated)) {
+            $trackedJob?->recordCommandHeartbeat((bool) $validated['in_command']);
+        }
 
         return response()->json(['status' => 'ok']);
     }

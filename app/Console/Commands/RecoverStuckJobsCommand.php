@@ -7,6 +7,7 @@ use App\Enums\BackupJobStatus;
 use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
+use App\Models\Snapshot;
 use App\Support\QueueTimeouts;
 use Illuminate\Console\Command;
 use RuntimeException;
@@ -14,9 +15,15 @@ use Throwable;
 
 class RecoverStuckJobsCommand extends Command
 {
+    /**
+     * How long a backup command may go without a heartbeat before its agent is
+     * treated as lost.
+     */
+    public const int COMMAND_HEARTBEAT_STALE_SECONDS = 600;
+
     protected $signature = 'jobs:recover-stuck';
 
-    protected $description = 'Recover stuck jobs (expired agent leases and timed-out backup jobs)';
+    protected $description = 'Recover stuck jobs (expired agent leases, silent agent backups and timed-out backup jobs)';
 
     public function handle(): int
     {
@@ -31,14 +38,27 @@ class RecoverStuckJobsCommand extends Command
     }
 
     /**
-     * Recover expired agent job leases (reset or fail stale jobs).
+     * Recover agent jobs whose lease expired, or backups whose agent stopped
+     * sending heartbeats while running a command (reset or fail them).
+     *
+     * Restores are only recovered by lease: a restore the server failed while
+     * a cut-off agent was still running it would end up applied but reported
+     * as failed, and it is never retried anyway.
      */
     private function recoverAgentJobs(): bool
     {
         $expiredJobs = AgentJob::query()
             ->with(['snapshot.job', 'restore.job'])
             ->whereIn('status', [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])
-            ->where('lease_expires_at', '<', now())
+            ->where(function ($query) {
+                $query->where('lease_expires_at', '<', now())
+                    ->orWhere(fn ($query) => $query
+                        ->where('type', AgentJobType::Backup)
+                        ->whereIn('snapshot_id', Snapshot::query()->select('id')->whereIn(
+                            'backup_job_id',
+                            BackupJob::query()->select('id')->where('command_heartbeat_at', '<', now()->subSeconds(self::COMMAND_HEARTBEAT_STALE_SECONDS)),
+                        )));
+            })
             ->get();
 
         if ($expiredJobs->isEmpty()) {
@@ -55,9 +75,10 @@ class RecoverStuckJobsCommand extends Command
                     'agent_id' => null,
                     'lease_expires_at' => null,
                 ]);
+                $job->trackedJob()?->log('Lost contact with the agent, the job will be retried.', 'warning');
                 $resetCount++;
             } else {
-                $errorMessage = "Max attempts ({$job->max_attempts}) exceeded with expired lease.";
+                $errorMessage = "Max attempts ({$job->max_attempts}) exceeded after losing contact with the agent.";
                 $job->markFailed($errorMessage);
 
                 try {

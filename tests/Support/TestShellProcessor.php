@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Services\Backup\ShellProcessor;
+use Closure;
 
 /**
  * Test double for ShellProcessor that captures commands without executing them
@@ -15,14 +16,28 @@ class TestShellProcessor extends ShellProcessor
     /** @var array<int, array<string, string>> */
     public array $executedEnv = [];
 
+    /** @var (Closure(bool): void)|null */
+    public ?Closure $heartbeat = null;
+
+    public function setHeartbeat(?Closure $heartbeat): void
+    {
+        parent::setHeartbeat($heartbeat);
+        $this->heartbeat = $heartbeat;
+    }
+
     public function process(string $command, array $env = []): string
     {
         // Capture the command and env
         $this->executedCommands[] = $command;
         $this->executedEnv[] = $env;
 
+        // A real command reports its start and its end to the heartbeat
+        $this->heartbeat?->__invoke(true);
+
         // Simulate file creation based on command patterns
         $this->simulateCommandEffects($command);
+
+        $this->heartbeat?->__invoke(false);
 
         return 'fake output';
     }

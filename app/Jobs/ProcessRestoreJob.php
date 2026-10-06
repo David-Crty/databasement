@@ -112,7 +112,7 @@ class ProcessRestoreJob implements ShouldQueue
                 FilesystemSupport::createWorkingDirectory('restore', $restore->id),
             );
 
-            $restoreTask->execute($config, $job);
+            $restoreTask->execute($config, $job, onCommandHeartbeat: fn (bool $running) => rescue(fn () => $job->recordCommandHeartbeat($running), report: false));
 
             $job->markCompleted();
 

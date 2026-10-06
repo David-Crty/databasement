@@ -4,12 +4,17 @@ namespace App\Services\Backup;
 
 use App\Contracts\BackupLogger;
 use App\Exceptions\ShellProcessFailed;
+use Closure;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 class ShellProcessor
 {
     private ?BackupLogger $logger = null;
+
+    /** @var (Closure(bool): void)|null */
+    private ?Closure $heartbeat = null;
 
     /**
      * The flush interval matters as much as the output budget: every incremental
@@ -19,16 +24,30 @@ class ShellProcessor
      * @param  int  $outputHeadBytes  Leading slice of a command's output to keep.
      * @param  int  $outputTailBytes  Trailing slice of a command's output to keep.
      * @param  float  $flushIntervalSeconds  Minimum delay between incremental log writes.
+     * @param  float  $heartbeatIntervalSeconds  Delay between heartbeats while a command runs.
      */
     public function __construct(
         private readonly int $outputHeadBytes = 16384,
         private readonly int $outputTailBytes = 16384,
         private readonly float $flushIntervalSeconds = 1.0,
+        private readonly float $heartbeatIntervalSeconds = 30.0,
     ) {}
 
     public function setLogger(BackupLogger $logger): void
     {
         $this->logger = $logger;
+    }
+
+    /**
+     * Called with true when a command starts and periodically while it runs,
+     * then with false once it ends. A heartbeat that throws stops the command,
+     * so a runner whose job was taken away does not keep dumping.
+     *
+     * @param  (Closure(bool): void)|null  $heartbeat
+     */
+    public function setHeartbeat(?Closure $heartbeat): void
+    {
+        $this->heartbeat = $heartbeat;
     }
 
     /**
@@ -57,9 +76,11 @@ class ShellProcessor
         // below, so a huge stream still accumulates for the command's lifetime.
         $incrementalOutput = $this->newOutputBuffer();
         $lastFlush = 0.0;
+        $receivedOutput = false;
 
-        $process->run(function ($type, $data) use ($incrementalOutput, &$lastFlush, $logIndex, $startTime) {
+        $onOutput = function ($type, $data) use ($incrementalOutput, &$lastFlush, &$receivedOutput, $logIndex, $startTime) {
             $incrementalOutput->append($data);
+            $receivedOutput = true;
 
             if (! $this->logger || $logIndex === null) {
                 return;
@@ -79,7 +100,45 @@ class ShellProcessor
                 'output' => $this->sanitize(trim($incrementalOutput->toString())),
                 'duration_ms' => round(($now - $startTime) * 1000, 2),
             ]);
-        });
+        };
+
+        try {
+            $this->beat(true);
+            $process->start($onOutput);
+            $lastBeat = microtime(true);
+
+            while ($process->isRunning()) {
+                if (microtime(true) - $lastBeat >= $this->heartbeatIntervalSeconds) {
+                    $this->beat(true);
+                    $lastBeat = microtime(true);
+                }
+
+                // Polling reads the pipes without blocking. Pausing only after an
+                // empty poll, and briefly, keeps a command that streams its output
+                // through PHP from stalling on a full pipe.
+                if (! $receivedOutput) {
+                    usleep(20_000);
+                }
+
+                $receivedOutput = false;
+            }
+
+            $process->wait();
+        } catch (Throwable $e) {
+            $process->stop(0);
+
+            if ($this->logger && $logIndex !== null) {
+                $this->logger->updateCommandLog($logIndex, [
+                    'output' => $this->sanitize(trim($incrementalOutput->toString())),
+                    'status' => 'failed',
+                    'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                ]);
+            }
+
+            throw $e;
+        } finally {
+            rescue(fn () => $this->beat(false), report: false);
+        }
 
         $output = $process->getOutput();
         $errorOutput = $process->getErrorOutput();
@@ -112,6 +171,13 @@ class ShellProcessor
         }
 
         return $output;
+    }
+
+    private function beat(bool $running): void
+    {
+        if ($this->heartbeat !== null) {
+            ($this->heartbeat)($running);
+        }
     }
 
     private function newOutputBuffer(): OutputBuffer

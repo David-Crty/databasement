@@ -209,3 +209,38 @@ test('process creates log entry before command starts', function () {
     expect($logs)->toHaveCount(1)
         ->and($logs[0]['timestamp'])->not->toBeNull();
 });
+
+test('process sends heartbeats while a command runs and ends with a stop beat', function () {
+    $beats = [];
+
+    $processor = new ShellProcessor(heartbeatIntervalSeconds: 0.1);
+    $processor->setHeartbeat(function (bool $running) use (&$beats) {
+        $beats[] = $running;
+    });
+
+    $processor->process('sleep 1');
+
+    expect($beats[0])->toBeTrue()
+        ->and(count(array_filter($beats)))->toBeGreaterThan(2)
+        ->and(end($beats))->toBeFalse();
+});
+
+test('a failing heartbeat stops the command and fails its log entry', function () {
+    $backupJob = BackupJob::create(['status' => 'running']);
+    $calls = 0;
+
+    $processor = new ShellProcessor(heartbeatIntervalSeconds: 0.1);
+    $processor->setLogger($backupJob);
+    $processor->setHeartbeat(function (bool $running) use (&$calls) {
+        if ($running && ++$calls > 1) {
+            throw new RuntimeException('Job was reassigned');
+        }
+    });
+
+    $startedAt = microtime(true);
+
+    expect(fn () => $processor->process('sleep 10'))->toThrow(RuntimeException::class, 'Job was reassigned');
+
+    expect(microtime(true) - $startedAt)->toBeLessThan(5)
+        ->and($backupJob->fresh()->getLogs()[0]['status'])->toBe('failed');
+});

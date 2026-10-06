@@ -20,6 +20,12 @@ class BackupJob extends Model implements BackupLogger
     use HasUlids;
 
     /**
+     * Seconds without a command heartbeat after which a running job is shown
+     * as possibly stalled. Heartbeats are sent every 30 seconds.
+     */
+    public const int COMMAND_HEARTBEAT_WARNING_SECONDS = 120;
+
+    /**
      * Columns a listing needs, excluding the potentially huge `logs` and
      * `error_trace` payloads.
      *
@@ -31,6 +37,7 @@ class BackupJob extends Model implements BackupLogger
         'status',
         'started_at',
         'completed_at',
+        'command_heartbeat_at',
         'duration_ms',
         'error_message',
         'created_at',
@@ -42,6 +49,7 @@ class BackupJob extends Model implements BackupLogger
         'status',
         'started_at',
         'completed_at',
+        'command_heartbeat_at',
         'duration_ms',
         'error_message',
         'error_trace',
@@ -54,6 +62,7 @@ class BackupJob extends Model implements BackupLogger
             'status' => BackupJobStatus::class,
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
+            'command_heartbeat_at' => 'datetime',
             'duration_ms' => 'integer',
             'logs' => 'array',
         ];
@@ -140,6 +149,7 @@ class BackupJob extends Model implements BackupLogger
         $this->update([
             'status' => BackupJobStatus::Completed,
             'completed_at' => now(),
+            'command_heartbeat_at' => null,
             'duration_ms' => $this->calculateDuration(),
         ]);
     }
@@ -152,6 +162,7 @@ class BackupJob extends Model implements BackupLogger
         $this->update([
             'status' => BackupJobStatus::Failed,
             'completed_at' => now(),
+            'command_heartbeat_at' => null,
             'duration_ms' => $this->calculateDuration(),
             'error_message' => $exception->getMessage(),
             'error_trace' => $exception->getTraceAsString(),
@@ -199,7 +210,17 @@ class BackupJob extends Model implements BackupLogger
         $this->update([
             'status' => BackupJobStatus::Running,
             'started_at' => now(),
+            'command_heartbeat_at' => null,
         ]);
+    }
+
+    /**
+     * Record that a shell command is still running, or clear the mark once it
+     * has ended. A stale mark means the command's runner stopped responding.
+     */
+    public function recordCommandHeartbeat(bool $running): void
+    {
+        $this->update(['command_heartbeat_at' => $running ? now() : null]);
     }
 
     /**

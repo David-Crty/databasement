@@ -42,6 +42,7 @@ class BackupJobRunner implements AgentJobRunner
                 $config,
                 $logger,
                 onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
+                onCommandHeartbeat: fn (bool $running) => $client->commandHeartbeat($job['id'], $running),
             );
 
             $client->ack($job['id'], [

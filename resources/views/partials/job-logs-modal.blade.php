@@ -68,6 +68,40 @@
                     </div>
                 </div>
 
+                {{-- Command heartbeat: counted live in the browser between page refreshes --}}
+                @if($this->selectedJob->status === \App\Enums\BackupJobStatus::Running && $this->selectedJob->command_heartbeat_at)
+                    <div
+                        wire:key="command-heartbeat-{{ $this->selectedJob->command_heartbeat_at->getTimestamp() }}"
+                        x-data="{
+                            ageAtRender: {{ (int) max(0, $this->selectedJob->command_heartbeat_at->diffInSeconds(now())) }},
+                            renderedAt: Date.now(),
+                            now: Date.now(),
+                            timer: null,
+                            init() { this.timer = setInterval(() => this.now = Date.now(), 1000) },
+                            destroy() { clearInterval(this.timer) },
+                            get seconds() { return this.ageAtRender + Math.floor((this.now - this.renderedAt) / 1000) },
+                            get stale() { return this.seconds >= {{ \App\Models\BackupJob::COMMAND_HEARTBEAT_WARNING_SECONDS }} },
+                            get ago() {
+                                const format = new Intl.RelativeTimeFormat(document.documentElement.lang || undefined, { numeric: 'auto' });
+                                return this.seconds < 60 ? format.format(-this.seconds, 'second') : format.format(-Math.floor(this.seconds / 60), 'minute');
+                            },
+                        }"
+                    >
+                        <div x-show="!stale" class="flex items-center gap-2 text-sm text-base-content/70">
+                            <x-loading class="loading-dots loading-xs text-success" />
+                            <span>{{ __('Command running, last heartbeat') }} <span x-text="ago"></span></span>
+                        </div>
+                        <x-alert x-show="stale" x-cloak class="alert-warning" icon="o-exclamation-triangle">
+                            <span>{{ __('Last heartbeat from the running command:') }} <span x-text="ago"></span>. {{ __('The worker or agent running it may have stopped.') }}</span>
+                            @if($this->selectedJob->snapshot?->databaseServer?->agent_id)
+                                <span class="opacity-80">
+                                    {{ __('This backup is retried automatically after :minutes minutes without a heartbeat.', ['minutes' => intdiv(\App\Console\Commands\RecoverStuckJobsCommand::COMMAND_HEARTBEAT_STALE_SECONDS, 60)]) }}
+                                </span>
+                            @endif
+                        </x-alert>
+                    </div>
+                @endif
+
                 {{-- File missing warning --}}
                 @if($snapshot && $snapshot->hasMissingFile())
                     @php $lastVerifiedAt = $snapshot->lastVerifiedAt(); @endphp

@@ -2,9 +2,11 @@
 
 namespace App\Services\Agent;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class AgentApiClient
@@ -56,7 +58,37 @@ class AgentApiClient
      */
     public function jobHeartbeat(string $jobId, array $logs = []): void
     {
-        $this->post("/agent/jobs/{$jobId}/heartbeat", empty($logs) ? [] : ['logs' => $logs])->throw();
+        $this->post("/agent/jobs/{$jobId}/heartbeat", [
+            'in_command' => false,
+            ...(empty($logs) ? [] : ['logs' => $logs]),
+        ])->throw();
+    }
+
+    /**
+     * Report that a shell command is still running, or that it has ended.
+     *
+     * A server that is briefly unreachable must not abort a dump that may have
+     * run for hours, so only a rejection of the job itself is thrown: 401 once
+     * the token is revoked, 403 once the job is reassigned, 404 once it is
+     * deleted, 409 once it has failed.
+     */
+    public function commandHeartbeat(string $jobId, bool $running): void
+    {
+        try {
+            $response = $this->post("/agent/jobs/{$jobId}/heartbeat", ['in_command' => $running]);
+        } catch (ConnectionException $e) {
+            Log::warning("Command heartbeat for job {$jobId} failed: {$e->getMessage()}");
+
+            return;
+        }
+
+        if (in_array($response->status(), [401, 403, 404, 409], true)) {
+            $response->throw();
+        }
+
+        if ($response->failed()) {
+            Log::warning("Command heartbeat for job {$jobId} returned HTTP {$response->status()}");
+        }
     }
 
     /**
