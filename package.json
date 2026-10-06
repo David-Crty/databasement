@@ -7,22 +7,22 @@
     "prepare": "husky"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.2",
-    "autoprefixer": "^10.5.4",
+    "@tailwindcss/vite": "^4.3.3",
+    "autoprefixer": "^10.6.1",
     "axios": "^1.20.0",
     "chart.js": "^4.5.1",
     "concurrently": "^10.0.5",
     "copy-to-clipboard": "^4.0.2",
     "laravel-vite-plugin": "^3.2",
-    "vite": "^8.1.2"
+    "vite": "^8.3.3"
   },
   "optionalDependencies": {
-    "@rollup/rollup-linux-x64-gnu": "^4.62.3",
+    "@rollup/rollup-linux-x64-gnu": "^4.64.0",
     "@tailwindcss/oxide-linux-x64-gnu": "^4.3.3",
     "lightningcss-linux-x64-gnu": "^1.33.0"
   },
   "devDependencies": {
-    "daisyui": "^5.7.7",
+    "daisyui": "^5.7.47",
     "husky": "^9.1.7"
   }
 }
