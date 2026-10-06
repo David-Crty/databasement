@@ -131,21 +131,16 @@ class RecoverStuckJobsCommand extends Command
             );
         }
 
-        // A restore an agent never picked up must not run once it is reported failed.
+        // A timed-out job must never run or be revived afterwards: an agent
+        // still running it is stopped at its next report, and one waiting to
+        // be claimed is never handed out.
         AgentJob::query()
-            ->where('type', AgentJobType::Restore)
-            ->where('status', AgentJob::STATUS_PENDING)
-            ->whereHas('restore', fn ($query) => $query->whereIn('backup_job_id', $stuckJobs->modelKeys()))
-            ->get()
-            ->each(fn (AgentJob $agentJob) => $agentJob->markFailed('Restore timed out before an agent claimed it.'));
-
-        // A timed-out backup must not be revived by an agent claiming or finishing it later.
-        AgentJob::query()
-            ->where('type', AgentJobType::Backup)
             ->whereIn('status', [AgentJob::STATUS_PENDING, AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])
-            ->whereHas('snapshot', fn ($query) => $query->whereIn('backup_job_id', $stuckJobs->modelKeys()))
+            ->where(fn ($query) => $query
+                ->whereHas('snapshot', fn ($query) => $query->whereIn('backup_job_id', $stuckJobs->modelKeys()))
+                ->orWhereHas('restore', fn ($query) => $query->whereIn('backup_job_id', $stuckJobs->modelKeys())))
             ->get()
-            ->each(fn (AgentJob $agentJob) => $agentJob->markFailed('Backup timed out.'));
+            ->each(fn (AgentJob $agentJob) => $agentJob->markFailed(ucfirst($agentJob->type->value).' timed out.'));
 
         $this->info("Backup jobs: failed {$stuckJobs->count()} stuck job(s).");
 

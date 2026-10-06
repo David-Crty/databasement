@@ -26,6 +26,8 @@ use Illuminate\Testing\TestResponse;
  * - Recovery (`jobs:recover-stuck`): a job whose lease expired, or a backup
  *   whose command heartbeat went stale, is retried while attempts remain and
  *   failed otherwise. Restores are only recovered by lease and never retried.
+ *   A job past the job timeout is failed, which stops an agent still running
+ *   it at its next report.
  */
 
 beforeEach(function () {
@@ -211,23 +213,21 @@ describe('recovery', function () {
             ->and($restore->job->fresh()->status)->not->toBe(BackupJobStatus::Failed);
     });
 
-    test('a backup that timed out cannot be completed by its agent afterwards', function () {
-        $backupJob = BackupJob::create(['status' => 'running', 'started_at' => now()->subSeconds(3600 + 300 + 1)]);
+    test('a job that timed out while its agent runs it is stopped at the next report', function (string $type) {
         $agent = Agent::factory()->create();
-        $agentJob = AgentJob::factory()->claimed($agent)->create([
-            'snapshot_id' => Snapshot::factory()->create(['backup_job_id' => $backupJob->id])->id,
-        ]);
+        $agentJob = $type === 'restore' ? dispatchAgentRestore($agent)['agentJob'] : pendingBackupFor($agent);
+        claimNextJob($agent)->assertJsonPath('job.id', $agentJob->id);
+        $agentJob->trackedJob()->update(['started_at' => now()->subSeconds(3600 + 300 + 1)]);
 
         $this->artisan('jobs:recover-stuck')->assertSuccessful();
 
-        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED);
+        $token = $agent->createToken('agent')->plainTextToken;
+        $this->withToken($token)->postJson("/api/v1/agent/jobs/{$agentJob->id}/heartbeat")->assertConflict();
+        $this->withToken($token)->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", ['filename' => 'backup.sql.gz', 'file_size' => 1])->assertConflict();
 
-        $this->withToken($agent->createToken('agent')->plainTextToken)
-            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", ['filename' => 'backup.sql.gz', 'file_size' => 1])
-            ->assertConflict();
-
-        expect($backupJob->fresh()->status)->toBe(BackupJobStatus::Failed);
-    });
+        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED)
+            ->and($agentJob->trackedJob()->fresh()->status)->toBe(BackupJobStatus::Failed);
+    })->with(['backup', 'restore']);
 
     test('a restore no agent claimed before the timeout is never handed out afterwards', function () {
         $agent = Agent::factory()->create();
