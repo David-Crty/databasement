@@ -442,6 +442,51 @@ test('execute logs warning and continues when post-backup script fails', functio
     expect($warningLogs)->not->toBeEmpty();
 });
 
+test('execute deletes the uploaded copies of a job cancelled after its upload', function () {
+    $uploaded = null;
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once()
+        ->andReturnUsing(function ($volume, $source, string $destination) use (&$uploaded) {
+            $uploaded = $destination;
+        });
+    $filesystem = Mockery::mock(\League\Flysystem\Filesystem::class);
+    $filesystem->shouldReceive('delete')->once()->with(Mockery::on(function (string $path) use (&$uploaded) {
+        return $path === $uploaded;
+    }));
+    test()->filesystemProvider->shouldReceive('getForVolumeConfig')->once()->andReturn($filesystem);
+
+    $cancellingShellProcessor = new class extends TestShellProcessor
+    {
+        public function process(string $command, array $env = []): string
+        {
+            if (str_contains($command, 'post-backup-script.sh')) {
+                throw new \App\Exceptions\Backup\JobCancelledException;
+            }
+
+            return parent::process($command, $env);
+        }
+    };
+
+    $backupTask = new BackupTask(
+        buildMockDatabaseProvider(),
+        $cancellingShellProcessor,
+        $this->filesystemProvider,
+        new CompressorFactory($cancellingShellProcessor),
+        $this->sshTunnelService,
+        new PostScriptRunner,
+    );
+
+    $workingDirectory = $this->tempDir.'/cancelled-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    expect(fn () => $backupTask->execute(new BackupConfig(
+        database: buildDbConfig(),
+        volumes: [buildVolumeConfig()],
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+        postBackupScript: 'sleep 60',
+    ), new InMemoryBackupLogger))->toThrow(\App\Exceptions\Backup\JobCancelledException::class);
+});
+
 test('execute prepends backup path with date variables to filename', function () {
     $mockProvider = buildMockDatabaseProvider();
 

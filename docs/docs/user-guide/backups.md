@@ -74,6 +74,10 @@ If a backup fails, check:
 
 Failed backup reasons are logged and visible in the snapshot details.
 
+## Cancelling a Backup
+
+A pending or running backup can be cancelled from its row on the **Snapshots** page or from its job logs. The backup stops at its next step, or within 30 seconds while a dump or a script runs, and is not retried. An upload in progress finishes first, and the copies already uploaded are deleted. Cancelling requires the `run-backups` ability.
+
 ## Retention Policies
 
 Retention policies control how long backups are kept before being automatically deleted. Databasement offers two retention strategies:

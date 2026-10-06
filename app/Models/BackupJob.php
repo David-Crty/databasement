@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Contracts\BackupLogger;
 use App\Enums\BackupJobStatus;
+use App\Exceptions\Backup\JobCancelledException;
 use App\Models\Scopes\OrganizationScope;
 use App\Services\CurrentOrganization;
 use App\Support\Formatters;
@@ -11,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @mixin IdeHelperBackupJob
@@ -55,6 +57,12 @@ class BackupJob extends Model implements BackupLogger
         'error_trace',
         'logs',
     ];
+
+    /**
+     * Set once a write found the job cancelled: the runner is unwinding, and
+     * its remaining writes (cleanup, failure logs) are dropped.
+     */
+    private bool $cancelled = false;
 
     protected function casts(): array
     {
@@ -146,7 +154,7 @@ class BackupJob extends Model implements BackupLogger
      */
     public function markCompleted(): void
     {
-        $this->update([
+        $this->write([
             'status' => BackupJobStatus::Completed,
             'completed_at' => now(),
             'command_heartbeat_at' => null,
@@ -159,7 +167,7 @@ class BackupJob extends Model implements BackupLogger
      */
     public function markFailed(\Throwable $exception): void
     {
-        $this->update([
+        $this->write([
             'status' => BackupJobStatus::Failed,
             'completed_at' => now(),
             'command_heartbeat_at' => null,
@@ -175,12 +183,48 @@ class BackupJob extends Model implements BackupLogger
      */
     public function markRunning(): void
     {
-        $this->update([
+        $this->write([
             'status' => BackupJobStatus::Running,
             'started_at' => now(),
             'command_heartbeat_at' => null,
             'logs' => $this->logsWithDanglingCommandsFailed(),
         ]);
+    }
+
+    /**
+     * Cancel the job if it is still in progress. Its runner notices at its
+     * next write: the worker through {@see self::write()}, an agent through
+     * the job heartbeat its closed agent job now refuses.
+     */
+    public function cancel(string $cancelledBy): bool
+    {
+        return DB::transaction(function () use ($cancelledBy): bool {
+            $job = self::query()->whereKey($this->getKey())->lockForUpdate()->first();
+
+            if ($job === null || ! $job->status->isInProgress()) {
+                return false;
+            }
+
+            $message = "Cancelled by {$cancelledBy}.";
+
+            $job->update([
+                'status' => BackupJobStatus::Cancelled,
+                'completed_at' => now(),
+                'command_heartbeat_at' => null,
+                'duration_ms' => $job->calculateDuration(),
+                'error_message' => $message,
+                'logs' => [...$job->logsWithDanglingCommandsFailed(), self::logEntry($message, 'warning')],
+            ]);
+
+            AgentJob::query()
+                ->unfinishedFor([$job->id])
+                ->get()
+                ->each(fn (AgentJob $agentJob) => $agentJob->markFailed('Cancelled.'));
+
+            $this->setRawAttributes($job->getAttributes(), sync: true);
+
+            return true;
+        }, attempts: 3);
     }
 
     /**
@@ -328,10 +372,42 @@ class BackupJob extends Model implements BackupLogger
      */
     private function saveLogs(array $logs): void
     {
-        $this->update([
+        $this->write([
             'logs' => $logs,
             'command_heartbeat_at' => self::runningCommandIndex($logs) === null ? null : now(),
         ]);
+    }
+
+    /**
+     * Save the runner's changes unless the job was cancelled meanwhile, in
+     * which case the runner is told to stop.
+     *
+     * @param  array<string, mixed>  $attributes
+     *
+     * @throws JobCancelledException
+     */
+    private function write(array $attributes): void
+    {
+        if ($this->cancelled) {
+            return;
+        }
+
+        $this->fill($attributes);
+
+        $notCancelled = fn () => self::query()
+            ->whereKey($this->getKey())
+            ->where('status', '!=', BackupJobStatus::Cancelled);
+
+        // MySQL counts changed rows, not matched ones, so an update that
+        // changes nothing is told apart from a cancelled job by a read.
+        if ($notCancelled()->update($this->getDirty()) === 0 && ! $notCancelled()->exists()) {
+            $this->cancelled = true;
+            $this->setRawAttributes($this->getRawOriginal());
+
+            throw new JobCancelledException;
+        }
+
+        $this->syncOriginal();
     }
 
     /**

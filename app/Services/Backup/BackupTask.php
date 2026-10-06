@@ -4,6 +4,7 @@ namespace App\Services\Backup;
 
 use App\Contracts\BackupLogger;
 use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\JobRevokedException;
 use App\Exceptions\Backup\StorageQuotaExceededException;
 use App\Exceptions\Backup\VolumeTransferException;
 use App\Services\Backup\Compressors\CompressorFactory;
@@ -47,6 +48,7 @@ class BackupTask
     {
         $this->shellProcessor->setLogger($logger);
         $db = $config->database;
+        $filename = null;
 
         try {
             if ($db->requiresSshTunnel()) {
@@ -140,6 +142,12 @@ class BackupTask
             );
 
             return $result;
+        } catch (JobRevokedException $e) {
+            if ($filename !== null) {
+                $this->deleteUploads($config->volumes, $filename);
+            }
+
+            throw $e;
         } finally {
             $this->closeSshTunnel($logger);
 
@@ -147,6 +155,19 @@ class BackupTask
                 $logger->log('Cleaning up temporary files', 'info');
                 FilesystemSupport::cleanupDirectory($config->workingDirectory);
             }
+        }
+    }
+
+    /**
+     * Remove the copies of an archive that no snapshot will record, on a best
+     * effort basis: a volume it never reached has nothing to delete.
+     *
+     * @param  array<int, VolumeConfig>  $volumes
+     */
+    private function deleteUploads(array $volumes, string $filename): void
+    {
+        foreach ($volumes as $volume) {
+            rescue(fn () => $this->filesystemProvider->getForVolumeConfig($volume)->delete($filename), report: false);
         }
     }
 

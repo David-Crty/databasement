@@ -3,6 +3,7 @@
 namespace App\Services\Backup;
 
 use App\Contracts\BackupLogger;
+use App\Exceptions\Backup\JobRevokedException;
 
 class PostScriptRunner
 {
@@ -41,6 +42,8 @@ class PostScriptRunner
         try {
             $logger->log("Running {$label}", 'info');
             $shellProcessor->process('sh '.escapeshellarg($scriptPath), $env);
+        } catch (JobRevokedException $e) {
+            throw $e;
         } catch (\Throwable) {
             $logger->log(ucfirst($label).' failed with a non-zero exit code', 'warning');
         }

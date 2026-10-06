@@ -56,6 +56,7 @@
                     {{-- Right: Status + Metadata button --}}
                     <div class="flex items-center gap-2 sm:gap-4">
                         <x-job-status-indicator :status="$this->selectedJob->status" />
+                        @include('partials.cancel-job-button', ['job' => $this->selectedJob, 'label' => __('Cancel job')])
                         @if($snapshot?->metadata)
                             <x-button
                                 :label="__('Metadata')"
@@ -357,4 +358,24 @@
             <x-button :label="__('Close')" @click="$wire.showLogsModal = false" />
         </x-slot:actions>
     @endif
+</x-modal>
+
+<x-modal wire:model="showCancelJobModal" :title="__('Cancel Job')" class="backdrop-blur">
+    <p>{{ __('The job stops at its next step, or within 30 seconds while a command runs.') }}</p>
+
+    @if($cancelJobRestoreTarget)
+        <x-alert icon="o-exclamation-triangle" class="alert-warning mt-4">
+            <div class="space-y-1">
+                <div class="font-semibold">{{ __('The target database may be left unusable: :target', ['target' => $cancelJobRestoreTarget]) }}</div>
+                <div>{{ __('Once the restore has started loading data, the previous content of this database is already gone. Cancelling then leaves it partially restored, with only some of its tables and rows. Run a restore again to get a usable database.') }}</div>
+            </div>
+        </x-alert>
+    @else
+        <p class="mt-2 text-sm opacity-80">{{ __('The source database is not affected: the dump only reads it, and its partial file is discarded.') }}</p>
+    @endif
+
+    <x-slot:actions>
+        <x-button :label="__('Keep running')" @click="$wire.showCancelJobModal = false" />
+        <x-button :label="__('Cancel job')" class="btn-error" wire:click="cancelJob" spinner />
+    </x-slot:actions>
 </x-modal>

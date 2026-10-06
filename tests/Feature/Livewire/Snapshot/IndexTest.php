@@ -14,8 +14,8 @@ use Livewire\Livewire;
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
-    // The Snapshot index gates cancelling/deleting on delete-snapshots,
-    // restoring on operate-restores, and editing comments on run-backups.
+    // The Snapshot index gates deleting on delete-snapshots, restoring on
+    // operate-restores, and cancelling and editing comments on run-backups.
     // The default actor holds exactly those, so the happy-path tests below
     // double as the allow cases for each ability.
     $this->user = User::factory()->withAbilities([
@@ -142,20 +142,19 @@ test('triggerRestore dispatches open-restore-modal with from-snapshot mode', fun
         ->assertDispatched('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id);
 });
 
-test('can cancel a pending backup job', function () {
+test('can cancel a backup in progress', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshots = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual');
-    $job = $snapshots[0]->job;
+    $job = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0]->job;
 
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $job->id)
         ->assertSet('cancelJobId', $job->id)
-        ->call('deletePendingJob');
+        ->call('cancelJob');
 
-    expect(BackupJob::find($job->id))->toBeNull();
+    expect($job->fresh()->status)->toBe(BackupJobStatus::Cancelled);
 });
 
-test('cannot cancel a pending backup job from another organization', function () {
+test('cannot cancel a backup from another organization', function () {
     // A pending job whose snapshot belongs to a server in another org. The
     // policy resolves the owning org via snapshot → server.
     $otherOrg = \App\Models\Organization::factory()->create();
@@ -163,16 +162,16 @@ test('cannot cancel a pending backup job from another organization', function ()
     $job = Snapshot::factory()->forServer($server)->create()->job;
     $job->update(['status' => BackupJobStatus::Pending]);
 
-    // Acting as the default-org admin (beforeEach); the job belongs to $otherOrg,
-    // so even with the delete-snapshots ability the cancel must be forbidden.
+    // Acting as the default-org user (beforeEach); the job belongs to $otherOrg,
+    // so even with the run-backups ability the cancel must be forbidden.
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $job->id)
         ->assertForbidden();
 
-    expect(BackupJob::find($job->id))->not->toBeNull();
+    expect($job->fresh()->status)->toBe(BackupJobStatus::Pending);
 });
 
-test('cannot cancel a non-pending job', function () {
+test('cannot cancel a finished job', function () {
     $snapshot = Snapshot::factory()->withFile()->create();
     // Default factory creates a completed job.
     expect($snapshot->job->status)->toBe(BackupJobStatus::Completed);
@@ -205,17 +204,17 @@ test('without delete-snapshots, deleting a snapshot is forbidden', function () {
     expect(Snapshot::find($snapshot->id))->not->toBeNull();
 });
 
-test('without delete-snapshots, cancelling a pending job is forbidden', function () {
+test('without run-backups, cancelling a backup is forbidden', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
     $job = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0]->job;
 
-    actingAs(User::factory()->withAbilities([])->create());
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::RunBackups->value)->create());
 
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $job->id)
         ->assertForbidden();
 
-    expect(BackupJob::find($job->id))->not->toBeNull();
+    expect($job->fresh()->status)->toBe(BackupJobStatus::Pending);
 });
 
 test('without operate-restores, triggering a restore is forbidden', function () {

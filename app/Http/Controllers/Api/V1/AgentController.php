@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\AgentJobType;
+use App\Exceptions\Backup\JobCancelledException;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentJob;
@@ -95,7 +96,13 @@ class AgentController extends Controller
 
             $job->claim($agent);
 
-            $job->trackedJob()?->markRunning();
+            try {
+                $job->trackedJob()?->markRunning();
+            } catch (JobCancelledException) {
+                $job->markFailed('Cancelled.');
+
+                return null;
+            }
 
             return $job;
         });

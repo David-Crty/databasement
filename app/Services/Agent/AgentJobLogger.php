@@ -13,12 +13,16 @@ use Throwable;
  * entries added or changed since the last successful send.
  *
  * A send that fails is retried with the next write and never stops the job,
- * except a {@see JobRevokedException}: the job is no longer this agent's.
+ * except a {@see JobRevokedException}: the job is no longer this agent's
+ * (it was cancelled, timed out or reassigned). That is thrown once, and the
+ * writes made while the job unwinds, such as its cleanup, are not sent.
  */
 class AgentJobLogger extends InMemoryBackupLogger
 {
     /** @var array<int, true> Indexes of the entries not sent since they last changed */
     private array $unsent = [];
+
+    private bool $revoked = false;
 
     /**
      * @param  bool  $serverMergesLogs  Whether the server replaces a running command sent again;
@@ -73,6 +77,10 @@ class AgentJobLogger extends InMemoryBackupLogger
     {
         $this->unsent[$index] = true;
 
+        if ($this->revoked) {
+            return;
+        }
+
         $logs = $this->getLogs();
         $sendable = array_filter(
             $this->unsent,
@@ -83,6 +91,8 @@ class AgentJobLogger extends InMemoryBackupLogger
         try {
             $this->client->jobHeartbeat($this->jobId, array_values(array_intersect_key($logs, $sendable)));
         } catch (JobRevokedException $e) {
+            $this->revoked = true;
+
             throw $e;
         } catch (Throwable $e) {
             Log::warning("Could not report job {$this->jobId}: {$e->getMessage()}");

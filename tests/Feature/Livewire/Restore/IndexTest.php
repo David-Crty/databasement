@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Ability;
+use App\Enums\BackupJobStatus;
 use App\Livewire\Restore\Index;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
@@ -146,6 +147,29 @@ test('can delete a restore', function () {
         ->call('deleteRestore');
 
     expect(Restore::find($restore->id))->toBeNull();
+});
+
+test('can cancel a restore in progress', function () {
+    $restore = makeRestore(['status' => 'running']);
+
+    Livewire::test(Index::class)
+        ->call('confirmCancelJob', $restore->backup_job_id)
+        ->assertSet('cancelJobRestoreTarget', "{$restore->targetServer->name} / {$restore->schema_name}")
+        ->call('cancelJob');
+
+    expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Cancelled);
+});
+
+test('without operate-restores, cancelling a restore is forbidden', function () {
+    $restore = makeRestore(['status' => 'running']);
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::OperateRestores->value)->create());
+
+    Livewire::test(Index::class)
+        ->call('confirmCancelJob', $restore->backup_job_id)
+        ->assertForbidden();
+
+    expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Running);
 });
 
 test('mount opens logs modal when valid job ID is in URL', function () {

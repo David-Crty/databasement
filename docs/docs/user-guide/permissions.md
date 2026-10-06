@@ -28,10 +28,10 @@ The catalogue is fixed and code-defined. Toggle any ability on any role under **
 
 | Ability | Grants |
 |---------|--------|
-| `run-backups` | Run backups on demand |
+| `run-backups` | Run backups on demand and cancel running backups |
 | `download-snapshots` | Download snapshot files |
-| `delete-snapshots` | Delete snapshots and cancel pending backup jobs |
-| `operate-restores` | Restore from snapshots and manage scheduled restores |
+| `delete-snapshots` | Delete snapshots |
+| `operate-restores` | Restore from snapshots, cancel running restores and manage scheduled restores |
 | `use-adminer` | Open the Adminer database browser |
 | `manage-database-servers` | Create, edit and delete database server connections |
 | `manage-volumes` | Create, edit and delete storage volumes |
