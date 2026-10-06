@@ -12,6 +12,8 @@ use Throwable;
 
 class ShellProcessor
 {
+    private const int SIGKILL = 9;
+
     private ?BackupLogger $logger = null;
 
     /**
@@ -42,7 +44,9 @@ class ShellProcessor
      */
     public function process(string $command, array $env = []): string
     {
-        $process = Process::fromShellCommandline($command);
+        // Its own process group, so that stopping it also stops what it
+        // started, such as the commands of a post-backup script.
+        $process = Process::fromShellCommandline('exec setsid sh -c '.escapeshellarg($command));
         $process->setTimeout(null);
 
         if ($env !== []) {
@@ -86,7 +90,7 @@ class ShellProcessor
 
             $process->wait();
         } catch (Throwable $e) {
-            $process->stop(0);
+            $this->stop($process);
             rescue(fn () => $this->reportCommand($logIndex, $output, $startTime, ['status' => 'failed']), report: false);
 
             throw $e;
@@ -116,6 +120,17 @@ class ShellProcessor
         }
 
         return $process->getOutput();
+    }
+
+    private function stop(Process $process): void
+    {
+        $pid = $process->getPid();
+
+        if ($pid !== null && $process->isRunning()) {
+            posix_kill(-$pid, self::SIGKILL);
+        }
+
+        $process->stop(0);
     }
 
     /**

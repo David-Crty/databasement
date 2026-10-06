@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\AgentJobType;
 use App\Services\Agent\Handlers\AgentJobHandler;
 use Database\Factories\AgentJobFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -107,6 +108,22 @@ class AgentJob extends Model
             'payload' => $payload,
             'max_attempts' => $type->handler()->maxAttempts(),
         ]);
+    }
+
+    /**
+     * Agent jobs not finished yet that report to the given backup jobs.
+     *
+     * @param  Builder<AgentJob>  $query
+     * @param  array<int, string>  $backupJobIds
+     * @return Builder<AgentJob>
+     */
+    public function scopeUnfinishedFor(Builder $query, array $backupJobIds): Builder
+    {
+        return $query
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_CLAIMED, self::STATUS_RUNNING])
+            ->where(fn (Builder $query) => $query
+                ->whereIn('snapshot_id', Snapshot::withoutGlobalScopes()->select('id')->whereIn('backup_job_id', $backupJobIds))
+                ->orWhereIn('restore_id', Restore::withoutGlobalScopes()->select('id')->whereIn('backup_job_id', $backupJobIds)));
     }
 
     public function handler(): AgentJobHandler

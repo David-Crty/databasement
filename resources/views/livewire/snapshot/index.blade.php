@@ -125,8 +125,7 @@
                     $canRestore = $status === 'completed' && $snapshot->hasExistingFile() && $snapshot->database_type !== \App\Enums\DatabaseType::REDIS;
                     $completedFiles = $snapshot->files->where('status', \App\Enums\SnapshotFileStatus::Completed);
                     $canDownload = $status === 'completed' && $completedFiles->where('file_exists', true)->isNotEmpty();
-                    $canDelete = in_array($status, ['completed', 'failed'], true);
-                    $canCancel = $status === 'pending' && $job;
+                    $canDelete = in_array($status, ['completed', 'failed', 'cancelled'], true);
                 @endphp
                 <div class="flex items-center gap-1 justify-end">
                     @if($canRestore)
@@ -195,17 +194,7 @@
                         @endif
                     @endif
 
-                    @if($canCancel)
-                        @can('delete', $job)
-                            <x-button
-                                icon="o-x-mark"
-                                wire:click="confirmCancelJob('{{ $job->id }}')"
-                                spinner
-                                :tooltip="__('Cancel')"
-                                class="btn-ghost btn-sm text-error"
-                            />
-                        @endcan
-                    @endif
+                    @include('partials.cancel-job-button', ['job' => $job])
                 </div>
             @endscope
         </x-table>
@@ -264,20 +253,12 @@
         </x-slot:actions>
     </x-modal>
 
-    @if($cancelJobId)
-        <x-delete-confirmation-modal
-            :title="__('Cancel Job')"
-            :message="__('Are you sure you want to cancel this pending job?')"
-            onConfirm="deletePendingJob"
-        />
-    @else
-        <x-delete-confirmation-modal
-            :title="__('Delete Snapshot')"
-            :message="__('Are you sure you want to delete this snapshot? The backup file will be permanently removed.')"
-            onConfirm="deleteSnapshot"
-            :showKeepFiles="true"
-        />
-    @endif
+    <x-delete-confirmation-modal
+        :title="__('Delete Snapshot')"
+        :message="__('Are you sure you want to delete this snapshot? The backup file will be permanently removed.')"
+        onConfirm="deleteSnapshot"
+        :showKeepFiles="true"
+    />
 
     <livewire:restore.modal />
 </div>

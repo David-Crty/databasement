@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Livewire\Concerns\CancelsJobs;
 use App\Models\BackupJob;
 use App\Queries\BackupJobQuery;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Lazy;
@@ -14,6 +16,8 @@ use Livewire\Component;
 #[Lazy]
 class LatestJobs extends Component
 {
+    use CancelsJobs, Toast;
+
     public string $statusFilter = 'all';
 
     /** @var Collection<int, BackupJob> */
@@ -112,6 +116,7 @@ class LatestJobs extends Component
             ['id' => 'failed', 'name' => __('Failed')],
             ['id' => 'completed', 'name' => __('Completed')],
             ['id' => 'pending', 'name' => __('Pending')],
+            ['id' => 'cancelled', 'name' => __('Cancelled')],
         ];
     }
 

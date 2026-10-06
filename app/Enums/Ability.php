@@ -56,10 +56,10 @@ enum Ability: string
     public function description(): string
     {
         return match ($this) {
-            self::RunBackups => __('Run backups on demand.'),
+            self::RunBackups => __('Run backups on demand and cancel running backups.'),
             self::DownloadSnapshots => __('Download snapshot files.'),
-            self::DeleteSnapshots => __('Delete snapshots and cancel pending backup jobs.'),
-            self::OperateRestores => __('Restore from snapshots and manage scheduled restores.'),
+            self::DeleteSnapshots => __('Delete snapshots.'),
+            self::OperateRestores => __('Restore from snapshots, cancel running restores and manage scheduled restores.'),
             self::UseAdminer => __('Open the Adminer database browser.'),
             self::ManageDatabaseServers => __('Create, edit and delete database server connections.'),
             self::ManageVolumes => __('Create, edit and delete storage volumes.'),

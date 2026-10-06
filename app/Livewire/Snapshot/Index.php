@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Snapshot;
 
-use App\Enums\BackupJobStatus;
 use App\Enums\DatabaseType;
+use App\Livewire\Concerns\CancelsJobs;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\Concerns\HandlesJobLogsModal;
 use App\Models\BackupJob;
@@ -22,7 +22,7 @@ use Livewire\WithPagination;
 #[Title('Snapshots')]
 class Index extends Component
 {
-    use AuthorizesRequests, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
+    use AuthorizesRequests, CancelsJobs, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -44,9 +44,6 @@ class Index extends Component
 
     #[Locked]
     public ?string $deleteSnapshotId = null;
-
-    #[Locked]
-    public ?string $cancelJobId = null;
 
     public bool $showDeleteModal = false;
 
@@ -121,6 +118,7 @@ class Index extends Component
             ['id' => 'failed', 'name' => __('Failed')],
             ['id' => 'running', 'name' => __('Running')],
             ['id' => 'pending', 'name' => __('Pending')],
+            ['id' => 'cancelled', 'name' => __('Cancelled')],
         ];
     }
 
@@ -238,19 +236,7 @@ class Index extends Component
         $this->authorize('delete', $snapshot);
 
         $this->deleteSnapshotId = $snapshotId;
-        $this->cancelJobId = null;
         $this->keepFiles = false;
-        $this->showDeleteModal = true;
-    }
-
-    public function confirmCancelJob(string $jobId): void
-    {
-        $job = BackupJob::findOrFail($jobId);
-
-        $this->authorize('delete', $job);
-
-        $this->cancelJobId = $jobId;
-        $this->deleteSnapshotId = null;
         $this->showDeleteModal = true;
     }
 
@@ -270,30 +256,6 @@ class Index extends Component
         $this->showDeleteModal = false;
 
         $this->success(__('Snapshot deleted successfully!'));
-    }
-
-    public function deletePendingJob(): void
-    {
-        if (! $this->cancelJobId) {
-            return;
-        }
-
-        $job = BackupJob::findOrFail($this->cancelJobId);
-
-        $this->authorize('delete', $job);
-
-        if ($job->status !== BackupJobStatus::Pending) {
-            $this->error(__('Job is no longer pending and cannot be deleted.'));
-            $this->showDeleteModal = false;
-
-            return;
-        }
-
-        $job->delete();
-        $this->cancelJobId = null;
-        $this->showDeleteModal = false;
-
-        $this->success(__('Job deleted successfully!'));
     }
 
     public function render(): View

@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\JobCancelledException;
 use App\Facades\AppConfig;
 use App\Models\Restore;
 use App\Services\Backup\DTO\RestoreConfig;
@@ -54,9 +55,19 @@ class ProcessRestoreJob implements ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Execute the job. A cancelled job ends here, wherever its runner was:
+     * it is neither retried nor reported as failed.
      */
     public function handle(RestoreTask $restoreTask): void
+    {
+        try {
+            $this->process($restoreTask);
+        } catch (JobCancelledException) {
+            Log::info('Restore cancelled', ['restore_id' => $this->restoreId]);
+        }
+    }
+
+    private function process(RestoreTask $restoreTask): void
     {
         $restore = Restore::with(['job', 'snapshot.files.volume', 'snapshot.databaseServer', 'snapshotFile.volume', 'targetServer.sshConfig'])
             ->findOrFail($this->restoreId);

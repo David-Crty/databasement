@@ -64,8 +64,13 @@ test('a failed send never stops the job, and its entries go with the next one', 
         ->and($logger->unsentLogs())->toBeEmpty();
 });
 
-test('a job the server revoked stops the job', function () {
+test('a job the server revoked is stopped once, and what it logs while unwinding is not sent', function () {
     Http::fake(['*' => Http::response(['message' => 'Cannot heartbeat a job with status \'failed\'.'], 409)]);
+    $logger = agentJobLogger();
 
-    agentJobLogger()->log('Starting backup');
-})->throws(JobRevokedException::class);
+    expect(fn () => $logger->log('Dump done'))->toThrow(JobRevokedException::class);
+
+    $logger->log('Cleaning up temporary files');
+
+    Http::assertSentCount(1);
+});
