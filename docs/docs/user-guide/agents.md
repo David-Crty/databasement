@@ -77,6 +77,7 @@ The **Agents** page shows each agent's connection status, so you can confirm it'
 - **No local volume** — the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
 - **Restores read from a reachable volume** — a restore onto an agent-backed server downloads the snapshot on the agent's network, so the snapshot must have a copy on a volume the agent can reach. Copies on the server's local storage are not offered as a source.
 - **A lost agent delays the retry** — an agent reports every 30 seconds while a dump runs, and a backup whose agent goes silent for 10 minutes (a restart or a network outage included) is started again from scratch. Agents up to 1.8.4 cannot report during a dump, so their backups are retried only once the full backup job timeout has passed.
+- **Cancelling stops the agent at its next report**: every 30 seconds while a command runs, or at its next step. Agents up to 1.8.4 do not stop: they run the whole job and only see it was cancelled when they report the result.
 - **Restores are never retried** — a restore drops and recreates the target database, so a restore interrupted by a lost agent is reported as failed rather than run again. It is given the full backup job timeout to finish, and fails if no agent claims it within that time.
 
 ## Restoring through an agent

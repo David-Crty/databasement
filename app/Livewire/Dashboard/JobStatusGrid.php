@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Livewire\Concerns\CancelsJobs;
 use App\Models\BackupJob;
+use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
@@ -14,6 +16,8 @@ use Livewire\Component;
 #[Lazy]
 class JobStatusGrid extends Component
 {
+    use CancelsJobs, Toast;
+
     public bool $showLogsModal = false;
 
     #[Locked]

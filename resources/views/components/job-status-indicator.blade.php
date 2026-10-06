@@ -9,6 +9,7 @@
     [$badgeClass, $icon, $defaultLabel, $useSpinner] = match ($status) {
         'completed' => ['badge-success', 'o-check-circle', __('Completed'), false],
         'failed' => ['badge-error', 'o-x-circle', __('Failed'), false],
+        'cancelled' => ['badge-neutral', 'o-no-symbol', __('Cancelled'), false],
         'running' => ['badge-warning', null, __('Running'), true],
         'pending' => ['badge-info', 'o-clock', __('Pending'), false],
         'skipped' => ['badge-warning', 'o-exclamation-triangle', __('Skipped'), false],

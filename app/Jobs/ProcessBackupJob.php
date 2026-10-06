@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\JobCancelledException;
 use App\Exceptions\Backup\VolumeTransferException;
 use App\Facades\AppConfig;
 use App\Models\Snapshot;
@@ -59,9 +60,19 @@ class ProcessBackupJob implements ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Execute the job. A cancelled job ends here, wherever its runner was:
+     * it is neither retried nor reported as failed.
      */
     public function handle(BackupTask $backupTask): void
+    {
+        try {
+            $this->process($backupTask);
+        } catch (JobCancelledException) {
+            Log::info('Backup cancelled', ['snapshot_id' => $this->snapshotId]);
+        }
+    }
+
+    private function process(BackupTask $backupTask): void
     {
         $snapshot = Snapshot::with(['job', 'files.volume', 'backup', 'databaseServer.sshConfig'])->findOrFail($this->snapshotId);
         $databaseServer = $snapshot->databaseServer;

@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
+use App\Exceptions\Backup\JobCancelledException;
 use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
@@ -75,8 +76,13 @@ class RecoverStuckJobsCommand extends Command
                     'agent_id' => null,
                     'lease_expires_at' => null,
                 ]);
-                $job->trackedJob()?->markAgentLost();
                 $resetCount++;
+
+                try {
+                    $job->trackedJob()?->markAgentLost();
+                } catch (JobCancelledException) {
+                    continue;
+                }
             } else {
                 $errorMessage = "Max attempts ({$job->max_attempts}) exceeded after losing contact with the agent.";
                 $job->markFailed($errorMessage);
@@ -126,19 +132,20 @@ class RecoverStuckJobsCommand extends Command
         }
 
         foreach ($stuckJobs as $job) {
-            $job->markFailed(
-                new RuntimeException('Job timed out: stuck in '.$job->status->value.' state beyond the configured timeout.')
-            );
+            try {
+                $job->markFailed(
+                    new RuntimeException('Job timed out: stuck in '.$job->status->value.' state beyond the configured timeout.')
+                );
+            } catch (JobCancelledException) {
+                continue;
+            }
         }
 
         // A timed-out job must never run or be revived afterwards: an agent
         // still running it is stopped at its next report, and one waiting to
         // be claimed is never handed out.
         AgentJob::query()
-            ->whereIn('status', [AgentJob::STATUS_PENDING, AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])
-            ->where(fn ($query) => $query
-                ->whereHas('snapshot', fn ($query) => $query->whereIn('backup_job_id', $stuckJobs->modelKeys()))
-                ->orWhereHas('restore', fn ($query) => $query->whereIn('backup_job_id', $stuckJobs->modelKeys())))
+            ->unfinishedFor($stuckJobs->modelKeys())
             ->get()
             ->each(fn (AgentJob $agentJob) => $agentJob->markFailed(ucfirst($agentJob->type->value).' timed out.'));
 

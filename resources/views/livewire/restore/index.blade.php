@@ -166,6 +166,8 @@
                         :disabled="! $job"
                     />
 
+                    @include('partials.cancel-job-button', ['job' => $job])
+
                     @can('delete', $restore)
                         <x-button
                             icon="o-trash"

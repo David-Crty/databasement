@@ -72,6 +72,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // An agent reporting on a job cancelled after its request was let in.
+        $exceptions->dontReport(\App\Exceptions\Backup\JobCancelledException::class);
+        $exceptions->render(fn (\App\Exceptions\Backup\JobCancelledException $e) => response()->json(['message' => $e->getMessage()], 409));
+
         $exceptions->renderable(function (\Illuminate\Contracts\Encryption\DecryptException $e, $request) {
             if ($request->is('two-factor-challenge')) {
                 return redirect()->route('login')->withErrors([

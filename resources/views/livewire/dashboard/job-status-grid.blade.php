@@ -12,6 +12,7 @@
                             'completed' => 'bg-success',
                             'failed' => 'bg-error',
                             'running' => 'bg-warning',
+                            'cancelled' => 'bg-neutral',
                             default => 'bg-info',
                         };
 

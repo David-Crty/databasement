@@ -3,6 +3,7 @@
 namespace App\Livewire\Restore;
 
 use App\Enums\DatabaseType;
+use App\Livewire\Concerns\CancelsJobs;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\Concerns\HandlesJobLogsModal;
 use App\Models\BackupJob;
@@ -22,7 +23,7 @@ use Livewire\WithPagination;
 #[Title('Restores')]
 class Index extends Component
 {
-    use AuthorizesRequests, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
+    use AuthorizesRequests, CancelsJobs, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -142,6 +143,7 @@ class Index extends Component
             ['id' => 'failed', 'name' => __('Failed')],
             ['id' => 'running', 'name' => __('Running')],
             ['id' => 'pending', 'name' => __('Pending')],
+            ['id' => 'cancelled', 'name' => __('Cancelled')],
         ];
     }
 

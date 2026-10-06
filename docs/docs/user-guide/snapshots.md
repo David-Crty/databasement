@@ -24,6 +24,8 @@ When you restore a snapshot, Databasement:
 4. Drops and recreates the target database (if it exists)
 5. Restores the data using native database tools
 
+A pending or running restore can be cancelled from the **Restores** page or its job logs, with the `operate-restores` ability. It stops at its next step, or within 30 seconds while a command runs. A restore cancelled after step 4 leaves the target database partially restored.
+
 ### Restore Commands
 
 **MariaDB** (10.2 and later):

@@ -244,4 +244,15 @@ describe('reporting a running command', function () {
         expect(fn () => $processor->process('sleep 10'))->toThrow(JobRevokedException::class);
         expect(microtime(true) - $startedAt)->toBeLessThan(5);
     });
+
+    test('a stopped command also stops the processes it started', function () {
+        $marker = sys_get_temp_dir().'/shell-processor-'.uniqid();
+        $processor = new ShellProcessor(progressIntervalSeconds: 0.1);
+        $processor->setLogger(commandReportSpy(new JobRevokedException('Job was cancelled')));
+
+        expect(fn () => $processor->process('sh -c '.escapeshellarg('sleep 0.5; touch '.$marker).'; true'))->toThrow(JobRevokedException::class);
+
+        usleep(800_000);
+        expect(file_exists($marker))->toBeFalse();
+    });
 });

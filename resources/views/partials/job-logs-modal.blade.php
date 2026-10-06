@@ -56,6 +56,7 @@
                     {{-- Right: Status + Metadata button --}}
                     <div class="flex items-center gap-2 sm:gap-4">
                         <x-job-status-indicator :status="$this->selectedJob->status" />
+                        @include('partials.cancel-job-button', ['job' => $this->selectedJob, 'label' => __('Cancel job')])
                         @if($snapshot?->metadata)
                             <x-button
                                 :label="__('Metadata')"
@@ -357,4 +358,19 @@
             <x-button :label="__('Close')" @click="$wire.showLogsModal = false" />
         </x-slot:actions>
     @endif
+</x-modal>
+
+<x-modal wire:model="showCancelJobModal" :title="__('Cancel Job')" class="backdrop-blur">
+    <p>{{ __('The job stops at its next step, or within 30 seconds while a command runs.') }}</p>
+
+    @if($cancelJobIsRestore)
+        <x-alert icon="o-exclamation-triangle" class="alert-warning mt-4">
+            {{ __('A restore stopped midway leaves the target database partially restored.') }}
+        </x-alert>
+    @endif
+
+    <x-slot:actions>
+        <x-button :label="__('Keep running')" @click="$wire.showCancelJobModal = false" />
+        <x-button :label="__('Cancel job')" class="btn-error" wire:click="cancelJob" spinner />
+    </x-slot:actions>
 </x-modal>
