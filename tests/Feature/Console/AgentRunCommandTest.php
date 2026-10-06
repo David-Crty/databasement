@@ -113,6 +113,7 @@ test('a backup reports its running commands to the server', function () {
     $this->mock(BackupTask::class)->shouldReceive('execute')->once()
         ->andReturnUsing(function ($config, $logger, $onProgress, Closure $onCommandHeartbeat) {
             $onCommandHeartbeat(true);
+            $onCommandHeartbeat(false);
 
             return new BackupResult('backup_testdb.sql.gz', 1, 'abc123hash');
         });
@@ -121,6 +122,8 @@ test('a backup reports its running commands to the server', function () {
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-123/heartbeat')
         && $request['in_command'] === true);
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-123/heartbeat')
+        && $request['in_command'] === false);
 });
 
 test('reports per-volume outcomes when only some uploads fail', function () {
@@ -376,12 +379,17 @@ describe('restore jobs', function () {
         ]);
 
         $this->mock(RestoreTask::class)->shouldReceive('execute')->once()
-            ->andReturnUsing(fn ($config, $logger, $onProgress, Closure $onCommandHeartbeat) => $onCommandHeartbeat(true));
+            ->andReturnUsing(function ($config, $logger, $onProgress, Closure $onCommandHeartbeat) {
+                $onCommandHeartbeat(true);
+                $onCommandHeartbeat(false);
+            });
 
         $this->artisan('agent:run --once')->assertSuccessful();
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-789/heartbeat')
             && $request['in_command'] === true);
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-789/heartbeat')
+            && $request['in_command'] === false);
     });
 
     test('reports a failed restore', function () {
