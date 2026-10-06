@@ -15,19 +15,19 @@ $scrollIntoViewJsSnippet = ($scrollTo !== false)
         <nav role="navigation" aria-label="{{ __('Pagination Navigation') }}" class="flex items-center justify-between">
             <div class="flex justify-between flex-1 sm:hidden">
                 @if ($paginator->onFirstPage())
-                    <span class="btn btn-sm btn-disabled">{!! __('pagination.previous') !!}</span>
+                    <span class="btn btn-sm btn-disabled">{!! __('Previous') !!}</span>
                 @else
                     <button type="button" wire:click="previousPage('{{ $paginator->getPageName() }}')" x-on:click="{{ $scrollIntoViewJsSnippet }}" wire:loading.attr="disabled" class="btn btn-sm">
-                        {!! __('pagination.previous') !!}
+                        {!! __('Previous') !!}
                     </button>
                 @endif
 
                 @if ($paginator->hasMorePages())
                     <button type="button" wire:click="nextPage('{{ $paginator->getPageName() }}')" x-on:click="{{ $scrollIntoViewJsSnippet }}" wire:loading.attr="disabled" class="btn btn-sm">
-                        {!! __('pagination.next') !!}
+                        {!! __('Next') !!}
                     </button>
                 @else
-                    <span class="btn btn-sm btn-disabled">{!! __('pagination.next') !!}</span>
+                    <span class="btn btn-sm btn-disabled">{!! __('Next') !!}</span>
                 @endif
             </div>
 
@@ -48,13 +48,13 @@ $scrollIntoViewJsSnippet = ($scrollTo !== false)
                     <div class="join">
                         {{-- Previous Page Link --}}
                         @if ($paginator->onFirstPage())
-                            <span class="join-item btn btn-sm btn-disabled" aria-label="{{ __('pagination.previous') }}">
+                            <span class="join-item btn btn-sm btn-disabled" aria-label="{{ __('Previous') }}">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
                                 </svg>
                             </span>
                         @else
-                            <button type="button" wire:click="previousPage('{{ $paginator->getPageName() }}')" x-on:click="{{ $scrollIntoViewJsSnippet }}" dusk="previousPage{{ $paginator->getPageName() == 'page' ? '' : '.' . $paginator->getPageName() }}.after" class="join-item btn btn-sm" aria-label="{{ __('pagination.previous') }}">
+                            <button type="button" wire:click="previousPage('{{ $paginator->getPageName() }}')" x-on:click="{{ $scrollIntoViewJsSnippet }}" dusk="previousPage{{ $paginator->getPageName() == 'page' ? '' : '.' . $paginator->getPageName() }}.after" class="join-item btn btn-sm" aria-label="{{ __('Previous') }}">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
                                 </svg>
@@ -86,13 +86,13 @@ $scrollIntoViewJsSnippet = ($scrollTo !== false)
 
                         {{-- Next Page Link --}}
                         @if ($paginator->hasMorePages())
-                            <button type="button" wire:click="nextPage('{{ $paginator->getPageName() }}')" x-on:click="{{ $scrollIntoViewJsSnippet }}" dusk="nextPage{{ $paginator->getPageName() == 'page' ? '' : '.' . $paginator->getPageName() }}.after" class="join-item btn btn-sm" aria-label="{{ __('pagination.next') }}">
+                            <button type="button" wire:click="nextPage('{{ $paginator->getPageName() }}')" x-on:click="{{ $scrollIntoViewJsSnippet }}" dusk="nextPage{{ $paginator->getPageName() == 'page' ? '' : '.' . $paginator->getPageName() }}.after" class="join-item btn btn-sm" aria-label="{{ __('Next') }}">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                                 </svg>
                             </button>
                         @else
-                            <span class="join-item btn btn-sm btn-disabled" aria-label="{{ __('pagination.next') }}">
+                            <span class="join-item btn btn-sm btn-disabled" aria-label="{{ __('Next') }}">
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                                 </svg>

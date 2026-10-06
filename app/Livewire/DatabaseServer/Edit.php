@@ -4,6 +4,7 @@ namespace App\Livewire\DatabaseServer;
 
 use App\Models\DatabaseServer;
 use App\Traits\BlocksDemoWrites;
+use App\Traits\SurfacesValidationErrors;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -14,7 +15,7 @@ use Livewire\Component;
 #[Title('Edit Database Server')]
 class Edit extends Component
 {
-    use AuthorizesRequests, BlocksDemoWrites, Toast;
+    use AuthorizesRequests, BlocksDemoWrites, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -38,7 +39,7 @@ class Edit extends Component
 
         $this->authorize('update', $this->form->server);
 
-        if ($this->form->update()) {
+        if ($this->withValidationFeedback(fn (): bool => $this->form->update())) {
             $this->success(
                 title: __('Database server updated successfully!'),
                 redirectTo: $this->returnUrl,
@@ -86,12 +87,12 @@ class Edit extends Component
 
     public function testConnection(): void
     {
-        $this->form->testConnection();
+        $this->withValidationFeedback(fn () => $this->form->testConnection());
     }
 
     public function testSshConnection(): void
     {
-        $this->form->testSshConnection();
+        $this->withValidationFeedback(fn () => $this->form->testSshConnection());
     }
 
     public function generateSshKey(): void

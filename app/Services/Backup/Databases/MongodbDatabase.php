@@ -3,6 +3,7 @@
 namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
+use App\Enums\DatabaseType;
 use App\Rules\SafeHost;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
@@ -40,7 +41,7 @@ class MongodbDatabase implements DatabaseInterface
         ];
 
         if (! empty($this->config['dump_flags'])) {
-            $parts[] = DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
+            $parts[] = DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::MONGODB);
         }
 
         $parts[] = '--archive='.escapeshellarg($outputPath);

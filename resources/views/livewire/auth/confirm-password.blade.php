@@ -21,7 +21,7 @@
                 placeholder="{{ __('Password') }}"
             />
 
-            <x-button type="submit" class="btn-primary w-full" label="{{ __('Confirm') }}" data-test="confirm-password-button" />
+            <x-submit-button class="btn-primary w-full" :label="__('Confirm')" data-test="confirm-password-button" />
         </form>
     </div>
 </x-layouts::auth>

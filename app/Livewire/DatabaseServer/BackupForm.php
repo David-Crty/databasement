@@ -8,6 +8,7 @@ use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Rules\SafeDatabaseName;
 use App\Rules\SafeDatabasePath;
 use App\Rules\SafePath;
 use App\Services\CurrentOrganization;
@@ -244,7 +245,7 @@ final class BackupForm
                 Rule::in(array_map(fn (DatabaseSelectionMode $m) => $m->value, DatabaseSelectionMode::cases())),
             ];
             $rules[$prefix.'database_names'] = 'nullable|array';
-            $rules[$prefix.'database_names.*'] = 'string|max:255';
+            $rules[$prefix.'database_names.*'] = ['string', 'max:255', new SafeDatabaseName];
             $rules[$prefix.'database_include_pattern'] = 'nullable|string|max:500';
 
             $mode = $entry['database_selection_mode'] ?? null;
@@ -378,7 +379,7 @@ final class BackupForm
         $mode = $entry['database_selection_mode'] ?? DatabaseSelectionMode::All->value;
 
         if ($mode === DatabaseSelectionMode::All->value) {
-            return __('all databases');
+            return __('All databases');
         }
 
         if ($mode === DatabaseSelectionMode::Selected->value) {

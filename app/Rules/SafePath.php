@@ -19,28 +19,28 @@ readonly class SafePath implements ValidationRule
 
         // Reject null bytes (truncate paths in some filesystem calls)
         if (str_contains($value, "\0")) {
-            $fail('The :attribute must not contain null bytes.');
+            $fail(__('The :attribute must not contain null bytes.'));
 
             return;
         }
 
         // Reject path traversal sequences
         if (str_contains($value, '..')) {
-            $fail('The :attribute must not contain path traversal sequences (..).');
+            $fail(__('The :attribute must not contain path traversal sequences (..).'));
 
             return;
         }
 
         // Reject backslashes (Windows-style paths)
         if (str_contains($value, '\\')) {
-            $fail('The :attribute must not contain backslashes.');
+            $fail(__('The :attribute must not contain backslashes.'));
 
             return;
         }
 
         // Reject absolute paths if not allowed
         if (! $this->allowAbsolute && $this->isAbsolutePath($value)) {
-            $fail('The :attribute must be a relative path.');
+            $fail(__('The :attribute must be a relative path.'));
 
             return;
         }

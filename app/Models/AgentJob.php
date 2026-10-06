@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\AgentJobType;
+use App\Services\Agent\Handlers\AgentJobHandler;
 use Database\Factories\AgentJobFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,10 +17,6 @@ class AgentJob extends Model
 {
     /** @use HasFactory<AgentJobFactory> */
     use HasFactory, HasUlids;
-
-    public const TYPE_BACKUP = 'backup';
-
-    public const TYPE_DISCOVER = 'discover';
 
     public const STATUS_PENDING = 'pending';
 
@@ -35,6 +33,7 @@ class AgentJob extends Model
         'database_server_id',
         'agent_id',
         'snapshot_id',
+        'restore_id',
         'status',
         'payload',
         'lease_expires_at',
@@ -49,6 +48,7 @@ class AgentJob extends Model
     protected function casts(): array
     {
         return [
+            'type' => AgentJobType::class,
             'payload' => 'encrypted:array',
             'logs' => 'array',
             'lease_expires_at' => 'datetime',
@@ -84,14 +84,54 @@ class AgentJob extends Model
     }
 
     /**
+     * @return BelongsTo<Restore, AgentJob>
+     */
+    public function restore(): BelongsTo
+    {
+        return $this->belongsTo(Restore::class);
+    }
+
+    /**
+     * Queue a job for the agent of the given server.
+     *
+     * @param  array<string, mixed>  $payload  Self-contained work order the agent runs from
+     * @param  array{snapshot_id?: string, restore_id?: string}  $attributes  Links to the records the job reports to
+     */
+    public static function enqueue(AgentJobType $type, string $databaseServerId, array $payload, array $attributes = []): self
+    {
+        return self::create([
+            ...$attributes,
+            'type' => $type,
+            'database_server_id' => $databaseServerId,
+            'status' => self::STATUS_PENDING,
+            'payload' => $payload,
+            'max_attempts' => $type->handler()->maxAttempts(),
+        ]);
+    }
+
+    public function handler(): AgentJobHandler
+    {
+        return $this->type->handler();
+    }
+
+    /**
+     * The job record the UI shows for this agent job; null for job types
+     * that have none, such as discovery.
+     */
+    public function trackedJob(): ?BackupJob
+    {
+        return $this->handler()->trackedJob($this);
+    }
+
+    /**
      * Claim this job for an agent.
      */
-    public function claim(Agent $agent, int $leaseDurationSeconds = 300): void
+    public function claim(Agent $agent): void
     {
         $this->update([
             'agent_id' => $agent->id,
             'status' => self::STATUS_CLAIMED,
-            'lease_expires_at' => now()->addSeconds($leaseDurationSeconds),
+            'lease_expires_at' => now()->addSeconds($this->handler()->leaseSeconds()),
             'claimed_at' => now(),
             'attempts' => $this->attempts + 1,
         ]);
@@ -125,10 +165,10 @@ class AgentJob extends Model
     /**
      * Extend the lease on this job.
      */
-    public function extendLease(int $leaseDurationSeconds = 300): void
+    public function extendLease(): void
     {
         $this->update([
-            'lease_expires_at' => now()->addSeconds($leaseDurationSeconds),
+            'lease_expires_at' => now()->addSeconds($this->handler()->leaseSeconds()),
         ]);
     }
 }

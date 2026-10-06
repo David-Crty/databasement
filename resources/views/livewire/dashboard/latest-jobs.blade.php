@@ -84,6 +84,7 @@
                                 <x-button
                                     icon="o-document-text"
                                     wire:click="viewLogs('{{ $job->id }}')"
+                                    spinner
                                     tooltip="{{ __('View Logs') }}"
                                     class="btn-ghost btn-xs shrink-0"
                                 />
@@ -97,6 +98,7 @@
                                 <x-button
                                     icon="o-document-text"
                                     wire:click="viewLogs('{{ $job->id }}')"
+                                    spinner
                                     tooltip="{{ __('View Logs') }}"
                                     class="btn-ghost btn-xs"
                                 />

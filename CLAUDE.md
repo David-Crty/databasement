@@ -9,6 +9,9 @@ This is a Laravel application for managing database server backups. It uses Live
 ## Development Commands
 
 **IMPORTANT**: All PHP commands MUST be run through Docker. Never run `php`, `composer`, or `vendor/bin/*` commands directly on the host. Use the Makefile targets or `docker compose exec --user application -T app <command>` instead. Always include `--user application` to ensure correct file permissions. 
+
+**In a git worktree, use the Makefile targets** (they work unchanged there, a bare `docker compose` does not). Load the `worktree-development` skill before running anything in one.
+
 This overrides any bundled guideline or skill that shows a bare command — notably the `pestphp/pest-plugin-agent` rules at the end of this file, whose `vendor/bin/pest --agent='…'` examples must be run as `docker compose exec --user application -T app vendor/bin/pest --agent='…'`.
 
 ### Setup and Installation
@@ -40,7 +43,9 @@ make test-tia                       # Fast TIA replay - a hint only, never a gat
 make test-tia-baseline              # (Re)record the TIA baseline
 ```
 
-Tests run in parallel by default using Pest's parallel testing feature. This significantly speeds up the test suite (~12-18s for 350+ tests). Use `make test-sequential` if you need to debug test order issues.
+Tests run in parallel by default using Pest's parallel testing feature. The full suite is about 1700 tests. Use `make test-sequential` if you need to debug test order issues.
+
+`make test` and the pre-commit hook can take a few minutes depending on the machine (around 5 minutes in CI). Give the Bash call a long timeout (up to 600000 ms) or run it in the background.
 
 #### Test Impact Analysis (`make test-tia`)
 
@@ -155,7 +160,7 @@ The Docker setup provides:
 
 ## Agent Mode
 
-When `DATABASEMENT_URL` is set, the app runs as a remote agent — it only executes the `agent:run` CLI command (polls an API and runs `BackupTask`). It never uses the app's own database.
+When `DATABASEMENT_URL` is set, the app runs as a remote agent — it only executes the `agent:run` CLI command (polls an API and runs `BackupTask` or `RestoreTask`). It never uses the app's own database.
 
 Config files check `env('DATABASEMENT_URL')` to swap database-dependent drivers for in-memory/no-op alternatives:
 
@@ -165,6 +170,8 @@ Config files check `env('DATABASEMENT_URL')` to swap database-dependent drivers 
 - **Session**: `array` driver
 
 This means agent mode requires zero database configuration.
+
+**Agent job types** (`App\Enums\AgentJobType`) each have two halves: an app-side `AgentJobHandler` (`app/Services/Agent/Handlers/`: lease, max attempts, the job record it reports to, what ack/fail do) and an agent-side `AgentJobRunner` (`app/Services/Agent/Runners/`, registered in `AgentRunCommand::RUNNERS`). A new type needs an enum case, both halves, and a `Dispatch*Action` that routes to the agent or the app queue. Agents advertise their runners' types when claiming and are only handed those, so an older agent never receives a type it cannot run; agents up to 1.8 advertise nothing and get backup + discover. Keep the `payload.type` the claim response adds and the `discovered-databases` endpoint: 1.8 agents rely on both.
 
 ## Architecture
 
@@ -200,12 +207,7 @@ This means agent mode requires zero database configuration.
 
 1. **Livewire Architecture**: The app uses class-based Livewire components for all main pages (CRUD operations, settings). Authentication flows use plain Blade views rendered by Laravel Fortify. All full-page components use `Route::livewire()` routing.
 
-2. **Mary UI Components**: All UI components use Mary UI (built on daisyUI). Components are used without prefixes (e.g., `<x-button>`, `<x-input>`, `<x-card>`). Key patterns:
-   - Modals use `wire:model` with boolean properties (e.g., `$showDeleteModal`)
-   - Tables use `<table class="table-default">` with custom styling
-   - Alerts use `class="alert-success"` format (not `variant`)
-   - Selects use `:options` prop with `[['id' => '', 'name' => '']]` format
-   - Dark mode follows system preference (`prefers-color-scheme`)
+2. **Mary UI Components**: All UI components use Mary UI (built on daisyUI), without a prefix (`<x-button>`, `<x-input>`, `<x-card>`). See "Working with Mary UI Components" below. Dark mode follows system preference (`prefers-color-scheme`).
 
 3. **Database Connection Testing**: `DatabaseProvider::testConnectionForServer()` orchestrates connection tests (including SSH tunnels and SFTP for remote SQLite), delegating to the appropriate `DatabaseInterface` handler. Each handler implements its own `testConnection()` method.
 
@@ -242,6 +244,32 @@ Pre-commit hook automatically runs:
 3. `make test` - Run all tests in parallel
 
 Ensure tests pass and code is formatted before committing.
+
+### Commit and PR Titles (changelog)
+
+`CHANGELOG.md` (Keep a Changelog, **one section per minor version** with every entry prefixed by the patch that shipped it, no Unreleased section) is written at release time by the `/changelog` skill, from the commits since the last tag. The app renders it as Markdown at `/changelog` (styled by `.changelog` in `resources/css/app.css`), and `docs/scripts/sync-changelog.js` publishes it as a documentation page. PRs are squash-merged, so the **PR title becomes the commit subject the skill reads**. Write it as a conventional commit, `type(scope)?: description`:
+
+| Title prefix | Changelog section |
+|---|---|
+| `feat:` | Added |
+| `fix:` | Fixed |
+| `fix(security):` | Security |
+| `perf:`, `refactor:` | Changed (only when an operator would notice; otherwise `chore:`) |
+| any type whose description starts with "remove" / "drop" | Removed |
+| any type whose description starts with "deprecate" | Deprecated |
+| `chore:`, `ci:`, `test:`, `docs:`, `style:`, dependency bumps | skipped |
+
+Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and render with a **Breaking:** prefix. The PR body keeps explaining the *why*; it becomes the commit body the skill reads for wording. GitHub appends `(#NNN)`, which becomes the PR link. Branch names do not matter. Feature PRs must not edit `CHANGELOG.md`: the release step writes it.
+
+### Releasing
+
+`make release VERSION=x.y.z` does everything from a clean, up-to-date `main`:
+
+1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the commits since the last tag under the `[x.y]` section tagged with the patch, commits to `main` with `--no-verify` (`main` already passed the hook and the commit only touches `CHANGELOG.md`) and pushes.
+2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
+3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
+
+To review the entry before tagging, run `/changelog x.y.z` in Claude Code first; `make release` then finds the entry and only tags. The version is the skill's only argument and it always writes and commits.
 
 ### Running a Single Test
 
@@ -288,50 +316,58 @@ Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bounc
 - Public properties are automatically bound to views
 - Use `#[Validate]` attributes or Form objects for validation
 - Call `$this->validate()` before processing data
-- Use `Session::flash()` for one-time messages (shown via `@if (session('success'))`)
+- Feedback messages use `App\Traits\Toast` (`$this->success(...)`, `$this->error(...)`), never `Mary\Traits\Toast`, whose public helpers become client-callable actions. See the `mary-ui` skill.
 - Return `$this->redirect()` with `navigate: true` for SPA-like navigation
 - Blade files contain only view markup; all PHP logic is in component classes
 
 ### Working with Mary UI Components
 
-- All components are prefixed with `x-` (e.g., `<x-button>`, `<x-input>`, `<x-card>`)
-- Use Heroicons for icons (e.g., `icon="o-user"` for outline icons, `icon="s-user"` for solid)
-- Modal pattern: Add boolean property to component class, use `wire:model` in blade
-- Select pattern: Use `:options` prop with array format `[['id' => 'value', 'name' => 'Label']]`
-- Alert pattern: Use `class="alert-success"`, `class="alert-error"`, etc.
-- Form components: `<x-input>`, `<x-password>`, `<x-select>`, `<x-checkbox>`, etc.
-- Translated attributes: always use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"` — interpolation double-encodes special characters (see "Avoiding HTML Encoding Artifacts" below)
-- Documentation: https://mary-ui.com/docs/components/button
+The `mary-ui` skill is the reference (props per installed version, patterns, gotchas). The rules that apply to every view:
+
+- Translated attributes use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"`, which double-encodes (see "Avoiding HTML Encoding Artifacts" below).
+- Every `<x-button>` / `<x-menu-item>` whose `wire:click` calls a method takes the bare `spinner` prop; a `$set('x', …)` / `$toggle('x')` click takes `spinner="x"` instead. The skill covers submit buttons and the other cases.
 
 ### Resource Index Pages
 
 For new index pages (listing resources with tables, search, filters), follow the existing patterns in:
 - `app/Livewire/DatabaseServer/Index.php` + `resources/views/livewire/database-server/index.blade.php`
-- `app/Livewire/BackupJob/Index.php` + `resources/views/livewire/backup-job/index.blade.php`
+- `app/Livewire/Snapshot/Index.php` + `resources/views/livewire/snapshot/index.blade.php`
 
 Use Mary UI's `<x-table>` component with `@scope` directives for cell rendering.
 
 ### Localization
 
-The app uses Laravel's JSON translation files with the `__('...')` helper. Translations live in `lang/{locale}.json`. Available locales are defined in `config/app.php` under `available_locales`. The `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
+The app uses Laravel's JSON translation files with the `__('...')` helper. Keys are the English source strings themselves. Translations live in `lang/{locale}.json`, available locales are defined in `config/app.php` under `available_locales`, and the `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
 
-#### Extracting Translation Strings
+#### `make update-translation`
 
-To find all translatable strings in the codebase:
+Translations are kept in step with the code by one command, which runs five steps (only the third calls an API):
 
-```bash
-# Extract all __('...') and __("...") calls from PHP and Blade files
-# Handles escaped quotes (e.g., __('You\'re logged in')) and double-quoted strings (e.g., __("Use \"auto\""))
-grep -rhoP "__\(\s*'(?:[^'\\\\]|\\\\.)*'" app/ resources/ --include='*.php' --include='*.blade.php' | sed "s/__(\s*'//" | sed "s/'$//" | sed "s/\\\'/'/g" > /tmp/_keys1.txt
-grep -rhoP '__\(\s*"(?:[^"\\\\]|\\\\.)*"' app/ resources/ --include='*.php' --include='*.blade.php' | sed 's/__(\s*"//' | sed 's/"$//' | sed 's/\\"/"/g' > /tmp/_keys2.txt
-cat /tmp/_keys1.txt /tmp/_keys2.txt | sort -u
-```
+1. `translatable:export en` (kkomelin/laravel-translatable-string-exporter) scans `app/` and `resources/` for `__()`, `trans_choice()` and `@lang()` and rewrites **`lang/en.json`**, the generated, committed inventory of every translatable string. English is the key *and* the value; nothing changes at runtime.
+2. `translations:sync` (`app/Console/Commands/TranslationsSyncCommand.php`) prunes keys the code no longer uses from each target locale. It **never adds a key**, so "missing" always means "not translated yet" rather than "filled with English".
+3. `ai-translator:translate-json` (kargnas/laravel-ai-translator) sends only the keys a locale is missing to Claude, and its own validator retries a chunk that drops a `:placeholder`. Config lives in `config/ai-translator.php`; the `additional_rules` there are the machine-readable form of the conventions below.
+4. `translations:sync` again, to strip the `_comment` banner the translator writes into every file and restore `en.json` key order and formatting.
+5. `translations:sync --check` writes nothing and fails when a locale is out of sync, so drift is visible without an API key.
+
+`make check-translation` runs steps 1 and 5 only -- no API key, no cost. Both packages are dev dependencies; nothing in this pipeline runs in production.
+
+The API key is read from `.env.local` in the main checkout (gitignored, one `ANTHROPIC_API_KEY=...` line; worktrees use the main checkout's). The Makefile forwards it into the container with a bare `-e ANTHROPIC_API_KEY`, so it never reaches a command line. Target locales are the `LOCALES` variable at the top of the `Makefile`.
+
+**Do not use `ai-translator:find-unused`.** Its scanner regex cannot match keys containing `)` or `'` (47 of ours), reports them as unused, and deletes them with `--force`. Pruning is `translations:sync`'s job.
+
+#### Strings the exporter cannot see
+
+`#[Title('...')]` attributes cannot hold a `__()` call, so the layouts translate `$title` at render time and the title strings are listed in `lang/persistent-strings.json`. Anything else built dynamically belongs in that file too.
+
+Deliberately **not** translated: API, CLI and MCP responses, backup/restore job-log lines, and enum `label()` values (see `docs/development/extending.md`).
 
 #### Adding a New Locale
 
 1. Add the locale to `config/app.php` in the `available_locales` array (key = locale code, value = display label)
-2. Create `lang/{locale}.json` with translations (copy `lang/fr.json` as a template)
-3. All `__('...')` keys not present in the JSON file fall back to the key itself (English)
+2. Add it to `LOCALES` in the `Makefile`, and add any locale-specific rules (quotation marks, plural behaviour) to `additional_rules` in `config/ai-translator.php`
+3. Create an empty `lang/{locale}.json` containing `{}` and run `make update-translation`
+
+All `__('...')` keys not present in a JSON file fall back to the key itself (English).
 
 #### Avoiding HTML Encoding Artifacts
 
@@ -367,10 +403,7 @@ These are standard industry jargon that developers worldwide understand regardle
 
 #### Updating an Existing Locale
 
-1. Run the extraction command above to find all translatable strings
-2. Compare against the existing `lang/{locale}.json` to find missing keys
-3. Add translations for any missing keys (using typographic apostrophes in values)
-4. Ensure technical terms listed in **Technical Terms — Do Not Over-Translate** above stay in English — both as standalone labels and within compound phrases
+Run `make update-translation`. Never hand-edit `lang/en.json` (it is generated) and never add keys to a target locale by hand -- a key present with an English value looks translated to every check we have.
 
 ## Important Files
 
@@ -408,6 +441,7 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/socialite (SOCIALITE) - v5
 - livewire/livewire (LIVEWIRE) - v4
 - larastan/larastan (LARASTAN) - v3
+- laravel/ai (AI) - v0
 - laravel/boost (BOOST) - v2
 - laravel/pail (PAIL) - v1
 - laravel/pint (PINT) - v1

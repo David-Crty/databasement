@@ -66,7 +66,7 @@
             @endif
 
             <div class="flex items-center justify-end">
-                <x-button type="submit" class="btn-primary w-full" label="{{ __('Create account') }}" data-test="register-user-button" />
+                <x-submit-button class="btn-primary w-full" :label="__('Create account')" data-test="register-user-button" />
             </div>
         </form>
     </div>

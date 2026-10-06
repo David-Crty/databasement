@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Volume\Connectors;
 
+use App\Rules\SafeEndpointUrl;
 use App\Rules\SafePath;
 
 class AzureConfig extends BaseConfig
@@ -32,7 +33,7 @@ class AzureConfig extends BaseConfig
             "{$prefix}.container" => ['required_if:type,azure', 'string', 'max:255'],
             "{$prefix}.prefix" => ['nullable', 'string', 'max:255', new SafePath],
             "{$prefix}.endpoint_suffix" => ['nullable', 'string', 'max:255'],
-            "{$prefix}.endpoint" => ['nullable', 'string', 'max:255'],
+            "{$prefix}.endpoint" => ['nullable', 'string', 'max:255', new SafeEndpointUrl],
         ];
     }
 }

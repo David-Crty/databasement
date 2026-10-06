@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import './changelog.css';
 
 @plugin "daisyui" {
     themes: all;

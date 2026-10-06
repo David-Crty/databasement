@@ -142,6 +142,22 @@ test('trigger restore rejects type mismatch', function () {
     Queue::assertNothingPushed();
 });
 
+test('trigger restore validates the schema name against the target server type', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $server = createDatabaseServer(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($server)->create();
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerRestoreTool::class, [
+        'snapshot_id' => $snapshot->id,
+        'database_server_id' => $server->id,
+        'schema_name' => '-restore_target',
+    ]);
+
+    $response->assertHasErrors();
+    Queue::assertNothingPushed();
+});
+
 test('trigger restore is rejected without the operate-restores ability', function () {
     $user = User::factory()->withAllAbilitiesExcept(Ability::OperateRestores->value)->create();
     $server = createDatabaseServer(['database_type' => 'mysql']);
@@ -170,6 +186,17 @@ test('get job status returns status info', function () {
     $response->assertOk()
         ->assertSee('completed')
         ->assertSee('status_db');
+});
+
+test('get job status does not reach another organization\'s job', function () {
+    $user = User::factory()->create();
+    $foreign = foreignSnapshot();
+
+    $response = DatabasementServer::actingAs($user)->tool(GetJobStatusTool::class, [
+        'job_id' => $foreign->backup_job_id,
+    ]);
+
+    $response->assertHasErrors();
 });
 
 test('list database servers includes backup configuration', function () {

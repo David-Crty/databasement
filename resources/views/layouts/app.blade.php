@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ isset($title) ? $title.' - '.config('app.name') : config('app.name') }}</title>
+    <title>{{ isset($title) ? __($title).' - '.config('app.name') : config('app.name') }}</title>
     <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" sizes="180x180" href="{{ asset('apple-touch-icon.png') }}/">
     @include('layouts._theme-init')
@@ -58,6 +58,7 @@
                 <x-menu-item :title="__('Agents')" icon="o-cpu-chip" :link="route('agents.index')" wire:navigate />
                 <x-menu-separator />
                 <x-menu-item :title="__('Configuration')" icon="o-cog-6-tooth" :link="route('configuration.application')" wire:navigate />
+                <x-menu-item :title="__('Changelog')" icon="o-newspaper" :link="route('changelog')" wire:navigate />
                 <x-menu-item title="{{ __('API Docs') }}" no-wire-navigate="true" icon="o-document-text" link="{{ route('scramble.docs.ui') }}" />
                 <x-menu-item title="{{ __('API Tokens') }}" icon="o-key" link="{{ route('api-tokens.index') }}" wire:navigate />
             </x-menu>
@@ -78,9 +79,9 @@
                         @endunless
                         <form method="POST" action="{{ route('logout') }}" class="w-full">
                             @csrf
-                            <x-button type="submit" class="w-full" icon="o-power">
+                            <x-submit-button class="w-full" icon="o-power">
                                 {{ __('Logout') }}
-                            </x-button>
+                            </x-submit-button>
                         </form>
                     </x-menu-sub>
                 </x-menu>
@@ -120,8 +121,11 @@
                     <a href="https://david-crty.github.io/databasement/" target="_blank" rel="noopener" class="link link-hover">
                         Documentation
                     </a>
+                    <a href="{{ route('changelog') }}" wire:navigate class="link link-hover">
+                        {{ __('Changelog') }}
+                    </a>
                     <a href="{{ $githubRepo }}/issues/new" target="_blank" rel="noopener" class="link link-hover">
-                        Report an issue
+                        {{ __('Report an issue') }}
                     </a>
                     <a href="{{ $githubRepo }}/blob/main/LICENSE" target="_blank" rel="noopener" class="link link-hover">
                         MIT License

@@ -15,14 +15,14 @@
             icon="o-clipboard-document"
             class="btn-primary"
             x-clipboard="$wire.invitationUrl"
-            x-on:clipboard-copied="$wire.success('{{ __('Link copied to clipboard!') }}', null, 'toast-bottom')"
+            x-on:clipboard-copied="successToast('{{ __('Link copied to clipboard!') }}')"
             tooltip="{{ __('Copy') }}"
         />
     </div>
 
     <x-slot:actions>
         @if($doneAction)
-            <x-button label="{{ $doneLabel }}" wire:click="{{ $doneAction }}" class="btn-primary" />
+            <x-button label="{{ $doneLabel }}" wire:click="{{ $doneAction }}" spinner class="btn-primary" />
         @else
             <x-button label="{{ $doneLabel }}" @click="$wire.showCopyModal = false" class="btn-primary" />
         @endif

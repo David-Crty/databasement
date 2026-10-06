@@ -8,12 +8,12 @@ use App\Http\Requests\Api\V1\SaveDatabaseServerRequest;
 use App\Http\Resources\DatabaseServerResource;
 use App\Http\Resources\RestoreResource;
 use App\Http\Resources\SnapshotResource;
-use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DispatchRestoreAction;
 use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\Backup\TriggerBackupAction;
 use App\Services\CurrentOrganization;
@@ -189,13 +189,16 @@ class DatabaseServerController extends Controller
      * Trigger a restore.
      *
      * Queues a restore job to restore a snapshot to the specified database server.
+     * `options.owner_user` names the PostgreSQL role the restored database is
+     * handed to, the same option the scheduled restores accept.
      *
      * @response 202
      */
     public function restore(
         RestoreRequest $request,
         DatabaseServer $databaseServer,
-        BackupJobFactory $backupJobFactory
+        BackupJobFactory $backupJobFactory,
+        DispatchRestoreAction $dispatchRestore,
     ): JsonResponse {
         $this->authorize('restore', $databaseServer);
 
@@ -207,14 +210,17 @@ class DatabaseServerController extends Controller
         /** @var int|null $userId */
         $userId = auth()->id();
 
+        $ownerUser = trim((string) $request->validated('options.owner_user'));
+
         $restore = $backupJobFactory->createRestore(
             snapshot: $snapshot,
             targetServer: $databaseServer,
             schemaName: $request->validated('schema_name'),
-            triggeredByUserId: $userId
+            triggeredByUserId: $userId,
+            options: array_filter(['owner_user' => $ownerUser]),
         );
 
-        ProcessRestoreJob::dispatch($restore->id);
+        $dispatchRestore->execute($restore);
 
         return response()->json([
             'message' => 'Restore started successfully!',

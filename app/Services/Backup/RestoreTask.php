@@ -38,7 +38,7 @@ class RestoreTask
      * Execute the core restore workflow: download, decompress, prepare, restore.
      *
      * This is the pure restore engine with no model persistence.
-     * `ProcessRestoreJob` delegates to this method.
+     * `ProcessRestoreJob` and the remote agent delegate to this method.
      */
     public function execute(RestoreConfig $config, BackupLogger $logger): void
     {
@@ -85,9 +85,15 @@ class RestoreTask
                 $config->snapshotDatabaseName,
                 $config->snapshotDumpFormat,
                 $config->snapshotDumpPrivileges,
+                $config->parallelRestore,
             );
 
             $this->prepareDatabase($database, $config->schemaName, $logger, $config->forceDatabase);
+
+            if ($config->ownerUser !== null && $database instanceof Databases\PostgresqlDatabase) {
+                $logger->log("Transferring ownership of database \"{$config->schemaName}\" to user \"{$config->ownerUser}\"", 'info');
+                $database->transferOwnership($config->schemaName, $config->ownerUser, $logger);
+            }
 
             $logger->log('Restoring database from snapshot', 'info', [
                 'source_database' => $config->snapshotDatabaseName,
@@ -100,11 +106,6 @@ class RestoreTask
             }
             if ($result->log !== null) {
                 $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
-            }
-
-            if ($config->ownerUser !== null && $database instanceof Databases\PostgresqlDatabase) {
-                $logger->log("Transferring ownership of database \"{$config->schemaName}\" to user \"{$config->ownerUser}\"", 'info');
-                $database->transferOwnership($config->schemaName, $config->ownerUser, $logger);
             }
 
             // Mark job as completed

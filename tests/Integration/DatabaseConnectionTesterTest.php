@@ -18,7 +18,7 @@ test('connection succeeds', function (string $databaseType) {
 
     if ($databaseType === 'sqlite') {
         IntegrationTestHelpers::createTestSqliteDatabase($config['host']);
-    } elseif (in_array($databaseType, ['mysql', 'postgres', 'firebird'], true)) {
+    } elseif (in_array($databaseType, ['mysql', 'mariadb', 'postgres', 'firebird'], true)) {
         // Create unique database for this parallel process
         $server = IntegrationTestHelpers::createDatabaseServer($databaseType);
         IntegrationTestHelpers::loadTestData($databaseType, $server);
@@ -26,7 +26,7 @@ test('connection succeeds', function (string $databaseType) {
     // Redis, MongoDB and MSSQL test the connection at server level - no test data needed
 
     $testServer = DatabaseServer::forConnectionTest([
-        'database_type' => $databaseType,
+        'database_type' => $config['database_type'],
         'host' => $config['host'],
         'port' => $config['port'],
         'username' => $config['username'],
@@ -48,13 +48,13 @@ test('connection succeeds', function (string $databaseType) {
     if (isset($server)) {
         IntegrationTestHelpers::dropDatabase($databaseType, $server, $config['database']);
     }
-})->with(array_column(DatabaseType::cases(), 'value'));
+})->with([...array_column(DatabaseType::cases(), 'value'), 'mariadb']);
 
 test('connection fails with invalid credentials', function (string $databaseType) {
     $config = IntegrationTestHelpers::getDatabaseConfig($databaseType);
 
     $server = DatabaseServer::forConnectionTest([
-        'database_type' => $databaseType,
+        'database_type' => $config['database_type'],
         'host' => $config['host'],
         'port' => $config['port'],
         'username' => 'invalid_user',
@@ -66,7 +66,7 @@ test('connection fails with invalid credentials', function (string $databaseType
 
     expect($result['success'])->toBeFalse()
         ->and($result['message'])->not->toBeEmpty();
-})->with(['mysql', 'postgres', 'firebird']);
+})->with(['mysql', 'mariadb', 'postgres', 'firebird']);
 
 test('connection fails with unreachable host', function (string $databaseType, int $port) {
     $server = DatabaseServer::forConnectionTest([

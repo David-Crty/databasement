@@ -219,11 +219,10 @@ test('dispatches discovery job for agent server with all mode', function () {
 
     Queue::assertNothingPushed();
 
-    $discoveryJob = \App\Models\AgentJob::where('type', \App\Models\AgentJob::TYPE_DISCOVER)->first();
+    $discoveryJob = \App\Models\AgentJob::where('type', \App\Enums\AgentJobType::Discover)->first();
     expect($discoveryJob)->not->toBeNull()
         ->and($discoveryJob->database_server_id)->toBe($server->id)
-        ->and($discoveryJob->snapshot_id)->toBeNull()
-        ->and($discoveryJob->payload['type'])->toBe('discover');
+        ->and($discoveryJob->snapshot_id)->toBeNull();
 
     // Agent servers must defer discovery to the agent — the web app must not
     // attempt a direct connection, so no pre-flight failure snapshot.
@@ -244,17 +243,17 @@ test('skips duplicate discovery job when one is already in-flight', function () 
 
     // Create an existing in-flight discovery job for THIS backup config
     \App\Models\AgentJob::factory()->create([
-        'type' => \App\Models\AgentJob::TYPE_DISCOVER,
+        'type' => \App\Enums\AgentJobType::Discover,
         'database_server_id' => $server->id,
         'status' => \App\Models\AgentJob::STATUS_PENDING,
-        'payload' => ['type' => 'discover', 'backup_id' => $backup->id],
+        'payload' => ['backup_id' => $backup->id],
     ]);
 
     $this->artisan('backups:run', ['schedule' => $schedule->id])
         ->expectsOutputToContain('already in-flight')
         ->assertExitCode(0);
 
-    expect(\App\Models\AgentJob::where('type', \App\Models\AgentJob::TYPE_DISCOVER)->count())->toBe(1);
+    expect(\App\Models\AgentJob::where('type', \App\Enums\AgentJobType::Discover)->count())->toBe(1);
 });
 
 test('dispatches discovery job when previous one completed', function () {
@@ -270,7 +269,7 @@ test('dispatches discovery job when previous one completed', function () {
 
     // Create a completed discovery job (terminal state — should not block)
     \App\Models\AgentJob::factory()->create([
-        'type' => \App\Models\AgentJob::TYPE_DISCOVER,
+        'type' => \App\Enums\AgentJobType::Discover,
         'database_server_id' => $server->id,
         'status' => \App\Models\AgentJob::STATUS_COMPLETED,
     ]);
@@ -279,7 +278,7 @@ test('dispatches discovery job when previous one completed', function () {
         ->expectsOutputToContain('Dispatched discovery for')
         ->assertExitCode(0);
 
-    expect(\App\Models\AgentJob::where('type', \App\Models\AgentJob::TYPE_DISCOVER)->count())->toBe(2);
+    expect(\App\Models\AgentJob::where('type', \App\Enums\AgentJobType::Discover)->count())->toBe(2);
 });
 
 test('skips disabled backups', function () {

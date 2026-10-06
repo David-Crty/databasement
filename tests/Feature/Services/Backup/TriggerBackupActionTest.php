@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\AgentJobType;
 use App\Enums\DatabaseSelectionMode;
 use App\Jobs\ProcessBackupJob;
 use App\Models\Agent;
@@ -104,9 +105,8 @@ test('agent server with all mode dispatches discovery job instead of snapshots',
     Queue::assertNothingPushed();
 
     $discoveryJob = AgentJob::where('database_server_id', $server->id)->sole();
-    expect($discoveryJob->type)->toBe(AgentJob::TYPE_DISCOVER)
+    expect($discoveryJob->type)->toBe(AgentJobType::Discover)
         ->and($discoveryJob->snapshot_id)->toBeNull()
-        ->and($discoveryJob->payload['type'])->toBe('discover')
         ->and($discoveryJob->payload['selection_mode'])->toBe('all')
         ->and($discoveryJob->payload['backup_id'])->toBe($backup->id);
 });
@@ -148,6 +148,6 @@ test('agent server with selected mode creates backup agent jobs directly', funct
 
     $agentJobs = AgentJob::where('database_server_id', $server->id)->get();
     expect($agentJobs)->toHaveCount(2)
-        ->and($agentJobs[0]->type)->toBe(AgentJob::TYPE_BACKUP)
+        ->and($agentJobs[0]->type)->toBe(AgentJobType::Backup)
         ->and($agentJobs[0]->snapshot_id)->not->toBeNull();
 });

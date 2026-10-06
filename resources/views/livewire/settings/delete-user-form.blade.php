@@ -29,7 +29,7 @@
 
             <div class="flex justify-end gap-2">
                 <x-button label="{{ __('Cancel') }}" @click="$wire.showDeleteModal = false" />
-                <x-button label="{{ __('Delete account') }}" class="btn-error" type="submit" data-test="confirm-delete-user-button" />
+                <x-button label="{{ __('Delete account') }}" class="btn-error" type="submit" data-test="confirm-delete-user-button" spinner="deleteUser" />
             </div>
         </form>
     </x-modal>

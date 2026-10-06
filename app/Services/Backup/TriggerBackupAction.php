@@ -2,20 +2,16 @@
 
 namespace App\Services\Backup;
 
-use App\Jobs\ProcessBackupJob;
-use App\Models\AgentJob;
 use App\Models\Backup;
-use App\Models\DatabaseServer;
 use App\Models\Snapshot;
-use App\Services\Agent\AgentJobPayloadBuilder;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class TriggerBackupAction
 {
     public function __construct(
         private BackupJobFactory $backupJobFactory,
-        private AgentJobPayloadBuilder $payloadBuilder,
+        private DispatchBackupAction $dispatchBackup,
+        private DispatchDiscoveryAction $dispatchDiscovery,
     ) {}
 
     /**
@@ -38,7 +34,7 @@ class TriggerBackupAction
         // Agent-backed servers with all/pattern mode return empty snapshots —
         // dispatch a discovery job so the agent can list databases first.
         if (empty($snapshots) && $server->agent_id) {
-            $this->dispatchDiscoveryJob($backup, 'manual', $triggeredByUserId);
+            $this->dispatchDiscovery->execute($backup, 'manual', $triggeredByUserId);
 
             return [
                 'snapshots' => [],
@@ -46,10 +42,8 @@ class TriggerBackupAction
             ];
         }
 
-        if ($server->agent_id) {
-            $this->dispatchToAgent($server, $snapshots);
-        } else {
-            $this->dispatchToQueue($snapshots);
+        foreach ($snapshots as $snapshot) {
+            $this->dispatchBackup->execute($snapshot);
         }
 
         $count = count($snapshots);
@@ -61,54 +55,5 @@ class TriggerBackupAction
             'snapshots' => $snapshots,
             'message' => $message,
         ];
-    }
-
-    /**
-     * Dispatch snapshots to the queue for local execution.
-     *
-     * @param  Snapshot[]  $snapshots
-     */
-    private function dispatchToQueue(array $snapshots): void
-    {
-        foreach ($snapshots as $snapshot) {
-            ProcessBackupJob::dispatch($snapshot->id);
-        }
-    }
-
-    /**
-     * Create AgentJob records for remote agent execution.
-     *
-     * @param  Snapshot[]  $snapshots
-     */
-    private function dispatchToAgent(DatabaseServer $server, array $snapshots): void
-    {
-        DB::transaction(function () use ($server, $snapshots): void {
-            foreach ($snapshots as $snapshot) {
-                AgentJob::create([
-                    'type' => AgentJob::TYPE_BACKUP,
-                    'database_server_id' => $server->id,
-                    'snapshot_id' => $snapshot->id,
-                    'status' => AgentJob::STATUS_PENDING,
-                    'payload' => $this->payloadBuilder->build($snapshot),
-                ]);
-            }
-        });
-    }
-
-    /**
-     * Dispatch a discovery job for a specific backup config on an
-     * agent-backed server.
-     *
-     * @param  'manual'|'scheduled'  $method
-     */
-    private function dispatchDiscoveryJob(Backup $backup, string $method, ?int $triggeredByUserId): void
-    {
-        AgentJob::create([
-            'type' => AgentJob::TYPE_DISCOVER,
-            'database_server_id' => $backup->database_server_id,
-            'snapshot_id' => null,
-            'status' => AgentJob::STATUS_PENDING,
-            'payload' => $this->payloadBuilder->buildDiscovery($backup, $method, $triggeredByUserId),
-        ]);
     }
 }

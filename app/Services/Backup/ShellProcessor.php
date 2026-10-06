@@ -3,27 +3,26 @@
 namespace App\Services\Backup;
 
 use App\Contracts\BackupLogger;
+use App\Exceptions\Backup\JobRevokedException;
 use App\Exceptions\ShellProcessFailed;
+use Closure;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
+use Throwable;
 
 class ShellProcessor
 {
     private ?BackupLogger $logger = null;
 
     /**
-     * The flush interval matters as much as the output budget: every incremental
-     * write re-serializes the job's whole `logs` JSON blob, so flushing once per
-     * output chunk makes a chatty command quadratic in database writes.
-     *
      * @param  int  $outputHeadBytes  Leading slice of a command's output to keep.
      * @param  int  $outputTailBytes  Trailing slice of a command's output to keep.
-     * @param  float  $flushIntervalSeconds  Minimum delay between incremental log writes.
+     * @param  float  $progressIntervalSeconds  Delay between reports of a running command's output.
      */
     public function __construct(
         private readonly int $outputHeadBytes = 16384,
         private readonly int $outputTailBytes = 16384,
-        private readonly float $flushIntervalSeconds = 1.0,
+        private readonly float $progressIntervalSeconds = 30.0,
     ) {}
 
     public function setLogger(BackupLogger $logger): void
@@ -32,6 +31,13 @@ class ShellProcessor
     }
 
     /**
+     * Run a command, reporting it through the logger when it starts, every
+     * {@see $progressIntervalSeconds} while it runs (its output so far, which
+     * is also what tells the server the command is alive), and when it ends.
+     *
+     * A failed report never stops the command, except a
+     * {@see JobRevokedException}: the job is no longer this runner's to run.
+     *
      * @param  array<string, string>  $env  Extra environment variables exposed to the command.
      */
     public function process(string $command, array $env = []): string
@@ -47,58 +53,56 @@ class ShellProcessor
         $sanitizedCommand = $this->sanitize($command);
         $startTime = microtime(true);
 
-        // Start the command log entry before execution
-        $logIndex = $this->logger?->startCommandLog($sanitizedCommand);
+        // The buffer bounds what reaches the stored log, so a command emitting
+        // an unbounded number of warnings cannot grow the job's `logs` blob. It
+        // does not bound memory: Process keeps the full output internally for
+        // getOutput()/getErrorOutput() below.
+        $output = $this->newOutputBuffer();
+        $receivedOutput = false;
+        $logIndex = $this->reportSafely(fn () => $this->logger?->startCommandLog($sanitizedCommand));
 
-        // Run with output callback for incremental updates. The buffer bounds what
-        // reaches the stored log, so a command emitting an unbounded number of
-        // warnings cannot grow the job's `logs` blob. It does not bound memory:
-        // Process keeps the full output internally for getOutput()/getErrorOutput()
-        // below, so a huge stream still accumulates for the command's lifetime.
-        $incrementalOutput = $this->newOutputBuffer();
-        $lastFlush = 0.0;
+        try {
+            $process->start(function ($type, $data) use ($output, &$receivedOutput) {
+                $output->append($data);
+                $receivedOutput = true;
+            });
+            $lastReport = microtime(true);
 
-        $process->run(function ($type, $data) use ($incrementalOutput, &$lastFlush, $logIndex, $startTime) {
-            $incrementalOutput->append($data);
+            while ($process->isRunning()) {
+                if (microtime(true) - $lastReport >= $this->progressIntervalSeconds) {
+                    $this->reportSafely(fn () => $this->reportCommand($logIndex, $output, $startTime));
+                    $lastReport = microtime(true);
+                }
 
-            if (! $this->logger || $logIndex === null) {
-                return;
+                // Polling reads the pipes without blocking. Pausing only after an
+                // empty poll, and briefly, keeps a command that streams its output
+                // through PHP from stalling on a full pipe.
+                if (! $receivedOutput) {
+                    usleep(20_000);
+                }
+
+                $receivedOutput = false;
             }
 
-            // Throttle incremental updates; the final write below always runs, so
-            // nothing is lost by skipping a flush here.
-            $now = microtime(true);
+            $process->wait();
+        } catch (Throwable $e) {
+            $process->stop(0);
+            rescue(fn () => $this->reportCommand($logIndex, $output, $startTime, ['status' => 'failed']), report: false);
 
-            if ($now - $lastFlush < $this->flushIntervalSeconds) {
-                return;
-            }
-
-            $lastFlush = $now;
-
-            $this->logger->updateCommandLog($logIndex, [
-                'output' => $this->sanitize(trim($incrementalOutput->toString())),
-                'duration_ms' => round(($now - $startTime) * 1000, 2),
-            ]);
-        });
-
-        $output = $process->getOutput();
-        $errorOutput = $process->getErrorOutput();
-        $exitCode = $process->getExitCode();
-
-        // Finalize the log entry with exit code and status
-        if ($this->logger && $logIndex !== null) {
-            $finalOutput = $this->newOutputBuffer();
-            $finalOutput->append($output);
-            $finalOutput->append("\n");
-            $finalOutput->append($errorOutput);
-
-            $this->logger->updateCommandLog($logIndex, [
-                'output' => $this->sanitize(trim($finalOutput->toString())),
-                'exit_code' => $exitCode,
-                'status' => $process->isSuccessful() ? 'completed' : 'failed',
-                'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
-            ]);
+            throw $e;
         }
+
+        $errorOutput = $process->getErrorOutput();
+
+        $finalOutput = $this->newOutputBuffer();
+        $finalOutput->append($process->getOutput());
+        $finalOutput->append("\n");
+        $finalOutput->append($errorOutput);
+
+        $this->reportSafely(fn () => $this->reportCommand($logIndex, $finalOutput, $startTime, [
+            'exit_code' => $process->getExitCode(),
+            'status' => $process->isSuccessful() ? 'completed' : 'failed',
+        ]));
 
         if (! $process->isSuccessful()) {
             // Bounded as well: this message ends up in `backup_jobs.error_message`,
@@ -111,7 +115,42 @@ class ShellProcessor
             throw new ShellProcessFailed($sanitizedError);
         }
 
-        return $output;
+        return $process->getOutput();
+    }
+
+    /**
+     * Report a command's output so far, plus any $data, to its log entry.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function reportCommand(?int $logIndex, OutputBuffer $output, float $startTime, array $data = []): void
+    {
+        if ($this->logger !== null && $logIndex !== null) {
+            $this->logger->updateCommandLog($logIndex, [
+                'output' => $this->sanitize(trim($output->toString())),
+                'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                ...$data,
+            ]);
+        }
+    }
+
+    /**
+     * @template T
+     *
+     * @param  Closure(): T  $report
+     * @return T|null
+     */
+    private function reportSafely(Closure $report): mixed
+    {
+        try {
+            return $report();
+        } catch (JobRevokedException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            Log::warning("Could not report a running command: {$e->getMessage()}");
+
+            return null;
+        }
     }
 
     private function newOutputBuffer(): OutputBuffer
@@ -147,6 +186,10 @@ class ShellProcessor
             '/SSH_ASKPASS=[^\s]+/' => 'SSH_ASKPASS=***',
             // sqlpackage: /SourcePassword:'...' or /TargetPassword:'...' (escapeshellarg single-quotes the value)
             '#/(Source|Target)Password:(?:\'[^\']*\'|"[^"]*"|[^\s]+)#' => '/$1Password:***',
+            // redis-cli --pass VALUE. The `-a` alias is deliberately not matched:
+            // `-a` is a real flag on rsync, tar and 7z, so a pattern for it would
+            // redact unrelated commands. RedisDatabase emits `--pass` for this reason.
+            '#--pass\s+(?:\'[^\']*\'|"[^"]*"|[^\s]+)#' => '--pass ***',
             // MongoDB connection URI userinfo: mongodb://user:PASS@host or mongodb+srv://user:PASS@host
             '#(mongodb(?:\+srv)?://[^:@\s/]+:)[^@\s]+@#' => '$1***@',
         ];

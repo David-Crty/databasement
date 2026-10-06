@@ -76,6 +76,7 @@
                         <x-button
                             icon="o-clipboard-document"
                             wire:click="copyInvitationLink({{ $user->id }})"
+                            spinner
                             tooltip="{{ __('Copy Invitation Link') }}"
                             class="btn-ghost btn-sm text-info"
                         />
@@ -93,6 +94,7 @@
                         <x-button
                             icon="o-user-minus"
                             wire:click="confirmRemoveFromOrg({{ $user->id }})"
+                            spinner
                             tooltip="{{ __('Remove from organization') }}"
                             class="btn-ghost btn-sm text-warning"
                         />
@@ -101,6 +103,7 @@
                         <x-button
                             icon="o-trash"
                             wire:click="confirmDelete({{ $user->id }})"
+                            spinner
                             tooltip="{{ __('Delete') }}"
                             class="btn-ghost btn-sm text-error"
                         />
@@ -125,7 +128,7 @@
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showDeleteModal = false" />
             @unless($deleteBlockReason)
-                <x-button :label="__('Delete')" class="btn-error" wire:click="delete" spinner="delete" />
+                <x-button :label="__('Delete')" class="btn-error" wire:click="delete" spinner />
             @endunless
         </x-slot:actions>
     </x-modal>
@@ -142,7 +145,7 @@
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showRemoveModal = false" />
             @unless($removeBlockReason)
-                <x-button :label="__('Remove')" class="btn-warning" wire:click="removeFromOrg" spinner="removeFromOrg" />
+                <x-button :label="__('Remove')" class="btn-warning" wire:click="removeFromOrg" spinner />
             @endunless
         </x-slot:actions>
     </x-modal>

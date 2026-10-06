@@ -85,38 +85,3 @@ test('updateCommandLog ignores invalid index', function () {
 
     expect($logger->getLogs())->toBeEmpty();
 });
-
-test('flush returns only new entries since last flush', function () {
-    $logger = new InMemoryBackupLogger;
-
-    $logger->log('first');
-    $logger->log('second');
-
-    $batch1 = $logger->flush();
-    expect($batch1)->toHaveCount(2);
-
-    $logger->log('third');
-
-    $batch2 = $logger->flush();
-    expect($batch2)->toHaveCount(1)
-        ->and($batch2[0]['message'])->toBe('third');
-});
-
-test('flush returns empty when no new entries', function () {
-    $logger = new InMemoryBackupLogger;
-
-    $logger->log('hello');
-    $logger->flush();
-
-    expect($logger->flush())->toBeEmpty();
-});
-
-test('getLogs returns all entries regardless of flush state', function () {
-    $logger = new InMemoryBackupLogger;
-
-    $logger->log('first');
-    $logger->flush();
-    $logger->log('second');
-
-    expect($logger->getLogs())->toHaveCount(2);
-});

@@ -1,11 +1,13 @@
 <?php
 
 use App\Enums\Ability;
+use App\Jobs\ProcessRestoreJob;
 use App\Livewire\ScheduledRestore\Index;
+use App\Models\Restore;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use App\Models\User;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -41,8 +43,8 @@ test('search filters by name', function () {
         ->assertDontSee('beta refresh');
 });
 
-test('runNow dispatches the restores:run artisan command', function () {
-    Artisan::spy();
+test('runNow dispatches a restore', function () {
+    Queue::fake();
 
     $scheduled = createScheduledRestore();
     Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
@@ -50,9 +52,55 @@ test('runNow dispatches the restores:run artisan command', function () {
     Livewire::test(Index::class)
         ->call('runNow', $scheduled->id);
 
-    Artisan::shouldHaveReceived('call')
-        ->with('restores:run', ['scheduledRestore' => $scheduled->id])
-        ->once();
+    Queue::assertPushed(ProcessRestoreJob::class, 1);
+    expect(Restore::where('scheduled_restore_id', $scheduled->id)->exists())->toBeTrue();
+});
+
+test('runNow warns instead of dispatching when no snapshot is available', function () {
+    Queue::fake();
+
+    $scheduled = createScheduledRestore();
+
+    Livewire::test(Index::class)
+        ->call('runNow', $scheduled->id);
+
+    Queue::assertNothingPushed();
+
+    expect($scheduled->refresh()->last_skip_reason)->toBe(ScheduledRestore::SKIP_NO_SNAPSHOT);
+});
+
+test('runNow on a disabled scheduled restore asks for confirmation instead of running', function () {
+    Queue::fake();
+
+    $scheduled = createScheduledRestore(['enabled' => false]);
+    Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
+
+    Livewire::test(Index::class)
+        ->call('runNow', $scheduled->id)
+        ->assertSet('showRunDisabledModal', true);
+
+    Queue::assertNothingPushed();
+
+    // The flow is untouched: no run was attempted, so no skip was recorded either.
+    expect($scheduled->refresh()->last_executed_at)->toBeNull();
+});
+
+test('runDisabledNow runs a disabled scheduled restore without enabling it', function () {
+    Queue::fake();
+
+    $scheduled = createScheduledRestore(['enabled' => false]);
+    Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
+
+    Livewire::test(Index::class)
+        ->call('runNow', $scheduled->id)
+        ->call('runDisabledNow')
+        ->assertSet('showRunDisabledModal', false);
+
+    Queue::assertPushed(ProcessRestoreJob::class, 1);
+
+    $scheduled->refresh();
+    expect($scheduled->enabled)->toBeFalse()
+        ->and($scheduled->last_skip_reason)->toBeNull();
 });
 
 test('deleteScheduledRestore removes the record', function () {

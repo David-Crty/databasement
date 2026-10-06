@@ -13,8 +13,8 @@ class SshTunnelService
 
     private const WAIT_INTERVAL_MS = 100;
 
-    /** Derived from CONNECTION_TIMEOUT_SECONDS * 1000 / WAIT_INTERVAL_MS */
-    private const MAX_WAIT_ATTEMPTS = 300;
+    /** Overrides {@see CONNECTION_TIMEOUT_SECONDS} for the tunnel being opened. */
+    private ?int $connectTimeoutSeconds = null;
 
     private ?Process $tunnelProcess = null;
 
@@ -31,7 +31,7 @@ class SshTunnelService
      *
      * @throws SshTunnelException
      */
-    public function establish(DatabaseServer $server): array
+    public function establish(DatabaseServer $server, ?int $connectTimeoutSeconds = null): array
     {
         if (! $server->requiresSshTunnel()) {
             throw new SshTunnelException('SSH tunnel is not configured for this server');
@@ -42,21 +42,31 @@ class SshTunnelService
             throw new SshTunnelException('SSH configuration not found for this server');
         }
 
-        return $this->establishFromConfig($sshConfig->getDecrypted(), $server->host, $server->port);
+        return $this->establishFromConfig(
+            $sshConfig->getDecrypted(),
+            $server->host,
+            $server->port,
+            $connectTimeoutSeconds,
+        );
     }
 
     /**
      * Establish an SSH tunnel from a decrypted SSH config array.
      *
-     * @param  array<string, mixed>  $sshConfig  Decrypted SSH config (host, port, username, auth_type, password, private_key, key_passphrase)
+     * @param  array<string, mixed>  $sshConfig  Decrypted SSH config (host, port, username, auth_type, compression, password, private_key, key_passphrase)
      * @param  string  $remoteHost  The remote host to tunnel to
      * @param  int  $remotePort  The remote port to tunnel to
      * @return array{host: string, port: int} The local endpoint to connect to
      *
      * @throws SshTunnelException
      */
-    public function establishFromConfig(array $sshConfig, string $remoteHost, int $remotePort): array
-    {
+    public function establishFromConfig(
+        array $sshConfig,
+        string $remoteHost,
+        int $remotePort,
+        ?int $connectTimeoutSeconds = null,
+    ): array {
+        $this->connectTimeoutSeconds = $connectTimeoutSeconds;
         $this->localPort = $this->allocateLocalPort();
         $command = $this->buildSshCommand(
             sshHost: $sshConfig['host'] ?? '',
@@ -68,7 +78,8 @@ class SshTunnelService
             keyPassphrase: $sshConfig['key_passphrase'] ?? null,
             remoteHost: $remoteHost,
             remotePort: $remotePort,
-            localPort: $this->localPort
+            localPort: $this->localPort,
+            compression: (bool) ($sshConfig['compression'] ?? false)
         );
 
         $this->tunnelProcess = $this->createTunnelProcess($command);
@@ -97,6 +108,11 @@ class SshTunnelService
         ];
     }
 
+    private function connectTimeout(): int
+    {
+        return $this->connectTimeoutSeconds ?? self::CONNECTION_TIMEOUT_SECONDS;
+    }
+
     /**
      * Close the SSH tunnel and clean up resources.
      */
@@ -108,6 +124,7 @@ class SshTunnelService
 
         $this->tunnelProcess = null;
         $this->localPort = null;
+        $this->connectTimeoutSeconds = null;
         $this->cleanupTempFiles();
     }
 
@@ -216,7 +233,8 @@ class SshTunnelService
         ?string $keyPassphrase,
         string $remoteHost,
         int $remotePort,
-        int $localPort
+        int $localPort,
+        bool $compression = false
     ): string {
         // BatchMode=yes only for passphrase-less key auth; password and key+passphrase need interactive mode
         $batchMode = $authType === 'key' && empty($keyPassphrase);
@@ -227,7 +245,7 @@ class SshTunnelService
             '-o', 'ServerAliveCountMax=3',
             '-o', 'ExitOnForwardFailure=yes',
             '-L', sprintf('%d:%s:%d', $localPort, $remoteHost, $remotePort),
-        ]);
+        ], $compression);
 
         return $this->buildAuthenticatedCommand(
             $sshOptions,
@@ -257,8 +275,9 @@ class SshTunnelService
 
         // BatchMode=yes only for passphrase-less key auth; password and key+passphrase need interactive mode
         $batchMode = $authType === 'key' && empty($keyPassphrase);
+        $compression = (bool) ($sshConfig['compression'] ?? false);
 
-        $sshOptions = $this->buildBaseOptions($sshPort, $batchMode);
+        $sshOptions = $this->buildBaseOptions($sshPort, $batchMode, compression: $compression);
 
         return $this->buildAuthenticatedCommand(
             $sshOptions,
@@ -277,16 +296,17 @@ class SshTunnelService
      *
      * @param  bool  $batchMode  Use BatchMode=yes for non-interactive auth (passphrase-less keys), BatchMode=no for password/passphrase auth
      * @param  array<string>  $additionalOptions
+     * @param  bool  $compression  Enable SSH compression (-C), trading CPU for bandwidth on slow links
      * @return array<string>
      */
-    private function buildBaseOptions(int $sshPort, bool $batchMode = true, array $additionalOptions = []): array
+    private function buildBaseOptions(int $sshPort, bool $batchMode = true, array $additionalOptions = [], bool $compression = false): array
     {
         return array_merge([
             '-o', 'StrictHostKeyChecking=accept-new',
             '-o', $batchMode ? 'BatchMode=yes' : 'BatchMode=no',
-            '-o', sprintf('ConnectTimeout=%d', self::CONNECTION_TIMEOUT_SECONDS),
+            '-o', sprintf('ConnectTimeout=%d', $this->connectTimeout()),
             '-p', (string) $sshPort,
-        ], $additionalOptions);
+        ], $compression ? ['-C'] : [], $additionalOptions);
     }
 
     /**
@@ -305,7 +325,11 @@ class SshTunnelService
         string $remoteCommand = ''
     ): string {
         $optionsString = implode(' ', array_map('escapeshellarg', $sshOptions));
-        $userHost = escapeshellarg($sshUsername).'@'.escapeshellarg($sshHost);
+
+        // `-l user host` rather than `user@host`: concatenating them puts the
+        // username in the first character position of the argument, where a
+        // leading dash is parsed by ssh as an option rather than a destination.
+        $destination = '-l '.escapeshellarg($sshUsername).' -- '.escapeshellarg($sshHost);
         $suffix = $remoteCommand !== '' ? ' '.$remoteCommand : '';
 
         if ($authType === 'key' && ! empty($privateKey)) {
@@ -326,7 +350,7 @@ class SshTunnelService
                     'SSH_ASKPASS=%s SSH_ASKPASS_REQUIRE=force setsid ssh %s %s%s',
                     escapeshellarg($this->askPassScript),
                     $optionsString,
-                    $userHost,
+                    $destination,
                     $suffix
                 );
             }
@@ -336,12 +360,12 @@ class SshTunnelService
                 'SSHPASS=%s sshpass -e ssh %s %s%s',
                 escapeshellarg($password),
                 $optionsString,
-                $userHost,
+                $destination,
                 $suffix
             );
         }
 
-        return sprintf('ssh %s %s%s', $optionsString, $userHost, $suffix);
+        return sprintf('ssh %s %s%s', $optionsString, $destination, $suffix);
     }
 
     /**
@@ -401,7 +425,9 @@ class SshTunnelService
      */
     protected function waitForTunnel(): bool
     {
-        for ($i = 0; $i < self::MAX_WAIT_ATTEMPTS; $i++) {
+        $attempts = (int) ceil($this->connectTimeout() * 1000 / self::WAIT_INTERVAL_MS);
+
+        for ($i = 0; $i < $attempts; $i++) {
             // Check if the process has terminated with an error
             if (! $this->tunnelProcess->isRunning()) {
                 return false;

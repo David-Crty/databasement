@@ -18,13 +18,13 @@
             />
             <x-password
                 wire:model="password_confirmation"
-                label="{{ __('Confirm Password') }}"
+                :label="__('Confirm password')"
                 required
                 autocomplete="new-password"
             />
 
             <div class="flex items-center justify-end">
-                <x-button type="submit" class="btn-primary" label="{{ __('Save') }}" data-test="update-password-button" />
+                <x-button type="submit" class="btn-primary" label="{{ __('Save') }}" data-test="update-password-button" spinner="updatePassword" />
             </div>
         </form>
     </x-card>

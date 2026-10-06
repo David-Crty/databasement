@@ -210,6 +210,36 @@ function foreignRestore(): \App\Models\Restore
 }
 
 /**
+ * Create a restore of a MySQL snapshot onto a server behind $agent and
+ * dispatch it, returning the restore and the agent job it produced.
+ *
+ * @return array{restore: \App\Models\Restore, agentJob: \App\Models\AgentJob}
+ */
+function dispatchAgentRestore(\App\Models\Agent $agent, \App\Models\Volume ...$volumes): array
+{
+    $target = \App\Models\DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => $agent->id]);
+    $source = \App\Models\DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = \App\Models\Snapshot::factory()->forServer($source)
+        ->onVolumes(...($volumes ?: [\App\Models\Volume::factory()->s3()->create()]))
+        ->create();
+
+    $restore = app(\App\Services\Backup\BackupJobFactory::class)->createRestore($snapshot, $target, 'restored_db');
+    app(\App\Services\Backup\DispatchRestoreAction::class)->execute($restore);
+
+    return ['restore' => $restore, 'agentJob' => \App\Models\AgentJob::where('restore_id', $restore->id)->sole()];
+}
+
+/**
+ * Claim $agentJob for $agent and return a token the agent can call the API with.
+ */
+function claimAsAgent(\App\Models\Agent $agent, \App\Models\AgentJob $agentJob): string
+{
+    $agentJob->claim($agent);
+
+    return $agent->createToken('agent')->plainTextToken;
+}
+
+/**
  * Create a matching source + target DatabaseServer pair of the same type.
  *
  * @return array{0: \App\Models\DatabaseServer, 1: \App\Models\DatabaseServer}

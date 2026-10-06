@@ -4,7 +4,6 @@ namespace App\Livewire\Restore;
 
 use App\Enums\DatabaseType;
 use App\Enums\RestoreModalMode;
-use App\Jobs\ProcessRestoreJob;
 use App\Livewire\Concerns\InteractsWithTargetDatabases;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
@@ -12,6 +11,7 @@ use App\Models\Snapshot;
 use App\Models\SnapshotFile;
 use App\Queries\SnapshotQuery;
 use App\Services\Backup\BackupJobFactory;
+use App\Services\Backup\DispatchRestoreAction;
 use App\Traits\Toast;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
@@ -77,7 +77,7 @@ class Modal extends Component
         $this->reset([
             'targetServer', 'targetServerId', 'selectedSnapshotId', 'selectedSnapshotFileId',
             'schemaName', 'forceDatabase',
-            'ownerUser', 'currentStep', 'existingDatabases', 'snapshotSearch',
+            'ownerUser', 'parallelRestore', 'currentStep', 'existingDatabases', 'snapshotSearch',
             'serverFilter', 'dbTypeFilter',
         ]);
         $this->resetPage('snapshots');
@@ -103,11 +103,6 @@ class Modal extends Component
 
         $this->targetServer = DatabaseServer::findOrFail($targetServerId);
         $this->authorize('restore', $this->targetServer);
-
-        // Agent-backed servers aren't directly reachable, so they can't be restore targets.
-        if ($this->targetServer->agent_id !== null) {
-            abort(422, 'Restores cannot target agent-backed servers.');
-        }
 
         return true;
     }
@@ -172,6 +167,7 @@ class Modal extends Component
         $this->schemaName = $restore->schema_name;
         $this->forceDatabase = (bool) ($restore->options['force_database'] ?? false);
         $this->ownerUser = (string) ($restore->options['owner_user'] ?? '');
+        $this->parallelRestore = (bool) ($restore->options['parallel_restore'] ?? false);
         $this->loadExistingDatabases($this->targetServer);
         $this->currentStep = 2;
 
@@ -216,6 +212,12 @@ class Modal extends Component
 
         if ($snapshot) {
             $this->prefillSchemaNameAndDatabases($snapshot);
+
+            // An agent target cannot read local copies, so a pick made for
+            // another target may no longer be on offer.
+            if (! in_array($this->selectedSnapshotFileId, array_column($this->getSourceFileOptionsProperty(), 'id'), true)) {
+                $this->defaultSnapshotFile();
+            }
         } else {
             $this->loadExistingDatabases($server);
         }
@@ -275,7 +277,8 @@ class Modal extends Component
 
     /**
      * Selectable source copies for the chosen snapshot (one per volume the
-     * file still exists on). The picker only renders when there is a choice.
+     * file still exists on, and that the target's agent can reach). The
+     * picker only renders when there is a choice.
      *
      * @return list<array{id: string, name: string}>
      */
@@ -289,6 +292,7 @@ class Modal extends Component
             ->where('snapshot_id', $this->selectedSnapshotId)
             ->completed()
             ->fileExists()
+            ->when($this->targetServer?->agent_id !== null, fn ($query) => $query->reachableByAgent())
             ->with('volume')
             ->oldest('id')
             ->get()
@@ -312,7 +316,7 @@ class Modal extends Component
         );
     }
 
-    public function restore(BackupJobFactory $backupJobFactory): void
+    public function restore(BackupJobFactory $backupJobFactory, DispatchRestoreAction $dispatchRestore): void
     {
         if (! $this->targetServer) {
             $this->error(__('Please select a target server before restoring.'));
@@ -321,13 +325,6 @@ class Modal extends Component
         }
 
         $this->authorize('restore', $this->targetServer);
-
-        // Defend against crafted requests that bypass the UI picker (agent-backed targets are unreachable).
-        if ($this->targetServer->agent_id !== null) {
-            $this->error(__('Restores cannot target agent-backed servers.'));
-
-            return;
-        }
 
         if (! $this->selectedSnapshotId) {
             $this->error(__('Please select a snapshot before restoring.'));
@@ -350,7 +347,7 @@ class Modal extends Component
                 snapshotFileId: $this->selectedSnapshotFileId,
             );
 
-            ProcessRestoreJob::dispatch($restore->id);
+            $dispatchRestore->execute($restore);
 
             $this->success(__('Restore started successfully!'));
 
@@ -444,7 +441,6 @@ class Modal extends Component
 
         return DatabaseServer::query()
             ->whereRaw('database_type = ?', [$snapshot->database_type->value])
-            ->whereNull('agent_id')
             ->where('database_type', '!=', DatabaseType::REDIS->value)
             ->orderBy('name')
             ->get(['id', 'name', 'database_type', 'host', 'port']);

@@ -152,7 +152,7 @@ class BackupJobFactory
      *
      * @param  'manual'|'scheduled'  $method
      */
-    private function recordPreflightFailure(
+    public function recordPreflightFailure(
         Backup $backup,
         string $method,
         ?int $triggeredByUserId,
@@ -208,6 +208,20 @@ class BackupJobFactory
             throw ValidationException::withMessages([
                 'snapshot_id' => 'Snapshot database type does not match the target server.',
             ]);
+        }
+
+        if ($targetServer->agent_id !== null) {
+            $reachableCopies = $snapshot->files()->completed()->fileExists()->reachableByAgent();
+
+            if ($snapshotFileId !== null) {
+                $reachableCopies->whereKey($snapshotFileId);
+            }
+
+            if ($reachableCopies->doesntExist()) {
+                throw ValidationException::withMessages([
+                    $snapshotFileId !== null ? 'snapshot_file_id' : 'snapshot_id' => 'The target server runs through a remote agent, which cannot read snapshots stored on a local volume.',
+                ]);
+            }
         }
 
         // Tenant boundary, enforced here because scheduled restores reach this

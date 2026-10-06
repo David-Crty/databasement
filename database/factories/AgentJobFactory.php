@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\AgentJobType;
 use App\Enums\DatabaseSelectionMode;
 use App\Models\Agent;
 use App\Models\AgentJob;
@@ -21,7 +22,7 @@ class AgentJobFactory extends Factory
     public function definition(): array
     {
         return [
-            'type' => AgentJob::TYPE_BACKUP,
+            'type' => AgentJobType::Backup,
             'snapshot_id' => Snapshot::factory(),
             'status' => AgentJob::STATUS_PENDING,
             'payload' => [
@@ -69,10 +70,9 @@ class AgentJobFactory extends Factory
     public function discover(): static
     {
         return $this->state(fn () => [
-            'type' => AgentJob::TYPE_DISCOVER,
+            'type' => AgentJobType::Discover,
             'snapshot_id' => null,
             'payload' => [
-                'type' => 'discover',
                 'database' => [
                     'type' => 'mysql',
                     'host' => 'localhost',

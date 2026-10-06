@@ -3,6 +3,7 @@
 use App\Enums\Ability;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
+use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
 use Illuminate\Support\Facades\Queue;
@@ -120,4 +121,39 @@ test('restore rejects nonexistent snapshot', function () {
 
     $response->assertUnprocessable()
         ->assertJsonValidationErrors(['snapshot_id']);
+});
+
+test('restore hands the restored database to the owner_user option', function () {
+    Queue::fake();
+
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($server)->create();
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/database-servers/{$server->id}/restore", [
+            'snapshot_id' => $snapshot->id,
+            'schema_name' => 'target_db',
+            'options' => ['owner_user' => 'webapp'],
+        ]);
+
+    $response->assertStatus(202);
+
+    expect(Restore::firstOrFail()->getOption('owner_user'))->toBe('webapp');
+});
+
+test('restore leaves ownership alone when no owner_user is given', function () {
+    Queue::fake();
+
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($server)->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/database-servers/{$server->id}/restore", [
+            'snapshot_id' => $snapshot->id,
+            'schema_name' => 'target_db',
+        ])->assertStatus(202);
+
+    expect(Restore::firstOrFail()->getOption('owner_user'))->toBeNull();
 });

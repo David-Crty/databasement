@@ -4,6 +4,7 @@ namespace App\Livewire\Volume;
 
 use App\Models\Volume;
 use App\Traits\BlocksDemoWrites;
+use App\Traits\SurfacesValidationErrors;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -13,7 +14,7 @@ use Livewire\Component;
 #[Title('Edit Volume')]
 class Edit extends Component
 {
-    use AuthorizesRequests, BlocksDemoWrites, Toast;
+    use AuthorizesRequests, BlocksDemoWrites, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -35,11 +36,13 @@ class Edit extends Component
 
         $this->authorize('update', $this->form->volume);
 
-        if ($this->hasSnapshots) {
-            $this->form->updateLockedVolume();
-        } else {
-            $this->form->update();
-        }
+        $this->withValidationFeedback(function (): void {
+            if ($this->hasSnapshots) {
+                $this->form->updateLockedVolume();
+            } else {
+                $this->form->update();
+            }
+        });
 
         $this->success(
             title: __('Volume updated successfully!'),

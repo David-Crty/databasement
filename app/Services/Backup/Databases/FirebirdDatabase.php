@@ -29,7 +29,7 @@ class FirebirdDatabase implements DatabaseInterface
             'gbak -b -g -user %s -password %s %s %s',
             escapeshellarg((string) ($this->config['user'] ?? '')),
             escapeshellarg((string) ($this->config['pass'] ?? '')),
-            escapeshellarg($this->connectionTarget()),
+            DatabaseOperationResult::escapeDatabaseName($this->connectionTarget()),
             escapeshellarg($outputPath)
         ));
     }
@@ -41,7 +41,7 @@ class FirebirdDatabase implements DatabaseInterface
             escapeshellarg((string) ($this->config['user'] ?? '')),
             escapeshellarg((string) ($this->config['pass'] ?? '')),
             escapeshellarg($inputPath),
-            escapeshellarg($this->connectionTarget())
+            DatabaseOperationResult::escapeDatabaseName($this->connectionTarget())
         ));
     }
 

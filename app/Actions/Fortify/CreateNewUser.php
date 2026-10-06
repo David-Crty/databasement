@@ -31,7 +31,7 @@ class CreateNewUser implements CreatesNewUsers
     {
         // Only allow registration if no users exist (first admin)
         if (User::count() > 0) {
-            abort(403, 'Registration is closed. Please contact an administrator for an invitation.');
+            abort(403, __('Registration is closed. Please contact an administrator for an invitation.'));
         }
 
         Validator::make($input, [

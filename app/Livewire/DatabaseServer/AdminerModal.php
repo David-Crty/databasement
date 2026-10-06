@@ -21,12 +21,12 @@ class AdminerModal extends Component
     public string $adminerUrl = '';
 
     #[On('open-adminer-modal')]
-    public function openModal(string $serverName, string $databaseIcon, string $databaseType, string $adminerUrl): void
+    public function openModal(string $serverName, string $databaseIcon, string $databaseType): void
     {
         $this->serverName = $serverName;
         $this->databaseIcon = $databaseIcon;
         $this->databaseType = $databaseType;
-        $this->adminerUrl = $adminerUrl;
+        $this->adminerUrl = route('adminer');
         $this->showModal = true;
     }
 

@@ -94,6 +94,7 @@ class DatabaseProvider
         ?string $sourceDatabaseName = null,
         ?string $snapshotDumpFormat = null,
         ?bool $snapshotDumpPrivileges = null,
+        bool $parallelRestore = false,
     ): DatabaseInterface {
         if ($config->databaseType === DatabaseType::SQLITE) {
             return $this->makeConfigured(DatabaseType::SQLITE, $this->sqliteConfig($databaseName, $config->sshConfig));
@@ -116,9 +117,14 @@ class DatabaseProvider
         }
 
         // Marks a live server: the handler may query it for the MySQL/MariaDB
-        // flavour. Display-only configs, like the dump preview, leave it unset.
-        if ($config->databaseType === DatabaseType::MYSQL) {
+        // flavour, or for the PostgreSQL major that decides which client build
+        // to run. Display-only configs, like the dump preview, leave it unset.
+        if (in_array($config->databaseType, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true)) {
             $dbConfig['probe_server_version'] = true;
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL) {
+            $dbConfig['connection_database'] = self::connectionDatabase($extra);
         }
 
         if ($config->databaseType === DatabaseType::POSTGRESQL
@@ -129,6 +135,10 @@ class DatabaseProvider
         if ($config->databaseType === DatabaseType::POSTGRESQL
             && ($snapshotDumpPrivileges ?? ! empty($extra['dump_privileges']))) {
             $dbConfig['dump_privileges'] = true;
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL && $parallelRestore) {
+            $dbConfig['parallel_restore'] = true;
         }
 
         // Optional short timeout used by interactive UI lookups; jobs leave
@@ -275,6 +285,25 @@ class DatabaseProvider
     }
 
     /**
+     * Version string a MySQL or MariaDB server reports, or null when it cannot
+     * be read. Other types report nothing.
+     *
+     * @return string|null e.g. "8.4.11" or "11.4.12-MariaDB-ubu2404"
+     */
+    public function serverVersionForServer(DatabaseServer $server): ?string
+    {
+        try {
+            [$host, $port] = $this->resolveHostAndPort($server);
+
+            $database = $this->makeForServer($server, '', $host, $port);
+
+            return $database instanceof MysqlDatabase ? $database->serverVersion() : null;
+        } finally {
+            $this->sshTunnelService->close();
+        }
+    }
+
+    /**
      * Resolve host and port, establishing an SSH tunnel if needed.
      *
      * @return array{0: string, 1: int}
@@ -282,7 +311,12 @@ class DatabaseProvider
     private function resolveHostAndPort(DatabaseServer $server): array
     {
         if ($server->requiresSshTunnel()) {
-            $tunnelEndpoint = $this->sshTunnelService->establish($server);
+            $connectTimeout = $server->getExtraConfig('connect_timeout');
+
+            $tunnelEndpoint = $this->sshTunnelService->establish(
+                $server,
+                is_numeric($connectTimeout) ? (int) $connectTimeout : null,
+            );
 
             return [$tunnelEndpoint['host'], $tunnelEndpoint['port']];
         }
@@ -302,10 +336,24 @@ class DatabaseProvider
         }
 
         return match ($server->database_type) {
-            DatabaseType::POSTGRESQL => 'postgres',
+            DatabaseType::POSTGRESQL => self::connectionDatabase($server->extra_config ?? []),
             DatabaseType::MSSQL => 'master',
             DatabaseType::FIREBIRD => $server->resolveDatabaseNames()[0] ?? '',
             default => '',
         };
+    }
+
+    /**
+     * PostgreSQL refuses a connection that names no database, so testing a
+     * connection and listing the catalogue both have to open one. `postgres` is
+     * the conventional choice, but managed providers (Heroku, RDS, Neon, …)
+     * routinely withhold CONNECT on it, so a server can name another database
+     * through extra_config.connection_database.
+     *
+     * @param  array<string, mixed>  $extraConfig
+     */
+    public static function connectionDatabase(array $extraConfig): string
+    {
+        return PostgresqlDatabase::resolveConnectionDatabase($extraConfig);
     }
 }

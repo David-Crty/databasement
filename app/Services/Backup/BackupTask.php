@@ -42,14 +42,9 @@ class BackupTask
      *
      * This is the pure backup engine with no model persistence.
      * `ProcessBackupJob` delegates to this method.
-     *
-     * @param  callable|null  $onProgress  Called after dump, compression, and transfer steps
      */
-    public function execute(
-        BackupConfig $config,
-        BackupLogger $logger,
-        ?callable $onProgress = null,
-    ): BackupResult {
+    public function execute(BackupConfig $config, BackupLogger $logger): BackupResult
+    {
         $this->shellProcessor->setLogger($logger);
         $db = $config->database;
 
@@ -77,20 +72,12 @@ class BackupTask
                 $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
             }
 
-            if ($onProgress !== null) {
-                $onProgress();
-            }
-
             // Compress
             $compressor = $this->compressorFactory->make($config->compressionType, $config->compressionLevel, $config->compressionMultithread);
             $archive = $compressor->compress($workingFile);
             $fileSize = filesize($archive);
             if ($fileSize === false) {
                 throw new \RuntimeException("Failed to get file size for: {$archive}");
-            }
-
-            if ($onProgress !== null) {
-                $onProgress();
             }
 
             // Generate the filename once — the same archive is uploaded to
@@ -101,10 +88,6 @@ class BackupTask
             $volumeResults = [];
             foreach ($config->volumes as $volume) {
                 $volumeResults[] = $this->transferToVolume($volume, $archive, $filename, $fileSize, $humanFileSize, $logger);
-            }
-
-            if ($onProgress !== null) {
-                $onProgress();
             }
 
             // Checksum

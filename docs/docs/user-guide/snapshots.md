@@ -26,10 +26,16 @@ When you restore a snapshot, Databasement:
 
 ### Restore Commands
 
-**MySQL/MariaDB:**
+**MariaDB** (10.2 and later):
 ```bash
 mariadb --host='...' --port='...' --user='...' --password='...' --skip_ssl \
   'database_name' -e "source /path/to/dump.sql"
+```
+
+**MySQL** (and MariaDB below 10.2), using the bundled Oracle client:
+```bash
+/opt/mysql-client/bin/mysql --host='...' --port='...' --user='...' --password='...' --ssl-mode=DISABLED \
+  'database_name' < '/path/to/dump.sql'
 ```
 
 **PostgreSQL:**
@@ -37,6 +43,8 @@ mariadb --host='...' --port='...' --user='...' --password='...' --skip_ssl \
 PGPASSWORD='...' psql --host='...' --port='...' --username='...' \
   'database_name' -f '/path/to/dump.sql'
 ```
+
+Custom-format snapshots are restored with `pg_restore` instead, one table at a time by default. For large databases, tick **Parallel restore (4 jobs)** in the restore dialog to run it with `--jobs=4`. Leave it off when the database uses an extension whose tables reference each other, such as pgAgent: a parallel restore loads their data in any order and fails their foreign keys.
 
 **SQLite:**
 ```bash

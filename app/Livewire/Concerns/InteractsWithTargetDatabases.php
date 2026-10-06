@@ -31,6 +31,9 @@ trait InteractsWithTargetDatabases
     /** Transfer database ownership to this user after restore (PostgreSQL only). */
     public string $ownerUser = '';
 
+    /** Restore a custom-format snapshot with parallel pg_restore jobs (PostgreSQL only). */
+    public bool $parallelRestore = false;
+
     /** @var array<int, string> */
     public array $existingDatabases = [];
 
@@ -66,6 +69,7 @@ trait InteractsWithTargetDatabases
         return array_filter([
             'force_database' => $this->forceDatabase ?: null,
             'owner_user' => ($owner = trim($this->ownerUser)) !== '' ? $owner : null,
+            'parallel_restore' => $this->parallelRestore ?: null,
         ]);
     }
 

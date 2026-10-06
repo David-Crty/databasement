@@ -5,9 +5,7 @@ namespace App\Jobs;
 use App\Enums\SnapshotFileStatus;
 use App\Facades\AppConfig;
 use App\Models\Restore;
-use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\RestoreConfig;
-use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\RestoreTask;
 use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
@@ -108,21 +106,10 @@ class ProcessRestoreJob implements ShouldQueue
 
             $job->log("Reading snapshot from volume: {$sourceFile->volume->name}", 'info');
 
-            $config = new RestoreConfig(
-                targetServer: DatabaseConnectionConfig::fromServer($targetServer),
-                snapshotVolume: VolumeConfig::fromVolume($sourceFile->volume),
-                snapshotFilename: $sourceFile->storedFilename(),
-                snapshotFileSize: $snapshot->file_size,
-                snapshotCompressionType: $snapshot->compression_type,
-                snapshotDatabaseType: $snapshot->database_type,
-                snapshotDatabaseName: $snapshot->database_name,
-                schemaName: $restore->schema_name,
-                workingDirectory: FilesystemSupport::createWorkingDirectory('restore', $restore->id),
-                forceDatabase: filter_var($restore->getOption('force_database', false), FILTER_VALIDATE_BOOLEAN),
-                ownerUser: is_string($value = $restore->getOption('owner_user')) && $value !== '' ? $value : null,
-                snapshotDumpFormat: is_string($format = ($snapshot->metadata['dump_format'] ?? null)) ? $format : null,
-                snapshotDumpPrivileges: (bool) ($snapshot->metadata['dump_privileges'] ?? false),
-                postRestoreScript: AppConfig::get('backup.post_restore_script'),
+            $config = RestoreConfig::fromRestore(
+                $restore,
+                $sourceFile,
+                FilesystemSupport::createWorkingDirectory('restore', $restore->id),
             );
 
             $restoreTask->execute($config, $job);

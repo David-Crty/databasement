@@ -2,6 +2,8 @@
 
 namespace App\Services\Agent;
 
+use App\Exceptions\Backup\JobRevokedException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -25,11 +27,12 @@ class AgentApiClient
     }
 
     /**
-     * @return array{id: string, snapshot_id: string, payload: array<string, mixed>}|null
+     * @param  list<string>  $jobTypes  The job types this agent can run
+     * @return array{id: string, type?: string, snapshot_id: string|null, payload: array<string, mixed>, merges_logs?: bool}|null
      */
-    public function claimJob(): ?array
+    public function claimJob(array $jobTypes): ?array
     {
-        $response = $this->post('/agent/jobs/claim');
+        $response = $this->post('/agent/jobs/claim', ['job_types' => $jobTypes]);
 
         if ($response->status() === 401 || $response->status() === 403) {
             throw new AgentAuthenticationException('Authentication failed. Please check your DATABASEMENT_AGENT_TOKEN.');
@@ -45,52 +48,51 @@ class AgentApiClient
             return null;
         }
 
-        /** @var array{id: string, snapshot_id: string, payload: array<string, mixed>} $job */
+        /** @var array{id: string, type?: string, snapshot_id: string|null, payload: array<string, mixed>, merges_logs?: bool} $job */
         return $job;
     }
 
     /**
+     * Extend the job's lease and send the log entries recorded since the last
+     * report.
+     *
      * @param  array<int, array<string, mixed>>  $logs
+     *
+     * @throws JobRevokedException When the server no longer accepts reports for this job
      */
     public function jobHeartbeat(string $jobId, array $logs = []): void
     {
-        $this->post("/agent/jobs/{$jobId}/heartbeat", empty($logs) ? [] : ['logs' => $logs])->throw();
+        $response = $this->post("/agent/jobs/{$jobId}/heartbeat", ['logs' => $logs]);
+
+        // 401 once the token is revoked, 403 once the job is reassigned,
+        // 404 once it is deleted, 409 once it has failed or completed.
+        if (in_array($response->status(), [401, 403, 404, 409], true)) {
+            throw new JobRevokedException($response->json('message') ?? "Job {$jobId} was rejected by the server.");
+        }
+
+        $response->throw();
     }
 
     /**
-     * @param  array<int, array<string, mixed>>  $volumeResults  Per-volume upload outcomes
+     * Report a completed job with its result, whose fields depend on the job type.
+     *
+     * @param  array<string, mixed>  $result
      * @param  array<int, array<string, mixed>>  $logs
      */
-    public function ack(string $jobId, string $filename, int $fileSize, string $checksum, array $volumeResults = [], array $logs = []): void
+    public function ack(string $jobId, array $result = [], array $logs = []): void
     {
-        $baseUrl = rtrim($this->url, '/');
-
-        Http::withToken($this->token)
-            ->accept('application/json')
-            ->timeout(30)
-            ->retry(3, 1000)
-            ->post("{$baseUrl}/api/v1/agent/jobs/{$jobId}/ack", [
-                'filename' => $filename,
-                'file_size' => $fileSize,
-                'checksum' => $checksum,
-                'volumes' => $volumeResults,
-                'logs' => $logs,
-            ])->throw();
+        $this->post("/agent/jobs/{$jobId}/ack", [...$result, 'logs' => $logs], timeout: 30, retries: 3)->throw();
     }
 
     /**
      * @param  array<int, array<string, mixed>>  $logs
-     * @param  array<int, array<string, mixed>>  $volumeResults  Per-volume upload outcomes,
-     *                                                           so partially-successful runs
-     *                                                           still record their good copies
+     * @param  array<string, mixed>  $result  What the job got done before failing, such as the copies a backup uploaded
      */
-    public function fail(string $jobId, string $errorMessage, array $logs = [], array $volumeResults = [], ?string $filename = null, ?int $fileSize = null): void
+    public function fail(string $jobId, string $errorMessage, array $logs = [], array $result = []): void
     {
         $this->post("/agent/jobs/{$jobId}/fail", [
+            ...$result,
             'error_message' => Str::limit($errorMessage, 10000, ''),
-            'volumes' => $volumeResults,
-            'filename' => $filename,
-            'file_size' => $fileSize,
             'logs' => $logs,
         ])->throw();
     }
@@ -108,13 +110,14 @@ class AgentApiClient
     /**
      * @param  array<string, mixed>  $data
      */
-    private function post(string $path, array $data = [], int $timeout = 10): Response
+    private function post(string $path, array $data = [], int $timeout = 10, int $retries = 0): Response
     {
         $baseUrl = rtrim($this->url, '/');
 
         return Http::withToken($this->token)
             ->accept('application/json')
             ->timeout($timeout)
+            ->when($retries > 0, fn (PendingRequest $request) => $request->retry($retries, 1000))
             ->post("{$baseUrl}/api/v1{$path}", $data);
     }
 }

@@ -67,7 +67,7 @@ class OAuthService
             return $existingUser;
         }
 
-        if (! config('oauth.auto_create_users')) {
+        if (! (config("oauth.providers.{$provider}.auto_create_users") ?? config('oauth.auto_create_users'))) {
             throw new \RuntimeException(
                 __('No matching user found and auto-creation is disabled.')
             );

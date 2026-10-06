@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\SnapshotFileStatus;
+use App\Enums\VolumeType;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\FilesystemSupport;
 use Database\Factories\SnapshotFileFactory;
@@ -80,6 +81,21 @@ class SnapshotFile extends Model
     public function scopeFileExists(Builder $query): Builder
     {
         return $query->where('snapshot_files.file_exists', true);
+    }
+
+    /**
+     * Scope to copies a remote agent can read: every volume type except the
+     * app's own local disk.
+     *
+     * @param  Builder<SnapshotFile>  $query
+     * @return Builder<SnapshotFile>
+     */
+    public function scopeReachableByAgent(Builder $query): Builder
+    {
+        return $query->whereHas('volume', function (Builder $volume): void {
+            /** @var Builder<Volume> $volume */
+            $volume->where('type', '!=', VolumeType::LOCAL->value);
+        });
     }
 
     /**

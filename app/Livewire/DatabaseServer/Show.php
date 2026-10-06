@@ -68,12 +68,6 @@ class Show extends Component
     {
         $this->authorize('restore', $this->server);
 
-        if ($this->server->agent_id) {
-            $this->error(__('Restore is not yet supported for agent-backed servers.'));
-
-            return;
-        }
-
         if ($this->server->database_type === DatabaseType::REDIS) {
             $this->showRedisRestoreModal = true;
 

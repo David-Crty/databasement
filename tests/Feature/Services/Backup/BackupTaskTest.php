@@ -106,36 +106,6 @@ test('execute returns BackupResult with filename, fileSize, and checksum', funct
         ->and($result->checksum)->toMatch('/^[a-f0-9]{64}$/');
 });
 
-test('execute calls onProgress callback at each checkpoint', function () {
-    $mockProvider = buildMockDatabaseProvider();
-
-    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
-
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
-
-    $config = buildBackupConfig();
-    mkdir($config->workingDirectory, 0755, true);
-
-    $progressCount = 0;
-
-    $backupTask->execute(
-        $config,
-        new InMemoryBackupLogger,
-        onProgress: function () use (&$progressCount) {
-            $progressCount++;
-        },
-    );
-
-    expect($progressCount)->toBe(3);
-});
-
 test('execute establishes SSH tunnel when server requires it', function () {
     $dbConfig = new DatabaseConnectionConfig(
         databaseType: DatabaseType::MYSQL,

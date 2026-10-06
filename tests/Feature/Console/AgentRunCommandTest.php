@@ -1,10 +1,14 @@
 <?php
 
 use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\JobRevokedException;
 use App\Exceptions\Backup\VolumeTransferException;
+use App\Services\Agent\AgentJobLogger;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
+use App\Services\Backup\RestoreTask;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -82,7 +86,9 @@ test('processes a job and calls ack on success', function () {
         new VolumeTransferResult('vol-2', 'Offsite', SnapshotFileStatus::Completed),
     ]);
     $backupTask = $this->mock(BackupTask::class);
-    $backupTask->shouldReceive('execute')->once()->andReturn($mockResult);
+    $backupTask->shouldReceive('execute')->once()
+        ->with(Mockery::any(), Mockery::type(AgentJobLogger::class))
+        ->andReturn($mockResult);
 
     $this->artisan('agent:run --once')
         ->expectsOutputToContain('Processing job job-123: prod-mysql / testdb')
@@ -184,6 +190,23 @@ test('calls fail endpoint when backup task throws', function () {
     Http::assertSent(fn ($request) => str_contains($request->url(), '/fail')
         && $request['error_message'] === 'Connection refused'
     );
+});
+
+test('a job the server revoked is stopped without reporting a failure', function () {
+    Http::fake([
+        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/claim' => Http::response(['job' => $this->jobPayload]),
+        '*/agent/jobs/job-123/heartbeat' => Http::response(['status' => 'ok']),
+    ]);
+
+    $this->mock(BackupTask::class)->shouldReceive('execute')->once()
+        ->andThrow(new JobRevokedException("Cannot heartbeat a job with status 'failed'."));
+
+    $this->artisan('agent:run --once')
+        ->expectsOutputToContain("Job job-123 stopped: Cannot heartbeat a job with status 'failed'.")
+        ->assertSuccessful();
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), '/fail'));
 });
 
 test('handles http errors during polling gracefully', function () {
@@ -290,4 +313,91 @@ test('discovery job with pattern filters databases', function () {
     Http::assertSent(fn ($request) => str_contains($request->url(), '/discovered-databases')
         && $request['databases'] === ['prod_users', 'prod_orders']
     );
+});
+
+describe('restore jobs', function () {
+    beforeEach(function () {
+        $this->restoreJob = [
+            'id' => 'job-789',
+            'type' => 'restore',
+            'snapshot_id' => null,
+            'payload' => (new \App\Services\Backup\DTO\RestoreConfig(
+                targetServer: new \App\Services\Backup\DTO\DatabaseConnectionConfig(
+                    databaseType: \App\Enums\DatabaseType::MYSQL,
+                    serverName: 'staging-mysql',
+                    host: '127.0.0.1',
+                    port: 3306,
+                    username: 'root',
+                    password: 'secret',
+                ),
+                snapshotVolume: new \App\Services\Backup\DTO\VolumeConfig('s3', 'Offsite', ['bucket' => 'backups']),
+                snapshotFilename: 'backup_testdb.sql.gz',
+                snapshotFileSize: 1024,
+                snapshotCompressionType: \App\Enums\CompressionType::GZIP,
+                snapshotDatabaseType: \App\Enums\DatabaseType::MYSQL,
+                snapshotDatabaseName: 'testdb',
+                schemaName: 'restored_db',
+                workingDirectory: '',
+            ))->toPayload(),
+            'attempts' => 1,
+            'max_attempts' => 1,
+        ];
+    });
+
+    test('advertises restore support and acknowledges a completed restore', function () {
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => $this->restoreJob]),
+            '*/agent/jobs/job-789/ack' => Http::response(['status' => 'ok']),
+        ]);
+
+        $this->mock(RestoreTask::class)->shouldReceive('execute')->once()
+            ->withArgs(fn (RestoreConfig $config, $logger) => $logger instanceof AgentJobLogger
+                && $config->schemaName === 'restored_db'
+                && $config->snapshotVolume->type === 's3'
+                && $config->targetServer->serverName === 'staging-mysql');
+
+        $this->artisan('agent:run --once')
+            ->expectsOutputToContain('Processing restore job job-789: staging-mysql / restored_db')
+            ->expectsOutputToContain('Restore completed: restored_db')
+            ->assertSuccessful();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/claim')
+            && in_array('restore', $request['job_types'], true));
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-789/ack')
+            && ! isset($request['filename']));
+    });
+
+    test('reports a failed restore', function () {
+        Http::fake([
+            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+            '*/agent/jobs/claim' => Http::response(['job' => $this->restoreJob]),
+            '*/agent/jobs/job-789/fail' => Http::response(['status' => 'ok']),
+        ]);
+
+        $this->mock(RestoreTask::class)->shouldReceive('execute')->once()
+            ->andThrow(new RuntimeException('Access denied for user'));
+
+        $this->artisan('agent:run --once')
+            ->expectsOutputToContain('Restore failed: Access denied for user')
+            ->assertSuccessful();
+
+        Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-789/fail')
+            && $request['error_message'] === 'Access denied for user');
+    });
+});
+
+test('fails a job whose type this agent cannot run', function () {
+    Http::fake([
+        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/claim' => Http::response(['job' => [...$this->jobPayload, 'type' => 'cleanup']]),
+        '*/agent/jobs/job-123/fail' => Http::response(['status' => 'ok']),
+    ]);
+
+    $this->artisan('agent:run --once')
+        ->expectsOutputToContain("Job job-123 has unsupported type 'cleanup'.")
+        ->assertSuccessful();
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-123/fail')
+        && str_contains($request['error_message'], 'Update the agent'));
 });
