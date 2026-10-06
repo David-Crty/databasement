@@ -105,10 +105,11 @@ class PostgresqlDatabase implements DatabaseInterface
         }
 
         // Unqualified --exclude-table patterns match the table in every schema
-        // of the database being dumped.
+        // of the database being dumped; quoting keeps the name's case.
         $extraFlags .= DatabaseOperationResult::escapeTableExclusions(
             '--exclude-table',
             $this->config['excluded_tables'] ?? null,
+            quote: '"',
         );
 
         $major = $this->serverMajorVersion();

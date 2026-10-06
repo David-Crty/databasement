@@ -57,12 +57,12 @@ test('dump excludes tables from every schema of the dumped database', function (
         'user' => 'postgres',
         'pass' => 'pg_secret',
         'database' => 'myapp',
-        'excluded_tables' => ['web_api_log', 'web_service_log'],
+        'excluded_tables' => ['web_api_log', 'WebServiceLog'],
     ]);
 
-    // Unqualified patterns match the table in any schema
+    // Unqualified patterns match the table in any schema; quoted so pg_dump keeps the case
     expect($db->dump('/tmp/dump.sql')->command)
-        ->toContain("'--exclude-table=web_api_log' '--exclude-table=web_service_log' --dbname='myapp'");
+        ->toContain("'--exclude-table=\"web_api_log\"' '--exclude-table=\"WebServiceLog\"' --dbname='myapp'");
 });
 
 test('dump adds no exclude-table flags when excluded tables are absent or empty', function (mixed $excluded) {

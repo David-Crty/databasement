@@ -257,7 +257,7 @@ audit_log
 Databasement expands the list per dump, so one entry covers every database on the server:
 
 - **MySQL / MariaDB** — each database is dumped separately, so the names are qualified with the database being dumped: dumping `datasoft` adds `--ignore-table=datasoft.web_api_log --ignore-table=datasoft.web_service_log`, and dumping `red` adds the same flags with the `red.` prefix. This avoids having to maintain one flag per schema-table pair by hand, and it keeps working when a new database appears on the server.
-- **PostgreSQL** — the names are passed unqualified as `--exclude-table=web_api_log`, which matches the table in every schema of the database being dumped.
+- **PostgreSQL** — the names are passed unqualified and double-quoted as `--exclude-table="web_api_log"`, which matches the table in every schema of the database being dumped. The quotes keep the match case-sensitive: `WebApiLog` excludes only a table created with that exact case.
 
 Names must be plain identifiers (letters, digits, `_` and `$`, up to 64 characters), and at most 200 may be listed. Excluding a table that does not exist is harmless — both dump tools ignore unmatched names.
 

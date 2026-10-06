@@ -64,16 +64,20 @@ readonly class DatabaseOperationResult
      * the schema being dumped (`--ignore-table=mydb.logs`) while PostgreSQL
      * leaves it empty so the pattern matches the table in any schema.
      *
+     * The quote wraps each name after the qualifier: pg_dump folds an unquoted
+     * pattern to lower case, so a double-quoted name keeps it an exact,
+     * case-sensitive match.
+     *
      * @param  mixed  $tables  Raw extra_config value; anything but a list of strings yields ''.
      */
-    public static function escapeTableExclusions(string $flag, mixed $tables, string $qualifier = ''): string
+    public static function escapeTableExclusions(string $flag, mixed $tables, string $qualifier = '', string $quote = ''): string
     {
         if (! is_array($tables)) {
             return '';
         }
 
         return implode('', array_map(
-            fn (string $table): string => ' '.escapeshellarg($flag.'='.$qualifier.$table),
+            fn (string $table): string => ' '.escapeshellarg($flag.'='.$qualifier.$quote.$table.$quote),
             array_filter($tables, is_string(...)),
         ));
     }
