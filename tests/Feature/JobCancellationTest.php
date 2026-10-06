@@ -142,6 +142,19 @@ describe('through an agent', function () {
         expect($job->fresh()->status)->toBe(BackupJobStatus::Cancelled);
     })->with(['backup', 'restore']);
 
+    test('a cancelled job an agent could still claim is closed instead of handed out', function () {
+        $agent = Agent::factory()->create();
+        ['restore' => $restore, 'agentJob' => $agentJob] = dispatchAgentRestore($agent);
+        $restore->job->update(['status' => BackupJobStatus::Cancelled]);
+
+        $this->withToken($agent->createToken('agent')->plainTextToken)
+            ->postJson('/api/v1/agent/jobs/claim', ['job_types' => ['backup', 'restore']])
+            ->assertOk()
+            ->assertJsonPath('job', null);
+
+        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED);
+    });
+
     test('a job cancelled before an agent claimed it is never handed out', function () {
         $agent = Agent::factory()->create();
         ['restore' => $restore] = dispatchAgentRestore($agent);

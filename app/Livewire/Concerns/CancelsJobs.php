@@ -17,8 +17,11 @@ trait CancelsJobs
     #[Locked]
     public ?string $cancelJobId = null;
 
+    /**
+     * "Server / database" a restore being cancelled writes to; null for a backup.
+     */
     #[Locked]
-    public bool $cancelJobIsRestore = false;
+    public ?string $cancelJobRestoreTarget = null;
 
     public bool $showCancelJobModal = false;
 
@@ -29,7 +32,8 @@ trait CancelsJobs
         Gate::authorize('cancel', $job);
 
         $this->cancelJobId = $jobId;
-        $this->cancelJobIsRestore = $job->restore()->withoutGlobalScopes()->exists();
+        $restore = $job->restore()->withoutGlobalScopes()->with(['targetServer' => fn ($query) => $query->withoutGlobalScopes()])->first();
+        $this->cancelJobRestoreTarget = $restore ? "{$restore->targetServer->name} / {$restore->schema_name}" : null;
         $this->showCancelJobModal = true;
     }
 

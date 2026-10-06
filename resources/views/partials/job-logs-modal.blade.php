@@ -363,10 +363,15 @@
 <x-modal wire:model="showCancelJobModal" :title="__('Cancel Job')" class="backdrop-blur">
     <p>{{ __('The job stops at its next step, or within 30 seconds while a command runs.') }}</p>
 
-    @if($cancelJobIsRestore)
+    @if($cancelJobRestoreTarget)
         <x-alert icon="o-exclamation-triangle" class="alert-warning mt-4">
-            {{ __('A restore stopped midway leaves the target database partially restored.') }}
+            <div class="space-y-1">
+                <div class="font-semibold">{{ __('The target database may be left unusable: :target', ['target' => $cancelJobRestoreTarget]) }}</div>
+                <div>{{ __('Once the restore has started loading data, the previous content of this database is already gone. Cancelling then leaves it partially restored, with only some of its tables and rows. Run a restore again to get a usable database.') }}</div>
+            </div>
         </x-alert>
+    @else
+        <p class="mt-2 text-sm opacity-80">{{ __('The source database is not affected: the dump only reads it, and its partial file is discarded.') }}</p>
     @endif
 
     <x-slot:actions>

@@ -154,7 +154,7 @@ test('can cancel a restore in progress', function () {
 
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $restore->backup_job_id)
-        ->assertSet('cancelJobIsRestore', true)
+        ->assertSet('cancelJobRestoreTarget', "{$restore->targetServer->name} / {$restore->schema_name}")
         ->call('cancelJob');
 
     expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Cancelled);

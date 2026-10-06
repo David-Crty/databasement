@@ -131,11 +131,14 @@ class RecoverStuckJobsCommand extends Command
             return false;
         }
 
+        $failedCount = 0;
+
         foreach ($stuckJobs as $job) {
             try {
                 $job->markFailed(
                     new RuntimeException('Job timed out: stuck in '.$job->status->value.' state beyond the configured timeout.')
                 );
+                $failedCount++;
             } catch (JobCancelledException) {
                 continue;
             }
@@ -149,7 +152,7 @@ class RecoverStuckJobsCommand extends Command
             ->get()
             ->each(fn (AgentJob $agentJob) => $agentJob->markFailed(ucfirst($agentJob->type->value).' timed out.'));
 
-        $this->info("Backup jobs: failed {$stuckJobs->count()} stuck job(s).");
+        $this->info("Backup jobs: failed {$failedCount} stuck job(s).");
 
         return true;
     }
