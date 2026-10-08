@@ -23,6 +23,19 @@ describe('heartbeat', function () {
                 && $request->method() === 'POST';
         });
     });
+
+    test('sends the version and commit headers', function (?string $version, string $expected) {
+        config(['app.version' => $version, 'app.commit_hash' => 'a1b2c3d4e5']);
+        Http::fake();
+
+        $this->client->heartbeat();
+
+        Http::assertSent(fn ($request) => $request->hasHeader(AgentApiClient::VERSION_HEADER, $expected)
+            && $request->hasHeader(AgentApiClient::COMMIT_HEADER, 'a1b2c3d4e5'));
+    })->with([
+        'tagged build' => ['1.9.2', '1.9.2'],
+        'untagged build' => [null, 'dev'],
+    ]);
 });
 
 describe('claimJob', function () {

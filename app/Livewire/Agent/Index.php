@@ -40,6 +40,7 @@ class Index extends Component
         return [
             ['key' => 'name', 'label' => __('Name'), 'class' => 'w-64'],
             ['key' => 'status', 'label' => __('Status'), 'class' => 'w-32', 'sortable' => false],
+            ['key' => 'version', 'label' => __('Version'), 'class' => 'w-40', 'sortable' => false],
             ['key' => 'servers', 'label' => __('Servers'), 'class' => 'w-32', 'sortable' => false],
             ['key' => 'last_heartbeat_at', 'label' => __('Last Heartbeat'), 'class' => 'w-48'],
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-40'],

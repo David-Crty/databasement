@@ -83,6 +83,7 @@ Stop with a clear message if any precondition fails:
 - branch is `main`, the working tree is clean, and after `git fetch origin main` HEAD equals `origin/main`;
 - `git rev-parse -q --verify refs/tags/vx.y.z` finds nothing;
 - `x.y.z` is greater than the last tag.
+- no commit since the last tag breaks agents on a patch release: if any subject has the `agent` scope with a `!` (`feat(agent)!:`, `fix(agent)!:`, any type), `x.y.z` must open a new minor or major (the patch is `0` and `x.y` is greater than the last tag's). Agents are only guaranteed to work with a server of the same minor, so otherwise stop, name the commits, and say to release `x.(y+1).0` instead.
 
 Then:
 

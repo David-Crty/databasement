@@ -173,6 +173,12 @@ This means agent mode requires zero database configuration.
 
 **Agent job types** (`App\Enums\AgentJobType`) each have two halves: an app-side `AgentJobHandler` (`app/Services/Agent/Handlers/`: lease, max attempts, the job record it reports to, what ack/fail do) and an agent-side `AgentJobRunner` (`app/Services/Agent/Runners/`, registered in `AgentRunCommand::RUNNERS`). A new type needs an enum case, both halves, and a `Dispatch*Action` that routes to the agent or the app queue. Agents advertise their runners' types when claiming and are only handed those, so an older agent never receives a type it cannot run; agents up to 1.8 advertise nothing and get backup + discover. Keep the `payload.type` the claim response adds and the `discovered-databases` endpoint: 1.8 agents rely on both.
 
+**Agent compatibility is guaranteed within a minor version.** Agents send their version on every request (`X-Databasement-Version` / `X-Databasement-Commit`), and the Agents page and sidebar treat an agent whose major.minor matches the server's as up to date, whatever the patch. A patch release must therefore never break an agent of the same minor, in either direction (new server with an older agent, or the reverse).
+
+- **Breaking for agents**: removing or renaming an `/api/v1/agent/*` endpoint or a response field the agent reads, making a request field required, changing what a payload field means, or changing what the agent sends in a way the previous server rejects.
+- **Not breaking** (fine in a patch): a new job type (agents advertise their runners, so older ones never receive it), a new optional request field, a new response key older agents ignore.
+- A breaking change ships in a **new minor**, and its PR title uses the `agent` scope with a `!` (`feat(agent)!: …`, `fix(agent)!: …`). The `/changelog` skill refuses a patch release that contains one, so `make release` stops before tagging.
+
 ## Architecture
 
 ### Application Structure
@@ -268,6 +274,8 @@ Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and ren
 1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the commits since the last tag under the `[x.y]` section tagged with the patch, commits to `main` with `--no-verify` (`main` already passed the hook and the commit only touches `CHANGELOG.md`) and pushes.
 2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
 3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
+
+A release containing a `<type>(agent)!:` commit must open a new minor (`x.y.0`, or a new major); the skill stops on a patch version (see "Agent compatibility" under Agent Mode).
 
 To review the entry before tagging, run `/changelog x.y.z` in Claude Code first; `make release` then finds the entry and only tags. The version is the skill's only argument and it always writes and commits.
 

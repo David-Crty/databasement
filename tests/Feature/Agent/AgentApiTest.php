@@ -84,6 +84,25 @@ describe('agent heartbeat', function () {
 
         expect($agent->fresh()->last_heartbeat_at)->not->toBeNull();
     });
+
+    test('records the version the agent reports', function (array $headers, ?string $version, ?string $commit) {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agent->update(['version' => '1.0.0', 'commit_hash' => 'fffffff']);
+
+        $this->withToken($token)
+            ->withHeaders($headers)
+            ->postJson('/api/v1/agent/heartbeat')
+            ->assertOk();
+
+        expect($agent->fresh())
+            ->version->toBe($version)
+            ->commit_hash->toBe($commit);
+    })->with([
+        'tagged build' => [['X-Databasement-Version' => 'v1.9.2', 'X-Databasement-Commit' => 'A1B2C3D'], '1.9.2', 'a1b2c3d'],
+        'untagged build' => [['X-Databasement-Version' => 'dev', 'X-Databasement-Commit' => 'a1b2c3d'], 'dev', 'a1b2c3d'],
+        'unparseable values' => [['X-Databasement-Version' => '<script>', 'X-Databasement-Commit' => 'not-a-hash'], 'dev', null],
+        'agent predating version headers' => [[], null, null],
+    ]);
 });
 
 describe('job claiming', function () {

@@ -10,6 +10,10 @@ use Illuminate\Support\Str;
 
 class AgentApiClient
 {
+    public const string VERSION_HEADER = 'X-Databasement-Version';
+
+    public const string COMMIT_HEADER = 'X-Databasement-Commit';
+
     public function __construct(
         private string $url,
         private string $token,
@@ -115,9 +119,27 @@ class AgentApiClient
         $baseUrl = rtrim($this->url, '/');
 
         return Http::withToken($this->token)
+            ->withHeaders(self::versionHeaders())
             ->accept('application/json')
             ->timeout($timeout)
             ->when($retries > 0, fn (PendingRequest $request) => $request->retry($retries, 1000))
             ->post("{$baseUrl}/api/v1{$path}", $data);
+    }
+
+    /**
+     * Always sent, so the server can tell an untagged build ('dev') from an
+     * agent too old to send the header at all.
+     *
+     * @return array<string, string>
+     */
+    private static function versionHeaders(): array
+    {
+        $headers = [self::VERSION_HEADER => config('app.version') ?: 'dev'];
+
+        if ($commit = config('app.commit_hash')) {
+            $headers[self::COMMIT_HEADER] = $commit;
+        }
+
+        return $headers;
     }
 }

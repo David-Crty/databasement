@@ -7,6 +7,7 @@ use App\Exceptions\Backup\JobCancelledException;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentJob;
+use App\Services\Agent\AgentApiClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -42,14 +43,27 @@ class AgentController extends Controller
     /**
      * Agent heartbeat.
      *
-     * Updates the agent's last heartbeat timestamp.
+     * Updates the agent's last heartbeat timestamp, and the version it runs
+     * from the `X-Databasement-Version` and `X-Databasement-Commit` headers.
+     * Agents that predate those headers are recorded with no version.
      */
     public function heartbeat(Request $request): JsonResponse
     {
         /** @var Agent $agent */
         $agent = $request->user();
 
-        $agent->update(['last_heartbeat_at' => now()]);
+        $version = $request->header(AgentApiClient::VERSION_HEADER);
+        $commit = $request->header(AgentApiClient::COMMIT_HEADER);
+
+        $agent->update([
+            'last_heartbeat_at' => now(),
+            'version' => match (true) {
+                $version === null => null,
+                Agent::minorVersion($version) !== null && strlen($version) <= 32 => ltrim($version, 'v'),
+                default => 'dev',
+            },
+            'commit_hash' => is_string($commit) && preg_match('/^[0-9a-f]{7,40}$/i', $commit) ? strtolower($commit) : null,
+        ]);
 
         return response()->json(['status' => 'ok']);
     }

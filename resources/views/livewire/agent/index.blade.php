@@ -75,6 +75,10 @@
                 <x-agent-status-indicator :status="$agent->connectionStatus()" />
             @endscope
 
+            @scope('cell_version', $agent)
+                <x-agent-version-indicator :agent="$agent" />
+            @endscope
+
             @scope('cell_servers', $agent)
                 <span class="badge badge-ghost badge-sm">{{ $agent->database_servers_count }}</span>
             @endscope

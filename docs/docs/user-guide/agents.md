@@ -70,7 +70,9 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
 
 3. **Assign the agent** to a database server by setting its **Agent** field. From then on, that server's backups, and any restore that targets it, run through the agent.
 
-The **Agents** page shows each agent's connection status, so you can confirm it's polling.
+The **Agents** page shows each agent's connection status, so you can confirm it's polling, and the version it runs. An agent counts as up to date when its major and minor version match the server's, whatever the patch. An agent on an older minor is flagged, and so is one too old to report its version at all; the **Agents** menu entry then shows a warning listing them. Agents built from an untagged image (such as `edge`) show their commit instead and are not compared.
+
+Server and agents are compatible within the same minor version: a patch release never requires updating your agents, but after upgrading the server to a new minor, update your agents too.
 
 ## Constraints
 
