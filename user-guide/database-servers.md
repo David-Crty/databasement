@@ -237,6 +237,14 @@ GRANT RDB$ADMIN TO databasement;
 Restore is performed with `gbak -rep`, which writes a fresh `.fdb` at the target path and replaces an existing file at that path if one is present. The user supplies the destination path during restore.
 :::
 
+## Dump Command Configuration
+
+Every server form has a **Dump Command Configuration** section that tunes the command Databasement runs to produce the dump. A live **Command preview** below the fields shows exactly what will be executed. The section is unavailable for SQLite, which is copied as a file rather than dumped.
+
+### Extra Dump Flags
+
+Free-form flags appended to the dump command, for example `--no-tablespaces --column-statistics=0`. Each whitespace-separated token is passed to the dump tool as a single argument.
+
 ## Browsing Data with Adminer
 
 Databasement can launch [Adminer](https://www.adminer.org/) directly against a registered server to inspect schema and run queries from the browser. Supported for **MySQL**, **PostgreSQL**, and **SQLite** servers that connect without an SSH tunnel.

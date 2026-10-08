@@ -14,6 +14,20 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
+## [1.9] - 2026-10-08 {#v1-9}
+
+### Added
+
+- `1.9.0` The Agents page shows each agent's version next to the server's, and the sidebar warns when an agent runs an older minor version or is too old to report one. Agents are compatible with any server of the same minor version, so upgrade agents whenever the server moves to a new minor ([#681](https://github.com/David-Crty/databasement/pull/681))
+- `1.9.0` Each backup configuration can list tables to leave out of its dumps by bare name, applied to every database the backup dumps, so log tables no longer need one `--ignore-table` flag per database in Extra Dump Flags. PostgreSQL exclusion needs `pg_dump` 16 or later (shipped in the Docker image), and agents older than 1.9.0 ignore the list and dump every table ([#554](https://github.com/David-Crty/databasement/pull/554))
+- `1.9.0` A pending or running backup or restore can be cancelled from the snapshot and restore lists or from its logs. The job stops within 30 seconds, is neither retried nor reported as failed, and the copies it already uploaded are deleted; a restore cancelled mid-way can leave the target database partially restored ([#674](https://github.com/David-Crty/databasement/pull/674))
+- `1.9.0` Command output from jobs run by a remote agent shows live in the job logs, as it already did for jobs on the app's own queue ([#672](https://github.com/David-Crty/databasement/pull/672))
+- `1.9.0` A backup whose remote agent goes silent for 10 minutes while a dump runs is retried, instead of waiting out the whole job timeout, and an agent whose job was taken away stops its dump. The job logs show the last heartbeat of a running command and warn once it is two minutes old. Agents older than 1.9.0 keep the previous behaviour ([#671](https://github.com/David-Crty/databasement/pull/671))
+
+### Fixed
+
+- `1.9.0` A restore that times out while its remote agent is still running it now stops the agent at its next report, instead of letting it carry on and possibly revive the failed restore ([#673](https://github.com/David-Crty/databasement/pull/673))
+
 ## [1.8] - 2026-10-01 {#v1-8}
 
 ### Added
@@ -301,6 +315,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
+[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.0
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12

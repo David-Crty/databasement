@@ -2072,6 +2072,20 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
+## [1.9] - 2026-10-08 {#v1-9}
+
+### Added
+
+- `1.9.0` The Agents page shows each agent's version next to the server's, and the sidebar warns when an agent runs an older minor version or is too old to report one. Agents are compatible with any server of the same minor version, so upgrade agents whenever the server moves to a new minor ([#681](https://github.com/David-Crty/databasement/pull/681))
+- `1.9.0` Each backup configuration can list tables to leave out of its dumps by bare name, applied to every database the backup dumps, so log tables no longer need one `--ignore-table` flag per database in Extra Dump Flags. PostgreSQL exclusion needs `pg_dump` 16 or later (shipped in the Docker image), and agents older than 1.9.0 ignore the list and dump every table ([#554](https://github.com/David-Crty/databasement/pull/554))
+- `1.9.0` A pending or running backup or restore can be cancelled from the snapshot and restore lists or from its logs. The job stops within 30 seconds, is neither retried nor reported as failed, and the copies it already uploaded are deleted; a restore cancelled mid-way can leave the target database partially restored ([#674](https://github.com/David-Crty/databasement/pull/674))
+- `1.9.0` Command output from jobs run by a remote agent shows live in the job logs, as it already did for jobs on the app's own queue ([#672](https://github.com/David-Crty/databasement/pull/672))
+- `1.9.0` A backup whose remote agent goes silent for 10 minutes while a dump runs is retried, instead of waiting out the whole job timeout, and an agent whose job was taken away stops its dump. The job logs show the last heartbeat of a running command and warn once it is two minutes old. Agents older than 1.9.0 keep the previous behaviour ([#671](https://github.com/David-Crty/databasement/pull/671))
+
+### Fixed
+
+- `1.9.0` A restore that times out while its remote agent is still running it now stops the agent at its next report, instead of letting it carry on and possibly revive the failed restore ([#673](https://github.com/David-Crty/databasement/pull/673))
+
 ## [1.8] - 2026-10-01 {#v1-8}
 
 ### Added
@@ -2359,6 +2373,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
+[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.0
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
@@ -2676,6 +2691,14 @@ GRANT RDB$ADMIN TO databasement;
 :::note Restore replaces the target file
 Restore is performed with `gbak -rep`, which writes a fresh `.fdb` at the target path and replaces an existing file at that path if one is present. The user supplies the destination path during restore.
 :::
+
+## Dump Command Configuration
+
+Every server form has a **Dump Command Configuration** section that tunes the command Databasement runs to produce the dump. A live **Command preview** below the fields shows exactly what will be executed. The section is unavailable for SQLite, which is copied as a file rather than dumped.
+
+### Extra Dump Flags
+
+Free-form flags appended to the dump command, for example `--no-tablespaces --column-statistics=0`. Each whitespace-separated token is passed to the dump tool as a single argument.
 
 ## Browsing Data with Adminer
 
@@ -3041,6 +3064,19 @@ redis-cli -h '...' -p '...' -a '...' --no-auth-warning --rdb dump.rdb
 
 All dumps are then compressed with gzip before being transferred to the storage volume.
 
+## Excluding Tables
+
+Each backup configuration of a MySQL / MariaDB or PostgreSQL server can leave tables out of its dumps. Turn on **Exclude tables** under **What to back up** and enter bare table names (no schema prefix), separated by commas or new lines, for example `web_api_log, audit_log`. The list applies to every database that backup dumps, so a daily backup can skip log tables while a weekly one keeps everything.
+
+- **MySQL / MariaDB**: each name is qualified with the database being dumped (`--ignore-table=mydb.web_api_log`).
+- **PostgreSQL**: each name becomes `--exclude-table-and-children="web_api_log"`, matching the table in every schema along with its partitions. The match is case-sensitive. This needs `pg_dump` 16 or later, which the Docker image ships; a native install must provide it too.
+
+Names may contain letters, digits, `_` and `$`, up to 64 characters for MySQL / MariaDB and 63 for PostgreSQL (its default identifier limit), with at most 200 names. Names that match no table are ignored.
+
+:::warning Excluded tables are not in the snapshot
+A restore leaves an excluded table as it is on the target, but **Drop and recreate database before restore** removes it with the rest of the database.
+:::
+
 ## Failed Backups
 
 If a backup fails, check:
@@ -3051,6 +3087,10 @@ If a backup fails, check:
 4. **Timeout**: Large databases may need more time
 
 Failed backup reasons are logged and visible in the snapshot details.
+
+## Cancelling a Backup
+
+A pending or running backup can be cancelled from its row on the **Snapshots** page or from its job logs. The backup stops at its next step, or within 30 seconds while a dump or a script runs, and is not retried. An upload in progress finishes first, and the copies already uploaded are deleted. Cancelling requires the `run-backups` ability.
 
 ## Retention Policies
 
@@ -3165,6 +3205,8 @@ When you restore a snapshot, Databasement:
 3. Connects to the target database server
 4. Drops and recreates the target database (if it exists)
 5. Restores the data using native database tools
+
+A pending or running restore can be cancelled from the **Restores** page or its job logs, with the `operate-restores` ability. It stops at its next step, or within 30 seconds while a command runs. A restore cancelled after step 4 leaves the target database partially restored.
 
 ### Restore Commands
 
@@ -3369,10 +3411,10 @@ The catalogue is fixed and code-defined. Toggle any ability on any role under **
 
 | Ability | Grants |
 |---------|--------|
-| `run-backups` | Run backups on demand |
+| `run-backups` | Run backups on demand and cancel running backups |
 | `download-snapshots` | Download snapshot files |
-| `delete-snapshots` | Delete snapshots and cancel pending backup jobs |
-| `operate-restores` | Restore from snapshots and manage scheduled restores |
+| `delete-snapshots` | Delete snapshots |
+| `operate-restores` | Restore from snapshots, cancel running restores and manage scheduled restores |
 | `use-adminer` | Open the Adminer database browser |
 | `manage-database-servers` | Create, edit and delete database server connections |
 | `manage-volumes` | Create, edit and delete storage volumes |
@@ -3460,7 +3502,7 @@ The MCP server wraps the same services that power the web UI and REST API, so be
 | **list-snapshots** | List backup snapshots, optionally filtered by server. Returns most recent first. | No |
 | **trigger-backup** | Trigger an on-demand backup for a server. Returns snapshot IDs and job IDs for status tracking. | No |
 | **trigger-restore** | Restore a snapshot to a target server. Drops and recreates the target database. | **Yes** |
-| **get-job-status** | Check the status of a backup or restore job (pending, running, completed, failed). | No |
+| **get-job-status** | Check the status of a backup or restore job (pending, running, completed, failed, cancelled). | No |
 
 ## Setup
 
@@ -3927,13 +3969,16 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
 
 3. **Assign the agent** to a database server by setting its **Agent** field. From then on, that server's backups, and any restore that targets it, run through the agent.
 
-The **Agents** page shows each agent's connection status, so you can confirm it's polling.
+The **Agents** page shows each agent's connection status, so you can confirm it's polling, and the version it runs. An agent counts as up to date when its major and minor version match the server's, whatever the patch. An agent on an older minor is flagged, and so is one too old to report its version at all; the **Agents** menu entry then shows a warning listing them. Agents built from an untagged image (such as `edge`) show their commit instead and are not compared.
+
+Server and agents are compatible within the same minor version: a patch release never requires updating your agents, but after upgrading the server to a new minor, update your agents too.
 
 ## Constraints
 
 - **No local volume** — the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
 - **Restores read from a reachable volume** — a restore onto an agent-backed server downloads the snapshot on the agent's network, so the snapshot must have a copy on a volume the agent can reach. Copies on the server's local storage are not offered as a source.
-- **A lost agent delays the retry** — an agent cannot report progress while a dump runs, so a backup stays assigned to its agent for the full backup job timeout. If the agent stops mid-backup (a restart included), the backup is retried only once that timeout has passed.
+- **A lost agent delays the retry** — an agent reports every 30 seconds while a dump runs, and a backup whose agent goes silent for 10 minutes (a restart or a network outage included) is started again from scratch. Agents up to 1.8.4 cannot report during a dump, so their backups are retried only once the full backup job timeout has passed.
+- **Cancelling stops the agent at its next report**: every 30 seconds while a command runs, or at its next step. Agents up to 1.8.4 do not stop: they run the whole job and only see it was cancelled when they report the result.
 - **Restores are never retried** — a restore drops and recreates the target database, so a restore interrupted by a lost agent is reported as failed rather than run again. It is given the full backup job timeout to finish, and fails if no agent claims it within that time.
 
 ## Restoring through an agent

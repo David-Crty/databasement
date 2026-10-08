@@ -63,6 +63,19 @@ redis-cli -h '...' -p '...' -a '...' --no-auth-warning --rdb dump.rdb
 
 All dumps are then compressed with gzip before being transferred to the storage volume.
 
+## Excluding Tables
+
+Each backup configuration of a MySQL / MariaDB or PostgreSQL server can leave tables out of its dumps. Turn on **Exclude tables** under **What to back up** and enter bare table names (no schema prefix), separated by commas or new lines, for example `web_api_log, audit_log`. The list applies to every database that backup dumps, so a daily backup can skip log tables while a weekly one keeps everything.
+
+- **MySQL / MariaDB**: each name is qualified with the database being dumped (`--ignore-table=mydb.web_api_log`).
+- **PostgreSQL**: each name becomes `--exclude-table-and-children="web_api_log"`, matching the table in every schema along with its partitions. The match is case-sensitive. This needs `pg_dump` 16 or later, which the Docker image ships; a native install must provide it too.
+
+Names may contain letters, digits, `_` and `$`, up to 64 characters for MySQL / MariaDB and 63 for PostgreSQL (its default identifier limit), with at most 200 names. Names that match no table are ignored.
+
+:::warning Excluded tables are not in the snapshot
+A restore leaves an excluded table as it is on the target, but **Drop and recreate database before restore** removes it with the rest of the database.
+:::
+
 ## Failed Backups
 
 If a backup fails, check:
@@ -73,6 +86,10 @@ If a backup fails, check:
 4. **Timeout**: Large databases may need more time
 
 Failed backup reasons are logged and visible in the snapshot details.
+
+## Cancelling a Backup
+
+A pending or running backup can be cancelled from its row on the **Snapshots** page or from its job logs. The backup stops at its next step, or within 30 seconds while a dump or a script runs, and is not retried. An upload in progress finishes first, and the copies already uploaded are deleted. Cancelling requires the `run-backups` ability.
 
 ## Retention Policies
 

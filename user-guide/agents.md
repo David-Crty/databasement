@@ -70,13 +70,16 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
 
 3. **Assign the agent** to a database server by setting its **Agent** field. From then on, that server's backups, and any restore that targets it, run through the agent.
 
-The **Agents** page shows each agent's connection status, so you can confirm it's polling.
+The **Agents** page shows each agent's connection status, so you can confirm it's polling, and the version it runs. An agent counts as up to date when its major and minor version match the server's, whatever the patch. An agent on an older minor is flagged, and so is one too old to report its version at all; the **Agents** menu entry then shows a warning listing them. Agents built from an untagged image (such as `edge`) show their commit instead and are not compared.
+
+Server and agents are compatible within the same minor version: a patch release never requires updating your agents, but after upgrading the server to a new minor, update your agents too.
 
 ## Constraints
 
 - **No local volume** — the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
 - **Restores read from a reachable volume** — a restore onto an agent-backed server downloads the snapshot on the agent's network, so the snapshot must have a copy on a volume the agent can reach. Copies on the server's local storage are not offered as a source.
-- **A lost agent delays the retry** — an agent cannot report progress while a dump runs, so a backup stays assigned to its agent for the full backup job timeout. If the agent stops mid-backup (a restart included), the backup is retried only once that timeout has passed.
+- **A lost agent delays the retry** — an agent reports every 30 seconds while a dump runs, and a backup whose agent goes silent for 10 minutes (a restart or a network outage included) is started again from scratch. Agents up to 1.8.4 cannot report during a dump, so their backups are retried only once the full backup job timeout has passed.
+- **Cancelling stops the agent at its next report**: every 30 seconds while a command runs, or at its next step. Agents up to 1.8.4 do not stop: they run the whole job and only see it was cancelled when they report the result.
 - **Restores are never retried** — a restore drops and recreates the target database, so a restore interrupted by a lost agent is reported as failed rather than run again. It is given the full backup job timeout to finish, and fails if no agent claims it within that time.
 
 ## Restoring through an agent
