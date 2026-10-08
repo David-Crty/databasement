@@ -27,6 +27,7 @@ class AgentJobPayloadBuilder
      *     backup_path: string,
      *     server_name: string,
      *     post_backup_script: string|null,
+     *     excluded_tables: list<string>,
      * }
      */
     public function buildBackup(Snapshot $snapshot): array
@@ -47,6 +48,7 @@ class AgentJobPayloadBuilder
             compressionLevel: AppConfig::get('backup.compression_level'),
             compressionMultithread: (bool) AppConfig::get('backup.compression_multithread'),
             postBackupScript: AppConfig::get('backup.post_backup_script'),
+            excludedTables: Backup::parseExcludedTables($snapshot->backup?->excluded_tables),
         );
 
         return $config->toPayload();

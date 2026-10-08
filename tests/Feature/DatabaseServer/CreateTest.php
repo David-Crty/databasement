@@ -319,7 +319,8 @@ test('can create database server with excluded tables', function () {
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
-        ->set('form.excluded_tables', "web_api_log, web_service_log\naudit_log")
+        ->set('form.backups.0.exclude_tables', true)
+        ->set('form.backups.0.excluded_tables', "web_api_log, web_service_log\naudit_log")
         ->set('form.backups.0.database_names.0', 'myapp')
         ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
@@ -330,7 +331,7 @@ test('can create database server with excluded tables', function () {
 
     $server = DatabaseServer::where('name', 'MySQL Excluding Logs')->first();
 
-    expect($server->getExtraConfig('excluded_tables'))
+    expect($server->backups->first()->excluded_tables)
         ->toBe(['web_api_log', 'web_service_log', 'audit_log']);
 });
 
@@ -346,13 +347,14 @@ test('rejects excluded table names that are not plain identifiers', function (st
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
-        ->set('form.excluded_tables', $excluded)
+        ->set('form.backups.0.exclude_tables', true)
+        ->set('form.backups.0.excluded_tables', $excluded)
         ->set('form.backups.0.database_names.0', 'myapp')
         ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         ->call('save')
-        ->assertHasErrors('form.excluded_tables');
+        ->assertHasErrors('form.backups.0.excluded_tables');
 
     expect(DatabaseServer::where('name', 'MySQL Bad Exclusions')->exists())->toBeFalse();
 })->with([
@@ -705,7 +707,7 @@ test('postgres connection database round-trips through the form', function () {
         ->assertSet('form.connection_database', 'app_db');
 });
 
-test('a failed save points the user at the first invalid field', function (string $field, string $value) {
+test('a failed save points the user at the first invalid field', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();
 
@@ -717,24 +719,21 @@ test('a failed save points the user at the first invalid field', function (strin
         ->set('form.port', 3306)
         ->set('form.username', 'dbuser')
         ->set('form.password', 'secret123')
-        ->set("form.{$field}", $value)
+        ->set('form.dump_flags', '--result-file asdasd')
         ->set('form.backups.0.volume_ids', [$volume->id])
         ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
         ->set('form.backups.0.retention_days', 14)
         ->set('form.backups.0.database_names.0', 'myapp_production')
         ->call('save')
-        ->assertHasErrors("form.{$field}")
-        ->assertDispatched('validation-failed', field: "form.{$field}")
+        ->assertHasErrors('form.dump_flags')
+        ->assertDispatched('validation-failed', field: 'form.dump_flags')
         // The offending field lives in a collapsed section, so the error is
         // unreachable unless the section is expanded too.
         ->assertSet('form.dump_config_open', true);
 
     expect(json_encode($component->effects['xjs'] ?? []))
         ->toContain('1 field needs your attention');
-})->with([
-    'dump flags' => ['dump_flags', '--result-file asdasd'],
-    'excluded tables' => ['excluded_tables', 'audit.log'],
-]);
+});
 
 test('the dump preview names the client the detected server needs', function (?string $version, string $expectedBinary) {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();

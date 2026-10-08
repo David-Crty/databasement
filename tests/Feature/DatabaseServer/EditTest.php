@@ -354,6 +354,22 @@ test('edit hydrates multiple backup configurations', function () {
         ->and($state[1]['id'])->toBe($server->backups[1]->id);
 });
 
+test('switching exclude tables off clears the excluded tables', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $server->backups->first()->update(['excluded_tables' => ['audit_log', 'web_api_log']]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->assertSet('form.backups.0.exclude_tables', true)
+        ->assertSet('form.backups.0.excluded_tables', 'audit_log, web_api_log')
+        ->set('form.backups.0.exclude_tables', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($server->backups()->first()->excluded_tables)->toBeNull();
+});
+
 test('save creates a second backup row when a card is added', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();

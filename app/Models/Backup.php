@@ -46,6 +46,7 @@ class Backup extends Model
         'database_selection_mode',
         'database_names',
         'database_include_pattern',
+        'excluded_tables',
     ];
 
     protected function casts(): array
@@ -53,6 +54,7 @@ class Backup extends Model
         return [
             'database_selection_mode' => DatabaseSelectionMode::class,
             'database_names' => 'array',
+            'excluded_tables' => 'array',
             'retention_days' => 'integer',
             'gfs_keep_daily' => 'integer',
             'gfs_keep_weekly' => 'integer',
@@ -102,6 +104,30 @@ class Backup extends Model
             DatabaseSelectionMode::Selected => Formatters::truncatedList($this->database_names ?? [], 2),
             DatabaseSelectionMode::Pattern => '/'.$this->database_include_pattern.'/',
         };
+    }
+
+    /**
+     * Normalize excluded table names into a clean list.
+     *
+     * Accepts the form's comma- or newline-separated textarea string as well
+     * as an already-structured array (REST API). Blank entries and duplicates
+     * are dropped; names are validated by {@see \App\Rules\ExcludedTableNames}.
+     *
+     * @return list<string>
+     */
+    public static function parseExcludedTables(mixed $value): array
+    {
+        if (is_string($value)) {
+            $value = preg_split('/[,\r\n]+/', $value) ?: [];
+        }
+
+        if (! is_array($value)) {
+            return [];
+        }
+
+        $names = array_map(trim(...), array_filter($value, is_string(...)));
+
+        return array_values(array_unique(array_filter($names, fn (string $name): bool => $name !== '')));
     }
 
     /**

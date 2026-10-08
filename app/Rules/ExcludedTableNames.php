@@ -2,7 +2,7 @@
 
 namespace App\Rules;
 
-use App\Models\DatabaseServer;
+use App\Models\Backup;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
@@ -33,7 +33,7 @@ readonly class ExcludedTableNames implements ValidationRule
             return;
         }
 
-        $names = DatabaseServer::parseExcludedTables($value);
+        $names = Backup::parseExcludedTables($value);
 
         if (count($names) > self::MAX_NAMES) {
             $fail(__('The :attribute may not have more than :max table names.', ['max' => self::MAX_NAMES]));

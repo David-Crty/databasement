@@ -64,6 +64,7 @@ class BackupTask
                 $config->databaseName,
                 $this->getConnectionHost($db),
                 $this->getConnectionPort($db),
+                excludedTables: $config->excludedTables,
             );
 
             $result = $database->dump($workingFile);

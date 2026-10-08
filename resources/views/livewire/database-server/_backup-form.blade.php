@@ -309,6 +309,25 @@
                         @endif
                     </div>
                 @endif
+
+                @if($serverType->supportsExcludedTables())
+                    <x-toggle
+                        wire:model.live="form.backups.{{ $index }}.exclude_tables"
+                        :label="__('Exclude tables')"
+                        :hint="__('Leave specific tables out of every database in this backup')"
+                        class="toggle-primary"
+                    />
+
+                    @if(! empty($backup['exclude_tables']))
+                        <x-textarea
+                            wire:model.live.debounce.300ms="form.backups.{{ $index }}.excluded_tables"
+                            :label="__('Excluded Tables')"
+                            :placeholder="__('e.g., web_api_log, web_service_log')"
+                            :hint="__('Table names without schema prefix, separated by commas or new lines.')"
+                            rows="3"
+                        />
+                    @endif
+                @endif
             </div>
         @endif
 

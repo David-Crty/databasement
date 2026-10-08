@@ -111,6 +111,7 @@ class ProcessBackupJob implements ShouldQueue
                 workingDirectory: FilesystemSupport::createWorkingDirectory('backup', $snapshot->id),
                 backupPath: $backupPath,
                 postBackupScript: AppConfig::get('backup.post_backup_script'),
+                excludedTables: \App\Models\Backup::parseExcludedTables($snapshot->backup?->excluded_tables),
             );
 
             $result = $backupTask->execute($config, $job);

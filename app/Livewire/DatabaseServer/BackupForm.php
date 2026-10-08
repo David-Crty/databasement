@@ -8,6 +8,7 @@ use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
+use App\Rules\ExcludedTableNames;
 use App\Rules\SafeDatabaseName;
 use App\Rules\SafeDatabasePath;
 use App\Rules\SafePath;
@@ -46,6 +47,8 @@ final class BackupForm
             'database_names' => [],
             'database_names_input' => '',
             'database_include_pattern' => '',
+            'exclude_tables' => false,
+            'excluded_tables' => '',
         ];
     }
 
@@ -70,6 +73,8 @@ final class BackupForm
             'database_names' => $backup->database_names ?? [],
             'database_names_input' => implode(', ', $backup->database_names ?? []),
             'database_include_pattern' => $backup->database_include_pattern ?? '',
+            'exclude_tables' => ! empty($backup->excluded_tables),
+            'excluded_tables' => implode(', ', $backup->excluded_tables ?? []),
         ];
     }
 
@@ -95,6 +100,10 @@ final class BackupForm
             'database_selection_mode' => $entry['database_selection_mode'] ?? DatabaseSelectionMode::All->value,
             'database_names' => $entry['database_names'] ?? null,
             'database_include_pattern' => ! empty($entry['database_include_pattern']) ? $entry['database_include_pattern'] : null,
+            // The API sends the list without the form's toggle, so a missing toggle means enabled.
+            'excluded_tables' => ($entry['exclude_tables'] ?? true)
+                ? (Backup::parseExcludedTables($entry['excluded_tables'] ?? null) ?: null)
+                : null,
         ];
 
         if ($retentionPolicy === Backup::RETENTION_DAYS) {
@@ -116,6 +125,10 @@ final class BackupForm
      */
     public static function normalizeSelection(array &$entry, DatabaseType $serverType): void
     {
+        if (! $serverType->supportsExcludedTables()) {
+            $entry['excluded_tables'] = null;
+        }
+
         if ($serverType === DatabaseType::REDIS) {
             $entry['database_selection_mode'] = DatabaseSelectionMode::All->value;
             $entry['database_names'] = null;
@@ -257,6 +270,10 @@ final class BackupForm
             if ($mode === DatabaseSelectionMode::Pattern->value) {
                 $rules[$prefix.'database_include_pattern'] = 'required|string|max:500';
             }
+        }
+
+        if ($serverType->supportsExcludedTables() && ! empty($entry['exclude_tables'])) {
+            $rules[$prefix.'excluded_tables'] = ['required', 'string', new ExcludedTableNames];
         }
 
         return $rules;

@@ -139,7 +139,8 @@ test('execute establishes SSH tunnel when server requires it', function () {
             Mockery::on(fn ($c) => $c->host === 'private-db.internal'),
             'myapp',
             '127.0.0.1',
-            54321
+            54321,
+            null, null, null, false, [],
         )
         ->andReturn($mockHandler);
 
@@ -181,7 +182,7 @@ test('execute establishes SSH tunnel when server requires it', function () {
     expect($result)->toBeInstanceOf(BackupResult::class);
 });
 
-test('execute uses server host and port when no SSH tunnel is needed', function () {
+test('execute uses server host and port, and the excluded tables, when no SSH tunnel is needed', function () {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('dump')
         ->once()
@@ -196,7 +197,8 @@ test('execute uses server host and port when no SSH tunnel is needed', function 
             Mockery::type(DatabaseConnectionConfig::class),
             'myapp',
             'localhost',
-            3306
+            3306,
+            null, null, null, false, ['audit_log'],
         )
         ->andReturn($mockHandler);
 
@@ -211,7 +213,13 @@ test('execute uses server host and port when no SSH tunnel is needed', function 
         new PostScriptRunner,
     );
 
-    $config = buildBackupConfig();
+    $config = new BackupConfig(
+        database: buildDbConfig(),
+        volumes: [buildVolumeConfig()],
+        databaseName: 'myapp',
+        workingDirectory: test()->tempDir.'/execute-test-'.uniqid(),
+        excludedTables: ['audit_log'],
+    );
     mkdir($config->workingDirectory, 0755, true);
 
     $backupTask->execute($config, new InMemoryBackupLogger);

@@ -146,37 +146,41 @@ test('store moves auth_source and dump_flags to extra_config', function () {
         ->assertJsonPath('data.extra_config.dump_flags', '--single-transaction');
 });
 
-test('store moves excluded_tables to extra_config', function () {
+/** A MySQL server payload whose one backup excludes $excludedTables. */
+function serverPayloadExcluding(array $excludedTables): array
+{
+    return [
+        'name' => 'MySQL excluding logs',
+        'database_type' => 'mysql',
+        'host' => 'localhost',
+        'port' => 3306,
+        'username' => 'root',
+        'backups' => [[
+            'database_selection_mode' => 'all',
+            'volume_id' => Volume::factory()->local()->create()->id,
+            'backup_schedule_id' => BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *'])->id,
+            'retention_policy' => 'days',
+            'retention_days' => 14,
+            'excluded_tables' => $excludedTables,
+        ]],
+    ];
+}
+
+test('store saves excluded_tables on the backup configuration', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/database-servers', [
-            'name' => 'MySQL excluding logs',
-            'database_type' => 'mysql',
-            'host' => 'localhost',
-            'port' => 3306,
-            'username' => 'root',
-            'excluded_tables' => ['web_api_log', 'web_service_log'],
-            'backups_enabled' => false,
-        ])
+        ->postJson('/api/v1/database-servers', serverPayloadExcluding(['web_api_log', 'web_service_log']))
         ->assertCreated()
-        ->assertJsonPath('data.extra_config.excluded_tables', ['web_api_log', 'web_service_log']);
+        ->assertJsonPath('data.backups.0.excluded_tables', ['web_api_log', 'web_service_log']);
 });
 
 test('store rejects excluded table names that are not plain identifiers', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
     $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/database-servers', [
-            'name' => 'MySQL bad exclusions',
-            'database_type' => 'mysql',
-            'host' => 'localhost',
-            'port' => 3306,
-            'username' => 'root',
-            'excluded_tables' => ['logs; DROP TABLE users'],
-            'backups_enabled' => false,
-        ])
-        ->assertJsonValidationErrors('excluded_tables.0');
+        ->postJson('/api/v1/database-servers', serverPayloadExcluding(['logs; DROP TABLE users']))
+        ->assertJsonValidationErrors('backups.0.excluded_tables.0');
 });
 
 test('update preserves extra_config when keys are not sent', function () {

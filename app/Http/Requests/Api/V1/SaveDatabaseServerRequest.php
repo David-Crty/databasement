@@ -77,8 +77,6 @@ class SaveDatabaseServerRequest extends FormRequest
         if (in_array($type, ['mysql', 'postgres'])) {
             $rules['username'] = 'required|string|max:255';
             $rules['password'] = 'nullable';
-            $rules['excluded_tables'] = ['nullable', 'array', 'max:'.ExcludedTableNames::MAX_NAMES];
-            $rules['excluded_tables.*'] = ['string', 'max:'.ExcludedTableNames::MAX_NAME_LENGTH, 'regex:'.ExcludedTableNames::PATTERN];
         }
 
         if ($type === 'postgres') {
@@ -122,6 +120,11 @@ class SaveDatabaseServerRequest extends FormRequest
                 $rules['backups.*.database_names'] = 'nullable|array';
                 $rules['backups.*.database_names.*'] = ['string', 'max:255', new SafeDatabaseName];
                 $rules['backups.*.database_include_pattern'] = 'nullable|string|max:500';
+            }
+
+            if ($databaseType?->supportsExcludedTables() ?? false) {
+                $rules['backups.*.excluded_tables'] = ['nullable', 'array', 'max:'.ExcludedTableNames::MAX_NAMES];
+                $rules['backups.*.excluded_tables.*'] = ['string', 'max:'.ExcludedTableNames::MAX_NAME_LENGTH, 'regex:'.ExcludedTableNames::PATTERN];
             }
         }
 

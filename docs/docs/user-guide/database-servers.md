@@ -245,19 +245,6 @@ Every server form has a **Dump Command Configuration** section that tunes the co
 
 Free-form flags appended to the dump command, for example `--no-tablespaces --column-statistics=0`. Each whitespace-separated token is passed to the dump tool as a single argument.
 
-### Excluded Tables
-
-Tables left out of every database backed up for this server. Enter bare table names (no schema prefix), separated by commas or new lines, for example `web_api_log, audit_log`. Available for **MySQL / MariaDB** and **PostgreSQL**.
-
-- **MySQL / MariaDB**: each name is qualified with the database being dumped (`--ignore-table=mydb.web_api_log`), so one entry covers every database on the server.
-- **PostgreSQL**: each name becomes `--exclude-table-and-children="web_api_log"`, matching the table in every schema along with its partitions. The match is case-sensitive. This needs `pg_dump` 16 or later, which the Docker image ships; a native install must provide it too.
-
-Names may contain letters, digits, `_` and `$` (up to 64 characters, at most 200 names). Names that match no table are ignored.
-
-:::warning Excluded tables are not in the snapshot
-A restore leaves an excluded table as it is on the target, but **Drop and recreate database before restore** removes it with the rest of the database.
-:::
-
 ## Browsing Data with Adminer
 
 Databasement can launch [Adminer](https://www.adminer.org/) directly against a registered server to inspect schema and run queries from the browser. Supported for **MySQL**, **PostgreSQL**, and **SQLite** servers that connect without an SSH tunnel.
