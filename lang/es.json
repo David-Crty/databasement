@@ -7,7 +7,7 @@
   "(You)": "(Tú)",
   "... and :count more": "... y :count más",
   "2FA Recovery Codes": "Códigos de recuperación 2FA",
-  ":count agent needs an update|:count agents need an update": "{1} :count agent necesita una actualización|[2,*] :count agents necesitan una actualización",
+  ":count agent needs an update|:count agents need an update": ":count agent necesita una actualización|:count agents necesitan una actualización",
   ":count backup file could not be found on its storage volume.|:count backup files could not be found on their storage volumes.": ":count archivo de backup no se pudo encontrar en su volumen de almacenamiento.|:count archivos de backup no se pudieron encontrar en sus volúmenes de almacenamiento.",
   ":count backup file missing|:count backup files missing": ":count archivo de backup faltante|:count archivos de backup faltantes",
   ":count backups started, :failures failed": ":count backups iniciados, :failures fallidos",

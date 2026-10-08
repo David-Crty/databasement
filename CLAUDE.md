@@ -177,7 +177,7 @@ This means agent mode requires zero database configuration.
 
 - **Breaking for agents**: removing or renaming an `/api/v1/agent/*` endpoint or a response field the agent reads, making a request field required, changing what a payload field means, or changing what the agent sends in a way the previous server rejects.
 - **Not breaking** (fine in a patch): a new job type (agents advertise their runners, so older ones never receive it), a new optional request field, a new response key older agents ignore.
-- A breaking change ships in a **new minor**, and its PR title uses the `agent` scope with a `!` (`feat(agent)!: …`, `fix(agent)!: …`). The `/changelog` skill refuses a patch release that contains one, so `make release` stops before tagging.
+- A breaking change ships in a **new minor**, and its PR title uses the `agent` scope with a `!` (`feat(agent)!: …`, `fix(agent)!: …`). `make release` refuses a patch version when a commit since the last tag has that title, even when the changelog entry was written beforehand, and the `/changelog` skill checks the same.
 
 ## Architecture
 
@@ -275,7 +275,7 @@ Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and ren
 2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
 3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
 
-A release containing a `<type>(agent)!:` commit must open a new minor (`x.y.0`, or a new major); the skill stops on a patch version (see "Agent compatibility" under Agent Mode).
+A release containing a `<type>(agent)!:` commit must open a new minor (`x.y.0`, or a new major): `make release` checks this before anything else and stops on a patch version (see "Agent compatibility" under Agent Mode).
 
 To review the entry before tagging, run `/changelog x.y.z` in Claude Code first; `make release` then finds the entry and only tags. The version is the skill's only argument and it always writes and commits.
 

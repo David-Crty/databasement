@@ -123,6 +123,31 @@ class Agent extends Model
     }
 
     /**
+     * What the version badge shows: the version, the short commit of an
+     * untagged build, or 'Outdated' for an agent too old to report one.
+     * Empty when the agent never connected.
+     */
+    public function versionLabel(): string
+    {
+        return match ($this->versionStatus()) {
+            'never' => '',
+            'legacy' => __('Outdated'),
+            'dev' => $this->commit_hash !== null ? substr($this->commit_hash, 0, 7) : 'dev',
+            default => 'v'.$this->version,
+        };
+    }
+
+    /**
+     * This server's version as "vX.Y.Z", or null on an untagged build.
+     */
+    public static function serverVersion(): ?string
+    {
+        $version = config('app.version');
+
+        return self::minorVersion($version) !== null ? 'v'.ltrim($version, 'v') : null;
+    }
+
+    /**
      * The "major.minor" part of a semver string, or null when it is not one.
      */
     public static function minorVersion(?string $version): ?string

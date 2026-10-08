@@ -223,6 +223,12 @@ release: ## Create a new release (usage: make release VERSION=1.0.1)
 		echo "$(YELLOW)Error: Working directory is not clean. Commit or stash changes first.$(NC)"; \
 		exit 1; \
 	fi
+	@version=$(VERSION); breaking=$$(git log HEAD --not --tags --no-merges --format='%h %s' | grep -E '^[0-9a-f]+ [a-z]+\(agent\)!:'); \
+	if [ -n "$$breaking" ] && [ "$${version##*.}" != "0" ]; then \
+		echo "$(YELLOW)Error: these commits break agents, so $(VERSION) must open a new minor (x.y.0), not a patch:$(NC)"; \
+		echo "$$breaking"; \
+		exit 1; \
+	fi
 	@if ! grep -q '^- `$(VERSION)`' CHANGELOG.md; then \
 		echo "$(GREEN)No $(VERSION) entries in CHANGELOG.md, writing them with Claude Code (/changelog $(VERSION))...$(NC)"; \
 		claude -p "/changelog $(VERSION)" \

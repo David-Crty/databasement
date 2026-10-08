@@ -7,7 +7,7 @@
   "(You)": "（你）",
   "... and :count more": "……還有 :count 個",
   "2FA Recovery Codes": "2FA 恢復代碼",
-  ":count agent needs an update|:count agents need an update": "一個 agent 需要更新|兩個 agent 需要更新|:count個 agent 需要更新",
+  ":count agent needs an update|:count agents need an update": "{1} 一個 agent 需要更新|{2} 兩個 agent 需要更新|[3,*] :count個 agent 需要更新",
   ":count backup file could not be found on its storage volume.|:count backup files could not be found on their storage volumes.": "{1} 一個 Backup 檔案在儲存空間中找不到。|{2} 兩個 Backup 檔案在儲存空間中找不到。|[3,*] :count 個 Backup 檔案在儲存空間中找不到。",
   ":count backup file missing|:count backup files missing": "{1} 一個 Backup 檔案遺失|{2} 兩個 Backup 檔案遺失|[3,*] :count 個 Backup 檔案遺失",
   ":count backups started, :failures failed": ":count 個 Backup 已開始，:failures 個失敗",

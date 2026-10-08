@@ -866,7 +866,7 @@
   "Separate multiple addresses with a comma.": "Séparez plusieurs adresses par une virgule.",
   "Server": "Serveur",
   "Server Name": "Nom du serveur",
-  "Server runs :version": "Le serveur utilise la :version",
+  "Server runs :version": "Le serveur utilise :version",
   "Server URL": "URL du serveur",
   "Server:": "Serveur :",
   "Servers": "Serveurs",

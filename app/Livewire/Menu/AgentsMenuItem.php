@@ -31,6 +31,12 @@ class AgentsMenuItem extends Component
             ->values();
     }
 
+    #[Computed]
+    public function serverVersion(): ?string
+    {
+        return Agent::serverVersion();
+    }
+
     public function render(): View
     {
         return view('livewire.menu.agents-menu-item');

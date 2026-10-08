@@ -42,13 +42,13 @@
                     @foreach($this->outdatedAgents as $agent)
                         <div class="flex items-center justify-between gap-2">
                             <span class="truncate">{{ $agent->name }}</span>
-                            <span class="font-mono text-base-content/70 shrink-0">{{ $agent->version ? 'v'.$agent->version : __('Outdated') }}</span>
+                            <span class="font-mono text-base-content/70 shrink-0">{{ $agent->versionLabel() }}</span>
                         </div>
                     @endforeach
                 </div>
-                @if(\App\Models\Agent::minorVersion(config('app.version')))
+                @if($this->serverVersion)
                     <div class="text-base-content/70">
-                        {{ __('Server runs :version', ['version' => 'v'.ltrim(config('app.version'), 'v')]) }}
+                        {{ __('Server runs :version', ['version' => $this->serverVersion]) }}
                     </div>
                 @endif
             </div>
