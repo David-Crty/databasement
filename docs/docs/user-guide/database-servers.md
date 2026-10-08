@@ -247,25 +247,16 @@ Free-form flags appended to the dump command, for example `--no-tablespaces --co
 
 ### Excluded Tables
 
-Tables listed here are left out of every database backed up for this server. Enter **table names only, without a schema prefix**, separated by commas or new lines:
+Tables left out of every database backed up for this server. Enter bare table names (no schema prefix), separated by commas or new lines, for example `web_api_log, audit_log`. Available for **MySQL / MariaDB** and **PostgreSQL**.
 
-```text
-web_api_log, web_service_log
-audit_log
-```
+- **MySQL / MariaDB**: each name is qualified with the database being dumped (`--ignore-table=mydb.web_api_log`), so one entry covers every database on the server.
+- **PostgreSQL**: each name becomes `--exclude-table-and-children="web_api_log"`, matching the table in every schema along with its partitions. The match is case-sensitive. This needs `pg_dump` 16 or later, which the Docker image ships; a native install must provide it too.
 
-Databasement expands the list per dump, so one entry covers every database on the server:
+Names may contain letters, digits, `_` and `$` (up to 64 characters, at most 200 names). Names that match no table are ignored.
 
-- **MySQL / MariaDB** — each database is dumped separately, so the names are qualified with the database being dumped: dumping `datasoft` adds `--ignore-table=datasoft.web_api_log --ignore-table=datasoft.web_service_log`, and dumping `red` adds the same flags with the `red.` prefix. This avoids having to maintain one flag per schema-table pair by hand, and it keeps working when a new database appears on the server.
-- **PostgreSQL** — the names are passed unqualified and double-quoted as `--exclude-table-and-children="web_api_log"`, which matches the table in every schema of the database being dumped, together with its partitions and any tables inheriting from it. The quotes keep the match case-sensitive: `WebApiLog` excludes only a table created with that exact case.
-
-Names must be plain identifiers (letters, digits, `_` and `$`, up to 64 characters), and at most 200 may be listed. Excluding a table that does not exist is harmless — both dump tools ignore unmatched names.
-
-:::warning Excluded tables are missing from the snapshot
-A restore recreates only what the dump contains. An excluded table is not restored: it survives on the target only if it is already there and the restore leaves it alone. **Drop and recreate database before restore** drops it with the rest of the database, so the table is absent afterwards.
+:::warning Excluded tables are not in the snapshot
+A restore leaves an excluded table as it is on the target, but **Drop and recreate database before restore** removes it with the rest of the database.
 :::
-
-Excluded Tables is available for **MySQL / MariaDB** and **PostgreSQL**; the other supported engines have no per-table exclusion in their dump tools.
 
 ## Browsing Data with Adminer
 

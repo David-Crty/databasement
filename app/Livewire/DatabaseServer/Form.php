@@ -720,7 +720,7 @@ class Form extends \Livewire\Form
      */
     public function supportsExcludedTables(): bool
     {
-        return DatabaseServer::supportsExcludedTables($this->database_type);
+        return DatabaseType::tryFrom($this->database_type)?->supportsExcludedTables() ?? false;
     }
 
     /**

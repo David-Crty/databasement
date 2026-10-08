@@ -372,7 +372,7 @@ class DatabaseServer extends Model
             ['srv_enabled',         fn ($v) => $type === DatabaseType::MONGODB->value && $v,                       fn () => true],
             ['connection_options',  fn ($v) => $type === DatabaseType::MONGODB->value && $v !== '' && $v !== null, fn ($v) => $v],
             ['dump_flags',          fn ($v) => $type !== DatabaseType::SQLITE->value && $v !== '' && $v !== null,  fn ($v) => $v],
-            ['excluded_tables',     fn ($v) => self::supportsExcludedTables($type) && self::parseExcludedTables($v) !== [], fn ($v) => self::parseExcludedTables($v)],
+            ['excluded_tables',     fn ($v) => (DatabaseType::tryFrom($type)?->supportsExcludedTables() ?? false) && self::parseExcludedTables($v) !== [], fn ($v) => self::parseExcludedTables($v)],
             ['dump_format',         fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v === 'custom',       fn () => 'custom'],
             ['dump_privileges',     fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v,                    fn () => true],
             ['ssl_enabled',         fn ($v) => in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value], true) && $v, fn () => true],
@@ -413,17 +413,6 @@ class DatabaseServer extends Model
         } else {
             unset($extraConfig[$key]);
         }
-    }
-
-    /**
-     * Whether a database type can exclude individual tables from its dump.
-     *
-     * Only the two table-based SQL types have a per-table exclusion flag:
-     * `mariadb-dump --ignore-table` and `pg_dump --exclude-table`.
-     */
-    public static function supportsExcludedTables(?string $type): bool
-    {
-        return in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value], true);
     }
 
     /**

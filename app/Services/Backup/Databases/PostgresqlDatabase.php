@@ -104,15 +104,11 @@ class PostgresqlDatabase implements DatabaseInterface
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::POSTGRESQL);
         }
 
-        // Unqualified patterns match the table in every schema of the database
-        // being dumped; quoting keeps the name's case. The -and-children form
-        // (pg_dump 16+) also drops a partitioned table's partitions, which
-        // plain --exclude-table would still dump.
-        $extraFlags .= DatabaseOperationResult::escapeTableExclusions(
-            '--exclude-table-and-children',
-            $this->config['excluded_tables'] ?? null,
-            quote: '"',
-        );
+        // An unqualified pattern matches the table in every schema, and the quotes stop pg_dump
+        // lowercasing it. The -and-children form (pg_dump 16+) also drops a partitioned table's partitions.
+        foreach ($this->config['excluded_tables'] ?? [] as $table) {
+            $extraFlags .= ' '.escapeshellarg("--exclude-table-and-children=\"{$table}\"");
+        }
 
         $major = $this->serverMajorVersion();
         $binary = $this->binary('pg_dump', $major);

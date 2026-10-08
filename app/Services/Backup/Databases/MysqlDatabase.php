@@ -119,13 +119,10 @@ class MysqlDatabase implements DatabaseInterface
             $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::MYSQL);
         }
 
-        // mariadb-dump qualifies --ignore-table by schema, so the names are
-        // expanded against whichever database this dump targets.
-        $extraFlags .= DatabaseOperationResult::escapeTableExclusions(
-            '--ignore-table',
-            $this->config['excluded_tables'] ?? null,
-            $this->config['database'].'.',
-        );
+        // --ignore-table needs the schema, so each name is qualified with the database this dump targets.
+        foreach ($this->config['excluded_tables'] ?? [] as $table) {
+            $extraFlags .= ' '.escapeshellarg("--ignore-table={$this->config['database']}.{$table}");
+        }
 
         // Flags must come before `--` and the database name; both clients treat anything after it as table names.
         // The output file comes after the extra flags, so it is the one the client keeps.

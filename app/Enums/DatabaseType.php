@@ -60,6 +60,18 @@ enum DatabaseType: string
         };
     }
 
+    /**
+     * Whether the dump client can leave out individual tables:
+     * `mariadb-dump --ignore-table` and `pg_dump --exclude-table-and-children`.
+     */
+    public function supportsExcludedTables(): bool
+    {
+        return match ($this) {
+            self::MYSQL, self::POSTGRESQL => true,
+            default => false,
+        };
+    }
+
     public function defaultPort(): int
     {
         return match ($this) {
