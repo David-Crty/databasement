@@ -70,7 +70,7 @@ Each backup configuration of a MySQL / MariaDB or PostgreSQL server can leave ta
 - **MySQL / MariaDB**: each name is qualified with the database being dumped (`--ignore-table=mydb.web_api_log`).
 - **PostgreSQL**: each name becomes `--exclude-table-and-children="web_api_log"`, matching the table in every schema along with its partitions. The match is case-sensitive. This needs `pg_dump` 16 or later, which the Docker image ships; a native install must provide it too.
 
-Names may contain letters, digits, `_` and `$` (up to 64 characters, at most 200 names). Names that match no table are ignored.
+Names may contain letters, digits, `_` and `$`, up to 64 characters for MySQL / MariaDB and 63 for PostgreSQL (its default identifier limit), with at most 200 names. Names that match no table are ignored.
 
 :::warning Excluded tables are not in the snapshot
 A restore leaves an excluded table as it is on the target, but **Drop and recreate database before restore** removes it with the rest of the database.
