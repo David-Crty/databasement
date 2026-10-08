@@ -27,9 +27,7 @@ class VolumeQuery
             ->allowedFilters(
                 AllowedFilter::partial('name'),
                 AllowedFilter::exact('type'),
-                AllowedFilter::callback('search', function (Builder $query, $value) {
-                    self::applySearch($query, $value);
-                }),
+                AllowedFilter::callback('search', self::applySearch(...)),
             )
             ->allowedSorts(
                 AllowedSort::field('name'),

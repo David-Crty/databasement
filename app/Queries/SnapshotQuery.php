@@ -54,9 +54,7 @@ class SnapshotQuery
                 AllowedFilter::callback('status', function (Builder $query, $value) {
                     $query->whereHas('job', fn (Builder $q) => $q->whereRaw('status = ?', [$value]));
                 }),
-                AllowedFilter::callback('search', function (Builder $query, $value) {
-                    self::applySearch($query, $value);
-                }),
+                AllowedFilter::callback('search', self::applySearch(...)),
             )
             ->allowedSorts(
                 AllowedSort::field('started_at'),
