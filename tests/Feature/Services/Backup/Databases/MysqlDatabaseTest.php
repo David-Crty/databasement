@@ -265,6 +265,21 @@ test('restore uses ssl-verify-server-cert=0 when ssl_enabled is true', function 
         ->not->toContain('--skip_ssl');
 });
 
+test('a socket host connects through --socket without a port', function (string $operation) {
+    $db = new MysqlDatabase;
+    $db->setConfig([
+        'host' => '/var/run/mysqld/mysqld.sock',
+        'port' => 3306,
+        'user' => 'root',
+        'pass' => 'secret',
+        'database' => 'myapp',
+    ]);
+
+    expect($db->{$operation}('/tmp/file.sql')->command)
+        ->toContain("--host=localhost --socket='/var/run/mysqld/mysqld.sock'")
+        ->not->toContain('--port');
+})->with(['dump', 'restore']);
+
 test('testConnection returns success when process succeeds', function () {
     Process::fake([
         '*' => Process::result(output: 'Uptime: 12345'),

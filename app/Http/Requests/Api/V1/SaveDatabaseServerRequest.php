@@ -70,7 +70,7 @@ class SaveDatabaseServerRequest extends FormRequest
         ];
 
         if (in_array($type, ['mysql', 'postgres', 'mongodb', 'redis'])) {
-            $rules['host'] = ['required', 'string', 'max:255', new SafeHost];
+            $rules['host'] = ['required', 'string', 'max:255', new SafeHost($databaseType)];
             $rules['port'] = 'required|integer|min:1|max:65535';
         }
 
