@@ -287,6 +287,7 @@
   "Database": "数据库",
   "Database Browser": "数据库浏览器",
   "Database discovery dispatched to agent. Backups will start once databases are discovered.": "数据库发现任务已分发给 agent。数据库被发现后将开始 backup。",
+  "Database discovery is already running on the agent. Backups will start once databases are discovered.": "Agent 上已经在运行数据库发现，数据库发现完成后 Backup 将自动开始。",
   "Database file paths": "数据库文件路径",
   "Database files": "数据库文件",
   "Database name can only contain letters, numbers, and underscores.": "数据库名称只能包含字母、数字和下划线。",
