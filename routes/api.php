@@ -32,8 +32,10 @@ Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->name('api.')->prefi
         ->only(['index', 'show'])
         ->parameters(['jobs' => 'backupJob']);
 
+    Route::post('snapshots/bulk-delete', [SnapshotController::class, 'bulkDestroy'])
+        ->name('snapshots.bulk-destroy');
     Route::apiResource('snapshots', SnapshotController::class)
-        ->only(['index', 'show']);
+        ->only(['index', 'show', 'destroy']);
 
     Route::apiResource('volumes', VolumeController::class)
         ->only(['index', 'show', 'destroy']);

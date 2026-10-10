@@ -3,6 +3,7 @@
 namespace App\Livewire\Snapshot;
 
 use App\Enums\DatabaseType;
+use App\Jobs\DeleteSnapshotsJob;
 use App\Livewire\Concerns\CancelsJobs;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\Concerns\HandlesJobLogsModal;
@@ -12,6 +13,7 @@ use App\Models\Snapshot;
 use App\Queries\SnapshotQuery;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -22,7 +24,10 @@ use Livewire\WithPagination;
 #[Title('Snapshots')]
 class Index extends Component
 {
-    use AuthorizesRequests, CancelsJobs, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
+    use AuthorizesRequests, CancelsJobs, HandlesJobLogsModal, Toast, WithPagination;
+    use FiltersAndPaginates {
+        updated as updatedFilters;
+    }
 
     #[Url]
     public string $search = '';
@@ -49,6 +54,21 @@ class Index extends Component
 
     public bool $keepFiles = false;
 
+    /** @var list<string> */
+    public array $selected = [];
+
+    /**
+     * Extends the selection from the checked page to every snapshot matching
+     * the current filters.
+     */
+    public bool $selectAllMatching = false;
+
+    #[Locked]
+    public int $bulkDeleteCount = 0;
+
+    #[Locked]
+    public int $bulkSkipCount = 0;
+
     #[Locked]
     public ?string $downloadSnapshotId = null;
 
@@ -68,6 +88,30 @@ class Index extends Component
         if ($this->flagFilter === '' && request()->query('fileMissing') !== null) {
             $this->flagFilter = 'missing';
         }
+    }
+
+    /**
+     * A filter change clears the selection, and so does unticking a row
+     * while every matching snapshot is selected.
+     *
+     * @param  string|array<string, mixed>  $property
+     */
+    public function updated(string|array $property): void
+    {
+        $this->updatedFilters($property);
+
+        if (is_string($property) && in_array($property, $this->filterProperties(), true)) {
+            $this->clearSelection();
+        }
+
+        if ($property === 'selected') {
+            $this->selectAllMatching = false;
+        }
+    }
+
+    public function clearSelection(): void
+    {
+        $this->reset('selected', 'selectAllMatching');
     }
 
     /**
@@ -240,6 +284,40 @@ class Index extends Component
         $this->showDeleteModal = true;
     }
 
+    public function confirmBulkDelete(): void
+    {
+        $this->authorize('deleteAny', Snapshot::class);
+
+        $selectedCount = $this->selectedQuery()->count();
+        $this->bulkDeleteCount = $this->selectedQuery()->deletable()->count();
+        $this->bulkSkipCount = $selectedCount - $this->bulkDeleteCount;
+
+        $this->deleteSnapshotId = null;
+        $this->keepFiles = false;
+        $this->showDeleteModal = true;
+    }
+
+    /**
+     * Locked and in-progress snapshots in the selection are skipped. The
+     * deletion itself runs on the queue, since removing files from remote
+     * volumes can take a while.
+     */
+    public function bulkDeleteSnapshots(): void
+    {
+        $this->authorize('deleteAny', Snapshot::class);
+
+        $queued = DeleteSnapshotsJob::dispatchFor($this->selectedQuery(), $this->keepFiles);
+
+        $this->clearSelection();
+        $this->showDeleteModal = false;
+
+        $this->success(trans_choice(
+            ':count snapshot will be deleted in the background.|:count snapshots will be deleted in the background.',
+            $queued,
+            ['count' => $queued],
+        ));
+    }
+
     public function deleteSnapshot(): void
     {
         if (! $this->deleteSnapshotId) {
@@ -258,9 +336,22 @@ class Index extends Component
         $this->success(__('Snapshot deleted successfully!'));
     }
 
-    public function render(): View
+    /**
+     * @return Builder<Snapshot>
+     */
+    private function selectedQuery(): Builder
     {
-        $snapshots = SnapshotQuery::buildFromParams(
+        return $this->selectAllMatching
+            ? $this->filteredQuery()->reorder()
+            : Snapshot::query()->whereKey($this->selected);
+    }
+
+    /**
+     * @return Builder<Snapshot>
+     */
+    private function filteredQuery(): Builder
+    {
+        return SnapshotQuery::buildFromParams(
             search: $this->search ?: null,
             statusFilter: $this->statusFilter ?: 'all',
             serverFilter: $this->serverFilter ?: null,
@@ -268,7 +359,12 @@ class Index extends Component
             flagFilter: $this->flagFilter ?: null,
             sortColumn: $this->sortBy['column'],
             sortDirection: $this->sortBy['direction']
-        )->paginate(15);
+        );
+    }
+
+    public function render(): View
+    {
+        $snapshots = $this->filteredQuery()->paginate(15);
 
         return view('livewire.snapshot.index', [
             'snapshots' => $snapshots,

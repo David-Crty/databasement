@@ -9,6 +9,7 @@ use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -448,3 +449,76 @@ test('the logs modal shows the command heartbeat only while a command runs', fun
     'no command running, or an agent up to 1.8.4' => ['running', false, false],
     'finished job' => ['completed', true, false],
 ]);
+
+test('delete-snapshots allows bulk deleting the selected snapshots, skipping locked and running ones', function () {
+    $selected = Snapshot::factory()->withFile()->create();
+    $locked = Snapshot::factory()->withFile()->create(['locked' => true]);
+    $running = Snapshot::factory()->withFile()->create();
+    $running->job->update(['status' => BackupJobStatus::Running]);
+    $untouched = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->set('selected', [$selected->id, $locked->id, $running->id])
+        ->call('confirmBulkDelete')
+        ->assertSet('showDeleteModal', true)
+        ->assertSet('bulkDeleteCount', 1)
+        ->assertSet('bulkSkipCount', 2)
+        ->call('bulkDeleteSnapshots')
+        ->assertSet('selected', []);
+
+    expect(Snapshot::find($selected->id))->toBeNull()
+        ->and(Snapshot::find($locked->id))->not->toBeNull()
+        ->and(Snapshot::find($running->id))->not->toBeNull()
+        ->and(Snapshot::find($untouched->id))->not->toBeNull();
+});
+
+test('a snapshot queued for deletion shows as deleting until the worker removes it', function () {
+    Queue::fake();
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->set('selected', [$snapshot->id])
+        ->call('bulkDeleteSnapshots')
+        ->assertSee(__('Deleting'));
+
+    expect($snapshot->fresh()->deleting)->toBeTrue();
+});
+
+test('selecting all matching snapshots deletes every snapshot matching the filters', function () {
+    $matching = Snapshot::factory()->withFile()->count(2)->create(['database_name' => 'orders_db']);
+    $other = Snapshot::factory()->withFile()->create(['database_name' => 'users_db']);
+
+    Livewire::test(Index::class)
+        ->set('search', 'orders')
+        ->set('selected', [$matching[0]->id])
+        ->set('selectAllMatching', true)
+        ->call('confirmBulkDelete')
+        ->call('bulkDeleteSnapshots');
+
+    expect(Snapshot::whereKey($matching->pluck('id'))->count())->toBe(0)
+        ->and(Snapshot::find($other->id))->not->toBeNull();
+});
+
+test('changing a filter clears the selection', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->set('selected', [$snapshot->id])
+        ->set('selectAllMatching', true)
+        ->set('search', 'something')
+        ->assertSet('selected', [])
+        ->assertSet('selectAllMatching', false);
+});
+
+test('without delete-snapshots, bulk deleting snapshots is forbidden', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::DeleteSnapshots->value)->create());
+
+    Livewire::test(Index::class)
+        ->set('selected', [$snapshot->id])
+        ->call('bulkDeleteSnapshots')
+        ->assertForbidden();
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
+});

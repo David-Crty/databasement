@@ -38,6 +38,16 @@ class SnapshotPolicy
     }
 
     /**
+     * Determine whether the user can delete snapshots in bulk.
+     * Requires the delete-snapshots ability; locked snapshots are skipped by
+     * the bulk delete itself.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $user->can(Ability::DeleteSnapshots->value);
+    }
+
+    /**
      * Determine whether the user can edit the model's comment.
      * Requires the run-backups ability.
      */
