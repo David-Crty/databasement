@@ -1,10 +1,6 @@
 @props(['title', 'message' => '', 'onConfirm', 'showKeepFiles' => false, 'snapshotCount' => 0])
 
-<x-modal wire:model="showDeleteModal" :title="$title" class="backdrop-blur">
-    @if($message !== '')
-        <p>{{ $message }}</p>
-    @endif
-
+<x-confirm-modal model="showDeleteModal" :title="$title" :message="$message" :on-confirm="$onConfirm" :confirm-label="__('Delete')">
     @if($snapshotCount > 0)
         <x-alert icon="o-exclamation-triangle" class="alert-warning mt-4">
             {{ trans_choice(':count snapshot will also be deleted.|:count snapshots will also be deleted.', $snapshotCount, ['count' => $snapshotCount]) }}
@@ -19,9 +15,4 @@
             <span class="text-sm">{{ __('Keep backup files on storage (only delete database records)') }}</span>
         </label>
     @endif
-
-    <x-slot:actions>
-        <x-button :label="__('Cancel')" @click="$wire.showDeleteModal = false" />
-        <x-button :label="__('Delete')" class="btn-error" wire:click="{{ $onConfirm }}" spinner />
-    </x-slot:actions>
-</x-modal>
+</x-confirm-modal>

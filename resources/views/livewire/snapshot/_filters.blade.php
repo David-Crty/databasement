@@ -1,6 +1,5 @@
 @php
     $isDesktop = $variant === 'desktop';
-    $hasFilters = $search || $statusFilter !== '' || $serverFilter !== '' || $dbTypeFilter !== '' || $flagFilter !== '';
 @endphp
 
 @if($isDesktop)
@@ -39,7 +38,7 @@
         :options="$flagOptions"
         class="!select-sm w-36"
     />
-    @if($hasFilters)
+    @if($this->hasFilters)
         <x-button
             icon="o-x-mark"
             wire:click="clear"
@@ -93,7 +92,7 @@
                 :options="$flagOptions"
                 class="!select-sm w-36"
             />
-            @if($hasFilters)
+            @if($this->hasFilters)
                 <x-button
                     icon="o-x-mark"
                     wire:click="clear"
@@ -133,7 +132,7 @@
             wire:model.live="flagFilter"
             :options="$flagOptions"
         />
-        @if($hasFilters)
+        @if($this->hasFilters)
             <x-button
                 :label="__('Clear filters')"
                 icon="o-x-mark"

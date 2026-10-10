@@ -1,11 +1,5 @@
 <div>
-    <x-header :title="__('Configuration')" separator>
-        <x-slot:subtitle>
-            {{ __('Manage backup schedules and operation settings.') }}
-        </x-slot:subtitle>
-    </x-header>
-
-    @include('livewire.configuration._tabs', ['active' => 'backup'])
+    <x-configuration-header active="backup" :subtitle="__('Manage backup schedules and operation settings.')" />
 
     @if($showDeprecatedBackupEnv)
         <x-alert class="alert-warning mb-4" icon="o-exclamation-triangle" dismissible>
@@ -104,15 +98,7 @@
 
         <!-- Backup Configuration (editable) -->
         <x-card shadow class="min-w-0">
-            <x-card-heading :title="__('Backup')" :subtitle="__('Backup and restore operation settings.')">
-                <x-button
-                    :label="__('Documentation')"
-                    icon="o-book-open"
-                    link="https://david-crty.github.io/databasement/self-hosting/configuration/backup"
-                    external
-                    class="btn-ghost btn-sm"
-                />
-            </x-card-heading>
+            <x-card-heading :title="__('Backup')" :subtitle="__('Backup and restore operation settings.')" docs="self-hosting/configuration/backup" />
 
             <form wire:submit="saveBackupConfig">
                 <div class="divide-y divide-base-200/80">
@@ -377,17 +363,11 @@
     </x-modal>
 
     <!-- Delete Schedule Confirmation Modal -->
-    <x-modal wire:model="showDeleteScheduleModal" :title="__('Delete Schedule')">
-        <p>{{ __('Are you sure you want to delete this backup schedule? This action cannot be undone.') }}</p>
-
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showDeleteScheduleModal = false" />
-            <x-button
-                class="btn-error"
-                :label="__('Delete')"
-                wire:click="deleteSchedule"
-                spinner
-            />
-        </x-slot:actions>
-    </x-modal>
+    <x-confirm-modal
+        model="showDeleteScheduleModal"
+        :title="__('Delete Schedule')"
+        :message="__('Are you sure you want to delete this backup schedule? This action cannot be undone.')"
+        on-confirm="deleteSchedule"
+        :confirm-label="__('Delete')"
+    />
 </div>

@@ -62,7 +62,7 @@
             <x-slot:empty>
                 <div class="flex flex-col items-center justify-center py-12 text-center">
                     <x-icon name="o-archive-box" class="w-10 h-10 text-base-content/30 mb-3" />
-                    @if($search || $statusFilter !== '' || $serverFilter !== '' || $dbTypeFilter !== '' || $flagFilter !== '')
+                    @if($this->hasFilters)
                         <p class="font-medium">{{ __('No snapshots match your filters') }}</p>
                         <p class="text-sm text-base-content/60 mt-1">{{ __('Try clearing some filters to see more results.') }}</p>
                     @else
@@ -128,27 +128,7 @@
             @endscope
 
             @scope('cell_status', $snapshot)
-                @php $status = $snapshot->job?->status?->value ?? 'pending'; $job = $snapshot->job; @endphp
-                <x-job-status-indicator :status="$snapshot->deleting ? 'deleting' : $status" />
-
-                @if($status === 'running' && $job?->started_at)
-                    <div class="text-xs text-warning font-mono mt-1">{{ $job->started_at->diffForHumans(null, true) }}</div>
-                @elseif($job?->getHumanDuration() || ($status === 'completed' && $snapshot->getHumanFileSize()))
-                    <div class="flex items-center gap-3 text-xs text-base-content/60 mt-1">
-                        @if($job?->getHumanDuration())
-                            <span class="inline-flex items-center gap-1">
-                                <x-icon name="o-clock" class="w-3 h-3" />
-                                <span class="font-mono">{{ $job->getHumanDuration() }}</span>
-                            </span>
-                        @endif
-                        @if($status === 'completed' && $snapshot->getHumanFileSize())
-                            <span class="inline-flex items-center gap-1">
-                                <x-icon name="o-archive-box" class="w-3 h-3" />
-                                <span class="font-mono">{{ $snapshot->getHumanFileSize() }}</span>
-                            </span>
-                        @endif
-                    </div>
-                @endif
+                <x-job-status-cell :job="$snapshot->job" :status="$snapshot->deleting ? 'deleting' : null" :file-size="$snapshot->getHumanFileSize()" />
             @endscope
 
             @scope('actions', $snapshot)
@@ -196,15 +176,7 @@
                         @endcan
                     @endif
 
-                    <x-button
-                        icon="o-document-text"
-                        wire:click="viewLogs('{{ $job?->id }}')"
-                        spinner
-                        :tooltip="__('View Logs')"
-                        class="btn-ghost btn-sm"
-                        :class="$job ? '' : 'opacity-30'"
-                        :disabled="! $job"
-                    />
+                    @include('partials.view-logs-button', ['job' => $job])
 
                     @if($canDelete)
                         @can('delete', $snapshot)

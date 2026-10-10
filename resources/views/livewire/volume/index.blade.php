@@ -1,46 +1,17 @@
 <div>
-    <!-- HEADER with search (Desktop) -->
-    <x-header title="{{ __('Volumes') }}" separator progress-indicator>
-        <x-slot:actions>
-            <div class="hidden sm:flex items-center gap-2">
-                <x-input
-                    placeholder="{{ __('Search...') }}"
-                    wire:model.live.debounce="search"
-                    clearable
-                    icon="o-magnifying-glass"
-                    class="!input-sm w-48"
-                />
-                @if($search)
-                    <x-button
-                        icon="o-x-mark"
-                        wire:click="clear"
-                        spinner
-                        class="btn-ghost btn-sm"
-                        tooltip="{{ __('Clear search') }}"
-                    />
-                @endif
-            </div>
-            @can('viewForm', App\Models\Volume::class)
-                <x-button label="{{ __('Add Volume') }}" link="{{ route('volumes.create') }}" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
-            @endcan
-        </x-slot:actions>
-    </x-header>
+    <x-index-header :title="__('Volumes')" :search="$search">
+        @can('viewForm', App\Models\Volume::class)
+            <x-button :label="__('Add Volume')" :link="route('volumes.create')" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
+        @endcan
 
-    @if($showAwsDeprecationWarning)
-        <x-alert class="alert-warning mb-4" icon="o-exclamation-triangle" dismissible>
-            {{ __('Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.') }}
-        </x-alert>
-    @endif
-
-    <!-- SEARCH (Mobile) -->
-    <div class="sm:hidden mb-4">
-        <x-input
-            placeholder="{{ __('Search...') }}"
-            wire:model.live.debounce="search"
-            clearable
-            icon="o-magnifying-glass"
-        />
-    </div>
+        <x-slot:below>
+            @if($showAwsDeprecationWarning)
+                <x-alert class="alert-warning mb-4" icon="o-exclamation-triangle" dismissible>
+                    {{ __('Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.') }}
+                </x-alert>
+            @endif
+        </x-slot:below>
+    </x-index-header>
 
     <!-- TABLE -->
     <x-card shadow>
@@ -63,10 +34,7 @@
             @endscope
 
             @scope('cell_type', $volume)
-                <span class="badge badge-ghost badge-sm gap-1 whitespace-nowrap">
-                    <x-volume-type-icon :type="$volume->type" class="w-3.5 h-3.5" />
-                    {{ $volume->getVolumeType()?->label() ?? $volume->type }}
-                </span>
+                <x-volume-type-badge :volume="$volume" class="badge-ghost badge-sm gap-1" />
             @endscope
 
             @scope('cell_config', $volume)

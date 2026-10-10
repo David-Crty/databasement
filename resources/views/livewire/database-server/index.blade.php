@@ -1,27 +1,9 @@
 <div>
-    <!-- HEADER with search (Desktop) -->
-    <x-header title="{{ __('Database Servers') }}" separator progress-indicator>
-        <x-slot:actions>
-            <div class="hidden sm:flex items-center gap-2">
-                <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" clearable
-                         icon="o-magnifying-glass" class="!input-sm w-48" />
-                @if ($search)
-                    <x-button icon="o-x-mark" wire:click="clear" spinner class="btn-ghost btn-sm"
-                              tooltip="{{ __('Clear search') }}" />
-                @endif
-            </div>
-            @can('viewForm', App\Models\DatabaseServer::class)
-                <x-button label="{{ __('Add Server') }}" link="{{ route('database-servers.create') }}" icon="o-plus"
-                          class="btn-primary btn-sm" wire:navigate />
-            @endcan
-        </x-slot:actions>
-    </x-header>
-
-    <!-- SEARCH (Mobile) -->
-    <div class="sm:hidden mb-4">
-        <x-input placeholder="{{ __('Search...') }}" wire:model.live.debounce="search" clearable
-                 icon="o-magnifying-glass" />
-    </div>
+    <x-index-header :title="__('Database Servers')" :search="$search">
+        @can('viewForm', App\Models\DatabaseServer::class)
+            <x-button :label="__('Add Server')" :link="route('database-servers.create')" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
+        @endcan
+    </x-index-header>
 
     <!-- TABLE -->
     <x-card shadow>
@@ -188,41 +170,6 @@
     <livewire:database-server.adminer-modal />
 
     <!-- REDIS RESTORE INFO MODAL -->
-    <x-modal wire:model="showRedisRestoreModal" :title="__('Restore Redis / Valkey Snapshot')" class="backdrop-blur">
-        <div class="space-y-4">
-            <x-alert class="alert-info" icon="o-information-circle">
-                <div>
-                    <span class="font-bold">{{ __('Manual Restore Required') }}</span>
-                    <p class="text-sm mt-1">
-                        {{ __('Automated restore is not supported for Redis/Valkey. RDB snapshots must be restored manually.') }}
-                    </p>
-                </div>
-            </x-alert>
-
-            <div class="p-4 border rounded-lg bg-base-200 border-base-300 space-y-3">
-                <div class="text-sm font-semibold">{{ __('How to Restore an RDB Snapshot') }}</div>
-                <ol class="list-decimal list-inside text-sm space-y-2 opacity-80">
-                    <li>{{ __('Download the snapshot archive (.rdb.gz) from your storage volume.') }}</li>
-                    <li>{{ __('Extract the RDB file from the archive (e.g., gunzip snapshot.rdb.gz).') }}</li>
-                    <li>{{ __('Stop the Redis/Valkey server.') }}</li>
-                    <li>{{ __('Copy the RDB file to the Redis data directory, replacing dump.rdb.') }}</li>
-                    <li>{{ __('Set correct file permissions (e.g., chown redis:redis dump.rdb).') }}</li>
-                    <li>{{ __('Restart the Redis/Valkey server.') }}</li>
-                </ol>
-            </div>
-
-            @if ($restoreId)
-                <a href="{{ route('snapshots.index', ['serverFilter' => $restoreId]) }}"
-                   class="btn btn-sm btn-outline gap-2" wire:navigate>
-                    <x-icon name="o-arrow-down-tray" class="w-4 h-4" />
-                    {{ __('View Backup Snapshots') }}
-                </a>
-            @endif
-        </div>
-
-        <x-slot:actions>
-            <x-button label="{{ __('Close') }}" @click="$wire.showRedisRestoreModal = false" />
-        </x-slot:actions>
-    </x-modal>
+    @include('partials.redis-restore-modal', ['serverId' => $restoreId])
 
 </div>

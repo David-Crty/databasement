@@ -6,7 +6,7 @@
     <x-header :title="__('Restores')" separator progress-indicator>
         <x-slot:actions>
             <div class="hidden lg:flex items-center gap-2">
-                @include('livewire.restore._filters', ['variant' => 'desktop'])
+                @include('livewire.restore._filters', ['variant' => 'desktop', 'statusModel' => 'statusFilter', 'statusPlaceholder' => __('All Status'), 'sourceOptions' => $sourceServerOptions, 'targetOptions' => $targetServerOptions])
             </div>
             @can('create', \App\Models\Restore::class)
                 <x-button
@@ -21,7 +21,7 @@
     </x-header>
 
     <div class="lg:hidden mb-4" x-data="{ showFilters: false }">
-        @include('livewire.restore._filters', ['variant' => 'mobile'])
+        @include('livewire.restore._filters', ['variant' => 'mobile', 'statusModel' => 'statusFilter', 'statusPlaceholder' => __('All Status'), 'sourceOptions' => $sourceServerOptions, 'targetOptions' => $targetServerOptions])
     </div>
 
     <x-card shadow>
@@ -38,7 +38,7 @@
             <x-slot:empty>
                 <div class="flex flex-col items-center justify-center py-12 text-center">
                     <x-icon name="o-arrow-path" class="w-10 h-10 text-base-content/30 mb-3" />
-                    @if($search || $statusFilter !== '' || $sourceServerFilter !== '' || $targetServerFilter !== '' || $dbTypeFilter !== '')
+                    @if($this->hasFilters)
                         <p class="font-medium">{{ __('No restores match your filters') }}</p>
                         <p class="text-sm text-base-content/60 mt-1">{{ __('Try clearing some filters to see more results.') }}</p>
                     @else
@@ -50,51 +50,35 @@
 
             @scope('cell_flow', $restore)
                 @php $snapshot = $restore->snapshot; $target = $restore->targetServer; @endphp
-                <div class="flex items-center gap-3 min-w-0">
-                    {{-- Source --}}
-                    <div class="flex items-center gap-2 min-w-0 flex-1">
-                        @if($snapshot)
-                            <x-icon :name="$snapshot->database_type->icon()" class="w-5 h-5 shrink-0" />
-                            <div class="min-w-0">
-                                <div class="flex items-center gap-1.5">
-                                    <span class="table-cell-primary truncate">{{ $snapshot->database_name }}</span>
-                                    <a
-                                        href="{{ route('snapshots.index', ['search' => $snapshot->id]) }}"
-                                        wire:navigate
-                                        class="text-base-content/40 hover:text-primary tooltip shrink-0"
-                                        data-tip="{{ __('View snapshot') }}"
-                                    >
-                                        <x-icon name="o-arrow-top-right-on-square" class="w-3.5 h-3.5" />
-                                    </a>
-                                </div>
-                                <a href="{{ route('database-servers.show', $snapshot->databaseServer) }}" wire:navigate
-                                   class="text-xs text-base-content/60 hover:text-primary hover:underline truncate block">
-                                    {{ $snapshot->databaseServer->name }}
+                <x-restore-flow>
+                    <x-slot:source>
+                        <x-server-database-label
+                            :icon="$snapshot?->database_type->icon()"
+                            :label="$snapshot?->database_name"
+                            :server="$snapshot?->databaseServer"
+                            :deleted-label="__('(snapshot deleted)')"
+                        >
+                            @if($snapshot)
+                                <a
+                                    href="{{ route('snapshots.index', ['search' => $snapshot->id]) }}"
+                                    wire:navigate
+                                    class="text-base-content/40 hover:text-primary tooltip shrink-0"
+                                    data-tip="{{ __('View snapshot') }}"
+                                >
+                                    <x-icon name="o-arrow-top-right-on-square" class="w-3.5 h-3.5" />
                                 </a>
-                            </div>
-                        @else
-                            <span class="text-sm text-base-content/50 italic">{{ __('(snapshot deleted)') }}</span>
-                        @endif
-                    </div>
-
-                    <x-icon name="o-arrow-right" class="w-4 h-4 text-base-content/40 shrink-0" />
-
-                    {{-- Target --}}
-                    <div class="flex items-center gap-2 min-w-0 flex-1">
-                        @if($target)
-                            <x-icon :name="$snapshot?->database_type?->icon() ?? 'o-server'" class="w-5 h-5 shrink-0" />
-                            <div class="min-w-0">
-                                <div class="table-cell-primary truncate">{{ $restore->schema_name }}</div>
-                                <a href="{{ route('database-servers.show', $target) }}" wire:navigate
-                                   class="text-xs text-base-content/60 hover:text-primary hover:underline truncate block">
-                                    {{ $target->name }}
-                                </a>
-                            </div>
-                        @else
-                            <span class="text-sm text-base-content/50 italic">{{ __('(target deleted)') }}</span>
-                        @endif
-                    </div>
-                </div>
+                            @endif
+                        </x-server-database-label>
+                    </x-slot:source>
+                    <x-slot:target>
+                        <x-server-database-label
+                            :icon="$snapshot?->database_type?->icon() ?? 'o-server'"
+                            :label="$restore->schema_name"
+                            :server="$target"
+                            :deleted-label="__('(target deleted)')"
+                        />
+                    </x-slot:target>
+                </x-restore-flow>
 
                 <div class="mt-1.5">
                     <x-id-popover :id="$restore->id" />
@@ -123,17 +107,7 @@
             @endscope
 
             @scope('cell_status', $restore)
-                @php $status = $restore->job?->status?->value ?? 'pending'; $job = $restore->job; @endphp
-                <x-job-status-indicator :status="$status" />
-
-                @if($status === 'running' && $job?->started_at)
-                    <div class="text-xs text-warning font-mono mt-1">{{ $job->started_at->diffForHumans(null, true) }}</div>
-                @elseif($job?->getHumanDuration())
-                    <div class="flex items-center gap-1 text-xs text-base-content/60 mt-1">
-                        <x-icon name="o-clock" class="w-3 h-3" />
-                        <span class="font-mono">{{ $job->getHumanDuration() }}</span>
-                    </div>
-                @endif
+                <x-job-status-cell :job="$restore->job" />
             @endscope
 
             @scope('actions', $restore)
@@ -156,15 +130,7 @@
                         @endcan
                     @endif
 
-                    <x-button
-                        icon="o-document-text"
-                        wire:click="viewLogs('{{ $job?->id }}')"
-                        spinner
-                        :tooltip="__('View Logs')"
-                        class="btn-ghost btn-sm"
-                        :class="$job ? '' : 'opacity-30'"
-                        :disabled="! $job"
-                    />
+                    @include('partials.view-logs-button', ['job' => $job])
 
                     @include('partials.cancel-job-button', ['job' => $job])
 
