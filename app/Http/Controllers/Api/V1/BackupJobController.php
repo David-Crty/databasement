@@ -19,7 +19,7 @@ class BackupJobController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $perPage = min($request->integer('per_page', 15), 100);
+        $perPage = $this->perPage($request);
 
         $jobs = BackupJobQuery::make()->paginate($perPage);
 

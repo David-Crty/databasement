@@ -32,7 +32,7 @@ class VolumeController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $perPage = min($request->integer('per_page', 15), 100);
+        $perPage = $this->perPage($request);
 
         $volumes = VolumeQuery::make()->paginate($perPage);
 
