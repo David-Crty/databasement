@@ -12,7 +12,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -189,20 +188,7 @@ class Volume extends Model
      */
     public function getDecryptedConfig(): array
     {
-        $config = $this->config;
-        $volumeType = $this->getVolumeType();
-
-        foreach ($volumeType->sensitiveFields() as $field) {
-            if (! empty($config[$field])) {
-                try {
-                    $config[$field] = Crypt::decryptString($config[$field]);
-                } catch (\Illuminate\Contracts\Encryption\DecryptException) {
-                    // Value is not encrypted (legacy data), return as-is
-                }
-            }
-        }
-
-        return $config;
+        return $this->getVolumeType()->decryptSensitiveFields($this->config);
     }
 
     /**
@@ -222,13 +208,6 @@ class Volume extends Model
      */
     public function getSafeConfig(): array
     {
-        $config = $this->config;
-        $volumeType = $this->getVolumeType();
-
-        foreach ($volumeType->sensitiveFields() as $field) {
-            unset($config[$field]);
-        }
-
-        return $config;
+        return $this->getVolumeType()->stripSensitiveFields($this->config);
     }
 }

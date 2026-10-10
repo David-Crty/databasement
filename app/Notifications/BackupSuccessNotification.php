@@ -3,9 +3,12 @@
 namespace App\Notifications;
 
 use App\Models\Snapshot;
+use App\Notifications\Concerns\DescribesSnapshot;
 
 class BackupSuccessNotification extends BaseSuccessNotification
 {
+    use DescribesSnapshot;
+
     public function __construct(
         public Snapshot $snapshot
     ) {}
@@ -15,11 +18,8 @@ class BackupSuccessNotification extends BaseSuccessNotification
         return $this->message(
             title: '✅ '.__('Backup Succeeded: :server', ['server' => $this->snapshot->databaseServer->name]),
             body: __('A backup job completed successfully.'),
-            actionUrl: route('snapshots.index', ['job' => $this->snapshot->backup_job_id]),
-            fields: [
-                __('Server') => $this->snapshot->databaseServer->name,
-                __('Database') => $this->snapshot->database_name ?? __('Unknown'),
-            ],
+            actionUrl: $this->snapshotUrl(),
+            fields: $this->snapshotFields(),
         );
     }
 }

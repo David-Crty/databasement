@@ -3,9 +3,12 @@
 namespace App\Notifications;
 
 use App\Models\Restore;
+use App\Notifications\Concerns\DescribesRestore;
 
 class RestoreFailedNotification extends BaseFailedNotification
 {
+    use DescribesRestore;
+
     public function __construct(
         public Restore $restore,
         \Throwable $exception
@@ -16,14 +19,10 @@ class RestoreFailedNotification extends BaseFailedNotification
     public function getMessage(): NotificationMessage
     {
         return $this->message(
-            title: '🚨 '.__('Restore Failed: :server', ['server' => $this->restore->targetServer->name ?? __('Unknown')]),
+            title: '🚨 '.__('Restore Failed: :server', ['server' => $this->targetServerName()]),
             body: __('A restore job has failed and requires your attention.'),
-            actionUrl: route('restores.index', ['job' => $this->restore->backup_job_id]),
-            fields: [
-                __('Target Server') => $this->restore->targetServer->name ?? __('Unknown'),
-                __('Target Database') => $this->restore->schema_name ?? __('Unknown'),
-                __('Source Snapshot') => $this->restore->snapshot->filename ?? __('Unknown'),
-            ],
+            actionUrl: $this->restoreUrl(),
+            fields: $this->restoreFields(),
         );
     }
 }

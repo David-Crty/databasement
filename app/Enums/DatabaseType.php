@@ -2,12 +2,15 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasSelectOptions;
 use App\Models\DatabaseServer;
 use App\Rules\SafeDatabasePath;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 enum DatabaseType: string
 {
+    use HasSelectOptions;
+
     case MYSQL = 'mysql';
     case POSTGRESQL = 'postgres';
     case SQLITE = 'sqlite';
@@ -279,16 +282,5 @@ enum DatabaseType: string
         }
 
         return array_values(array_unique($extensions));
-    }
-
-    /**
-     * @return array<array{id: string, name: string}>
-     */
-    public static function toSelectOptions(): array
-    {
-        return array_map(
-            fn (self $type) => ['id' => $type->value, 'name' => $type->label()],
-            self::cases()
-        );
     }
 }
