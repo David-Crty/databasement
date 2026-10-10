@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Enums\NotificationType;
 use App\Models\Snapshot;
+use App\Notifications\Concerns\DescribesSnapshot;
 use App\Notifications\Concerns\HasChannelRouting;
 use App\Support\Formatters;
 use Illuminate\Notifications\Notification;
@@ -15,7 +16,7 @@ use Illuminate\Notifications\Notification;
  */
 class StorageLimitWarningNotification extends Notification
 {
-    use HasChannelRouting;
+    use DescribesSnapshot, HasChannelRouting;
 
     public function __construct(
         public Snapshot $snapshot,
@@ -33,11 +34,10 @@ class StorageLimitWarningNotification extends Notification
                 'volume' => $this->volumeName,
             ]),
             actionText: '🔗 '.__('View Job Details'),
-            actionUrl: route('snapshots.index', ['job' => $this->snapshot->backup_job_id]),
+            actionUrl: $this->snapshotUrl(),
             footerText: '🕐 '.Formatters::humanDate(now()),
             fields: [
-                __('Server') => $this->snapshot->databaseServer->name,
-                __('Database') => $this->snapshot->database_name ?? __('Unknown'),
+                ...$this->snapshotFields(),
                 __('Volume') => $this->volumeName,
             ],
             errorMessage: $this->warning,

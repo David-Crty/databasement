@@ -12,7 +12,10 @@ abstract class StoreVolumeRequest extends FormRequest
     /**
      * @return array<string, mixed>
      */
-    abstract protected function configRules(): array;
+    protected function configRules(): array
+    {
+        return $this->volumeType()->configClass()::requestRules('config');
+    }
 
     /**
      * @return array<string, mixed>

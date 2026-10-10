@@ -2,8 +2,12 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasSensitiveConfigFields;
+
 enum VolumeType: string
 {
+    use HasSensitiveConfigFields;
+
     case LOCAL = 'local';
     case S3 = 's3';
     case SFTP = 'sftp';
@@ -79,63 +83,6 @@ enum VolumeType: string
             self::SFTP, self::FTP, self::SMB => ['password'],
             self::AZURE => ['account_key'],
         };
-    }
-
-    /**
-     * Mask sensitive fields by setting them to empty strings.
-     * Used to prevent sensitive data from being serialized to the browser.
-     *
-     * @param  array<string, mixed>  $config
-     * @return array<string, mixed>
-     */
-    public function maskSensitiveFields(array $config): array
-    {
-        foreach ($this->sensitiveFields() as $field) {
-            if (isset($config[$field])) {
-                $config[$field] = '';
-            }
-        }
-
-        return $config;
-    }
-
-    /**
-     * Merge sensitive fields from persisted config when form values are empty.
-     * Used during edit to preserve existing values when user doesn't provide new ones.
-     *
-     * @param  array<string, mixed>  $formConfig
-     * @param  array<string, mixed>  $persistedConfig
-     * @return array<string, mixed>
-     */
-    public function mergeSensitiveFromPersisted(array $formConfig, array $persistedConfig): array
-    {
-        foreach ($this->sensitiveFields() as $field) {
-            if (empty($formConfig[$field]) && ! empty($persistedConfig[$field])) {
-                $formConfig[$field] = $persistedConfig[$field];
-            }
-        }
-
-        return $formConfig;
-    }
-
-    /**
-     * Encrypt sensitive fields, optionally preserving existing encrypted values.
-     *
-     * @param  array<string, mixed>  $config  Config with plaintext values
-     * @param  array<string, mixed>  $persistedEncrypted  Previously stored config with encrypted values
-     * @return array<string, mixed>
-     */
-    public function encryptSensitiveFields(array $config, array $persistedEncrypted = []): array
-    {
-        foreach ($this->sensitiveFields() as $field) {
-            if (! empty($config[$field])) {
-                $config[$field] = \Illuminate\Support\Facades\Crypt::encryptString($config[$field]);
-            } elseif (! empty($persistedEncrypted[$field])) {
-                $config[$field] = $persistedEncrypted[$field];
-            }
-        }
-
-        return $config;
     }
 
     /**
