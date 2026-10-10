@@ -306,16 +306,9 @@ class Index extends Component
     {
         $this->authorize('deleteAny', Snapshot::class);
 
-        $queued = DeleteSnapshotsJob::dispatchFor($this->selectedQuery(), $this->keepFiles);
+        $this->queueDeletion($this->selectedQuery());
 
         $this->clearSelection();
-        $this->showDeleteModal = false;
-
-        $this->success(trans_choice(
-            ':count snapshot will be deleted in the background.|:count snapshots will be deleted in the background.',
-            $queued,
-            ['count' => $queued],
-        ));
     }
 
     public function deleteSnapshot(): void
@@ -328,12 +321,31 @@ class Index extends Component
 
         $this->authorize('delete', $snapshot);
 
-        $snapshot->skipFileCleanup = $this->keepFiles;
-        $snapshot->delete();
+        $this->queueDeletion(Snapshot::query()->whereKey($snapshot->id));
+
         $this->deleteSnapshotId = null;
+    }
+
+    /**
+     * @param  Builder<Snapshot>  $query
+     */
+    private function queueDeletion(Builder $query): void
+    {
         $this->showDeleteModal = false;
 
-        $this->success(__('Snapshot deleted successfully!'));
+        if (auth()->user()?->isDemo() === true) {
+            $this->warning(__('Demo mode is enabled. Snapshots are not deleted.'));
+
+            return;
+        }
+
+        $queued = DeleteSnapshotsJob::dispatchFor($query, $this->keepFiles);
+
+        $this->success(trans_choice(
+            ':count snapshot will be deleted in the background.|:count snapshots will be deleted in the background.',
+            $queued,
+            ['count' => $queued],
+        ));
     }
 
     /**

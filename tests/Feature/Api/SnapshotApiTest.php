@@ -124,7 +124,7 @@ test('delete-snapshots allows deleting a snapshot via api', function () {
 
     $this->actingAs($user, 'sanctum')
         ->deleteJson("/api/v1/snapshots/{$snapshot->id}")
-        ->assertNoContent();
+        ->assertStatus(202);
 
     expect(Snapshot::find($snapshot->id))->toBeNull();
 });

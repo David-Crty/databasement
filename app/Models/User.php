@@ -26,8 +26,7 @@ class User extends Authenticatable
 
     /**
      * The email address of the demo user. In demo mode the account with this
-     * exact address is the read-only demo user (see isDemo()); there is no
-     * dedicated "demo" role.
+     * exact address is the read-only demo user (see isDemo()).
      */
     public const DEMO_EMAIL = 'demo@example.com';
 
@@ -200,8 +199,8 @@ class User extends Authenticatable
 
     /**
      * Whether this is the demo account: demo mode must be enabled and the email
-     * must match the fixed demo address. Deliberately independent of roles —
-     * there is no "demo" role.
+     * must match the fixed demo address. Deliberately independent of roles, so
+     * the read-only restrictions hold whatever the demo role grants.
      */
     public function isDemo(): bool
     {

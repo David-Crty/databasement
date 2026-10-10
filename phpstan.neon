@@ -36,6 +36,10 @@ parameters:
             path: app/Livewire/Configuration/Roles.php
             count: 1
         -
+            message: '#Builder<Silber\\Bouncer\\Database\\Role>::where\(\) expects .*, ''name'' given\.#'
+            path: app/Http/Middleware/DemoModeMiddleware.php
+            count: 1
+        -
             message: '#Builder<Silber\\Bouncer\\Database\\Role>::create\(\) expects array<model property of Silber\\Bouncer\\Database\\Role, mixed>, array<string, string> given\.#'
             path: app/Services/Roles/CreateRoleAction.php
             count: 1

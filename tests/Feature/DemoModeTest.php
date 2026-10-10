@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Ability;
+use App\Http\Middleware\DemoModeMiddleware;
 use App\Livewire\DatabaseServer\Create as DatabaseServerCreate;
 use App\Livewire\DatabaseServer\Edit as DatabaseServerEdit;
 use App\Livewire\DatabaseServer\Index as DatabaseServerIndex;
@@ -9,16 +10,18 @@ use App\Livewire\Volume\Create as VolumeCreate;
 use App\Livewire\Volume\Edit as VolumeEdit;
 use App\Livewire\Volume\Index as VolumeIndex;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
-use App\Services\Backup\BackupJobFactory;
 use Livewire\Livewire;
+use Silber\Bouncer\Database\Role;
 
 beforeEach(function () {
-    $this->demoUser = User::factory()->create([
-        'email' => User::DEMO_EMAIL,
-        'role' => 'viewer',
-    ]);
+    $this->demoUser = User::factory()->withAbilities([
+        Ability::OperateRestores->value,
+        Ability::DeleteSnapshots->value,
+        Ability::DownloadSnapshots->value,
+    ])->create(['email' => User::DEMO_EMAIL]);
     config(['app.demo_mode' => true]);
 });
 
@@ -112,16 +115,34 @@ test('demo user cannot delete volume', function () {
         ->assertForbidden();
 });
 
-// Snapshot restrictions
-test('demo user cannot delete snapshot', function () {
-    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual')[0];
+// Snapshot deletion is a no-op for the demo user, whatever its role grants
+test('demo user deleting snapshots from the ui leaves them in place', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+    $other = Snapshot::factory()->withFile()->create();
 
     Livewire::actingAs($this->demoUser)
         ->test(SnapshotIndex::class)
         ->call('confirmDeleteSnapshot', $snapshot->id)
-        ->assertForbidden();
+        ->call('deleteSnapshot')
+        ->set('selected', [$other->id])
+        ->call('bulkDeleteSnapshots')
+        ->assertSet('showDeleteModal', false);
+
+    expect($snapshot->fresh())->not->toBeNull()->deleting->toBeFalse()
+        ->and($other->fresh())->not->toBeNull()->deleting->toBeFalse();
+});
+
+test('demo user deleting snapshots via api leaves them in place', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    $this->actingAs($this->demoUser, 'sanctum')
+        ->deleteJson("/api/v1/snapshots/{$snapshot->id}")
+        ->assertStatus(202);
+    $this->actingAs($this->demoUser, 'sanctum')
+        ->postJson('/api/v1/snapshots/bulk-delete', ['ids' => [$snapshot->id]])
+        ->assertJsonPath('queued', 1);
+
+    expect($snapshot->fresh())->not->toBeNull()->deleting->toBeFalse();
 });
 
 // Demo user CAN do these things
@@ -260,9 +281,15 @@ test('demo user is created when visiting login page in demo mode', function () {
     // Visit login page
     $this->get(route('login'))->assertOk();
 
-    // Demo user should now exist with the viewer role and be recognized as demo
+    // Demo user should now exist with the demo role and be recognized as demo
     $this->assertDatabaseHas('users', ['email' => User::DEMO_EMAIL]);
     $demoUser = User::where('email', User::DEMO_EMAIL)->first();
-    expect($demoUser->roleNameIn(\App\Models\Organization::default()))->toBe('viewer')
-        ->and($demoUser->isDemo())->toBeTrue();
+    expect($demoUser->roleNameIn(\App\Models\Organization::default()))->toBe(DemoModeMiddleware::DEMO_ROLE)
+        ->and($demoUser->isDemo())->toBeTrue()
+        ->and(Role::where('name', DemoModeMiddleware::DEMO_ROLE)->sole()->getAbilities()->pluck('name')->sort()->values()->all())
+        ->toBe([
+            Ability::DeleteSnapshots->value,
+            Ability::DownloadSnapshots->value,
+            Ability::OperateRestores->value,
+        ]);
 });
