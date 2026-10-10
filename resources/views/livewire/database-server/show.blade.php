@@ -252,10 +252,7 @@
                                 <div class="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3.5">
                                     <dl class="grid gap-y-2 gap-x-4 text-sm" style="grid-template-columns: auto 1fr;">
                                         @if($summaryWhat || $showNamesList)
-                                            <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                                                <x-icon name="o-circle-stack" class="w-3.5 h-3.5" />
-                                                {{ __('What') }}
-                                            </dt>
+                                            <x-summary-term icon="o-circle-stack" :label="__('What')" />
                                             <dd class="font-semibold text-base-content">
                                                 @if($showNamesList)
                                                     <div class="flex flex-wrap items-center gap-1.5">
@@ -278,10 +275,7 @@
                                         @endif
 
                                         @if(! empty($backup->excluded_tables))
-                                            <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                                                <x-icon name="o-no-symbol" class="w-3.5 h-3.5" />
-                                                {{ __('Excluded') }}
-                                            </dt>
+                                            <x-summary-term icon="o-no-symbol" :label="__('Excluded')" />
                                             <dd class="flex flex-wrap items-center gap-1.5">
                                                 @foreach($backup->excluded_tables as $excludedTable)
                                                     <code class="text-xs font-mono break-all px-1.5 py-0.5 rounded bg-base-200">{{ $excludedTable }}</code>
@@ -290,10 +284,7 @@
                                         @endif
 
                                         @if($summaryWhere)
-                                            <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                                                <x-icon name="o-server-stack" class="w-3.5 h-3.5" />
-                                                {{ __('Where') }}
-                                            </dt>
+                                            <x-summary-term icon="o-server-stack" :label="__('Where')" />
                                             <dd class="font-semibold text-base-content inline-flex items-center gap-1.5">
                                                 @if($backup->volumes->isNotEmpty())
                                                     <x-volume-type-icon :type="$backup->volumes->first()->type" class="w-3.5 h-3.5 opacity-70" />
@@ -303,17 +294,11 @@
                                         @endif
 
                                         @if($summaryWhen)
-                                            <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                                                <x-icon name="o-clock" class="w-3.5 h-3.5" />
-                                                {{ __('When') }}
-                                            </dt>
+                                            <x-summary-term icon="o-clock" :label="__('When')" />
                                             <dd class="font-semibold text-base-content">{{ $summaryWhen }}</dd>
                                         @endif
 
-                                        <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                                            <x-icon name="o-archive-box" class="w-3.5 h-3.5" />
-                                            {{ __('Keep') }}
-                                        </dt>
+                                        <x-summary-term icon="o-archive-box" :label="__('Keep')" />
                                         <dd class="font-semibold text-base-content">{{ $summaryKeep }}</dd>
                                     </dl>
                                 </div>
@@ -334,60 +319,36 @@
                 </div>
                 <ul class="list">
                     @if($isSqlite)
-                        <li class="list-row">
-                            <x-icon name="o-document" class="w-4 h-4 opacity-60" />
-                            <div>
-                                <div class="text-xs uppercase font-semibold opacity-60">{{ __('Database files') }}</div>
-                                <div class="text-sm font-mono break-all">
-                                    @foreach($server->resolveDatabaseNames() as $path)
-                                        <div>{{ $path }}</div>
-                                    @endforeach
-                                </div>
+                        <x-detail-row icon="o-document" :label="__('Database files')">
+                            <div class="text-sm font-mono break-all">
+                                @foreach($server->resolveDatabaseNames() as $path)
+                                    <div>{{ $path }}</div>
+                                @endforeach
                             </div>
-                        </li>
+                        </x-detail-row>
                     @else
-                        <li class="list-row">
-                            <x-icon name="o-wifi" class="w-4 h-4 opacity-60" />
-                            <div>
-                                <div class="text-xs uppercase font-semibold opacity-60">{{ __('Host / Port') }}</div>
-                                <div class="text-sm font-mono">{{ $server->host }}<span class="opacity-50">:{{ $server->port }}</span></div>
-                            </div>
-                        </li>
+                        <x-detail-row icon="o-wifi" :label="__('Host / Port')">
+                            <div class="text-sm font-mono">{{ $server->host }}<span class="opacity-50">:{{ $server->port }}</span></div>
+                        </x-detail-row>
                         @if($server->username)
-                            <li class="list-row">
-                                <x-icon name="o-key" class="w-4 h-4 opacity-60" />
-                                <div>
-                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Username') }}</div>
-                                    <div class="text-sm font-mono">{{ $server->username }}</div>
-                                </div>
-                            </li>
+                            <x-detail-row icon="o-key" :label="__('Username')">
+                                <div class="text-sm font-mono">{{ $server->username }}</div>
+                            </x-detail-row>
                         @endif
-                        <li class="list-row">
-                            <x-icon name="o-lock-closed" class="w-4 h-4 opacity-60" />
-                            <div>
-                                <div class="text-xs uppercase font-semibold opacity-60">{{ __('Password') }}</div>
-                                <div class="text-sm font-mono tracking-widest opacity-60">{{ $server->password ? '••••••••' : '—' }}</div>
-                            </div>
-                        </li>
+                        <x-detail-row icon="o-lock-closed" :label="__('Password')">
+                            <div class="text-sm font-mono tracking-widest opacity-60">{{ $server->password ? '••••••••' : '—' }}</div>
+                        </x-detail-row>
                         @if($server->database_type === DatabaseType::MYSQL)
-                            <li class="list-row">
-                                <x-icon name="o-shield-check" class="w-4 h-4 opacity-60" />
-                                <div>
-                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('SSL') }}</div>
-                                    <div class="text-xs font-medium {{ $sslEnabled ? 'text-success' : 'opacity-60' }}">
-                                        {{ $sslEnabled ? __('Enabled') : __('Disabled') }}
-                                    </div>
+                            <x-detail-row icon="o-shield-check" :label="__('SSL')">
+                                <div class="text-xs font-medium {{ $sslEnabled ? 'text-success' : 'opacity-60' }}">
+                                    {{ $sslEnabled ? __('Enabled') : __('Disabled') }}
                                 </div>
-                            </li>
+                            </x-detail-row>
                         @endif
                         @if($authSource)
-                            <li class="list-row">
-                                <x-icon name="o-identification" class="w-4 h-4 opacity-60" />
-                                <div>
-                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Authentication DB') }}</div>
-                                    <div class="text-sm font-mono">{{ $authSource }}</div>
-                                </div>
-                            </li>
+                            <x-detail-row icon="o-identification" :label="__('Authentication DB')">
+                                <div class="text-sm font-mono">{{ $authSource }}</div>
+                            </x-detail-row>
                         @endif
                     @endif
                 </ul>
@@ -396,40 +357,29 @@
             {{-- Dump configuration --}}
             @if($showDumpCard)
                 <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
-                    <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
-                        <x-icon name="o-command-line" class="w-4 h-4 opacity-60" />
-                        <h2 class="text-sm font-semibold">{{ __('Dump configuration') }}</h2>
-                    </div>
+                    <x-detail-card-header icon="o-command-line" :title="__('Dump configuration')" />
                     <ul class="list">
                         @if($isPostgres)
-                            <li class="list-row">
-                                <x-icon name="o-document-text" class="w-4 h-4 opacity-60" />
-                                <div class="min-w-0">
-                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Format') }}</div>
-                                    <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
-                                        @if($dumpFormat === 'custom')
-                                            <span class="badge badge-info gap-1.5">
-                                                <x-icon name="o-cube" class="w-3 h-3" />
-                                                {{ __('Custom (pg_restore)') }}
-                                            </span>
-                                        @else
-                                            <span class="badge badge-ghost gap-1.5">
-                                                <x-icon name="o-document" class="w-3 h-3" />
-                                                {{ __('Plain SQL (psql -f)') }}
-                                            </span>
-                                        @endif
-                                    </div>
+                            <x-detail-row icon="o-document-text" :label="__('Format')">
+                                <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
+                                    @if($dumpFormat === 'custom')
+                                        <span class="badge badge-info gap-1.5">
+                                            <x-icon name="o-cube" class="w-3 h-3" />
+                                            {{ __('Custom (pg_restore)') }}
+                                        </span>
+                                    @else
+                                        <span class="badge badge-ghost gap-1.5">
+                                            <x-icon name="o-document" class="w-3 h-3" />
+                                            {{ __('Plain SQL (psql -f)') }}
+                                        </span>
+                                    @endif
                                 </div>
-                            </li>
+                            </x-detail-row>
                         @endif
                         @if($dumpFlags)
-                            <li class="list-row">
-                                <x-icon name="o-adjustments-horizontal" class="w-4 h-4 opacity-60" />
-                                <div class="min-w-0">
-                                    <div class="text-xs uppercase font-semibold opacity-60">{{ __('Extra flags') }}</div>
-                                    <code class="mt-1 inline-block text-xs font-mono break-all px-1.5 py-0.5 rounded bg-base-200">{{ $dumpFlags }}</code>
-                                </div>
-                            </li>
+                            <x-detail-row icon="o-adjustments-horizontal" :label="__('Extra flags')">
+                                <code class="mt-1 inline-block text-xs font-mono break-all px-1.5 py-0.5 rounded bg-base-200">{{ $dumpFlags }}</code>
+                            </x-detail-row>
                         @endif
                     </ul>
                 </div>
@@ -438,10 +388,7 @@
             {{-- Agent --}}
             @if($agent)
                 <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
-                    <div class="flex items-center gap-2.5 border-b border-base-200 px-4 py-3">
-                        <x-icon name="o-cpu-chip" class="w-4 h-4 opacity-60" />
-                        <h2 class="text-sm font-semibold">{{ __('Agent') }}</h2>
-                    </div>
+                    <x-detail-card-header icon="o-cpu-chip" :title="__('Agent')" />
                     <div class="p-4 space-y-3">
                         <div class="flex items-center justify-between gap-2">
                             <span class="text-sm font-medium truncate">{{ $agent->name }}</span>
@@ -477,38 +424,5 @@
     <livewire:database-server.adminer-modal />
 
     {{-- REDIS RESTORE INFO MODAL --}}
-    <x-modal wire:model="showRedisRestoreModal" :title="__('Restore Redis / Valkey Snapshot')" class="backdrop-blur">
-        <div class="space-y-4">
-            <x-alert class="alert-info" icon="o-information-circle">
-                <div>
-                    <span class="font-bold">{{ __('Manual Restore Required') }}</span>
-                    <p class="text-sm mt-1">
-                        {{ __('Automated restore is not supported for Redis/Valkey. RDB snapshots must be restored manually.') }}
-                    </p>
-                </div>
-            </x-alert>
-
-            <div class="p-4 border rounded-lg bg-base-200 border-base-300 space-y-3">
-                <div class="text-sm font-semibold">{{ __('How to Restore an RDB Snapshot') }}</div>
-                <ol class="list-decimal list-inside text-sm space-y-2 opacity-80">
-                    <li>{{ __('Download the snapshot archive (.rdb.gz) from your storage volume.') }}</li>
-                    <li>{{ __('Extract the RDB file from the archive (e.g., gunzip snapshot.rdb.gz).') }}</li>
-                    <li>{{ __('Stop the Redis/Valkey server.') }}</li>
-                    <li>{{ __('Copy the RDB file to the Redis data directory, replacing dump.rdb.') }}</li>
-                    <li>{{ __('Set correct file permissions (e.g., chown redis:redis dump.rdb).') }}</li>
-                    <li>{{ __('Restart the Redis/Valkey server.') }}</li>
-                </ol>
-            </div>
-
-            <a href="{{ route('snapshots.index', ['serverFilter' => $server->id]) }}"
-               class="btn btn-sm btn-outline gap-2" wire:navigate>
-                <x-icon name="o-arrow-down-tray" class="w-4 h-4" />
-                {{ __('View Backup Snapshots') }}
-            </a>
-        </div>
-
-        <x-slot:actions>
-            <x-button label="{{ __('Close') }}" @click="$wire.showRedisRestoreModal = false" />
-        </x-slot:actions>
-    </x-modal>
+    @include('partials.redis-restore-modal', ['serverId' => $server->id])
 </div>

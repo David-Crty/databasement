@@ -1,21 +1,8 @@
 <div>
-    <x-header :title="__('Configuration')" separator>
-        <x-slot:subtitle>
-            {{ __('Manage notification channels for backup and restore events.') }}
-        </x-slot:subtitle>
-    </x-header>
-
-    @include('livewire.configuration._tabs', ['active' => 'notification'])
+    <x-configuration-header active="notification" :subtitle="__('Manage notification channels for backup and restore events.')" />
 
     <x-card shadow class="min-w-0">
-        <x-card-heading :title="__('Notification Channels')" :subtitle="__('Assign channels per database server to receive alerts on backup and restore events.')">
-            <x-button
-                :label="__('Documentation')"
-                icon="o-book-open"
-                link="https://david-crty.github.io/databasement/self-hosting/configuration/notification"
-                external
-                class="btn-ghost btn-sm"
-            />
+        <x-card-heading :title="__('Notification Channels')" :subtitle="__('Assign channels per database server to receive alerts on backup and restore events.')" docs="self-hosting/configuration/notification">
             @if ($this->canManage)
                 <x-button
                     :label="__('Add Channel')"
@@ -125,17 +112,11 @@
     </x-modal>
 
     <!-- Delete Channel Confirmation Modal -->
-    <x-modal wire:model="showDeleteChannelModal" :title="__('Delete Channel')">
-        <p>{{ __('Are you sure you want to delete this notification channel? This action cannot be undone.') }}</p>
-
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showDeleteChannelModal = false" />
-            <x-button
-                class="btn-error"
-                :label="__('Delete')"
-                wire:click="deleteChannel"
-                spinner
-            />
-        </x-slot:actions>
-    </x-modal>
+    <x-confirm-modal
+        model="showDeleteChannelModal"
+        :title="__('Delete Channel')"
+        :message="__('Are you sure you want to delete this notification channel? This action cannot be undone.')"
+        on-confirm="deleteChannel"
+        :confirm-label="__('Delete')"
+    />
 </div>

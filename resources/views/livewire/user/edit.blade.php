@@ -17,11 +17,10 @@
             <div class="bg-base-200 p-4 rounded-lg">
                 <h4 class="font-medium mb-2">{{ __('User Status') }}</h4>
                 <div class="flex items-center gap-2">
+                    <x-user-status-badge :user="$form->user" />
                     @if($form->user->isActive())
-                        <x-badge value="{{ __('Active') }}" class="badge-success" />
                         <span class="text-sm text-base-content/70">{{ __('Joined :date', ['date' => \App\Support\Formatters::humanDate($form->user->invitation_accepted_at)]) }}</span>
                     @else
-                        <x-badge value="{{ __('Pending') }}" class="badge-warning" />
                         <span class="text-sm text-base-content/70">{{ __('Invitation sent, awaiting registration') }}</span>
                     @endif
                 </div>

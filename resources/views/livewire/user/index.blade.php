@@ -21,7 +21,7 @@
         <x-table :headers="$headers" :rows="$users" :sort-by="$sortBy" with-pagination>
             <x-slot:empty>
                 <div class="text-center text-base-content/50 py-8">
-                    @if($search || $roleFilter !== '' || $statusFilter !== '')
+                    @if($this->hasFilters)
                         {{ __('No users found matching your filters.') }}
                     @else
                         {{ __('No users yet.') }}
@@ -58,11 +58,7 @@
             @endscope
 
             @scope('cell_status', $user)
-                @if($user->isActive())
-                    <x-badge value="{{ __('Active') }}" class="badge-success" />
-                @else
-                    <x-badge value="{{ __('Pending') }}" class="badge-warning" />
-                @endif
+                <x-user-status-badge :user="$user" />
             @endscope
 
             @scope('cell_created_at', $user)
@@ -114,41 +110,29 @@
     </x-card>
 
     <!-- DELETE CONFIRMATION MODAL -->
-    <x-modal wire:model="showDeleteModal" :title="__('Delete User')" class="backdrop-blur">
-        @if($deleteBlockReason)
-            <x-alert icon="o-exclamation-triangle" class="alert-warning">
-                {{ $deleteBlockReason }}
-            </x-alert>
-        @else
-            <p>{{ __('Are you sure you want to delete this user? This action cannot be undone.') }}</p>
-            <x-alert icon="o-information-circle" class="alert-info mt-4">
-                {!! __('Database servers, backups, snapshots, and other resources created by this user <strong>WILL NOT</strong> be deleted and will remain accessible.') !!}
-            </x-alert>
-        @endif
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showDeleteModal = false" />
-            @unless($deleteBlockReason)
-                <x-button :label="__('Delete')" class="btn-error" wire:click="delete" spinner />
-            @endunless
-        </x-slot:actions>
-    </x-modal>
+    <x-confirm-modal
+        model="showDeleteModal"
+        :title="__('Delete User')"
+        :message="__('Are you sure you want to delete this user? This action cannot be undone.')"
+        on-confirm="delete"
+        :confirm-label="__('Delete')"
+        :blocked-reason="$deleteBlockReason"
+    >
+        <x-alert icon="o-information-circle" class="alert-info mt-4">
+            {!! __('Database servers, backups, snapshots, and other resources created by this user <strong>WILL NOT</strong> be deleted and will remain accessible.') !!}
+        </x-alert>
+    </x-confirm-modal>
 
     <!-- REMOVE FROM ORG CONFIRMATION MODAL -->
-    <x-modal wire:model="showRemoveModal" :title="__('Remove User from Organization')" class="backdrop-blur">
-        @if($removeBlockReason)
-            <x-alert icon="o-exclamation-triangle" class="alert-warning">
-                {{ $removeBlockReason }}
-            </x-alert>
-        @else
-            <p>{{ __('Are you sure you want to remove this user from the current organization? The user will retain access to other organizations they belong to.') }}</p>
-        @endif
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showRemoveModal = false" />
-            @unless($removeBlockReason)
-                <x-button :label="__('Remove')" class="btn-warning" wire:click="removeFromOrg" spinner />
-            @endunless
-        </x-slot:actions>
-    </x-modal>
+    <x-confirm-modal
+        model="showRemoveModal"
+        :title="__('Remove User from Organization')"
+        :message="__('Are you sure you want to remove this user from the current organization? The user will retain access to other organizations they belong to.')"
+        on-confirm="removeFromOrg"
+        :confirm-label="__('Remove')"
+        confirm-class="btn-warning"
+        :blocked-reason="$removeBlockReason"
+    />
 
     <!-- COPY INVITATION LINK MODAL -->
     <x-invitation-link-modal

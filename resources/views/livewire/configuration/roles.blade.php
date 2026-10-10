@@ -1,21 +1,8 @@
 <div>
-    <x-header :title="__('Configuration')" separator>
-        <x-slot:subtitle>
-            {{ __('Define what each role can do. Changes apply immediately, no redeploy needed.') }}
-        </x-slot:subtitle>
-    </x-header>
-
-    @include('livewire.configuration._tabs', ['active' => 'roles'])
+    <x-configuration-header active="roles" :subtitle="__('Define what each role can do. Changes apply immediately, no redeploy needed.')" />
 
     <x-card shadow class="min-w-0">
-        <x-card-heading :title="__('Roles')" :subtitle="__('Roles bundle abilities that control what users can do.')">
-            <x-button
-                :label="__('Documentation')"
-                icon="o-book-open"
-                link="https://david-crty.github.io/databasement/user-guide/permissions"
-                external
-                class="btn-ghost btn-sm"
-            />
+        <x-card-heading :title="__('Roles')" :subtitle="__('Roles bundle abilities that control what users can do.')" docs="user-guide/permissions">
             @can('create', \Silber\Bouncer\Database\Role::class)
                 <x-button :label="__('New role')" icon="o-plus" wire:click="openCreate" spinner class="btn-primary btn-sm" />
             @endcan

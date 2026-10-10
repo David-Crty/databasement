@@ -1,25 +1,12 @@
 <div>
-    <x-header :title="__('Configuration')" separator>
-        <x-slot:subtitle>
-            {{ __('Manage organizations and their resources.') }}
-        </x-slot:subtitle>
-    </x-header>
-
-    @include('livewire.configuration._tabs', ['active' => 'organizations'])
+    <x-configuration-header active="organizations" :subtitle="__('Manage organizations and their resources.')" />
 
     <x-card shadow class="min-w-0">
-        <x-card-heading :title="__('Organizations')" :subtitle="__('Organizations let you group users, servers, and volumes into isolated workspaces.')">
+        <x-card-heading :title="__('Organizations')" :subtitle="__('Organizations let you group users, servers, and volumes into isolated workspaces.')" docs="user-guide/organizations">
             @can('viewAcrossOrganizations', \App\Models\DatabaseServer::class)
                 <x-button :label="__('Servers across organizations')" icon="o-server-stack" class="btn-outline btn-sm"
                           @click="$dispatch('open-cross-organization-servers-modal')" />
             @endcan
-            <x-button
-                :label="__('Documentation')"
-                icon="o-book-open"
-                link="https://david-crty.github.io/databasement/user-guide/organizations"
-                external
-                class="btn-ghost btn-sm"
-            />
             @can('create', \App\Models\Organization::class)
                 <x-button :label="__('New Organization')" icon="o-plus" class="btn-primary btn-sm" wire:click="openCreateModal" spinner />
             @endcan

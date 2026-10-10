@@ -130,10 +130,7 @@
                         {{-- Volume Type(s) --}}
                         @foreach($snapshot->files as $file)
                             @if($file->volume)
-                                <div class="badge badge-outline gap-1.5">
-                                    <x-volume-type-icon :type="$file->volume->type" class="w-3.5 h-3.5" />
-                                    {{ $file->volume->getVolumeType()?->label() ?? $file->volume->type }}
-                                </div>
+                                <x-volume-type-badge :volume="$file->volume" class="badge-outline gap-1.5" />
                             @endif
                         @endforeach
 
@@ -360,9 +357,14 @@
     @endif
 </x-modal>
 
-<x-modal wire:model="showCancelJobModal" :title="__('Cancel Job')" class="backdrop-blur">
-    <p>{{ __('The job stops at its next step, or within 30 seconds while a command runs.') }}</p>
-
+<x-confirm-modal
+    model="showCancelJobModal"
+    :title="__('Cancel Job')"
+    :message="__('The job stops at its next step, or within 30 seconds while a command runs.')"
+    on-confirm="cancelJob"
+    :confirm-label="__('Cancel job')"
+    :cancel-label="__('Keep running')"
+>
     @if($cancelJobRestoreTarget)
         <x-alert icon="o-exclamation-triangle" class="alert-warning mt-4">
             <div class="space-y-1">
@@ -373,9 +375,4 @@
     @else
         <p class="mt-2 text-sm opacity-80">{{ __('The source database is not affected: the dump only reads it, and its partial file is discarded.') }}</p>
     @endif
-
-    <x-slot:actions>
-        <x-button :label="__('Keep running')" @click="$wire.showCancelJobModal = false" />
-        <x-button :label="__('Cancel job')" class="btn-error" wire:click="cancelJob" spinner />
-    </x-slot:actions>
-</x-modal>
+</x-confirm-modal>

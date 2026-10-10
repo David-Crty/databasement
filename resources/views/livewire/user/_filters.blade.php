@@ -1,6 +1,5 @@
 @php
     $isDesktop = $variant === 'desktop';
-    $hasFilters = $search || $roleFilter !== '' || $statusFilter !== '';
 @endphp
 
 @if($isDesktop)
@@ -26,7 +25,7 @@
         :options="$statusFilterOptions"
         class="!select-sm w-32"
     />
-    @if($hasFilters)
+    @if($this->hasFilters)
         <x-button
             icon="o-x-mark"
             wire:click="clear"
@@ -69,7 +68,7 @@
                 :options="$statusFilterOptions"
                 class="!select-sm w-32"
             />
-            @if($hasFilters)
+            @if($this->hasFilters)
                 <x-button
                     icon="o-x-mark"
                     wire:click="clear"
@@ -96,7 +95,7 @@
             wire:model.live="statusFilter"
             :options="$statusFilterOptions"
         />
-        @if($hasFilters)
+        @if($this->hasFilters)
             <x-button
                 label="{{ __('Clear filters') }}"
                 icon="o-x-mark"

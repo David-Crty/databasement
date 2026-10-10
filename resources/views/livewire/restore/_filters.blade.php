@@ -1,6 +1,5 @@
 @php
     $isDesktop = $variant === 'desktop';
-    $hasFilters = $search || $statusFilter !== '' || $sourceServerFilter !== '' || $targetServerFilter !== '' || $dbTypeFilter !== '';
 @endphp
 
 @if($isDesktop)
@@ -22,24 +21,24 @@
         :placeholder="__('Source Server')"
         placeholder-value=""
         wire:model.live="sourceServerFilter"
-        :options="$sourceServerOptions"
+        :options="$sourceOptions"
         class="!select-sm w-40"
     />
     <x-select
         :placeholder="__('Target Server')"
         placeholder-value=""
         wire:model.live="targetServerFilter"
-        :options="$targetServerOptions"
+        :options="$targetOptions"
         class="!select-sm w-40"
     />
     <x-select
-        :placeholder="__('All Status')"
+        :placeholder="$statusPlaceholder"
         placeholder-value=""
-        wire:model.live="statusFilter"
+        wire:model.live="{{ $statusModel }}"
         :options="$statusOptions"
         class="!select-sm w-32"
     />
-    @if($hasFilters)
+    @if($this->hasFilters)
         <x-button
             icon="o-x-mark"
             wire:click="clear"
@@ -66,20 +65,20 @@
         />
         <div class="hidden sm:flex flex-wrap items-center gap-2">
             <x-select :placeholder="__('All Types')" placeholder-value="" wire:model.live="dbTypeFilter" :options="$dbTypeOptions" class="!select-sm w-40" />
-            <x-select :placeholder="__('Source')" placeholder-value="" wire:model.live="sourceServerFilter" :options="$sourceServerOptions" class="!select-sm w-36" />
-            <x-select :placeholder="__('Target')" placeholder-value="" wire:model.live="targetServerFilter" :options="$targetServerOptions" class="!select-sm w-36" />
-            <x-select :placeholder="__('All Status')" placeholder-value="" wire:model.live="statusFilter" :options="$statusOptions" class="!select-sm w-32" />
-            @if($hasFilters)
+            <x-select :placeholder="__('Source')" placeholder-value="" wire:model.live="sourceServerFilter" :options="$sourceOptions" class="!select-sm w-36" />
+            <x-select :placeholder="__('Target')" placeholder-value="" wire:model.live="targetServerFilter" :options="$targetOptions" class="!select-sm w-36" />
+            <x-select :placeholder="$statusPlaceholder" placeholder-value="" wire:model.live="{{ $statusModel }}" :options="$statusOptions" class="!select-sm w-32" />
+            @if($this->hasFilters)
                 <x-button icon="o-x-mark" wire:click="clear" spinner class="btn-ghost btn-sm" :tooltip="__('Clear filters')" />
             @endif
         </div>
     </div>
     <div x-show="showFilters" x-collapse class="mt-3 space-y-3 sm:hidden">
         <x-select :label="__('Type')" :placeholder="__('All Types')" placeholder-value="" wire:model.live="dbTypeFilter" :options="$dbTypeOptions" />
-        <x-select :label="__('Source Server')" :placeholder="__('All Servers')" placeholder-value="" wire:model.live="sourceServerFilter" :options="$sourceServerOptions" />
-        <x-select :label="__('Target Server')" :placeholder="__('All Servers')" placeholder-value="" wire:model.live="targetServerFilter" :options="$targetServerOptions" />
-        <x-select :label="__('Status')" :placeholder="__('All Status')" placeholder-value="" wire:model.live="statusFilter" :options="$statusOptions" />
-        @if($hasFilters)
+        <x-select :label="__('Source Server')" :placeholder="__('All Servers')" placeholder-value="" wire:model.live="sourceServerFilter" :options="$sourceOptions" />
+        <x-select :label="__('Target Server')" :placeholder="__('All Servers')" placeholder-value="" wire:model.live="targetServerFilter" :options="$targetOptions" />
+        <x-select :label="__('Status')" :placeholder="$statusPlaceholder" placeholder-value="" wire:model.live="{{ $statusModel }}" :options="$statusOptions" />
+        @if($this->hasFilters)
             <x-button :label="__('Clear filters')" icon="o-x-mark" wire:click="clear" spinner class="btn-ghost btn-sm" />
         @endif
     </div>

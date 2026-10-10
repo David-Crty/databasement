@@ -97,12 +97,12 @@
     </x-modal>
 
     {{-- Delete Confirmation Modal --}}
-    <x-modal wire:model="showDeleteModal" title="{{ __('Revoke API Token') }}" separator>
-        <p>{{ __('Are you sure you want to revoke this token? Any applications using this token will no longer be able to access the API.') }}</p>
-
-        <x-slot:actions>
-            <x-button label="{{ __('Cancel') }}" wire:click="closeDeleteModal" spinner />
-            <x-button label="{{ __('Revoke Token') }}" class="btn-error" wire:click="deleteToken" spinner />
-        </x-slot:actions>
-    </x-modal>
+    <x-confirm-modal
+        model="showDeleteModal"
+        :title="__('Revoke API Token')"
+        :message="__('Are you sure you want to revoke this token? Any applications using this token will no longer be able to access the API.')"
+        on-confirm="deleteToken"
+        on-cancel="closeDeleteModal"
+        :confirm-label="__('Revoke Token')"
+    />
 </div>

@@ -1,53 +1,24 @@
 <div>
-    <!-- HEADER with search (Desktop) -->
-    <x-header :title="__('Agents')" separator progress-indicator>
-        <x-slot:actions>
-            <div class="hidden sm:flex items-center gap-2">
-                <x-input
-                    :placeholder="__('Search...')"
-                    wire:model.live.debounce="search"
-                    clearable
-                    icon="o-magnifying-glass"
-                    class="!input-sm w-48"
-                />
-                @if($search)
+    <x-index-header :title="__('Agents')" :search="$search">
+        @can('create', App\Models\Agent::class)
+            <x-button :label="__('Add Agent')" :link="route('agents.create')" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
+        @endcan
+
+        <x-slot:below>
+            <x-alert class="alert-info alert-vertical sm:alert-horizontal rounded-md mb-4" icon="o-information-circle">
+                {{ __('Agents run on remote networks to back up database servers that are not directly accessible. They are optional, you only need them if your servers are behind a firewall or private network.') }}
+                <x-slot:actions>
                     <x-button
-                        icon="o-x-mark"
-                        wire:click="clear"
-                        spinner
-                        class="btn-ghost btn-sm"
-                        :tooltip="__('Clear search')"
+                        :label="__('Learn more')"
+                        link="https://david-crty.github.io/databasement/user-guide/agents"
+                        external
+                        icon="o-book-open"
+                        class="btn-sm"
                     />
-                @endif
-            </div>
-            @can('create', App\Models\Agent::class)
-                <x-button :label="__('Add Agent')" :link="route('agents.create')" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
-            @endcan
-        </x-slot:actions>
-    </x-header>
-
-    <x-alert class="alert-info alert-vertical sm:alert-horizontal rounded-md mb-4" icon="o-information-circle">
-        {{ __('Agents run on remote networks to back up database servers that are not directly accessible. They are optional, you only need them if your servers are behind a firewall or private network.') }}
-        <x-slot:actions>
-            <x-button
-                :label="__('Learn more')"
-                link="https://david-crty.github.io/databasement/user-guide/agents"
-                external
-                icon="o-book-open"
-                class="btn-sm"
-            />
-        </x-slot:actions>
-    </x-alert>
-
-    <!-- SEARCH (Mobile) -->
-    <div class="sm:hidden mb-4">
-        <x-input
-            :placeholder="__('Search...')"
-            wire:model.live.debounce="search"
-            clearable
-            icon="o-magnifying-glass"
-        />
-    </div>
+                </x-slot:actions>
+            </x-alert>
+        </x-slot:below>
+    </x-index-header>
 
     <!-- TABLE -->
     <x-card shadow>

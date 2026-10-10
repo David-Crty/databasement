@@ -8,10 +8,7 @@ use App\Enums\DatabaseType;
     <!-- Section 1: Basic Information -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-3 sm:p-8">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="badge badge-primary badge-lg font-bold">1</span>
-                <h3 class="card-title text-lg">{{ __('Basic Information') }}</h3>
-            </div>
+            <x-form-section-header step="1" :title="__('Basic Information')" />
 
             <div class="space-y-4">
                 <x-input
@@ -84,10 +81,7 @@ use App\Enums\DatabaseType;
     <!-- Section 2: Connection Details -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-3 sm:p-8">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="badge badge-primary badge-lg font-bold">2</span>
-                <h3 class="card-title text-lg">{{ __('Connection Details') }}</h3>
-            </div>
+            <x-form-section-header step="2" :title="__('Connection Details')" />
 
             <div class="space-y-4">
                 <!-- Database Type Selection -->
@@ -264,16 +258,11 @@ use App\Enums\DatabaseType;
 
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
-                <!-- Card header -->
-                <div class="flex items-start gap-3 mb-6">
-                    <span class="badge badge-primary badge-lg font-bold">3</span>
-                    <div>
-                        <h3 class="card-title text-lg leading-snug">{{ __('Backup Configurations') }}</h3>
-                        <p class="text-xs text-base-content/60 mt-0.5">
-                            {{ __('Attach one or more backup configurations — each with its own schedule, volume, retention, and database selection.') }}
-                        </p>
-                    </div>
-                </div>
+                <x-form-section-header
+                    step="3"
+                    :title="__('Backup Configurations')"
+                    :subtitle="__('Attach one or more backup configurations — each with its own schedule, volume, retention, and database selection.')"
+                />
 
                 <div class="space-y-4">
                     @foreach($form->backups as $index => $backup)
@@ -308,10 +297,7 @@ use App\Enums\DatabaseType;
     @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite() or $form->isFirebird())
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="badge badge-primary badge-lg font-bold">{{ $form->backups_enabled ? 4 : 3 }}</span>
-                    <h3 class="card-title text-lg">{{ __('Notifications') }}</h3>
-                </div>
+                <x-form-section-header :step="$form->backups_enabled ? 4 : 3" :title="__('Notifications')" />
 
                 @php
                     $notificationChannels = $form->getNotificationChannels();

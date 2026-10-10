@@ -2,7 +2,7 @@
     <x-header :title="__('Scheduled Restores')" separator progress-indicator>
         <x-slot:actions>
             <div class="hidden lg:flex items-center gap-2">
-                @include('livewire.scheduled-restore._filters', ['variant' => 'desktop'])
+                @include('livewire.restore._filters', ['variant' => 'desktop', 'statusModel' => 'enabledFilter', 'statusOptions' => $enabledOptions, 'statusPlaceholder' => __('Status'), 'sourceOptions' => $serverOptions, 'targetOptions' => $serverOptions])
             </div>
             @can('create', \App\Models\ScheduledRestore::class)
                 <x-button
@@ -17,14 +17,14 @@
     </x-header>
 
     <div class="lg:hidden mb-4" x-data="{ showFilters: false }">
-        @include('livewire.scheduled-restore._filters', ['variant' => 'mobile'])
+        @include('livewire.restore._filters', ['variant' => 'mobile', 'statusModel' => 'enabledFilter', 'statusOptions' => $enabledOptions, 'statusPlaceholder' => __('Status'), 'sourceOptions' => $serverOptions, 'targetOptions' => $serverOptions])
     </div>
 
     <x-card shadow>
         <x-table :headers="$headers" :rows="$scheduledRestores" :sort-by="$sortBy" with-pagination>
             <x-slot:empty>
                 <div class="text-center text-base-content/50 py-8">
-                    @if($search || $enabledFilter !== '' || $sourceServerFilter !== '' || $targetServerFilter !== '' || $dbTypeFilter !== '')
+                    @if($this->hasFilters)
                         {{ __('No scheduled restores matching your filters.') }}
                     @else
                         {{ __('No scheduled restores yet. Create one to refresh a target server on a recurring schedule.') }}
@@ -48,41 +48,24 @@
 
             @scope('cell_flow', $scheduledRestore)
                 @php $source = $scheduledRestore->sourceServer; $target = $scheduledRestore->targetServer; @endphp
-                <div class="flex items-center gap-3 min-w-0">
-                    {{-- Source --}}
-                    <div class="flex items-center gap-2 min-w-0 flex-1">
-                        @if($source)
-                            <x-icon :name="$source->database_type->icon()" class="w-5 h-5 shrink-0" />
-                            <div class="min-w-0">
-                                <div class="table-cell-primary truncate">{{ $scheduledRestore->source_database_name ?? __('(any database)') }}</div>
-                                <a href="{{ route('database-servers.show', $source) }}" wire:navigate
-                                   class="text-xs text-base-content/60 hover:text-primary hover:underline truncate block">
-                                    {{ $source->name }}
-                                </a>
-                            </div>
-                        @else
-                            <span class="text-sm text-base-content/50 italic">{{ __('(source deleted)') }}</span>
-                        @endif
-                    </div>
-
-                    <x-icon name="o-arrow-right" class="w-4 h-4 text-base-content/40 shrink-0" />
-
-                    {{-- Target --}}
-                    <div class="flex items-center gap-2 min-w-0 flex-1">
-                        @if($target)
-                            <x-icon :name="$target->database_type->icon()" class="w-5 h-5 shrink-0" />
-                            <div class="min-w-0">
-                                <div class="table-cell-primary truncate">{{ $scheduledRestore->schema_name }}</div>
-                                <a href="{{ route('database-servers.show', $target) }}" wire:navigate
-                                   class="text-xs text-base-content/60 hover:text-primary hover:underline truncate block">
-                                    {{ $target->name }}
-                                </a>
-                            </div>
-                        @else
-                            <span class="text-sm text-base-content/50 italic">{{ __('(target deleted)') }}</span>
-                        @endif
-                    </div>
-                </div>
+                <x-restore-flow>
+                    <x-slot:source>
+                        <x-server-database-label
+                            :icon="$source?->database_type->icon()"
+                            :label="$scheduledRestore->source_database_name ?? __('(any database)')"
+                            :server="$source"
+                            :deleted-label="__('(source deleted)')"
+                        />
+                    </x-slot:source>
+                    <x-slot:target>
+                        <x-server-database-label
+                            :icon="$target?->database_type->icon()"
+                            :label="$scheduledRestore->schema_name"
+                            :server="$target"
+                            :deleted-label="__('(target deleted)')"
+                        />
+                    </x-slot:target>
+                </x-restore-flow>
             @endscope
 
             @scope('cell_backup_schedule', $scheduledRestore)
@@ -168,17 +151,18 @@
         onConfirm="deleteScheduledRestore"
     />
 
-    <x-modal wire:model="showRunDisabledModal" :title="__('Run Disabled Scheduled Restore')" class="backdrop-blur">
-        <p>{{ __('This scheduled restore is disabled. Do you want to run it anyway?') }}</p>
+    <x-confirm-modal
+        model="showRunDisabledModal"
+        :title="__('Run Disabled Scheduled Restore')"
+        :message="__('This scheduled restore is disabled. Do you want to run it anyway?')"
+        on-confirm="runDisabledNow"
+        :confirm-label="__('Run anyway')"
+        confirm-class="btn-primary"
+    >
         <p class="text-sm text-base-content/60 mt-2">
             {{ __('It stays disabled afterwards and will not run automatically on its schedule.') }}
         </p>
-
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showRunDisabledModal = false" />
-            <x-button :label="__('Run anyway')" class="btn-primary" wire:click="runDisabledNow" spinner />
-        </x-slot:actions>
-    </x-modal>
+    </x-confirm-modal>
 
     <livewire:scheduled-restore.modal />
 </div>
