@@ -2,6 +2,9 @@
 sidebar_position: 4
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Remote Agents
 
 A remote **agent** backs up and restores databases that Databasement cannot reach directly — without opening any inbound port to them.
@@ -55,8 +58,82 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
 
 ## Setup
 
-1. **Create an agent** — go to **Agents → Add Agent**, then copy the token shown once on creation.
-2. **Run the agent** next to your database, pointing it at your server:
+1. **Create an agent**: go to **Agents → Add Agent**. The token is shown once on creation, together with ready-to-paste deployment snippets for your server.
+2. **Run the agent** next to your database. Whatever the deployment, it needs only two environment variables:
+
+   ```bash
+   DATABASEMENT_URL=https://databasement.example.com
+   DATABASEMENT_AGENT_TOKEN=<paste-token>
+   ```
+
+   When `DATABASEMENT_URL` is set, the container runs in agent mode: it only executes `agent:run` and needs no app key, database or volume of its own.
+
+   <Tabs groupId="deployment">
+   <TabItem value="docker-compose" label="Docker Compose" default>
+
+   ```yaml title="docker-compose.yml"
+   services:
+     databasement-agent:
+       image: davidcrty/databasement:1
+       container_name: databasement-agent
+       restart: unless-stopped
+       environment:
+         DATABASEMENT_URL: 'https://databasement.example.com'
+         DATABASEMENT_AGENT_TOKEN: '<paste-token>'
+   ```
+
+   ```bash
+   docker compose up -d
+   ```
+
+   </TabItem>
+   <TabItem value="helm" label="Helm / Kubernetes">
+
+   The [Helm chart](../self-hosting/kubernetes-helm.md) runs one Deployment per entry under `agents`. With `app.enabled=false` the release contains only the agents (no web app, worker, PVC, Service or Ingress), so it can live in its own namespace or cluster:
+
+   ```bash
+   helm repo add databasement https://david-crty.github.io/databasement
+   helm repo update
+   helm install databasement-agent databasement/databasement \
+     --set app.enabled=false \
+     --set agents.main.enabled=true \
+     --set agents.main.url='https://databasement.example.com' \
+     --set agents.main.token.value='<paste-token>'
+   ```
+
+   Several agents can share a release, each with its own token. To keep tokens out of your values, store them in Secrets and reference them instead:
+
+   ```bash
+   kubectl create secret generic databasement-agents \
+     --from-literal=main='<paste-token>' \
+     --from-literal=eu='<paste-other-token>'
+   ```
+
+   ```yaml title="values.yaml"
+   app:
+     enabled: false
+
+   agents:
+     main:
+       enabled: true
+       url: https://databasement.example.com
+       token:
+         fromSecret:
+           secretName: databasement-agents
+           secretKey: main
+     eu:
+       enabled: true
+       url: https://databasement.example.com
+       token:
+         fromSecret:
+           secretName: databasement-agents
+           secretKey: eu
+   ```
+
+   Keep `app.enabled` at its default to run agents in the same release as the server.
+
+   </TabItem>
+   <TabItem value="docker" label="Docker">
 
    ```bash
    docker run -d --restart unless-stopped \
@@ -66,7 +143,10 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
      davidcrty/databasement:1
    ```
 
-   When `DATABASEMENT_URL` is set, the container runs in agent mode — it only executes `agent:run` and needs no database configuration of its own.
+   </TabItem>
+   </Tabs>
+
+   Pin the agent to your server's minor version (for example `davidcrty/databasement:1.9`, or `--version` with Helm) so it stays compatible: see the version note below.
 
 3. **Assign the agent** to a database server by setting its **Agent** field. From then on, that server's backups, and any restore that targets it, run through the agent.
 

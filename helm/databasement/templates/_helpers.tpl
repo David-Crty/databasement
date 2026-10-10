@@ -2,8 +2,18 @@
 Validate required values
 */}}
 {{- define "databasement.validateValues" -}}
-{{- if and (not .Values.app.appKey.value) (not .Values.app.appKey.fromSecret) -}}
+{{- if and .Values.app.enabled (not .Values.app.appKey.value) (not .Values.app.appKey.fromSecret) -}}
 {{- fail "app.appKey.value is required. Generate one with: docker run --rm davidcrty/databasement:latest php artisan key:generate --show" -}}
+{{- end -}}
+{{- range $name, $agent := .Values.agents -}}
+{{- if $agent.enabled -}}
+{{- if not $agent.url -}}
+{{- fail (printf "agents.%s.url is required" $name) -}}
+{{- end -}}
+{{- if and (not ($agent.token).value) (not ($agent.token).fromSecret) -}}
+{{- fail (printf "agents.%s.token.value or agents.%s.token.fromSecret is required" $name $name) -}}
+{{- end -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 

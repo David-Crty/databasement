@@ -178,6 +178,28 @@ worker:
 Separate worker deployment requires either ReadWriteMany storage or AWS S3 storage + an external database (MySQL/PostgreSQL).
 :::
 
+### Remote Agents
+
+The chart can also run [remote agents](../user-guide/agents.md), one Deployment per entry under `agents`. Set `app.enabled: false` to deploy only the agents, for example in the cluster that hosts your databases:
+
+```yaml title="values.yaml"
+app:
+  enabled: false
+
+agents:
+  main:
+    enabled: true
+    url: https://backup.yourdomain.com
+    token:
+      value: "token-shown-when-creating-the-agent"
+      # Or reference an existing secret instead:
+      # fromSecret:
+      #   secretName: databasement-agents
+      #   secretKey: main
+    # pollInterval: 5
+    # resources: {}
+```
+
 ## Updating
 
 Update the `--version` flag and run the same install command. Migrations run automatically on startup.

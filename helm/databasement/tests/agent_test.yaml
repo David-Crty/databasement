@@ -1,0 +1,170 @@
+suite: agent tests
+chart:
+  version: 0.1.0
+  appVersion: 0.1.0
+templates:
+  - templates/agents.yaml
+  - templates/deployment.yaml
+  - templates/service.yaml
+  - templates/pvc.yaml
+  - templates/ingress.yaml
+  - templates/secret.yaml
+set:
+  app:
+    enabled: false
+  agents:
+    main:
+      enabled: true
+      url: https://databasement.example.com
+      token:
+        value: agent-token-123
+  ingress:
+    enabled: true
+tests:
+  - it: should not render agents by default
+    set:
+      app.enabled: true
+      app.appKey.value: "base64:test"
+      agents: null
+    template: templates/agents.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should skip disabled agents
+    set:
+      agents.main.enabled: false
+    template: templates/agents.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render a secret and a deployment per agent without requiring an app key
+    template: templates/agents.yaml
+    asserts:
+      - hasDocuments:
+          count: 2
+      - isKind:
+          of: Secret
+        documentIndex: 0
+      - equal:
+          path: data.token
+          decodeBase64: true
+          value: agent-token-123
+        documentIndex: 0
+      - isKind:
+          of: Deployment
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: RELEASE-NAME-databasement-agent-main
+        documentIndex: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASEMENT_URL
+            value: https://databasement.example.com
+        documentIndex: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASEMENT_AGENT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-databasement-agent-main
+                key: token
+        documentIndex: 1
+
+  - it: should render one deployment per agent with distinct selectors
+    set:
+      agents.eu.enabled: true
+      agents.eu.url: https://databasement.example.com
+      agents.eu.token.value: eu-token
+    template: templates/agents.yaml
+    asserts:
+      - hasDocuments:
+          count: 4
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: agent-eu
+        documentIndex: 1
+      - equal:
+          path: spec.selector.matchLabels["app.kubernetes.io/component"]
+          value: agent-main
+        documentIndex: 3
+
+  - it: should read the token from an existing secret
+    set:
+      agents.main.token.value: ""
+      agents.main.token.fromSecret.secretName: agent-secret
+      agents.main.token.fromSecret.secretKey: TOKEN
+    template: templates/agents.yaml
+    asserts:
+      - hasDocuments:
+          count: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASEMENT_AGENT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: agent-secret
+                key: TOKEN
+
+  - it: should fail without a server url
+    set:
+      agents.main.url: ""
+    template: templates/deployment.yaml
+    asserts:
+      - failedTemplate:
+          errorMessage: "agents.main.url is required"
+
+  - it: should fail without a token
+    set:
+      agents.main.token.value: ""
+    template: templates/deployment.yaml
+    asserts:
+      - failedTemplate:
+          errorMessage: "agents.main.token.value or agents.main.token.fromSecret is required"
+
+  - it: should not render the app when app.enabled is false
+    template: templates/deployment.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render the app secret when app.enabled is false
+    set:
+      agents: null
+      app.appKey.value: "base64:test"
+    template: templates/secret.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render the service when app.enabled is false
+    template: templates/service.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render the pvc when app.enabled is false
+    template: templates/pvc.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should not render the ingress when app.enabled is false
+    template: templates/ingress.yaml
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: should render agents alongside the app
+    set:
+      app.enabled: true
+      app.appKey.value: "base64:test"
+    template: templates/deployment.yaml
+    asserts:
+      - isKind:
+          of: Deployment

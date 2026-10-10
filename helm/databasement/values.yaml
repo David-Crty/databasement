@@ -18,6 +18,8 @@ port: 2226
 
 # Application configuration
 app:
+  # Set to false to deploy only the agents defined under `agents`
+  enabled: true
   name: Databasement
   env: production
   debug: false
@@ -71,6 +73,7 @@ extraVolumeMounts: {}
 extraVolumes: {}
 
 # Worker configuration
+# Only deployed when app.enabled is true
 worker:
   enabled: true
   command: "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --max-jobs=1000"
@@ -85,6 +88,33 @@ worker:
   # When false (default), worker runs as sidecar container in the same pod as the app
   separateDeployment: false
   replicaCount: 1
+
+# Remote agents
+# Each enabled entry runs one Databasement agent (its own Deployment, and a Secret when
+# the token is given inline). Set app.enabled=false to deploy agents only, e.g. next to
+# databases in another cluster or namespace.
+# See https://david-crty.github.io/databasement/user-guide/agents
+agents: {}
+#  main:
+#    enabled: true
+#    # URL of the Databasement server the agent connects to
+#    url: https://databasement.example.com
+#    # Token shown once when the agent is created in Databasement
+#    token:
+#      value: ""
+#      # Use existing secret for the agent token
+#      fromSecret:
+#        secretName: ""
+#        secretKey: ""
+#    # Optional, defaults shown
+#    pollInterval: 5
+#    resources:
+#      limits:
+#        cpu: 500m
+#        memory: 512Mi
+#      requests:
+#        cpu: 50m
+#        memory: 128Mi
 
 # Logging
 logging:
