@@ -54,6 +54,7 @@ class RunScheduledRestores extends Command
         return match ($reason) {
             ScheduledRestore::SKIP_PREVIOUS_IN_FLIGHT => "Skipping {$scheduledRestore->name}: previous restore still in flight.",
             ScheduledRestore::SKIP_NO_SNAPSHOT => "No eligible snapshot for scheduled restore: {$scheduledRestore->name}",
+            ScheduledRestore::SKIP_RESTORES_DISABLED => "Skipping {$scheduledRestore->name}: restores disabled on target server.",
             default => "Skipping {$scheduledRestore->name}: {$reason}",
         };
     }

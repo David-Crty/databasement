@@ -215,6 +215,36 @@ test('from-snapshot mode: target select lists only servers matching the snapshot
         ->assertDontSee('Postgres Target');
 });
 
+test('from-snapshot mode: restores-disabled targets are greyed out and cannot be selected', function () {
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
+
+    $allowed = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+        'name' => 'Allowed Target',
+        'restores_enabled' => true,
+    ]);
+    $blocked = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+        'name' => 'Blocked Target',
+        'restores_enabled' => false,
+    ]);
+
+    $component = Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id);
+
+    $options = collect($component->get('targetServerOptions'));
+
+    expect($options->firstWhere('id', $allowed->id))->toMatchArray(['disabled' => false])
+        ->and($options->firstWhere('id', $blocked->id))->toMatchArray(['disabled' => true])
+        ->and($options->firstWhere('id', $blocked->id)['name'])->toContain(__('Restore disabled'));
+
+    $component
+        ->set('targetServerId', $blocked->id)
+        ->assertHasErrors('targetServerId')
+        ->assertSet('targetServerId', null);
+});
+
 test('from-snapshot mode: choosing a target prefills the schema and queues restore', function () {
     Queue::fake();
 

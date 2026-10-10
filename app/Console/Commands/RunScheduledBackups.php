@@ -4,10 +4,12 @@ namespace App\Console\Commands;
 
 use App\Models\Backup;
 use App\Models\BackupSchedule;
+use App\Models\DatabaseServer;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\DispatchBackupAction;
 use App\Services\Backup\DispatchDiscoveryAction;
 use Illuminate\Console\Command;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Log;
 
 class RunScheduledBackups extends Command
@@ -29,7 +31,10 @@ class RunScheduledBackups extends Command
         }
 
         $backups = Backup::with(['databaseServer', 'volumes', 'backupSchedule'])
-            ->whereRelation('databaseServer', 'backups_enabled', true)
+            ->whereHas('databaseServer', function (Builder $query) {
+                /** @var Builder<DatabaseServer> $query */
+                $query->where('backups_enabled', true)->allowsExport();
+            })
             ->where('backup_schedule_id', $schedule->id)
             ->get();
 

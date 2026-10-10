@@ -239,14 +239,26 @@ use App\Enums\DatabaseType;
         </div>
     </div>
 
-    <!-- Enable Backups Toggle (shown after successful connection test, agent assigned, or when editing) -->
+    <!-- Server capability toggles (shown after successful connection test, agent assigned, or when editing) -->
     @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit)
         <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body p-3 sm:p-8">
+            <div class="card-body p-3 sm:p-8 space-y-4">
                 <x-toggle
                     wire:model.live="form.backups_enabled"
-                    label="{{ __('Enable Scheduled Backups') }}"
-                    hint="{{ __('When disabled, this server will be skipped during scheduled backup runs') }}"
+                    :label="__('Enable Scheduled Backups')"
+                    :hint="__('When disabled, this server will be skipped during scheduled backup runs')"
+                    class="toggle-primary"
+                />
+                <x-toggle
+                    wire:model="form.exports_enabled"
+                    :label="__('Allow Backup')"
+                    :hint="__('When disabled, Backup cannot be run on this server (manual, API, or scheduled)')"
+                    class="toggle-primary"
+                />
+                <x-toggle
+                    wire:model="form.restores_enabled"
+                    :label="__('Allow Restore')"
+                    :hint="__('When disabled, this server cannot be used as a Restore target')"
                     class="toggle-primary"
                 />
             </div>

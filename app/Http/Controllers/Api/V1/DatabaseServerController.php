@@ -71,6 +71,14 @@ class DatabaseServerController extends Controller
             $validated['backups_enabled'] = true;
         }
 
+        if (! array_key_exists('exports_enabled', $validated)) {
+            $validated['exports_enabled'] = true;
+        }
+
+        if (! array_key_exists('restores_enabled', $validated)) {
+            $validated['restores_enabled'] = true;
+        }
+
         DatabaseServer::buildExtraConfig($validated);
 
         $validated['organization_id'] = app(CurrentOrganization::class)->id();
@@ -106,6 +114,14 @@ class DatabaseServerController extends Controller
         // Preserve current backups_enabled if not provided
         if (! array_key_exists('backups_enabled', $validated)) {
             $validated['backups_enabled'] = $databaseServer->backups_enabled;
+        }
+
+        if (! array_key_exists('exports_enabled', $validated)) {
+            $validated['exports_enabled'] = $databaseServer->exports_enabled;
+        }
+
+        if (! array_key_exists('restores_enabled', $validated)) {
+            $validated['restores_enabled'] = $databaseServer->restores_enabled;
         }
 
         DatabaseServer::buildExtraConfig($validated, $databaseServer->extra_config, $databaseServer->database_type->value);

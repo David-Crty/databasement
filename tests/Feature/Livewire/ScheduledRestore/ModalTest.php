@@ -43,6 +43,36 @@ test('rejects target server with a different database type than the source', fun
         ->assertHasErrors(['targetServerId']);
 });
 
+test('restores-disabled targets are greyed out and rejected on select', function () {
+    $schedule = dailySchedule();
+    $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
+    $blocked = DatabaseServer::factory()->create([
+        'database_type' => 'mysql',
+        'name' => 'Blocked Target',
+        'restores_enabled' => false,
+    ]);
+    Snapshot::factory()->forServer($source)->create(['database_name' => 'app']);
+
+    $component = Livewire::test(Modal::class)
+        ->call('open')
+        ->set('name', 'Nightly refresh')
+        ->set('backupScheduleId', $schedule->id)
+        ->call('nextStep')
+        ->set('sourceServerId', $source->id)
+        ->set('sourceDatabaseName', 'app')
+        ->call('nextStep');
+
+    $option = collect($component->get('targetServerOptions'))->firstWhere('id', $blocked->id);
+
+    expect($option)->toMatchArray(['disabled' => true])
+        ->and($option['name'])->toContain(__('Restore disabled'));
+
+    $component
+        ->set('targetServerId', $blocked->id)
+        ->assertHasErrors(['targetServerId'])
+        ->assertSet('targetServerId', null);
+});
+
 test('creates a scheduled restore end-to-end', function () {
     $schedule = dailySchedule();
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);

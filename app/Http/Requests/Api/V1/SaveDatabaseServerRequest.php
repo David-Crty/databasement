@@ -62,6 +62,8 @@ class SaveDatabaseServerRequest extends FormRequest
             'database_type' => ['required', 'string', Rule::in(array_map(fn (DatabaseType $t) => $t->value, DatabaseType::cases()))],
             'description' => 'nullable|string|max:1000',
             'backups_enabled' => 'boolean',
+            'exports_enabled' => 'boolean',
+            'restores_enabled' => 'boolean',
             'ssh_config_id' => ['nullable', Rule::exists('database_server_ssh_configs', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
             'agent_id' => ['nullable', Rule::exists('agents', 'id')->where('organization_id', app(CurrentOrganization::class)->id())],
             'managed_by' => 'nullable|string|max:255',

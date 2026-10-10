@@ -79,7 +79,21 @@ class Modal extends Component
 
     public function updatedTargetServerId(): void
     {
-        $this->loadExistingDatabases($this->targetServerId ? DatabaseServer::find($this->targetServerId) : null);
+        if (! $this->targetServerId) {
+            $this->loadExistingDatabases(null);
+
+            return;
+        }
+
+        $server = DatabaseServer::find($this->targetServerId);
+
+        if (! $server || $this->rejectIfRestoresDisabled($server)) {
+            $this->loadExistingDatabases(null);
+
+            return;
+        }
+
+        $this->loadExistingDatabases($server);
     }
 
     public function nextStep(): void
@@ -166,6 +180,11 @@ class Modal extends Component
 
         $target = DatabaseServer::findOrFail($this->targetServerId);
 
+        if (! $target->allowsRestore()) {
+            $this->addError('targetServerId', __('Restores are disabled on the target server.'));
+            $this->validate(['targetServerId' => 'prohibited']);
+        }
+
         $this->validate(
             ['schemaName' => $target->database_type->databaseNameRules()],
             $target->database_type->databaseNameMessages('schemaName'),
@@ -234,7 +253,7 @@ class Modal extends Component
     }
 
     /**
-     * @return array<int, array{id: string, name: string}>
+     * @return array<int, array{id: string, name: string, disabled: bool}>
      */
     public function getTargetServerOptionsProperty(): array
     {
@@ -250,8 +269,8 @@ class Modal extends Component
         return DatabaseServer::query()
             ->whereRaw('database_type = ?', [$source->database_type->value])
             ->orderBy('name')
-            ->get(['id', 'name', 'host', 'port'])
-            ->map(fn (DatabaseServer $s) => ['id' => $s->id, 'name' => $this->serverOptionLabel($s)])
+            ->get(['id', 'name', 'host', 'port', 'restores_enabled'])
+            ->map(fn (DatabaseServer $s) => $this->targetServerOption($s))
             ->toArray();
     }
 

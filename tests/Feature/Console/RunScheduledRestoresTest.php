@@ -47,6 +47,24 @@ test('skips when no eligible snapshot exists', function () {
     expect($scheduled->last_skip_reason)->toBe(ScheduledRestore::SKIP_NO_SNAPSHOT);
 });
 
+test('skips when restores are disabled on the target server', function () {
+    Queue::fake();
+
+    $scheduled = createScheduledRestore();
+    $scheduled->targetServer->update(['restores_enabled' => false]);
+
+    Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
+
+    $this->artisan('restores:run', ['scheduledRestore' => $scheduled->id])
+        ->expectsOutputToContain('restores disabled on target server')
+        ->assertExitCode(0);
+
+    Queue::assertNothingPushed();
+
+    $scheduled->refresh();
+    expect($scheduled->last_skip_reason)->toBe(ScheduledRestore::SKIP_RESTORES_DISABLED);
+});
+
 test('skips when a previous restore is still in flight', function () {
     Queue::fake();
 

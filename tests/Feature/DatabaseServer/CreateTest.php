@@ -103,6 +103,31 @@ test('can create database server with backups disabled', function () {
     ]);
 });
 
+test('can create database server with export and restore disabled', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Restricted Server')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.backups_enabled', false)
+        ->set('form.exports_enabled', false)
+        ->set('form.restores_enabled', false)
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $this->assertDatabaseHas('database_servers', [
+        'name' => 'Restricted Server',
+        'exports_enabled' => false,
+        'restores_enabled' => false,
+    ]);
+});
+
 test('can create database server with retention policy', function (array $config) {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);

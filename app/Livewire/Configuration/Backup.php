@@ -5,9 +5,11 @@ namespace App\Livewire\Configuration;
 use App\Jobs\CleanupExpiredSnapshotsJob;
 use App\Jobs\VerifySnapshotFileJob;
 use App\Models\BackupSchedule;
+use App\Models\DatabaseServer;
 use App\Services\CurrentOrganization;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -173,14 +175,20 @@ class Backup extends Component
     {
         return BackupSchedule::withCount([
             'backups as backups_count' => function ($query) {
-                $query->whereRelation('databaseServer', 'backups_enabled', true);
+                $query->whereHas('databaseServer', function (Builder $q) {
+                    /** @var Builder<DatabaseServer> $q */
+                    $q->where('backups_enabled', true)->allowsExport();
+                });
             },
             'backups as total_backups_count',
             'scheduledRestores as scheduled_restores_count',
         ])
             ->with([
                 'backups' => function ($query) {
-                    $query->whereRelation('databaseServer', 'backups_enabled', true);
+                    $query->whereHas('databaseServer', function (Builder $q) {
+                        /** @var Builder<DatabaseServer> $q */
+                        $q->where('backups_enabled', true)->allowsExport();
+                    });
                 },
                 'backups.databaseServer:id,name',
                 'scheduledRestores:id,name,backup_schedule_id',

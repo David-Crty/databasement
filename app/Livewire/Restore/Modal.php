@@ -203,6 +203,13 @@ class Modal extends Component
         }
 
         $server = DatabaseServer::findOrFail($this->targetServerId);
+
+        if ($this->rejectIfRestoresDisabled($server)) {
+            $this->targetServer = null;
+
+            return;
+        }
+
         $this->authorize('restore', $server);
         $this->targetServer = $server;
 
@@ -320,6 +327,12 @@ class Modal extends Component
     {
         if (! $this->targetServer) {
             $this->error(__('Please select a target server before restoring.'));
+
+            return;
+        }
+
+        if ($this->rejectIfRestoresDisabled($this->targetServer)) {
+            $this->targetServer = null;
 
             return;
         }
@@ -443,22 +456,19 @@ class Modal extends Component
             ->whereRaw('database_type = ?', [$snapshot->database_type->value])
             ->where('database_type', '!=', DatabaseType::REDIS->value)
             ->orderBy('name')
-            ->get(['id', 'name', 'database_type', 'host', 'port']);
+            ->get(['id', 'name', 'database_type', 'host', 'port', 'restores_enabled']);
     }
 
     /**
      * Target-server options for the destination-step select (from-snapshot and
      * from-restore-index modes).
      *
-     * @return array<int, array{id: string, name: string}>
+     * @return array<int, array{id: string, name: string, disabled: bool}>
      */
     public function getTargetServerOptionsProperty(): array
     {
         return $this->getCompatibleTargetServersProperty()
-            ->map(fn (DatabaseServer $s) => [
-                'id' => $s->id,
-                'name' => $this->serverOptionLabel($s),
-            ])
+            ->map(fn (DatabaseServer $s) => $this->targetServerOption($s))
             ->all();
     }
 

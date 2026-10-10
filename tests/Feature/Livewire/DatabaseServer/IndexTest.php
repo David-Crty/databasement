@@ -95,6 +95,30 @@ test('without operate-restores, starting a restore is forbidden', function () {
         ->assertForbidden();
 });
 
+test('when exports are disabled, runBackup is forbidden', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create(['exports_enabled' => false]);
+    $backup = Backup::factory()->for($server)->selected(['test_db'])->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('runBackup', $backup->id)
+        ->assertForbidden();
+});
+
+test('when restores are disabled, starting a restore is forbidden', function () {
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create([
+        'database_type' => 'mysql',
+        'restores_enabled' => false,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('confirmRestore', $server->id)
+        ->assertForbidden();
+});
+
 // --- openAdminer (use-adminer) ---
 
 test('use-adminer allows opening the Adminer modal', function () {

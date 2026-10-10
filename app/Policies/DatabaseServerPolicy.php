@@ -116,6 +116,10 @@ class DatabaseServerPolicy
             return false;
         }
 
+        if (! $databaseServer->allowsExport()) {
+            return false;
+        }
+
         if ($databaseServer->backups_enabled === false || $databaseServer->backups->isEmpty()) {
             return false;
         }
@@ -129,6 +133,7 @@ class DatabaseServerPolicy
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
         return $this->ownedByCurrentOrganization($databaseServer->organization_id)
+            && $databaseServer->allowsRestore()
             && ($user->isDemo() || $user->can(Ability::OperateRestores->value));
     }
 }
