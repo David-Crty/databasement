@@ -274,6 +274,7 @@ Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and ren
 1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the commits since the last tag under the `[x.y]` section tagged with the patch, commits to `main` with `--no-verify` (`main` already passed the hook and the commit only touches `CHANGELOG.md`) and pushes.
 2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
 3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
+4. It runs the `/release-issues x.y.z` skill headlessly, which comments on every issue closed by the release's PRs, pinging the reporters with what changed for them and what they need to do (e.g. update the agent). It skips issues already announced for that version, so rerunning it by hand after a failure is safe; a failure only warns, since the tag is already out.
 
 A release containing a `<type>(agent)!:` commit must open a new minor (`x.y.0`, or a new major): `make release` checks this before anything else and stops on a patch version (see "Agent compatibility" under Agent Mode).
 

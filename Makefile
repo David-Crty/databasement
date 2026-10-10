@@ -251,3 +251,7 @@ release: ## Create a new release (usage: make release VERSION=1.0.1)
 	git tag v$(VERSION)
 	git push origin v$(VERSION)
 	@echo "$(GREEN)Release v$(VERSION) created! Workflows will build Docker images, Helm chart, and GitHub Release.$(NC)"
+	@echo "$(GREEN)Commenting on the issues v$(VERSION) resolves (/release-issues $(VERSION))...$(NC)"
+	@claude -p "/release-issues $(VERSION)" \
+		--allowedTools "Bash(git *),Bash(gh *),Read" \
+		|| echo "$(YELLOW)Warning: the issue comments failed. The release is out; rerun /release-issues $(VERSION) in Claude Code.$(NC)"
