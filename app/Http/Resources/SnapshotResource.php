@@ -33,6 +33,7 @@ class SnapshotResource extends JsonResource
             'checksum' => $this->checksum,
             'compression_type' => $this->compression_type,
             'method' => $this->method,
+            'deleting' => $this->deleting,
             'started_at' => $this->started_at,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

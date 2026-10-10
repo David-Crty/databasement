@@ -14,6 +14,12 @@ You can also trigger verification manually from the dashboard.
 
 See [Backup Configuration](../self-hosting/configuration/backup.md) for `BACKUP_VERIFY_FILES` and `BACKUP_VERIFY_FILES_CRON` settings.
 
+## Deleting Snapshots
+
+On the Snapshots page, tick the rows to delete, or tick the header checkbox to select the whole page and then **Select all matching snapshots** to extend the selection to every snapshot matching the current search and filters. Filtering on **File missing** first is a quick way to clean up snapshots whose files were removed from the volume.
+
+Bulk deletion runs in the background on the queue worker, and the snapshots show as **Deleting** until they are removed. Locked snapshots and snapshots whose backup is still in progress are skipped. Through the API, use `DELETE /api/v1/snapshots/{id}` for one snapshot or `POST /api/v1/snapshots/bulk-delete` with a list of `ids` for many.
+
 ## Restore Process
 
 When you restore a snapshot, Databasement:

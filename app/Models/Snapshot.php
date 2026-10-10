@@ -41,6 +41,7 @@ class Snapshot extends Model
         'database_name',
         'comment',
         'locked',
+        'deleting',
         'database_type',
         'compression_type',
         'method',
@@ -54,6 +55,7 @@ class Snapshot extends Model
             'started_at' => 'datetime',
             'file_size' => 'integer',
             'locked' => 'boolean',
+            'deleting' => 'boolean',
             'database_type' => DatabaseType::class,
             'metadata' => 'array',
             'compression_type' => CompressionType::class,
@@ -344,6 +346,25 @@ class Snapshot extends Model
     public function scopeCompleted(Builder $query): Builder
     {
         return $query->whereRelation('job', 'status', BackupJobStatus::Completed);
+    }
+
+    /**
+     * Scope to snapshots a user may delete: unlocked, not already queued for
+     * deletion, with a finished backup job.
+     *
+     * @param  Builder<Snapshot>  $query
+     * @return Builder<Snapshot>
+     */
+    public function scopeDeletable(Builder $query): Builder
+    {
+        return $query
+            ->where('locked', false)
+            ->where('deleting', false)
+            ->whereHas('job', fn (Builder $q) => $q->whereIn('status', [
+                BackupJobStatus::Completed,
+                BackupJobStatus::Failed,
+                BackupJobStatus::Cancelled,
+            ]));
     }
 
     /**

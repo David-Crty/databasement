@@ -1,8 +1,13 @@
 <?php
 
+use App\Enums\Ability;
+use App\Enums\BackupJobStatus;
+use App\Jobs\DeleteSnapshotsJob;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Models\User;
 use App\Services\Backup\BackupJobFactory;
+use Illuminate\Support\Facades\Queue;
 
 test('unauthenticated users cannot access snapshots api', function () {
     $this->getJson('/api/v1/snapshots')->assertUnauthorized();
@@ -111,4 +116,69 @@ test('authenticated users can get a specific snapshot', function () {
     $response->assertOk()
         ->assertJsonPath('data.id', $snapshot->id)
         ->assertJsonPath('data.database_name', 'testdb');
+});
+
+test('delete-snapshots allows deleting a snapshot via api', function () {
+    $user = User::factory()->withAbilities([Ability::DeleteSnapshots->value])->create();
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson("/api/v1/snapshots/{$snapshot->id}")
+        ->assertNoContent();
+
+    expect(Snapshot::find($snapshot->id))->toBeNull();
+});
+
+test('without delete-snapshots, deleting a snapshot via api is forbidden', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::DeleteSnapshots->value)->create();
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson("/api/v1/snapshots/{$snapshot->id}")
+        ->assertForbidden();
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
+});
+
+test('a snapshot whose backup is running cannot be deleted via api', function () {
+    $user = User::factory()->withAbilities([Ability::DeleteSnapshots->value])->create();
+    $snapshot = Snapshot::factory()->withFile()->create();
+    $snapshot->job->update(['status' => BackupJobStatus::Running]);
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson("/api/v1/snapshots/{$snapshot->id}")
+        ->assertStatus(409);
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
+});
+
+test('delete-snapshots allows queueing a bulk delete via api, skipping locked snapshots', function () {
+    Queue::fake();
+    $user = User::factory()->withAbilities([Ability::DeleteSnapshots->value])->create();
+    $deletable = Snapshot::factory()->withFile()->create();
+    $locked = Snapshot::factory()->withFile()->create(['locked' => true]);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/snapshots/bulk-delete', [
+            'ids' => [$deletable->id, $locked->id, 'unknown'],
+            'keep_files' => true,
+        ])
+        ->assertStatus(202)
+        ->assertJsonPath('queued', 1);
+
+    Queue::assertPushed(DeleteSnapshotsJob::class, fn (DeleteSnapshotsJob $job) => $job->snapshotIds === [$deletable->id] && $job->keepFiles);
+    expect($deletable->fresh()->deleting)->toBeTrue()
+        ->and($locked->fresh()->deleting)->toBeFalse();
+});
+
+test('without delete-snapshots, bulk deleting via api is forbidden', function () {
+    Queue::fake();
+    $user = User::factory()->withAllAbilitiesExcept(Ability::DeleteSnapshots->value)->create();
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/snapshots/bulk-delete', ['ids' => [$snapshot->id]])
+        ->assertForbidden();
+
+    Queue::assertNothingPushed();
 });
