@@ -180,7 +180,7 @@ Separate worker deployment requires either ReadWriteMany storage or AWS S3 stora
 
 ### Remote Agents
 
-The chart can also run [remote agents](../user-guide/agents.md), one Deployment per entry under `agents`. Set `app.enabled: false` to deploy only the agents, for example in the cluster that hosts your databases:
+The chart can also run [remote agents](../user-guide/agents.md), one Deployment per enabled entry under `agents`. Set `app.enabled: false` to deploy only the agents, for example in the cluster that hosts your databases:
 
 ```yaml title="values.yaml"
 app:

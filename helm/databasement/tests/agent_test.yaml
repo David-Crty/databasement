@@ -188,6 +188,32 @@ tests:
           path: spec.template.spec.volumes
         documentIndex: 1
 
+  - it: should fail on an agent name that is not a valid resource name
+    set:
+      agents.Main_EU.enabled: true
+      agents.Main_EU.url: https://databasement.example.com
+      agents.Main_EU.token.value: eu-token
+    template: templates/deployment.yaml
+    asserts:
+      - failedTemplate:
+          errorPattern: "agents.Main_EU: agent names must be"
+
+  - it: should keep the agent selector label when podLabels sets the component
+    set:
+      podLabels:
+        app.kubernetes.io/component: custom
+        team: data
+    template: templates/agents.yaml
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: agent-main
+        documentIndex: 1
+      - equal:
+          path: spec.template.metadata.labels.team
+          value: data
+        documentIndex: 1
+
   - it: should fail without a server url
     set:
       agents.main.url: ""

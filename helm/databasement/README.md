@@ -183,7 +183,7 @@ worker:
 
 ### Remote Agents
 
-The chart can also run [remote agents](https://david-crty.github.io/databasement/user-guide/agents), one Deployment per entry under `agents`. Set `app.enabled: false` to deploy only the agents, for example in the cluster that hosts your databases:
+The chart can also run [remote agents](https://david-crty.github.io/databasement/user-guide/agents), one Deployment per enabled entry under `agents`. Set `app.enabled: false` to deploy only the agents, for example in the cluster that hosts your databases:
 
 ```yaml
 app:

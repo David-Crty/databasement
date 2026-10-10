@@ -88,7 +88,7 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
    </TabItem>
    <TabItem value="helm" label="Helm / Kubernetes">
 
-   The [Helm chart](../self-hosting/kubernetes-helm.md) runs one Deployment per entry under `agents`. With `app.enabled=false` the release contains only the agents (no web app, worker, PVC, Service or Ingress), so it can live in its own namespace or cluster:
+   The [Helm chart](../self-hosting/kubernetes-helm.md) runs one Deployment per enabled entry under `agents`. With `app.enabled=false` the release contains only the agents (no web app, worker, PVC, Service or Ingress), so it can live in its own namespace or cluster:
 
    ```bash
    helm repo add databasement https://david-crty.github.io/databasement

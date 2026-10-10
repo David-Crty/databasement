@@ -1,7 +1,7 @@
 {{- range $name, $agent := .Values.agents }}
 {{- if $agent.enabled }}
 {{- $suffix := printf "-agent-%s" $name }}
-{{- $fullName := printf "%s%s" (include "databasement.fullname" $ | trunc (int (max 1 (sub 63 (len $suffix)))) | trimSuffix "-") $suffix }}
+{{- $fullName := printf "%s%s" (include "databasement.fullname" $ | trunc (int (sub 63 (len $suffix))) | trimSuffix "-") $suffix }}
 {{- $fromSecret := ($agent.token | default dict).fromSecret | default dict }}
 {{- $useSecret := or $fromSecret.secretName $fromSecret.secretKey }}
 {{- if not $useSecret }}
@@ -42,7 +42,7 @@ spec:
       labels:
         {{- include "databasement.labels" $ | nindent 8 }}
         app.kubernetes.io/component: agent-{{ $name }}
-        {{- with $.Values.podLabels }}
+        {{- with omit ($.Values.podLabels | default dict) "app.kubernetes.io/component" }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:

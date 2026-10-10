@@ -7,6 +7,9 @@ Validate required values
 {{- end -}}
 {{- range $name, $agent := .Values.agents -}}
 {{- if $agent.enabled -}}
+{{- if not (regexMatch "^[a-z0-9]([-a-z0-9]{0,38}[a-z0-9])?$" $name) -}}
+{{- fail (printf "agents.%s: agent names must be at most 40 lowercase letters, digits or hyphens, starting and ending with a letter or digit" $name) -}}
+{{- end -}}
 {{- if not $agent.url -}}
 {{- fail (printf "agents.%s.url is required" $name) -}}
 {{- end -}}
