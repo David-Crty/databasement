@@ -90,6 +90,7 @@ class SaveDatabaseServerRequest extends FormRequest
 
         if ($this->backupsEnabled()) {
             $rules['backups'] = 'required|array|min:1';
+            $rules['backups.*.id'] = 'nullable|string';
             $rules['backups.*.volume_ids'] = 'required|array|min:1';
             $rules['backups.*.volume_ids.*'] = ['required', Rule::exists('volumes', 'id')->where('organization_id', app(CurrentOrganization::class)->id())];
             $rules['backups.*.path'] = ['nullable', 'string', 'max:255', new SafePath];
