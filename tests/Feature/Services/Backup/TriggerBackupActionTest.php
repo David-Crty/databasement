@@ -111,6 +111,26 @@ test('agent server with all mode dispatches discovery job instead of snapshots',
         ->and($discoveryJob->payload['backup_id'])->toBe($backup->id);
 });
 
+test('agent server with a discovery already in flight reports it instead of a new dispatch', function () {
+    $agent = Agent::factory()->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create(['agent_id' => $agent->id]);
+    $backup = Backup::factory()->for($server)->create([
+        'database_selection_mode' => DatabaseSelectionMode::All->value,
+    ]);
+    AgentJob::factory()->create([
+        'type' => AgentJobType::Discover,
+        'database_server_id' => $server->id,
+        'status' => AgentJob::STATUS_PENDING,
+        'payload' => ['backup_id' => $backup->id],
+    ]);
+
+    $result = app(TriggerBackupAction::class)->execute($backup);
+
+    expect($result['discovery'])->toBeFalse()
+        ->and($result['message'])->toContain('already running')
+        ->and(AgentJob::where('database_server_id', $server->id)->count())->toBe(1);
+});
+
 test('agent server with pattern mode dispatches discovery job', function () {
     $agent = Agent::factory()->create();
     $server = DatabaseServer::factory()->withoutBackups()->create([

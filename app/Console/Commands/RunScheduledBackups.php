@@ -4,9 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Backup;
 use App\Models\BackupSchedule;
-use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\DispatchBackupAction;
-use App\Services\Backup\DispatchDiscoveryAction;
+use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -16,7 +14,7 @@ class RunScheduledBackups extends Command
 
     protected $description = 'Run scheduled backups for a given backup schedule';
 
-    public function handle(BackupJobFactory $backupJobFactory, DispatchBackupAction $dispatchBackup, DispatchDiscoveryAction $dispatchDiscovery): int
+    public function handle(TriggerBackupAction $triggerBackup): int
     {
         $scheduleId = $this->argument('schedule');
 
@@ -45,7 +43,7 @@ class RunScheduledBackups extends Command
 
         foreach ($backups as $backup) {
             try {
-                $this->dispatch($backup, $backupJobFactory, $dispatchBackup, $dispatchDiscovery);
+                $this->dispatch($backup, $triggerBackup);
             } catch (\Throwable $e) {
                 $failedCount++;
                 Log::error("Failed to dispatch backup job for server [{$backup->databaseServer->name} / {$backup->getDisplayLabel()}]", [
@@ -63,32 +61,24 @@ class RunScheduledBackups extends Command
         return self::SUCCESS;
     }
 
-    private function dispatch(Backup $backup, BackupJobFactory $backupJobFactory, DispatchBackupAction $dispatchBackup, DispatchDiscoveryAction $dispatchDiscovery): void
+    private function dispatch(Backup $backup, TriggerBackupAction $triggerBackup): void
     {
         $server = $backup->databaseServer;
+        $result = $triggerBackup->execute($backup, method: 'scheduled');
 
-        $snapshots = $backupJobFactory->createSnapshots(
-            backup: $backup,
-            method: 'scheduled',
-        );
-
-        // Agent-backed servers with all/pattern mode return empty snapshots —
-        // dispatch a discovery job so the agent can list databases first.
-        if (empty($snapshots) && $server->agent_id) {
-            if ($dispatchDiscovery->execute($backup, 'scheduled')) {
-                $this->line("  → Dispatched discovery for: {$server->name} [{$backup->getDisplayLabel()}] via agent");
-            } else {
-                $this->line("  → Skipped discovery for: {$server->name} [{$backup->getDisplayLabel()}] (already in-flight)");
-            }
+        if ($result['discovery'] === true) {
+            $this->line("  → Dispatched discovery for: {$server->name} [{$backup->getDisplayLabel()}] via agent");
 
             return;
         }
 
-        foreach ($snapshots as $snapshot) {
-            $dispatchBackup->execute($snapshot);
+        if ($result['discovery'] === false) {
+            $this->line("  → Skipped discovery for: {$server->name} [{$backup->getDisplayLabel()}] (already in-flight)");
+
+            return;
         }
 
-        $count = count($snapshots);
+        $count = count($result['snapshots']);
         $via = $server->agent_id ? 'agent' : 'queue';
         $dbInfo = $count === 1 ? '1 database' : "{$count} databases";
         $this->line("  → Dispatched backup for: {$server->name} [{$backup->getDisplayLabel()}] ({$dbInfo}) via {$via}");

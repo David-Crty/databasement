@@ -287,6 +287,7 @@
   "Database": "Base de données",
   "Database Browser": "Explorateur de base de données",
   "Database discovery dispatched to agent. Backups will start once databases are discovered.": "La découverte des bases de données a été transmise à l’agent. Les backups démarreront une fois les bases de données découvertes.",
+  "Database discovery is already running on the agent. Backups will start once databases are discovered.": "La découverte des bases de données est déjà en cours sur l’agent. Les backups démarreront une fois les bases de données détectées.",
   "Database file paths": "Chemins des fichiers de base de données",
   "Database files": "Fichiers de base de données",
   "Database name can only contain letters, numbers, and underscores.": "Le nom de la base de données ne peut contenir que des lettres, des chiffres et des underscores.",
