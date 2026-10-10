@@ -91,6 +91,30 @@ class MysqlDatabase implements DatabaseInterface
     }
 
     /**
+     * Both clients resolve `--host` as a network name even when it is a path,
+     * so a socket goes through `--socket`, where the port means nothing. They
+     * only use the socket for `localhost`, so that is passed explicitly rather
+     * than left to a `MYSQL_HOST` or option file that would switch to TCP.
+     */
+    private function connectionFlags(): string
+    {
+        if ($this->usesSocket()) {
+            return '--host=localhost --socket='.escapeshellarg($this->config['host']);
+        }
+
+        return sprintf(
+            '--host=%s --port=%s',
+            escapeshellarg($this->config['host']),
+            escapeshellarg((string) $this->config['port']),
+        );
+    }
+
+    private function usesSocket(): bool
+    {
+        return DatabaseType::MYSQL->isSocketHost((string) $this->config['host']);
+    }
+
+    /**
      * @param  array<string, mixed>  $config
      */
     public function setConfig(array $config): void
@@ -127,11 +151,10 @@ class MysqlDatabase implements DatabaseInterface
         // Flags must come before `--` and the database name; both clients treat anything after it as table names.
         // The output file comes after the extra flags, so it is the one the client keeps.
         $command = sprintf(
-            '%s %s --host=%s --port=%s --user=%s --password=%s%s --result-file=%s -- %s',
+            '%s %s %s --user=%s --password=%s%s --result-file=%s -- %s',
             $useMysqlClient ? self::MYSQL_DUMP_BINARY : self::DUMP_BINARY,
             implode(' ', $options),
-            escapeshellarg($this->config['host']),
-            escapeshellarg((string) $this->config['port']),
+            $this->connectionFlags(),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
             $extraFlags,
@@ -239,10 +262,9 @@ class MysqlDatabase implements DatabaseInterface
         // and gets a syntax error, so that one reads the dump from stdin.
         if ($this->usesMysqlClient()) {
             return new DatabaseOperationResult(command: sprintf(
-                '%s --host=%s --port=%s --user=%s --password=%s %s --database=%s < %s',
+                '%s %s --user=%s --password=%s %s --database=%s < %s',
                 self::MYSQL_CLIENT_BINARY,
-                escapeshellarg($this->config['host']),
-                escapeshellarg((string) $this->config['port']),
+                $this->connectionFlags(),
                 escapeshellarg($this->config['user']),
                 escapeshellarg($this->config['pass']),
                 $this->mysqlSslFlag(),
@@ -252,10 +274,9 @@ class MysqlDatabase implements DatabaseInterface
         }
 
         return new DatabaseOperationResult(command: sprintf(
-            '%s --host=%s --port=%s --user=%s --password=%s %s --database=%s -e %s',
+            '%s %s --user=%s --password=%s %s --database=%s -e %s',
             self::CLIENT_BINARY,
-            escapeshellarg($this->config['host']),
-            escapeshellarg((string) $this->config['port']),
+            $this->connectionFlags(),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
             $this->getSslFlag(),
@@ -339,7 +360,9 @@ class MysqlDatabase implements DatabaseInterface
 
     protected function createPdo(): \PDO
     {
-        $dsn = sprintf('mysql:host=%s;port=%d', $this->config['host'], $this->config['port']);
+        $dsn = $this->usesSocket()
+            ? sprintf('mysql:unix_socket=%s', $this->config['host'])
+            : sprintf('mysql:host=%s;port=%d', $this->config['host'], $this->config['port']);
 
         $options = [
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
@@ -359,10 +382,9 @@ class MysqlDatabase implements DatabaseInterface
     private function getStatusCommand(): string
     {
         return sprintf(
-            '%s --host=%s --port=%s --user=%s --password=%s %s -e %s',
+            '%s %s --user=%s --password=%s %s -e %s',
             self::CLIENT_BINARY,
-            escapeshellarg($this->config['host']),
-            escapeshellarg((string) $this->config['port']),
+            $this->connectionFlags(),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
             $this->getSslFlag(),

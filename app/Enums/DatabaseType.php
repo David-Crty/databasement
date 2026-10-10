@@ -72,6 +72,23 @@ enum DatabaseType: string
         };
     }
 
+    /**
+     * Whether the host may be an absolute path to a Unix socket: a directory
+     * for libpq, the socket file itself for the MySQL clients.
+     */
+    public function supportsSocketHost(): bool
+    {
+        return match ($this) {
+            self::MYSQL, self::POSTGRESQL => true,
+            default => false,
+        };
+    }
+
+    public function isSocketHost(string $host): bool
+    {
+        return $this->supportsSocketHost() && str_starts_with($host, '/');
+    }
+
     public function defaultPort(): int
     {
         return match ($this) {
@@ -98,6 +115,12 @@ enum DatabaseType: string
         // Force TCP by using 127.0.0.1 instead.
         if ($this === self::MYSQL && $host === 'localhost') {
             $host = '127.0.0.1';
+        }
+
+        if ($this === self::MYSQL && $this->isSocketHost($host)) {
+            return $database
+                ? sprintf('mysql:unix_socket=%s;dbname=%s', $host, $database)
+                : sprintf('mysql:unix_socket=%s', $host);
         }
 
         return match ($this) {

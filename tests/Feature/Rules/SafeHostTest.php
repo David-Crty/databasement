@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Ability;
+use App\Enums\DatabaseType;
 use App\Models\User;
 use App\Rules\SafeHost;
 use Illuminate\Support\Facades\Validator;
@@ -27,6 +28,23 @@ test('SafeHost accepts or rejects a host', function (string $host, bool $valid) 
     'whitespace' => ['db.example.com evil', false],
     // `$` would match before a final newline, so the pattern anchors with \z.
     'trailing newline' => ["db.example.com\n", false],
+]);
+
+test('SafeHost accepts a socket path only for types that support one', function (string $host, ?DatabaseType $type, bool $valid) {
+    $passes = Validator::make(
+        ['host' => $host],
+        ['host' => [new SafeHost($type)]],
+    )->passes();
+
+    expect($passes)->toBe($valid);
+})->with([
+    'postgres socket directory' => ['/var/run/postgresql_mount', DatabaseType::POSTGRESQL, true],
+    'mysql socket file' => ['/var/run/mysqld/mysqld.sock', DatabaseType::MYSQL, true],
+    'mongodb socket' => ['/tmp/mongodb-27017.sock', DatabaseType::MONGODB, false],
+    'no database type' => ['/var/run/postgresql', null, false],
+    'relative path' => ['var/run/postgresql', DatabaseType::POSTGRESQL, false],
+    'socket path with dsn separator' => ['/var/run;dbname=other', DatabaseType::POSTGRESQL, false],
+    'socket path with trailing newline' => ["/var/run/postgresql\n", DatabaseType::POSTGRESQL, false],
 ]);
 
 test('the database server api rejects a host that redirects the connection', function () {
