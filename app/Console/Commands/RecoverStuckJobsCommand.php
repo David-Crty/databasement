@@ -147,7 +147,14 @@ class RecoverStuckJobsCommand extends Command
             $exception = new RuntimeException('Job timed out: stuck in '.$job->status->value.' state beyond the configured timeout.');
 
             try {
-                $job->log($exception->getMessage(), 'error');
+                try {
+                    $job->log($exception->getMessage(), 'error');
+                } catch (JobCancelledException $e) {
+                    throw $e;
+                } catch (Throwable $e) {
+                    report($e);
+                }
+
                 $job->markFailed($exception);
             } catch (JobCancelledException) {
                 continue;
