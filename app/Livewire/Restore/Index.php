@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Restore;
 
+use App\Enums\BackupJobStatus;
 use App\Enums\DatabaseType;
 use App\Livewire\Concerns\CancelsJobs;
+use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\Concerns\HandlesJobLogsModal;
 use App\Models\BackupJob;
@@ -12,8 +14,8 @@ use App\Models\Restore;
 use App\Queries\RestoreQuery;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -23,7 +25,7 @@ use Livewire\WithPagination;
 #[Title('Restores')]
 class Index extends Component
 {
-    use AuthorizesRequests, CancelsJobs, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
+    use AuthorizesRequests, CancelsJobs, ConfirmsDeletion, FiltersAndPaginates, HandlesJobLogsModal, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -42,11 +44,6 @@ class Index extends Component
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
-
-    #[Locked]
-    public ?string $deleteRestoreId = null;
-
-    public bool $showDeleteModal = false;
 
     /**
      * Refresh the list immediately after a restore is created. Without this,
@@ -108,27 +105,19 @@ class Index extends Component
 
     public function confirmDeleteRestore(string $restoreId): void
     {
-        $restore = Restore::findOrFail($restoreId);
-
-        $this->authorize('delete', $restore);
-
-        $this->deleteRestoreId = $restoreId;
-        $this->showDeleteModal = true;
+        $this->confirmDeletion(Restore::query(), $restoreId);
     }
 
     public function deleteRestore(): void
     {
-        if (! $this->deleteRestoreId) {
+        $restore = $this->pendingDeletion(Restore::query());
+
+        if ($restore === null) {
             return;
         }
 
-        $restore = Restore::findOrFail($this->deleteRestoreId);
-
-        $this->authorize('delete', $restore);
-
         $restore->delete();
-        $this->deleteRestoreId = null;
-        $this->showDeleteModal = false;
+        $this->closeDeletion();
 
         $this->success(__('Restore deleted successfully!'));
     }
@@ -138,13 +127,7 @@ class Index extends Component
      */
     public function statusOptions(): array
     {
-        return [
-            ['id' => 'completed', 'name' => __('Completed')],
-            ['id' => 'failed', 'name' => __('Failed')],
-            ['id' => 'running', 'name' => __('Running')],
-            ['id' => 'pending', 'name' => __('Pending')],
-            ['id' => 'cancelled', 'name' => __('Cancelled')],
-        ];
+        return BackupJobStatus::filterOptions();
     }
 
     /**
@@ -154,14 +137,7 @@ class Index extends Component
      */
     public function targetServerOptions(): array
     {
-        return DatabaseServer::query()
-            ->orderBy('name')
-            ->get()
-            ->map(fn (DatabaseServer $server) => [
-                'id' => $server->id,
-                'name' => $server->name,
-            ])
-            ->toArray();
+        return DatabaseServer::toSelectOptions();
     }
 
     /**
@@ -171,15 +147,7 @@ class Index extends Component
      */
     public function sourceServerOptions(): array
     {
-        return DatabaseServer::query()
-            ->whereHas('snapshots')
-            ->orderBy('name')
-            ->get()
-            ->map(fn (DatabaseServer $server) => [
-                'id' => $server->id,
-                'name' => $server->name,
-            ])
-            ->toArray();
+        return DatabaseServer::toSelectOptions(fn (Builder $query) => $query->whereHas('snapshots'));
     }
 
     /**

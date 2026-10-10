@@ -2,6 +2,7 @@
 
 namespace App\Livewire\DatabaseServer;
 
+use App\Livewire\DatabaseServer\Concerns\InteractsWithServerForm;
 use App\Models\DatabaseServer;
 use App\Traits\BlocksDemoWrites;
 use App\Traits\SurfacesValidationErrors;
@@ -15,7 +16,7 @@ use Livewire\Component;
 #[Title('Edit Database Server')]
 class Edit extends Component
 {
-    use AuthorizesRequests, BlocksDemoWrites, SurfacesValidationErrors, Toast;
+    use AuthorizesRequests, BlocksDemoWrites, InteractsWithServerForm, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -65,61 +66,11 @@ class Edit extends Component
         return $url;
     }
 
-    public function addBackup(?string $defaultScheduleId = null): void
-    {
-        $this->form->addBackup($defaultScheduleId);
-    }
-
-    public function removeBackup(int $index): void
-    {
-        $this->form->removeBackup($index);
-    }
-
-    public function addDatabasePath(int $backupIndex): void
-    {
-        $this->form->addDatabasePath($backupIndex);
-    }
-
-    public function removeDatabasePath(int $backupIndex, int $pathIndex): void
-    {
-        $this->form->removeDatabasePath($backupIndex, $pathIndex);
-    }
-
-    public function testConnection(): void
-    {
-        $this->withValidationFeedback(fn () => $this->form->testConnection());
-    }
-
-    public function testSshConnection(): void
-    {
-        $this->withValidationFeedback(fn () => $this->form->testSshConnection());
-    }
-
-    public function generateSshKey(): void
-    {
-        $this->form->generateSshKey();
-    }
-
-    public function refreshVolumes(): void
-    {
-        $this->success(__('Volume list refreshed.'));
-    }
-
-    public function refreshSchedules(): void
-    {
-        $this->success(__('Schedule list refreshed.'));
-    }
-
     public function loadDatabases(): void
     {
         if (! $this->form->isSqlite() && ! $this->form->isRedis() && ! $this->form->hasAgent()) {
             $this->form->loadAvailableDatabases();
         }
-    }
-
-    public function toggleNotificationChannel(string $channelId): void
-    {
-        $this->form->toggleNotificationChannel($channelId);
     }
 
     public function render(): View

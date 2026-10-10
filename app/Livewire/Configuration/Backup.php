@@ -4,6 +4,7 @@ namespace App\Livewire\Configuration;
 
 use App\Jobs\CleanupExpiredSnapshotsJob;
 use App\Jobs\VerifySnapshotFileJob;
+use App\Livewire\Configuration\Concerns\GatesConfigurationWrites;
 use App\Models\BackupSchedule;
 use App\Services\CurrentOrganization;
 use App\Traits\Toast;
@@ -18,7 +19,7 @@ use Symfony\Component\HttpFoundation\Response;
 #[Title('Configuration')]
 class Backup extends Component
 {
-    use Toast;
+    use GatesConfigurationWrites, Toast;
 
     public Form $form;
 
@@ -36,15 +37,14 @@ class Backup extends Component
         $this->form->loadFromConfig();
     }
 
-    #[Computed]
-    public function canManage(): bool
+    protected function manageGate(): array
     {
-        return auth()->user()->can('manageSettings', BackupSchedule::class);
+        return ['manageSettings', BackupSchedule::class];
     }
 
     public function saveBackupConfig(): void
     {
-        abort_unless(auth()->user()->can('manageSettings', BackupSchedule::class), Response::HTTP_FORBIDDEN);
+        $this->authorizeManage();
 
         $this->form->saveBackup();
 
@@ -53,7 +53,7 @@ class Backup extends Component
 
     public function runCleanup(): void
     {
-        abort_unless(auth()->user()->can('manageSettings', BackupSchedule::class), Response::HTTP_FORBIDDEN);
+        $this->authorizeManage();
 
         CleanupExpiredSnapshotsJob::dispatch();
 
@@ -62,7 +62,7 @@ class Backup extends Component
 
     public function runVerifyFiles(): void
     {
-        abort_unless(auth()->user()->can('manageSettings', BackupSchedule::class), Response::HTTP_FORBIDDEN);
+        $this->authorizeManage();
 
         VerifySnapshotFileJob::dispatch(app(CurrentOrganization::class)->id());
 

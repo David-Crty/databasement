@@ -3,25 +3,20 @@
 namespace App\Livewire\Dashboard;
 
 use App\Livewire\Concerns\CancelsJobs;
+use App\Livewire\Concerns\ShowsJobLogsModal;
 use App\Models\BackupJob;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Lazy;
-use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Component;
 
 #[Lazy]
 class JobStatusGrid extends Component
 {
-    use CancelsJobs, Toast;
-
-    public bool $showLogsModal = false;
-
-    #[Locked]
-    public ?string $selectedJobId = null;
+    use CancelsJobs, ShowsJobLogsModal, Toast;
 
     /**
      * @return Collection<int, BackupJob>
@@ -57,34 +52,6 @@ class JobStatusGrid extends Component
     public function placeholder(): View
     {
         return view('components.lazy-placeholder', ['type' => 'stats']);
-    }
-
-    public function viewLogs(string $id): void
-    {
-        $this->selectedJobId = $id;
-        $this->showLogsModal = true;
-    }
-
-    public function closeLogs(): void
-    {
-        $this->showLogsModal = false;
-        $this->selectedJobId = null;
-    }
-
-    #[Computed]
-    public function selectedJob(): ?BackupJob
-    {
-        if (! $this->selectedJobId) {
-            return null;
-        }
-
-        return BackupJob::forCurrentOrg()->with([
-            'snapshot.databaseServer',
-            'snapshot.triggeredBy',
-            'restore.snapshot.databaseServer',
-            'restore.targetServer',
-            'restore.triggeredBy',
-        ])->find($this->selectedJobId);
     }
 
     public function render(): View

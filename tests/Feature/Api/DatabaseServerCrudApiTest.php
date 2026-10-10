@@ -829,6 +829,15 @@ test('backup endpoint returns 422 when the requested backup id does not exist on
         ->assertJsonPath('message', 'No backup configuration found for this database server.');
 });
 
+test('backup endpoint returns 422 when backup_id is not a single id', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = DatabaseServer::factory()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/database-servers/{$server->id}/backup?backup_id[]={$server->backups->first()->id}")
+        ->assertStatus(422);
+});
+
 test('backup endpoint uses the first backup when no backup_id is provided', function () {
     \Illuminate\Support\Facades\Queue::fake();
     $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();

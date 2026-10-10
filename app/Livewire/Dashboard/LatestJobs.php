@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Dashboard;
 
+use App\Enums\BackupJobStatus;
 use App\Livewire\Concerns\CancelsJobs;
+use App\Livewire\Concerns\ShowsJobLogsModal;
 use App\Models\BackupJob;
 use App\Queries\BackupJobQuery;
 use App\Traits\Toast;
@@ -16,17 +18,12 @@ use Livewire\Component;
 #[Lazy]
 class LatestJobs extends Component
 {
-    use CancelsJobs, Toast;
+    use CancelsJobs, ShowsJobLogsModal, Toast;
 
     public string $statusFilter = 'all';
 
     /** @var Collection<int, BackupJob> */
     public Collection $jobs;
-
-    public bool $showLogsModal = false;
-
-    #[Locked]
-    public ?string $selectedJobId = null;
 
     #[Locked]
     public ?string $serverId = null;
@@ -52,33 +49,6 @@ class LatestJobs extends Component
     public function updatedStatusFilter(): void
     {
         $this->fetchJobs();
-    }
-
-    public function viewLogs(string $id): void
-    {
-        $this->selectedJobId = $id;
-        $this->showLogsModal = true;
-    }
-
-    public function closeLogs(): void
-    {
-        $this->showLogsModal = false;
-        $this->selectedJobId = null;
-    }
-
-    public function getSelectedJobProperty(): ?BackupJob
-    {
-        if (! $this->selectedJobId) {
-            return null;
-        }
-
-        return BackupJob::forCurrentOrg()->with([
-            'snapshot.databaseServer',
-            'snapshot.triggeredBy',
-            'restore.snapshot.databaseServer',
-            'restore.targetServer',
-            'restore.triggeredBy',
-        ])->find($this->selectedJobId);
     }
 
     public function fetchJobs(): void
@@ -112,11 +82,7 @@ class LatestJobs extends Component
     {
         return [
             ['id' => 'all', 'name' => __('All')],
-            ['id' => 'running', 'name' => __('Running')],
-            ['id' => 'failed', 'name' => __('Failed')],
-            ['id' => 'completed', 'name' => __('Completed')],
-            ['id' => 'pending', 'name' => __('Pending')],
-            ['id' => 'cancelled', 'name' => __('Cancelled')],
+            ...BackupJobStatus::filterOptions(),
         ];
     }
 

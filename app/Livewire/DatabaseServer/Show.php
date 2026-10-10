@@ -2,9 +2,9 @@
 
 namespace App\Livewire\DatabaseServer;
 
-use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
+use App\Livewire\DatabaseServer\Concerns\OpensServerRestore;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Restore;
@@ -22,7 +22,7 @@ use Livewire\Component;
 #[Title('Database Server')]
 class Show extends Component
 {
-    use AuthorizesRequests, OpensAdminerForServer, RunsServerBackups, Toast;
+    use AuthorizesRequests, OpensAdminerForServer, OpensServerRestore, RunsServerBackups, Toast;
 
     public DatabaseServer $server;
 
@@ -31,8 +31,6 @@ class Show extends Component
     public int $restoresCount = 0;
 
     public bool $showDeleteModal = false;
-
-    public bool $showRedisRestoreModal = false;
 
     public int $deleteSnapshotCount = 0;
 
@@ -66,15 +64,7 @@ class Show extends Component
 
     public function confirmRestore(): void
     {
-        $this->authorize('restore', $this->server);
-
-        if ($this->server->database_type === DatabaseType::REDIS) {
-            $this->showRedisRestoreModal = true;
-
-            return;
-        }
-
-        $this->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $this->server->id);
+        $this->openRestoreFor($this->server);
     }
 
     public function openAdminer(): void

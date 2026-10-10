@@ -31,9 +31,7 @@ class TriggerBackupTool extends Tool
             return Response::error('Permission denied. You do not have permission to trigger backups.');
         }
 
-        $backup = isset($validated['backup_id'])
-            ? $server->backups->firstWhere('id', $validated['backup_id'])
-            : $server->backups->first();
+        $backup = $server->backupToTrigger($validated['backup_id'] ?? null);
 
         if (! $backup instanceof Backup) {
             return Response::error('No backup configuration found for this database server.');
