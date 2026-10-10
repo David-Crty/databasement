@@ -3,13 +3,13 @@
 namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
+use App\Services\Backup\Databases\Concerns\TestsConnection;
 use App\Services\Backup\DTO\DatabaseOperationResult;
-use App\Support\Formatters;
-use Illuminate\Process\Exceptions\ProcessTimedOutException;
-use Illuminate\Support\Facades\Process;
 
 class FirebirdDatabase implements DatabaseInterface
 {
+    use TestsConnection;
+
     private const PROBE_QUERY = "SELECT 1 FROM RDB\$DATABASE;\n";
 
     /** @var array<string, mixed> */
@@ -67,42 +67,7 @@ class FirebirdDatabase implements DatabaseInterface
 
     public function testConnection(): array
     {
-        $startTime = microtime(true);
-
-        try {
-            $result = Process::timeout(10)
-                ->input(self::PROBE_QUERY)
-                ->run($this->buildConnectionProbeCommand());
-        } catch (ProcessTimedOutException) {
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-            return [
-                'success' => false,
-                'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
-                'details' => [],
-            ];
-        }
-
-        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-        if ($result->failed()) {
-            $errorOutput = trim($result->errorOutput() ?: $result->output());
-
-            return [
-                'success' => false,
-                'message' => $errorOutput ?: 'Connection failed with exit code '.$result->exitCode(),
-                'details' => [],
-            ];
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Connection successful',
-            'details' => [
-                'ping_ms' => $durationMs,
-                'output' => trim($result->output()),
-            ],
-        ];
+        return $this->probeConnection($this->buildConnectionProbeCommand(), input: self::PROBE_QUERY);
     }
 
     private function connectionTarget(): string

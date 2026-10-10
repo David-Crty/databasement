@@ -86,7 +86,10 @@ final class QueueTimeouts
         return self::jobTimeout() + self::RETRY_GRACE_SECONDS;
     }
 
-    private static function jobTimeout(): int
+    /**
+     * Longest a backup or restore may run, in seconds.
+     */
+    public static function jobTimeout(): int
     {
         return (int) AppConfig::get('backup.job_timeout');
     }

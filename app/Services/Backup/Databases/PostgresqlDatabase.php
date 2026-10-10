@@ -5,14 +5,17 @@ namespace App\Services\Backup\Databases;
 use App\Contracts\BackupLogger;
 use App\Enums\DatabaseType;
 use App\Exceptions\Backup\ConnectionException;
+use App\Services\Backup\Databases\Concerns\TestsConnection;
 use App\Services\Backup\DTO\DatabaseOperationLog;
 use App\Services\Backup\DTO\DatabaseOperationResult;
-use App\Support\Formatters;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
 
 class PostgresqlDatabase implements DatabaseInterface
 {
+    use TestsConnection;
+
     /**
      * Database opened when the server names none of its own. Conventional on a
      * self-hosted cluster; managed providers often withhold CONNECT on it.
@@ -432,55 +435,23 @@ class PostgresqlDatabase implements DatabaseInterface
 
     public function testConnection(): array
     {
-        $versionCommand = $this->getQueryCommand('SELECT version();');
-        $startTime = microtime(true);
+        return $this->probeConnection($this->getQueryCommand('SELECT version();'), function (ProcessResult $result, int $durationMs): array {
+            $version = trim($result->output());
 
-        try {
-            $result = Process::timeout(10)->run($versionCommand);
-        } catch (ProcessTimedOutException) {
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            // Get SSL status (non-critical, ignore failures)
+            $sslCommand = $this->getQueryCommand(
+                "SELECT CASE WHEN ssl THEN 'yes' ELSE 'no' END FROM pg_stat_ssl WHERE pid = pg_backend_pid();"
+            );
 
-            return [
-                'success' => false,
-                'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
-                'details' => [],
-            ];
-        }
+            try {
+                $sslResult = Process::timeout(10)->run($sslCommand);
+                $ssl = $sslResult->successful() ? trim($sslResult->output()) : 'unknown';
+            } catch (ProcessTimedOutException) {
+                $ssl = 'unknown';
+            }
 
-        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-        if ($result->failed()) {
-            $errorOutput = trim($result->errorOutput() ?: $result->output());
-
-            return [
-                'success' => false,
-                'message' => $errorOutput ?: 'Connection failed with exit code '.$result->exitCode(),
-                'details' => [],
-            ];
-        }
-
-        $version = trim($result->output());
-
-        // Get SSL status (non-critical, ignore failures)
-        $sslCommand = $this->getQueryCommand(
-            "SELECT CASE WHEN ssl THEN 'yes' ELSE 'no' END FROM pg_stat_ssl WHERE pid = pg_backend_pid();"
-        );
-
-        try {
-            $sslResult = Process::timeout(10)->run($sslCommand);
-            $ssl = $sslResult->successful() ? trim($sslResult->output()) : 'unknown';
-        } catch (ProcessTimedOutException) {
-            $ssl = 'unknown';
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Connection successful',
-            'details' => [
-                'ping_ms' => $durationMs,
-                'output' => json_encode(['dbms' => $version, 'ssl' => $ssl], JSON_PRETTY_PRINT),
-            ],
-        ];
+            return $this->connectionSucceededWithInfo($durationMs, ['dbms' => $version, 'ssl' => $ssl]);
+        });
     }
 
     /**

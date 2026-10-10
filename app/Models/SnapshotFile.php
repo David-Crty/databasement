@@ -98,6 +98,24 @@ class SnapshotFile extends Model
         });
     }
 
+    public function markUploaded(): void
+    {
+        $this->update([
+            'status' => SnapshotFileStatus::Completed,
+            'file_exists' => true,
+            'file_verified_at' => now(),
+            'error' => null,
+        ]);
+    }
+
+    public function markUploadFailed(?string $error): void
+    {
+        $this->update([
+            'status' => SnapshotFileStatus::Failed,
+            'error' => $error,
+        ]);
+    }
+
     /**
      * The path of this copy on its volume. The same archive is uploaded to
      * every target volume under the same name, so the name lives on the

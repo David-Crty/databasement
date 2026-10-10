@@ -5,13 +5,16 @@ namespace App\Services\Backup\Databases;
 use App\Contracts\BackupLogger;
 use App\Enums\DatabaseType;
 use App\Exceptions\Backup\UnsupportedDatabaseTypeException;
+use App\Services\Backup\Databases\Concerns\TestsConnection;
 use App\Services\Backup\DTO\DatabaseOperationResult;
-use App\Support\Formatters;
+use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Process;
 
 class RedisDatabase implements DatabaseInterface
 {
+    use TestsConnection;
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -53,61 +56,30 @@ class RedisDatabase implements DatabaseInterface
 
     public function testConnection(): array
     {
-        $startTime = microtime(true);
+        return $this->probeConnection($this->buildPingCommand(), function (ProcessResult $pingResult, int $durationMs): array {
+            if (! str_contains($pingResult->output(), 'PONG')) {
+                return $this->connectionFailed('Unexpected response from Redis server: '.trim($pingResult->output()));
+            }
 
-        try {
-            $pingResult = Process::timeout(10)->run($this->buildPingCommand());
-        } catch (ProcessTimedOutException) {
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            $serverInfo = [];
 
-            return [
-                'success' => false,
-                'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
-                'details' => [],
-            ];
-        }
-
-        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-        if ($pingResult->failed()) {
-            $errorOutput = trim($pingResult->errorOutput() ?: $pingResult->output());
-
-            return [
-                'success' => false,
-                'message' => $errorOutput ?: 'Connection failed with exit code '.$pingResult->exitCode(),
-                'details' => [],
-            ];
-        }
-
-        if (! str_contains($pingResult->output(), 'PONG')) {
-            return ['success' => false, 'message' => 'Unexpected response from Redis server: '.trim($pingResult->output()), 'details' => []];
-        }
-
-        $serverInfo = [];
-
-        try {
-            $infoResult = Process::timeout(10)->run($this->buildInfoCommand());
-            if ($infoResult->successful()) {
-                foreach (explode("\n", $infoResult->output()) as $line) {
-                    $line = trim($line);
-                    if (str_starts_with($line, 'redis_version:') || str_starts_with($line, 'used_memory_human:') || str_starts_with($line, 'os:')) {
-                        [$key, $value] = explode(':', $line, 2);
-                        $serverInfo[$key] = $value;
+            try {
+                $infoResult = Process::timeout(10)->run($this->buildInfoCommand());
+                if ($infoResult->successful()) {
+                    foreach (explode("\n", $infoResult->output()) as $line) {
+                        $line = trim($line);
+                        if (str_starts_with($line, 'redis_version:') || str_starts_with($line, 'used_memory_human:') || str_starts_with($line, 'os:')) {
+                            [$key, $value] = explode(':', $line, 2);
+                            $serverInfo[$key] = $value;
+                        }
                     }
                 }
+            } catch (ProcessTimedOutException) {
+                // Non-critical — server info is optional
             }
-        } catch (ProcessTimedOutException) {
-            // Non-critical — server info is optional
-        }
 
-        return [
-            'success' => true,
-            'message' => 'Connection successful',
-            'details' => [
-                'ping_ms' => $durationMs,
-                'output' => json_encode(array_merge(['dbms' => 'Redis '.($serverInfo['redis_version'] ?? 'unknown')], $serverInfo), JSON_PRETTY_PRINT),
-            ],
-        ];
+            return $this->connectionSucceededWithInfo($durationMs, array_merge(['dbms' => 'Redis '.($serverInfo['redis_version'] ?? 'unknown')], $serverInfo));
+        });
     }
 
     /**

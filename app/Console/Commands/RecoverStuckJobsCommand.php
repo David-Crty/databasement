@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Exceptions\Backup\JobCancelledException;
-use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\Snapshot;
@@ -120,8 +119,7 @@ class RecoverStuckJobsCommand extends Command
      */
     private function recoverBackupJobs(): bool
     {
-        $timeout = AppConfig::get('backup.job_timeout') + QueueTimeouts::RETRY_GRACE_SECONDS;
-        $cutoff = now()->subSeconds($timeout);
+        $cutoff = now()->subSeconds(QueueTimeouts::retryAfter());
 
         $stuckJobs = BackupJob::query()
             ->with(['snapshot.databaseServer', 'restore.targetServer'])

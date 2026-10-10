@@ -245,22 +245,21 @@ class DatabaseProvider
         }
 
         try {
-            [$host, $port] = $this->resolveHostAndPort($server);
-
-            $database = $this->makeForServer($server, $this->getConnectionDatabaseName($server), $host, $port);
-            $result = $database->testConnection();
-
-            if ($result['success'] && $server->requiresSshTunnel()) {
-                $result['details']['ssh_tunnel'] = true;
-                $result['details']['ssh_host'] = $server->sshConfig->host;
-            }
-
-            return $result;
+            $result = $this->withConnectedDatabase(
+                $server,
+                $this->getConnectionDatabaseName($server),
+                fn (DatabaseInterface $database): array => $database->testConnection(),
+            );
         } catch (\Throwable $e) {
             return ['success' => false, 'message' => 'Connection test failed: '.$e->getMessage(), 'details' => []];
-        } finally {
-            $this->sshTunnelService->close();
         }
+
+        if ($result['success'] && $server->requiresSshTunnel()) {
+            $result['details']['ssh_tunnel'] = true;
+            $result['details']['ssh_host'] = $server->sshConfig->host;
+        }
+
+        return $result;
     }
 
     /**
@@ -277,15 +276,11 @@ class DatabaseProvider
             return $server->resolveDatabaseNames();
         }
 
-        try {
-            [$host, $port] = $this->resolveHostAndPort($server);
-
-            $database = $this->makeForServer($server, $this->getConnectionDatabaseName($server), $host, $port);
-
-            return $database->listDatabases();
-        } finally {
-            $this->sshTunnelService->close();
-        }
+        return $this->withConnectedDatabase(
+            $server,
+            $this->getConnectionDatabaseName($server),
+            fn (DatabaseInterface $database): array => $database->listDatabases(),
+        );
     }
 
     /**
@@ -296,12 +291,28 @@ class DatabaseProvider
      */
     public function serverVersionForServer(DatabaseServer $server): ?string
     {
+        return $this->withConnectedDatabase(
+            $server,
+            '',
+            fn (DatabaseInterface $database): ?string => $database instanceof MysqlDatabase ? $database->serverVersion() : null,
+        );
+    }
+
+    /**
+     * Run $operation against the server's handler, through an SSH tunnel when
+     * the server needs one. The tunnel is closed afterwards in every case.
+     *
+     * @template TResult
+     *
+     * @param  \Closure(DatabaseInterface): TResult  $operation
+     * @return TResult
+     */
+    private function withConnectedDatabase(DatabaseServer $server, string $databaseName, \Closure $operation): mixed
+    {
         try {
             [$host, $port] = $this->resolveHostAndPort($server);
 
-            $database = $this->makeForServer($server, '', $host, $port);
-
-            return $database instanceof MysqlDatabase ? $database->serverVersion() : null;
+            return $operation($this->makeForServer($server, $databaseName, $host, $port));
         } finally {
             $this->sshTunnelService->close();
         }

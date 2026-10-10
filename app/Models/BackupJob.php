@@ -179,6 +179,34 @@ class BackupJob extends Model implements BackupLogger
     }
 
     /**
+     * Fail the job from a queue job's failed() hook, which also runs for a
+     * worker killed on timeout that never reached its own catch.
+     *
+     * Returns whether the caller should notify: false when the job was
+     * cancelled, or was failed by something else (such as jobs:recover-stuck)
+     * that already notified.
+     */
+    public function recordQueueFailure(\Throwable $exception, string $operation): bool
+    {
+        if ($this->status === BackupJobStatus::Cancelled) {
+            return false;
+        }
+
+        if (! $this->status->isInProgress()) {
+            return $this->error_message === $exception->getMessage();
+        }
+
+        try {
+            $this->log("{$operation} failed: {$exception->getMessage()}", 'error');
+            $this->markFailed($exception);
+        } catch (JobCancelledException) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Mark job as running, on its first attempt or a retry
      */
     public function markRunning(): void

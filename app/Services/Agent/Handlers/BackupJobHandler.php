@@ -3,12 +3,12 @@
 namespace App\Services\Agent\Handlers;
 
 use App\Enums\SnapshotFileStatus;
-use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\Snapshot;
 use App\Rules\SafePath;
 use App\Services\NotificationService;
+use App\Support\QueueTimeouts;
 use RuntimeException;
 use Throwable;
 
@@ -29,7 +29,7 @@ class BackupJobHandler implements AgentJobHandler
      */
     public function leaseSeconds(): int
     {
-        return max(1, (int) AppConfig::get('backup.job_timeout'));
+        return max(1, QueueTimeouts::jobTimeout());
     }
 
     public function trackedJob(AgentJob $agentJob): ?BackupJob
@@ -153,10 +153,7 @@ class BackupJobHandler implements AgentJobHandler
             $volumeResults = [['volume_id' => $files->first()?->volume_id, 'status' => SnapshotFileStatus::Completed->value]];
 
             foreach ($files->skip(1) as $staleFile) {
-                $staleFile->update([
-                    'status' => SnapshotFileStatus::Failed,
-                    'error' => 'Agent version does not support multiple volumes; update the agent.',
-                ]);
+                $staleFile->markUploadFailed('Agent version does not support multiple volumes; update the agent.');
             }
         }
 
@@ -173,17 +170,9 @@ class BackupJobHandler implements AgentJobHandler
             }
 
             if ($volumeResult['status'] === SnapshotFileStatus::Completed->value) {
-                $file->update([
-                    'status' => SnapshotFileStatus::Completed,
-                    'file_exists' => true,
-                    'file_verified_at' => now(),
-                    'error' => null,
-                ]);
+                $file->markUploaded();
             } else {
-                $file->update([
-                    'status' => SnapshotFileStatus::Failed,
-                    'error' => $volumeResult['error'] ?? 'Upload failed',
-                ]);
+                $file->markUploadFailed($volumeResult['error'] ?? 'Upload failed');
             }
         }
     }
