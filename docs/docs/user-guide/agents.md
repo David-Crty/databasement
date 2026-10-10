@@ -75,7 +75,6 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
    services:
      databasement-agent:
        image: davidcrty/databasement:1
-       container_name: databasement-agent
        restart: unless-stopped
        environment:
          DATABASEMENT_URL: 'https://databasement.example.com'

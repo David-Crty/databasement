@@ -111,6 +111,83 @@ tests:
                 name: agent-secret
                 key: TOKEN
 
+  - it: should use the chart secret when fromSecret is left empty
+    set:
+      agents.main.token.fromSecret.secretName: ""
+      agents.main.token.fromSecret.secretKey: ""
+    template: templates/agents.yaml
+    asserts:
+      - hasDocuments:
+          count: 2
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: DATABASEMENT_AGENT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: RELEASE-NAME-databasement-agent-main
+                key: token
+        documentIndex: 1
+
+  - it: should fail when fromSecret has no secretKey
+    set:
+      agents.main.token.value: ""
+      agents.main.token.fromSecret.secretName: agent-secret
+    template: templates/deployment.yaml
+    asserts:
+      - failedTemplate:
+          errorMessage: "agents.main.token.fromSecret requires both secretName and secretKey"
+
+  - it: should keep agent names distinct when the release name is long
+    set:
+      fullnameOverride: a-very-long-release-fullname-that-fills-the-limit-xxxxxxxxxxxxx
+      agents.eu.enabled: true
+      agents.eu.url: https://databasement.example.com
+      agents.eu.token.value: eu-token
+    template: templates/agents.yaml
+    asserts:
+      - equal:
+          path: metadata.name
+          value: a-very-long-release-fullname-that-fills-the-limit-xxxx-agent-eu
+        documentIndex: 1
+      - equal:
+          path: metadata.name
+          value: a-very-long-release-fullname-that-fills-the-limit-xx-agent-main
+        documentIndex: 3
+
+  - it: should not inherit the app extra env and volumes
+    set:
+      extraEnv:
+        APP_SECRET: leaked
+      extraEnvFrom:
+        - secretRef:
+            name: app-secrets
+      extraVolumes:
+        - name: app-volume
+          emptyDir: {}
+      agents.main.extraEnv:
+        HTTPS_PROXY: http://proxy:3128
+    template: templates/agents.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: HTTPS_PROXY
+            value: http://proxy:3128
+        documentIndex: 1
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: APP_SECRET
+            value: leaked
+        documentIndex: 1
+      - notExists:
+          path: spec.template.spec.containers[0].envFrom
+        documentIndex: 1
+      - notExists:
+          path: spec.template.spec.volumes
+        documentIndex: 1
+
   - it: should fail without a server url
     set:
       agents.main.url: ""

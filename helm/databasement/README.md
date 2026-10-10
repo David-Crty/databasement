@@ -201,7 +201,13 @@ agents:
       #   secretKey: main
     # pollInterval: 5
     # resources: {}
+    # extraEnv: {}
+    # extraEnvFrom: []
+    # extraVolumeMounts: []
+    # extraVolumes: []
 ```
+
+Agents do not inherit the top-level `extraEnv`, `extraEnvFrom`, `extraVolumeMounts` or `extraVolumes`, which configure the app and worker and often carry their credentials. Set them per agent instead.
 
 ## License
 

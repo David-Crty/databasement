@@ -50,7 +50,6 @@ trait HasAgentToken
             'services:',
             '  databasement-agent:',
             "    image: {$image}",
-            '    container_name: databasement-agent',
             '    restart: unless-stopped',
             '    environment:',
             "      DATABASEMENT_URL: '{$url}'",

@@ -108,6 +108,11 @@ agents: {}
 #        secretKey: ""
 #    # Optional, defaults shown
 #    pollInterval: 5
+#    # Agents do not inherit the app's extraEnv, extraEnvFrom or extra volumes
+#    extraEnv: {}
+#    extraEnvFrom: []
+#    extraVolumeMounts: []
+#    extraVolumes: []
 #    resources:
 #      limits:
 #        cpu: 500m

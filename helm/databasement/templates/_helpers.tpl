@@ -10,7 +10,13 @@ Validate required values
 {{- if not $agent.url -}}
 {{- fail (printf "agents.%s.url is required" $name) -}}
 {{- end -}}
-{{- if and (not ($agent.token).value) (not ($agent.token).fromSecret) -}}
+{{- $token := $agent.token | default dict -}}
+{{- $fromSecret := $token.fromSecret | default dict -}}
+{{- if or $fromSecret.secretName $fromSecret.secretKey -}}
+{{- if not (and $fromSecret.secretName $fromSecret.secretKey) -}}
+{{- fail (printf "agents.%s.token.fromSecret requires both secretName and secretKey" $name) -}}
+{{- end -}}
+{{- else if not $token.value -}}
 {{- fail (printf "agents.%s.token.value or agents.%s.token.fromSecret is required" $name $name) -}}
 {{- end -}}
 {{- end -}}
