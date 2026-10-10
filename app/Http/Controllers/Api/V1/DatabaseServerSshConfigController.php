@@ -26,7 +26,7 @@ class DatabaseServerSshConfigController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $perPage = max(1, min($request->integer('per_page', 15), 100));
+        $perPage = $this->perPage($request);
 
         $sshConfigs = DatabaseServerSshConfig::query()
             ->orderBy('host')
