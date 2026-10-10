@@ -13,7 +13,8 @@ interface DatabaseInterface
     public function setConfig(array $config): void;
 
     /**
-     * Dump the database to the given output path.
+     * Dump the database to the given output path, or to stdout when the client
+     * can stream, in which case the result says so with `writesToStdout`.
      */
     public function dump(string $outputPath): DatabaseOperationResult;
 

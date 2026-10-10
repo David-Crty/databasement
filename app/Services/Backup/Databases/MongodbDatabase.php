@@ -44,9 +44,10 @@ class MongodbDatabase implements DatabaseInterface
             $parts[] = DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::MONGODB);
         }
 
-        $parts[] = '--archive='.escapeshellarg($outputPath);
+        // A bare --archive writes the archive to stdout.
+        $parts[] = '--archive';
 
-        return new DatabaseOperationResult(command: implode(' ', $parts));
+        return new DatabaseOperationResult(command: implode(' ', $parts), writesToStdout: true);
     }
 
     public function restore(string $inputPath): DatabaseOperationResult

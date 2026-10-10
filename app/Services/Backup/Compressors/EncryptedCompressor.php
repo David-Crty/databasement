@@ -36,10 +36,34 @@ class EncryptedCompressor extends BaseCompressor
 
     public function getCompressCommandLine(string $inputPath): string
     {
-        $outputPath = $this->getCompressedPath($inputPath);
+        return sprintf(
+            '%s %s %s',
+            $this->archiveCommand(),
+            escapeshellarg($this->getCompressedPath($inputPath)),
+            escapeshellarg($inputPath),
+        );
+    }
 
-        // 7z a -t7z -mx={level} -mhe=on -p{password} output.7z input
-        // -mhe=on encrypts headers (file names)
+    /**
+     * -si stores stdin under the dump's basename, the entry
+     * {@see getDecompressedPath()} looks for on restore.
+     */
+    public function getCompressStdinCommandLine(string $inputPath): string
+    {
+        return sprintf(
+            '%s -si%s %s',
+            $this->archiveCommand(),
+            escapeshellarg(basename($inputPath)),
+            escapeshellarg($this->getCompressedPath($inputPath)),
+        );
+    }
+
+    /**
+     * `7z a` with its options, up to the archive and input arguments.
+     * -mhe=on encrypts headers (file names).
+     */
+    private function archiveCommand(): string
+    {
         $command = sprintf('7z a -t7z -mx=%d -mhe=on', $this->getLevel());
 
         // -mmt=on spreads compression across all available CPU cores
@@ -50,8 +74,6 @@ class EncryptedCompressor extends BaseCompressor
         if ($this->password !== null) {
             $command .= sprintf(' -p%s', escapeshellarg($this->password));
         }
-
-        $command .= sprintf(' %s %s', escapeshellarg($outputPath), escapeshellarg($inputPath));
 
         return $command;
     }

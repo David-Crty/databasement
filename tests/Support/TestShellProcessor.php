@@ -15,14 +15,14 @@ class TestShellProcessor extends ShellProcessor
     /** @var array<int, array<string, string>> */
     public array $executedEnv = [];
 
-    public function process(string $command, array $env = []): string
+    public function process(string $command, array $env = [], ?string $workingDirectory = null): string
     {
         // Capture the command and env
         $this->executedCommands[] = $command;
         $this->executedEnv[] = $env;
 
         // Simulate file creation based on command patterns
-        $this->simulateCommandEffects($command);
+        $this->simulateCommandEffects($command, $workingDirectory);
 
         return 'fake output';
     }
@@ -30,8 +30,18 @@ class TestShellProcessor extends ShellProcessor
     /**
      * Simulate side effects of commands (creating files)
      */
-    private function simulateCommandEffects(string $command): void
+    private function simulateCommandEffects(string $command, ?string $workingDirectory): void
     {
+        // For a dump piped into a compressor, run from the dump's directory: the archive is the compressor's last argument
+        // Matches: { ( <dump> ); echo $? > '<status>'; } | gzip -6 -c > 'file.sql.gz' && exit ...
+        if (str_starts_with($command, '{ ( ')) {
+            if (preg_match('/\'([^\']+)\' && exit /', $command, $matches)) {
+                file_put_contents($workingDirectory.'/'.$matches[1], 'fake compressed data');
+            }
+
+            return;
+        }
+
         // For mysqldump/pg_dump: extract output path and create fake dump file
         if (preg_match('/>\s*([^\s]+)$/', $command, $matches)
             || preg_match('/\s--result-file=(\'[^\']+\')/', $command, $matches)) {

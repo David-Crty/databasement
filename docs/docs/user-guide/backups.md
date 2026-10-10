@@ -12,7 +12,7 @@ When you create a backup, Databasement:
 
 1. Connects to the database server (via SSH tunnel if configured)
 2. Runs the appropriate dump command for the database type
-3. Compresses the output with gzip
+3. Compresses the output with the configured compressor (gzip, zstd, or encrypted 7-Zip)
 4. Transfers the compressed file to the selected storage volume
 5. Creates a snapshot record with metadata
 
@@ -23,19 +23,19 @@ Databasement uses native database tools for reliable backups:
 **MariaDB** (10.2 and later):
 ```bash
 mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl \
-  --host='...' --port='...' --user='...' --password='...' --result-file='dump.sql' 'database_name'
+  --host='...' --port='...' --user='...' --password='...' 'database_name'
 ```
 
 **MySQL** (and MariaDB below 10.2), using the bundled Oracle client:
 ```bash
 /opt/mysql-client/bin/mysqldump --single-transaction --routines --add-drop-table --hex-blob --quote-names --ssl-mode=DISABLED \
-  --host='...' --port='...' --user='...' --password='...' --result-file='dump.sql' 'database_name'
+  --host='...' --port='...' --user='...' --password='...' 'database_name'
 ```
 
 **PostgreSQL:**
 ```bash
 PGPASSWORD='...' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers \
-  --host='...' --port='...' --username='...' 'database_name' -f dump.sql
+  --host='...' --port='...' --username='...' 'database_name'
 ```
 
 **SQLite:**
@@ -47,21 +47,21 @@ This creates a consistent snapshot and is safe for databases running in WAL mode
 
 **Firebird:**
 ```bash
-gbak -b -g -user '...' -password '...' '/path/to/source.fdb' '/path/to/dump.fbk'
+gbak -b -g -user '...' -password '...' '/path/to/source.fdb' stdout
 ```
 
 **MongoDB:**
 ```bash
 mongodump --host='...' --port='...' --username='...' --password='...' \
-  --authenticationDatabase='admin' --db='database_name' --archive=dump.archive
+  --authenticationDatabase='admin' --db='database_name' --archive
 ```
 
 **Redis/Valkey:**
 ```bash
-redis-cli -h '...' -p '...' -a '...' --no-auth-warning --rdb dump.rdb
+redis-cli -h '...' -p '...' -a '...' --no-auth-warning --rdb -
 ```
 
-All dumps are then compressed with gzip before being transferred to the storage volume.
+Except for SQLite and SQL Server, whose dumps need a real file and are compressed once written, these commands write the dump to stdout and it is piped straight into the compressor, so only the compressed archive is ever written to disk. A dump that fails partway fails the backup.
 
 ## Excluding Tables
 

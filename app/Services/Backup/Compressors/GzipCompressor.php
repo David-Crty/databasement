@@ -22,6 +22,11 @@ class GzipCompressor extends BaseCompressor
         return sprintf('gzip -%d %s', $this->getLevel(), escapeshellarg($inputPath));
     }
 
+    public function getCompressStdinCommandLine(string $inputPath): string
+    {
+        return sprintf('gzip -%d -c > %s', $this->getLevel(), escapeshellarg($this->getCompressedPath($inputPath)));
+    }
+
     public function getDecompressCommandLine(string $outputPath): string
     {
         return 'gzip -d '.escapeshellarg($outputPath);

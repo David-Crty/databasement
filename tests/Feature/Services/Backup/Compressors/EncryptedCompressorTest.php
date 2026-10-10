@@ -15,6 +15,7 @@ test('encrypted command generation', function () {
 
     expect($compressor->getExtension())->toBe('7z')
         ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx=6 -mhe=on -p'secret123' '/path/to/dump.sql.7z' '/path/to/dump.sql'")
+        ->and($compressor->getCompressStdinCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx=6 -mhe=on -p'secret123' -si'dump.sql' '/path/to/dump.sql.7z'")
         ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.7z'))->toBe("7z x -y -o'/path/to' -p'secret123' '/path/to/dump.sql.7z'");
 });
 

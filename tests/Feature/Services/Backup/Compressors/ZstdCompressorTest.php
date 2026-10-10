@@ -14,6 +14,7 @@ test('zstd command generation', function () {
 
     expect($compressor->getExtension())->toBe('zst')
         ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("zstd -6 --rm '/path/to/dump.sql'")
+        ->and($compressor->getCompressStdinCommandLine('/path/to/dump.sql'))->toBe("zstd -q -6 -o '/path/to/dump.sql.zst'")
         ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.zst'))->toBe("zstd -d --rm '/path/to/dump.sql.zst'");
 });
 

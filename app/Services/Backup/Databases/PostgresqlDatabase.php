@@ -126,9 +126,7 @@ class PostgresqlDatabase implements DatabaseInterface
             DatabaseOperationResult::escapeDatabaseName($this->config['database']),
         );
 
-        $command .= ' -f '.escapeshellarg($outputPath);
-
-        return new DatabaseOperationResult(command: $command, log: $this->legacyClientLog($binary, $major));
+        return new DatabaseOperationResult(command: $command, log: $this->legacyClientLog($binary, $major), writesToStdout: true);
     }
 
     public function restore(string $inputPath): DatabaseOperationResult

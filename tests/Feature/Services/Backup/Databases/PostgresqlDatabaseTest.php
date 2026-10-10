@@ -32,11 +32,12 @@ beforeEach(function () {
     $this->db = postgresHandler();
 });
 
-test('dump builds correct pg_dump command', function () {
+test('dump builds a pg_dump command that streams to stdout', function () {
     $result = $this->db->dump('/tmp/dump.sql');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("PGPASSWORD='pg_secret' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' -f '/tmp/dump.sql'");
+        ->and($result->command)->toBe("PGPASSWORD='pg_secret' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers --host='pg.local' --port='5432' --username='postgres' --dbname='myapp'")
+        ->and($result->writesToStdout)->toBeTrue();
 });
 
 test('dump includes extra dump flags', function () {
@@ -46,7 +47,7 @@ test('dump includes extra dump flags', function () {
 
     // Flags must appear before the database name (last positional argument)
     expect($result->command)->toContain("'--exclude-table=large_logs' --dbname='myapp'")
-        ->and($result->command)->toEndWith("-f '/tmp/dump.sql'");
+        ->and($result->command)->toEndWith("--dbname='myapp'");
 });
 
 test('dump excludes tables from every schema of the dumped database', function () {
@@ -101,7 +102,7 @@ test('dump appends --format=custom when dump_format is custom', function () {
     $result = $db->dump('/tmp/dump.sql');
 
     expect($result->command)->toContain('--quote-all-identifiers --format=custom --host=')
-        ->and($result->command)->toEndWith("'myapp' -f '/tmp/dump.sql'");
+        ->and($result->command)->toEndWith("--dbname='myapp'");
 });
 
 test('restore uses pg_restore when dump_format config is custom', function () {
@@ -128,7 +129,7 @@ test('dump keeps ownership and privileges when dump_privileges is enabled', func
 
     $result = $db->dump('/tmp/dump.sql');
 
-    expect($result->command)->toBe("PGPASSWORD='pg_secret' pg_dump --clean --if-exists --quote-all-identifiers --host='pg.local' --port='5432' --username='postgres' --dbname='myapp' -f '/tmp/dump.sql'");
+    expect($result->command)->toBe("PGPASSWORD='pg_secret' pg_dump --clean --if-exists --quote-all-identifiers --host='pg.local' --port='5432' --username='postgres' --dbname='myapp'");
 });
 
 test('custom format restore keeps ownership and privileges when dump_privileges is enabled', function () {
