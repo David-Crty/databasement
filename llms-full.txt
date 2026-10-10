@@ -740,6 +740,34 @@ worker:
 Separate worker deployment requires either ReadWriteMany storage or AWS S3 storage + an external database (MySQL/PostgreSQL).
 :::
 
+### Remote Agents
+
+The chart can also run [remote agents](../user-guide/agents.md), one Deployment per enabled entry under `agents`. Set `app.enabled: false` to deploy only the agents, for example in the cluster that hosts your databases:
+
+```yaml title="values.yaml"
+app:
+  enabled: false
+
+agents:
+  main:
+    enabled: true
+    url: https://backup.yourdomain.com
+    token:
+      value: "token-shown-when-creating-the-agent"
+      # Or reference an existing secret instead:
+      # fromSecret:
+      #   secretName: databasement-agents
+      #   secretKey: main
+    # pollInterval: 5
+    # resources: {}
+    # extraEnv: {}
+    # extraEnvFrom: []
+    # extraVolumeMounts: []
+    # extraVolumes: []
+```
+
+Agents do not inherit the top-level `extraEnv`, `extraEnvFrom`, `extraVolumeMounts` or `extraVolumes`, which configure the app and worker and often carry their credentials. Set them per agent instead.
+
 ## Updating
 
 Update the `--version` flag and run the same install command. Migrations run automatically on startup.
@@ -2072,10 +2100,13 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.9] - 2026-10-08 {#v1-9}
+## [1.9] - 2026-10-10 {#v1-9}
 
 ### Added
 
+- `1.9.1` Snapshots can be deleted in bulk from the Snapshots page, by selecting a page or every snapshot matching the current filters, and the API gains single and bulk delete endpoints. Bulk deletes run on the queue worker, and the list shows queued snapshots as Deleting until they are gone ([#686](https://github.com/David-Crty/databasement/pull/686))
+- `1.9.1` The Helm chart can run any number of remote agents under `agents.<name>`, alongside the server or on their own with `app.enabled: false`, and the agent token dialog shows the environment variables plus Docker Compose, Helm and Docker snippets pinned to the server's minor version. The chart's Service now routes web traffic only to app pods, never to worker pods ([#685](https://github.com/David-Crty/databasement/pull/685))
+- `1.9.1` In demo mode, visitors can run restores and download and delete snapshots through a dedicated `demo` role. Their deletes are never carried out, so the demo data stays intact ([#687](https://github.com/David-Crty/databasement/pull/687))
 - `1.9.0` The Agents page shows each agent's version next to the server's, and the sidebar warns when an agent runs an older minor version or is too old to report one. Agents are compatible with any server of the same minor version, so upgrade agents whenever the server moves to a new minor ([#681](https://github.com/David-Crty/databasement/pull/681))
 - `1.9.0` Each backup configuration can list tables to leave out of its dumps by bare name, applied to every database the backup dumps, so log tables no longer need one `--ignore-table` flag per database in Extra Dump Flags. PostgreSQL exclusion needs `pg_dump` 16 or later (shipped in the Docker image), and agents older than 1.9.0 ignore the list and dump every table ([#554](https://github.com/David-Crty/databasement/pull/554))
 - `1.9.0` A pending or running backup or restore can be cancelled from the snapshot and restore lists or from its logs. The job stops within 30 seconds, is neither retried nor reported as failed, and the copies it already uploaded are deleted; a restore cancelled mid-way can leave the target database partially restored ([#674](https://github.com/David-Crty/databasement/pull/674))
@@ -2084,6 +2115,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.9.1` A MySQL, MariaDB or PostgreSQL server can use a Unix socket path as its host again: the form had rejected the `/` since host validation was tightened, so socket-based PostgreSQL servers could no longer be saved. MySQL and MariaDB backups, restores and connection tests now connect through the socket ([#684](https://github.com/David-Crty/databasement/pull/684))
 - `1.9.0` A restore that times out while its remote agent is still running it now stops the agent at its next report, instead of letting it carry on and possibly revive the failed restore ([#673](https://github.com/David-Crty/databasement/pull/673))
 
 ## [1.8] - 2026-10-01 {#v1-8}
@@ -2373,7 +2405,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.0
+[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.1
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
@@ -3196,6 +3228,12 @@ You can also trigger verification manually from the dashboard.
 
 See [Backup Configuration](../self-hosting/configuration/backup.md) for `BACKUP_VERIFY_FILES` and `BACKUP_VERIFY_FILES_CRON` settings.
 
+## Deleting Snapshots
+
+On the Snapshots page, tick the rows to delete, or tick the header checkbox to select the whole page and then **Select all matching snapshots** to extend the selection to every snapshot matching the current search and filters. Filtering on **File missing** first is a quick way to clean up snapshots whose files were removed from the volume.
+
+Deletion runs in the background on the queue worker, and the snapshots show as **Deleting** until they are removed. Locked snapshots and snapshots whose backup is still in progress are skipped. Through the API, use `DELETE /api/v1/snapshots/{id}` for one snapshot or `POST /api/v1/snapshots/bulk-delete` with a list of `ids` for many.
+
 ## Restore Process
 
 When you restore a snapshot, Databasement:
@@ -3954,8 +3992,81 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
 
 ## Setup
 
-1. **Create an agent** — go to **Agents → Add Agent**, then copy the token shown once on creation.
-2. **Run the agent** next to your database, pointing it at your server:
+1. **Create an agent**: go to **Agents → Add Agent**. The token is shown once on creation, together with ready-to-paste deployment snippets for your server.
+2. **Run the agent** next to your database. Whatever the deployment, it needs only two environment variables:
+
+   ```bash
+   DATABASEMENT_URL=https://databasement.example.com
+   DATABASEMENT_AGENT_TOKEN=<paste-token>
+   ```
+
+   When `DATABASEMENT_URL` is set, the container runs in agent mode: it only executes `agent:run` and needs no app key, database or volume of its own.
+
+   <Tabs groupId="deployment">
+   <TabItem value="docker-compose" label="Docker Compose" default>
+
+   ```yaml title="docker-compose.yml"
+   services:
+     databasement-agent:
+       image: davidcrty/databasement:1
+       restart: unless-stopped
+       environment:
+         DATABASEMENT_URL: 'https://databasement.example.com'
+         DATABASEMENT_AGENT_TOKEN: '<paste-token>'
+   ```
+
+   ```bash
+   docker compose up -d
+   ```
+
+   </TabItem>
+   <TabItem value="helm" label="Helm / Kubernetes">
+
+   The [Helm chart](../self-hosting/kubernetes-helm.md) runs one Deployment per enabled entry under `agents`. With `app.enabled=false` the release contains only the agents (no web app, worker, PVC, Service or Ingress), so it can live in its own namespace or cluster:
+
+   ```bash
+   helm repo add databasement https://david-crty.github.io/databasement
+   helm repo update
+   helm install databasement-agent databasement/databasement \
+     --set app.enabled=false \
+     --set agents.main.enabled=true \
+     --set agents.main.url='https://databasement.example.com' \
+     --set agents.main.token.value='<paste-token>'
+   ```
+
+   Several agents can share a release, each with its own token. To keep tokens out of your values, store them in Secrets and reference them instead:
+
+   ```bash
+   kubectl create secret generic databasement-agents \
+     --from-literal=main='<paste-token>' \
+     --from-literal=eu='<paste-other-token>'
+   ```
+
+   ```yaml title="values.yaml"
+   app:
+     enabled: false
+
+   agents:
+     main:
+       enabled: true
+       url: https://databasement.example.com
+       token:
+         fromSecret:
+           secretName: databasement-agents
+           secretKey: main
+     eu:
+       enabled: true
+       url: https://databasement.example.com
+       token:
+         fromSecret:
+           secretName: databasement-agents
+           secretKey: eu
+   ```
+
+   Keep `app.enabled` at its default to run agents in the same release as the server.
+
+   </TabItem>
+   <TabItem value="docker" label="Docker">
 
    ```bash
    docker run -d --restart unless-stopped \
@@ -3965,7 +4076,10 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
      davidcrty/databasement:1
    ```
 
-   When `DATABASEMENT_URL` is set, the container runs in agent mode — it only executes `agent:run` and needs no database configuration of its own.
+   </TabItem>
+   </Tabs>
+
+   Pin the agent to your server's minor version (for example `davidcrty/databasement:1.9`, or `--version` with Helm) so it stays compatible: see the version note below.
 
 3. **Assign the agent** to a database server by setting its **Agent** field. From then on, that server's backups, and any restore that targets it, run through the agent.
 
