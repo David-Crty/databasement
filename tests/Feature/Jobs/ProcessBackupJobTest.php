@@ -187,6 +187,33 @@ test('a backup the queue failed without running its catch is not notified again 
     Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
 });
 
+test('a backup the timeout recovery already failed is not notified again by the queue', function () {
+    AppConfig::set('backup.job_timeout', 3600);
+    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot->job->update(['status' => 'running', 'started_at' => now()->subSeconds(3600 + 300 + 1)]);
+
+    $this->artisan('jobs:recover-stuck')->assertSuccessful();
+    (new ProcessBackupJob($snapshot->id))->failed(new \Illuminate\Queue\TimeoutExceededException('Job timed out'));
+
+    Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
+});
+
+test('a cancelled backup is not notified as failed', function () {
+    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot->job->cancel('admin');
+
+    (new ProcessBackupJob($snapshot->id))->failed(new \Illuminate\Queue\TimeoutExceededException('Job timed out'));
+
+    expect($snapshot->job->fresh()->status)->toBe(BackupJobStatus::Cancelled);
+    Notification::assertNothingSent();
+});
+
 test('handle uses empty backupPath when the snapshot is orphaned (backup removed)', function () {
     $server = createDatabaseServer([
         'host' => 'db.example.com',
