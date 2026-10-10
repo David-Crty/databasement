@@ -1,3 +1,4 @@
+{{- if .Values.app.enabled }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -13,3 +14,5 @@ spec:
       name: http
   selector:
     {{- include "databasement.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+{{- end }}

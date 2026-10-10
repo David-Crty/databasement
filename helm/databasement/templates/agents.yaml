@@ -1,0 +1,112 @@
+{{- range $name, $agent := .Values.agents }}
+{{- if $agent.enabled }}
+{{- $suffix := printf "-agent-%s" $name }}
+{{- $fullName := printf "%s%s" (include "databasement.fullname" $ | trunc (int (sub 63 (len $suffix))) | trimSuffix "-") $suffix }}
+{{- $fromSecret := ($agent.token | default dict).fromSecret | default dict }}
+{{- $useSecret := or $fromSecret.secretName $fromSecret.secretKey }}
+{{- if not $useSecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "databasement.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: agent-{{ $name }}
+type: Opaque
+data:
+  token: {{ $agent.token.value | b64enc | quote }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "databasement.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: agent-{{ $name }}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      {{- include "databasement.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: agent-{{ $name }}
+  template:
+    metadata:
+      {{- with $.Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "databasement.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: agent-{{ $name }}
+        {{- with omit ($.Values.podLabels | default dict) "app.kubernetes.io/component" }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "databasement.serviceAccountName" $ }}
+      securityContext:
+        {{- toYaml $.Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: agent
+          securityContext:
+            {{- toYaml $.Values.securityContext | nindent 12 }}
+          image: "{{ $.Values.image.repository }}:{{ $.Values.image.tag | default $.Chart.AppVersion }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          env:
+            - name: DATABASEMENT_URL
+              value: {{ $agent.url | quote }}
+            - name: DATABASEMENT_AGENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  {{- if $useSecret }}
+                  name: {{ $fromSecret.secretName }}
+                  key: {{ $fromSecret.secretKey }}
+                  {{- else }}
+                  name: {{ $fullName }}
+                  key: token
+                  {{- end }}
+            - name: DATABASEMENT_AGENT_POLL_INTERVAL
+              value: {{ $agent.pollInterval | default 5 | quote }}
+            - name: LOG_CHANNEL
+              value: {{ $.Values.logging.channel | quote }}
+            - name: LOG_LEVEL
+              value: {{ $.Values.logging.level | quote }}
+            {{- range $key, $value := $agent.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- with $agent.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml ($agent.resources | default (dict "limits" (dict "cpu" "500m" "memory" "512Mi") "requests" (dict "cpu" "50m" "memory" "128Mi"))) | nindent 12 }}
+          {{- with $agent.extraVolumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with $agent.extraVolumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+{{- end }}

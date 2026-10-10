@@ -17,6 +17,7 @@ should render service with default values:
           protocol: TCP
           targetPort: http
       selector:
+        app.kubernetes.io/component: app
         app.kubernetes.io/instance: RELEASE-NAME
         app.kubernetes.io/name: databasement
       type: ClusterIP
