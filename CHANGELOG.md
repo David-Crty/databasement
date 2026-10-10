@@ -8,10 +8,13 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.9] - 2026-10-08
+## [1.9] - 2026-10-10
 
 ### Added
 
+- `1.9.1` Snapshots can be deleted in bulk from the Snapshots page, by selecting a page or every snapshot matching the current filters, and the API gains single and bulk delete endpoints. Bulk deletes run on the queue worker, and the list shows queued snapshots as Deleting until they are gone ([#686](https://github.com/David-Crty/databasement/pull/686))
+- `1.9.1` The Helm chart can run any number of remote agents under `agents.<name>`, alongside the server or on their own with `app.enabled: false`, and the agent token dialog shows the environment variables plus Docker Compose, Helm and Docker snippets pinned to the server's minor version. The chart's Service now routes web traffic only to app pods, never to worker pods ([#685](https://github.com/David-Crty/databasement/pull/685))
+- `1.9.1` In demo mode, visitors can run restores and download and delete snapshots through a dedicated `demo` role. Their deletes are never carried out, so the demo data stays intact ([#687](https://github.com/David-Crty/databasement/pull/687))
 - `1.9.0` The Agents page shows each agent's version next to the server's, and the sidebar warns when an agent runs an older minor version or is too old to report one. Agents are compatible with any server of the same minor version, so upgrade agents whenever the server moves to a new minor ([#681](https://github.com/David-Crty/databasement/pull/681))
 - `1.9.0` Each backup configuration can list tables to leave out of its dumps by bare name, applied to every database the backup dumps, so log tables no longer need one `--ignore-table` flag per database in Extra Dump Flags. PostgreSQL exclusion needs `pg_dump` 16 or later (shipped in the Docker image), and agents older than 1.9.0 ignore the list and dump every table ([#554](https://github.com/David-Crty/databasement/pull/554))
 - `1.9.0` A pending or running backup or restore can be cancelled from the snapshot and restore lists or from its logs. The job stops within 30 seconds, is neither retried nor reported as failed, and the copies it already uploaded are deleted; a restore cancelled mid-way can leave the target database partially restored ([#674](https://github.com/David-Crty/databasement/pull/674))
@@ -20,6 +23,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.9.1` A MySQL, MariaDB or PostgreSQL server can use a Unix socket path as its host again: the form had rejected the `/` since host validation was tightened, so socket-based PostgreSQL servers could no longer be saved. MySQL and MariaDB backups, restores and connection tests now connect through the socket ([#684](https://github.com/David-Crty/databasement/pull/684))
 - `1.9.0` A restore that times out while its remote agent is still running it now stops the agent at its next report, instead of letting it carry on and possibly revive the failed restore ([#673](https://github.com/David-Crty/databasement/pull/673))
 
 ## [1.8] - 2026-10-01
@@ -309,7 +313,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.0
+[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.1
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
