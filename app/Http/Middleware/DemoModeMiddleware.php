@@ -2,16 +2,21 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\Ability;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\Roles\AssignRoleToUserAction;
+use App\Services\Roles\CreateRoleAction;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Silber\Bouncer\Database\Role;
 use Symfony\Component\HttpFoundation\Response;
 
 class DemoModeMiddleware
 {
+    public const DEMO_ROLE = 'demo';
+
     /**
      * Routes that demo users are not allowed to access.
      *
@@ -49,12 +54,20 @@ class DemoModeMiddleware
     }
 
     /**
-     * Create the demo user if it doesn't exist.
-     * Attaches to the main org with the viewer role; demo-specific access
-     * (and read-only restrictions) is enforced via isDemo(), not a role.
+     * Create the demo user and the demo role if they don't exist, and attach
+     * the user to the main org with that role. Read-only restrictions are still
+     * enforced via isDemo().
      */
     protected function ensureDemoUserExists(): void
     {
+        if (! Role::query()->where('name', self::DEMO_ROLE)->exists()) {
+            app(CreateRoleAction::class)->execute(self::DEMO_ROLE, 'Demo', [
+                Ability::OperateRestores->value,
+                Ability::DeleteSnapshots->value,
+                Ability::DownloadSnapshots->value,
+            ]);
+        }
+
         $user = User::firstOrCreate(
             ['email' => User::DEMO_EMAIL],
             [
@@ -66,6 +79,6 @@ class DemoModeMiddleware
 
         $org = Organization::default();
         $user->organizations()->syncWithoutDetaching([$org->id]);
-        app(AssignRoleToUserAction::class)->execute($user, 'viewer', $org);
+        app(AssignRoleToUserAction::class)->execute($user, self::DEMO_ROLE, $org);
     }
 }

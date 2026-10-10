@@ -45,10 +45,11 @@ class SnapshotController extends Controller
     /**
      * Delete a snapshot.
      *
-     * Removes the backup files from their volumes unless `keep_files` is true.
-     * A locked snapshot, or one whose backup is still in progress, cannot be deleted.
+     * The deletion runs on the queue, and removes the backup files from their
+     * volumes unless `keep_files` is true. A locked snapshot, or one whose backup
+     * is still in progress, cannot be deleted.
      *
-     * @response 204
+     * @response 202
      */
     public function destroy(Request $request, Snapshot $snapshot): Response
     {
@@ -56,10 +57,9 @@ class SnapshotController extends Controller
 
         abort_if($snapshot->job->status->isInProgress(), 409, 'The backup of this snapshot is still in progress.');
 
-        $snapshot->skipFileCleanup = $request->boolean('keep_files');
-        $snapshot->delete();
+        DeleteSnapshotsJob::dispatchFor(Snapshot::query()->whereKey($snapshot->id), $request->boolean('keep_files'));
 
-        return response()->noContent();
+        return response()->noContent(202);
     }
 
     /**

@@ -34,6 +34,7 @@ class DeleteSnapshotsJob implements ShouldQueue
     /**
      * Mark the deletable snapshots of an already authorized query as deleting
      * and queue their deletion in chunks, returning how many will be deleted.
+     * The demo user gets the count without anything being deleted.
      *
      * @param  Builder<Snapshot>  $query
      */
@@ -43,6 +44,10 @@ class DeleteSnapshotsJob implements ShouldQueue
             ->get(['snapshots.id'])
             ->map(fn (Snapshot $snapshot): string => $snapshot->id)
             ->all();
+
+        if (auth()->user()?->isDemo() === true) {
+            return count($snapshotIds);
+        }
 
         foreach (array_chunk($snapshotIds, self::CHUNK_SIZE) as $chunk) {
             Snapshot::query()->whereKey($chunk)->update(['deleting' => true]);
