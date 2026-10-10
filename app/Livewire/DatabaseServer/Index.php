@@ -2,8 +2,9 @@
 
 namespace App\Livewire\DatabaseServer;
 
-use App\Enums\DatabaseType;
+use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
+use App\Livewire\DatabaseServer\Concerns\OpensServerRestore;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
@@ -25,7 +26,7 @@ use Livewire\WithPagination;
 #[Title('Database Servers')]
 class Index extends Component
 {
-    use AuthorizesRequests, FiltersAndPaginates, OpensAdminerForServer, RunsServerBackups, Toast, WithPagination;
+    use AuthorizesRequests, ConfirmsDeletion, FiltersAndPaginates, OpensAdminerForServer, OpensServerRestore, RunsServerBackups, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -34,14 +35,7 @@ class Index extends Component
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
 
     #[Locked]
-    public ?string $deleteId = null;
-
-    #[Locked]
     public ?string $restoreId = null;
-
-    public bool $showDeleteModal = false;
-
-    public bool $showRedisRestoreModal = false;
 
     public int $deleteSnapshotCount = 0;
 
@@ -62,49 +56,32 @@ class Index extends Component
 
     public function confirmDelete(string $id): void
     {
-        $server = DatabaseServer::findOrFail($id);
+        $server = $this->confirmDeletion(DatabaseServer::query(), $id);
 
-        $this->authorize('delete', $server);
-
-        $this->deleteId = $id;
         $this->deleteSnapshotCount = $server->snapshots()->count();
         $this->keepFiles = false;
-        $this->showDeleteModal = true;
     }
 
     public function delete(): void
     {
-        if (! $this->deleteId) {
+        $server = $this->pendingDeletion(DatabaseServer::query());
+
+        if ($server === null) {
             return;
         }
 
-        $server = DatabaseServer::findOrFail($this->deleteId);
-
-        $this->authorize('delete', $server);
-
         $server->skipFileCleanup = $this->keepFiles;
         $server->delete();
-        $this->deleteId = null;
-        $this->showDeleteModal = false;
+        $this->closeDeletion();
 
         $this->success(__('Database server deleted successfully!'));
     }
 
     public function confirmRestore(string $id): void
     {
-        $server = DatabaseServer::findOrFail($id);
-
-        $this->authorize('restore', $server);
+        $this->openRestoreFor(DatabaseServer::findOrFail($id));
 
         $this->restoreId = $id;
-
-        if ($server->database_type === DatabaseType::REDIS) {
-            $this->showRedisRestoreModal = true;
-
-            return;
-        }
-
-        $this->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $id);
     }
 
     public function openAdminer(string $id): void

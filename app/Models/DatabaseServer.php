@@ -9,6 +9,7 @@ use App\Exceptions\Backup\EncryptionException;
 use App\Models\Scopes\OrganizationScope;
 use Database\Factories\DatabaseServerFactory;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -195,6 +196,33 @@ class DatabaseServer extends Model
     {
         return $this->database_type === DatabaseType::SQLITE
             && $this->ssh_config_id !== null;
+    }
+
+    /**
+     * The backup configuration a trigger request names, or the oldest one
+     * when it names none.
+     */
+    public function backupToTrigger(?string $backupId): ?Backup
+    {
+        return $backupId !== null
+            ? $this->backups->firstWhere('id', $backupId)
+            : $this->backups->sortBy('id')->first();
+    }
+
+    /**
+     * Servers as `x-select` / `x-choices` options, ordered by name.
+     *
+     * @param  (\Closure(Builder<self>): mixed)|null  $constrain  Narrows the servers listed
+     * @return array<int, array{id: string, name: string}>
+     */
+    public static function toSelectOptions(?\Closure $constrain = null): array
+    {
+        return self::query()
+            ->when($constrain, $constrain)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (self $server): array => ['id' => $server->id, 'name' => $server->name])
+            ->all();
     }
 
     /**

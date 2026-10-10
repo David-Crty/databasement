@@ -164,10 +164,7 @@ class DatabaseServerController extends Controller
         $databaseServer->load(['backups.volumes', 'backups.backupSchedule']);
 
         $backupId = $request->query('backup_id');
-
-        $backup = $backupId !== null
-            ? $databaseServer->backups->firstWhere('id', $backupId)
-            : $databaseServer->backups->sortBy('id')->first();
+        $backup = is_array($backupId) ? null : $databaseServer->backupToTrigger($backupId);
 
         if ($backup === null) {
             return response()->json([

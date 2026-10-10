@@ -3,6 +3,7 @@
 namespace App\Livewire\Configuration;
 
 use App\Enums\Ability;
+use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Models\User;
 use App\Services\Roles\CreateRoleAction;
 use App\Services\Roles\DeleteRoleAction;
@@ -25,7 +26,7 @@ use Silber\Bouncer\Database\Role;
 #[Title('Configuration')]
 class Roles extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, ConfirmsDeletion, Toast;
 
     public bool $showFormModal = false;
 
@@ -36,11 +37,6 @@ class Roles extends Component
 
     /** @var list<string> */
     public array $abilities = [];
-
-    public bool $showDeleteModal = false;
-
-    #[Locked]
-    public ?int $deleteId = null;
 
     public function openCreate(): void
     {
@@ -92,29 +88,21 @@ class Roles extends Component
 
     public function confirmDelete(int $id): void
     {
-        $role = Role::query()->findOrFail($id);
-
         // The delete policy already forbids built-in roles and non-super-admins.
-        $this->authorize('delete', $role);
-
-        $this->deleteId = $id;
-        $this->showDeleteModal = true;
+        $this->confirmDeletion(Role::query(), $id);
     }
 
     public function delete(DeleteRoleAction $deleteRole): void
     {
-        if ($this->deleteId === null) {
+        $role = $this->pendingDeletion(Role::query());
+
+        if ($role === null) {
             return;
         }
 
-        $role = Role::query()->findOrFail($this->deleteId);
-
-        $this->authorize('delete', $role);
-
         $deleteRole->execute($role);
 
-        $this->deleteId = null;
-        $this->showDeleteModal = false;
+        $this->closeDeletion();
         $this->success(__('Role deleted.'));
     }
 

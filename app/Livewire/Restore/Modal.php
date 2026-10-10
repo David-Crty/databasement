@@ -467,11 +467,7 @@ class Modal extends Component
      */
     public function dbTypeOptions(): array
     {
-        return collect(DatabaseType::cases())
-            ->reject(fn (DatabaseType $t) => $t === DatabaseType::REDIS)
-            ->map(fn (DatabaseType $t) => ['id' => $t->value, 'name' => $t->label()])
-            ->values()
-            ->all();
+        return DatabaseType::toSelectOptions(fn (DatabaseType $type): bool => $type !== DatabaseType::REDIS);
     }
 
     /**

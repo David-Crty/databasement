@@ -143,7 +143,7 @@ test('can delete a restore', function () {
 
     Livewire::test(Index::class)
         ->call('confirmDeleteRestore', $restore->id)
-        ->assertSet('deleteRestoreId', $restore->id)
+        ->assertSet('deleteId', $restore->id)
         ->call('deleteRestore');
 
     expect(Restore::find($restore->id))->toBeNull();

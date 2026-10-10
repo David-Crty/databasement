@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Snapshot;
 
+use App\Enums\BackupJobStatus;
 use App\Enums\DatabaseType;
 use App\Jobs\DeleteSnapshotsJob;
 use App\Livewire\Concerns\CancelsJobs;
@@ -157,13 +158,7 @@ class Index extends Component
      */
     public function statusOptions(): array
     {
-        return [
-            ['id' => 'completed', 'name' => __('Completed')],
-            ['id' => 'failed', 'name' => __('Failed')],
-            ['id' => 'running', 'name' => __('Running')],
-            ['id' => 'pending', 'name' => __('Pending')],
-            ['id' => 'cancelled', 'name' => __('Cancelled')],
-        ];
+        return BackupJobStatus::filterOptions();
     }
 
     /**
@@ -182,14 +177,7 @@ class Index extends Component
      */
     public function serverOptions(): array
     {
-        return DatabaseServer::query()
-            ->orderBy('name')
-            ->get()
-            ->map(fn (DatabaseServer $server) => [
-                'id' => $server->id,
-                'name' => $server->name,
-            ])
-            ->toArray();
+        return DatabaseServer::toSelectOptions();
     }
 
     /**
