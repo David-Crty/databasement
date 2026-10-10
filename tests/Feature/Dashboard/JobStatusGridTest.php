@@ -34,8 +34,8 @@ test('grid orders jobs newest-first', function () {
         'database_names' => ['old_db'],
     ]);
 
-    $oldSnapshots = $factory->createSnapshots($oldServer->backups->first(), 'manual', $user->id);
-    $oldSnapshots[0]->job->forceFill(['created_at' => now()->subDay()])->save();
+    $oldSnapshot = pendingSnapshot($oldServer, $user->id);
+    $oldSnapshot->job->forceFill(['created_at' => now()->subDay()])->save();
 
     $newServer = DatabaseServer::factory()->create([
         'name' => 'New Server',
@@ -52,14 +52,11 @@ test('grid orders jobs newest-first', function () {
 
 test('viewLogs sets selectedJobId and opens modal', function () {
     $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
-
     $server = DatabaseServer::factory()->create([
         'database_names' => ['test_db'],
     ]);
 
-    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
-    $job = $snapshots[0]->job;
+    $job = pendingSnapshot($server, $user->id)->job;
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)

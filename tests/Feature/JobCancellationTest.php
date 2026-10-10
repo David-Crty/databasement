@@ -28,7 +28,7 @@ use Illuminate\Support\Facades\Notification;
 function runningBackupJob(): BackupJob
 {
     $server = DatabaseServer::factory()->create(['database_names' => ['app']]);
-    $job = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0]->job;
+    $job = pendingSnapshot($server)->job;
     $job->markRunning();
 
     return $job;
@@ -43,7 +43,7 @@ function queuedJob(string $type): array
 {
     if ($type === 'backup') {
         $server = DatabaseServer::factory()->create(['database_names' => ['app']]);
-        $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+        $snapshot = pendingSnapshot($server);
 
         return [$snapshot->job, fn ($task) => (new ProcessBackupJob($snapshot->id))->handle($task), BackupTask::class];
     }
@@ -97,7 +97,6 @@ describe('on the queue', function () {
     });
 
     test('a job cancelled while it runs ends without a retry or a failure notification', function (string $type) {
-        Notification::fake();
         [$job, $handle, $taskClass] = queuedJob($type);
 
         $task = Mockery::mock($taskClass);

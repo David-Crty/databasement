@@ -4,7 +4,6 @@ use App\Enums\Ability;
 use App\Enums\BackupJobStatus;
 use App\Jobs\ProcessRestoreJob;
 use App\Livewire\Restore\Modal;
-use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
@@ -327,9 +326,7 @@ test('from-restore-index mode: passing restoreId pre-fills snapshot, target, and
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create(['database_name' => 'app_db']);
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
-    $job = BackupJob::create(['status' => 'completed']);
-    $restore = Restore::create([
-        'backup_job_id' => $job->id,
+    $restore = Restore::factory()->create([
         'snapshot_id' => $snapshot->id,
         'target_server_id' => $target->id,
         'schema_name' => 'previous_schema',

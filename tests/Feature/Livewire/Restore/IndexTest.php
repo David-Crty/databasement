@@ -3,7 +3,6 @@
 use App\Enums\Ability;
 use App\Enums\BackupJobStatus;
 use App\Livewire\Restore\Index;
-use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
@@ -23,17 +22,14 @@ beforeEach(function () {
 function makeRestore(array $attrs = []): Restore
 {
     $snapshot = $attrs['snapshot'] ?? Snapshot::factory()->withFile()->create();
-    $target = $attrs['target'] ?? DatabaseServer::factory()->create([
-        'database_type' => $snapshot->database_type,
-    ]);
-    $job = BackupJob::create(['status' => $attrs['status'] ?? 'completed']);
 
-    return Restore::create([
-        'backup_job_id' => $job->id,
-        'snapshot_id' => $snapshot->id,
-        'target_server_id' => $target->id,
-        'schema_name' => $attrs['schema_name'] ?? 'restored_db',
-    ]);
+    return Restore::factory()
+        ->withStatus($attrs['status'] ?? 'completed')
+        ->create(array_filter([
+            'snapshot_id' => $snapshot->id,
+            'target_server_id' => $attrs['target']?->id ?? null,
+            'schema_name' => $attrs['schema_name'] ?? null,
+        ]));
 }
 
 test('lists existing restores', function () {
@@ -213,16 +209,7 @@ test('?job= from another org renders the logs modal with source/target server co
 });
 
 test('?job= from another org is forbidden when the user is not a member of that org', function () {
-    $otherOrg = \App\Models\Organization::factory()->create(['name' => 'OtherOrg']);
-
-    $current = app(\App\Services\CurrentOrganization::class);
-    $current->set($otherOrg);
-    $otherOrgServer = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
-    $snapshot = Snapshot::factory()->forServer($otherOrgServer)->withFile()->create();
-    $restore = makeRestore(['snapshot' => $snapshot, 'target' => $otherOrgServer]);
-
-    // Return to the default org. The user is NOT a member of OtherOrg.
-    $current->set(\App\Models\Organization::default());
+    $restore = foreignRestore();
 
     Livewire::withQueryParams(['job' => $restore->job->id])
         ->test(Index::class)
@@ -265,17 +252,8 @@ test('another organization restore record cannot be re-run', function () {
 });
 
 test('viewLogs does not render a job from an org the user is not a member of', function () {
-    $otherOrg = \App\Models\Organization::factory()->create(['name' => 'OtherOrg']);
-
-    $current = app(\App\Services\CurrentOrganization::class);
-    $current->set($otherOrg);
-    $otherOrgServer = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
-    $snapshot = Snapshot::factory()->forServer($otherOrgServer)->withFile()->create();
-    $restore = makeRestore(['snapshot' => $snapshot, 'target' => $otherOrgServer]);
+    $restore = foreignRestore();
     $restore->job->log('pg_restore --host=other-org-host', 'info');
-
-    // Return to the default org. The user is NOT a member of OtherOrg.
-    $current->set(\App\Models\Organization::default());
 
     Livewire::test(Index::class)
         ->call('viewLogs', $restore->job->id)

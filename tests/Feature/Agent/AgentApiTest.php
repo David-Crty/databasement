@@ -237,8 +237,7 @@ describe('job acknowledgement', function () {
     });
 
     test('acknowledging a backup sends the success notification', function () {
-        Notification::fake();
-        \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+        \App\Models\NotificationChannel::factory()->email()->create();
 
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
@@ -403,8 +402,7 @@ describe('job failure', function () {
     });
 
     test('fail sends failure notification for backup jobs', function () {
-        Notification::fake();
-        \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+        \App\Models\NotificationChannel::factory()->email()->create();
 
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
@@ -419,8 +417,7 @@ describe('job failure', function () {
     });
 
     test('failing a discovery job records a failed snapshot and notifies, like a failed pre-flight', function () {
-        Notification::fake();
-        \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+        \App\Models\NotificationChannel::factory()->email()->create();
 
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $server = DatabaseServer::factory()->create([

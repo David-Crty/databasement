@@ -145,7 +145,7 @@ test('triggerRestore dispatches open-restore-modal with from-snapshot mode', fun
 
 test('can cancel a backup in progress', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $job = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0]->job;
+    $job = pendingSnapshot($server)->job;
 
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $job->id)
@@ -158,12 +158,10 @@ test('can cancel a backup in progress', function () {
 test('cannot cancel a backup from another organization', function () {
     // A pending job whose snapshot belongs to a server in another org. The
     // policy resolves the owning org via snapshot → server.
-    $otherOrg = \App\Models\Organization::factory()->create();
-    $server = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
-    $job = Snapshot::factory()->forServer($server)->create()->job;
+    $job = foreignSnapshot()->job;
     $job->update(['status' => BackupJobStatus::Pending]);
 
-    // Acting as the default-org user (beforeEach); the job belongs to $otherOrg,
+    // Acting as the default-org user (beforeEach); the job belongs to another org,
     // so even with the run-backups ability the cancel must be forbidden.
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $job->id)
@@ -207,7 +205,7 @@ test('without delete-snapshots, deleting a snapshot is forbidden', function () {
 
 test('without run-backups, cancelling a backup is forbidden', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $job = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0]->job;
+    $job = pendingSnapshot($server)->job;
 
     actingAs(User::factory()->withAllAbilitiesExcept(Ability::RunBackups->value)->create());
 
@@ -409,9 +407,7 @@ test('?job= from another org opens the logs modal when the user is a member', fu
 });
 
 test('?job= from another org is forbidden when the user is not a member', function () {
-    $otherOrg = \App\Models\Organization::factory()->create();
-    $server = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
-    $job = Snapshot::factory()->forServer($server)->create()->job;
+    $job = foreignSnapshot()->job;
 
     Livewire::withQueryParams(['job' => $job->id])
         ->test(Index::class)
@@ -419,13 +415,11 @@ test('?job= from another org is forbidden when the user is not a member', functi
 });
 
 test('viewLogs does not render a job from another organization', function () {
-    $otherOrg = \App\Models\Organization::factory()->create();
-    $server = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
-    $job = Snapshot::factory()->forServer($server)->create()->job;
+    $job = foreignSnapshot()->job;
     $job->log('mariadb-dump --host=other-org-host', 'info');
 
     // Acting as the default-org user (beforeEach), who is not a member of
-    // $otherOrg. selectedJobId is client-writable, so the modal must resolve
+    // the job's org. selectedJobId is client-writable, so the modal must resolve
     // the job through the view policy rather than trusting the id.
     Livewire::test(Index::class)
         ->call('viewLogs', $job->id)

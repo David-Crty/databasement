@@ -104,8 +104,7 @@ describe('claiming', function () {
 
 describe('reporting', function () {
     beforeEach(function () {
-        Notification::fake();
-        NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+        NotificationChannel::factory()->email()->create();
     });
 
     test('acknowledging a restore job completes the restore with its logs and notifies', function () {

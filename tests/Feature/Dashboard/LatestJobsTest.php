@@ -8,15 +8,13 @@ use Livewire\Livewire;
 
 test('latest jobs displays recent jobs', function () {
     $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
-
     $server = DatabaseServer::factory()->create([
         'name' => 'Test Server',
         'database_names' => ['test_db'],
     ]);
 
-    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
-    $snapshots[0]->job->markCompleted();
+    $snapshot = pendingSnapshot($server, $user->id);
+    $snapshot->job->markCompleted();
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
@@ -26,8 +24,6 @@ test('latest jobs displays recent jobs', function () {
 
 test('latest jobs can filter by status', function () {
     $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
-
     $completedServer = DatabaseServer::factory()->create([
         'name' => 'Completed Server',
         'database_names' => ['completed_db'],
@@ -37,11 +33,11 @@ test('latest jobs can filter by status', function () {
         'database_names' => ['failed_db'],
     ]);
 
-    $completedSnapshots = $factory->createSnapshots($completedServer->backups->first(), 'manual', $user->id);
-    $completedSnapshots[0]->job->markCompleted();
+    $completedSnapshot = pendingSnapshot($completedServer, $user->id);
+    $completedSnapshot->job->markCompleted();
 
-    $failedSnapshots = $factory->createSnapshots($failedServer->backups->first(), 'manual', $user->id);
-    $failedSnapshots[0]->job->markFailed(new Exception('Test error'));
+    $failedSnapshot = pendingSnapshot($failedServer, $user->id);
+    $failedSnapshot->job->markFailed(new Exception('Test error'));
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)
@@ -80,8 +76,6 @@ test('latest jobs can open and close logs modal', function () {
 
 test('latest jobs scopes to a single server when serverId is set', function () {
     $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
-
     $serverA = DatabaseServer::factory()->create([
         'name' => 'Server Alpha',
         'database_names' => ['alpha_db'],
@@ -91,8 +85,8 @@ test('latest jobs scopes to a single server when serverId is set', function () {
         'database_names' => ['bravo_db'],
     ]);
 
-    $factory->createSnapshots($serverA->backups->first(), 'manual', $user->id)[0]->job->markCompleted();
-    $factory->createSnapshots($serverB->backups->first(), 'manual', $user->id)[0]->job->markCompleted();
+    pendingSnapshot($serverA, $user->id)->job->markCompleted();
+    pendingSnapshot($serverB, $user->id)->job->markCompleted();
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)

@@ -88,8 +88,8 @@ test('verifies all completed snapshots', function () {
     }
 
     // Create a snapshot with no filename — should be skipped
-    $skippedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual');
-    $skippedSnapshots[0]->job->markCompleted();
+    $skippedSnapshot = pendingSnapshot($server);
+    $skippedSnapshot->job->markCompleted();
 
     $mockFilesystem = Mockery::mock(Filesystem::class);
     $mockFilesystem->shouldReceive('fileExists')->times(2)->andReturn(true);
@@ -106,12 +106,12 @@ test('verifies all completed snapshots', function () {
     }
 
     // Skipped snapshot should remain unverified
-    $skippedSnapshots[0]->refresh();
-    expect($skippedSnapshots[0]->lastVerifiedAt())->toBeNull();
+    $skippedSnapshot->refresh();
+    expect($skippedSnapshot->lastVerifiedAt())->toBeNull();
 });
 
 test('sends notification when newly missing files are detected in bulk mode', function () {
-    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    NotificationChannel::factory()->email()->create();
 
     $factory = app(BackupJobFactory::class);
 
@@ -134,7 +134,7 @@ test('sends notification when newly missing files are detected in bulk mode', fu
 });
 
 test('does not send notification when no new files are missing', function () {
-    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    NotificationChannel::factory()->email()->create();
 
     $factory = app(BackupJobFactory::class);
 

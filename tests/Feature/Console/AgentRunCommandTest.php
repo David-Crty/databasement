@@ -52,6 +52,33 @@ beforeEach(function () {
     ];
 });
 
+/**
+ * Fake the server the agent talks to: a healthy heartbeat, a claim that hands
+ * out $job, and the job endpoints in $jobRoutes (paths under /agent/jobs/),
+ * answered with "ok" unless a response is given for them.
+ *
+ * @param  array<string, mixed>|null  $job
+ * @param  array<int|string, mixed>  $jobRoutes
+ */
+function fakeAgentServer(?array $job, array $jobRoutes = []): void
+{
+    $routes = [];
+
+    foreach ($jobRoutes as $path => $response) {
+        if (is_int($path)) {
+            [$path, $response] = [$response, Http::response(['status' => 'ok'])];
+        }
+
+        $routes["*/agent/jobs/{$path}"] = $response;
+    }
+
+    Http::fake([
+        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/claim' => Http::response(['job' => $job]),
+        ...$routes,
+    ]);
+}
+
 test('fails when agent url and token are not configured', function () {
     config(['agent.url' => '', 'agent.token' => '']);
 
@@ -61,10 +88,7 @@ test('fails when agent url and token are not configured', function () {
 });
 
 test('exits cleanly when no jobs are available', function () {
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => null]),
-    ]);
+    fakeAgentServer(null);
 
     $this->artisan('agent:run --once')
         ->expectsOutputToContain('Databasement Agent starting...')
@@ -75,11 +99,7 @@ test('exits cleanly when no jobs are available', function () {
 });
 
 test('processes a job and calls ack on success', function () {
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => $this->jobPayload]),
-        '*/agent/jobs/job-123/ack' => Http::response(['status' => 'ok']),
-    ]);
+    fakeAgentServer($this->jobPayload, ['job-123/ack']);
 
     $mockResult = new BackupResult('backup_testdb.sql.gz', 54321, 'abc123hash', [
         new VolumeTransferResult('vol-1', 'Test Volume', SnapshotFileStatus::Completed),
@@ -107,11 +127,7 @@ test('processes a job and calls ack on success', function () {
 });
 
 test('reports per-volume outcomes when only some uploads fail', function () {
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => $this->jobPayload]),
-        '*/agent/jobs/job-123/fail' => Http::response(['status' => 'ok']),
-    ]);
+    fakeAgentServer($this->jobPayload, ['job-123/fail']);
 
     $partialResult = new BackupResult('backup_testdb.sql.gz', 54321, 'abc123hash', [
         new VolumeTransferResult('vol-1', 'Test Volume', SnapshotFileStatus::Completed),
@@ -148,11 +164,7 @@ test('processes a legacy single-volume job payload', function () {
         'config' => ['path' => '/backups'],
     ];
 
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => $legacyPayload]),
-        '*/agent/jobs/job-123/ack' => Http::response(['status' => 'ok']),
-    ]);
+    fakeAgentServer($legacyPayload, ['job-123/ack']);
 
     $capturedConfig = null;
     $backupTask = $this->mock(BackupTask::class);
@@ -174,11 +186,7 @@ test('processes a legacy single-volume job payload', function () {
 });
 
 test('calls fail endpoint when backup task throws', function () {
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => $this->jobPayload]),
-        '*/agent/jobs/job-123/fail' => Http::response(['status' => 'ok']),
-    ]);
+    fakeAgentServer($this->jobPayload, ['job-123/fail']);
 
     $backupTask = $this->mock(BackupTask::class);
     $backupTask->shouldReceive('execute')->once()->andThrow(new RuntimeException('Connection refused'));
@@ -193,11 +201,7 @@ test('calls fail endpoint when backup task throws', function () {
 });
 
 test('a job the server revoked is stopped without reporting a failure', function () {
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => $this->jobPayload]),
-        '*/agent/jobs/job-123/heartbeat' => Http::response(['status' => 'ok']),
-    ]);
+    fakeAgentServer($this->jobPayload, ['job-123/heartbeat']);
 
     $this->mock(BackupTask::class)->shouldReceive('execute')->once()
         ->andThrow(new JobRevokedException("Cannot heartbeat a job with status 'failed'."));
@@ -210,12 +214,7 @@ test('a job the server revoked is stopped without reporting a failure', function
 });
 
 test('tells the server when it is stopped by a signal while running a job', function () {
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => $this->jobPayload]),
-        '*/agent/jobs/job-123/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/job-123/fail' => Http::response(['status' => 'ok']),
-    ]);
+    fakeAgentServer($this->jobPayload, ['job-123/heartbeat', 'job-123/fail']);
 
     $this->mock(BackupTask::class)->shouldReceive('execute')->once()
         ->andReturnUsing(function () {
@@ -278,11 +277,7 @@ test('processes a discovery job and reports databases', function () {
         'max_attempts' => 3,
     ];
 
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => $discoveryPayload]),
-        '*/agent/jobs/job-456/discovered-databases' => Http::response(['status' => 'ok', 'jobs_created' => 2]),
-    ]);
+    fakeAgentServer($discoveryPayload, ['job-456/discovered-databases' => Http::response(['status' => 'ok', 'jobs_created' => 2])]);
 
     $this->mock(\App\Services\Backup\Databases\DatabaseProvider::class, function ($mock) {
         $mock->shouldReceive('listDatabasesForServer')->once()->andReturn(['app_db', 'analytics_db']);
@@ -322,11 +317,7 @@ test('discovery job with pattern filters databases', function () {
         'max_attempts' => 3,
     ];
 
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => $discoveryPayload]),
-        '*/agent/jobs/job-789/discovered-databases' => Http::response(['status' => 'ok', 'jobs_created' => 2]),
-    ]);
+    fakeAgentServer($discoveryPayload, ['job-789/discovered-databases' => Http::response(['status' => 'ok', 'jobs_created' => 2])]);
 
     $this->mock(\App\Services\Backup\Databases\DatabaseProvider::class, function ($mock) {
         $mock->shouldReceive('listDatabasesForServer')->once()
@@ -371,11 +362,7 @@ describe('restore jobs', function () {
     });
 
     test('advertises restore support and acknowledges a completed restore', function () {
-        Http::fake([
-            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-            '*/agent/jobs/claim' => Http::response(['job' => $this->restoreJob]),
-            '*/agent/jobs/job-789/ack' => Http::response(['status' => 'ok']),
-        ]);
+        fakeAgentServer($this->restoreJob, ['job-789/ack']);
 
         $this->mock(RestoreTask::class)->shouldReceive('execute')->once()
             ->withArgs(fn (RestoreConfig $config, $logger) => $logger instanceof AgentJobLogger
@@ -395,11 +382,7 @@ describe('restore jobs', function () {
     });
 
     test('reports a failed restore', function () {
-        Http::fake([
-            '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-            '*/agent/jobs/claim' => Http::response(['job' => $this->restoreJob]),
-            '*/agent/jobs/job-789/fail' => Http::response(['status' => 'ok']),
-        ]);
+        fakeAgentServer($this->restoreJob, ['job-789/fail']);
 
         $this->mock(RestoreTask::class)->shouldReceive('execute')->once()
             ->andThrow(new RuntimeException('Access denied for user'));
@@ -414,11 +397,7 @@ describe('restore jobs', function () {
 });
 
 test('fails a job whose type this agent cannot run', function () {
-    Http::fake([
-        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
-        '*/agent/jobs/claim' => Http::response(['job' => [...$this->jobPayload, 'type' => 'cleanup']]),
-        '*/agent/jobs/job-123/fail' => Http::response(['status' => 'ok']),
-    ]);
+    fakeAgentServer([...$this->jobPayload, 'type' => 'cleanup'], ['job-123/fail']);
 
     $this->artisan('agent:run --once')
         ->expectsOutputToContain("Job job-123 has unsupported type 'cleanup'.")
