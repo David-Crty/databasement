@@ -6,8 +6,12 @@ use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
+use App\Models\NotificationChannel;
 use App\Models\Snapshot;
+use App\Notifications\BackupFailedNotification;
+use App\Notifications\RestoreFailedNotification;
 use Illuminate\Support\Facades\Exceptions;
+use Illuminate\Support\Facades\Notification;
 
 /*
  * The agent lease and command heartbeat rules are specified in
@@ -59,8 +63,9 @@ describe('agent jobs', function () {
 });
 
 describe('backup job timeouts', function () {
-    test('fails backup jobs stuck in running state beyond timeout', function () {
+    test('fails backup jobs stuck in running state beyond timeout, logs and notifies it', function () {
         AppConfig::set('backup.job_timeout', 3600);
+        NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
 
         $job = BackupJob::create([
             'status' => 'running',
@@ -73,7 +78,24 @@ describe('backup job timeouts', function () {
 
         $job->refresh();
         expect($job->status)->toBe(BackupJobStatus::Failed)
-            ->and($job->error_message)->toContain('stuck in running state');
+            ->and($job->error_message)->toContain('stuck in running state')
+            ->and(collect($job->logs)->last()['message'])->toContain('stuck in running state');
+        Notification::assertSentTimes(BackupFailedNotification::class, 1);
+    });
+
+    test('notifies a timed-out restore as a failed restore', function () {
+        AppConfig::set('backup.job_timeout', 3600);
+        NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+        ['restore' => $restore, 'agentJob' => $agentJob] = dispatchAgentRestore(Agent::factory()->create());
+        $restore->job->update(['status' => 'running', 'started_at' => now()->subSeconds(3600 + 300 + 1)]);
+
+        $this->artisan('jobs:recover-stuck')->assertSuccessful();
+
+        expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Failed)
+            ->and($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED);
+        Notification::assertSentTimes(RestoreFailedNotification::class, 1);
+        Notification::assertSentTimes(BackupFailedNotification::class, 0);
     });
 
     test('fails backup jobs stuck in pending state beyond timeout', function () {

@@ -172,6 +172,21 @@ test('failed method sends notification', function () {
     Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
 });
 
+test('a backup the queue failed without running its catch is not notified again by the timeout recovery', function () {
+    AppConfig::set('backup.job_timeout', 3600);
+    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot->job->update(['status' => 'running', 'started_at' => now()->subSeconds(3600 + 300 + 1)]);
+
+    (new ProcessBackupJob($snapshot->id))->failed(new \Illuminate\Queue\TimeoutExceededException('Job timed out'));
+    $this->artisan('jobs:recover-stuck')->assertSuccessful();
+
+    expect($snapshot->job->fresh()->status)->toBe(BackupJobStatus::Failed);
+    Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
+});
+
 test('handle uses empty backupPath when the snapshot is orphaned (backup removed)', function () {
     $server = createDatabaseServer([
         'host' => 'db.example.com',

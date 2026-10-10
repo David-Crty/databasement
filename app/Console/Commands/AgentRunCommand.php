@@ -30,6 +30,8 @@ class AgentRunCommand extends Command
 
     private bool $shouldStop = false;
 
+    private ?string $runningJobId = null;
+
     public function handle(): int
     {
         $url = config('agent.url');
@@ -49,7 +51,7 @@ class AgentRunCommand extends Command
         $this->log("Server: {$url}");
         $this->log("Poll interval: {$pollInterval}s");
 
-        $this->registerSignalHandlers();
+        $this->registerSignalHandlers($client);
 
         while (! $this->shouldStop) {
             try {
@@ -116,15 +118,54 @@ class AgentRunCommand extends Command
             return;
         }
 
-        $runner->run($job, $client, $this->log(...));
+        $this->runningJobId = $job['id'];
+
+        try {
+            $runner->run($job, $client, $this->log(...));
+        } finally {
+            $this->runningJobId = null;
+        }
     }
 
-    private function registerSignalHandlers(): void
+    private function registerSignalHandlers(AgentApiClient $client): void
     {
         if (extension_loaded('pcntl')) {
             pcntl_async_signals(true);
-            pcntl_signal(SIGTERM, fn () => $this->shouldStop = true);
-            pcntl_signal(SIGINT, fn () => $this->shouldStop = true);
+            pcntl_signal(SIGTERM, fn () => $this->stop('SIGTERM', $client));
+            pcntl_signal(SIGINT, fn () => $this->stop('SIGINT', $client));
+        }
+    }
+
+    /**
+     * Finish the running job, then exit. The job's log is told first, since
+     * an orchestrator usually kills the agent before the job can finish
+     * (Kubernetes eviction, scale-down or rollout), and the server would
+     * otherwise only see the agent go silent.
+     */
+    private function stop(string $signal, AgentApiClient $client): void
+    {
+        if ($this->shouldStop) {
+            return;
+        }
+
+        $this->shouldStop = true;
+
+        if ($this->runningJobId === null) {
+            return;
+        }
+
+        $message = "Agent received {$signal} and is shutting down. If it is stopped before the job finishes, the job will be retried.";
+        $this->log($message, 'warning');
+
+        try {
+            $client->jobHeartbeat($this->runningJobId, [[
+                'timestamp' => now()->toIso8601String(),
+                'type' => 'log',
+                'level' => 'warning',
+                'message' => $message,
+            ]]);
+        } catch (\Throwable $e) {
+            $this->log("Could not report the shutdown to the server: {$e->getMessage()}", 'warning');
         }
     }
 

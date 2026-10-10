@@ -152,9 +152,20 @@ class ProcessRestoreJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        $restore = Restore::with(['targetServer', 'snapshot'])->find($this->restoreId);
+        $restore = Restore::with(['job', 'targetServer', 'snapshot'])->find($this->restoreId);
         if ($restore === null) {
             return;
+        }
+
+        // A worker killed on timeout never reaches the catch in process(),
+        // leaving the job running for jobs:recover-stuck to fail and notify again.
+        if ($restore->job->status->isInProgress()) {
+            try {
+                $restore->job->log("Restore failed: {$exception->getMessage()}", 'error');
+                $restore->job->markFailed($exception);
+            } catch (JobCancelledException) {
+                return;
+            }
         }
 
         app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
