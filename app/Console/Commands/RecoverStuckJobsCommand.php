@@ -9,8 +9,10 @@ use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\Snapshot;
+use App\Services\NotificationService;
 use App\Support\QueueTimeouts;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -87,7 +89,14 @@ class RecoverStuckJobsCommand extends Command
                 $errorMessage = "Max attempts ({$job->max_attempts}) exceeded after losing contact with the agent.";
                 $job->markFailed($errorMessage);
 
+                Log::warning('Agent job failed after losing contact with the agent', [
+                    'agent_job_id' => $job->id,
+                    'type' => $job->type->value,
+                    'attempts' => $job->attempts,
+                ]);
+
                 try {
+                    $job->trackedJob()?->log("Lost contact with the agent: {$errorMessage}", 'error');
                     $job->handler()->fail($job, new RuntimeException("Agent job failed: {$errorMessage}"), []);
                 } catch (Throwable $e) {
                     report($e);
@@ -115,6 +124,7 @@ class RecoverStuckJobsCommand extends Command
         $cutoff = now()->subSeconds($timeout);
 
         $stuckJobs = BackupJob::query()
+            ->with(['snapshot.databaseServer', 'restore.targetServer'])
             ->inProgress()
             ->where(function ($query) use ($cutoff) {
                 $query->where(function ($q) use ($cutoff) {
@@ -134,13 +144,34 @@ class RecoverStuckJobsCommand extends Command
         $failedCount = 0;
 
         foreach ($stuckJobs as $job) {
+            $exception = new RuntimeException('Job timed out: stuck in '.$job->status->value.' state beyond the configured timeout.');
+
             try {
-                $job->markFailed(
-                    new RuntimeException('Job timed out: stuck in '.$job->status->value.' state beyond the configured timeout.')
-                );
-                $failedCount++;
+                try {
+                    $job->log($exception->getMessage(), 'error');
+                } catch (JobCancelledException $e) {
+                    throw $e;
+                } catch (Throwable $e) {
+                    report($e);
+                }
+
+                $job->markFailed($exception);
             } catch (JobCancelledException) {
                 continue;
+            }
+
+            $failedCount++;
+
+            Log::warning('Backup job timed out', [
+                'backup_job_id' => $job->id,
+                'snapshot_id' => $job->snapshot?->id,
+                'restore_id' => $job->restore?->id,
+            ]);
+
+            if ($job->snapshot !== null) {
+                app(NotificationService::class)->notifyBackupFailed($job->snapshot, $exception);
+            } elseif ($job->restore !== null) {
+                app(NotificationService::class)->notifyRestoreFailed($job->restore, $exception);
             }
         }
 

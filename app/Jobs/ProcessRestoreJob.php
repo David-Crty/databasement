@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\BackupJobStatus;
 use App\Enums\SnapshotFileStatus;
 use App\Exceptions\Backup\JobCancelledException;
 use App\Facades\AppConfig;
@@ -152,8 +153,28 @@ class ProcessRestoreJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        $restore = Restore::with(['targetServer', 'snapshot'])->find($this->restoreId);
+        $restore = Restore::with(['job', 'targetServer', 'snapshot'])->find($this->restoreId);
         if ($restore === null) {
+            return;
+        }
+
+        $job = $restore->job;
+
+        if ($job->status === BackupJobStatus::Cancelled) {
+            return;
+        }
+
+        // A worker killed on timeout never reaches the catch in process(),
+        // leaving the job running for jobs:recover-stuck to fail and notify again.
+        if ($job->status->isInProgress()) {
+            try {
+                $job->log("Restore failed: {$exception->getMessage()}", 'error');
+                $job->markFailed($exception);
+            } catch (JobCancelledException) {
+                return;
+            }
+        } elseif ($job->error_message !== $exception->getMessage()) {
+            // Failed by something else, such as jobs:recover-stuck, which notified it.
             return;
         }
 

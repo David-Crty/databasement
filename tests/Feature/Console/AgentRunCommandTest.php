@@ -209,6 +209,32 @@ test('a job the server revoked is stopped without reporting a failure', function
     Http::assertNotSent(fn ($request) => str_contains($request->url(), '/fail'));
 });
 
+test('tells the server when it is stopped by a signal while running a job', function () {
+    Http::fake([
+        '*/agent/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/claim' => Http::response(['job' => $this->jobPayload]),
+        '*/agent/jobs/job-123/heartbeat' => Http::response(['status' => 'ok']),
+        '*/agent/jobs/job-123/fail' => Http::response(['status' => 'ok']),
+    ]);
+
+    $this->mock(BackupTask::class)->shouldReceive('execute')->once()
+        ->andReturnUsing(function () {
+            posix_kill(getmypid(), SIGTERM);
+
+            throw new RuntimeException('Killed');
+        });
+
+    $this->artisan('agent:run')
+        ->expectsOutputToContain('Agent received SIGTERM and is shutting down.')
+        ->expectsOutputToContain('Agent stopped gracefully.')
+        ->assertSuccessful();
+
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/agent/jobs/job-123/heartbeat')
+        && str_contains($request['logs'][0]['message'] ?? '', 'Agent received SIGTERM')
+        && $request['logs'][0]['level'] === 'warning'
+    );
+})->skip(! extension_loaded('pcntl') || ! extension_loaded('posix'), 'Needs the pcntl and posix extensions.');
+
 test('handles http errors during polling gracefully', function () {
     Http::fake([
         '*/agent/heartbeat' => Http::response('Server Error', 500),
