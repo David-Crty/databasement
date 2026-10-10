@@ -18,7 +18,6 @@ use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
-use App\Support\FilesystemSupport;
 use App\Support\Formatters;
 
 class BackupTask
@@ -142,12 +141,7 @@ class BackupTask
 
             throw $e;
         } finally {
-            $this->closeSshTunnel($logger);
-
-            if (is_dir($config->workingDirectory)) {
-                $logger->log('Cleaning up temporary files', 'info');
-                FilesystemSupport::cleanupDirectory($config->workingDirectory);
-            }
+            $this->cleanUpRun($config->workingDirectory, $logger);
         }
     }
 
@@ -237,7 +231,7 @@ class BackupTask
             );
         }
 
-        $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
+        $transferDuration = Formatters::humanDuration(Formatters::elapsedMs($transferStart));
         $logger->log('Transfer completed successfully in '.$transferDuration, 'success');
 
         return new VolumeTransferResult(

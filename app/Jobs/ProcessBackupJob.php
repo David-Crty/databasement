@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Enums\BackupJobStatus;
 use App\Enums\SnapshotFileStatus;
 use App\Exceptions\Backup\JobCancelledException;
 use App\Exceptions\Backup\VolumeTransferException;
@@ -185,17 +184,9 @@ class ProcessBackupJob implements ShouldQueue
             }
 
             if ($volumeResult->status === SnapshotFileStatus::Completed) {
-                $file->update([
-                    'status' => SnapshotFileStatus::Completed,
-                    'file_exists' => true,
-                    'file_verified_at' => now(),
-                    'error' => null,
-                ]);
+                $file->markUploaded();
             } else {
-                $file->update([
-                    'status' => SnapshotFileStatus::Failed,
-                    'error' => $volumeResult->error,
-                ]);
+                $file->markUploadFailed($volumeResult->error);
             }
         }
     }
@@ -206,30 +197,9 @@ class ProcessBackupJob implements ShouldQueue
     public function failed(\Throwable $exception): void
     {
         $snapshot = Snapshot::with(['job', 'databaseServer'])->find($this->snapshotId);
-        if ($snapshot === null) {
-            return;
+
+        if ($snapshot !== null && $snapshot->job->recordQueueFailure($exception, 'Backup')) {
+            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
         }
-
-        $job = $snapshot->job;
-
-        if ($job->status === BackupJobStatus::Cancelled) {
-            return;
-        }
-
-        // A worker killed on timeout never reaches the catch in process(),
-        // leaving the job running for jobs:recover-stuck to fail and notify again.
-        if ($job->status->isInProgress()) {
-            try {
-                $job->log("Backup failed: {$exception->getMessage()}", 'error');
-                $job->markFailed($exception);
-            } catch (JobCancelledException) {
-                return;
-            }
-        } elseif ($job->error_message !== $exception->getMessage()) {
-            // Failed by something else, such as jobs:recover-stuck, which notified it.
-            return;
-        }
-
-        app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
     }
 }

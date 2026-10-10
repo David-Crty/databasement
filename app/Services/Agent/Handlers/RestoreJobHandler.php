@@ -2,11 +2,11 @@
 
 namespace App\Services\Agent\Handlers;
 
-use App\Facades\AppConfig;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\Restore;
 use App\Services\NotificationService;
+use App\Support\QueueTimeouts;
 use RuntimeException;
 use Throwable;
 
@@ -32,7 +32,7 @@ class RestoreJobHandler implements AgentJobHandler
      */
     public function leaseSeconds(): int
     {
-        return max(1, (int) AppConfig::get('backup.job_timeout'));
+        return max(1, QueueTimeouts::jobTimeout());
     }
 
     public function trackedJob(AgentJob $agentJob): ?BackupJob

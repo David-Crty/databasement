@@ -3,6 +3,7 @@
 namespace App\Services\Agent\Runners;
 
 use App\Enums\AgentJobType;
+use App\Enums\DatabaseType;
 use App\Models\DatabaseServer;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Backup\Databases\DatabaseProvider;
@@ -27,10 +28,12 @@ class DiscoveryJobRunner implements AgentJobRunner
 
             $log("Processing discovery job {$job['id']}: {$serverName}");
 
+            $databaseType = DatabaseType::from($payload['database']['type'] ?? DatabaseType::MYSQL->value);
+
             $tempServer = DatabaseServer::forConnectionTest([
-                'database_type' => $payload['database']['type'] ?? 'mysql',
+                'database_type' => $databaseType->value,
                 'host' => $payload['database']['host'] ?? '',
-                'port' => $payload['database']['port'] ?? 3306,
+                'port' => $payload['database']['port'] ?? $databaseType->defaultPort(),
                 'username' => $payload['database']['username'] ?? '',
                 'password' => $payload['database']['password'] ?? '',
                 'extra_config' => $payload['database']['extra_config'] ?? null,

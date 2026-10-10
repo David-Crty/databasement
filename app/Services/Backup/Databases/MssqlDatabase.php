@@ -5,6 +5,7 @@ namespace App\Services\Backup\Databases;
 use App\Contracts\BackupLogger;
 use App\Enums\DatabaseType;
 use App\Exceptions\Backup\ConnectionException;
+use App\Services\Backup\Databases\Concerns\TestsConnection;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 
@@ -24,6 +25,8 @@ use App\Support\Formatters;
  */
 class MssqlDatabase implements DatabaseInterface
 {
+    use TestsConnection;
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -144,37 +147,16 @@ class MssqlDatabase implements DatabaseInterface
             $statement = $pdo->query('SELECT @@VERSION');
             $version = $statement === false ? null : (string) $statement->fetchColumn();
         } catch (\PDOException $e) {
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-            if ($durationMs >= 9500) {
-                return [
-                    'success' => false,
-                    'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
-                    'details' => [],
-                ];
-            }
-
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-                'details' => [],
-            ];
+            return $this->driverConnectionFailure($e, $startTime);
         }
 
-        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+        $durationMs = Formatters::elapsedMs($startTime);
         $shortVersion = $version !== null ? $this->extractShortVersion($version) : null;
 
-        return [
-            'success' => true,
-            'message' => 'Connection successful',
-            'details' => [
-                'ping_ms' => $durationMs,
-                'output' => json_encode([
-                    'dbms' => $shortVersion ?? 'Microsoft SQL Server',
-                    'version' => $version,
-                ], JSON_PRETTY_PRINT),
-            ],
-        ];
+        return $this->connectionSucceededWithInfo($durationMs, [
+            'dbms' => $shortVersion ?? 'Microsoft SQL Server',
+            'version' => $version,
+        ]);
     }
 
     /**

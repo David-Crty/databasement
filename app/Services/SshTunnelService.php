@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\SshTunnelException;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
+use App\Support\Formatters;
 use Symfony\Component\Process\Process;
 
 class SshTunnelService
@@ -144,7 +145,7 @@ class SshTunnelService
 
             $startTime = microtime(true);
             $process->run();
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            $durationMs = Formatters::elapsedMs($startTime);
 
             if (! $process->isSuccessful()) {
                 $errorOutput = trim($process->getErrorOutput() ?: $process->getOutput());

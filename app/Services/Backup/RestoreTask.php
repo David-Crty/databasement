@@ -13,7 +13,6 @@ use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
-use App\Support\FilesystemSupport;
 use App\Support\Formatters;
 
 class RestoreTask
@@ -71,7 +70,7 @@ class RestoreTask
             ]);
             $transferStart = microtime(true);
             $this->filesystemProvider->downloadFromConfig($config->snapshotVolume, $config->snapshotFilename, $compressedFile);
-            $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
+            $transferDuration = Formatters::humanDuration(Formatters::elapsedMs($transferStart));
             $logger->log('Download completed successfully in '.$transferDuration, 'success');
 
             // Decompress the archive
@@ -128,14 +127,7 @@ class RestoreTask
                 ],
             );
         } finally {
-            // Close SSH tunnel if active
-            $this->closeSshTunnel($logger);
-
-            // Clean up working directory and all files within
-            if (is_dir($config->workingDirectory)) {
-                $logger->log('Cleaning up temporary files', 'info');
-                FilesystemSupport::cleanupDirectory($config->workingDirectory);
-            }
+            $this->cleanUpRun($config->workingDirectory, $logger);
         }
     }
 

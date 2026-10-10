@@ -5,14 +5,14 @@ namespace App\Services\Backup\Databases;
 use App\Contracts\BackupLogger;
 use App\Enums\DatabaseType;
 use App\Exceptions\Backup\ConnectionException;
+use App\Services\Backup\Databases\Concerns\TestsConnection;
 use App\Services\Backup\DTO\DatabaseOperationLog;
 use App\Services\Backup\DTO\DatabaseOperationResult;
-use App\Support\Formatters;
-use Illuminate\Process\Exceptions\ProcessTimedOutException;
-use Illuminate\Support\Facades\Process;
 
 class MysqlDatabase implements DatabaseInterface
 {
+    use TestsConnection;
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -319,41 +319,7 @@ class MysqlDatabase implements DatabaseInterface
 
     public function testConnection(): array
     {
-        $command = $this->getStatusCommand();
-        $startTime = microtime(true);
-
-        try {
-            $result = Process::timeout(10)->run($command);
-        } catch (ProcessTimedOutException) {
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-            return [
-                'success' => false,
-                'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
-                'details' => [],
-            ];
-        }
-
-        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-        if ($result->failed()) {
-            $errorOutput = trim($result->errorOutput() ?: $result->output());
-
-            return [
-                'success' => false,
-                'message' => $errorOutput ?: 'Connection failed with exit code '.$result->exitCode(),
-                'details' => [],
-            ];
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Connection successful',
-            'details' => [
-                'ping_ms' => $durationMs,
-                'output' => trim($result->output()),
-            ],
-        ];
+        return $this->probeConnection($this->getStatusCommand());
     }
 
     protected function createPdo(): \PDO
