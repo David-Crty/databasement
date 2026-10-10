@@ -128,6 +128,65 @@ test('store normalizes sqlite selection mode to selected', function () {
     $response->assertCreated();
 });
 
+test('store keeps the connection and selected databases of an mssql server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'MSSQL',
+            'database_type' => 'mssql',
+            'host' => 'mssql.example.com',
+            'port' => 1433,
+            'username' => 'sa',
+            'password' => 'secret',
+            'backups' => [[
+                'database_selection_mode' => 'selected',
+                'database_names' => ['sales'],
+                'volume_ids' => [$volume->id],
+                'backup_schedule_id' => dailySchedule()->id,
+                'retention_policy' => 'days',
+                'retention_days' => 7,
+            ]],
+        ])
+        ->assertCreated();
+
+    $server = DatabaseServer::where('name', 'MSSQL')->firstOrFail();
+    expect($server->host)->toBe('mssql.example.com')
+        ->and($server->port)->toBe(1433)
+        ->and($server->username)->toBe('sa')
+        ->and($server->getDecryptedPassword())->toBe('secret')
+        ->and($server->backups->first()->database_names)->toBe(['sales']);
+});
+
+test('store keeps the connection and windows file paths of a firebird server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Firebird',
+            'database_type' => 'firebird',
+            'host' => 'fb.example.com',
+            'port' => 3050,
+            'username' => 'SYSDBA',
+            'password' => 'masterkey',
+            'backups' => [[
+                'database_names' => ['C:\\data\\app.fdb'],
+                'volume_ids' => [$volume->id],
+                'backup_schedule_id' => dailySchedule()->id,
+                'retention_policy' => 'days',
+                'retention_days' => 7,
+            ]],
+        ])
+        ->assertCreated();
+
+    $server = DatabaseServer::where('name', 'Firebird')->firstOrFail();
+    expect($server->host)->toBe('fb.example.com')
+        ->and($server->username)->toBe('SYSDBA')
+        ->and($server->backups->first()->database_names)->toBe(['C:\\data\\app.fdb']);
+});
+
 test('store moves auth_source and dump_flags to extra_config', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
