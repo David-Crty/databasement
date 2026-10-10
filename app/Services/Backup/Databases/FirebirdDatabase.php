@@ -25,13 +25,13 @@ class FirebirdDatabase implements DatabaseInterface
 
     public function dump(string $outputPath): DatabaseOperationResult
     {
+        // gbak reads the backup file name `stdout` as the standard output.
         return new DatabaseOperationResult(command: sprintf(
-            'gbak -b -g -user %s -password %s %s %s',
+            'gbak -b -g -user %s -password %s %s stdout',
             escapeshellarg((string) ($this->config['user'] ?? '')),
             escapeshellarg((string) ($this->config['pass'] ?? '')),
             DatabaseOperationResult::escapeDatabaseName($this->connectionTarget()),
-            escapeshellarg($outputPath)
-        ));
+        ), writesToStdout: true);
     }
 
     public function restore(string $inputPath): DatabaseOperationResult

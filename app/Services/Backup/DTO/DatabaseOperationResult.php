@@ -9,9 +9,15 @@ use App\Rules\SafeDumpFlags;
 
 readonly class DatabaseOperationResult
 {
+    /**
+     * @param  bool  $writesToStdout  The dump command writes to stdout instead of the output path, so the
+     *                                caller pipes it straight into the compressor and no uncompressed dump
+     *                                ever lands on disk.
+     */
     public function __construct(
         public ?string $command = null,
         public ?DatabaseOperationLog $log = null,
+        public bool $writesToStdout = false,
     ) {}
 
     /**

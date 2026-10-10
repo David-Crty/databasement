@@ -36,9 +36,9 @@ class RedisDatabase implements DatabaseInterface
             $parts[] = DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::REDIS);
         }
 
-        $parts[] = '--rdb '.escapeshellarg($outputPath);
+        $parts[] = '--rdb -';
 
-        return new DatabaseOperationResult(command: implode(' ', $parts));
+        return new DatabaseOperationResult(command: implode(' ', $parts), writesToStdout: true);
     }
 
     public function restore(string $inputPath): DatabaseOperationResult

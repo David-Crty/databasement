@@ -21,7 +21,8 @@ test('dump builds gbak backup command', function () {
     $result = $this->db->dump('/tmp/backup.fbk');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("gbak -b -g -user 'sysdba' -password 'masterkey' 'fb.local/3050:".FIREBIRD_TEST_DATABASE."' '/tmp/backup.fbk'");
+        ->and($result->command)->toBe("gbak -b -g -user 'sysdba' -password 'masterkey' 'fb.local/3050:".FIREBIRD_TEST_DATABASE."' stdout")
+        ->and($result->writesToStdout)->toBeTrue();
 });
 
 test('testConnection returns success when isql probe succeeds', function () {

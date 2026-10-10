@@ -106,6 +106,37 @@ test('execute returns BackupResult with filename, fileSize, and checksum', funct
         ->and($result->checksum)->toMatch('/^[a-f0-9]{64}$/');
 });
 
+test('execute pipes a dump written to stdout straight into the compressor', function () {
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('dump')->once()->andReturn(
+        new DatabaseOperationResult(command: 'mariadb-dump myapp', writesToStdout: true),
+    );
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')->once()->andReturn($mockHandler);
+
+    $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = new BackupTask(
+        $mockProvider,
+        $this->shellProcessor,
+        $this->filesystemProvider,
+        $this->compressorFactory,
+        $this->sshTunnelService,
+        new PostScriptRunner,
+    );
+
+    $config = buildBackupConfig();
+    mkdir($config->workingDirectory, 0755, true);
+
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
+
+    expect($this->shellProcessor->getCommands())->toBe([
+        "{ ( mariadb-dump myapp ); echo \$? > 'dump.sql.gz.status'; } | gzip -6 -c > 'dump.sql.gz' && exit \"\$(cat 'dump.sql.gz.status')\"",
+    ])
+        ->and($result->filename)->toEndWith('.sql.gz');
+});
+
 test('execute establishes SSH tunnel when server requires it', function () {
     $dbConfig = new DatabaseConnectionConfig(
         databaseType: DatabaseType::MYSQL,
@@ -408,13 +439,13 @@ test('execute logs warning and continues when post-backup script fails', functio
 
     $throwingShellProcessor = new class extends TestShellProcessor
     {
-        public function process(string $command, array $env = []): string
+        public function process(string $command, array $env = [], ?string $workingDirectory = null): string
         {
             if (str_contains($command, 'post-backup-script.sh')) {
                 throw new \App\Exceptions\ShellProcessFailed('Script exited with code 1');
             }
 
-            return parent::process($command, $env);
+            return parent::process($command, $env, $workingDirectory);
         }
     };
 
@@ -464,13 +495,13 @@ test('execute deletes the uploaded copies of a job cancelled after its upload', 
 
     $cancellingShellProcessor = new class extends TestShellProcessor
     {
-        public function process(string $command, array $env = []): string
+        public function process(string $command, array $env = [], ?string $workingDirectory = null): string
         {
             if (str_contains($command, 'post-backup-script.sh')) {
                 throw new \App\Exceptions\Backup\JobCancelledException;
             }
 
-            return parent::process($command, $env);
+            return parent::process($command, $env, $workingDirectory);
         }
     };
 

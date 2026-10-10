@@ -15,11 +15,12 @@ beforeEach(function () {
     ]);
 });
 
-test('dump builds correct command with skip_ssl by default', function () {
+test('dump streams to stdout with skip_ssl by default', function () {
     $result = $this->db->dump('/tmp/dump.sql');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' --result-file='/tmp/dump.sql' -- 'myapp'");
+        ->and($result->command)->toBe("mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl --host='db.local' --port='3306' --user='root' --password='secret' -- 'myapp'")
+        ->and($result->writesToStdout)->toBeTrue();
 });
 
 test('dump uses ssl-verify-server-cert=0 when ssl_enabled is true', function () {
@@ -54,7 +55,7 @@ test('dump includes extra dump flags', function () {
     $result = $db->dump('/tmp/dump.sql');
 
     // Flags must appear before the database name (mariadb-dump treats post-db args as table names)
-    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0' --result-file='/tmp/dump.sql' -- 'myapp'");
+    expect($result->command)->toContain("'--no-tablespaces' '--column-statistics=0' -- 'myapp'");
 });
 
 /** The same excluded tables, dumped from two different schemas on one server. */
@@ -77,7 +78,7 @@ test('dump qualifies excluded tables with the schema being dumped', function (st
     $result = mysqlDatabaseExcluding($schema)->dump('/tmp/dump.sql');
 
     // One --ignore-table per table, prefixed with this dump's schema, before the database name
-    expect($result->command)->toContain("'--ignore-table={$schema}.web_api_log' '--ignore-table={$schema}.web_service_log' --result-file='/tmp/dump.sql' -- '{$schema}'");
+    expect($result->command)->toContain("'--ignore-table={$schema}.web_api_log' '--ignore-table={$schema}.web_service_log' -- '{$schema}'");
 })->with(['datasoft', 'red']);
 
 test('dump combines excluded tables with extra dump flags', function () {
@@ -93,7 +94,7 @@ test('dump combines excluded tables with extra dump flags', function () {
     ]);
 
     expect($db->dump('/tmp/dump.sql')->command)
-        ->toContain("'--no-tablespaces' '--ignore-table=myapp.audit_log' --result-file='/tmp/dump.sql' -- 'myapp'");
+        ->toContain("'--no-tablespaces' '--ignore-table=myapp.audit_log' -- 'myapp'");
 });
 
 test('dump adds no ignore-table flags when excluded tables are absent or empty', function (mixed $excluded) {

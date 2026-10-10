@@ -41,12 +41,13 @@ class ShellProcessor
      * {@see JobRevokedException}: the job is no longer this runner's to run.
      *
      * @param  array<string, string>  $env  Extra environment variables exposed to the command.
+     * @param  string|null  $workingDirectory  Directory the command runs in, so it can name its files relative to it.
      */
-    public function process(string $command, array $env = []): string
+    public function process(string $command, array $env = [], ?string $workingDirectory = null): string
     {
         // Its own process group, so that stopping it also stops what it
         // started, such as the commands of a post-backup script.
-        $process = Process::fromShellCommandline('exec setsid sh -c '.escapeshellarg($command));
+        $process = Process::fromShellCommandline('exec setsid sh -c '.escapeshellarg($command), $workingDirectory);
         $process->setTimeout(null);
 
         if ($env !== []) {

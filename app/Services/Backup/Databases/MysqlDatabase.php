@@ -149,20 +149,18 @@ class MysqlDatabase implements DatabaseInterface
         }
 
         // Flags must come before `--` and the database name; both clients treat anything after it as table names.
-        // The output file comes after the extra flags, so it is the one the client keeps.
         $command = sprintf(
-            '%s %s %s --user=%s --password=%s%s --result-file=%s -- %s',
+            '%s %s %s --user=%s --password=%s%s -- %s',
             $useMysqlClient ? self::MYSQL_DUMP_BINARY : self::DUMP_BINARY,
             implode(' ', $options),
             $this->connectionFlags(),
             escapeshellarg($this->config['user']),
             escapeshellarg($this->config['pass']),
             $extraFlags,
-            escapeshellarg($outputPath),
             DatabaseOperationResult::escapeDatabaseName($this->config['database']),
         );
 
-        return new DatabaseOperationResult(command: $command, log: $log);
+        return new DatabaseOperationResult(command: $command, log: $log, writesToStdout: true);
     }
 
     /**

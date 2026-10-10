@@ -23,7 +23,8 @@ test('dump produces redis-cli rdb command', function () {
     $result = $this->db->dump('/tmp/dump.rdb');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("redis-cli -h 'redis.example.com' -p '6379' --no-auth-warning --rdb '/tmp/dump.rdb'");
+        ->and($result->command)->toBe("redis-cli -h 'redis.example.com' -p '6379' --no-auth-warning --rdb -")
+        ->and($result->writesToStdout)->toBeTrue();
 });
 
 test('dump includes auth flags when credentials provided', function () {
@@ -38,7 +39,7 @@ test('dump includes auth flags when credentials provided', function () {
     $result = $db->dump('/tmp/dump.rdb');
 
     expect($result->command)
-        ->toBe("redis-cli -h 'redis.example.com' -p '6379' --user 'myuser' --pass 'secret' --no-auth-warning --rdb '/tmp/dump.rdb'");
+        ->toBe("redis-cli -h 'redis.example.com' -p '6379' --user 'myuser' --pass 'secret' --no-auth-warning --rdb -");
 });
 
 test('dump includes password only when no username', function () {
@@ -53,7 +54,7 @@ test('dump includes password only when no username', function () {
     $result = $db->dump('/tmp/dump.rdb');
 
     expect($result->command)
-        ->toBe("redis-cli -h 'redis.example.com' -p '6379' --pass 'secret' --no-auth-warning --rdb '/tmp/dump.rdb'");
+        ->toBe("redis-cli -h 'redis.example.com' -p '6379' --pass 'secret' --no-auth-warning --rdb -");
 });
 
 test('restore throws unsupported exception', function () {

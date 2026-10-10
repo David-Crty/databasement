@@ -10,6 +10,7 @@ use App\Exceptions\Backup\VolumeTransferException;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Concerns\UsesSshTunnel;
+use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\BackupResult;
@@ -67,17 +68,8 @@ class BackupTask
                 excludedTables: $config->excludedTables,
             );
 
-            $result = $database->dump($workingFile);
-            if ($result->command !== null) {
-                $this->shellProcessor->process($result->command);
-            }
-            if ($result->log !== null) {
-                $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
-            }
-
-            // Compress
             $compressor = $this->compressorFactory->make($config->compressionType, $config->compressionLevel, $config->compressionMultithread);
-            $archive = $compressor->compress($workingFile);
+            $archive = $this->dumpAndCompress($database, $workingFile, $compressor, $logger);
             $fileSize = filesize($archive);
             if ($fileSize === false) {
                 throw new \RuntimeException("Failed to get file size for: {$archive}");
@@ -157,6 +149,31 @@ class BackupTask
                 FilesystemSupport::cleanupDirectory($config->workingDirectory);
             }
         }
+    }
+
+    /**
+     * Dump the database into a compressed archive. A dump written to stdout is
+     * piped straight into the compressor, so only the archive ever lands on
+     * disk; otherwise the dump file is written first, then compressed.
+     */
+    private function dumpAndCompress(DatabaseInterface $database, string $workingFile, CompressorInterface $compressor, BackupLogger $logger): string
+    {
+        $result = $database->dump($workingFile);
+
+        if ($result->writesToStdout && $result->command !== null) {
+            $archive = $compressor->compressCommandOutput($result->command, $workingFile);
+        } else {
+            if ($result->command !== null) {
+                $this->shellProcessor->process($result->command);
+            }
+            $archive = $compressor->compress($workingFile);
+        }
+
+        if ($result->log !== null) {
+            $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
+        }
+
+        return $archive;
     }
 
     /**
