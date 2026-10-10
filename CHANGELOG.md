@@ -21,7 +21,17 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.9.0` Command output from jobs run by a remote agent shows live in the job logs, as it already did for jobs on the app's own queue ([#672](https://github.com/David-Crty/databasement/pull/672))
 - `1.9.0` A backup whose remote agent goes silent for 10 minutes while a dump runs is retried, instead of waiting out the whole job timeout, and an agent whose job was taken away stops its dump. The job logs show the last heartbeat of a running command and warn once it is two minutes old. Agents older than 1.9.0 keep the previous behaviour ([#671](https://github.com/David-Crty/databasement/pull/671))
 
+### Changed
+
+- `1.9.2` Backups of MySQL, MariaDB, PostgreSQL, MongoDB, Redis/Valkey and Firebird stream the dump straight into the compressor, so only the archive lands on disk and large databases need about half the temporary space. SQLite and SQL Server keep writing the dump to a file first. Archives keep the same format, so restores and agents of any version are unaffected ([#689](https://github.com/David-Crty/databasement/pull/689))
+
 ### Fixed
+
+- `1.9.2` A backup or restore failed by the stuck-job recovery sends its failure notification and records the reason in its log, instead of failing in silence. A remote agent stopped by SIGTERM or SIGINT mid-job, as when its pod is evicted, says so in the job's log ([#688](https://github.com/David-Crty/databasement/pull/688))
+- `1.9.2` SQL Server and Firebird servers created or updated through the API keep their host, port and credentials, which were dropped on save, and Firebird database paths containing backslashes are accepted
+- `1.9.2` A manual backup run while an agent discovery is already in flight for it reports that the discovery is already running, instead of claiming a new one was dispatched
+- `1.9.2` A zero or negative `per_page` on an API listing returns a page of results instead of failing with a server error
+- `1.9.2` Database discovery run by a remote agent falls back to the database type's default port, instead of MySQL's 3306, when the server has none set
 
 - `1.9.1` A MySQL, MariaDB or PostgreSQL server can use a Unix socket path as its host again: the form had rejected the `/` since host validation was tightened, so socket-based PostgreSQL servers could no longer be saved. MySQL and MariaDB backups, restores and connection tests now connect through the socket ([#684](https://github.com/David-Crty/databasement/pull/684))
 - `1.9.0` A restore that times out while its remote agent is still running it now stops the agent at its next report, instead of letting it carry on and possibly revive the failed restore ([#673](https://github.com/David-Crty/databasement/pull/673))
@@ -313,7 +323,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.1
+[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.2
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
