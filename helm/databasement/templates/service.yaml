@@ -14,4 +14,5 @@ spec:
       name: http
   selector:
     {{- include "databasement.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: app
 {{- end }}

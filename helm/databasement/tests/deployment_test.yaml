@@ -138,6 +138,16 @@ tests:
       - hasDocuments:
           count: 1
 
+  - it: should label app pods with the component the service selects
+    set:
+      podLabels:
+        app.kubernetes.io/component: custom
+    asserts:
+      - documentIndex: 0
+        equal:
+          path: spec.template.metadata.labels["app.kubernetes.io/component"]
+          value: app
+
   - it: should have worker component label in separate deployment
     set:
       worker:

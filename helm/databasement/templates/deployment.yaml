@@ -27,7 +27,8 @@ spec:
       {{- end }}
       labels:
         {{ include "databasement.labels" . | nindent 8 }}
-        {{- with .Values.podLabels }}
+        app.kubernetes.io/component: app
+        {{- with omit (.Values.podLabels | default dict) "app.kubernetes.io/component" }}
         {{ toYaml . | nindent 8 }}
         {{- end }}
     spec:
@@ -164,7 +165,7 @@ spec:
       labels:
         {{ include "databasement.labels" . | nindent 8 }}
         app.kubernetes.io/component: worker
-        {{- with .Values.podLabels }}
+        {{- with omit (.Values.podLabels | default dict) "app.kubernetes.io/component" }}
         {{ toYaml . | nindent 8 }}
         {{- end }}
     spec:
