@@ -63,9 +63,12 @@ describe('agent jobs', function () {
 });
 
 describe('backup job timeouts', function () {
-    test('fails backup jobs stuck in running state beyond timeout, logs and notifies it', function () {
+    beforeEach(function () {
         AppConfig::set('backup.job_timeout', 3600);
-        NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    });
+
+    test('fails backup jobs stuck in running state beyond timeout, logs and notifies it', function () {
+        NotificationChannel::factory()->email()->create();
 
         $job = BackupJob::create([
             'status' => 'running',
@@ -84,8 +87,7 @@ describe('backup job timeouts', function () {
     });
 
     test('notifies a timed-out restore as a failed restore', function () {
-        AppConfig::set('backup.job_timeout', 3600);
-        NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+        NotificationChannel::factory()->email()->create();
 
         ['restore' => $restore, 'agentJob' => $agentJob] = dispatchAgentRestore(Agent::factory()->create());
         $restore->job->update(['status' => 'running', 'started_at' => now()->subSeconds(3600 + 300 + 1)]);
@@ -99,8 +101,6 @@ describe('backup job timeouts', function () {
     });
 
     test('fails backup jobs stuck in pending state beyond timeout', function () {
-        AppConfig::set('backup.job_timeout', 3600);
-
         $job = BackupJob::create(['status' => 'pending']);
         // Manually backdate created_at beyond timeout + grace
         BackupJob::where('id', $job->id)->toBase()->update(['created_at' => now()->subSeconds(3600 + 300 + 1)]);
@@ -115,8 +115,6 @@ describe('backup job timeouts', function () {
     });
 
     test('does not touch running backup jobs within timeout', function () {
-        AppConfig::set('backup.job_timeout', 3600);
-
         $job = BackupJob::create([
             'status' => 'running',
             'started_at' => now()->subSeconds(3600), // exactly at timeout, not beyond timeout + grace
@@ -131,8 +129,6 @@ describe('backup job timeouts', function () {
     });
 
     test('does not touch pending backup jobs within timeout', function () {
-        AppConfig::set('backup.job_timeout', 3600);
-
         $job = BackupJob::create(['status' => 'pending']);
         Snapshot::factory()->create(['backup_job_id' => $job->id]);
 

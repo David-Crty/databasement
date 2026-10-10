@@ -39,15 +39,13 @@ test('authenticated users can list jobs via api', function () {
 
 test('authenticated users can filter jobs by status', function () {
     $user = User::factory()->withAbilities([])->create();
-    $factory = app(BackupJobFactory::class);
-
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
 
-    $completedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual');
-    $completedSnapshots[0]->job->update(['status' => 'completed']);
+    $completedSnapshot = pendingSnapshot($server);
+    $completedSnapshot->job->update(['status' => 'completed']);
 
-    $failedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual');
-    $failedSnapshots[0]->job->update(['status' => 'failed']);
+    $failedSnapshot = pendingSnapshot($server);
+    $failedSnapshot->job->update(['status' => 'failed']);
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson('/api/v1/jobs?filter[status]=completed');
@@ -74,14 +72,12 @@ test('authenticated users can filter jobs by type', function () {
 
 test('authenticated users can sort jobs', function () {
     $user = User::factory()->withAbilities([])->create();
-    $factory = app(BackupJobFactory::class);
-
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
 
-    $snapshot1 = $factory->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot1 = pendingSnapshot($server);
     $snapshot1->job->update(['status' => 'completed', 'created_at' => now()->subDay()]);
 
-    $snapshot2 = $factory->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot2 = pendingSnapshot($server);
     $snapshot2->job->update(['status' => 'pending', 'created_at' => now()]);
 
     $response = $this->actingAs($user, 'sanctum')
@@ -93,11 +89,8 @@ test('authenticated users can sort jobs', function () {
 
 test('authenticated users can get a specific job', function () {
     $user = User::factory()->withAbilities([])->create();
-    $factory = app(BackupJobFactory::class);
-
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual');
-    $job = $snapshots[0]->job;
+    $job = pendingSnapshot($server)->job;
 
     $response = $this->actingAs($user, 'sanctum')
         ->getJson("/api/v1/jobs/{$job->id}");

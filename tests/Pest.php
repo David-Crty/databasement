@@ -195,14 +195,23 @@ function foreignSnapshot(string $databaseType = 'mysql'): \App\Models\Snapshot
 }
 
 /**
+ * The pending snapshot (and its job) of a manual run of the server's first
+ * backup configuration, created the way the app creates it.
+ */
+function pendingSnapshot(\App\Models\DatabaseServer $server, ?int $triggeredByUserId = null): \App\Models\Snapshot
+{
+    return app(\App\Services\Backup\BackupJobFactory::class)
+        ->createSnapshots($server->backups->first(), 'manual', $triggeredByUserId)[0];
+}
+
+/**
  * A completed restore owned by an organization the actor is not a member of.
  */
 function foreignRestore(): \App\Models\Restore
 {
     $snapshot = foreignSnapshot();
 
-    return \App\Models\Restore::create([
-        'backup_job_id' => \App\Models\BackupJob::create(['status' => 'completed'])->id,
+    return \App\Models\Restore::factory()->create([
         'snapshot_id' => $snapshot->id,
         'target_server_id' => $snapshot->database_server_id,
         'schema_name' => 'victim_confidential_schema',

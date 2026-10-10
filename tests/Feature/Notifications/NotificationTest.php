@@ -51,11 +51,10 @@ function notificationRestore(Snapshot $snapshot, DatabaseServer $server): Restor
         'started_at' => now(),
     ]);
 
-    return Restore::create([
+    return Restore::factory()->create([
         'backup_job_id' => $job->id,
         'snapshot_id' => $snapshot->id,
         'target_server_id' => $server->id,
-        'schema_name' => 'restored_db',
     ]);
 }
 
@@ -82,7 +81,7 @@ function sentChannelNotifications(string $notificationClass): \Illuminate\Suppor
 // --- Dispatch & trigger handling ---
 
 test('failure notification is sent with correct details', function (string $type) {
-    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    NotificationChannel::factory()->email()->create();
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production DB',
@@ -112,7 +111,7 @@ test('failure notification is sent with correct details', function (string $type
 })->with(['backup', 'restore']);
 
 test('success notification is sent with correct details', function (string $type) {
-    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    NotificationChannel::factory()->email()->create();
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production DB',
@@ -138,7 +137,7 @@ test('success notification is sent with correct details', function (string $type
 })->with(['backup', 'restore']);
 
 test('notification trigger controls which notifications are sent', function (string $trigger, string $event, bool $shouldSend) {
-    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    NotificationChannel::factory()->email()->create();
 
     $server = DatabaseServer::factory()->create([
         'database_names' => ['testdb'],
@@ -210,7 +209,7 @@ test('notification is sent to channel when configured', function (string $factor
 
 test('notification dispatch errors never escape the service', function () {
     Log::spy();
-    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    NotificationChannel::factory()->email()->create();
 
     // A snapshot with no databaseServer relation (e.g. server since deleted)
     // makes notifyServer fail before any channel send — that error must be
@@ -578,7 +577,7 @@ test('custom channel throws on HTTP failure', function (string $channelClass, ar
 // --- Job failure hooks ---
 
 test('failed jobs send a failure notification', function (string $type) {
-    NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    NotificationChannel::factory()->email()->create();
 
     $server = DatabaseServer::factory()->create([
         'name' => 'Production MySQL',

@@ -1,7 +1,6 @@
 <?php
 
 use App\Jobs\ProcessRestoreJob;
-use App\Models\BackupJob;
 use App\Models\Restore;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
@@ -54,12 +53,9 @@ test('skips when a previous restore is still in flight', function () {
 
     Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
 
-    $job = BackupJob::create(['status' => 'running']);
-    Restore::create([
-        'backup_job_id' => $job->id,
+    Restore::factory()->withStatus('running')->create([
         'snapshot_id' => Snapshot::first()->id,
         'target_server_id' => $scheduled->target_server_id,
-        'schema_name' => 'restored_db',
         'scheduled_restore_id' => $scheduled->id,
     ]);
 
@@ -122,12 +118,9 @@ test('completed previous restores do not block new ones', function () {
 
     Snapshot::factory()->forServer($scheduled->sourceServer)->create(['database_name' => 'app']);
 
-    $completedJob = BackupJob::create(['status' => 'completed']);
-    Restore::create([
-        'backup_job_id' => $completedJob->id,
+    Restore::factory()->create([
         'snapshot_id' => Snapshot::first()->id,
         'target_server_id' => $scheduled->target_server_id,
-        'schema_name' => 'restored_db',
         'scheduled_restore_id' => $scheduled->id,
     ]);
 

@@ -143,8 +143,7 @@ describe('recovery', function () {
     });
 
     test('a job whose lease expired is failed and notified once attempts run out', function () {
-        Notification::fake();
-        NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+        NotificationChannel::factory()->email()->create();
         $agentJob = AgentJob::factory()->expiredLease()->create(['attempts' => 3, 'max_attempts' => 3]);
 
         $this->artisan('jobs:recover-stuck')->assertSuccessful();

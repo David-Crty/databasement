@@ -301,7 +301,7 @@ test('trigger backup targets a specific backup id when provided', function () {
     $server = createDatabaseServer(['database_type' => 'mysql']);
 
     // Add a second backup on a weekly schedule so there are two to choose from
-    $weekly = \App\Models\BackupSchedule::firstOrCreate(['name' => 'Weekly'], ['expression' => '0 3 * * 0']);
+    $weekly = weeklySchedule();
     $secondBackup = \App\Models\Backup::factory()->for($server)->create([
         'backup_schedule_id' => $weekly->id,
         'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,

@@ -3,18 +3,16 @@
 use App\Livewire\Dashboard\JobsActivityChart;
 use App\Models\DatabaseServer;
 use App\Models\User;
-use App\Services\Backup\BackupJobFactory;
 use Livewire\Livewire;
 
 test('jobs activity chart builds chart data', function () {
     $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
 
     // Create some jobs
-    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
-    $snapshots[0]->job->markCompleted();
+    $snapshot = pendingSnapshot($server, $user->id);
+    $snapshot->job->markCompleted();
 
     $component = Livewire::withoutLazyLoading()
         ->actingAs($user)
