@@ -69,38 +69,26 @@ class SaveDatabaseServerRequest extends FormRequest
             'dump_flags' => ['nullable', 'string', 'max:500', new SafeDumpFlags($databaseType)],
         ];
 
-        if (in_array($type, ['mysql', 'postgres', 'mongodb', 'redis'])) {
+        if ($databaseType !== null && $databaseType !== DatabaseType::SQLITE) {
             $rules['host'] = ['required', 'string', 'max:255', new SafeHost($databaseType)];
             $rules['port'] = 'required|integer|min:1|max:65535';
-        }
-
-        if (in_array($type, ['mysql', 'postgres'])) {
-            $rules['username'] = 'required|string|max:255';
+            $rules['username'] = in_array($databaseType, [DatabaseType::MONGODB, DatabaseType::REDIS], true)
+                ? 'nullable|string|max:255'
+                : 'required|string|max:255';
             $rules['password'] = 'nullable';
         }
 
-        if ($type === 'postgres') {
+        if ($databaseType === DatabaseType::POSTGRESQL) {
             $rules['dump_format'] = ['nullable', 'string', Rule::in(['plain', 'custom'])];
             $rules['dump_privileges'] = 'boolean';
             $rules['connection_database'] = ['nullable', 'string', new MaxBytes(63), 'regex:'.DatabaseType::IDENTIFIER_PATTERN];
         }
 
-        if (in_array($type, ['mongodb', 'redis'])) {
-            $rules['username'] = 'nullable|string|max:255';
-            $rules['password'] = 'nullable';
-        }
-
-        if ($type === 'mongodb') {
+        if ($databaseType === DatabaseType::MONGODB) {
             $rules['auth_source'] = 'nullable|string|max:255';
         }
 
-        /** @var DatabaseServer|null $existing */
-        $existing = $this->route('database_server');
-        $backupsEnabled = $this->has('backups_enabled')
-            ? $this->boolean('backups_enabled')
-            : ($existing !== null ? $existing->backups_enabled : true);
-
-        if ($backupsEnabled) {
+        if ($this->backupsEnabled()) {
             $rules['backups'] = 'required|array|min:1';
             $rules['backups.*.volume_ids'] = 'required|array|min:1';
             $rules['backups.*.volume_ids.*'] = ['required', Rule::exists('volumes', 'id')->where('organization_id', app(CurrentOrganization::class)->id())];
@@ -112,10 +100,13 @@ class SaveDatabaseServerRequest extends FormRequest
             $rules['backups.*.gfs_keep_weekly'] = 'nullable|integer|min:0|max:52';
             $rules['backups.*.gfs_keep_monthly'] = 'nullable|integer|min:0|max:24';
 
-            if ($type === 'sqlite') {
+            if ($databaseType?->identifiesDatabasesByPath() ?? false) {
                 $rules['backups.*.database_names'] = 'required|array|min:1';
-                $rules['backups.*.database_names.*'] = ['required', 'string', 'max:1000', new SafeDatabasePath];
-            } elseif (in_array($type, ['mysql', 'postgres', 'mongodb'])) {
+                $rules['backups.*.database_names.*'] = [
+                    'required', 'string', 'max:1000',
+                    new SafeDatabasePath(allowBackslashes: $databaseType === DatabaseType::FIREBIRD),
+                ];
+            } elseif ($databaseType !== null && $databaseType !== DatabaseType::REDIS) {
                 $rules['backups.*.database_selection_mode'] = ['required', 'string', Rule::in(array_map(fn (DatabaseSelectionMode $m) => $m->value, DatabaseSelectionMode::cases()))];
                 $rules['backups.*.database_names'] = 'nullable|array';
                 $rules['backups.*.database_names.*'] = ['string', 'max:255', new SafeDatabaseName];
@@ -134,15 +125,12 @@ class SaveDatabaseServerRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            /** @var DatabaseServer|null $existing */
-            $existing = $this->route('database_server');
-            $backupsEnabled = $this->has('backups_enabled')
-                ? $this->boolean('backups_enabled')
-                : ($existing !== null ? $existing->backups_enabled : true);
-
-            if (! $backupsEnabled) {
+            if (! $this->backupsEnabled()) {
                 return;
             }
+
+            /** @var DatabaseServer|null $existing */
+            $existing = $this->route('database_server');
 
             $backups = $this->input('backups', []);
 
@@ -158,6 +146,20 @@ class SaveDatabaseServerRequest extends FormRequest
                 $this->validateBackupEntry($validator, $index, is_array($backup) ? $backup : [], $isAgent);
             }
         });
+    }
+
+    /**
+     * Whether the saved server will run backups: an omitted flag keeps the
+     * existing server's setting, and a new server defaults to enabled.
+     */
+    private function backupsEnabled(): bool
+    {
+        /** @var DatabaseServer|null $existing */
+        $existing = $this->route('database_server');
+
+        return $this->has('backups_enabled')
+            ? $this->boolean('backups_enabled')
+            : ($existing !== null ? $existing->backups_enabled : true);
     }
 
     /**
