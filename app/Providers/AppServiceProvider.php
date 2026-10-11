@@ -27,6 +27,7 @@ use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Blade;
@@ -240,17 +241,22 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Keep the queue's retry_after above the longest a backup/restore may run.
      *
-     * Only workers act on retry_after, so this is skipped for web requests to
-     * avoid a database read on every one. Agent mode runs on the sync driver and
-     * has no database at all.
+     * Only workers act on retry_after, so it is read when `queue:work` starts
+     * (before the worker opens its queue connection) rather than on every boot,
+     * which would put a database read in front of every request and command.
+     * Agent mode runs on the sync driver and has no database at all.
      */
     private function configureQueueTimeouts(): void
     {
-        if (config('agent.enabled') || ! $this->app->runningInConsole()) {
+        if (config('agent.enabled')) {
             return;
         }
 
-        QueueTimeouts::apply();
+        Event::listen(function (CommandStarting $event): void {
+            if ($event->command === 'queue:work') {
+                QueueTimeouts::apply();
+            }
+        });
     }
 
     /**
