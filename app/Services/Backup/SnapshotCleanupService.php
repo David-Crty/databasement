@@ -7,6 +7,7 @@ use App\Models\Backup;
 use App\Models\Snapshot;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SnapshotCleanupService
 {
@@ -187,6 +188,11 @@ class SnapshotCleanupService
             $deleted = $this->deleteSnapshot->execute($snapshot);
         } catch (SnapshotFilesNotDeletedException $e) {
             Log::warning("Snapshot cleanup: {$e->getMessage()} It will be retried on the next run.");
+
+            return;
+        } catch (Throwable $e) {
+            report($e);
+            Log::error("Snapshot cleanup: Failed to delete {$database}: {$e->getMessage()}");
 
             return;
         }

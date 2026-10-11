@@ -6,6 +6,7 @@ use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Services\Backup\DeleteSnapshotAction;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -40,9 +41,11 @@ class CleanupJobHandler implements AgentJobHandler
 
     public function complete(AgentJob $agentJob, array $result): array
     {
-        $agentJob->markCompleted();
+        DB::transaction(function () use ($agentJob, $result): void {
+            $agentJob->markCompleted();
 
-        $this->finishDeletion($agentJob, $result, 'The agent did not report on this file.');
+            $this->finishDeletion($agentJob, $result, 'The agent did not report on this file.');
+        });
 
         return [];
     }

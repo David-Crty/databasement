@@ -2,6 +2,7 @@
 
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Backup\DeleteSnapshotAction;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\SnapshotCleanupService;
 use Illuminate\Support\Facades\Log;
@@ -48,6 +49,25 @@ test('retention keeps an expired snapshot whose file cannot be removed and does 
 
     expect($result['deleted'])->toBe(0)
         ->and($expired->files()->sole()->error)->toBe('Volume unreachable');
+});
+
+test('retention carries on with the other snapshots when one fails to delete', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+    $failing = createSnapshot($server, 'completed', now()->subDays(10));
+    $deletable = createSnapshot($server, 'completed', now()->subDays(11));
+
+    $action = Mockery::mock(DeleteSnapshotAction::class)->makePartial();
+    $action->shouldReceive('execute')
+        ->withArgs(fn (Snapshot $snapshot) => $snapshot->is($failing))
+        ->andThrow(new RuntimeException('Database gone'));
+    app()->instance(DeleteSnapshotAction::class, $action);
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(1)
+        ->and(Snapshot::find($failing->id))->not->toBeNull()
+        ->and(Snapshot::find($deletable->id))->toBeNull();
 });
 
 test('days retention deletes expired snapshots and files, skips pending and recent', function () {

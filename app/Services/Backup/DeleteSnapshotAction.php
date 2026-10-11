@@ -98,9 +98,9 @@ class DeleteSnapshotAction
 
         $snapshot->update(['deleting' => false]);
 
-        throw new SnapshotFilesNotDeletedException($snapshot, $remaining
-            ->mapWithKeys(fn (SnapshotFile $file): array => [$file->volume->name => $file->error ?? 'Not deleted.'])
-            ->all());
+        throw new SnapshotFilesNotDeletedException($snapshot, array_values($remaining
+            ->map(fn (SnapshotFile $file): string => "{$file->volume->name}: ".($file->error ?? 'Not deleted.'))
+            ->all()));
     }
 
     private function removeFile(SnapshotFile $file): ?string

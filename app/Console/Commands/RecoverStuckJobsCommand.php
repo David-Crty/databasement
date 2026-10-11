@@ -124,9 +124,16 @@ class RecoverStuckJobsCommand extends Command
             ->where('created_at', '<', now()->subSeconds(QueueTimeouts::retryAfter()))
             ->get();
 
+        $failedCount = 0;
+
         foreach ($unclaimedJobs as $job) {
             $errorMessage = 'No agent picked up the deletion of this file. Make sure the agent is online and up to date.';
-            $job->markFailed($errorMessage);
+
+            if (! $job->markFailedIfPending($errorMessage)) {
+                continue;
+            }
+
+            $failedCount++;
 
             try {
                 $job->handler()->fail($job, new RuntimeException($errorMessage), []);
@@ -135,11 +142,11 @@ class RecoverStuckJobsCommand extends Command
             }
         }
 
-        if ($unclaimedJobs->isNotEmpty()) {
-            $this->info("Cleanup jobs: failed {$unclaimedJobs->count()} unclaimed job(s).");
+        if ($failedCount > 0) {
+            $this->info("Cleanup jobs: failed {$failedCount} unclaimed job(s).");
         }
 
-        return $unclaimedJobs->isNotEmpty();
+        return $failedCount > 0;
     }
 
     /**

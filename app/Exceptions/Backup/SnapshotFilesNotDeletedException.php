@@ -12,15 +12,11 @@ use Exception;
 class SnapshotFilesNotDeletedException extends Exception
 {
     /**
-     * @param  array<string, string>  $errors  Error per volume name
+     * @param  list<string>  $errors  One "volume: error" line per copy left
      */
     public function __construct(public readonly Snapshot $snapshot, public readonly array $errors)
     {
-        $details = implode('; ', array_map(
-            fn (string $volume, string $error): string => "{$volume}: {$error}",
-            array_keys($errors),
-            $errors,
-        ));
+        $details = implode('; ', $errors);
 
         parent::__construct("Snapshot {$snapshot->id} was kept because its file could not be deleted from every volume ({$details}).");
     }

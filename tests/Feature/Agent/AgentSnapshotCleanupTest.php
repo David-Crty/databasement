@@ -7,9 +7,13 @@ use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
 use App\Models\Volume;
+use App\Services\Agent\AgentApiClient;
+use App\Services\Agent\Runners\CleanupJobRunner;
 use App\Services\Backup\DeleteSnapshotAction;
+use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\SnapshotCleanupService;
 use App\Support\QueueTimeouts;
+use League\Flysystem\Filesystem;
 
 /**
  * A completed snapshot of a server backed by $agent, stored on $volumes (one
@@ -143,5 +147,24 @@ describe('reporting', function () {
         expect(AgentJob::where('snapshot_id', $snapshot->id)->sole()->status)->toBe(AgentJob::STATUS_FAILED)
             ->and($snapshot->fresh()->deleting)->toBeFalse()
             ->and($snapshot->files()->sole()->error)->toContain('No agent picked up');
+    });
+});
+
+describe('agent', function () {
+    test('the agent still reports the files it removed when acknowledging the job fails', function () {
+        ['snapshot' => $snapshot, 'agentJob' => $agentJob] = claimedSnapshotCleanup();
+
+        $filesystem = Mockery::mock(Filesystem::class);
+        $filesystem->shouldReceive('fileExists')->andReturnFalse();
+        $provider = Mockery::mock(FilesystemProvider::class);
+        $provider->shouldReceive('getForVolumeConfig')->andReturn($filesystem);
+
+        $client = Mockery::mock(AgentApiClient::class);
+        $client->shouldReceive('ack')->andThrow(new RuntimeException('Server unreachable'));
+        $client->shouldReceive('fail')
+            ->once()
+            ->with($agentJob->id, 'Server unreachable', [], ['files' => [['id' => $snapshot->files()->sole()->id, 'error' => null]]]);
+
+        (new CleanupJobRunner($provider))->run(['id' => $agentJob->id, 'payload' => $agentJob->payload], $client, fn () => null);
     });
 });
