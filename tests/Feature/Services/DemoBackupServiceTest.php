@@ -3,6 +3,7 @@
 use App\Enums\DatabaseType;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\Organization;
 use App\Models\Volume;
 use App\Services\DemoBackupService;
 
@@ -12,7 +13,7 @@ test('creates demo backup for sqlite database', function () {
     config(['database.connections.sqlite.database' => '/data/database.sqlite']);
 
     $service = app(DemoBackupService::class);
-    $databaseServer = $service->createDemoBackup('sqlite');
+    $databaseServer = $service->createDemoBackup(Organization::default(), 'sqlite');
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
         ->and($databaseServer->database_type)->toBe(DatabaseType::SQLITE)
@@ -37,7 +38,7 @@ test('creates demo backup for mysql database', function () {
     ]]);
 
     $service = app(DemoBackupService::class);
-    $databaseServer = $service->createDemoBackup('mysql');
+    $databaseServer = $service->createDemoBackup(Organization::default(), 'mysql');
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
         ->and($databaseServer->database_type)->toBe(DatabaseType::MYSQL)
@@ -61,7 +62,7 @@ test('creates demo backup for postgresql database', function () {
     ]]);
 
     $service = app(DemoBackupService::class);
-    $databaseServer = $service->createDemoBackup('pgsql');
+    $databaseServer = $service->createDemoBackup(Organization::default(), 'pgsql');
 
     expect($databaseServer)->toBeInstanceOf(DatabaseServer::class)
         ->and($databaseServer->database_type)->toBe(DatabaseType::POSTGRESQL)
@@ -75,5 +76,5 @@ test('creates demo backup for postgresql database', function () {
 
 test('throws exception for unsupported database type', function () {
     $service = app(DemoBackupService::class);
-    $service->createDemoBackup('mongodb');
+    $service->createDemoBackup(Organization::default(), 'mongodb');
 })->throws(RuntimeException::class, 'Unsupported database connection: mongodb');
