@@ -35,6 +35,21 @@ function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $
     return $snapshot->fresh();
 }
 
+test('retention keeps an expired snapshot whose file cannot be removed and does not count it', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+    $expired = createSnapshot($server, 'completed', now()->subDays(10));
+
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldReceive('getForVolume')->andThrow(new RuntimeException('Volume unreachable'));
+    app()->instance(FilesystemProvider::class, $provider);
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and($expired->files()->sole()->error)->toBe('Volume unreachable');
+});
+
 test('days retention deletes expired snapshots and files, skips pending and recent', function () {
     $server = DatabaseServer::factory()->create();
     updateFirstBackup($server, ['retention_days' => 7]);

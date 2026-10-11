@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Throwable;
 
 /**
  * One stored copy of a snapshot's archive on a specific volume. A snapshot
@@ -127,9 +128,12 @@ class SnapshotFile extends Model
     }
 
     /**
-     * Delete this copy's file from its volume.
+     * Delete this copy's file from its volume. Returns false when there was
+     * no file to delete, which leaves nothing behind either.
+     *
+     * @throws Throwable When the volume cannot be reached or refuses the deletion
      */
-    public function deleteFromVolume(): bool
+    public function removeFromVolume(): bool
     {
         $filename = $this->storedFilename();
 
@@ -138,27 +142,34 @@ class SnapshotFile extends Model
             return false;
         }
 
-        try {
-            $filesystemProvider = app(FilesystemProvider::class);
-            $filesystem = $filesystemProvider->getForVolume($this->volume);
+        $filesystem = app(FilesystemProvider::class)->getForVolume($this->volume);
 
-            if ($filesystem->fileExists($filename)) {
-                $filesystem->delete($filename);
-
-                FilesystemSupport::deleteEmptyParentDirectories($filesystem, $filename, [
-                    'snapshot_id' => $this->snapshot_id,
-                ]);
-
-                return true;
-            }
-
+        if (! $filesystem->fileExists($filename)) {
             return false;
-        } catch (\Throwable $e) {
-            // Log the error but don't throw to prevent deletion cascade failure
+        }
+
+        $filesystem->delete($filename);
+
+        FilesystemSupport::deleteEmptyParentDirectories($filesystem, $filename, [
+            'snapshot_id' => $this->snapshot_id,
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Best-effort removeFromVolume() for cascades that must not stop: a
+     * failure is logged and reported as nothing deleted.
+     */
+    public function deleteFromVolume(): bool
+    {
+        try {
+            return $this->removeFromVolume();
+        } catch (Throwable $e) {
             logger()->error('Failed to delete backup file for snapshot', [
                 'snapshot_id' => $this->snapshot_id,
                 'volume_id' => $this->volume_id,
-                'filename' => $filename,
+                'filename' => $this->storedFilename(),
                 'error' => $e->getMessage(),
             ]);
 

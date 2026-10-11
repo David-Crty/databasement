@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Snapshot;
+use App\Services\Backup\DeleteSnapshotAction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Builder;
@@ -69,13 +70,13 @@ class DeleteSnapshotsJob implements ShouldQueue
      * does not stop the others. Either way the snapshot leaves the deleting
      * state, so it can be deleted again.
      */
-    public function handle(): void
+    public function handle(DeleteSnapshotAction $deleteSnapshot): void
     {
         Snapshot::query()
             ->whereKey($this->snapshotIds)
             ->where('deleting', true)
             ->lazyById()
-            ->each(function (Snapshot $snapshot): void {
+            ->each(function (Snapshot $snapshot) use ($deleteSnapshot): void {
                 if ($snapshot->locked) {
                     $snapshot->update(['deleting' => false]);
 
@@ -83,8 +84,7 @@ class DeleteSnapshotsJob implements ShouldQueue
                 }
 
                 try {
-                    $snapshot->skipFileCleanup = $this->keepFiles;
-                    $snapshot->delete();
+                    $deleteSnapshot->execute($snapshot, $this->keepFiles);
                 } catch (Throwable $e) {
                     report($e);
                     $snapshot->update(['deleting' => false]);

@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
 use App\Models\Backup;
 use App\Models\Snapshot;
 use Illuminate\Support\Collection;
@@ -12,6 +13,10 @@ class SnapshotCleanupService
     private bool $dryRun = false;
 
     private int $totalDeleted = 0;
+
+    public function __construct(
+        private DeleteSnapshotAction $deleteSnapshot,
+    ) {}
 
     /**
      * Run the cleanup process.
@@ -170,11 +175,20 @@ class SnapshotCleanupService
 
         if ($this->dryRun) {
             Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
-        } else {
-            $snapshot->delete();
-            Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
+            $this->totalDeleted++;
+
+            return;
         }
 
+        try {
+            $this->deleteSnapshot->execute($snapshot);
+        } catch (SnapshotFilesNotDeletedException $e) {
+            Log::warning("Snapshot cleanup: {$e->getMessage()} It will be retried on the next run.");
+
+            return;
+        }
+
+        Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
         $this->totalDeleted++;
     }
 }
