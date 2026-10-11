@@ -71,7 +71,7 @@ class CreateNewUser implements CreatesNewUsers
 
         if ($createDemoBackup) {
             try {
-                $this->demoBackupService->createDemoBackup();
+                $this->demoBackupService->createDemoBackup($defaultOrg);
             } catch (\Throwable $e) {
                 // Log the error but don't fail registration
                 Log::warning('Failed to create demo backup during registration', [

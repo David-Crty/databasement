@@ -1,8 +1,9 @@
 <?php
 
 use App\Models\DatabaseServer;
+use App\Models\Organization;
 use App\Models\User;
-use App\Services\DemoBackupService;
+use App\Services\CurrentOrganization;
 
 // First user registration (allowed)
 test('registration screen can be rendered when no users exist', function () {
@@ -31,26 +32,19 @@ test('first user can register as admin', function () {
 });
 
 test('first user can create demo backup during registration', function () {
-    // Mock the DemoBackupService to verify it's called
-    $mockService = Mockery::mock(DemoBackupService::class);
-    $mockService->shouldReceive('createDemoBackup')
-        ->once()
-        ->andReturn(DatabaseServer::factory()->make());
+    app(CurrentOrganization::class)->reset();
 
-    $this->app->instance(DemoBackupService::class, $mockService);
-
-    $response = $this->post(route('register.store'), [
+    $this->post(route('register.store'), [
         'name' => 'John Doe',
         'email' => 'test@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
         'create_demo_backup' => '1',
-    ]);
+    ])->assertSessionHasNoErrors();
 
-    $response->assertSessionHasNoErrors()
-        ->assertRedirect(route('dashboard', absolute: false));
-
-    $this->assertAuthenticated();
+    $server = DatabaseServer::sole();
+    expect($server->organization_id)->toBe(Organization::default()->id)
+        ->and($server->backups()->sole()->volumes()->sole()->organization_id)->toBe(Organization::default()->id);
 });
 
 test('registration screen renders validation errors inline for each field', function () {
