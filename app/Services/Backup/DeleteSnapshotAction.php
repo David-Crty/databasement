@@ -61,9 +61,15 @@ class DeleteSnapshotAction
         if ($agentCopies->isNotEmpty()) {
             $snapshot->update(['deleting' => true]);
 
-            AgentJob::enqueue(AgentJobType::Cleanup, $snapshot->database_server_id, $this->payloadBuilder->buildCleanup($snapshot, $agentCopies), [
-                'snapshot_id' => $snapshot->id,
-            ]);
+            try {
+                AgentJob::enqueue(AgentJobType::Cleanup, $snapshot->database_server_id, $this->payloadBuilder->buildCleanup($snapshot, $agentCopies), [
+                    'snapshot_id' => $snapshot->id,
+                ]);
+            } catch (Throwable $e) {
+                $snapshot->update(['deleting' => false]);
+
+                throw $e;
+            }
 
             return false;
         }
