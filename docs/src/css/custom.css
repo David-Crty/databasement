@@ -36,19 +36,3 @@
   --ifm-color-primary-lightest: #4fddbf;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
-
-/* Full-width green/red lines in ```diff code blocks */
-.language-diff .token-line:has(.prefix.inserted),
-.language-diff .token-line:has(.prefix.deleted) {
-  display: block;
-  margin: 0 calc(-1 * var(--ifm-pre-padding));
-  padding: 0 var(--ifm-pre-padding);
-}
-
-.language-diff .token-line:has(.prefix.inserted) {
-  background-color: rgba(46, 160, 67, 0.15);
-}
-
-.language-diff .token-line:has(.prefix.deleted) {
-  background-color: rgba(248, 81, 73, 0.15);
-}
