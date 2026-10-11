@@ -4,7 +4,10 @@ use App\Facades\AppConfig;
 use App\Jobs\ProcessBackupJob;
 use App\Jobs\ProcessRestoreJob;
 use App\Support\QueueTimeouts;
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Support\Facades\Cache;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
 
 /**
  * Hold the overlap lock as the worker running the original copy would, then
@@ -35,6 +38,17 @@ test('retry_after is raised above the configured job timeout', function () {
 
     expect(config('queue.connections.database.retry_after'))->toBe(3900)
         ->and(config('queue.connections.redis.retry_after'))->toBe(3900);
+});
+
+test('retry_after is raised when a queue worker starts, not for other commands', function () {
+    AppConfig::set('backup.job_timeout', 3600);
+    config(['queue.connections.database.retry_after' => 90]);
+
+    event(new CommandStarting('key:generate', new ArrayInput([]), new NullOutput));
+    expect(config('queue.connections.database.retry_after'))->toBe(90);
+
+    event(new CommandStarting('queue:work', new ArrayInput([]), new NullOutput));
+    expect(config('queue.connections.database.retry_after'))->toBe(3900);
 });
 
 test('an explicitly higher retry_after is left alone', function () {
