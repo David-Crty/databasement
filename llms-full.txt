@@ -2100,7 +2100,7 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.9] - 2026-10-10 {#v1-9}
+## [1.9] - 2026-10-11 {#v1-9}
 
 ### Added
 
@@ -2119,6 +2119,9 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.9.3` Updating a database server through the API keeps every backup configuration whose `id` is sent back, instead of deleting it and creating a new one. An `id` belonging to another server is rejected and nothing is changed ([#692](https://github.com/David-Crty/databasement/pull/692))
+- `1.9.3` Snapshots left without a backup configuration by earlier API updates are linked back to their server's configuration when the server has exactly one, so retention applies to them again. Snapshots kept on purpose after removing a configuration from such a server are linked too, so the next cleanup may delete them ([#693](https://github.com/David-Crty/databasement/pull/693))
+- `1.9.3` The organization switcher shows as an icon when the sidebar is collapsed instead of being clipped, and clicking it expands the sidebar ([#691](https://github.com/David-Crty/databasement/pull/691))
 - `1.9.2` A backup or restore failed by the stuck-job recovery sends its failure notification and records the reason in its log, instead of failing in silence. A remote agent stopped by SIGTERM or SIGINT mid-job, as when its pod is evicted, says so in the job's log ([#688](https://github.com/David-Crty/databasement/pull/688))
 - `1.9.2` SQL Server and Firebird servers created or updated through the API keep their host, port and credentials, which were dropped on save, and Firebird database paths containing backslashes are accepted
 - `1.9.2` A manual backup run while an agent discovery is already in flight for it reports that the discovery is already running, instead of claiming a new one was dispatched
@@ -2415,7 +2418,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.2
+[1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
 [1.6]: https://github.com/David-Crty/databasement/compare/v1.5.6...v1.6.12
