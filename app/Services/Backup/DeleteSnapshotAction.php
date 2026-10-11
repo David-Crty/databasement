@@ -2,32 +2,65 @@
 
 namespace App\Services\Backup;
 
+use App\Enums\AgentJobType;
+use App\Enums\VolumeType;
 use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
+use App\Models\AgentJob;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
+use App\Services\Agent\AgentJobPayloadBuilder;
 use Throwable;
 
 class DeleteSnapshotAction
 {
+    public function __construct(
+        private AgentJobPayloadBuilder $payloadBuilder,
+    ) {}
+
     /**
      * Delete a snapshot with its file on every volume, or leave the files in
      * place when asked to.
      *
+     * The files of a server backed by an agent are deleted by that agent,
+     * which may be the only one able to reach them, so the snapshot stays
+     * marked as deleting until it reports back. Copies on the app's own local
+     * disk are still deleted here.
+     *
+     * @return bool True when the snapshot was deleted, false when its agent finishes the deletion
+     *
      * @throws SnapshotFilesNotDeletedException When a file could not be removed, which keeps the snapshot
      */
-    public function execute(Snapshot $snapshot, bool $keepFiles = false): void
+    public function execute(Snapshot $snapshot, bool $keepFiles = false): bool
     {
         if ($keepFiles) {
             $this->deleteRecord($snapshot);
 
-            return;
+            return true;
         }
 
-        $this->recordRemovals($snapshot, $snapshot->files()->completed()->with('volume')->get()
+        $copies = $snapshot->files()->completed()->with('volume')->get();
+
+        $hasAgent = $snapshot->databaseServer->agent_id !== null;
+        $agentCopies = $copies->filter(fn (SnapshotFile $file): bool => $hasAgent && $file->volume->type !== VolumeType::LOCAL->value);
+        $appCopies = $copies->diff($agentCopies);
+
+        $this->recordRemovals($snapshot, $appCopies
             ->mapWithKeys(fn (SnapshotFile $file): array => [$file->id => $this->removeFile($file)])
             ->all());
 
+        if ($agentCopies->isNotEmpty()) {
+            $snapshot->update(['deleting' => true]);
+
+            AgentJob::enqueue(AgentJobType::Cleanup, $snapshot->database_server_id, $this->payloadBuilder->buildCleanup($snapshot, $agentCopies), [
+                'snapshot_id' => $snapshot->id,
+            ]);
+
+            return false;
+        }
+
         $this->deleteUnlessFilesRemain($snapshot);
+
+        return true;
     }
 
     /**

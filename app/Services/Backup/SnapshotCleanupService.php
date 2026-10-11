@@ -22,7 +22,8 @@ class SnapshotCleanupService
      * Run the cleanup process.
      *
      * Locked snapshots are excluded before any tier is computed, so they are
-     * never deleted and never occupy a GFS keep slot.
+     * never deleted and never occupy a GFS keep slot. So are snapshots
+     * already being deleted, such as those waiting for their agent.
      *
      * @return array{deleted: int, dry_run: bool}
      */
@@ -67,6 +68,7 @@ class SnapshotCleanupService
         $expiredSnapshots = Snapshot::where('backup_id', $backup->id)
             ->completed()
             ->where('locked', false)
+            ->where('deleting', false)
             ->where('created_at', '<', $cutoffDate)
             ->get();
 
@@ -94,6 +96,7 @@ class SnapshotCleanupService
         $allSnapshots = Snapshot::where('backup_id', $backup->id)
             ->completed()
             ->where('locked', false)
+            ->where('deleting', false)
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -181,14 +184,16 @@ class SnapshotCleanupService
         }
 
         try {
-            $this->deleteSnapshot->execute($snapshot);
+            $deleted = $this->deleteSnapshot->execute($snapshot);
         } catch (SnapshotFilesNotDeletedException $e) {
             Log::warning("Snapshot cleanup: {$e->getMessage()} It will be retried on the next run.");
 
             return;
         }
 
-        Log::info("Snapshot cleanup: Deleted {$database} ({$age} days old)");
+        Log::info($deleted
+            ? "Snapshot cleanup: Deleted {$database} ({$age} days old)"
+            : "Snapshot cleanup: Handed {$database} ({$age} days old) to its agent for deletion");
         $this->totalDeleted++;
     }
 }

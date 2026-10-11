@@ -31,8 +31,9 @@ class RecoverStuckJobsCommand extends Command
     {
         $agentResult = $this->recoverAgentJobs();
         $backupResult = $this->recoverBackupJobs();
+        $cleanupResult = $this->failUnclaimedCleanupJobs();
 
-        if (! $agentResult && ! $backupResult) {
+        if (! $agentResult && ! $backupResult && ! $cleanupResult) {
             $this->info('No stuck jobs found.');
         }
 
@@ -107,6 +108,38 @@ class RecoverStuckJobsCommand extends Command
         $this->info("Agent jobs: recovered {$resetCount}, failed {$failedCount}.");
 
         return true;
+    }
+
+    /**
+     * Fail cleanup jobs no agent picked up in time, such as one too old to
+     * run them, so their snapshots leave the deleting state and show why.
+     * Backup and restore jobs are failed the same way through their tracked
+     * job, which cleanup jobs do not have.
+     */
+    private function failUnclaimedCleanupJobs(): bool
+    {
+        $unclaimedJobs = AgentJob::query()
+            ->where('type', AgentJobType::Cleanup)
+            ->where('status', AgentJob::STATUS_PENDING)
+            ->where('created_at', '<', now()->subSeconds(QueueTimeouts::retryAfter()))
+            ->get();
+
+        foreach ($unclaimedJobs as $job) {
+            $errorMessage = 'No agent picked up the deletion of this file. Make sure the agent is online and up to date.';
+            $job->markFailed($errorMessage);
+
+            try {
+                $job->handler()->fail($job, new RuntimeException($errorMessage), []);
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+
+        if ($unclaimedJobs->isNotEmpty()) {
+            $this->info("Cleanup jobs: failed {$unclaimedJobs->count()} unclaimed job(s).");
+        }
+
+        return $unclaimedJobs->isNotEmpty();
     }
 
     /**

@@ -142,19 +142,11 @@ class SnapshotFile extends Model
             return false;
         }
 
-        $filesystem = app(FilesystemProvider::class)->getForVolume($this->volume);
-
-        if (! $filesystem->fileExists($filename)) {
-            return false;
-        }
-
-        $filesystem->delete($filename);
-
-        FilesystemSupport::deleteEmptyParentDirectories($filesystem, $filename, [
-            'snapshot_id' => $this->snapshot_id,
-        ]);
-
-        return true;
+        return FilesystemSupport::deleteFile(
+            app(FilesystemProvider::class)->getForVolume($this->volume),
+            $filename,
+            ['snapshot_id' => $this->snapshot_id],
+        );
     }
 
     /**
