@@ -22,3 +22,9 @@ Service endpoint:
 
 Check status:
   kubectl get pods -n {{ $namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+{{- if .Values.worker.command }}
+
+WARNING: worker.command is no longer used and is ignored. The worker now runs
+through the image's own process manager. Remove it from your values.
+{{- end }}

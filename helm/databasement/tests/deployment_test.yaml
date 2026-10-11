@@ -45,7 +45,6 @@ tests:
       worker:
         enabled: true
         separateDeployment: false
-        command: "php artisan queue:work --queue=backups"
     asserts:
       - lengthEqual:
           path: spec.template.spec.containers
@@ -73,19 +72,34 @@ tests:
           path: spec.template.spec.containers
           count: 1
 
-  - it: should use custom worker command in sidecar mode
+  - it: should run the sidecar worker as a queue-only image
     set:
       worker:
         enabled: true
         separateDeployment: false
-        command: "php artisan queue:work --queue=custom --tries=5"
     asserts:
-      - equal:
-          path: spec.template.spec.containers[1].name
-          value: databasement-worker
-      - equal:
+      - notExists:
           path: spec.template.spec.containers[1].args
-          value: ["sh", "-c", "php artisan queue:work --queue=custom --tries=5"]
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: ENABLE_QUEUE_WORKER
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: ENABLE_WEB_SERVER
+            value: "false"
+      - contains:
+          path: spec.template.spec.containers[1].env
+          content:
+            name: ENABLE_SCHEDULER
+            value: "false"
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENABLE_WEB_SERVER
+            value: "false"
 
   - it: should apply worker resources in sidecar mode
     set:
@@ -163,17 +177,27 @@ tests:
           path: spec.selector.matchLabels["app.kubernetes.io/component"]
           value: worker
 
-  - it: should use custom worker command in separate deployment
+  - it: should run the separate worker deployment as a queue-only image
     set:
       worker:
         enabled: true
         separateDeployment: true
-        command: "php artisan queue:work --queue=custom --tries=5"
     asserts:
       - documentIndex: 1
-        equal:
+        notExists:
           path: spec.template.spec.containers[0].args
-          value: ["sh", "-c", "php artisan db:wait && php artisan queue:work --queue=custom --tries=5"]
+      - documentIndex: 1
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENABLE_QUEUE_WORKER
+            value: "true"
+      - documentIndex: 1
+        contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: ENABLE_WEB_SERVER
+            value: "false"
 
   - it: should apply worker resources in separate deployment
     set:

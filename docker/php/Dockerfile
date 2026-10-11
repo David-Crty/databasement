@@ -178,6 +178,8 @@ ENV SERVER_NAME=":2226"
 
 # FrankenPHP listens on 2226; declare it so reverse proxies pick the right port.
 EXPOSE 2226/tcp
+ENV ENABLE_WEB_SERVER="true"
+ENV ENABLE_SCHEDULER="true"
 ENV ENABLE_QUEUE_WORKER="false"
 ENV ENABLE_DATABASE_MIGRATION="true"
 ENV TZ="UTC"

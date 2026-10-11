@@ -157,6 +157,18 @@ Common environment variables for app and worker containers
 {{- end }}
 
 {{/*
+Environment that turns the image into a queue worker only
+*/}}
+{{- define "databasement.workerEnv" -}}
+- name: ENABLE_QUEUE_WORKER
+  value: "true"
+- name: ENABLE_WEB_SERVER
+  value: "false"
+- name: ENABLE_SCHEDULER
+  value: "false"
+{{- end }}
+
+{{/*
 envFrom configuration for app and worker containers
 */}}
 {{- define "databasement.envFrom" -}}

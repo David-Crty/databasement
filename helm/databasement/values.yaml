@@ -76,7 +76,6 @@ extraVolumes: {}
 # Only deployed when app.enabled is true
 worker:
   enabled: true
-  command: "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --max-jobs=1000"
   resources:
     limits:
       cpu: 500m
