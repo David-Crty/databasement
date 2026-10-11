@@ -532,6 +532,60 @@ test('update syncs backup configuration', function () {
         ->and($server->backups->first()->retention_policy)->toBe('forever');
 });
 
+test('update keeps a backup configuration whose id is sent', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $backup = $server->backups->first();
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-servers/{$server->id}", [
+            'name' => $server->name,
+            'database_type' => 'postgres',
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'backups' => [[
+                'id' => $backup->id,
+                'database_selection_mode' => 'all',
+                'volume_ids' => $backup->volumes->pluck('id')->all(),
+                'backup_schedule_id' => $backup->backup_schedule_id,
+                'retention_policy' => 'forever',
+            ]],
+        ])
+        ->assertOk();
+
+    $server->refresh();
+    expect($server->backups->pluck('id')->all())->toBe([$backup->id])
+        ->and($server->backups->first()->retention_policy)->toBe('forever');
+});
+
+test('update rejects a backup configuration id from another server and changes nothing', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $otherBackup = DatabaseServer::factory()->create(['database_type' => 'postgres'])->backups->first();
+    $backup = $server->backups->first();
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-servers/{$server->id}", [
+            'name' => 'Renamed',
+            'database_type' => 'postgres',
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'backups' => [[
+                'id' => $otherBackup->id,
+                'database_selection_mode' => 'all',
+                'volume_ids' => $backup->volumes->pluck('id')->all(),
+                'backup_schedule_id' => $backup->backup_schedule_id,
+                'retention_policy' => 'forever',
+            ]],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['backups.0.id']);
+
+    expect($server->refresh()->name)->not->toBe('Renamed');
+});
+
 test('a connection database cannot smuggle extra parameters into the dsn', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
