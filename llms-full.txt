@@ -170,9 +170,12 @@ services:
   worker:
     image: davidcrty/databasement:1
     restart: unless-stopped
+    environment:
+      ENABLE_QUEUE_WORKER: "true"
+      ENABLE_WEB_SERVER: "false"
+      ENABLE_SCHEDULER: "false"
     deploy:
       replicas: 1   # increase to run more backups in parallel
-    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
       - ./data:/data
@@ -206,9 +209,12 @@ services:
   worker:
     image: davidcrty/databasement:1
     restart: unless-stopped
+    environment:
+      ENABLE_QUEUE_WORKER: "true"
+      ENABLE_WEB_SERVER: "false"
+      ENABLE_SCHEDULER: "false"
     deploy:
       replicas: 1   # increase to run more backups in parallel
-    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
       - ./data:/data
@@ -261,9 +267,12 @@ services:
   worker:
     image: davidcrty/databasement:1
     restart: unless-stopped
+    environment:
+      ENABLE_QUEUE_WORKER: "true"
+      ENABLE_WEB_SERVER: "false"
+      ENABLE_SCHEDULER: "false"
     deploy:
       replicas: 1   # increase to run more backups in parallel
-    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
       - ./data:/data
@@ -390,6 +399,8 @@ docker compose up -d
 
 See [Versioning](versioning) for available versions.
 
+Upgrading from 1.9 or earlier? The `worker` service changed in 1.10, see [Migrate to 1.10](./migrate-to-1-10.md).
+
 ## Troubleshooting
 
 ### Database connection errors
@@ -423,6 +434,12 @@ docker compose logs -f worker
 **Solution:** Either:
 1. Set `PUID`/`PGID` to match your host user (see [Custom User ID](#custom-user-id-puidpgid))
 2. Or fix permissions manually: `sudo chown -R 1000:1000 ./data` (replace `1000` with your PUID/PGID)
+
+### Snapshots cannot be deleted ("Unable to delete file")
+
+**Cause:** Before 1.10, the `worker` service ran as root, so the backups it wrote are owned by root and the app cannot delete them.
+
+**Solution:** See [Migrate to 1.10](./migrate-to-1-10.md#files-written-by-an-older-worker).
 
 ### Database tables are empty after startup
 
@@ -713,12 +730,11 @@ persistence:
 
 ### Worker Configuration
 
-The queue worker runs as a sidecar container by default. You can customize its behavior:
+The queue worker runs as a sidecar container by default. You can customize its resources:
 
 ```yaml
 worker:
   enabled: true
-  command: "php artisan queue:work --queue=backups,default --tries=3 --timeout=3600"
   resources:
     limits:
       cpu: 500m
@@ -2089,6 +2105,65 @@ For full Helm configuration options, see the [Kubernetes + Helm](./kubernetes-he
 
 ---
 
+## Migrate to 1.10
+
+
+Version 1.10 changes how the queue worker starts. Only **Docker Compose** installations that run a separate `worker` service need to update their `docker-compose.yml`:
+
+- **Single container** (`docker run` with `ENABLE_QUEUE_WORKER=true`): nothing to do.
+- **Helm**: chart 1.10 applies the change for you. If you set `worker.command` in your values, remove it: it is now ignored.
+
+## Why
+
+The old `command:` made the worker run as **root**, so the app could not delete the backups it wrote (`Unable to delete file`). From 1.10 the worker starts like the app, as the application user.
+
+## Update your docker-compose.yml
+
+In the `worker` service, remove the `command:` line and add the `environment:` block:
+
+```diff title="docker-compose.yml"
+   worker:
+     image: davidcrty/databasement:1
+     restart: unless-stopped
++    environment:
++      ENABLE_QUEUE_WORKER: "true"
++      ENABLE_WEB_SERVER: "false"
++      ENABLE_SCHEDULER: "false"
+     deploy:
+       replicas: 1   # increase to run more backups in parallel
+-    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
+     env_file: .env
+     volumes:
+       - ./data:/data
+```
+
+If you set `PUID`/`PGID`, keep them on **both** the `app` and `worker` services (or in the shared `.env` file) so the two containers run as the same user.
+
+Then pull and recreate:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## If you keep the old command
+
+A 1.10 image still recognises the old `command:` and starts the worker the new way, but it logs a warning on every start and **ignores the arguments** of that command. If you customised them (for example a different `--queue`), move to the environment variables above.
+
+## Files written by an older worker
+
+Backup files the old worker wrote under `/data` are handed back to the application user automatically when the app container starts.
+
+Backups stored on a local volume **outside** `/data` (for example a `/backups` mount) stay owned by root, and the worker can no longer write into those directories. Hand them back once, replacing `1000` with your `PUID`/`PGID`:
+
+```bash
+sudo chown -R 1000:1000 /path/to/backups
+```
+
+The same applies to SQLite databases you back up from a path outside `/data`: the worker now reads them as the application user, so that user needs read access to them.
+
+---
+
 ## Changelog
 
 
@@ -2099,6 +2174,22 @@ All notable changes to Databasement are documented here. The format follows
 Each section covers one minor version; every entry is prefixed with the patch release
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
+
+## [1.10] - 2026-10-12 {#v1-10}
+
+### Added
+
+- `1.10.0` Snapshots of a server run through a remote agent can be deleted, by hand or through retention, when the app cannot reach their volume: the files it cannot delete are handed to the agent, and the snapshot shows as Deleting until the agent reports. Agents older than 1.10.0 are never handed these deletions, which fail after waiting the backup job timeout, so upgrade agents along with the server ([#695](https://github.com/David-Crty/databasement/pull/695))
+
+### Changed
+
+- `1.10.0` Artisan commands no longer read the database while booting, so `php artisan key:generate --show` from the install docs returns at once where the database is unreachable, instead of after more than 100 seconds ([#697](https://github.com/David-Crty/databasement/pull/697))
+
+### Fixed
+
+- `1.10.0` **Breaking:** The queue worker runs as the application user set by `PUID`/`PGID` instead of root, so the app can delete the backups it writes, and agents drop to that user too. The worker service is now the same image started with `ENABLE_QUEUE_WORKER`, `ENABLE_WEB_SERVER` and `ENABLE_SCHEDULER`; an old `command:` running `artisan queue:work` still works with a warning but its arguments are ignored, and the Helm chart no longer reads `worker.command`. Backups outside `/data` written by an older worker need a one-off `chown`, described in the "Migrate to 1.10" page ([#696](https://github.com/David-Crty/databasement/pull/696))
+- `1.10.0` A snapshot whose file could not be deleted from its volume is kept, with the error shown on the copy left, so deleting it again or the next retention run retries instead of leaving an untracked file behind. One failed deletion no longer stops retention from cleaning up the other snapshots ([#694](https://github.com/David-Crty/databasement/pull/694))
+- `1.10.0` Registering the first user creates the demo database server and backup again, instead of failing silently and leaving the new install empty ([#698](https://github.com/David-Crty/databasement/pull/698))
 
 ## [1.9] - 2026-10-11 {#v1-9}
 
@@ -2418,6 +2509,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.0
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
@@ -3246,6 +3338,8 @@ See [Backup Configuration](../self-hosting/configuration/backup.md) for `BACKUP_
 On the Snapshots page, tick the rows to delete, or tick the header checkbox to select the whole page and then **Select all matching snapshots** to extend the selection to every snapshot matching the current search and filters. Filtering on **File missing** first is a quick way to clean up snapshots whose files were removed from the volume.
 
 Deletion runs in the background on the queue worker, and the snapshots show as **Deleting** until they are removed. Locked snapshots and snapshots whose backup is still in progress are skipped. Through the API, use `DELETE /api/v1/snapshots/{id}` for one snapshot or `POST /api/v1/snapshots/bulk-delete` with a list of `ids` for many.
+
+A snapshot is only removed once its file is gone from every volume. If a volume cannot be reached or refuses the deletion, the snapshot is kept and that volume's badge turns red with the error, so the file is never left on the volume untracked. Delete the snapshot again once the volume is back; retention retries on its own at its next run.
 
 ## Restore Process
 
@@ -4116,6 +4210,16 @@ This makes agent-backed servers usable for recurring production-to-staging refre
 
 :::info Update your agents
 Agents only pick up restore jobs once they run a version that supports them. An older agent keeps running backups but leaves restores pending until they time out, so update the agent image before restoring onto its servers.
+:::
+
+## Deleting snapshots through an agent
+
+Deleting a snapshot of an agent-backed server, by hand or through a [retention policy](./backups.md#retention-policies), first deletes its files from Databasement. A file Databasement cannot reach, such as one on a volume only reachable from the agent's network, is handed to the server's agent. The snapshot then shows as **Deleting** until the agent reports back, and is only removed once its file is gone from every volume. A file the agent could not delete keeps the snapshot, with the error on that volume's badge, and the next deletion tries again.
+
+Deleting a whole database server, volume or organization still deletes the files from Databasement directly. Tick **Keep backup files on storage** there when Databasement cannot reach the volume, and remove them on the agent's side.
+
+:::info Update your agents
+Agents only pick up deletions once they run a version that supports them. With an older agent, a snapshot whose file Databasement cannot reach stays **Deleting** until the deletion times out, after the backup job timeout, and is then kept with its file.
 :::
 
 ---

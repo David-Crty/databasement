@@ -20,6 +20,8 @@ On the Snapshots page, tick the rows to delete, or tick the header checkbox to s
 
 Deletion runs in the background on the queue worker, and the snapshots show as **Deleting** until they are removed. Locked snapshots and snapshots whose backup is still in progress are skipped. Through the API, use `DELETE /api/v1/snapshots/{id}` for one snapshot or `POST /api/v1/snapshots/bulk-delete` with a list of `ids` for many.
 
+A snapshot is only removed once its file is gone from every volume. If a volume cannot be reached or refuses the deletion, the snapshot is kept and that volume's badge turns red with the error, so the file is never left on the volume untracked. Delete the snapshot again once the volume is back; retention retries on its own at its next run.
+
 ## Restore Process
 
 When you restore a snapshot, Databasement:

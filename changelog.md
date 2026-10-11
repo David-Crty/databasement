@@ -14,6 +14,22 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
+## [1.10] - 2026-10-12 {#v1-10}
+
+### Added
+
+- `1.10.0` Snapshots of a server run through a remote agent can be deleted, by hand or through retention, when the app cannot reach their volume: the files it cannot delete are handed to the agent, and the snapshot shows as Deleting until the agent reports. Agents older than 1.10.0 are never handed these deletions, which fail after waiting the backup job timeout, so upgrade agents along with the server ([#695](https://github.com/David-Crty/databasement/pull/695))
+
+### Changed
+
+- `1.10.0` Artisan commands no longer read the database while booting, so `php artisan key:generate --show` from the install docs returns at once where the database is unreachable, instead of after more than 100 seconds ([#697](https://github.com/David-Crty/databasement/pull/697))
+
+### Fixed
+
+- `1.10.0` **Breaking:** The queue worker runs as the application user set by `PUID`/`PGID` instead of root, so the app can delete the backups it writes, and agents drop to that user too. The worker service is now the same image started with `ENABLE_QUEUE_WORKER`, `ENABLE_WEB_SERVER` and `ENABLE_SCHEDULER`; an old `command:` running `artisan queue:work` still works with a warning but its arguments are ignored, and the Helm chart no longer reads `worker.command`. Backups outside `/data` written by an older worker need a one-off `chown`, described in the "Migrate to 1.10" page ([#696](https://github.com/David-Crty/databasement/pull/696))
+- `1.10.0` A snapshot whose file could not be deleted from its volume is kept, with the error shown on the copy left, so deleting it again or the next retention run retries instead of leaving an untracked file behind. One failed deletion no longer stops retention from cleaning up the other snapshots ([#694](https://github.com/David-Crty/databasement/pull/694))
+- `1.10.0` Registering the first user creates the demo database server and backup again, instead of failing silently and leaving the new install empty ([#698](https://github.com/David-Crty/databasement/pull/698))
+
 ## [1.9] - 2026-10-11 {#v1-9}
 
 ### Added
@@ -332,6 +348,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.0
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15

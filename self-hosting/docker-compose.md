@@ -100,9 +100,12 @@ services:
   worker:
     image: davidcrty/databasement:1
     restart: unless-stopped
+    environment:
+      ENABLE_QUEUE_WORKER: "true"
+      ENABLE_WEB_SERVER: "false"
+      ENABLE_SCHEDULER: "false"
     deploy:
       replicas: 1   # increase to run more backups in parallel
-    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
       - ./data:/data
@@ -136,9 +139,12 @@ services:
   worker:
     image: davidcrty/databasement:1
     restart: unless-stopped
+    environment:
+      ENABLE_QUEUE_WORKER: "true"
+      ENABLE_WEB_SERVER: "false"
+      ENABLE_SCHEDULER: "false"
     deploy:
       replicas: 1   # increase to run more backups in parallel
-    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
       - ./data:/data
@@ -191,9 +197,12 @@ services:
   worker:
     image: davidcrty/databasement:1
     restart: unless-stopped
+    environment:
+      ENABLE_QUEUE_WORKER: "true"
+      ENABLE_WEB_SERVER: "false"
+      ENABLE_SCHEDULER: "false"
     deploy:
       replicas: 1   # increase to run more backups in parallel
-    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     env_file: .env
     volumes:
       - ./data:/data
@@ -320,6 +329,8 @@ docker compose up -d
 
 See [Versioning](versioning) for available versions.
 
+Upgrading from 1.9 or earlier? The `worker` service changed in 1.10, see [Migrate to 1.10](./migrate-to-1-10.md).
+
 ## Troubleshooting
 
 ### Database connection errors
@@ -353,6 +364,12 @@ docker compose logs -f worker
 **Solution:** Either:
 1. Set `PUID`/`PGID` to match your host user (see [Custom User ID](#custom-user-id-puidpgid))
 2. Or fix permissions manually: `sudo chown -R 1000:1000 ./data` (replace `1000` with your PUID/PGID)
+
+### Snapshots cannot be deleted ("Unable to delete file")
+
+**Cause:** Before 1.10, the `worker` service ran as root, so the backups it wrote are owned by root and the app cannot delete them.
+
+**Solution:** See [Migrate to 1.10](./migrate-to-1-10.md#files-written-by-an-older-worker).
 
 ### Database tables are empty after startup
 
