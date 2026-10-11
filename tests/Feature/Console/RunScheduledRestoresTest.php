@@ -13,7 +13,7 @@ test('fails when scheduled restore ID does not exist', function () {
 });
 
 test('runs a disabled scheduled restore without enabling it', function () {
-    // `enabled` gates the scheduler (routes/console.php), not this command:
+    // `enabled` gates the scheduler (withSchedule in bootstrap/app.php), not this command:
     // invoking it at all is already a deliberate, manual act.
     Queue::fake();
 

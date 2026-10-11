@@ -20,7 +20,7 @@ class RunScheduledRestoreAction
     /**
      * Run one scheduled restore, on demand or from the scheduler.
      *
-     * The `enabled` flag governs scheduling only: routes/console.php registers
+     * The `enabled` flag governs scheduling only: bootstrap/app.php (withSchedule) registers
      * enabled flows with the scheduler and re-reads that list every tick, so a
      * disabled flow never fires on its own. Running one here is always a
      * deliberate act, and leaves it disabled.
