@@ -2,20 +2,48 @@
 
 use App\Jobs\DeleteSnapshotsJob;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
+use App\Models\Volume;
+use App\Services\Backup\DeleteSnapshotAction;
+use App\Services\Backup\Filesystems\FilesystemProvider;
 use Illuminate\Support\Facades\Queue;
 
 test('deletes the snapshots marked as deleting', function () {
     $snapshot = Snapshot::factory()->withFile()->create(['deleting' => true]);
 
-    (new DeleteSnapshotsJob([$snapshot->id]))->handle();
+    (new DeleteSnapshotsJob([$snapshot->id]))->handle(app(DeleteSnapshotAction::class));
 
     expect(Snapshot::find($snapshot->id))->toBeNull();
+});
+
+test('keeps a snapshot whose file cannot be removed from a volume, tracking only that copy', function () {
+    $broken = Volume::factory()->local()->create(['name' => 'Broken']);
+    $healthy = Volume::factory()->local()->create(['name' => 'Healthy']);
+    $snapshot = Snapshot::factory()->onVolumes($broken, $healthy)->withFile()->create(['deleting' => true]);
+    $healthyFilePath = $healthy->config['path'].'/'.$snapshot->filename;
+
+    $realProvider = app(FilesystemProvider::class);
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldReceive('getForVolume')->andReturnUsing(
+        fn (Volume $volume) => $volume->id === $broken->id
+            ? throw new RuntimeException('Volume unreachable')
+            : $realProvider->getForVolume($volume),
+    );
+    app()->instance(FilesystemProvider::class, $provider);
+
+    (new DeleteSnapshotsJob([$snapshot->id]))->handle(app(DeleteSnapshotAction::class));
+
+    expect($snapshot->fresh())->not->toBeNull()
+        ->deleting->toBeFalse()
+        ->and(file_exists($healthyFilePath))->toBeFalse()
+        ->and($snapshot->files()->get()->map(fn (SnapshotFile $file) => [$file->volume_id, $file->error])->all())
+        ->toBe([[$broken->id, 'Volume unreachable']]);
 });
 
 test('keeps a snapshot locked after the deletion was queued and clears its deleting flag', function () {
     $snapshot = Snapshot::factory()->withFile()->create(['deleting' => true, 'locked' => true]);
 
-    (new DeleteSnapshotsJob([$snapshot->id]))->handle();
+    (new DeleteSnapshotsJob([$snapshot->id]))->handle(app(DeleteSnapshotAction::class));
 
     expect($snapshot->fresh())->not->toBeNull()
         ->deleting->toBeFalse();

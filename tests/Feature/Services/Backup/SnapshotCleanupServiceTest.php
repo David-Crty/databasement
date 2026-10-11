@@ -2,6 +2,7 @@
 
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Services\Backup\DeleteSnapshotAction;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\SnapshotCleanupService;
 use Illuminate\Support\Facades\Log;
@@ -34,6 +35,40 @@ function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $
 
     return $snapshot->fresh();
 }
+
+test('retention keeps an expired snapshot whose file cannot be removed and does not count it', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+    $expired = createSnapshot($server, 'completed', now()->subDays(10));
+
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldReceive('getForVolume')->andThrow(new RuntimeException('Volume unreachable'));
+    app()->instance(FilesystemProvider::class, $provider);
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(0)
+        ->and($expired->files()->sole()->error)->toBe('Volume unreachable');
+});
+
+test('retention carries on with the other snapshots when one fails to delete', function () {
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, ['retention_days' => 7]);
+    $failing = createSnapshot($server, 'completed', now()->subDays(10));
+    $deletable = createSnapshot($server, 'completed', now()->subDays(11));
+
+    $action = Mockery::mock(DeleteSnapshotAction::class)->makePartial();
+    $action->shouldReceive('execute')
+        ->withArgs(fn (Snapshot $snapshot) => $snapshot->is($failing))
+        ->andThrow(new RuntimeException('Database gone'));
+    app()->instance(DeleteSnapshotAction::class, $action);
+
+    $result = app(SnapshotCleanupService::class)->run();
+
+    expect($result['deleted'])->toBe(1)
+        ->and(Snapshot::find($failing->id))->not->toBeNull()
+        ->and(Snapshot::find($deletable->id))->toBeNull();
+});
 
 test('days retention deletes expired snapshots and files, skips pending and recent', function () {
     $server = DatabaseServer::factory()->create();

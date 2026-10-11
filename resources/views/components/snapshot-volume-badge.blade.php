@@ -10,6 +10,10 @@
             'badge-ghost opacity-60',
             __('Upload pending'),
         ],
+        $file->error !== null => [
+            'badge-error',
+            $file->error,
+        ],
         ! $file->file_exists => [
             'badge-warning',
             __('Backup file not found on volume'),
