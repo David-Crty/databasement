@@ -6,21 +6,21 @@ use App\Enums\DatabaseSelectionMode;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
+use App\Models\Organization;
 use App\Models\Volume;
 use RuntimeException;
 
 class DemoBackupService
 {
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
-
     /**
      * Create a demo backup configuration for the application's own database.
      *
+     * @param  Organization  $organization  Organization that owns the created volume and server
      * @param  string|null  $connectionName  Optional connection name to use (defaults to database.default config)
      *
      * @throws RuntimeException If database connection type is unsupported
      */
-    public function createDemoBackup(?string $connectionName = null): DatabaseServer
+    public function createDemoBackup(Organization $organization, ?string $connectionName = null): DatabaseServer
     {
         $connection = $connectionName ?? config('database.default');
         $dbConfig = config("database.connections.{$connection}");
@@ -39,7 +39,7 @@ class DemoBackupService
             'config' => [
                 'path' => '/data/backups',
             ],
-            'organization_id' => $this->currentOrganization->id(),
+            'organization_id' => $organization->id,
         ]);
 
         // Create database server entry based on type
@@ -48,7 +48,7 @@ class DemoBackupService
                 'name' => 'Databasement Database',
                 'database_type' => 'sqlite',
                 'description' => 'Demo database',
-                'organization_id' => $this->currentOrganization->id(),
+                'organization_id' => $organization->id,
             ]);
             $backupDatabaseNames = [$dbConfig['database']];
         } else {
@@ -60,7 +60,7 @@ class DemoBackupService
                 'username' => $dbConfig['username'] ?? '',
                 'password' => $dbConfig['password'] ?? '',
                 'description' => 'Demo database',
-                'organization_id' => $this->currentOrganization->id(),
+                'organization_id' => $organization->id,
             ]);
             $backupDatabaseNames = [$dbConfig['database'] ?? 'databasement'];
         }
