@@ -57,6 +57,25 @@ class FilesystemSupport
     }
 
     /**
+     * Delete a file and the parent directories it leaves empty. Returns false
+     * when the file was already absent.
+     *
+     * @param  array<string, mixed>  $logContext  Extra context included in the warning if pruning fails.
+     */
+    public static function deleteFile(Filesystem $filesystem, string $path, array $logContext = []): bool
+    {
+        if (! $filesystem->fileExists($path)) {
+            return false;
+        }
+
+        $filesystem->delete($path);
+
+        self::deleteEmptyParentDirectories($filesystem, $path, $logContext);
+
+        return true;
+    }
+
+    /**
      * Remove now-empty parent directories left behind after deleting a file.
      *
      * Backup paths may contain date placeholders (e.g. "2026_06_15"), creating a folder

@@ -397,12 +397,60 @@ describe('restore jobs', function () {
 });
 
 test('fails a job whose type this agent cannot run', function () {
-    fakeAgentServer([...$this->jobPayload, 'type' => 'cleanup'], ['job-123/fail']);
+    fakeAgentServer([...$this->jobPayload, 'type' => 'teleport'], ['job-123/fail']);
 
     $this->artisan('agent:run --once')
-        ->expectsOutputToContain("Job job-123 has unsupported type 'cleanup'.")
+        ->expectsOutputToContain("Job job-123 has unsupported type 'teleport'.")
         ->assertSuccessful();
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-123/fail')
         && str_contains($request['error_message'], 'Update the agent'));
+});
+
+test('a cleanup job deletes the file and reports an already absent one as removed', function () {
+    $present = sys_get_temp_dir().'/cleanup-'.uniqid();
+    $absent = sys_get_temp_dir().'/cleanup-'.uniqid();
+    mkdir($present.'/2026', 0755, true);
+    mkdir($absent);
+    file_put_contents($present.'/2026/backup.sql.gz', 'dump');
+
+    fakeAgentServer([
+        'id' => 'job-123',
+        'type' => 'cleanup',
+        'payload' => [
+            'filename' => '2026/backup.sql.gz',
+            'server_name' => 'prod-mysql',
+            'files' => [
+                ['id' => 'file-1', 'volume' => ['type' => 'local', 'name' => 'Present', 'config' => ['path' => $present]]],
+                ['id' => 'file-2', 'volume' => ['type' => 'local', 'name' => 'Absent', 'config' => ['path' => $absent]]],
+            ],
+        ],
+    ], ['job-123/ack']);
+
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(file_exists($present.'/2026'))->toBeFalse();
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/ack')
+        && $request['files'] === [['id' => 'file-1', 'error' => null], ['id' => 'file-2', 'error' => null]]);
+});
+
+test('a cleanup job reports the volumes it could not delete from as failed', function () {
+    fakeAgentServer([
+        'id' => 'job-123',
+        'type' => 'cleanup',
+        'payload' => [
+            'filename' => 'backup.sql.gz',
+            'server_name' => 'prod-mysql',
+            'files' => [
+                ['id' => 'file-1', 'volume' => ['type' => 'unsupported', 'name' => 'Broken', 'config' => []]],
+            ],
+        ],
+    ], ['job-123/fail']);
+
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/fail')
+        && str_contains($request['error_message'], 'Broken')
+        && $request['files'][0]['id'] === 'file-1'
+        && $request['files'][0]['error'] !== null);
 });

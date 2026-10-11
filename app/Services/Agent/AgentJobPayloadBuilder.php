@@ -7,11 +7,13 @@ use App\Facades\AppConfig;
 use App\Models\Backup;
 use App\Models\Restore;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Support\Formatters;
+use Illuminate\Support\Collection;
 use RuntimeException;
 
 class AgentJobPayloadBuilder
@@ -106,6 +108,25 @@ class AgentJobPayloadBuilder
         }
 
         return RestoreConfig::fromRestore($restore, $sourceFile, '')->toPayload();
+    }
+
+    /**
+     * Build a payload for a cleanup agent job removing these copies of a
+     * snapshot's archive.
+     *
+     * @param  Collection<int, SnapshotFile>  $files
+     * @return array{filename: string, server_name: string, files: list<array{id: string, volume: array{id: string|null, type: string, name: string, config: array<string, mixed>}}>}
+     */
+    public function buildCleanup(Snapshot $snapshot, Collection $files): array
+    {
+        return [
+            'filename' => $snapshot->filename,
+            'server_name' => $snapshot->databaseServer->name,
+            'files' => array_values($files->map(fn (SnapshotFile $file): array => [
+                'id' => $file->id,
+                'volume' => VolumeConfig::fromVolume($file->volume)->toPayload(),
+            ])->all()),
+        ];
     }
 
     private function resolveBackupPath(?string $path): string

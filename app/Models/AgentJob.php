@@ -180,6 +180,28 @@ class AgentJob extends Model
     }
 
     /**
+     * Mark this job as failed unless an agent claimed it meanwhile.
+     *
+     * @return bool Whether the job was still pending and is now failed
+     */
+    public function markFailedIfPending(string $errorMessage): bool
+    {
+        $failed = self::query()
+            ->whereKey($this->id)
+            ->where('status', self::STATUS_PENDING)
+            ->update([
+                'status' => self::STATUS_FAILED,
+                'error_message' => $errorMessage,
+                'completed_at' => now(),
+                'lease_expires_at' => null,
+            ]) === 1;
+
+        $this->refresh();
+
+        return $failed;
+    }
+
+    /**
      * Extend the lease on this job.
      */
     public function extendLease(): void

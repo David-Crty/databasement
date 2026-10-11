@@ -6,6 +6,7 @@ use App\Services\Agent\AgentApiClient;
 use App\Services\Agent\AgentAuthenticationException;
 use App\Services\Agent\Runners\AgentJobRunner;
 use App\Services\Agent\Runners\BackupJobRunner;
+use App\Services\Agent\Runners\CleanupJobRunner;
 use App\Services\Agent\Runners\DiscoveryJobRunner;
 use App\Services\Agent\Runners\RestoreJobRunner;
 use Illuminate\Console\Command;
@@ -26,6 +27,7 @@ class AgentRunCommand extends Command
         BackupJobRunner::class,
         DiscoveryJobRunner::class,
         RestoreJobRunner::class,
+        CleanupJobRunner::class,
     ];
 
     private bool $shouldStop = false;
