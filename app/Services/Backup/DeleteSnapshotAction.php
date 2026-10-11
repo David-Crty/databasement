@@ -21,10 +21,10 @@ class DeleteSnapshotAction
      * Delete a snapshot with its file on every volume, or leave the files in
      * place when asked to.
      *
-     * The files of a server backed by an agent are deleted by that agent,
-     * which may be the only one able to reach them, so the snapshot stays
-     * marked as deleting until it reports back. Copies on the app's own local
-     * disk are still deleted here.
+     * The app deletes every copy it can reach itself. On a server backed by
+     * an agent, the copies it could not reach are handed to that agent, which
+     * may be the only one on the volume's network, and the snapshot stays
+     * marked as deleting until the agent reports back.
      *
      * @return bool True when the snapshot was deleted, false when its agent finishes the deletion
      *
@@ -40,13 +40,23 @@ class DeleteSnapshotAction
 
         $copies = $snapshot->files()->completed()->with('volume')->get();
 
-        $hasAgent = $snapshot->databaseServer->agent_id !== null;
-        $agentCopies = $copies->filter(fn (SnapshotFile $file): bool => $hasAgent && $file->volume->type !== VolumeType::LOCAL->value);
-        $appCopies = $copies->diff($agentCopies);
-
-        $this->recordRemovals($snapshot, $appCopies
+        // The app holds every volume's credentials, so it tries each copy
+        // first: only the network can keep it from a volume.
+        $outcomes = $copies
             ->mapWithKeys(fn (SnapshotFile $file): array => [$file->id => $this->removeFile($file)])
-            ->all());
+            ->all();
+
+        // What it could not reach goes to the server's agent, if any. Agents
+        // cannot back up to local volumes, so a local copy is on the app's own
+        // disk and an agent could not do better there.
+        $hasAgent = $snapshot->databaseServer->agent_id !== null;
+        $agentCopies = $copies->filter(fn (SnapshotFile $file): bool => $hasAgent
+            && $outcomes[$file->id] !== null
+            && $file->volume->type !== VolumeType::LOCAL->value);
+
+        // The app's error is not recorded on a copy handed to the agent: the
+        // agent's report decides what happens to it.
+        $this->recordRemovals($snapshot, array_diff_key($outcomes, $agentCopies->keyBy('id')->all()));
 
         if ($agentCopies->isNotEmpty()) {
             $snapshot->update(['deleting' => true]);

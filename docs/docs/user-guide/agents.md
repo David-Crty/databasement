@@ -173,10 +173,10 @@ Agents only pick up restore jobs once they run a version that supports them. An 
 
 ## Deleting snapshots through an agent
 
-Deleting a snapshot of an agent-backed server, by hand or through a [retention policy](./backups.md#retention-policies), deletes its files through the server's agent, since the volume may only be reachable from the agent's network. The snapshot shows as **Deleting** until the agent reports back, and is only removed once its file is gone from every volume. A file the agent could not delete keeps the snapshot, with the error on that volume's badge, and the next deletion tries again. Copies on Databasement's own local storage are still deleted by Databasement.
+Deleting a snapshot of an agent-backed server, by hand or through a [retention policy](./backups.md#retention-policies), first deletes its files from Databasement. A file Databasement cannot reach, such as one on a volume only reachable from the agent's network, is handed to the server's agent. The snapshot then shows as **Deleting** until the agent reports back, and is only removed once its file is gone from every volume. A file the agent could not delete keeps the snapshot, with the error on that volume's badge, and the next deletion tries again.
 
 Deleting a whole database server, volume or organization still deletes the files from Databasement directly. Tick **Keep backup files on storage** there when Databasement cannot reach the volume, and remove them on the agent's side.
 
 :::info Update your agents
-Agents only pick up deletions once they run a version that supports them. With an older agent, snapshots stay **Deleting** until the deletion times out, after the backup job timeout, and are then kept with their files.
+Agents only pick up deletions once they run a version that supports them. With an older agent, a snapshot whose file Databasement cannot reach stays **Deleting** until the deletion times out, after the backup job timeout, and is then kept with its file.
 :::
