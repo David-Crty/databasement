@@ -100,9 +100,9 @@ spec:
             {{ toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ["sh", "-c", "{{ .Values.worker.command }}"]
           env:
             {{ include "databasement.env" . | nindent 12 }}
+            {{ include "databasement.workerEnv" . | nindent 12 }}
           {{- with .Values.extraEnvFrom }}
           envFrom:
             {{ toYaml . | nindent 12 }}
@@ -182,9 +182,9 @@ spec:
             {{ toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args: ["sh", "-c", "php artisan db:wait && {{ .Values.worker.command }}"]
           env:
             {{ include "databasement.env" . | nindent 12 }}
+            {{ include "databasement.workerEnv" . | nindent 12 }}
           {{- with .Values.extraEnvFrom }}
           envFrom:
             {{ toYaml . | nindent 12 }}

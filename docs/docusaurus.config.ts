@@ -45,6 +45,7 @@ const config: Config = {
                     'self-hosting/native-ubuntu.md',
                     'self-hosting/configuration/**',
                     'self-hosting/versioning.md',
+                    'self-hosting/migrate-to-1-10.md',
                     'changelog.md',
                     'user-guide/intro.md',
                     'user-guide/database-servers.md',
@@ -210,7 +211,7 @@ const config: Config = {
         prism: {
             theme: prismThemes.github,
             darkTheme: prismThemes.dracula,
-            additionalLanguages: ['bash', 'yaml', 'docker'],
+            additionalLanguages: ['bash', 'yaml', 'docker', 'diff'],
         },
     } satisfies Preset.ThemeConfig,
 };

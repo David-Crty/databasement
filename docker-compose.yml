@@ -18,10 +18,10 @@ services:
     environment:
       TZ: UTC
       XDG_CONFIG_HOME: /tmp
-      # UID/GID for the application user (defaults to 1000:1000)
+      # PUID/PGID for the application user (defaults to 1000:1000)
       # Set these to match your host user for proper file permissions
-      UID: 1000
-      GID: 1000
+      PUID: 1000
+      PGID: 1000
     depends_on:
       - rustfs
 
@@ -32,12 +32,14 @@ services:
     volumes:
       - .:/app
       - app-data:/data
-    command: sh -c "php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000"
     restart: unless-stopped
     environment:
       TZ: UTC
-      UID: 1000
-      GID: 1000
+      ENABLE_QUEUE_WORKER: "true"
+      ENABLE_WEB_SERVER: "false"
+      ENABLE_SCHEDULER: "false"
+      PUID: 1000
+      PGID: 1000
     depends_on:
       - app
       - rustfs

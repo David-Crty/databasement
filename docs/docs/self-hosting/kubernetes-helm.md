@@ -151,12 +151,11 @@ persistence:
 
 ### Worker Configuration
 
-The queue worker runs as a sidecar container by default. You can customize its behavior:
+The queue worker runs as a sidecar container by default. You can customize its resources:
 
 ```yaml
 worker:
   enabled: true
-  command: "php artisan queue:work --queue=backups,default --tries=3 --timeout=3600"
   resources:
     limits:
       cpu: 500m
