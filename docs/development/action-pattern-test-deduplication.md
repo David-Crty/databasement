@@ -1,7 +1,7 @@
 # Test De-duplication Plan (Task 2)
 
 > **Audience:** Claude Code sessions (and reviewers) trimming duplicated tests after the action-pattern migration.
-> **Depends on:** [`action-pattern-migration.md`](action-pattern-migration.md) (Task 1). Run Task 2 for a domain only after that domain's Task 1 items are merged.
+> **Depends on:** [`action-pattern-migration.md`](action-pattern-migration.md) (Task 1). **Task 2 is one pull request**, opened after the Task 1 PR is merged and branched from the `main` that contains it.
 > **Baseline:** commit `52dac27` (2026-10-11). Line numbers drift; re-grep.
 
 ## 1. Goal
@@ -13,7 +13,7 @@ Today the same rule is often asserted three or four times, once per edge. For ex
 **Task 1 deliberately leaves those tests in place.** They prove the refactor preserved behavior. Task 2 removes the duplication once that proof has served its purpose.
 
 **Non-goals:**
-- Changing app code. Task 2 PRs touch `tests/` and test docs only. A missing assertion that reveals a bug becomes a separate `fix:` PR.
+- Changing app code. The Task 2 PR touches `tests/` and test docs only. A missing assertion that reveals a bug becomes a separate `fix:` PR.
 - Reducing coverage. See the safety gates in §4.
 - Rewriting tests that are not duplicates.
 
@@ -26,7 +26,7 @@ Today the same rule is often asserted three or four times, once per edge. For ex
 | **MCP tool** | Permission-denied text, validation-error text, the happy-path text (ids returned), argument mapping. Authorization over HTTP stays in `McpHttpAuthorizationTest`. | Business variations. |
 | **Console command** | Exit codes, output lines, option and argument mapping, the command's own loop logic (per-item error isolation, schedule selection). | Outcomes of the action it calls. |
 | **Queue job** | Job-specific behavior: retries, `failed()` hooks, the quota no-retry rule, chunking, lock and skip handling that lives in `handle()`. | Outcomes of the actions it calls. |
-| **Agent API** | **Keep the protocol tests thorough:** status codes, payload shapes, `rejectUnlessActive` 403/409, legacy (≤1.8) compatibility, lease and heartbeat behavior. Agent compatibility is a release guarantee, so this edge stays thick. | Business outcomes of handler `complete()`/`fail()` that now live in `Complete*`/`Fail*`/`Finish*` actions (Task 1, items 1.3, 1.9 and 1.10). |
+| **Agent API** | **Keep the protocol tests thorough:** status codes, payload shapes, `rejectUnlessActive` 403/409, legacy (≤1.8) compatibility, lease and heartbeat behavior. Agent compatibility is a release guarantee, so this edge stays thick. | Business outcomes of handler `complete()`/`fail()` that now live in `Complete*`/`Fail*`/`Finish*` actions (Task 1, steps 1.3, 1.9 and 1.10). |
 
 **Proving input mapping without re-testing logic.** When an edge has several input variations that only change the action's arguments, keep one real happy path. Express the other variations with the action fake:
 
@@ -49,11 +49,11 @@ test('backup_id selects which configuration the api triggers', function () {
 
 Use `shouldRun()` only for mapping tests. **The single happy path per edge stays unmocked**, so the full wiring keeps an end-to-end check, as `CLAUDE.md` asks ("don't mock simple things").
 
-## 3. Procedure (one PR per domain)
+## 3. Procedure (one PR, one commit per domain)
 
-**Order:** Snapshot → Restore/ScheduledRestore → Backup → BackupSchedule → Volume → DatabaseServer → Agent → Role. This follows the order of the Task 1 items.
+**Order of the commits:** Snapshot → Restore/ScheduledRestore → Backup → BackupSchedule → Volume → DatabaseServer → Agent → Role. This follows the order of the Task 1 steps. A first commit ships the guardrails of §7.
 
-For each domain:
+For each domain (one commit each, subject `test: assert <domain> business rules once, in the action tests`):
 
 1. **Close coverage gaps first.**
    - Make sure every action in the domain has its own test file (§6 lists the ones still missing after Task 1).
@@ -64,16 +64,18 @@ For each domain:
    - **DELETE:** an action test with equivalent setup and assertion exists, and the ledger names it.
    - **MOVE:** a business case with no action equivalent. Write the action test, then delete the edge copy.
 3. **Apply the changes.** Prefer removing whole `test()` blocks over editing assertions inside a kept test, unless the kept test only needs a business assertion dropped.
-4. **Run the safety gates** (§4).
-5. **Open the PR.**
-   - **Title:** `test: assert <domain> business rules once, in the action tests`. The `test:` type is skipped in the changelog.
-   - **Body:** a table of **every deleted or converted test** (`file`, `test name`, covering action test). `CLAUDE.md` forbids deleting tests without approval, so this table is the approval request and the reviewer signs off on it.
+4. **Run the safety gates** (§4) and commit. Every commit leaves the suite green.
 
-## 4. Safety gates (every Task 2 PR)
+Then open the PR:
+- **Title:** `test: assert business rules once, in the action tests`. The `test:` type is skipped in the changelog.
+- **Body:** one section per domain commit, each with a table of **every deleted or converted test** (`file`, `test name`, decision, covering action test). `CLAUDE.md` forbids deleting tests without approval, so these tables are the approval request and the reviewer signs off on them.
+- Include the coverage comparison of §4 (one line per `app/` file whose covered lines changed, or "no change").
+
+## 4. Safety gates (each domain commit, and the PR)
 
 1. **`make test` is green.**
 2. **No coverage lost.**
-   - Run `make test-coverage` on the base branch and on the PR branch. CI already produces `coverage.xml` (clover) via `.github/workflows/tests.yml`.
+   - Run `make test-coverage` on `main` and on the branch head (after each domain commit, or at least once before opening the PR). CI already produces `coverage.xml` (clover) via `.github/workflows/tests.yml`.
    - Compare **covered lines per file under `app/`**. No file may lose a covered line.
    - A short throwaway script in the scratchpad that diffs the two clover files is enough. Do not commit it.
    - If a line becomes uncovered, an edge test was the only thing exercising it. Restore the test, or move it to the action test.
@@ -90,7 +92,7 @@ For each domain:
 ## 5. Duplication ledger
 
 **Who writes what:**
-- Task 1 PRs **append** rows. Task 2 PRs fill in the "Decision" column and remove rows once applied.
+- Each Task 1 step **appends** rows. The Task 2 PR fills in the "Decision" column, applies it, and removes each row once applied (the PR body keeps the record).
 - Rows marked `seed` come from the inventory taken before Task 1 (line numbers at `52dac27`).
 
 **Decisions:** `KEEP` / `CONVERT` / `DELETE` / `MOVE` (§3).
@@ -101,9 +103,9 @@ For each domain:
 | Backup | `Console/RunScheduledBackupsTest.php:187` (agent jobs created) | `TriggerBackupActionTest.php` (~:154) | | seed |
 | Backup | `Console/RunScheduledBackupsTest.php:82` (multiple databases → multiple jobs) | `TriggerBackupActionTest.php` (~:45) | | seed |
 | Backup | `Api/DatabaseServerCrudApiTest.php:876`, `:894` and `Mcp/McpServerTest.php:298`, `:322` (which backup configuration is triggered) | none. The rule is `DatabaseServer::backupToTrigger()`: add a model test in `tests/Feature/Models/DatabaseServerTest.php`, then CONVERT the edges to mapping tests (§2 example) | | seed |
-| Snapshot | `Livewire/Snapshot/IndexTest.php:368`, `:447`; `Api/SnapshotApiTest.php:155`; `Jobs/DeleteSnapshotsJobTest.php:43` (locked / running snapshots skipped) | `Actions/Snapshot/DispatchSnapshotDeletionActionTest.php` (Task 1, item 1.3) | | seed |
+| Snapshot | `Livewire/Snapshot/IndexTest.php:368`, `:447`; `Api/SnapshotApiTest.php:155`; `Jobs/DeleteSnapshotsJobTest.php:43` (locked / running snapshots skipped) | `Actions/Snapshot/DispatchSnapshotDeletionActionTest.php` (Task 1, step 1.3) | | seed |
 | Snapshot | `Jobs/DeleteSnapshotsJobTest.php:19`; `Services/Backup/SnapshotCleanupServiceTest.php:39`; `Snapshot/SnapshotFileTest.php:45` (an unreachable volume keeps the snapshot) | `Actions/Snapshot/DeleteSnapshotActionTest.php`, `FinishSnapshotDeletionActionTest.php` (1.3) | | seed |
-| Snapshot | `DemoModeTest.php:119` (Livewire) and `:135` (API) (demo delete is a no-op) | none. Demo handling is edge-owned after item 1.3. | KEEP | seed |
+| Snapshot | `DemoModeTest.php:119` (Livewire) and `:135` (API) (demo delete is a no-op) | none. Demo handling is edge-owned after step 1.3. | KEEP | seed |
 | ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:88`; `Api/ScheduledRestoreCrudApiTest.php:215`; `Console/RunScheduledRestoresTest.php:15` (a disabled definition runs without being enabled) | `Actions/ScheduledRestore/RunScheduledRestoreActionTest.php` (1.1) | | seed |
 | ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:59`; `Console/RunScheduledRestoresTest.php:34` (no snapshot → skipped) | `RunScheduledRestoreActionTest.php` (1.1) | | seed |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
@@ -118,7 +120,7 @@ Cover these first (step 1 of §3) when their domain comes up. Today they are rea
 
 ## 7. Keeping duplication from coming back
 
-Ship these with the first Task 2 PR.
+Ship these as the first commit of the Task 2 PR.
 
 1. **Add a "Where does a test go?" table to `CLAUDE.md`**, under "Test Strategy":
 

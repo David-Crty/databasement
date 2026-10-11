@@ -1,21 +1,28 @@
 # Action Pattern Migration Plan (Task 1)
 
 > **Audience:** Claude Code sessions (and reviewers) carrying out the migration.
-> **Companion:** [`action-pattern-test-deduplication.md`](action-pattern-test-deduplication.md) is Task 2. It trims the duplicated entry-point tests once this task is done, using the ledger this task fills in.
+> **Companion:** [`action-pattern-test-deduplication.md`](action-pattern-test-deduplication.md) is Task 2. It is a separate PR that trims the duplicated entry-point tests after this task's PR is merged, using the ledger this task fills in.
 > **Baseline:** commit `52dac27` (2026-10-11). Line numbers below come from that commit and will drift, so always re-grep before editing.
 
 ## How to use this document
 
-- Each work item (`0.1`, `0.2`, `1.1`, …) is **one pull request**. Do them in order: later items depend on earlier ones (1.7 must land before 1.8, for example).
-- Before starting an item:
+- **Task 1 is a single pull request.** The work items (`0.1`, `0.2`, `1.1` … `1.10`) are **steps inside that PR**, done in order. Later steps depend on earlier ones (1.7 must come before 1.8, for example).
+- **Each step is one commit, or a few** when the step says to split it.
+  - Every commit leaves the suite green, so reviewers can go commit by commit and a failure can be bisected inside the branch.
+  - Each commit's subject is the **Commit subject** the step gives.
+- **Before starting a step:**
   1. Read **§2 Conventions** and **§3 Testing**.
-  2. Then read every file the item names.
+  2. Then read every file the step names.
   3. Re-locate the call sites with `grep`, because line numbers drift.
-- An item is done only when its **Definition of done** (§6) holds.
-- Follow the repository rules in `CLAUDE.md`:
+- A step is done only when the per-commit checks of §6.1 hold. The PR is done when the per-PR checks of §6.2 hold.
+- **PR workflow:**
+  - Open the PR as a **draft** right after step 0.1 is pushed, so CI runs on every later push.
+  - The branch lives a long time, so keep it current by **merging** `main` into it (no rebase of pushed commits), and re-run the full suite after each merge.
+  - Mark it ready for review once step 1.10 is in and §6.2 holds.
+- **Follow the repository rules in `CLAUDE.md`:**
   - Run PHP only through Docker or the Makefile.
   - Gate on `make test`, never `make test-tia`.
-  - Use conventional-commit PR titles.
+  - Use conventional-commit titles.
   - Do not edit `CHANGELOG.md`.
 - In a git worktree, load the `worktree-development` skill first.
 
@@ -27,8 +34,9 @@
 |---|---|---|
 | D1 | Use **`lorisleiva/laravel-actions`**, but only the **`AsObject` + `AsFake`** traits. | Actions expose `handle()`. They are called with `X::run(...)` and faked in tests with `X::shouldRun()`, `X::mock()`, etc. We never use `AsAction`, `AsController`, `AsJob`, `AsCommand` or `AsListener` (reasons in §2.11). |
 | D2 | Scope is **Phase 0 (foundation) + Phase 1 (operations reachable from two or more entry points)**. | Livewire-only mutations, agent claim/heartbeat, retention and verification services, org merge, OAuth and similar are **out of scope**. They are listed in §7 as follow-ups. |
-| D3 | When unifying twins reveals a **behavior divergence, fix it inside the refactor PR** that unifies it. | Each item lists its divergences and the behavior that wins. A PR that changes behavior someone could notice gets a `fix:` (or `fix(api):`) title so it reaches the changelog. A purely structural PR is `chore:`. See §6. |
+| D3 | When unifying twins reveals a **behavior divergence, fix it inside this PR**, in the step that unifies it. | Each step lists its divergences and the behavior that wins. A step that changes behavior someone could notice gets a `fix:` (or `fix(api):`, `fix(agent):`) commit subject, and the PR body lists every behavior change so the release changelog picks them up. A purely structural step is `chore:`. See §6. |
 | D4 | **Action tests own business logic.** | New `tests/Feature/Actions/<Domain>/<Name>ActionTest.php` files. Entry-point tests stay **untouched** in Task 1: they are the regression net that proves behavior did not change. Every duplicated assertion is recorded in the ledger, and Task 2 removes the duplication. |
+| D5 | **Task 1 is one PR; Task 2 is another PR**, opened after Task 1 is merged. | The steps below are commits, not PRs. Task 2 has no app-code changes. |
 
 ---
 
@@ -52,14 +60,14 @@ Databasement changes state from six kinds of entry point ("edges"):
   - **Starting a restore:** `BackupJobFactory::createRestore` followed by `DispatchRestoreAction` is copy-pasted four times (Livewire `Restore/Modal::restore`, API `DatabaseServerController::restore`, MCP `TriggerRestoreTool`, `RunScheduledRestoreAction`).
   - **CRUD twins:** create/update/delete for servers, volumes, SSH configs, backup schedules and scheduled restores is duplicated between Livewire and the API.
   - **Backup/restore completion:** written twice, once in `ProcessBackupJob`/`ProcessRestoreJob` and once in `BackupJobHandler`/`RestoreJobHandler`.
-- **The copies have drifted.** There are 17+ behavior divergences, listed per item in §5. Examples:
+- **The copies have drifted.** There are 17+ behavior divergences, listed per step in §5. Examples:
   - The API deletes a backup schedule that is in use and hits an FK error (500).
   - The API and Livewire clear SSH credentials differently.
   - The agent backup path never sends the storage-limit warning.
 - **Layering is inverted in places:**
   - `SyncBackupConfigurationsAction` imports `App\Livewire\DatabaseServer\BackupForm`.
   - `DeleteSnapshotsJob::dispatchFor` reads `auth()`.
-  - `DemoBackupService` reads the ambient `CurrentOrganization`, which is likely unresolved during first-user registration (§5, item 1.8).
+  - `DemoBackupService` reads the ambient `CurrentOrganization`, which is likely unresolved during first-user registration (§5, step 1.8).
 - **Tests mirror the duplication:**
   - Only `TriggerBackupAction` has its own test file.
   - Entry-point tests re-assert business outcomes. For example, "locked snapshots are skipped" is asserted in the Livewire, API and job tests.
@@ -69,7 +77,7 @@ Databasement changes state from six kinds of entry point ("edges"):
 
 ## 2. Conventions (the contract)
 
-PR 0.2 copies this section, edited lightly, into `docs/development/actions.md` and adds a short summary to `CLAUDE.md` (§4, item 0.2).
+Step 0.2 copies this section, edited lightly, into `docs/development/actions.md` and adds a short summary to `CLAUDE.md` (§4, step 0.2).
 
 ### 2.1 Anatomy of an action
 
@@ -144,7 +152,7 @@ Rules:
 
 #### Class name: `<Verb><Subject>[<Qualifier>]Action`
 
-- **Verb:** imperative and taken from the **controlled vocabulary** below. To add a verb, add a row to the table in `docs/development/actions.md` in the same PR, with its meaning and return type.
+- **Verb:** imperative and taken from the **controlled vocabulary** below. To add a verb, add a row to the table in `docs/development/actions.md` in the same commit, with its meaning and return type.
 - **Subject:** the domain noun as the codebase names it (`Volume`, `DatabaseServer`, `Snapshot`, `BackupSchedule`, `ScheduledRestore`, `AgentJob`, `Role`, …).
   - Use the **singular** for one record and the **plural** only for set operations (`SyncBackupConfigurationsAction`, `SyncUserAbilitiesAction`).
   - A subject may be shortened only where it stays unambiguous inside its domain folder (`SshConfig` for `DatabaseServerSshConfig`).
@@ -232,7 +240,7 @@ The domain is the singular model area the action belongs to, matching the Livewi
 
 - **Prefer typed parameters**, plus explicit context: `Organization $organization` for anything that creates org-owned records, and `?int $triggeredByUserId`.
 - For create/update of wide records (servers, volumes, scheduled restores), accept **one validated attribute array** documented with a PHPStan array shape. Both edges already produce such an array (`$request->validated()`, Livewire form data). Do not introduce a DTO just to wrap it.
-- Introduce an **input DTO** only when normalization logic must be shared. `RestoreOptions` (item 1.1) is the only planned one.
+- Introduce an **input DTO** only when normalization logic must be shared. `RestoreOptions` (step 1.1) is the only planned one.
 - **Never pass:** `Request`, FormRequest, Livewire components or Forms, `Laravel\Mcp\Request`, or `Command`.
 
 ### 2.6 Outputs
@@ -245,14 +253,14 @@ The domain is the singular model area the action belongs to, matching the Livewi
 | Situation | Action throws | Livewire | REST API | MCP |
 |---|---|---|---|---|
 | Input the user can fix (domain invariant tied to a field) | `ValidationException::withMessages(['<action input key>' => '…'])`, keyed by the **action's** input names (for example `target_server_id`), as `SyncBackupConfigurationsAction` already does | Let it bubble through `withValidationFeedback()`; remap keys to `form.*` only if the field must be highlighted | 422 (default rendering) | `Response::error(collect($e->errors())->flatten()->implode(' '))` |
-| State conflict (in use, in progress, locked) | Dedicated exception in `App\Exceptions\<Domain>\`, carrying the data the edges need for their message | `$this->error(__('…'))` toast | 409 with `{message}` (add `@response 409` for Scramble) unless the item says otherwise | `Response::error('…')` |
+| State conflict (in use, in progress, locked) | Dedicated exception in `App\Exceptions\<Domain>\`, carrying the data the edges need for their message | `$this->error(__('…'))` toast | 409 with `{message}` (add `@response 409` for Scramble) unless the step says otherwise | `Response::error('…')` |
 | Infrastructure failure | Let it propagate (or a domain exception that wraps it) | Existing `report()` + toast pattern | 500 / existing behavior | `Response::error` |
 
 ### 2.8 Transactions and side effects
 
 - An action that writes more than one row wraps the writes in `DB::transaction()`.
 - Side effects that leave the database (queue dispatch, notifications, storage I/O, Bouncer cache refresh):
-  - Never move them into or out of a transaction during a refactor unless the item says so. The current ordering is load-bearing; for example, `DeleteSnapshotsJob::dispatchFor` marks rows, dispatches, and rolls back the flag if the dispatch throws.
+  - Never move them into or out of a transaction during a refactor unless the step says so. The current ordering is load-bearing; for example, `DeleteSnapshotsJob::dispatchFor` marks rows, dispatches, and rolls back the flag if the dispatch throws.
   - New code defers them with `DB::afterCommit()`, following the `AssignRoleToUserAction` precedent.
 - Storage deletions stay **outside** DB transactions (see the reasoning in `OrganizationMergeService`).
 
@@ -282,7 +290,7 @@ The domain is the singular model area the action belongs to, matching the Livewi
 2. **Never rename or move a queued job class** (`App\Jobs\*`) as part of this migration. Serialized payloads reference the class name.
 3. **Fakes apply at resolution time.** `X::shouldRun()` / `X::mock()` registers a mock that the container returns on every *later* resolution of `X`. `X::run()` resolves on each call, so fakes always apply. An action instance captured earlier (injected, or kept in a property) would bypass the fake, which is one more reason §2.3 forbids holding instances.
 4. **`make` is reserved** by `AsObject::make()`. `run` and `mock` are reserved too.
-5. **Agent API compatibility** (`CLAUDE.md`, Agent Mode): items touching `AgentController` or `Services/Agent/*` must keep every `/api/v1/agent/*` request and response byte-for-byte identical. `tests/Feature/Agent/*` must pass **unchanged**.
+5. **Agent API compatibility** (`CLAUDE.md`, Agent Mode): steps touching `AgentController` or `Services/Agent/*` must keep every `/api/v1/agent/*` request and response byte-for-byte identical. `tests/Feature/Agent/*` must pass **unchanged**.
 
 ---
 
@@ -330,15 +338,15 @@ test('it creates a restore and queues it for a server the app reaches', function
   - namespaces;
   - `app(X::class)->execute(...)` becomes `X::run(...)`;
   - a Mockery partial of an action becomes `X::partialMock()` or `X::shouldRun()`. The only current case is `tests/Feature/Services/Backup/SnapshotCleanupServiceTest.php` (around line 60).
-- **For each divergence an item fixes, add or adjust the test at the edge where the behavior changed.** For example: the API now returns 409 when deleting a schedule in use.
+- **For each divergence a step fixes, add or adjust the test at the edge where the behavior changed.** For example: the API now returns 409 when deleting a schedule in use.
 - Do not add new business-rule assertions to entry-point tests. They go in the action test.
-- Where an item adds an authorization check (items 1.1 and 1.7), add the allow/deny pair named by ability (`withAbilities([…])` / `withAllAbilitiesExcept(…)`), following `CLAUDE.md`.
+- Where a step adds an authorization check (steps 1.1 and 1.7), add the allow/deny pair named by ability (`withAbilities([…])` / `withAllAbilitiesExcept(…)`), following `CLAUDE.md`.
 
 ### 3.3 Duplication ledger (input for Task 2)
 
-Every Task 1 PR appends rows to the ledger table in [`action-pattern-test-deduplication.md` §5](action-pattern-test-deduplication.md#5-duplication-ledger). Each row names an existing entry-point test that now duplicates an action test, and the action test that covers it. Task 2 consumes this list.
+Every Task 1 step appends rows to the ledger table in [`action-pattern-test-deduplication.md` §5](action-pattern-test-deduplication.md#5-duplication-ledger). Each row names an existing entry-point test that now duplicates an action test, and the action test that covers it. Task 2 consumes this list.
 
-### 3.4 Architecture tests (added in PR 0.1)
+### 3.4 Architecture tests (added in step 0.1)
 
 Add `tests/Unit/ArchitectureTest.php`. Arch tests need no Laravel app; `tests/Pest.php` binds no TestCase for `Unit`.
 
@@ -383,17 +391,17 @@ arch('only edges depend on Livewire')
 
 - **Verify against Pest 5 when installing.** If the `not->toUse([...])` expectation cannot see global helper calls (`auth()`, `request()`, `session()`), add a small test that scans `app/Actions/**/*.php` (excluding `Fortify`) for `\b(auth|request|session)\(` and fails on a match.
 - **Expected failures of the "only edges depend on Livewire" rule today:**
-  - `SyncBackupConfigurationsAction` → `BackupForm`. Fixed in the same PR (0.1, step 9).
+  - `SyncBackupConfigurationsAction` → `BackupForm`. Fixed in the same step (0.1, sub-step 9).
   - `VolumeType::configClass()` builds a Livewire class name from a string, which the arch test cannot see. It is a known exception, tracked in §7.
-  - If the test catches anything else, list it with `->ignoring()` and a `// TODO(action-pattern): …` comment, and record it in §7. Do not widen the PR to fix it.
+  - If the test catches anything else, list it with `->ignoring()` and a `// TODO(action-pattern): …` comment, and record it in §7. Do not widen the migration to fix it.
 
 ---
 
-## 4. Phase 0: Foundation (2 PRs)
+## 4. Phase 0: Foundation (2 steps)
 
-### Item 0.1: Adopt laravel-actions and move the existing actions to `app/Actions`
+### Step 0.1: Adopt laravel-actions and move the existing actions to `app/Actions`
 
-**Title:** `chore: move the existing actions to app/Actions on laravel-actions`
+**Commit subject:** `chore: move the existing actions to app/Actions on laravel-actions`
 
 1. **Install the package:**
    ```bash
@@ -423,7 +431,7 @@ arch('only edges depend on Livewire')
    - rename `execute(` to `handle(`;
    - replace injected actions with `Other::run(...)`. For example, `TriggerBackupAction` drops `DispatchBackupAction`/`DispatchDiscoveryAction` from its constructor.
    - Keep signatures otherwise identical. Behavior changes wait for Phase 1.
-5. **`DeleteSnapshotAction` exception.** It currently has three public methods; `recordRemovals` and `deleteUnlessFilesRemain` are also called by `CleanupJobHandler::finishDeletion`. Leave them public in 0.1 (the arch test only checks that `handle` exists). Item 1.3 splits them.
+5. **`DeleteSnapshotAction` exception.** It currently has three public methods; `recordRemovals` and `deleteUnlessFilesRemain` are also called by `CleanupJobHandler::finishDeletion`. Leave them public in 0.1 (the arch test only checks that `handle` exists). Step 1.3 splits them.
 6. **Rewrite every call site to `X::run(...)` and remove the injected parameters:**
    - Livewire:
      - `DatabaseServer/Index::runBackup`, `runBackupAll`
@@ -456,16 +464,16 @@ arch('only edges depend on Livewire')
    - Make the mechanical edits from §3.2 across the suite (`app(…Action::class)->execute(` → `…Action::run(`).
    - Convert the partial mock in `SnapshotCleanupServiceTest` to `DeleteSnapshotAction::partialMock()->shouldReceive('handle')…`.
    - Add `tests/Unit/ArchitectureTest.php` (§3.4).
-9. **Move the Livewire helpers the moved action depends on.** The arch test must be green from this PR on, so this step cannot wait.
+9. **Move the Livewire helpers the moved action depends on.** The arch test must be green from this commit on, so this cannot wait.
    - Move `BackupForm::normalizeSelection()` and `BackupForm::toPersistedData()` (`app/Livewire/DatabaseServer/BackupForm.php`, around lines 88–163) to a framework-free helper, `App\Support\BackupConfiguration` (static methods, same signatures).
    - Point `BackupForm`'s own callers (9 call sites in `DatabaseServer/Form`, plus the blades `_backup-form.blade.php` and `show.blade.php`) and `SyncBackupConfigurationsAction` at it.
    - Update the blades directly. Do not leave proxies on `BackupForm`.
 10. **Docs references:** update every mention of the old paths in `CLAUDE.md` ("Agent job types": `Dispatch*Action`; Authorization: `app/Services/Roles/`) and in docblocks. One example is the stale `DatabaseServerForm::update/store` mention in `SyncBackupConfigurationsAction`.
 11. **Done when:** `make lint-fix`, `make phpstan` and `make test` all pass, and **no test file except the mechanical edits changed**.
 
-### Item 0.2: Document the conventions
+### Step 0.2: Document the conventions
 
-**Title:** `docs: document the action conventions`
+**Commit subject:** `docs: document the action conventions`
 
 1. **Create `docs/development/actions.md`** from §2 of this file. Drop the "decisions" framing and keep the rules, vocabulary table, folder table, edge-vs-action table, error mapping and gotchas.
 3. **Add a short `### Actions` section to `CLAUDE.md`** under "Key Patterns" (about 10 lines) pointing to `docs/development/actions.md`. It must state:
@@ -479,11 +487,11 @@ arch('only edges depend on Livewire')
 
 ---
 
-## 5. Phase 1: Operations shared by several edges (10 PRs)
+## 5. Phase 1: Operations shared by several edges (10 steps)
 
-Each item lists: **new or changed actions**, **callers to rewrite**, **divergences to fix (and the behavior that wins)**, **tests**, the **PR title**, and **risks**.
+Each step lists: **new or changed actions**, **callers to rewrite**, **divergences to fix (and the behavior that wins)**, **tests**, the **commit subject**, and **risks**.
 
-### Item 1.1: Starting a restore → `TriggerRestoreAction`
+### Step 1.1: Starting a restore → `TriggerRestoreAction`
 
 **Actions**
 - New `App\Actions\Restore\TriggerRestoreAction` (full code in §2.1): `BackupJobFactory::createRestore` + `DispatchRestoreAction::run`.
@@ -523,10 +531,10 @@ Each item lists: **new or changed actions**, **callers to rewrite**, **divergenc
   - Livewire `Restore/ModalTest`, `Api/RestoreApiTest`, `Mcp/McpServerTest` ("trigger restore" block), `Agent/AgentRestoreTest`;
   - `Livewire/ScheduledRestore/IndexTest`, `Api/ScheduledRestoreCrudApiTest` ("run" cases), `Console/RunScheduledRestoresTest`.
 
-**Title:** `chore: start every restore through TriggerRestoreAction`
-**Risk:** low. This is the template PR for the pattern, so review it carefully.
+**Commit subject:** `chore: start every restore through TriggerRestoreAction`
+**Risk:** low. This is the template step for the pattern, so review its commit carefully.
 
-### Item 1.2: Backup trigger returns data, not messages
+### Step 1.2: Backup trigger returns data, not messages
 
 **Actions**
 - `TriggerBackupAction::handle()` returns a new `App\Services\Backup\DTO\TriggerBackupResult` instead of `array{snapshots, discovery, message}`:
@@ -546,10 +554,10 @@ Each item lists: **new or changed actions**, **callers to rewrite**, **divergenc
 - Run `make update-translation` (or at least `make check-translation`): two keys leave `lang/*.json` and the new Livewire keys are added.
 
 **Tests:** update `TriggerBackupActionTest` to the DTO. Edge tests keep their message assertions, so this is a mechanical shape update.
-**Title:** `chore: return a result object from TriggerBackupAction`
+**Commit subject:** `chore: return a result object from TriggerBackupAction`
 **Risk:** low.
 
-### Item 1.3: Snapshot deletion
+### Step 1.3: Snapshot deletion
 
 **Actions**
 - New `App\Actions\Snapshot\DispatchSnapshotDeletionAction::handle(Builder $query, bool $keepFiles = false): int`.
@@ -594,10 +602,10 @@ Each item lists: **new or changed actions**, **callers to rewrite**, **divergenc
   - `Services/Backup/SnapshotCleanupServiceTest` ("unreachable volume keeps the snapshot");
   - `Snapshot/SnapshotFileTest`.
 
-**Title:** `chore: route snapshot deletion through actions`
+**Commit subject:** `chore: route snapshot deletion through actions`
 **Risk:** medium. Run the full suite, and `tests/Feature/Agent/*` must pass unchanged.
 
-### Item 1.4: Backup schedules
+### Step 1.4: Backup schedules
 
 **Actions** (in `App\Actions\BackupSchedule\`)
 - `CreateBackupScheduleAction::handle(array $attributes): BackupSchedule`, with attributes shaped `array{name: string, expression: string}`.
@@ -619,10 +627,10 @@ Each item lists: **new or changed actions**, **callers to rewrite**, **divergenc
 - Action tests: create; update; delete; delete refused for each of the two references.
 - `Api/BackupScheduleCrudApiTest`: deleting an in-use schedule returns 409 and keeps it.
 
-**Title:** `fix(api): refuse to delete a backup schedule that is still in use`
+**Commit subject:** `fix(api): refuse to delete a backup schedule that is still in use`
 **Risk:** low.
 
-### Item 1.5: Scheduled restores (definitions)
+### Step 1.5: Scheduled restores (definitions)
 
 **Actions** (in `App\Actions\ScheduledRestore\`)
 - `CreateScheduledRestoreAction::handle(array $attributes): ScheduledRestore`.
@@ -647,10 +655,10 @@ Each item lists: **new or changed actions**, **callers to rewrite**, **divergenc
 - Action tests: create; update; delete; app-database target rejected; options normalized.
 - API test: saving a scheduled restore onto the app database returns 422.
 
-**Title:** `fix(api): reject a scheduled restore onto the application database when it is saved`
+**Commit subject:** `fix(api): reject a scheduled restore onto the application database when it is saved`
 **Risk:** low.
 
-### Item 1.6: Volumes
+### Step 1.6: Volumes
 
 **Actions** (in `App\Actions\Volume\`)
 - `CreateVolumeAction::handle(Organization $organization, VolumeType $type, string $name, array $config): Volume`:
@@ -681,10 +689,10 @@ Each item lists: **new or changed actions**, **callers to rewrite**, **divergenc
   - delete with and without `keepFiles`.
 - API test: duplicate name returns 422.
 
-**Title:** `fix(api): reject a volume whose name is already taken`
+**Commit subject:** `fix(api): reject a volume whose name is already taken`
 **Risk:** low to medium (config encryption round-trips).
 
-### Item 1.7: SSH configs
+### Step 1.7: SSH configs
 
 **Actions** (in `App\Actions\DatabaseServer\`)
 - `CreateSshConfigAction::handle(Organization $organization, array $attributes): DatabaseServerSshConfig`.
@@ -714,10 +722,10 @@ Each item lists: **new or changed actions**, **callers to rewrite**, **divergenc
   - delete refused while in use.
 - Livewire `DatabaseServer/EditTest`: switching the SSH auth type clears the stale password or key.
 
-**Title:** `fix: clear the unused SSH credentials when a server's SSH settings change`
+**Commit subject:** `fix: clear the unused SSH credentials when a server's SSH settings change`
 **Risk:** medium (shared SSH configs). Must land before 1.8.
 
-### Item 1.8: Database servers (and the demo backup)
+### Step 1.8: Database servers (and the demo backup)
 
 **Actions** (in `App\Actions\DatabaseServer\`)
 
@@ -773,7 +781,7 @@ public function handle(
 - **Not atomic.** The API created or updated the server and synced backups without a transaction. **Fix:** one transaction for every edge. In Livewire, the SSH config upsert also moves inside the transaction (it was outside).
 - **Demo backup at first registration** (suspected bug, **verify first**). `DemoBackupService` reads `CurrentOrganization::id()`. During guest registration, `SetCurrentOrganization` resets the context and resolves nothing, so `id()` very likely fails, and `CreateNewUser` swallows the `Throwable`. Tests hide it: `tests/Pest.php` sets the org globally, and `RegistrationTest` mocks the service.
   - **First** write a failing test in `tests/Feature/Auth/RegistrationTest.php`: reset `CurrentOrganization` before posting `create_demo_backup=1`, and assert that the server and volume exist.
-  - If it fails, title the PR `fix: create the demo backup when the first user registers`. If it passes, the bug does not exist; use the `chore:` title and keep the test.
+  - If it fails, use the commit subject `fix: create the demo backup when the first user registers`. If it passes, the bug does not exist; use the `chore:` subject and keep the test.
 - **Not changed (out of scope, §7):**
   - the two rule sets (`SaveDatabaseServerRequest` vs Livewire `Form` + `BackupForm` + `ConnectionRules`);
   - API field coverage (`ssl_enabled`, notifications, inline SSH);
@@ -794,10 +802,10 @@ public function handle(
   - no-op when backups are disabled.
 - Ledger: `DatabaseServer/CreateTest`, `EditTest`, `Api/DatabaseServerCrudApiTest` (backup sync cases), `Livewire/DatabaseServer/IndexTest` (delete).
 
-**Title:** `fix: create the demo backup when the first user registers`, or `chore: save database servers through actions` if the bug is not confirmed.
-**Risk:** high, as the largest form. Split the PR in two if the diff exceeds about 800 lines: (a) actions plus the API, (b) the Livewire form plus `DemoBackupService`.
+**Commit subject:** `fix: create the demo backup when the first user registers`, or `chore: save database servers through actions` if the bug is not confirmed.
+**Risk:** high, as the largest form. Split the step into two commits if the diff exceeds about 800 lines: (a) actions plus the API, (b) the Livewire form plus `DemoBackupService`.
 
-### Item 1.9: Failing an agent job → `FailAgentJobAction`
+### Step 1.9: Failing an agent job → `FailAgentJobAction`
 
 **Action:** `App\Actions\Agent\FailAgentJobAction`
 
@@ -828,12 +836,12 @@ public function handle(AgentJob $agentJob, string $reason, array $result = [], a
 - merges logs before the handler runs;
 - `onlyIfPending` leaves a claimed job untouched and returns false.
 
-**Title:** `chore: fail agent jobs through FailAgentJobAction`
+**Commit subject:** `chore: fail agent jobs through FailAgentJobAction`
 **Risk:** low to medium (agent protocol).
 
-### Item 1.10: Backup and restore outcomes (queue path and agent path)
+### Step 1.10: Backup and restore outcomes (queue path and agent path)
 
-Do this item last. **Write characterization tests before moving any code.**
+Do this step last. **Write characterization tests before moving any code.**
 
 **Actions** (`App\Actions\Backup\`, `App\Actions\Restore\`)
 - `RecordBackupResultAction::handle(Snapshot $snapshot, BackupResult $result): void`.
@@ -870,37 +878,45 @@ Do this item last. **Write characterization tests before moving any code.**
 - Then the action tests.
 - `Notification::fake()` is already global (`tests/TestCase.php`); assert with `Notification::assertSentTo…` as the existing tests do.
 
-**Title:** `fix(agent): send the storage limit warning for backups taken by an agent`
-**Risk:** high. Agent API responses must stay identical. If the diff grows past about 800 lines, split it into 1.10a (backup) and 1.10b (restore).
+**Commit subject:** `fix(agent): send the storage limit warning for backups taken by an agent`
+**Risk:** high. Agent API responses must stay identical. If the diff grows past about 800 lines, split the step into two commits: 1.10a (backup) and 1.10b (restore).
 
 ---
 
-## 6. Definition of done (every PR)
+## 6. Definition of done
 
-1. **No copy left:** `grep` finds no remaining inline copy of the logic the item extracted, and every listed caller uses `X::run(...)`.
-2. **Checks pass:** `make lint-fix`, `make phpstan` and `make test` (full suite, parallel). TIA is never a gate.
+### 6.1 Every step (each commit)
+
+1. **No copy left:** `grep` finds no remaining inline copy of the logic the step extracted, and every listed caller uses `X::run(...)`.
+2. **Checks pass:** `make lint-fix`, `make phpstan` and `make test` (full suite, parallel). TIA is never a gate. The pre-commit hook runs these when it is installed; in an environment without it, run them by hand before committing.
 3. **Arch tests green:** `tests/Unit/ArchitectureTest.php`.
 4. **Entry-point tests unchanged**, except:
    - the mechanical edits of §3.2;
-   - tests added for the divergences the item fixes.
+   - tests added for the divergences the step fixes.
 5. **Tests and ledger:** a new action test exists for each new action, and ledger rows are added to the Task 2 file (§5 there).
-6. **Docs:** `docs/development/actions.md` is updated if the PR adds a verb, folder or rule; so is `CLAUDE.md` if a documented path changed.
-7. **PR title** follows the conventional-commit table in `CLAUDE.md`:
-   - `chore:` when nothing an operator or API user would notice changed;
-   - `fix:` / `fix(api):` / `fix(agent):` naming the **user-visible fix** when the item resolved a visible divergence;
-   - **never `(agent)!`**: no item may break agent compatibility.
-8. **PR body:**
-   - which actions were added or moved;
-   - the callers rewritten;
-   - **"Behavior changes"**, one bullet per divergence fixed, before → after;
-   - the ledger rows added;
-   - "Not changed" for divergences deliberately left (with a link to §7).
+6. **Docs:** `docs/development/actions.md` is updated if the step adds a verb, folder or rule; so is `CLAUDE.md` if a documented path changed.
+7. **Commit message:**
+   - The subject is the step's **Commit subject**: `chore:` when nothing an operator or API user would notice changed; `fix:` / `fix(api):` / `fix(agent):` naming the **user-visible fix** when the step resolved a visible divergence.
+   - A `fix:` commit's body explains the visible effect, before and after. PRs are squash-merged, and GitHub's default squash body concatenates the commit messages, which the `/changelog` skill reads (see `52dac27` for the shape).
+
+### 6.2 The PR (before marking it ready for review)
+
+1. Every step of §4 and §5 is committed, and §6.1 holds on the branch head, after a fresh merge of `main`.
+2. **PR title** (it becomes the squash subject and the release changelog's lead):
+   - It leads with the visible effect, because the PR contains user-visible fixes. Suggested: `fix: apply the same rules whether a change comes from the web UI, the API, MCP or an agent`.
+   - **Never `(agent)!`**: no step may break agent compatibility.
+3. **PR body**, in this order:
+   - **Behavior changes:** one bullet per divergence fixed, before → after, naming the edge it affects (web UI, API, MCP, agent). This is the list the release changelog is written from, so phrase it for operators.
+   - **Steps:** one line per step (`0.1` … `1.10`) with its commit(s), the actions added or moved, and the callers rewritten. Reviewers read the PR commit by commit in this order.
+   - **Not changed:** divergences deliberately left, with a link to §7.
+   - **Ledger:** the number of rows added for Task 2, with a link to the ledger.
+4. Dependencies: `composer.json` / `composer.lock` gain `lorisleiva/laravel-actions` (approved in D1). No other dependency changes.
 
 ---
 
 ## 7. Out of scope: follow-up candidates
 
-Record new findings here instead of widening a PR.
+Record new findings here instead of widening the migration.
 
 **Phase 2 candidates (agent API, jobs and commands)**
 - `ClaimAgentJobAction` (inline claim query in `AgentController::claimJob`).
