@@ -24,6 +24,16 @@ class Agent extends Model
         static::addGlobalScope(new OrganizationScope);
     }
 
+    /**
+     * Mirrors the column default, so a freshly created agent reads false
+     * rather than null before it is reloaded.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'transfer_via_server' => false,
+    ];
+
     protected $fillable = [
         'name',
         'last_heartbeat_at',
