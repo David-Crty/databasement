@@ -86,6 +86,19 @@ test('a super admin can delete a custom role, but built-in roles are protected',
     expect(Role::query()->whereKey($member->getKey())->exists())->toBeTrue();
 });
 
+test('deleting a role still assigned to users is refused on the roles screen', function () {
+    $admin = User::factory()->superAdmin()->create();
+    $custom = CreateRoleAction::run('temp-role', 'Temporary', []);
+    AssignRoleToUserAction::run(User::factory()->create(), 'temp-role', app(CurrentOrganization::class)->model());
+
+    Livewire::actingAs($admin)->test(Roles::class)
+        ->call('confirmDelete', $custom->getKey())
+        ->call('delete')
+        ->assertOk();
+
+    expect(Role::query()->whereKey($custom->getKey())->exists())->toBeTrue();
+});
+
 test('editing a user preserves their custom role instead of downgrading to member', function () {
     $org = app(CurrentOrganization::class)->model();
     $user = User::factory()->withAbilities([Ability::ManageUsers->value])->create();

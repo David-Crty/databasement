@@ -52,6 +52,8 @@ Its holder can grant any ability to anyone in the org. Give `manage-users` only 
 
 These are the **seeded defaults** for the built-in roles. They are fully editable at runtime, and you can create custom roles or grant extra abilities to individual users — so real access may differ.
 
+Built-in roles cannot be deleted. A custom role can only be deleted once no user holds it in any organization: give its members another role first.
+
 | Ability | Viewer | Operator | Member | Admin |
 |---------|:------:|:--------:|:------:|:-----:|
 | `run-backups` | ❌ | ✅ | ✅ | ✅ |
