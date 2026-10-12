@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Agent\FailAgentJobAction;
 use App\Enums\AgentJobType;
 use App\Exceptions\Backup\JobCancelledException;
 use App\Http\Controllers\Controller;
@@ -11,7 +12,6 @@ use App\Services\Agent\AgentApiClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 /**
  * @tags Agent
@@ -209,11 +209,7 @@ class AgentController extends Controller
             ...self::logRules(),
         ]);
 
-        $agentJob->markFailed($validated['error_message']);
-
-        $agentJob->trackedJob()?->mergeLogs($validated['logs'] ?? []);
-
-        $handler->fail($agentJob, new RuntimeException($validated['error_message']), $validated);
+        FailAgentJobAction::run($agentJob, $validated['error_message'], $validated, $validated['logs'] ?? []);
 
         return response()->json(['status' => 'ok']);
     }

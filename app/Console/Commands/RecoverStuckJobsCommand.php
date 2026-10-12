@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Agent\FailAgentJobAction;
 use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Exceptions\Backup\JobCancelledException;
@@ -87,7 +88,6 @@ class RecoverStuckJobsCommand extends Command
                 }
             } else {
                 $errorMessage = "Max attempts ({$job->max_attempts}) exceeded after losing contact with the agent.";
-                $job->markFailed($errorMessage);
 
                 Log::warning('Agent job failed after losing contact with the agent', [
                     'agent_job_id' => $job->id,
@@ -97,7 +97,12 @@ class RecoverStuckJobsCommand extends Command
 
                 try {
                     $job->trackedJob()?->log("Lost contact with the agent: {$errorMessage}", 'error');
-                    $job->handler()->fail($job, new RuntimeException("Agent job failed: {$errorMessage}"), []);
+                } catch (Throwable $e) {
+                    report($e);
+                }
+
+                try {
+                    FailAgentJobAction::run($job, $errorMessage, exception: new RuntimeException("Agent job failed: {$errorMessage}"));
                 } catch (Throwable $e) {
                     report($e);
                 }
@@ -129,17 +134,15 @@ class RecoverStuckJobsCommand extends Command
         foreach ($unclaimedJobs as $job) {
             $errorMessage = 'No agent picked up the deletion of this file. Make sure the agent is online and up to date.';
 
-            if (! $job->markFailedIfPending($errorMessage)) {
-                continue;
-            }
-
-            $failedCount++;
-
             try {
-                $job->handler()->fail($job, new RuntimeException($errorMessage), []);
+                if (! FailAgentJobAction::run($job, $errorMessage, onlyIfPending: true)) {
+                    continue;
+                }
             } catch (Throwable $e) {
                 report($e);
             }
+
+            $failedCount++;
         }
 
         if ($failedCount > 0) {

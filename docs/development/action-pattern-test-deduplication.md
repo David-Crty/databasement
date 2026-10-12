@@ -132,6 +132,7 @@ Then open the PR:
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:479` (blank password kept) and `DatabaseServer/EditTest.php` (same through the form) | `Actions/DatabaseServer/UpdateDatabaseServerActionTest.php` | | 1.8 |
 | DatabaseServer | `DatabaseServer/CreateTest.php` and `Api/DatabaseServerCrudApiTest.php` (server created with its backups, SSH tunnel and channels) | `Actions/DatabaseServer/CreateDatabaseServerActionTest.php` | | 1.8 |
 | DatabaseServer | `Livewire/DatabaseServer/IndexTest.php`, `DatabaseServer/ShowTest.php` and `Api/DatabaseServerCrudApiTest.php:644` (delete, keep files) | `Actions/DatabaseServer/DeleteDatabaseServerActionTest.php` | | 1.8 |
+| Agent | `Agent/AgentApiTest.php` and `Agent/AgentRestoreTest.php` (`/fail` marks the job failed, merges logs, fails the tracked job); `Console/RecoverStuckJobsTest.php` (agent job failed after max attempts, unclaimed cleanup job failed) | `Actions/Agent/FailAgentJobActionTest.php`. The agent API tests stay thick (protocol), only their business assertions are candidates | | 1.9 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1
