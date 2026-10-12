@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Snapshot\VerifySnapshotFilesAction;
 use App\Enums\SnapshotFileStatus;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
@@ -7,14 +8,14 @@ use App\Models\Snapshot;
 use App\Notifications\SnapshotsMissingNotification;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Filesystems\FilesystemProvider;
-use App\Services\Backup\SnapshotVerificationService;
-use App\Services\NotificationService;
 use Illuminate\Support\Facades\Notification;
 use League\Flysystem\Filesystem;
 
-function makeService(FilesystemProvider $provider): SnapshotVerificationService
+function verifyWith(FilesystemProvider $provider): int
 {
-    return new SnapshotVerificationService($provider, app(NotificationService::class));
+    app()->instance(FilesystemProvider::class, $provider);
+
+    return VerifySnapshotFilesAction::run();
 }
 
 test('sets file_exists to true when file exists on volume', function () {
@@ -31,7 +32,7 @@ test('sets file_exists to true when file exists on volume', function () {
         ->once()
         ->andReturn($mockFilesystem);
 
-    makeService($mockProvider)->run();
+    verifyWith($mockProvider);
 
     $snapshot->refresh();
     expect($snapshot->hasExistingFile())->toBeTrue()
@@ -52,7 +53,7 @@ test('sets file_exists to false when file is missing from volume', function () {
         ->once()
         ->andReturn($mockFilesystem);
 
-    makeService($mockProvider)->run();
+    verifyWith($mockProvider);
 
     $snapshot->refresh();
     expect($snapshot->hasExistingFile())->toBeFalse()
@@ -67,7 +68,7 @@ test('handles filesystem errors gracefully without changing file_exists', functi
         ->once()
         ->andThrow(new \Exception('Connection timeout'));
 
-    makeService($mockProvider)->run();
+    verifyWith($mockProvider);
 
     $snapshot->refresh();
     expect($snapshot->hasExistingFile())->toBeTrue()
@@ -97,7 +98,7 @@ test('verifies all completed snapshots', function () {
     $mockProvider = Mockery::mock(FilesystemProvider::class);
     $mockProvider->shouldReceive('getForVolume')->times(2)->andReturn($mockFilesystem);
 
-    makeService($mockProvider)->run();
+    verifyWith($mockProvider);
 
     foreach ($snapshots as $snapshot) {
         $snapshot->refresh();
@@ -128,7 +129,7 @@ test('sends notification when newly missing files are detected in bulk mode', fu
     $mockProvider = Mockery::mock(FilesystemProvider::class);
     $mockProvider->shouldReceive('getForVolume')->once()->andReturn($mockFilesystem);
 
-    makeService($mockProvider)->run();
+    expect(verifyWith($mockProvider))->toBe(1);
 
     Notification::assertSentTimes(SnapshotsMissingNotification::class, 1);
 });
@@ -152,7 +153,7 @@ test('does not send notification when no new files are missing', function () {
     $mockProvider = Mockery::mock(FilesystemProvider::class);
     $mockProvider->shouldReceive('getForVolume')->once()->andReturn($mockFilesystem);
 
-    makeService($mockProvider)->run();
+    verifyWith($mockProvider);
 
     Notification::assertNothingSent();
 });

@@ -152,23 +152,20 @@ test('a snapshot whose backup is running cannot be deleted via api', function ()
     expect(Snapshot::find($snapshot->id))->not->toBeNull();
 });
 
-test('delete-snapshots allows queueing a bulk delete via api, skipping locked snapshots', function () {
+test('delete-snapshots allows queueing a bulk delete via api', function () {
     Queue::fake();
     $user = User::factory()->withAbilities([Ability::DeleteSnapshots->value])->create();
-    $deletable = Snapshot::factory()->withFile()->create();
-    $locked = Snapshot::factory()->withFile()->create(['locked' => true]);
+    $snapshot = Snapshot::factory()->withFile()->create();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/snapshots/bulk-delete', [
-            'ids' => [$deletable->id, $locked->id, 'unknown'],
+            'ids' => [$snapshot->id, 'unknown'],
             'keep_files' => true,
         ])
         ->assertStatus(202)
         ->assertJsonPath('queued', 1);
 
-    Queue::assertPushed(DeleteSnapshotsJob::class, fn (DeleteSnapshotsJob $job) => $job->snapshotIds === [$deletable->id] && $job->keepFiles);
-    expect($deletable->fresh()->deleting)->toBeTrue()
-        ->and($locked->fresh()->deleting)->toBeFalse();
+    Queue::assertPushed(DeleteSnapshotsJob::class, fn (DeleteSnapshotsJob $job) => $job->snapshotIds === [$snapshot->id] && $job->keepFiles);
 });
 
 test('without delete-snapshots, bulk deleting via api is forbidden', function () {

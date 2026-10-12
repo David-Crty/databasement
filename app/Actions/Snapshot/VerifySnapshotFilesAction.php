@@ -1,35 +1,32 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\Snapshot;
 
 use App\Enums\SnapshotFileStatus;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\Snapshot;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\NotificationService;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
-class SnapshotVerificationService
+class VerifySnapshotFilesAction
 {
-    /** @var Collection<int, array{server: string, database: string, filename: string, database_server_id: string}> */
-    private Collection $newlyMissing;
+    use AsFake, AsObject;
 
     public function __construct(
         private FilesystemProvider $filesystemProvider,
-        private NotificationService $notificationService
+        private NotificationService $notificationService,
     ) {}
 
     /**
-     * Verify completed snapshots still exist on their storage volumes.
-     *
-     * @return array{verified: int, missing: int}
+     * Check that every completed snapshot's files still exist on their volumes,
+     * record the result on each file, notify once about the snapshots that
+     * have just lost their last copy, and return how many did.
      */
-    public function run(?string $organizationId = null): array
+    public function handle(?string $organizationId = null): int
     {
-        $this->newlyMissing = collect();
-        $verified = 0;
-
         $query = Snapshot::query()
             ->whereNotNull('filename')
             ->where('filename', '!=', '')
@@ -44,27 +41,32 @@ class SnapshotVerificationService
 
         $snapshotIds = $query->pluck('id');
 
-        foreach ($snapshotIds as $id) {
-            $this->verifySnapshot($id);
-            $verified++;
+        $newlyMissing = $snapshotIds
+            ->map(fn (string $id) => $this->verifySnapshot($id))
+            ->filter()
+            ->values();
+
+        if ($newlyMissing->isNotEmpty()) {
+            $affectedServerIds = $newlyMissing->pluck('database_server_id')->unique()->values();
+            $this->notificationService->notifySnapshotsMissing($newlyMissing, $affectedServerIds);
         }
 
-        if ($this->newlyMissing->isNotEmpty()) {
-            $affectedServerIds = $this->newlyMissing->pluck('database_server_id')->unique()->values();
-            $this->notificationService->notifySnapshotsMissing($this->newlyMissing, $affectedServerIds);
-        }
+        Log::info("Snapshot verification: {$snapshotIds->count()} snapshot(s) verified, {$newlyMissing->count()} newly missing.");
 
-        Log::info("Snapshot verification: {$verified} snapshot(s) verified, {$this->newlyMissing->count()} newly missing.");
-
-        return ['verified' => $verified, 'missing' => $this->newlyMissing->count()];
+        return $newlyMissing->count();
     }
 
-    private function verifySnapshot(string $snapshotId): void
+    /**
+     * Returns the snapshot's details when it has just lost its last copy.
+     *
+     * @return array{server: string, database: string, filename: string, database_server_id: string}|null
+     */
+    private function verifySnapshot(string $snapshotId): ?array
     {
         $snapshot = Snapshot::with(['files.volume', 'databaseServer'])->find($snapshotId);
 
         if (! $snapshot) {
-            return;
+            return null;
         }
 
         $wasPreviouslyExisting = $snapshot->hasExistingFile();
@@ -100,13 +102,15 @@ class SnapshotVerificationService
 
         // A snapshot only counts as newly missing once no copy is left on any
         // volume — losing one copy while another remains is not a data loss.
-        if ($wasPreviouslyExisting && ! $snapshot->hasExistingFile()) {
-            $this->newlyMissing->push([
-                'server' => $snapshot->databaseServer->name,
-                'database' => $snapshot->database_name,
-                'filename' => $snapshot->filename,
-                'database_server_id' => $snapshot->database_server_id,
-            ]);
+        if (! $wasPreviouslyExisting || $snapshot->hasExistingFile()) {
+            return null;
         }
+
+        return [
+            'server' => $snapshot->databaseServer->name,
+            'database' => $snapshot->database_name,
+            'filename' => $snapshot->filename,
+            'database_server_id' => $snapshot->database_server_id,
+        ];
     }
 }

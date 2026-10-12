@@ -1,10 +1,11 @@
 <?php
 
+use App\Actions\Snapshot\ApplyRetentionPoliciesAction;
+use App\Actions\Snapshot\DeleteSnapshotAction;
+use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
-use App\Services\Backup\DeleteSnapshotAction;
 use App\Services\Backup\Filesystems\FilesystemProvider;
-use App\Services\Backup\SnapshotCleanupService;
 use Illuminate\Support\Facades\Log;
 use League\Flysystem\DirectoryListing;
 use League\Flysystem\Filesystem;
@@ -36,19 +37,18 @@ function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $
     return $snapshot->fresh();
 }
 
-test('retention keeps an expired snapshot whose file cannot be removed and does not count it', function () {
+test('retention keeps an expired snapshot whose files cannot be removed and does not count it', function () {
     $server = DatabaseServer::factory()->create();
     updateFirstBackup($server, ['retention_days' => 7]);
     $expired = createSnapshot($server, 'completed', now()->subDays(10));
 
-    $provider = Mockery::mock(FilesystemProvider::class);
-    $provider->shouldReceive('getForVolume')->andThrow(new RuntimeException('Volume unreachable'));
-    app()->instance(FilesystemProvider::class, $provider);
+    DeleteSnapshotAction::partialMock()->shouldReceive('handle')
+        ->andThrow(new SnapshotFilesNotDeletedException($expired, ['Local: Volume unreachable']));
 
-    $result = app(SnapshotCleanupService::class)->run();
+    $deleted = ApplyRetentionPoliciesAction::run();
 
-    expect($result['deleted'])->toBe(0)
-        ->and($expired->files()->sole()->error)->toBe('Volume unreachable');
+    expect($deleted)->toBe(0)
+        ->and(Snapshot::find($expired->id))->not->toBeNull();
 });
 
 test('retention carries on with the other snapshots when one fails to delete', function () {
@@ -57,15 +57,13 @@ test('retention carries on with the other snapshots when one fails to delete', f
     $failing = createSnapshot($server, 'completed', now()->subDays(10));
     $deletable = createSnapshot($server, 'completed', now()->subDays(11));
 
-    $action = Mockery::mock(DeleteSnapshotAction::class)->makePartial();
-    $action->shouldReceive('execute')
+    DeleteSnapshotAction::partialMock()->shouldReceive('handle')
         ->withArgs(fn (Snapshot $snapshot) => $snapshot->is($failing))
         ->andThrow(new RuntimeException('Database gone'));
-    app()->instance(DeleteSnapshotAction::class, $action);
 
-    $result = app(SnapshotCleanupService::class)->run();
+    $deleted = ApplyRetentionPoliciesAction::run();
 
-    expect($result['deleted'])->toBe(1)
+    expect($deleted)->toBe(1)
         ->and(Snapshot::find($failing->id))->not->toBeNull()
         ->and(Snapshot::find($deletable->id))->toBeNull();
 });
@@ -82,10 +80,9 @@ test('days retention deletes expired snapshots and files, skips pending and rece
     $expiredPending = createSnapshot($server, 'pending', now()->subDays(10), 'app_db');
     $otherDbExpired = createSnapshot($server, 'completed', now()->subDays(10), 'analytics_db');
 
-    $result = app(SnapshotCleanupService::class)->run();
+    $deleted = ApplyRetentionPoliciesAction::run();
 
-    expect($result['deleted'])->toBe(2)
-        ->and($result['dry_run'])->toBeFalse()
+    expect($deleted)->toBe(2)
         ->and(Snapshot::find($expiredCompleted->id))->toBeNull()
         ->and(file_exists($expiredFilePath))->toBeFalse()
         ->and(Snapshot::find($recentCompleted->id))->not->toBeNull()
@@ -101,11 +98,11 @@ test('days retention keeps locked snapshots', function () {
     $locked->update(['locked' => true]);
     $expired = createSnapshot($server, 'completed', now()->subDays(400), 'app_db');
 
-    $result = app(SnapshotCleanupService::class)->run();
+    $deleted = ApplyRetentionPoliciesAction::run();
 
     expect(Snapshot::find($locked->id))->not->toBeNull()
         ->and(Snapshot::find($expired->id))->toBeNull()
-        ->and($result['deleted'])->toBe(1);
+        ->and($deleted)->toBe(1);
 });
 
 // The locked snapshot is the newest one, so it would win the single daily slot
@@ -124,12 +121,12 @@ test('GFS retention keeps locked snapshots without spending a keep slot', functi
     $kept = createSnapshot($server, 'completed', now()->subDays(1), 'app_db');
     $expired = createSnapshot($server, 'completed', now()->subDays(400), 'app_db');
 
-    $result = app(SnapshotCleanupService::class)->run();
+    $deleted = ApplyRetentionPoliciesAction::run();
 
     expect(Snapshot::find($locked->id))->not->toBeNull()
         ->and(Snapshot::find($kept->id))->not->toBeNull()
         ->and(Snapshot::find($expired->id))->toBeNull()
-        ->and($result['deleted'])->toBe(1);
+        ->and($deleted)->toBe(1);
 });
 
 test('deleting a snapshot prunes empty parent folders and stops at the first non-empty one', function (
@@ -165,7 +162,7 @@ test('deleting a snapshot prunes empty parent folders and stops at the first non
         touch($fullPath);
     }
 
-    app(SnapshotCleanupService::class)->run();
+    ApplyRetentionPoliciesAction::run();
 
     expect(Snapshot::find($snapshot->id))->toBeNull()
         ->and(file_exists($volumePath.'/'.$newFilename))->toBeFalse()
@@ -241,7 +238,7 @@ test('snapshot is still deleted when pruning empty parent folders throws', funct
 
     Log::spy();
 
-    app(SnapshotCleanupService::class)->run();
+    ApplyRetentionPoliciesAction::run();
 
     // The folder failure is swallowed; the snapshot is still removed from the database,
     // and it is logged as a folder-pruning warning rather than a file-deletion error.
@@ -261,10 +258,9 @@ test('dry-run mode does not delete snapshots', function () {
     $volumePath = $expiredSnapshot->files()->firstOrFail()->volume->config['path'];
     $filePath = $volumePath.'/'.$expiredSnapshot->filename;
 
-    $result = app(SnapshotCleanupService::class)->run(dryRun: true);
+    $deleted = ApplyRetentionPoliciesAction::run(dryRun: true);
 
-    expect($result['deleted'])->toBe(1)
-        ->and($result['dry_run'])->toBeTrue()
+    expect($deleted)->toBe(1)
         ->and(Snapshot::find($expiredSnapshot->id))->not->toBeNull()
         ->and(file_exists($filePath))->toBeTrue();
 });
@@ -294,7 +290,7 @@ test('GFS retention combines daily, weekly, and monthly tiers', function () {
     $lastMonthMid = createSnapshot($server, 'completed', now()->subMonth()->startOfMonth()->addDay());
     $lastMonthNewest = createSnapshot($server, 'completed', now()->subMonth()->endOfMonth()->subHour());
 
-    app(SnapshotCleanupService::class)->run();
+    ApplyRetentionPoliciesAction::run();
 
     expect(Snapshot::find($day1->id))->not->toBeNull()
         ->and(Snapshot::find($day2->id))->not->toBeNull()
@@ -323,7 +319,7 @@ test('GFS retention applies per database_name', function () {
     $analyticsDb2 = createSnapshot($server, 'completed', now()->subDays(2), 'analytics_db');
     $analyticsDb3 = createSnapshot($server, 'completed', now()->subDays(3), 'analytics_db');
 
-    app(SnapshotCleanupService::class)->run();
+    ApplyRetentionPoliciesAction::run();
 
     expect(Snapshot::find($appDb1->id))->not->toBeNull()
         ->and(Snapshot::find($appDb2->id))->not->toBeNull()
@@ -345,7 +341,7 @@ test('GFS with no tiers configured skips cleanup', function () {
 
     $oldSnapshot = createSnapshot($server, 'completed', now()->subDays(100));
 
-    app(SnapshotCleanupService::class)->run();
+    ApplyRetentionPoliciesAction::run();
 
     expect(Snapshot::find($oldSnapshot->id))->not->toBeNull();
 });
@@ -360,7 +356,7 @@ test('forever policy keeps all snapshots indefinitely', function () {
     $recentSnapshot = createSnapshot($server, 'completed', now()->subDays(1));
     $veryOldSnapshot = createSnapshot($server, 'completed', now()->subDays(365));
 
-    app(SnapshotCleanupService::class)->run();
+    ApplyRetentionPoliciesAction::run();
 
     expect(Snapshot::find($recentSnapshot->id))->not->toBeNull()
         ->and(Snapshot::find($veryOldSnapshot->id))->not->toBeNull();

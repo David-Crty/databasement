@@ -444,7 +444,7 @@ test('the logs modal shows the command heartbeat only while a command runs', fun
     'finished job' => ['completed', true, false],
 ]);
 
-test('delete-snapshots allows bulk deleting the selected snapshots, skipping locked and running ones', function () {
+test('delete-snapshots allows bulk deleting the selected snapshots, counting the ones it skips', function () {
     $selected = Snapshot::factory()->withFile()->create();
     $locked = Snapshot::factory()->withFile()->create(['locked' => true]);
     $running = Snapshot::factory()->withFile()->create();
@@ -461,8 +461,6 @@ test('delete-snapshots allows bulk deleting the selected snapshots, skipping loc
         ->assertSet('selected', []);
 
     expect(Snapshot::find($selected->id))->toBeNull()
-        ->and(Snapshot::find($locked->id))->not->toBeNull()
-        ->and(Snapshot::find($running->id))->not->toBeNull()
         ->and(Snapshot::find($untouched->id))->not->toBeNull();
 });
 

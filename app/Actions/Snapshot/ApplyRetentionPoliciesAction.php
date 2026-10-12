@@ -1,38 +1,31 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\Snapshot;
 
 use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
 use App\Models\Backup;
 use App\Models\Snapshot;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
-class SnapshotCleanupService
+class ApplyRetentionPoliciesAction
 {
-    private bool $dryRun = false;
-
-    private int $totalDeleted = 0;
-
-    public function __construct(
-        private DeleteSnapshotAction $deleteSnapshot,
-    ) {}
+    use AsFake, AsObject;
 
     /**
-     * Run the cleanup process.
+     * Delete the snapshots every backup's retention policy (days or GFS) no
+     * longer keeps, and return how many were deleted or handed to an agent.
      *
      * Locked snapshots are excluded before any tier is computed, so they are
      * never deleted and never occupy a GFS keep slot. So are snapshots
-     * already being deleted, such as those waiting for their agent.
-     *
-     * @return array{deleted: int, dry_run: bool}
+     * already being deleted, such as those waiting for their agent. A snapshot
+     * that fails to delete is logged, left in place and not counted.
      */
-    public function run(bool $dryRun = false): array
+    public function handle(bool $dryRun = false): int
     {
-        $this->dryRun = $dryRun;
-        $this->totalDeleted = 0;
-
         $backupsWithRetention = Backup::whereIn('retention_policy', [Backup::RETENTION_DAYS, Backup::RETENTION_GFS])
             ->with('databaseServer')
             ->get();
@@ -40,27 +33,37 @@ class SnapshotCleanupService
         if ($backupsWithRetention->isEmpty()) {
             Log::info('Snapshot cleanup: no backups with retention period configured.');
 
-            return ['deleted' => 0, 'dry_run' => $dryRun];
+            return 0;
         }
 
+        $totalDeleted = 0;
+
         foreach ($backupsWithRetention as $backup) {
-            if ($backup->retention_policy === Backup::RETENTION_GFS) {
-                $this->cleanupGfs($backup);
-            } elseif ($backup->retention_policy === Backup::RETENTION_DAYS) {
-                $this->cleanupDays($backup);
+            $expiredSnapshots = match ($backup->retention_policy) {
+                Backup::RETENTION_GFS => $this->expiredByGfs($backup),
+                default => $this->expiredByDays($backup),
+            };
+
+            foreach ($expiredSnapshots as $snapshot) {
+                if ($this->deleteSnapshot($snapshot, $dryRun)) {
+                    $totalDeleted++;
+                }
             }
         }
 
-        $action = $dryRun ? 'would be deleted' : 'deleted';
-        Log::info("Snapshot cleanup: {$this->totalDeleted} snapshot(s) {$action}.");
+        $outcome = $dryRun ? 'would be deleted' : 'deleted';
+        Log::info("Snapshot cleanup: {$totalDeleted} snapshot(s) {$outcome}.");
 
-        return ['deleted' => $this->totalDeleted, 'dry_run' => $dryRun];
+        return $totalDeleted;
     }
 
-    private function cleanupDays(Backup $backup): void
+    /**
+     * @return Collection<int, Snapshot>
+     */
+    private function expiredByDays(Backup $backup): Collection
     {
         if ($backup->retention_days === null) {
-            return;
+            return collect();
         }
 
         $cutoffDate = now()->subDays($backup->retention_days);
@@ -73,25 +76,24 @@ class SnapshotCleanupService
             ->where('created_at', '<', $cutoffDate)
             ->get();
 
-        if ($expiredSnapshots->isEmpty()) {
-            return;
+        if ($expiredSnapshots->isNotEmpty()) {
+            Log::info("Snapshot cleanup: Server {$serverName} (retention: {$backup->retention_days} days)");
         }
 
-        Log::info("Snapshot cleanup: Server {$serverName} (retention: {$backup->retention_days} days)");
-
-        foreach ($expiredSnapshots as $snapshot) {
-            $this->deleteSnapshot($snapshot);
-        }
+        return $expiredSnapshots;
     }
 
-    private function cleanupGfs(Backup $backup): void
+    /**
+     * @return Collection<int, Snapshot>
+     */
+    private function expiredByGfs(Backup $backup): Collection
     {
         $serverName = $backup->databaseServer->name ?? 'Unknown Server';
 
         if (empty($backup->gfs_keep_daily) && empty($backup->gfs_keep_weekly) && empty($backup->gfs_keep_monthly)) {
             Log::warning("Snapshot cleanup: Server {$serverName} - GFS policy has no tiers configured, skipping.");
 
-            return;
+            return collect();
         }
 
         $allSnapshots = Snapshot::where('backup_id', $backup->id)
@@ -102,7 +104,7 @@ class SnapshotCleanupService
             ->get();
 
         if ($allSnapshots->isEmpty()) {
-            return;
+            return $allSnapshots;
         }
 
         $snapshotsByDatabase = $allSnapshots->groupBy('database_name');
@@ -129,15 +131,11 @@ class SnapshotCleanupService
             fn (Snapshot $snapshot) => $snapshotsToKeep->contains($snapshot->id)
         );
 
-        if ($snapshotsToDelete->isEmpty()) {
-            return;
+        if ($snapshotsToDelete->isNotEmpty()) {
+            Log::info("Snapshot cleanup: Server {$serverName} (GFS: {$backup->gfs_keep_daily}d/{$backup->gfs_keep_weekly}w/{$backup->gfs_keep_monthly}m)");
         }
 
-        Log::info("Snapshot cleanup: Server {$serverName} (GFS: {$backup->gfs_keep_daily}d/{$backup->gfs_keep_weekly}w/{$backup->gfs_keep_monthly}m)");
-
-        foreach ($snapshotsToDelete as $snapshot) {
-            $this->deleteSnapshot($snapshot);
-        }
+        return $snapshotsToDelete;
     }
 
     /**
@@ -172,34 +170,37 @@ class SnapshotCleanupService
         return $selected;
     }
 
-    private function deleteSnapshot(Snapshot $snapshot): void
+    /**
+     * Returns whether the snapshot counts as deleted (or would be, in a dry run).
+     */
+    private function deleteSnapshot(Snapshot $snapshot, bool $dryRun): bool
     {
         $age = $snapshot->created_at->diffInDays(now());
         $database = $snapshot->database_name;
 
-        if ($this->dryRun) {
+        if ($dryRun) {
             Log::info("Snapshot cleanup: [DRY-RUN] Would delete {$database} ({$age} days old)");
-            $this->totalDeleted++;
 
-            return;
+            return true;
         }
 
         try {
-            $deleted = $this->deleteSnapshot->execute($snapshot);
+            $deleted = DeleteSnapshotAction::run($snapshot);
         } catch (SnapshotFilesNotDeletedException $e) {
             Log::warning("Snapshot cleanup: {$e->getMessage()} It will be retried on the next run.");
 
-            return;
+            return false;
         } catch (Throwable $e) {
             report($e);
             Log::error("Snapshot cleanup: Failed to delete {$database}: {$e->getMessage()}");
 
-            return;
+            return false;
         }
 
         Log::info($deleted
             ? "Snapshot cleanup: Deleted {$database} ({$age} days old)"
             : "Snapshot cleanup: Handed {$database} ({$age} days old) to its agent for deletion");
-        $this->totalDeleted++;
+
+        return true;
     }
 }
