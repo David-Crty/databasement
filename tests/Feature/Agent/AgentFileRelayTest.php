@@ -14,6 +14,7 @@ use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\FilesystemSupport;
 use Illuminate\Http\Client\Request as ClientRequest;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 use League\Flysystem\Filesystem;
@@ -219,6 +220,25 @@ describe('file transfers', function () {
         $agentJob->markFailed('Lost contact with the agent.');
 
         expect(storage_path("app/agent-relay/{$agentJob->id}"))->not->toBeDirectory();
+    });
+
+    test('stuck-job recovery sweeps the staged files a late write left behind', function () {
+        $agent = Agent::factory()->create(['transfer_via_server' => true]);
+        $ended = relayBackupJob($agent, Volume::factory()->local()->create());
+        $running = relayBackupJob($agent, Volume::factory()->local()->create());
+        $running->claim($agent);
+        $ended->markFailed('Cancelled.');
+        // Written after the job ended, as by a chunk admitted just before.
+        foreach (["{$ended->id}/late.part", "{$running->id}/live.part"] as $file) {
+            File::ensureDirectoryExists(dirname(storage_path("app/agent-relay/{$file}")));
+            File::put(storage_path("app/agent-relay/{$file}"), 'x');
+            touch(dirname(storage_path("app/agent-relay/{$file}")), now()->subHour()->getTimestamp());
+        }
+
+        $this->artisan('jobs:recover-stuck')->assertSuccessful();
+
+        expect(storage_path("app/agent-relay/{$ended->id}"))->not->toBeDirectory()
+            ->and(storage_path("app/agent-relay/{$running->id}/live.part"))->toBeFile();
     });
 
     test('a restore downloads its source copy through the server', function () {

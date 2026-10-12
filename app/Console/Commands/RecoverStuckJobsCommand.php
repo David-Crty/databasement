@@ -8,6 +8,7 @@ use App\Exceptions\Backup\JobCancelledException;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\Snapshot;
+use App\Services\Agent\Relay\RelayUploadStore;
 use App\Services\NotificationService;
 use App\Support\QueueTimeouts;
 use Illuminate\Console\Command;
@@ -27,7 +28,7 @@ class RecoverStuckJobsCommand extends Command
 
     protected $description = 'Recover stuck jobs (expired agent leases, silent agent backups and timed-out backup jobs)';
 
-    public function handle(): int
+    public function handle(RelayUploadStore $relayUploads): int
     {
         $agentResult = $this->recoverAgentJobs();
         $backupResult = $this->recoverBackupJobs();
@@ -35,6 +36,11 @@ class RecoverStuckJobsCommand extends Command
 
         if (! $agentResult && ! $backupResult && ! $cleanupResult) {
             $this->info('No stuck jobs found.');
+        }
+
+        // After the recoveries above, so the jobs they just ended are swept too.
+        if ($pruned = $relayUploads->pruneEnded()) {
+            $this->info("Relay uploads: dropped the staged files of {$pruned} ended job(s).");
         }
 
         return self::SUCCESS;

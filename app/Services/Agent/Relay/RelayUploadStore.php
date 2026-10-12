@@ -110,6 +110,50 @@ class RelayUploadStore
         File::deleteDirectory($this->jobDirectory($job));
     }
 
+    /**
+     * Drop the staged files of every job that has ended or no longer exists,
+     * and return how many jobs had some.
+     *
+     * A job drops its files as it ends, but a write admitted just before can
+     * land after that, and the request's own recheck cannot see an ending
+     * still inside an uncommitted transaction. This sweep is the last word.
+     * Pending jobs keep theirs: a reclaimed upload restarts at offset 0.
+     * Directories created in the last 10 minutes are left for a later sweep,
+     * so a write still landing is never cut short.
+     */
+    public function pruneEnded(): int
+    {
+        $root = storage_path('app/agent-relay');
+
+        if (! is_dir($root)) {
+            return 0;
+        }
+
+        $cutoff = now()->subMinutes(10)->getTimestamp();
+        $jobIds = array_map('basename', array_filter(
+            File::directories($root),
+            fn (string $directory) => File::lastModified($directory) < $cutoff,
+        ));
+
+        if ($jobIds === []) {
+            return 0;
+        }
+
+        $unfinishedIds = AgentJob::query()
+            ->whereKey($jobIds)
+            ->whereIn('status', [AgentJob::STATUS_PENDING, AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])
+            ->pluck('id')
+            ->all();
+
+        $endedIds = array_diff($jobIds, $unfinishedIds);
+
+        foreach ($endedIds as $jobId) {
+            File::deleteDirectory($root.'/'.$jobId);
+        }
+
+        return count($endedIds);
+    }
+
     private function partPath(AgentJob $job, string $volumeId, string $path): string
     {
         return $this->basePath($job, $volumeId, $path).'.part';
