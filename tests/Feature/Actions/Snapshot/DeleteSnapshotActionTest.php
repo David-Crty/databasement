@@ -8,6 +8,7 @@ use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Models\Volume;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use League\Flysystem\Filesystem;
@@ -59,6 +60,30 @@ test('it can leave the files in place', function () {
         ->and(file_exists($filePath))->toBeTrue();
 });
 
+test('a copy that cannot be removed keeps the snapshot with that copy\'s error, the others are removed', function () {
+    $broken = Volume::factory()->local()->create(['name' => 'Broken']);
+    $healthy = Volume::factory()->local()->create(['name' => 'Healthy']);
+    $snapshot = Snapshot::factory()->onVolumes($broken, $healthy)->withFile()->create();
+    $healthyFilePath = $healthy->config['path'].'/'.$snapshot->filename;
+
+    $realProvider = app(FilesystemProvider::class);
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldReceive('getForVolume')->andReturnUsing(
+        fn (Volume $volume) => $volume->id === $broken->id
+            ? throw new RuntimeException('Volume unreachable')
+            : $realProvider->getForVolume($volume),
+    );
+    app()->instance(FilesystemProvider::class, $provider);
+
+    expect(fn () => DeleteSnapshotAction::run($snapshot))
+        ->toThrow(SnapshotFilesNotDeletedException::class, 'Broken: Volume unreachable');
+
+    expect($snapshot->fresh())->not->toBeNull()
+        ->and(file_exists($healthyFilePath))->toBeFalse()
+        ->and($snapshot->files()->get()->map(fn (SnapshotFile $file) => [$file->volume_id, $file->error])->all())
+        ->toBe([[$broken->id, 'Volume unreachable']]);
+});
+
 test('a file the app can reach on an agent-backed server is deleted by the app', function () {
     $snapshot = snapshotOfAgentBackedServer();
     $filesystem = Mockery::mock(Filesystem::class);
@@ -83,7 +108,11 @@ test('a file the app cannot reach is handed to the agent, keeping the snapshot u
     $agentJob = AgentJob::where('snapshot_id', $snapshot->id)->sole();
     expect($snapshot->fresh()->deleting)->toBeTrue()
         ->and($agentJob->type)->toBe(AgentJobType::Cleanup)
-        ->and(array_column($agentJob->payload['files'], 'id'))->toBe([$file->id])
+        ->and($agentJob->database_server_id)->toBe($snapshot->database_server_id)
+        ->and($agentJob->payload['filename'])->toBe($snapshot->filename)
+        ->and($agentJob->payload['files'])->toHaveCount(1)
+        ->and($agentJob->payload['files'][0]['id'])->toBe($file->id)
+        ->and($agentJob->payload['files'][0]['volume']['id'])->toBe($file->volume_id)
         ->and($file->fresh()->error)->toBeNull();
 });
 
@@ -92,10 +121,12 @@ test('a copy on the app\'s local disk is deleted by the app and only the others 
     $local = Volume::factory()->local()->create();
     $s3 = Volume::factory()->s3()->create();
     $snapshot = snapshotOfAgentBackedServer($local, $s3);
+    $localFilePath = $local->config['path'].'/'.$snapshot->filename;
 
     DeleteSnapshotAction::run($snapshot);
 
-    expect($snapshot->files()->pluck('volume_id')->all())->toBe([$s3->id])
+    expect(file_exists($localFilePath))->toBeFalse()
+        ->and($snapshot->files()->pluck('volume_id')->all())->toBe([$s3->id])
         ->and(array_column(AgentJob::where('snapshot_id', $snapshot->id)->sole()->payload['files'], 'id'))
         ->toBe([$snapshot->files()->sole()->id]);
 });

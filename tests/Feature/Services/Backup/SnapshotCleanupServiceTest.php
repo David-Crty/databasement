@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Snapshot\DeleteSnapshotAction;
+use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -36,19 +37,18 @@ function createSnapshot(DatabaseServer $server, string $status, \Carbon\Carbon $
     return $snapshot->fresh();
 }
 
-test('retention keeps an expired snapshot whose file cannot be removed and does not count it', function () {
+test('retention keeps an expired snapshot whose files cannot be removed and does not count it', function () {
     $server = DatabaseServer::factory()->create();
     updateFirstBackup($server, ['retention_days' => 7]);
     $expired = createSnapshot($server, 'completed', now()->subDays(10));
 
-    $provider = Mockery::mock(FilesystemProvider::class);
-    $provider->shouldReceive('getForVolume')->andThrow(new RuntimeException('Volume unreachable'));
-    app()->instance(FilesystemProvider::class, $provider);
+    DeleteSnapshotAction::partialMock()->shouldReceive('handle')
+        ->andThrow(new SnapshotFilesNotDeletedException($expired, ['Local: Volume unreachable']));
 
     $result = app(SnapshotCleanupService::class)->run();
 
     expect($result['deleted'])->toBe(0)
-        ->and($expired->files()->sole()->error)->toBe('Volume unreachable');
+        ->and(Snapshot::find($expired->id))->not->toBeNull();
 });
 
 test('retention carries on with the other snapshots when one fails to delete', function () {
