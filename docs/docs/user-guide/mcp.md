@@ -97,6 +97,8 @@ Run **MCP: Open User Configuration** from the Command Palette so the server is a
 }
 ```
 
+This applies to regular (extension host) chat sessions. VS Code does not forward servers that need interactive input to Agent Host sessions, so for those, configure Databasement in `~/.copilot/mcp-config.json` instead.
+
 </TabItem>
 <TabItem value="codex" label="Codex CLI">
 
@@ -139,17 +141,17 @@ Clients that only support local (stdio) servers, or remote servers authenticated
         "mcp-remote",
         "https://databasement.example.com/mcp",
         "--header",
-        "Authorization: Bearer ${DATABASEMENT_TOKEN}"
+        "Authorization:${DATABASEMENT_AUTH_HEADER}"
       ],
       "env": {
-        "DATABASEMENT_TOKEN": "YOUR_API_TOKEN"
+        "DATABASEMENT_AUTH_HEADER": "Bearer YOUR_API_TOKEN"
       }
     }
   }
 }
 ```
 
-The token goes through `env` because some clients split arguments on spaces, which would break `Authorization: Bearer …` if it were written inline.
+The header value goes through `env`, with no space after `Authorization:`, because some clients (Cursor, Claude Desktop on Windows) split arguments on spaces, which would break a header written as `Authorization: Bearer …`.
 
 </TabItem>
 </Tabs>
