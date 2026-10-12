@@ -233,6 +233,16 @@ This means agent mode requires zero database configuration.
    - **Same-server restore**: Can restore old snapshots back to the same server (e.g., rollback)
    - Both services handle MySQL, MariaDB, and PostgreSQL with appropriate SSL/connection handling
 
+### Actions
+
+An operation that more than one edge performs (Livewire, REST API, MCP, console/scheduler, agent API, queue jobs) lives in one action class. **Read [`docs/development/actions.md`](docs/development/actions.md) before adding or changing one**: it holds the verb vocabulary, folder list, error mapping and gotchas.
+
+- `App\Actions\<Domain>\<Verb><Subject>Action`, using only `AsFake, AsObject` from `lorisleiva/laravel-actions`; one public `handle()`; called everywhere as `X::run(...)`, never injected or resolved with `app()`.
+- Edges validate input, authorize, resolve the current organization and user, and translate the result (toasts, HTTP status, MCP text). Actions do none of these: they take an `Organization` and a `?int $triggeredByUserId` explicitly, throw, and return models or `*Result` DTOs.
+- Actions are never `final` (fakes need Mockery) and never use `AsAction`/`AsController`/`AsJob`/`AsCommand`/`AsListener`. `tests/Unit/ArchitectureTest.php` enforces the shape and layering.
+- Action tests in `tests/Feature/Actions/<Domain>/` own the business rules; entry-point tests cover only their edge's contract (authorization, status codes, input mapping, one unmocked happy path).
+- Refactoring agent-side code into actions must keep every `/api/v1/agent/*` request and response identical (see "Agent compatibility" above).
+
 ### Routing
 
 Routes are defined in `routes/web.php`:
