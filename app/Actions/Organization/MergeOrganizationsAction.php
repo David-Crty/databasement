@@ -10,6 +10,7 @@ use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\Volume;
+use App\Support\BouncerScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,7 @@ class MergeOrganizationsAction
             ];
 
             $source->delete();
+            BouncerScope::forgetOrganization($source->id);
 
             return $counts;
         });

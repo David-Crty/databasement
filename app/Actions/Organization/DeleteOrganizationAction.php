@@ -8,6 +8,7 @@ use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Exceptions\Volume\VolumeFilesNotDeletedException;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
+use App\Support\BouncerScope;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -19,8 +20,8 @@ class DeleteOrganizationAction
 
     /**
      * Delete an organization with its servers and volumes, through their own
-     * delete actions, then the organization itself, whose agents, SSH configs
-     * and memberships go with it. When $keepFiles is true, backup files on
+     * delete actions, then the organization itself, whose agents, SSH configs,
+     * memberships and role assignments go with it. When $keepFiles is true, backup files on
      * storage are preserved (only database records are removed).
      *
      * Each server and volume removes its files before its rows, so a failure
@@ -46,6 +47,7 @@ class DeleteOrganizationAction
         }
 
         $organization->delete();
+        BouncerScope::forgetOrganization($organization->id);
 
         Log::info('Organization deleted', [
             'organization_id' => $organization->id,

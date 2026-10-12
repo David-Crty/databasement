@@ -11,6 +11,7 @@ use App\Models\Scopes\OrganizationScope;
 use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
+use Illuminate\Support\Facades\DB;
 
 test('merge moves every resource and unions members with overlapping roles', function () {
     $source = Organization::factory()->create();
@@ -83,7 +84,9 @@ test('merge carries a source member\'s direct abilities into the destination', f
 
     MergeOrganizationsAction::run($source, $destination);
 
-    expect($user->fresh()->directAbilitiesIn($destination))->toContain('run-backups');
+    expect($user->fresh()->directAbilitiesIn($destination))->toContain('run-backups')
+        ->and(DB::table('assigned_roles')->where('scope', $source->id)->exists())->toBeFalse()
+        ->and(DB::table('permissions')->where('scope', $source->id)->exists())->toBeFalse();
 });
 
 test('merge rejects the default organization as source', function () {
