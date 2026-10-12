@@ -1,11 +1,13 @@
 <?php
 
-namespace App\Services\Roles;
+namespace App\Actions\Role;
 
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\BouncerScope;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Silber\Bouncer\BouncerFacade as Bouncer;
 
 /**
@@ -18,7 +20,9 @@ use Silber\Bouncer\BouncerFacade as Bouncer;
  */
 class AssignRoleToUserAction
 {
-    public function execute(User $user, string $role, Organization $organization): void
+    use AsFake, AsObject;
+
+    public function handle(User $user, string $role, Organization $organization): void
     {
         // The global built-in roles are seeded by migration and custom roles are
         // created before assignment, so the role is guaranteed to exist (Bouncer's

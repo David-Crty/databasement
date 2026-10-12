@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Backup\TriggerBackupAction;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
-use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -14,7 +14,7 @@ class RunScheduledBackups extends Command
 
     protected $description = 'Run scheduled backups for a given backup schedule';
 
-    public function handle(TriggerBackupAction $triggerBackup): int
+    public function handle(): int
     {
         $scheduleId = $this->argument('schedule');
 
@@ -43,7 +43,7 @@ class RunScheduledBackups extends Command
 
         foreach ($backups as $backup) {
             try {
-                $this->dispatch($backup, $triggerBackup);
+                $this->dispatch($backup);
             } catch (\Throwable $e) {
                 $failedCount++;
                 Log::error("Failed to dispatch backup job for server [{$backup->databaseServer->name} / {$backup->getDisplayLabel()}]", [
@@ -61,10 +61,10 @@ class RunScheduledBackups extends Command
         return self::SUCCESS;
     }
 
-    private function dispatch(Backup $backup, TriggerBackupAction $triggerBackup): void
+    private function dispatch(Backup $backup): void
     {
         $server = $backup->databaseServer;
-        $result = $triggerBackup->execute($backup, method: 'scheduled');
+        $result = TriggerBackupAction::run($backup, method: 'scheduled');
 
         if ($result['discovery'] === true) {
             $this->line("  → Dispatched discovery for: {$server->name} [{$backup->getDisplayLabel()}] via agent");

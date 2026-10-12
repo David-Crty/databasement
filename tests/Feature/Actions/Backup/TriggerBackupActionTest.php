@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Backup\TriggerBackupAction;
 use App\Enums\AgentJobType;
 use App\Enums\DatabaseSelectionMode;
 use App\Jobs\ProcessBackupJob;
@@ -8,7 +9,6 @@ use App\Models\AgentJob;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\User;
-use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -19,8 +19,7 @@ test('it creates a snapshot and dispatches backup job for single database', func
     $server = DatabaseServer::factory()->withoutBackups()->create();
     $backup = Backup::factory()->for($server)->selected(['test_db'])->create();
 
-    $action = app(TriggerBackupAction::class);
-    $result = $action->execute($backup);
+    $result = TriggerBackupAction::run($backup);
 
     expect($result['snapshots'])->toHaveCount(1)
         ->and($result['message'])->toBe('Backup started successfully!')
@@ -36,8 +35,7 @@ test('it tracks the user who triggered the backup', function () {
     $server = DatabaseServer::factory()->withoutBackups()->create();
     $backup = Backup::factory()->for($server)->selected(['test_db'])->create();
 
-    $action = app(TriggerBackupAction::class);
-    $result = $action->execute($backup, $user->id);
+    $result = TriggerBackupAction::run($backup, $user->id);
 
     expect($result['snapshots'][0]->triggered_by_user_id)->toBe($user->id);
 });
@@ -59,8 +57,7 @@ test('it returns correct message for multiple database backups', function () {
         $mock->shouldReceive('listDatabasesForServer')->andReturn(['db1', 'db2', 'db3']);
     });
 
-    $action = app(TriggerBackupAction::class);
-    $result = $action->execute($backup);
+    $result = TriggerBackupAction::run($backup);
 
     expect($result['snapshots'])->toHaveCount(3)
         ->and($result['message'])->toBe('3 database backups started successfully!');
@@ -77,8 +74,7 @@ test('pattern mode creates snapshots only for matching databases', function () {
             ->andReturn(['prod_users', 'prod_orders', 'test_db', 'staging_db']);
     });
 
-    $action = app(TriggerBackupAction::class);
-    $result = $action->execute($backup);
+    $result = TriggerBackupAction::run($backup);
 
     expect($result['snapshots'])->toHaveCount(2)
         ->and($result['snapshots'][0]->database_name)->toBe('prod_users')
@@ -96,8 +92,7 @@ test('agent server with all mode dispatches discovery job instead of snapshots',
         'database_selection_mode' => DatabaseSelectionMode::All->value,
     ]);
 
-    $action = app(TriggerBackupAction::class);
-    $result = $action->execute($backup);
+    $result = TriggerBackupAction::run($backup);
 
     expect($result['snapshots'])->toBeEmpty()
         ->and($result['message'])->toContain('discovery');
@@ -124,7 +119,7 @@ test('agent server with a discovery already in flight reports it instead of a ne
         'payload' => ['backup_id' => $backup->id],
     ]);
 
-    $result = app(TriggerBackupAction::class)->execute($backup);
+    $result = TriggerBackupAction::run($backup);
 
     expect($result['discovery'])->toBeFalse()
         ->and($result['message'])->toContain('already running')
@@ -138,8 +133,7 @@ test('agent server with pattern mode dispatches discovery job', function () {
     ]);
     $backup = Backup::factory()->for($server)->pattern('^prod_')->create();
 
-    $action = app(TriggerBackupAction::class);
-    $result = $action->execute($backup);
+    $result = TriggerBackupAction::run($backup);
 
     expect($result['snapshots'])->toBeEmpty();
 
@@ -158,8 +152,7 @@ test('agent server with selected mode creates backup agent jobs directly', funct
     ]);
     $backup = Backup::factory()->for($server)->selected(['db1', 'db2'])->create();
 
-    $action = app(TriggerBackupAction::class);
-    $result = $action->execute($backup);
+    $result = TriggerBackupAction::run($backup);
 
     expect($result['snapshots'])->toHaveCount(2)
         ->and($result['message'])->toBe('2 database backups started successfully!');

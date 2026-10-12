@@ -1,15 +1,19 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\Backup;
 
 use App\Enums\AgentJobType;
 use App\Models\AgentJob;
 use App\Models\Backup;
 use App\Services\Agent\AgentJobPayloadBuilder;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class DispatchDiscoveryAction
 {
+    use AsFake, AsObject;
+
     public function __construct(
         private AgentJobPayloadBuilder $payloadBuilder,
     ) {}
@@ -21,7 +25,7 @@ class DispatchDiscoveryAction
      * @param  'manual'|'scheduled'  $method
      * @return bool False when a discovery for this configuration is already in flight
      */
-    public function execute(Backup $backup, string $method, ?int $triggeredByUserId = null): bool
+    public function handle(Backup $backup, string $method, ?int $triggeredByUserId = null): bool
     {
         // Lock the backup row so the in-flight check and create are atomic;
         // concurrent dispatches for the same backup serialize and only one

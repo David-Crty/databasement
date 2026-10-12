@@ -4,14 +4,13 @@ use App\Jobs\DeleteSnapshotsJob;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
 use App\Models\Volume;
-use App\Services\Backup\DeleteSnapshotAction;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use Illuminate\Support\Facades\Queue;
 
 test('deletes the snapshots marked as deleting', function () {
     $snapshot = Snapshot::factory()->withFile()->create(['deleting' => true]);
 
-    (new DeleteSnapshotsJob([$snapshot->id]))->handle(app(DeleteSnapshotAction::class));
+    (new DeleteSnapshotsJob([$snapshot->id]))->handle();
 
     expect(Snapshot::find($snapshot->id))->toBeNull();
 });
@@ -31,7 +30,7 @@ test('keeps a snapshot whose file cannot be removed from a volume, tracking only
     );
     app()->instance(FilesystemProvider::class, $provider);
 
-    (new DeleteSnapshotsJob([$snapshot->id]))->handle(app(DeleteSnapshotAction::class));
+    (new DeleteSnapshotsJob([$snapshot->id]))->handle();
 
     expect($snapshot->fresh())->not->toBeNull()
         ->deleting->toBeFalse()
@@ -43,7 +42,7 @@ test('keeps a snapshot whose file cannot be removed from a volume, tracking only
 test('keeps a snapshot locked after the deletion was queued and clears its deleting flag', function () {
     $snapshot = Snapshot::factory()->withFile()->create(['deleting' => true, 'locked' => true]);
 
-    (new DeleteSnapshotsJob([$snapshot->id]))->handle(app(DeleteSnapshotAction::class));
+    (new DeleteSnapshotsJob([$snapshot->id]))->handle();
 
     expect($snapshot->fresh())->not->toBeNull()
         ->deleting->toBeFalse();

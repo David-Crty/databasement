@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Backup\SyncBackupConfigurationsAction;
+use App\Actions\Backup\TriggerBackupAction;
+use App\Actions\Restore\DispatchRestoreAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestoreRequest;
 use App\Http\Requests\Api\V1\SaveDatabaseServerRequest;
@@ -13,9 +16,6 @@ use App\Models\Snapshot;
 use App\Queries\DatabaseServerQuery;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Databases\DatabaseProvider;
-use App\Services\Backup\DispatchRestoreAction;
-use App\Services\Backup\SyncBackupConfigurationsAction;
-use App\Services\Backup\TriggerBackupAction;
 use App\Services\CurrentOrganization;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -157,7 +157,7 @@ class DatabaseServerController extends Controller
      *
      * @response 202
      */
-    public function backup(Request $request, DatabaseServer $databaseServer, TriggerBackupAction $action): JsonResponse
+    public function backup(Request $request, DatabaseServer $databaseServer): JsonResponse
     {
         $this->authorize('backup', $databaseServer);
 
@@ -174,7 +174,7 @@ class DatabaseServerController extends Controller
 
         /** @var int|null $userId */
         $userId = auth()->id();
-        $result = $action->execute($backup, $userId);
+        $result = TriggerBackupAction::run($backup, $userId);
 
         return response()->json([
             'message' => $result['message'],
@@ -195,7 +195,6 @@ class DatabaseServerController extends Controller
         RestoreRequest $request,
         DatabaseServer $databaseServer,
         BackupJobFactory $backupJobFactory,
-        DispatchRestoreAction $dispatchRestore,
     ): JsonResponse {
         $this->authorize('restore', $databaseServer);
 
@@ -217,7 +216,7 @@ class DatabaseServerController extends Controller
             options: array_filter(['owner_user' => $ownerUser]),
         );
 
-        $dispatchRestore->execute($restore);
+        DispatchRestoreAction::run($restore);
 
         return response()->json([
             'message' => 'Restore started successfully!',
@@ -234,6 +233,6 @@ class DatabaseServerController extends Controller
             return;
         }
 
-        app(SyncBackupConfigurationsAction::class)->execute($server, $backupsPayload);
+        SyncBackupConfigurationsAction::run($server, $backupsPayload);
     }
 }

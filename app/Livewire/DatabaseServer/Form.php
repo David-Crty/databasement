@@ -2,6 +2,7 @@
 
 namespace App\Livewire\DatabaseServer;
 
+use App\Actions\Backup\SyncBackupConfigurationsAction;
 use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
@@ -19,10 +20,10 @@ use App\Rules\SafeHost;
 use App\Rules\SafeUsername;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\ShellProcessor;
-use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\CurrentOrganization;
 use App\Services\SshKeyGenerator;
 use App\Services\SshTunnelService;
+use App\Support\BackupConfiguration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -859,7 +860,7 @@ class Form extends \Livewire\Form
         if ($this->backups_enabled && $serverType !== null) {
             foreach ($this->backups as $index => $entry) {
                 BackupForm::normalizeDatabaseNames($this->backups[$index], $this->availableDatabases, $serverType);
-                BackupForm::normalizeSelection($this->backups[$index], $serverType);
+                BackupConfiguration::normalizeSelection($this->backups[$index], $serverType);
             }
         }
 
@@ -1082,7 +1083,7 @@ class Form extends \Livewire\Form
 
     private function syncBackupConfigurations(DatabaseServer $server): void
     {
-        app(SyncBackupConfigurationsAction::class)->execute($server, $this->backups);
+        SyncBackupConfigurationsAction::run($server, $this->backups);
     }
 
     private function syncNotificationChannels(DatabaseServer $server): void

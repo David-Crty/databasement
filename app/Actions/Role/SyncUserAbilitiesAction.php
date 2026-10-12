@@ -1,11 +1,13 @@
 <?php
 
-namespace App\Services\Roles;
+namespace App\Actions\Role;
 
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\BouncerScope;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Silber\Bouncer\BouncerFacade as Bouncer;
 
 /**
@@ -19,10 +21,12 @@ use Silber\Bouncer\BouncerFacade as Bouncer;
  */
 class SyncUserAbilitiesAction
 {
+    use AsFake, AsObject;
+
     /**
      * @param  list<string>  $abilities  ability names from the catalogue
      */
-    public function execute(User $user, array $abilities, Organization $organization): void
+    public function handle(User $user, array $abilities, Organization $organization): void
     {
         $previousScope = Bouncer::scope()->get();
 

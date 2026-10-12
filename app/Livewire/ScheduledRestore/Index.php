@@ -2,12 +2,12 @@
 
 namespace App\Livewire\ScheduledRestore;
 
+use App\Actions\ScheduledRestore\RunScheduledRestoreAction;
 use App\Enums\DatabaseType;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
-use App\Services\Backup\RunScheduledRestoreAction;
 use App\Support\Formatters;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
@@ -87,7 +87,7 @@ class Index extends Component
         $this->dispatch('open-scheduled-restore-modal', id: $id);
     }
 
-    public function runNow(string $id, RunScheduledRestoreAction $action): void
+    public function runNow(string $id): void
     {
         $scheduledRestore = ScheduledRestore::findOrFail($id);
 
@@ -100,10 +100,10 @@ class Index extends Component
             return;
         }
 
-        $this->dispatchRun($scheduledRestore, $action);
+        $this->dispatchRun($scheduledRestore);
     }
 
-    public function runDisabledNow(RunScheduledRestoreAction $action): void
+    public function runDisabledNow(): void
     {
         if (! $this->runScheduledRestoreId) {
             return;
@@ -116,13 +116,13 @@ class Index extends Component
         $this->runScheduledRestoreId = null;
         $this->showRunDisabledModal = false;
 
-        $this->dispatchRun($scheduledRestore, $action);
+        $this->dispatchRun($scheduledRestore);
     }
 
-    private function dispatchRun(ScheduledRestore $scheduledRestore, RunScheduledRestoreAction $action): void
+    private function dispatchRun(ScheduledRestore $scheduledRestore): void
     {
         try {
-            $result = $action->execute($scheduledRestore);
+            $result = RunScheduledRestoreAction::run($scheduledRestore);
         } catch (ValidationException $e) {
             $this->error($e->getMessage(), timeout: 0);
 

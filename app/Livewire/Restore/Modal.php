@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Restore;
 
+use App\Actions\Restore\DispatchRestoreAction;
 use App\Enums\DatabaseType;
 use App\Enums\RestoreModalMode;
 use App\Livewire\Concerns\InteractsWithTargetDatabases;
@@ -11,7 +12,6 @@ use App\Models\Snapshot;
 use App\Models\SnapshotFile;
 use App\Queries\SnapshotQuery;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\DispatchRestoreAction;
 use App\Traits\Toast;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
@@ -316,7 +316,7 @@ class Modal extends Component
         );
     }
 
-    public function restore(BackupJobFactory $backupJobFactory, DispatchRestoreAction $dispatchRestore): void
+    public function restore(BackupJobFactory $backupJobFactory): void
     {
         if (! $this->targetServer) {
             $this->error(__('Please select a target server before restoring.'));
@@ -347,7 +347,7 @@ class Modal extends Component
                 snapshotFileId: $this->selectedSnapshotFileId,
             );
 
-            $dispatchRestore->execute($restore);
+            DispatchRestoreAction::run($restore);
 
             $this->success(__('Restore started successfully!'));
 

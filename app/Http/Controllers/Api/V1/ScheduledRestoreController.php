@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\ScheduledRestore\RunScheduledRestoreAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveScheduledRestoreRequest;
 use App\Http\Resources\ScheduledRestoreResource;
 use App\Models\ScheduledRestore;
-use App\Services\Backup\RunScheduledRestoreAction;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -95,11 +95,11 @@ class ScheduledRestoreController extends Controller
      *
      * @response 202
      */
-    public function run(ScheduledRestore $scheduledRestore, RunScheduledRestoreAction $action): JsonResponse
+    public function run(ScheduledRestore $scheduledRestore): JsonResponse
     {
         $this->authorize('run', $scheduledRestore);
 
-        $result = $action->execute($scheduledRestore);
+        $result = RunScheduledRestoreAction::run($scheduledRestore);
 
         return response()->json([
             'message' => $result->skipReason !== null

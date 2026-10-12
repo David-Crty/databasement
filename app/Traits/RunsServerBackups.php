@@ -2,8 +2,8 @@
 
 namespace App\Traits;
 
+use App\Actions\Backup\TriggerBackupAction;
 use App\Models\DatabaseServer;
-use App\Services\Backup\TriggerBackupAction;
 
 /**
  * Triggers every backup configuration on a server and renders a single toast
@@ -11,14 +11,14 @@ use App\Services\Backup\TriggerBackupAction;
  */
 trait RunsServerBackups
 {
-    protected function triggerAllBackups(DatabaseServer $server, TriggerBackupAction $action): void
+    protected function triggerAllBackups(DatabaseServer $server): void
     {
         $userId = auth()->id();
         $results = [];
 
         foreach ($server->backups as $backup) {
             try {
-                $action->execute($backup, is_int($userId) ? $userId : null);
+                TriggerBackupAction::run($backup, is_int($userId) ? $userId : null);
                 $results[$backup->getDisplayLabel()] = 'success';
             } catch (\Throwable $e) {
                 $results[$backup->getDisplayLabel()] = $e->getMessage();

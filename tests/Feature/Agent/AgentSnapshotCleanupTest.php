@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Snapshot\DeleteSnapshotAction;
 use App\Enums\AgentJobType;
 use App\Enums\VolumeType;
 use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
@@ -11,7 +12,6 @@ use App\Models\SnapshotFile;
 use App\Models\Volume;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Agent\Runners\CleanupJobRunner;
-use App\Services\Backup\DeleteSnapshotAction;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\SnapshotCleanupService;
 use App\Support\QueueTimeouts;
@@ -41,7 +41,7 @@ function claimedSnapshotCleanup(Volume ...$volumes): array
 {
     $agent = Agent::factory()->create();
     $snapshot = agentBackedSnapshot($agent, ...$volumes);
-    app(DeleteSnapshotAction::class)->execute($snapshot);
+    DeleteSnapshotAction::run($snapshot);
 
     $agentJob = AgentJob::where('snapshot_id', $snapshot->id)->sole();
 
@@ -77,7 +77,7 @@ describe('dispatch', function () {
         $provider->shouldReceive('getForVolume')->andReturn($filesystem);
         app()->instance(FilesystemProvider::class, $provider);
 
-        expect(app(DeleteSnapshotAction::class)->execute($snapshot))->toBeTrue()
+        expect(DeleteSnapshotAction::run($snapshot))->toBeTrue()
             ->and(Snapshot::find($snapshot->id))->toBeNull()
             ->and(AgentJob::count())->toBe(0);
     });
@@ -90,7 +90,7 @@ describe('dispatch', function () {
         $provider->shouldReceive('getForVolume')->andThrow(new RuntimeException('Disk full'));
         app()->instance(FilesystemProvider::class, $provider);
 
-        expect(fn () => app(DeleteSnapshotAction::class)->execute($snapshot))
+        expect(fn () => DeleteSnapshotAction::run($snapshot))
             ->toThrow(SnapshotFilesNotDeletedException::class);
 
         expect(AgentJob::count())->toBe(0)
@@ -102,7 +102,7 @@ describe('dispatch', function () {
         $snapshot = agentBackedSnapshot($agent);
         $file = $snapshot->files()->sole();
 
-        expect(app(DeleteSnapshotAction::class)->execute($snapshot))->toBeFalse();
+        expect(DeleteSnapshotAction::run($snapshot))->toBeFalse();
 
         $agentJob = AgentJob::where('snapshot_id', $snapshot->id)->sole();
         expect($snapshot->fresh()->deleting)->toBeTrue()
@@ -120,7 +120,7 @@ describe('dispatch', function () {
         $snapshot = agentBackedSnapshot(Agent::factory()->create(), $local, $s3);
         $localFilePath = $local->config['path'].'/'.$snapshot->filename;
 
-        app(DeleteSnapshotAction::class)->execute($snapshot);
+        DeleteSnapshotAction::run($snapshot);
 
         expect(file_exists($localFilePath))->toBeFalse()
             ->and($snapshot->files()->pluck('volume_id')->all())->toBe([$s3->id])
@@ -143,7 +143,7 @@ describe('dispatch', function () {
 describe('claiming', function () {
     test('agents that do not advertise cleanup support are not handed cleanup jobs', function () {
         $agent = Agent::factory()->create();
-        app(DeleteSnapshotAction::class)->execute(agentBackedSnapshot($agent));
+        DeleteSnapshotAction::run(agentBackedSnapshot($agent));
 
         $this->withToken($agent->createToken('agent')->plainTextToken)
             ->postJson('/api/v1/agent/jobs/claim', ['job_types' => ['backup', 'discover', 'restore']])
@@ -189,7 +189,7 @@ describe('reporting', function () {
 
     test('a cleanup job no agent picks up is failed, so its snapshot leaves the deleting state', function () {
         $snapshot = agentBackedSnapshot(Agent::factory()->create());
-        app(DeleteSnapshotAction::class)->execute($snapshot);
+        DeleteSnapshotAction::run($snapshot);
 
         $this->travel(QueueTimeouts::retryAfter() + 1)->seconds();
         $this->artisan('jobs:recover-stuck')->assertSuccessful();

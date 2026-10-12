@@ -2,10 +2,10 @@
 
 namespace App\Mcp\Tools;
 
+use App\Actions\Restore\DispatchRestoreAction;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\DispatchRestoreAction;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
@@ -20,7 +20,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[IsOpenWorld]
 class TriggerRestoreTool extends Tool
 {
-    public function handle(Request $request, BackupJobFactory $backupJobFactory, DispatchRestoreAction $dispatchRestore): Response
+    public function handle(Request $request, BackupJobFactory $backupJobFactory): Response
     {
         $validated = $request->validate([
             'snapshot_id' => 'required|string|exists:snapshots,id',
@@ -59,7 +59,7 @@ class TriggerRestoreTool extends Tool
             return Response::error(collect($e->errors())->flatten()->implode(' '));
         }
 
-        $dispatchRestore->execute($restore);
+        DispatchRestoreAction::run($restore);
 
         return Response::text(
             "Restore started successfully!\n"

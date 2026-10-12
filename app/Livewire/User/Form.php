@@ -2,12 +2,12 @@
 
 namespace App\Livewire\User;
 
+use App\Actions\Role\AssignRoleToUserAction;
+use App\Actions\Role\SyncUserAbilitiesAction;
 use App\Enums\Ability;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\CurrentOrganization;
-use App\Services\Roles\AssignRoleToUserAction;
-use App\Services\Roles\SyncUserAbilitiesAction;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Validate;
 use Silber\Bouncer\Database\Role;
@@ -70,7 +70,7 @@ class Form extends \Livewire\Form
 
         $currentOrg = app(CurrentOrganization::class);
         $user->organizations()->attach($currentOrg->id());
-        app(AssignRoleToUserAction::class)->execute($user, $this->role, $currentOrg->model());
+        AssignRoleToUserAction::run($user, $this->role, $currentOrg->model());
         $this->syncAbilities($user, $currentOrg->model());
 
         $user->generateInvitationToken();
@@ -109,7 +109,7 @@ class Form extends \Livewire\Form
         }
 
         $currentOrg = app(CurrentOrganization::class);
-        app(AssignRoleToUserAction::class)->execute($this->user, $this->role, $currentOrg->model());
+        AssignRoleToUserAction::run($this->user, $this->role, $currentOrg->model());
         $this->syncAbilities($this->user, $currentOrg->model());
 
         return true;
@@ -131,7 +131,7 @@ class Form extends \Livewire\Form
 
         $abilities = array_values(array_intersect($this->abilities, Ability::names()));
 
-        app(SyncUserAbilitiesAction::class)->execute($user, $abilities, $organization);
+        SyncUserAbilitiesAction::run($user, $abilities, $organization);
     }
 
     /**

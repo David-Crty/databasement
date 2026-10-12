@@ -2,6 +2,7 @@
 
 namespace App\Services\Backup;
 
+use App\Actions\Snapshot\DeleteSnapshotAction;
 use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
 use App\Models\Backup;
 use App\Models\Snapshot;
@@ -14,10 +15,6 @@ class SnapshotCleanupService
     private bool $dryRun = false;
 
     private int $totalDeleted = 0;
-
-    public function __construct(
-        private DeleteSnapshotAction $deleteSnapshot,
-    ) {}
 
     /**
      * Run the cleanup process.
@@ -185,7 +182,7 @@ class SnapshotCleanupService
         }
 
         try {
-            $deleted = $this->deleteSnapshot->execute($snapshot);
+            $deleted = DeleteSnapshotAction::run($snapshot);
         } catch (SnapshotFilesNotDeletedException $e) {
             Log::warning("Snapshot cleanup: {$e->getMessage()} It will be retried on the next run.");
 

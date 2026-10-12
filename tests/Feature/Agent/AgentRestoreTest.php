@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Restore\DispatchRestoreAction;
 use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Models\Agent;
@@ -11,7 +12,6 @@ use App\Models\Volume;
 use App\Notifications\RestoreFailedNotification;
 use App\Notifications\RestoreSuccessNotification;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\DispatchRestoreAction;
 use App\Services\Backup\DTO\RestoreConfig;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -44,7 +44,7 @@ describe('dispatch', function () {
             ->create();
 
         $restore = app(BackupJobFactory::class)->createRestore($snapshot, $target, 'restored_db', options: ['parallel_restore' => true]);
-        app(DispatchRestoreAction::class)->execute($restore);
+        DispatchRestoreAction::run($restore);
 
         expect(RestoreConfig::fromPayload(AgentJob::where('restore_id', $restore->id)->sole()->payload, '/tmp/work')->parallelRestore)->toBeTrue();
     });
@@ -65,7 +65,7 @@ describe('dispatch', function () {
 
         $snapshot->files()->update(['file_exists' => false]);
 
-        expect(fn () => app(DispatchRestoreAction::class)->execute($restore))
+        expect(fn () => DispatchRestoreAction::run($restore))
             ->toThrow(RuntimeException::class, 'No copy of this snapshot is available');
 
         expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Failed)

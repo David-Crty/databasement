@@ -1,8 +1,8 @@
 <?php
 
+use App\Actions\Snapshot\DeleteSnapshotAction;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
-use App\Services\Backup\DeleteSnapshotAction;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\SnapshotCleanupService;
 use Illuminate\Support\Facades\Log;
@@ -57,11 +57,9 @@ test('retention carries on with the other snapshots when one fails to delete', f
     $failing = createSnapshot($server, 'completed', now()->subDays(10));
     $deletable = createSnapshot($server, 'completed', now()->subDays(11));
 
-    $action = Mockery::mock(DeleteSnapshotAction::class)->makePartial();
-    $action->shouldReceive('execute')
+    DeleteSnapshotAction::partialMock()->shouldReceive('handle')
         ->withArgs(fn (Snapshot $snapshot) => $snapshot->is($failing))
         ->andThrow(new RuntimeException('Database gone'));
-    app()->instance(DeleteSnapshotAction::class, $action);
 
     $result = app(SnapshotCleanupService::class)->run();
 

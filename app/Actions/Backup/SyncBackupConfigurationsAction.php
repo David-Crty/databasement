@@ -1,27 +1,27 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\Backup;
 
-use App\Livewire\DatabaseServer\BackupForm;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Support\BackupConfiguration;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 /**
  * Sync a collection of backup configurations to a server: upserts rows
  * submitted in the payload and deletes any existing rows missing from it.
- *
- * Shared between the Livewire form (`DatabaseServerForm::update/store`)
- * and the REST API controller (`DatabaseServerController::store/update`)
- * so both entry points stay in lock-step.
  */
 class SyncBackupConfigurationsAction
 {
+    use AsFake, AsObject;
+
     /**
      * @param  array<int, array<string, mixed>>  $entries
      */
-    public function execute(DatabaseServer $server, array $entries): void
+    public function handle(DatabaseServer $server, array $entries): void
     {
         if (! $server->backups_enabled) {
             return;
@@ -45,8 +45,8 @@ class SyncBackupConfigurationsAction
             $submittedIds = [];
 
             foreach ($entries as $entry) {
-                BackupForm::normalizeSelection($entry, $serverType);
-                $data = BackupForm::toPersistedData($entry);
+                BackupConfiguration::normalizeSelection($entry, $serverType);
+                $data = BackupConfiguration::toPersistedData($entry);
                 $data['database_server_id'] = $server->id;
 
                 $existingId = $entry['id'] ?? null;

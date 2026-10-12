@@ -2,20 +2,16 @@
 
 namespace App\Services\Agent\Handlers;
 
+use App\Actions\Snapshot\DeleteSnapshotAction;
 use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
-use App\Services\Backup\DeleteSnapshotAction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class CleanupJobHandler implements AgentJobHandler
 {
-    public function __construct(
-        private DeleteSnapshotAction $deleteSnapshot,
-    ) {}
-
     /**
      * A file already gone counts as removed, so running the job again is harmless.
      */
@@ -83,10 +79,10 @@ class CleanupJobHandler implements AgentJobHandler
             }
         }
 
-        $this->deleteSnapshot->recordRemovals($snapshot, $outcomes);
+        DeleteSnapshotAction::make()->recordRemovals($snapshot, $outcomes);
 
         try {
-            $this->deleteSnapshot->deleteUnlessFilesRemain($snapshot);
+            DeleteSnapshotAction::make()->deleteUnlessFilesRemain($snapshot);
         } catch (SnapshotFilesNotDeletedException $e) {
             Log::warning($e->getMessage());
         }

@@ -5,6 +5,23 @@ includes:
     # use phpstan/extension-installer.
     - vendor/pestphp/pest-plugin-phpstan/extension.neon
 
+# laravel-actions' PHPStan support, minus its extension.neon's
+# RunThrowTypeExtension: that one narrows `Action::run()` to the @throws of
+# handle(), so a catch-all for infrastructure failures around a run() call is
+# reported as a dead catch. The rest types run() as handle() and checks its
+# arguments; without it every run() returns mixed.
+services:
+    -
+        class: Lorisleiva\Actions\PHPStan\ActionHelper
+    -
+        class: Lorisleiva\Actions\PHPStan\RunReturnTypeExtension
+        tags:
+            - phpstan.broker.expressionTypeResolverExtension
+    -
+        class: Lorisleiva\Actions\PHPStan\RunParameterValidationRule
+        tags:
+            - phpstan.rules.rule
+
 parameters:
 
     paths:
@@ -41,9 +58,9 @@ parameters:
             count: 1
         -
             message: '#Builder<Silber\\Bouncer\\Database\\Role>::create\(\) expects array<model property of Silber\\Bouncer\\Database\\Role, mixed>, array<string, string> given\.#'
-            path: app/Services/Roles/CreateRoleAction.php
+            path: app/Actions/Role/CreateRoleAction.php
             count: 1
         -
             message: '#Model::update\(\) expects array<model property of Silber\\Bouncer\\Database\\Role, mixed>, array<string, string> given\.#'
-            path: app/Services/Roles/UpdateRoleAction.php
+            path: app/Actions/Role/UpdateRoleAction.php
             count: 1

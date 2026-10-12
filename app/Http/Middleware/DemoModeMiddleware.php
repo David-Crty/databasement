@@ -2,11 +2,11 @@
 
 namespace App\Http\Middleware;
 
+use App\Actions\Role\AssignRoleToUserAction;
+use App\Actions\Role\CreateRoleAction;
 use App\Enums\Ability;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\Roles\AssignRoleToUserAction;
-use App\Services\Roles\CreateRoleAction;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -61,7 +61,7 @@ class DemoModeMiddleware
     protected function ensureDemoUserExists(): void
     {
         if (! Role::query()->where('name', self::DEMO_ROLE)->exists()) {
-            app(CreateRoleAction::class)->execute(self::DEMO_ROLE, 'Demo', [
+            CreateRoleAction::run(self::DEMO_ROLE, 'Demo', [
                 Ability::OperateRestores->value,
                 Ability::DeleteSnapshots->value,
                 Ability::DownloadSnapshots->value,
@@ -79,6 +79,6 @@ class DemoModeMiddleware
 
         $org = Organization::default();
         $user->organizations()->syncWithoutDetaching([$org->id]);
-        app(AssignRoleToUserAction::class)->execute($user, self::DEMO_ROLE, $org);
+        AssignRoleToUserAction::run($user, self::DEMO_ROLE, $org);
     }
 }

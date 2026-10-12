@@ -2,14 +2,14 @@
 
 namespace App\Services\Organization;
 
+use App\Actions\Role\AssignRoleToUserAction;
+use App\Actions\Role\SyncUserAbilitiesAction;
 use App\Models\Agent;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\Volume;
-use App\Services\Roles\AssignRoleToUserAction;
-use App\Services\Roles\SyncUserAbilitiesAction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -124,12 +124,12 @@ class OrganizationMergeService
             $destination->users()->attach($user->id);
 
             $role = $user->roleNameIn($source) ?? 'viewer';
-            app(AssignRoleToUserAction::class)->execute($user, $role, $destination);
+            AssignRoleToUserAction::run($user, $role, $destination);
 
             $directAbilities = $user->directAbilitiesIn($source);
 
             if ($directAbilities !== []) {
-                app(SyncUserAbilitiesAction::class)->execute($user, $directAbilities, $destination);
+                SyncUserAbilitiesAction::run($user, $directAbilities, $destination);
             }
 
             $added++;

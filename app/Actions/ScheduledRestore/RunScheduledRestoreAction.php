@@ -1,20 +1,26 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\ScheduledRestore;
 
+use App\Actions\Restore\DispatchRestoreAction;
 use App\Models\BackupJob;
 use App\Models\Restore;
 use App\Models\ScheduledRestore;
+use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\DTO\ScheduledRestoreResult;
+use App\Services\Backup\LatestSnapshotResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class RunScheduledRestoreAction
 {
+    use AsFake, AsObject;
+
     public function __construct(
         private BackupJobFactory $backupJobFactory,
         private LatestSnapshotResolver $resolver,
-        private DispatchRestoreAction $dispatchRestore,
     ) {}
 
     /**
@@ -27,7 +33,7 @@ class RunScheduledRestoreAction
      *
      * @throws ValidationException
      */
-    public function execute(ScheduledRestore $scheduledRestore): ScheduledRestoreResult
+    public function handle(ScheduledRestore $scheduledRestore): ScheduledRestoreResult
     {
         $scheduledRestore->loadMissing('targetServer');
 
@@ -50,7 +56,7 @@ class RunScheduledRestoreAction
             scheduledRestoreId: $scheduledRestore->id,
         );
 
-        $this->dispatchRestore->execute($restore);
+        DispatchRestoreAction::run($restore);
 
         $scheduledRestore->forceFill([
             'last_executed_at' => now(),

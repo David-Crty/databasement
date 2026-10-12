@@ -1,14 +1,14 @@
 <?php
 
+use App\Actions\Role\AssignRoleToUserAction;
+use App\Actions\Role\CreateRoleAction;
+use App\Actions\Role\UpdateRoleAction;
 use App\Enums\Ability;
 use App\Livewire\Configuration\Roles;
 use App\Livewire\User\Edit as UserEdit;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\CurrentOrganization;
-use App\Services\Roles\AssignRoleToUserAction;
-use App\Services\Roles\CreateRoleAction;
-use App\Services\Roles\UpdateRoleAction;
 use App\Support\BouncerScope;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -75,7 +75,7 @@ test('non-super-admins can view roles but cannot mutate them', function () {
 
 test('a super admin can delete a custom role, but built-in roles are protected', function () {
     $admin = User::factory()->superAdmin()->create();
-    $custom = app(CreateRoleAction::class)->execute('temp-role', 'Temporary', []);
+    $custom = CreateRoleAction::run('temp-role', 'Temporary', []);
 
     Livewire::actingAs($admin)->test(Roles::class)
         ->call('confirmDelete', $custom->getKey())
@@ -101,7 +101,7 @@ test('granting an ability to a global role takes effect immediately, without a r
     expect($user->can(Ability::ManageVolumes->value))->toBeFalse();
 
     // ...until a super admin grants that ability to the (global) viewer role at runtime.
-    app(UpdateRoleAction::class)->execute(
+    UpdateRoleAction::run(
         globalRole('viewer'),
         'Viewer',
         [Ability::RunBackups->value, Ability::ManageVolumes->value],
@@ -116,7 +116,7 @@ test('the same global role yields different access in each organization', functi
 
     // Viewer in org A (the default org), Admin in org B — one global role set.
     $user = User::factory()->create();
-    app(AssignRoleToUserAction::class)->execute($user, 'admin', $orgB);
+    AssignRoleToUserAction::run($user, 'admin', $orgB);
 
     BouncerScope::apply($orgA->id);
     expect($user->fresh()->can(Ability::ManageUsers->value))->toBeFalse();
@@ -129,9 +129,9 @@ test('editing a user preserves their custom role instead of downgrading to membe
     $org = app(CurrentOrganization::class)->model();
     $user = User::factory()->withAbilities([Ability::ManageUsers->value])->create();
 
-    app(CreateRoleAction::class)->execute('release-manager', 'Release Manager', [Ability::DownloadSnapshots->value]);
+    CreateRoleAction::run('release-manager', 'Release Manager', [Ability::DownloadSnapshots->value]);
     $member = User::factory()->create();
-    app(AssignRoleToUserAction::class)->execute($member, 'release-manager', $org);
+    AssignRoleToUserAction::run($member, 'release-manager', $org);
 
     Livewire::actingAs($user)
         ->test(UserEdit::class, ['user' => $member])

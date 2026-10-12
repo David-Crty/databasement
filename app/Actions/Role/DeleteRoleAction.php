@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Services\Roles;
+namespace App\Actions\Role;
 
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 use Silber\Bouncer\BouncerFacade as Bouncer;
 use Silber\Bouncer\Database\Role;
@@ -14,7 +16,9 @@ use Silber\Bouncer\Database\Role;
  */
 class DeleteRoleAction
 {
-    public function execute(Role $role): void
+    use AsFake, AsObject;
+
+    public function handle(Role $role): void
     {
         if ($role->built_in) {
             throw new RuntimeException("Cannot delete the built-in role [{$role->name}].");

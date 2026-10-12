@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\Snapshot;
 
 use App\Enums\AgentJobType;
 use App\Enums\VolumeType;
@@ -9,10 +9,14 @@ use App\Models\AgentJob;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
 use App\Services\Agent\AgentJobPayloadBuilder;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Throwable;
 
 class DeleteSnapshotAction
 {
+    use AsFake, AsObject;
+
     public function __construct(
         private AgentJobPayloadBuilder $payloadBuilder,
     ) {}
@@ -30,7 +34,7 @@ class DeleteSnapshotAction
      *
      * @throws SnapshotFilesNotDeletedException When a file could not be removed, which keeps the snapshot
      */
-    public function execute(Snapshot $snapshot, bool $keepFiles = false): bool
+    public function handle(Snapshot $snapshot, bool $keepFiles = false): bool
     {
         if ($keepFiles) {
             $this->deleteRecord($snapshot);

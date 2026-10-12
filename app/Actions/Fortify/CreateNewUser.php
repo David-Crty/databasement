@@ -2,10 +2,10 @@
 
 namespace App\Actions\Fortify;
 
+use App\Actions\Role\AssignRoleToUserAction;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\DemoBackupService;
-use App\Services\Roles\AssignRoleToUserAction;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -67,7 +67,7 @@ class CreateNewUser implements CreatesNewUsers
         // super_admin flag). The assignment action seeds the global roles first,
         // covering a fresh install where the seeder has not run.
         $user->organizations()->attach($defaultOrg->id);
-        app(AssignRoleToUserAction::class)->execute($user, 'admin', $defaultOrg);
+        AssignRoleToUserAction::run($user, 'admin', $defaultOrg);
 
         if ($createDemoBackup) {
             try {

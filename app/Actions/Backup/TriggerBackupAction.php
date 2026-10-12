@@ -1,17 +1,20 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\Backup;
 
 use App\Models\Backup;
 use App\Models\Snapshot;
+use App\Services\Backup\BackupJobFactory;
 use Illuminate\Validation\ValidationException;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class TriggerBackupAction
 {
+    use AsFake, AsObject;
+
     public function __construct(
         private BackupJobFactory $backupJobFactory,
-        private DispatchBackupAction $dispatchBackup,
-        private DispatchDiscoveryAction $dispatchDiscovery,
     ) {}
 
     /**
@@ -26,7 +29,7 @@ class TriggerBackupAction
      *
      * @throws ValidationException
      */
-    public function execute(Backup $backup, ?int $triggeredByUserId = null, string $method = 'manual'): array
+    public function handle(Backup $backup, ?int $triggeredByUserId = null, string $method = 'manual'): array
     {
         $server = $backup->databaseServer;
 
@@ -37,7 +40,7 @@ class TriggerBackupAction
         );
 
         if (empty($snapshots) && $server->agent_id) {
-            $dispatched = $this->dispatchDiscovery->execute($backup, $method, $triggeredByUserId);
+            $dispatched = DispatchDiscoveryAction::run($backup, $method, $triggeredByUserId);
 
             return [
                 'snapshots' => [],
@@ -49,7 +52,7 @@ class TriggerBackupAction
         }
 
         foreach ($snapshots as $snapshot) {
-            $this->dispatchBackup->execute($snapshot);
+            DispatchBackupAction::run($snapshot);
         }
 
         $count = count($snapshots);

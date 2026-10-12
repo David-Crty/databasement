@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\ScheduledRestore\RunScheduledRestoreAction;
 use App\Models\ScheduledRestore;
-use App\Services\Backup\RunScheduledRestoreAction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -14,7 +14,7 @@ class RunScheduledRestores extends Command
 
     protected $description = 'Run a scheduled restore for a given scheduled restore ID';
 
-    public function handle(RunScheduledRestoreAction $action): int
+    public function handle(): int
     {
         $id = $this->argument('scheduledRestore');
 
@@ -27,7 +27,7 @@ class RunScheduledRestores extends Command
         }
 
         try {
-            $result = $action->execute($scheduledRestore);
+            $result = RunScheduledRestoreAction::run($scheduledRestore);
         } catch (ValidationException $e) {
             $errors = collect($e->errors())->flatten()->implode(' ');
             Log::error("Failed to create scheduled restore [{$scheduledRestore->name}]: {$errors}");
