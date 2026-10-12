@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\SnapshotFileStatus;
 use App\Enums\VolumeType;
 use App\Models\Scopes\OrganizationScope;
 use Database\Factories\VolumeFactory;
@@ -12,7 +11,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\DB;
 
 /**
  * @mixin IdeHelperVolume
@@ -24,57 +22,15 @@ class Volume extends Model
 
     use HasUlids;
 
-    public bool $skipFileCleanup = false;
-
     protected static function booted(): void
     {
         static::addGlobalScope(new OrganizationScope);
 
-        // Delete snapshots through Eloquent to trigger their deleting events
-        // (which clean up associated BackupJobs, Restores, and backup files)
         // Type is immutable after creation — changing it would leave ghost config fields.
         static::updating(function (Volume $volume) {
             if ($volume->isDirty('type')) {
                 throw new \RuntimeException('Changing volume type is not allowed.');
             }
-        });
-
-        static::deleting(function (Volume $volume) {
-            $files = $volume->snapshotFiles()->get();
-            $snapshotIds = $files->pluck('snapshot_id')->unique()->all();
-
-            // Cascade atomically so a mid-cascade failure can't leave orphaned
-            // rows or half-reconciled snapshots.
-            DB::transaction(function () use ($volume, $files, $snapshotIds) {
-                foreach ($files as $file) {
-                    if (! $volume->skipFileCleanup && $file->status === SnapshotFileStatus::Completed) {
-                        $file->deleteFromVolume();
-                    }
-                    $file->delete();
-                }
-
-                // Snapshots left without any copy follow the volume (legacy
-                // cascade); multi-volume snapshots survive with their remaining
-                // copies. Batch the lookups instead of querying per snapshot.
-                $snapshots = Snapshot::query()->whereKey($snapshotIds)->get();
-                $snapshotIdsWithFiles = SnapshotFile::query()
-                    ->whereIn('snapshot_id', $snapshotIds)
-                    ->distinct()
-                    ->pluck('snapshot_id')
-                    ->all();
-
-                foreach ($snapshots->whereNotIn('id', $snapshotIdsWithFiles) as $snapshot) {
-                    $snapshot->skipFileCleanup = true;
-                    $snapshot->delete();
-                }
-
-                // Backup configs that only targeted this volume follow it too.
-                foreach ($volume->backups()->with('volumes:id')->get() as $backup) {
-                    if (! $backup->volumes->contains(fn (Volume $other) => $other->id !== $volume->id)) {
-                        $backup->delete();
-                    }
-                }
-            });
         });
     }
 

@@ -27,7 +27,6 @@ class FinishSnapshotDeletionAction
         $remaining = $snapshot->files()->completed()->with('volume')->get();
 
         if ($remaining->isEmpty()) {
-            $snapshot->skipFileCleanup = true;
             $snapshot->delete();
 
             return;

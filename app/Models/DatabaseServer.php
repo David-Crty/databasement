@@ -28,8 +28,6 @@ class DatabaseServer extends Model
 
     use HasUlids;
 
-    public bool $skipFileCleanup = false;
-
     /**
      * Transient state passed from factories to configure the server's default
      * Backup row in an afterCreating hook. Never persisted.
@@ -49,21 +47,6 @@ class DatabaseServer extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(new OrganizationScope);
-
-        // Delete snapshots through Eloquent to trigger their deleting events
-        // (which clean up associated BackupJobs, Restores, and backup files)
-        static::deleting(function (DatabaseServer $server) {
-            foreach ($server->snapshots as $snapshot) {
-                $snapshot->skipFileCleanup = $server->skipFileCleanup;
-                $snapshot->delete();
-            }
-
-            // Delete restores targeting this server (cross-server restores)
-            // to trigger their deleting events which clean up BackupJobs
-            foreach (Restore::where('target_server_id', $server->id)->get() as $restore) {
-                $restore->delete();
-            }
-        });
     }
 
     protected $fillable = [

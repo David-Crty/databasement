@@ -1,6 +1,8 @@
 <?php
 
+use App\Actions\Volume\DeleteVolumeAction;
 use App\Enums\Ability;
+use App\Exceptions\Volume\VolumeFilesNotDeletedException;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -161,6 +163,16 @@ test('can delete a volume via api', function () {
         ->assertNoContent();
 
     $this->assertDatabaseMissing('volumes', ['id' => $volume->id]);
+});
+
+test('deleting a volume whose files cannot be deleted answers 409', function () {
+    $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+    $volume = Volume::factory()->create();
+    DeleteVolumeAction::shouldRun()->andThrow(new VolumeFilesNotDeletedException($volume, ['Volume unreachable']));
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson("/api/v1/volumes/{$volume->id}")
+        ->assertConflict();
 });
 
 // ─── Test Connection ────────────────────────────────────────────────────────

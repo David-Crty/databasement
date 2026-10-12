@@ -148,24 +148,4 @@ class SnapshotFile extends Model
             ['snapshot_id' => $this->snapshot_id],
         );
     }
-
-    /**
-     * Best-effort removeFromVolume() for cascades that must not stop: a
-     * failure is logged and reported as nothing deleted.
-     */
-    public function deleteFromVolume(): bool
-    {
-        try {
-            return $this->removeFromVolume();
-        } catch (Throwable $e) {
-            logger()->error('Failed to delete backup file for snapshot', [
-                'snapshot_id' => $this->snapshot_id,
-                'volume_id' => $this->volume_id,
-                'filename' => $this->storedFilename(),
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
-    }
 }

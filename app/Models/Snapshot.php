@@ -28,8 +28,6 @@ class Snapshot extends Model
 
     use HasUlids;
 
-    public bool $skipFileCleanup = false;
-
     protected $fillable = [
         'backup_job_id',
         'database_server_id',
@@ -180,12 +178,9 @@ class Snapshot extends Model
         // Tenancy is inherited from the database server the snapshot was taken from.
         static::addGlobalScope(new DatabaseServerOrganizationScope('database_server_id'));
 
-        // Delete the backup files, associated restores and job when snapshot is deleted
+        // Files on storage are removed by the actions before the row goes;
+        // this only keeps the rows that point at the snapshot consistent.
         static::deleting(function (Snapshot $snapshot) {
-            if (! $snapshot->skipFileCleanup) {
-                $snapshot->deleteBackupFiles();
-            }
-
             // The copy rows would cascade at the DB level, but delete them
             // explicitly so the restores' snapshot_file_id nullOnDelete fires
             // consistently across drivers.
@@ -265,18 +260,6 @@ class Snapshot extends Model
     {
         return Formatters::humanFileSize($this->file_size);
     }
-
-    /**
-     * Delete every stored copy of the backup file from its volume.
-     * Returns true when at least one file was deleted.
-     */
-    public function deleteBackupFiles(): bool
-    {
-        $deleted = false;
-
-        foreach ($this->files()->completed()->get() as $file) {
-            $deleted = $file->deleteFromVolume() || $deleted;
-        }
 
         return $deleted;
     }

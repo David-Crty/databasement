@@ -3,6 +3,7 @@
 use App\Actions\Volume\DeleteVolumeAction;
 use App\Enums\Ability;
 use App\Enums\VolumeType;
+use App\Exceptions\Volume\VolumeFilesNotDeletedException;
 use App\Livewire\Volume\Create;
 use App\Livewire\Volume\Edit;
 use App\Livewire\Volume\Index;
@@ -368,6 +369,18 @@ describe('volume deletion', function () {
             ->call('confirmDelete', $volume->id)
             ->set('keepFiles', true)
             ->call('delete');
+    });
+
+    test('a volume whose files cannot be deleted is reported instead of failing the request', function () {
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+        $volume = Volume::factory()->local()->create();
+        DeleteVolumeAction::shouldRun()->andThrow(new VolumeFilesNotDeletedException($volume, ['Volume unreachable']));
+
+        Livewire::actingAs($user)
+            ->test(Index::class)
+            ->call('confirmDelete', $volume->id)
+            ->call('delete')
+            ->assertSet('deleteId', null);
     });
 });
 

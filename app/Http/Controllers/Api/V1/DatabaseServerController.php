@@ -7,6 +7,7 @@ use App\Actions\DatabaseServer\CreateDatabaseServerAction;
 use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Actions\DatabaseServer\UpdateDatabaseServerAction;
 use App\Actions\Restore\TriggerRestoreAction;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestoreRequest;
 use App\Http\Requests\Api\V1\SaveDatabaseServerRequest;
@@ -97,13 +98,20 @@ class DatabaseServerController extends Controller
     /**
      * Delete a database server.
      *
+     * A server whose backup files cannot all be deleted from their volumes is
+     * kept, with its snapshots.
+     *
      * @response 204
      */
     public function destroy(DatabaseServer $databaseServer): Response
     {
         $this->authorize('delete', $databaseServer);
 
-        DeleteDatabaseServerAction::run($databaseServer);
+        try {
+            DeleteDatabaseServerAction::run($databaseServer);
+        } catch (DatabaseServerFilesNotDeletedException $e) {
+            abort(409, $e->getMessage());
+        }
 
         return response()->noContent();
     }

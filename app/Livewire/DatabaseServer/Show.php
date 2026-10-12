@@ -5,6 +5,7 @@ namespace App\Livewire\DatabaseServer;
 use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Livewire\DatabaseServer\Concerns\OpensServerRestore;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
@@ -85,7 +86,15 @@ class Show extends Component
     {
         $this->authorize('delete', $this->server);
 
-        DeleteDatabaseServerAction::run($this->server, $this->keepFiles);
+        try {
+            DeleteDatabaseServerAction::run($this->server, $this->keepFiles);
+        } catch (DatabaseServerFilesNotDeletedException) {
+            $this->showDeleteModal = false;
+            $this->error(__('The database server was kept because some backup files could not be deleted. Try again, or delete it while keeping the files.'));
+
+            return;
+        }
+
         $this->showDeleteModal = false;
 
         $this->success(
