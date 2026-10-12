@@ -71,15 +71,14 @@ test('without manage-users, a token cannot be scoped to it', function () {
     expect($user->tokens()->where('name', 'Escalated Token')->exists())->toBeFalse();
 });
 
-test('accessLabel reports full access or the ability count per token, not just anywhere on the page', function () {
+test('lists the abilities a scoped token carries', function () {
     $user = User::factory()->create();
-    $legacyToken = $user->createToken('Legacy Token')->accessToken;
-    $scopedToken = $user->createToken('Scoped Token', [Ability::RunBackups->value, Ability::DownloadSnapshots->value])->accessToken;
+    $user->createToken('Scoped Token', [Ability::RunBackups->value]);
 
-    $component = Livewire::actingAs($user)->test(Index::class)->instance();
-
-    expect($component->accessLabel($legacyToken))->toBe(__('Full access'))
-        ->and($component->accessLabel($scopedToken))->toBe('2 abilities');
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->assertSee(Ability::RunBackups->label())
+        ->assertDontSee(Ability::DownloadSnapshots->label());
 });
 
 test('can revoke an existing token', function () {

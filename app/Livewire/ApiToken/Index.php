@@ -103,24 +103,6 @@ class Index extends Component
     }
 
     /**
-     * Display-ready label for a token's access scope badge.
-     */
-    public function accessLabel(PersonalAccessToken $token): string
-    {
-        $abilities = $token->abilities ?? [];
-
-        if (in_array('*', $abilities, true)) {
-            return __('Full access');
-        }
-
-        return trans_choice(
-            '{0} No abilities|{1} :count ability|[2,*] :count abilities',
-            count($abilities),
-            ['count' => count($abilities)]
-        );
-    }
-
-    /**
      * Catalogue abilities the current user holds, the only ones a scoped token may carry.
      *
      * @return list<string>

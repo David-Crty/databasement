@@ -1136,7 +1136,6 @@
   "Your account is not a member of any organization. Please contact an administrator.": "您的帳號不屬於任何組織，請聯絡管理員。",
   "Your account is not authorized to access this application.": "您的帳號未獲授權存取此應用程式。",
   "{0} Backups enabled (no config)|{1} Backups enabled (:count config)|[2,*] Backups enabled (:count configs)": "{0} 已啟用 Backups（無設定）|{1} 已啟用 Backups（:count個設定）|[2,*] 已啟用 Backups（:count個設定）",
-  "{0} No abilities|{1} :count ability|[2,*] :count abilities": "{0} 沒有權限|{1} 一項權限|[2,*] :count項權限",
   "{1} :count channel|[2,*] :count channels": "{1} 一個頻道|{2} 兩個頻道|[3,*] :count個頻道",
   "{1} :count daily|[2,*] :count daily": "{1} 一個每日|{2} 兩個每日|[3,*] :count個每日",
   "{1} :count database|[2,*] :count databases": "{1} 一個資料庫|{2} 兩個資料庫|[3,*] :count個資料庫",

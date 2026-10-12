@@ -22,9 +22,13 @@
                 @foreach($tokens as $token)
                     <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
                         <div class="flex-1">
-                            <div class="font-medium">
-                                {{ $token->name }}
-                                <span class="badge badge-sm badge-ghost ml-1">{{ $this->accessLabel($token) }}</span>
+                            <div class="font-medium">{{ $token->name }}</div>
+                            <div class="my-1">
+                                @if(in_array('*', $token->abilities ?? [], true))
+                                    <span class="badge badge-sm badge-ghost">{{ __('Full access') }}</span>
+                                @else
+                                    <x-ability-badges :abilities="$token->abilities ?? []" />
+                                @endif
                             </div>
                             <div class="text-sm text-base-content/70">
                                 @if($token->tokenable)
