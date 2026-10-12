@@ -2,6 +2,7 @@
 
 use App\Enums\Ability;
 use App\Models\BackupSchedule;
+use App\Models\DatabaseServer;
 use App\Models\User;
 
 // ─── Index ───────────────────────────────────────────────────────────────────
@@ -195,4 +196,16 @@ test('can delete a backup schedule via api', function () {
         ->assertNoContent();
 
     $this->assertDatabaseMissing('backup_schedules', ['id' => $schedule->id]);
+});
+
+test('deleting a schedule that backups still run on is refused', function () {
+    $user = User::factory()->withAbilities([Ability::ManageBackupSettings->value])->create();
+    $schedule = DatabaseServer::factory()->create()->backups->first()->backupSchedule;
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson("/api/v1/backup-schedules/{$schedule->id}")
+        ->assertConflict()
+        ->assertJsonPath('message', 'Cannot delete a schedule that is in use by database servers.');
+
+    $this->assertDatabaseHas('backup_schedules', ['id' => $schedule->id]);
 });
