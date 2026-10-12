@@ -37,7 +37,7 @@ class DeleteSnapshotAction
     public function handle(Snapshot $snapshot, bool $keepFiles = false): bool
     {
         if ($keepFiles) {
-            $this->deleteRecord($snapshot);
+            $snapshot->delete();
 
             return true;
         }
@@ -92,11 +92,5 @@ class DeleteSnapshotAction
         } catch (Throwable $e) {
             return $e->getMessage();
         }
-    }
-
-    private function deleteRecord(Snapshot $snapshot): void
-    {
-        $snapshot->skipFileCleanup = true;
-        $snapshot->delete();
     }
 }

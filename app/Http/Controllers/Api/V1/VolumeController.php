@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Actions\Volume\CreateVolumeAction;
 use App\Actions\Volume\DeleteVolumeAction;
 use App\Enums\VolumeType;
+use App\Exceptions\Volume\VolumeFilesNotDeletedException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Volume\StoreFtpVolumeRequest;
 use App\Http\Requests\Api\V1\Volume\StoreLocalVolumeRequest;
@@ -104,13 +105,20 @@ class VolumeController extends Controller
     /**
      * Delete a volume.
      *
+     * A volume whose backup files cannot all be deleted from its storage is
+     * kept, with its snapshots.
+     *
      * @response 204
      */
     public function destroy(Volume $volume): Response
     {
         $this->authorize('delete', $volume);
 
-        DeleteVolumeAction::run($volume);
+        try {
+            DeleteVolumeAction::run($volume);
+        } catch (VolumeFilesNotDeletedException $e) {
+            abort(409, $e->getMessage());
+        }
 
         return response()->noContent();
     }

@@ -5,6 +5,7 @@ namespace App\Livewire\DatabaseServer;
 use App\Actions\Backup\TriggerBackupAction;
 use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\BackupDiscoveryState;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\DatabaseServer\Concerns\OpensServerRestore;
@@ -72,7 +73,15 @@ class Index extends Component
             return;
         }
 
-        DeleteDatabaseServerAction::run($server, $this->keepFiles);
+        try {
+            DeleteDatabaseServerAction::run($server, $this->keepFiles);
+        } catch (DatabaseServerFilesNotDeletedException) {
+            $this->closeDeletion();
+            $this->error(__('The database server was kept because some backup files could not be deleted. Try again, or delete it while keeping the files.'));
+
+            return;
+        }
+
         $this->closeDeletion();
 
         $this->success(__('Database server deleted successfully!'));

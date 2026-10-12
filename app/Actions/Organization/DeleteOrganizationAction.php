@@ -2,7 +2,12 @@
 
 namespace App\Actions\Organization;
 
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
+use App\Actions\Volume\DeleteVolumeAction;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
+use App\Exceptions\Volume\VolumeFilesNotDeletedException;
 use App\Models\Organization;
+use App\Models\Scopes\OrganizationScope;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -13,19 +18,18 @@ class DeleteOrganizationAction
     use AsFake, AsObject;
 
     /**
-     * Delete an organization, cascading the deletion of its servers, volumes,
-     * agents and SSH configs. When $keepFiles is true, backup files on storage
-     * are preserved (only database records are removed).
+     * Delete an organization with its servers and volumes, through their own
+     * delete actions, then the organization itself, whose agents, SSH configs
+     * and memberships go with it. When $keepFiles is true, backup files on
+     * storage are preserved (only database records are removed).
      *
-     * This deliberately runs without a wrapping transaction: the cascade deletes
-     * backup files from storage (an irreversible side effect), so a rollback
-     * would leave the database referencing files that no longer exist. Running
-     * unwrapped keeps database rows and storage consistent — both are removed
-     * together — and matches every other delete path (server, volume, snapshot),
-     * which also clean up files synchronously without a transaction. A mid-cascade
-     * failure leaves a partially deleted org, which is safely re-deletable.
+     * Each server and volume removes its files before its rows, so a failure
+     * leaves a partially deleted organization whose remaining resources still
+     * track their files, and which is safely re-deletable.
      *
      * @throws InvalidArgumentException When the organization is the default one
+     * @throws DatabaseServerFilesNotDeletedException When a server still has files, which keeps it and the organization
+     * @throws VolumeFilesNotDeletedException When a volume still holds files, which keeps it and the organization
      */
     public function handle(Organization $organization, ?int $triggeredByUserId = null, bool $keepFiles = false): void
     {
@@ -33,7 +37,14 @@ class DeleteOrganizationAction
             throw new InvalidArgumentException('The default organization cannot be deleted.');
         }
 
-        $organization->skipFileCleanup = $keepFiles;
+        foreach ($organization->databaseServers()->withoutGlobalScope(OrganizationScope::class)->get() as $server) {
+            DeleteDatabaseServerAction::run($server, $keepFiles);
+        }
+
+        foreach ($organization->volumes()->withoutGlobalScope(OrganizationScope::class)->get() as $volume) {
+            DeleteVolumeAction::run($volume, $keepFiles);
+        }
+
         $organization->delete();
 
         Log::info('Organization deleted', [

@@ -1,8 +1,10 @@
 <?php
 
 use App\Actions\Backup\TriggerBackupAction;
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\Ability;
 use App\Enums\BackupDiscoveryState;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
@@ -597,6 +599,16 @@ test('can delete a database server via api', function () {
         ->assertNoContent();
 
     $this->assertDatabaseMissing('database_servers', ['id' => $server->id]);
+});
+
+test('deleting a server whose files cannot be deleted answers 409', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create();
+    DeleteDatabaseServerAction::shouldRun()->andThrow(new DatabaseServerFilesNotDeletedException($server, ['Offsite: Volume unreachable']));
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson("/api/v1/database-servers/{$server->id}")
+        ->assertConflict();
 });
 
 // ─── Filter by managed_by ───────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 <?php
 
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\Ability;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Livewire\DatabaseServer\Index;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
@@ -87,6 +89,18 @@ test('can delete database server', function () {
     $this->assertDatabaseMissing('database_servers', [
         'id' => $server->id,
     ]);
+});
+
+test('a server whose files cannot be deleted is reported instead of failing the request', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create();
+    DeleteDatabaseServerAction::shouldRun()->andThrow(new DatabaseServerFilesNotDeletedException($server, ['Offsite: Volume unreachable']));
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('confirmDelete', $server->id)
+        ->call('delete')
+        ->assertSet('deleteId', null);
 });
 
 test('runBackupAll dispatches backup jobs for all backup configs on the server', function () {
