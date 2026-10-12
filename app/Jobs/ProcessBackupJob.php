@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Actions\Backup\CompleteBackupAction;
+use App\Actions\Backup\FailBackupAction;
 use App\Actions\Backup\RecordBackupResultAction;
 use App\Enums\SnapshotFileStatus;
 use App\Exceptions\Backup\JobCancelledException;
@@ -14,7 +15,6 @@ use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\VolumeConfig;
-use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
 use App\Support\QueueTimeouts;
 use Illuminate\Bus\Queueable;
@@ -164,8 +164,20 @@ class ProcessBackupJob implements ShouldQueue
     {
         $snapshot = Snapshot::with(['job', 'databaseServer'])->find($this->snapshotId);
 
-        if ($snapshot !== null && $snapshot->job->recordQueueFailure($exception, 'Backup')) {
-            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
+        if ($snapshot === null) {
+            return;
+        }
+
+        try {
+            // A worker killed on timeout never reached its own catch, so the
+            // job is still running and its log does not say why it stopped.
+            if ($snapshot->job->status->isInProgress()) {
+                $snapshot->job->log("Backup failed: {$exception->getMessage()}", 'error');
+            }
+
+            FailBackupAction::run($snapshot, $exception);
+        } catch (JobCancelledException) {
+            // Cancelled meanwhile: nothing to conclude or notify.
         }
     }
 }

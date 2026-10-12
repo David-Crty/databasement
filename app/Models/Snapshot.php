@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 /**
  * @mixin IdeHelperSnapshot
@@ -58,64 +57,6 @@ class Snapshot extends Model
             'metadata' => 'array',
             'compression_type' => CompressionType::class,
         ];
-    }
-
-    /**
-     * Generate metadata array for a snapshot.
-     * Sensitive fields (passwords) are excluded from the volume configs.
-     *
-     * @param  Collection<int, Volume>  $volumes
-     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volumes: list<array{id: string, type: string, config: array<string, mixed>}>, agent?: array{name: string}, dump_format?: string, dump_privileges?: bool}
-     */
-    public static function generateMetadata(DatabaseServer $server, string $databaseName, Collection $volumes): array
-    {
-        $sshTunnel = ['enabled' => false];
-        if ($server->requiresSshTunnel() && $server->sshConfig !== null) {
-            $safeSshConfig = $server->sshConfig->getSafe();
-            $sshTunnel = [
-                'enabled' => true,
-                'host' => $safeSshConfig['host'] ?? null,
-                'port' => $safeSshConfig['port'] ?? 22,
-                'username' => $safeSshConfig['username'] ?? null,
-                'auth_type' => $safeSshConfig['auth_type'] ?? 'password',
-            ];
-        }
-
-        $metadata = [
-            'database_server' => [
-                'host' => $server->host,
-                'port' => $server->port,
-                'username' => $server->username,
-                'database_name' => $databaseName,
-                'ssh_tunnel' => $sshTunnel,
-            ],
-            'volumes' => array_values($volumes->map(fn (Volume $volume) => [
-                'id' => $volume->id,
-                'type' => $volume->type,
-                'config' => $volume->getSafeConfig(),
-            ])->all()),
-        ];
-
-        // Record the agent name when the backup runs through a remote agent,
-        // so the logs modal can show how the job was executed.
-        if ($server->agent_id !== null && $server->agent !== null) {
-            $metadata['agent'] = ['name' => $server->agent->name];
-        }
-
-        // Record dump format for restore-time dispatch. Absent → plain (default for legacy snapshots).
-        if ($server->database_type === DatabaseType::POSTGRESQL
-            && $server->getExtraConfig('dump_format') === 'custom') {
-            $metadata['dump_format'] = 'custom';
-        }
-
-        // Record whether ownership/privilege information was preserved in the dump.
-        // Absent → stripped via --no-owner/--no-privileges (default for legacy snapshots).
-        if ($server->database_type === DatabaseType::POSTGRESQL
-            && (bool) $server->getExtraConfig('dump_privileges')) {
-            $metadata['dump_privileges'] = true;
-        }
-
-        return $metadata;
     }
 
     /**
@@ -259,9 +200,6 @@ class Snapshot extends Model
     public function getHumanFileSize(): string
     {
         return Formatters::humanFileSize($this->file_size);
-    }
-
-        return $deleted;
     }
 
     /**
