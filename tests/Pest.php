@@ -233,7 +233,7 @@ function dispatchAgentRestore(\App\Models\Agent $agent, \App\Models\Volume ...$v
         ->create();
 
     $restore = app(\App\Services\Backup\BackupJobFactory::class)->createRestore($snapshot, $target, 'restored_db');
-    app(\App\Services\Backup\DispatchRestoreAction::class)->execute($restore);
+    \App\Actions\Restore\DispatchRestoreAction::run($restore);
 
     return ['restore' => $restore, 'agentJob' => \App\Models\AgentJob::where('restore_id', $restore->id)->sole()];
 }

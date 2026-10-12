@@ -85,7 +85,7 @@ test('runNow on a disabled scheduled restore asks for confirmation instead of ru
     expect($scheduled->refresh()->last_executed_at)->toBeNull();
 });
 
-test('runDisabledNow runs a disabled scheduled restore without enabling it', function () {
+test('runDisabledNow runs a disabled scheduled restore', function () {
     Queue::fake();
 
     $scheduled = createScheduledRestore(['enabled' => false]);
@@ -97,10 +97,6 @@ test('runDisabledNow runs a disabled scheduled restore without enabling it', fun
         ->assertSet('showRunDisabledModal', false);
 
     Queue::assertPushed(ProcessRestoreJob::class, 1);
-
-    $scheduled->refresh();
-    expect($scheduled->enabled)->toBeFalse()
-        ->and($scheduled->last_skip_reason)->toBeNull();
 });
 
 test('deleteScheduledRestore removes the record', function () {

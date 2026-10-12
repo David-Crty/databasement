@@ -1,16 +1,20 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\Restore;
 
 use App\Enums\AgentJobType;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\AgentJob;
 use App\Models\Restore;
 use App\Services\Agent\AgentJobPayloadBuilder;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use RuntimeException;
 
 class DispatchRestoreAction
 {
+    use AsFake, AsObject;
+
     public function __construct(
         private AgentJobPayloadBuilder $payloadBuilder,
     ) {}
@@ -19,7 +23,7 @@ class DispatchRestoreAction
      * Hand a created restore to whatever can reach its target: the server's
      * remote agent, or the app's own queue.
      */
-    public function execute(Restore $restore): void
+    public function handle(Restore $restore): void
     {
         $targetServer = $restore->targetServer;
 

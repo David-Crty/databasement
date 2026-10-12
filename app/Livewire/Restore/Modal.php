@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Restore;
 
+use App\Actions\Restore\TriggerRestoreAction;
 use App\Enums\DatabaseType;
 use App\Enums\RestoreModalMode;
 use App\Livewire\Concerns\InteractsWithTargetDatabases;
@@ -10,9 +11,8 @@ use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
 use App\Queries\SnapshotQuery;
-use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\DispatchRestoreAction;
 use App\Traits\Toast;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -316,7 +316,7 @@ class Modal extends Component
         );
     }
 
-    public function restore(BackupJobFactory $backupJobFactory, DispatchRestoreAction $dispatchRestore): void
+    public function restore(): void
     {
         if (! $this->targetServer) {
             $this->error(__('Please select a target server before restoring.'));
@@ -337,24 +337,24 @@ class Modal extends Component
         try {
             $snapshot = Snapshot::findOrFail($this->selectedSnapshotId);
 
+            $this->authorize('restoreFrom', $snapshot);
+
             $userId = auth()->id();
-            $restore = $backupJobFactory->createRestore(
+            TriggerRestoreAction::run(
                 snapshot: $snapshot,
                 targetServer: $this->targetServer,
                 schemaName: $this->schemaName,
-                triggeredByUserId: is_int($userId) ? $userId : null,
-                options: $this->buildOptions(),
+                options: $this->restoreOptions(),
                 snapshotFileId: $this->selectedSnapshotFileId,
+                triggeredByUserId: is_int($userId) ? $userId : null,
             );
-
-            $dispatchRestore->execute($restore);
 
             $this->success(__('Restore started successfully!'));
 
             $this->showModal = false;
 
             $this->dispatch('restore-created');
-        } catch (ValidationException $e) {
+        } catch (ValidationException|AuthorizationException $e) {
             throw $e;
         } catch (\Exception $e) {
             report($e);
