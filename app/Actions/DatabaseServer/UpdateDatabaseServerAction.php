@@ -5,6 +5,7 @@ namespace App\Actions\DatabaseServer;
 use App\Actions\Backup\SyncBackupConfigurationsAction;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
+use App\Support\DatabaseServerExtraConfig;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -42,7 +43,7 @@ class UpdateDatabaseServerAction
                 $attributes['ssh_config_id'] = $this->saveSshConfig($server, $sshConfig);
             }
 
-            DatabaseServer::buildExtraConfig($attributes, $server->extra_config, $server->database_type->value);
+            DatabaseServerExtraConfig::fold($attributes, $server->extra_config, $server->database_type->value);
 
             $server->update($attributes);
 

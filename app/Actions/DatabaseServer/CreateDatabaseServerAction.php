@@ -6,6 +6,7 @@ use App\Actions\Backup\SyncBackupConfigurationsAction;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
+use App\Support\DatabaseServerExtraConfig;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
@@ -39,7 +40,7 @@ class CreateDatabaseServerAction
             }
 
             $attributes['backups_enabled'] ??= true;
-            DatabaseServer::buildExtraConfig($attributes);
+            DatabaseServerExtraConfig::fold($attributes);
 
             $server = new DatabaseServer($attributes);
             $server->organization_id = $organization->id;
