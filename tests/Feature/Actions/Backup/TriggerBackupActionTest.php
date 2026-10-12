@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\Backup\Databases\DatabaseProvider;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     Queue::fake();
@@ -33,6 +34,17 @@ test('it creates a snapshot and dispatches backup job for single database', func
         ->and($result->snapshots[0]->backup_id)->toBe($backup->id);
 
     Queue::assertPushed(ProcessBackupJob::class, 1);
+});
+
+test('a server whose backups are disabled is not backed up', function () {
+    $server = DatabaseServer::factory()->withoutBackups()->create(['backups_enabled' => false]);
+    $backup = Backup::factory()->for($server)->selected(['test_db'])->create();
+
+    expect(fn () => TriggerBackupAction::run($backup))
+        ->toThrow(ValidationException::class, 'Backups are disabled for this database server.');
+
+    expect(Snapshot::count())->toBe(0);
+    Queue::assertNothingPushed();
 });
 
 test('it tracks the user who triggered the backup', function () {

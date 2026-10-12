@@ -26,11 +26,15 @@ class TriggerBackupAction
      *
      * @param  'manual'|'scheduled'  $method
      *
-     * @throws ValidationException
+     * @throws ValidationException When the server's backups are disabled, or a database cannot be backed up
      */
     public function handle(Backup $backup, ?int $triggeredByUserId = null, string $method = 'manual'): TriggerBackupResult
     {
         $server = $backup->databaseServer;
+
+        if (! $server->backups_enabled) {
+            throw ValidationException::withMessages(['backup' => 'Backups are disabled for this database server.']);
+        }
 
         $snapshots = $this->backupJobFactory->createSnapshots(
             backup: $backup,
