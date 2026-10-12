@@ -119,6 +119,20 @@ test('execute returns BackupResult with filename, fileSize, and checksum', funct
         ->and($result->checksum)->toMatch('/^[a-f0-9]{64}$/');
 });
 
+test('two backups of the same database started in the same second get their own file', function () {
+    $this->freezeSecond();
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->twice();
+
+    $filenames = collect([1, 2])->map(function () {
+        $config = buildBackupConfig();
+        mkdir($config->workingDirectory, 0755, true);
+
+        return makeBackupTask(buildMockDatabaseProvider())->execute($config, new InMemoryBackupLogger)->filename;
+    });
+
+    expect($filenames->unique())->toHaveCount(2);
+});
+
 test('execute pipes a dump written to stdout straight into the compressor', function () {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('dump')->once()->andReturn(
