@@ -119,7 +119,7 @@ class Form extends \Livewire\Form
     public function scheduleRules(): array
     {
         return [
-            'schedule_name' => ['required', 'string', 'max:100'],
+            'schedule_name' => ['required', 'string', 'max:255'],
             'schedule_expression' => ['required', 'string', 'max:100', $this->cronRule()],
         ];
     }

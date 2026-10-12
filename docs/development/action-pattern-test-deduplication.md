@@ -119,6 +119,8 @@ Then open the PR:
 | Snapshot | `Jobs/DeleteSnapshotsJobTest.php` (a large selection is queued in chunks) | `Actions/Snapshot/DispatchSnapshotDeletionActionTest.php` (one job per 500) | | 1.3 |
 | Snapshot | `Api/SnapshotApiTest.php` (bulk delete marks the snapshots deleting and queues them) | `DispatchSnapshotDeletionActionTest.php` (marks and queues) | | 1.3 |
 | Snapshot | `Agent/AgentSnapshotCleanupTest.php` `describe('reporting')` (removed copies forgotten, failed copy kept with the agent's error) | `Actions/Snapshot/FinishSnapshotDeletionActionTest.php` | | 1.3 |
+| BackupSchedule | `Configuration/BackupTest.php:165`, `:176` (a schedule in use by backups / by a scheduled restore is kept) | `Actions/BackupSchedule/DeleteBackupScheduleActionTest.php` | | 1.4 |
+| BackupSchedule | `Configuration/BackupTest.php` and `Api/BackupScheduleCrudApiTest.php:69`, `:132`, `:189` (create / update / delete persist) | `Actions/BackupSchedule/{Create,Update,Delete}BackupScheduleActionTest.php` | | 1.4 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1
