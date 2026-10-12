@@ -126,6 +126,8 @@ Then open the PR:
 | Volume | `Api/VolumeCrudApiTest.php:86` (created with sensitive fields encrypted) and `Volume/CreateTest.php` | `Actions/Volume/CreateVolumeActionTest.php` | | 1.6 |
 | Volume | `Volume/EditTest.php` (blank secret kept, locked volume only changes name and limit) | `Actions/Volume/UpdateVolumeActionTest.php` | | 1.6 |
 | Volume | `Volume/IndexTest.php` and `Api/VolumeCrudApiTest.php:145` (delete, keep files) | `Actions/Volume/DeleteVolumeActionTest.php` | | 1.6 |
+| DatabaseServer | `Api/DatabaseServerSshConfigCrudApiTest.php` (blank credentials kept, new key drops the passphrase, auth switch clears the other secrets, in-use delete refused) | `Actions/DatabaseServer/{Create,Update,Delete}SshConfigActionTest.php` | | 1.7 |
+| DatabaseServer | `DatabaseServer/SshTunnelTest.php` (SSH config created / preserved through the server form) | `Actions/DatabaseServer/{Create,Update}SshConfigActionTest.php` | | 1.7 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1

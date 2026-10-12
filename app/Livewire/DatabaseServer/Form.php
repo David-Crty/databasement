@@ -3,6 +3,8 @@
 namespace App\Livewire\DatabaseServer;
 
 use App\Actions\Backup\SyncBackupConfigurationsAction;
+use App\Actions\DatabaseServer\CreateSshConfigAction;
+use App\Actions\DatabaseServer\UpdateSshConfigAction;
 use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
@@ -25,6 +27,7 @@ use App\Services\SshKeyGenerator;
 use App\Services\SshTunnelService;
 use App\Support\BackupConfiguration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -1027,58 +1030,31 @@ class Form extends \Livewire\Form
             return null;
         }
 
-        $sshData = [
+        $attributes = [
             'host' => $this->ssh_host,
             'port' => $this->ssh_port,
             'username' => $this->ssh_username,
             'auth_type' => $this->ssh_auth_type,
             'compression' => $this->ssh_compression,
+            'password' => $this->ssh_password,
+            'private_key' => $this->ssh_private_key,
+            'key_passphrase' => $this->ssh_key_passphrase,
         ];
 
-        // Add sensitive fields if provided
-        if ($this->ssh_auth_type === 'password') {
-            if (! empty($this->ssh_password)) {
-                $sshData['password'] = $this->ssh_password;
-            }
-            $sshData['private_key'] = null;
-            $sshData['key_passphrase'] = null;
-        } else {
-            if (! empty($this->ssh_private_key)) {
-                $sshData['private_key'] = $this->ssh_private_key;
-            }
-            if (! empty($this->ssh_key_passphrase)) {
-                $sshData['key_passphrase'] = $this->ssh_key_passphrase;
-            }
-            $sshData['password'] = null;
-        }
-
-        // Determine which config to update (if any)
         $existingConfigId = $this->ssh_config_mode === 'existing'
             ? $this->ssh_config_id
             : $this->server?->ssh_config_id;
 
-        if ($existingConfigId !== null) {
-            $config = DatabaseServerSshConfig::find($existingConfigId);
-            if ($config !== null) {
-                // Non-sensitive fields are always updated; sensitive fields only when provided
-                $nonSensitiveFields = ['host', 'port', 'username', 'auth_type', 'compression'];
-                $updateData = array_intersect_key($sshData, array_flip($nonSensitiveFields));
+        $sshConfig = $existingConfigId !== null ? DatabaseServerSshConfig::find($existingConfigId) : null;
 
-                foreach (DatabaseServerSshConfig::SENSITIVE_FIELDS as $field) {
-                    if (! empty($sshData[$field])) {
-                        $updateData[$field] = $sshData[$field];
-                    }
-                }
+        if ($sshConfig !== null) {
+            // The configuration may be shared with other servers.
+            Gate::authorize('update', $sshConfig);
 
-                $config->update($updateData);
-
-                return $config->id;
-            }
+            return UpdateSshConfigAction::run($sshConfig, $attributes)->id;
         }
 
-        $sshData['organization_id'] = app(CurrentOrganization::class)->id();
-
-        return DatabaseServerSshConfig::create($sshData)->id;
+        return CreateSshConfigAction::run(app(CurrentOrganization::class)->model(), $attributes)->id;
     }
 
     private function syncBackupConfigurations(DatabaseServer $server): void
