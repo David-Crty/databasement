@@ -2,11 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Actions\Role\AssignRoleToUserAction;
+use App\Actions\Role\SyncUserAbilitiesAction;
 use App\Enums\Ability;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\Roles\AssignRoleToUserAction;
-use App\Services\Roles\SyncUserAbilitiesAction;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -83,10 +83,10 @@ class UserFactory extends Factory
                 $user->organizations()->attach($org->id);
             }
 
-            app(AssignRoleToUserAction::class)->execute($user, $role, $org);
+            AssignRoleToUserAction::run($user, $role, $org);
 
             if (is_array($abilities) && $abilities !== []) {
-                app(SyncUserAbilitiesAction::class)->execute($user, $abilities, $org);
+                SyncUserAbilitiesAction::run($user, $abilities, $org);
             }
         });
     }

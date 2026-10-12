@@ -134,7 +134,7 @@ function attachUserToOrg(
         $user->organizations()->attach($org->id);
     }
 
-    app(\App\Services\Roles\AssignRoleToUserAction::class)->execute($user, $role, $org);
+    \App\Actions\Role\AssignRoleToUserAction::run($user, $role, $org);
 }
 
 function dailySchedule(): \App\Models\BackupSchedule

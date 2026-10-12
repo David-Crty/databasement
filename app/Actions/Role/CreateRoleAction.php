@@ -1,9 +1,11 @@
 <?php
 
-namespace App\Services\Roles;
+namespace App\Actions\Role;
 
 use App\Support\BouncerScope;
 use Illuminate\Support\Facades\DB;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 use Silber\Bouncer\BouncerFacade as Bouncer;
 use Silber\Bouncer\Database\Role;
 
@@ -13,10 +15,12 @@ use Silber\Bouncer\Database\Role;
  */
 class CreateRoleAction
 {
+    use AsFake, AsObject;
+
     /**
      * @param  list<string>  $abilities  ability names from the catalogue
      */
-    public function execute(string $name, string $title, array $abilities): Role
+    public function handle(string $name, string $title, array $abilities): Role
     {
         // Role definitions and their ability grants are global (the active org
         // scope is preserved, so a mid-request admin keeps their context).

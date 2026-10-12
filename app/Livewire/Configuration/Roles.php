@@ -2,12 +2,12 @@
 
 namespace App\Livewire\Configuration;
 
+use App\Actions\Role\CreateRoleAction;
+use App\Actions\Role\DeleteRoleAction;
+use App\Actions\Role\UpdateRoleAction;
 use App\Enums\Ability;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Models\User;
-use App\Services\Roles\CreateRoleAction;
-use App\Services\Roles\DeleteRoleAction;
-use App\Services\Roles\UpdateRoleAction;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -60,7 +60,7 @@ class Roles extends Component
         $this->showFormModal = true;
     }
 
-    public function save(CreateRoleAction $createRole, UpdateRoleAction $updateRole): void
+    public function save(): void
     {
         $role = $this->editingId !== null ? Role::query()->findOrFail($this->editingId) : null;
 
@@ -75,10 +75,10 @@ class Roles extends Component
         $abilities = array_values(array_intersect($this->abilities, Ability::names()));
 
         if ($role !== null) {
-            $updateRole->execute($role, $this->title, $abilities);
+            UpdateRoleAction::run($role, $this->title, $abilities);
             $this->success(__('Role updated.'));
         } else {
-            $createRole->execute($this->uniqueRoleName($this->title), $this->title, $abilities);
+            CreateRoleAction::run($this->uniqueRoleName($this->title), $this->title, $abilities);
             $this->success(__('Role created.'));
         }
 
@@ -92,7 +92,7 @@ class Roles extends Component
         $this->confirmDeletion(Role::query(), $id);
     }
 
-    public function delete(DeleteRoleAction $deleteRole): void
+    public function delete(): void
     {
         $role = $this->pendingDeletion(Role::query());
 
@@ -100,7 +100,7 @@ class Roles extends Component
             return;
         }
 
-        $deleteRole->execute($role);
+        DeleteRoleAction::run($role);
 
         $this->closeDeletion();
         $this->success(__('Role deleted.'));
