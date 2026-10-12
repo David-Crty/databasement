@@ -75,7 +75,7 @@ class BackupJobHandler implements AgentJobHandler
 
             FailBackupAction::run($snapshot, $exception);
         } else {
-            CompleteBackupAction::run($snapshot, $backupResult);
+            CompleteBackupAction::run($snapshot);
         }
 
         return [];

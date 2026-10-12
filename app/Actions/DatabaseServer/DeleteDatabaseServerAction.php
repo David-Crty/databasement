@@ -6,10 +6,10 @@ use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\SnapshotFile;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Throwable;
 
 class DeleteDatabaseServerAction
 {
@@ -22,17 +22,20 @@ class DeleteDatabaseServerAction
      * The files go first, outside any transaction, so a rollback can never
      * leave rows pointing at files already deleted. When one of them cannot
      * be removed, nothing is deleted and the error is recorded on its copy:
-     * a retry only finds the files still there.
+     * a retry only finds the files still there. Nothing is deleted either
+     * when a backup completed meanwhile, as its file was not removed.
      *
      * @throws DatabaseServerFilesNotDeletedException When a file is still on a volume, which keeps everything
      */
     public function handle(DatabaseServer $server, bool $keepFiles = false): void
     {
-        if (! $keepFiles) {
-            $this->removeFiles($server);
-        }
+        $removedFileIds = $keepFiles ? null : $this->removeFiles($server);
 
-        DB::transaction(function () use ($server) {
+        DB::transaction(function () use ($server, $removedFileIds) {
+            if ($removedFileIds !== null && $this->completedFiles($server)->whereKeyNot($removedFileIds)->exists()) {
+                throw new DatabaseServerFilesNotDeletedException($server, ['a backup completed while it was being deleted']);
+            }
+
             foreach ($server->snapshots()->get() as $snapshot) {
                 $snapshot->delete();
             }
@@ -46,29 +49,31 @@ class DeleteDatabaseServerAction
     }
 
     /**
+     * @return list<int|string> The ids of the copies whose file was removed
+     *
      * @throws DatabaseServerFilesNotDeletedException
      */
-    private function removeFiles(DatabaseServer $server): void
+    private function removeFiles(DatabaseServer $server): array
     {
-        $errors = [];
+        $files = $this->completedFiles($server)->with(['volume', 'snapshot'])->get();
+        $left = SnapshotFile::removeEachFromVolume($files);
 
-        $files = SnapshotFile::query()
-            ->completed()
-            ->whereIn('snapshot_id', $server->snapshots()->select('snapshots.id'))
-            ->with(['volume', 'snapshot'])
-            ->get();
+        if ($left->isNotEmpty()) {
+            $errors = $left->map(fn (SnapshotFile $file): string => "{$file->volume->name}: {$file->error}")->all();
 
-        foreach ($files as $file) {
-            try {
-                $file->removeFromVolume();
-            } catch (Throwable $e) {
-                $file->update(['error' => $e->getMessage()]);
-                $errors[] = "{$file->volume->name}: {$e->getMessage()}";
-            }
-        }
-
-        if ($errors !== []) {
             throw new DatabaseServerFilesNotDeletedException($server, array_values(array_unique($errors)));
         }
+
+        return array_values($files->modelKeys());
+    }
+
+    /**
+     * @return Builder<SnapshotFile>
+     */
+    private function completedFiles(DatabaseServer $server): Builder
+    {
+        return SnapshotFile::query()
+            ->completed()
+            ->whereIn('snapshot_id', $server->snapshots()->select('snapshots.id'));
     }
 }

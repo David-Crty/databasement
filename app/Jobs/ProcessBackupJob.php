@@ -118,7 +118,7 @@ class ProcessBackupJob implements ShouldQueue
             $result = $backupTask->execute($config, $job);
 
             RecordBackupResultAction::run($snapshot, $result);
-            CompleteBackupAction::run($snapshot, $result);
+            CompleteBackupAction::run($snapshot);
 
             Log::info('Backup completed successfully', [
                 'snapshot_id' => $this->snapshotId,

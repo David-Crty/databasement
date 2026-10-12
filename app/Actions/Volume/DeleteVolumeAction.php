@@ -4,11 +4,11 @@ namespace App\Actions\Volume;
 
 use App\Exceptions\Volume\VolumeFilesNotDeletedException;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Models\Volume;
 use Illuminate\Support\Facades\DB;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
-use Throwable;
 
 class DeleteVolumeAction
 {
@@ -22,19 +22,22 @@ class DeleteVolumeAction
      * The files go first, outside any transaction, so a rollback can never
      * leave rows pointing at files already deleted. When one of them cannot
      * be removed, nothing is deleted and the error is recorded on its copy:
-     * a retry only finds the files still there.
+     * a retry only finds the files still there. Nothing is deleted either
+     * when a backup completed meanwhile, as its file was not removed.
      *
      * @throws VolumeFilesNotDeletedException When a file is still on the volume, which keeps everything
      */
     public function handle(Volume $volume, bool $keepFiles = false): void
     {
-        $snapshotIds = $volume->snapshotFiles()->distinct()->pluck('snapshot_id')->all();
+        $removedFileIds = $keepFiles ? null : $this->removeFiles($volume);
 
-        if (! $keepFiles) {
-            $this->removeFiles($volume);
-        }
+        DB::transaction(function () use ($volume, $removedFileIds) {
+            if ($removedFileIds !== null && $volume->snapshotFiles()->completed()->whereKeyNot($removedFileIds)->exists()) {
+                throw new VolumeFilesNotDeletedException($volume, ['a backup completed while it was being deleted']);
+            }
 
-        DB::transaction(function () use ($volume, $snapshotIds) {
+            $snapshotIds = $volume->snapshotFiles()->distinct()->pluck('snapshot_id')->all();
+
             $volume->snapshotFiles()->delete();
 
             $orphanedSnapshots = Snapshot::query()->whereKey($snapshotIds)->whereDoesntHave('files')->get();
@@ -54,23 +57,21 @@ class DeleteVolumeAction
     }
 
     /**
+     * @return list<int|string> The ids of the copies whose file was removed
+     *
      * @throws VolumeFilesNotDeletedException
      */
-    private function removeFiles(Volume $volume): void
+    private function removeFiles(Volume $volume): array
     {
-        $errors = [];
+        $files = $volume->snapshotFiles()->completed()->with('volume')->get();
+        $left = SnapshotFile::removeEachFromVolume($files);
 
-        foreach ($volume->snapshotFiles()->completed()->with('volume')->get() as $file) {
-            try {
-                $file->removeFromVolume();
-            } catch (Throwable $e) {
-                $file->update(['error' => $e->getMessage()]);
-                $errors[] = $e->getMessage();
-            }
-        }
+        if ($left->isNotEmpty()) {
+            $errors = $left->map(fn (SnapshotFile $file): string => $file->error ?? '')->all();
 
-        if ($errors !== []) {
             throw new VolumeFilesNotDeletedException($volume, array_values(array_unique($errors)));
         }
+
+        return array_values($files->modelKeys());
     }
 }

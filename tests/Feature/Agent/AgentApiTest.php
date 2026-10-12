@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Backup\CompleteBackupAction;
+use App\Actions\Backup\RecordBackupResultAction;
 use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Enums\SnapshotFileStatus;
@@ -238,12 +238,12 @@ describe('job acknowledgement', function () {
             ->and($backupJob->logs[0]['message'])->toBe('Starting backup for database: testdb');
     });
 
-    test('the storage warning an agent reports on a volume reaches the completion', function () {
+    test('the storage warning an agent reports on a volume reaches the recorded result', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
         $file = $agentJob->snapshot->files()->first();
 
-        CompleteBackupAction::shouldRun()
+        RecordBackupResultAction::shouldRun()
             ->once()
             ->withArgs(fn (Snapshot $snapshot, BackupResult $result) => $result->volumeResults[0]->storageWarning === 'Storage limit reached for volume "R2 Bucket".');
 

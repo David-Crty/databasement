@@ -74,3 +74,23 @@ test('it keeps the volume and its snapshots when a file cannot be deleted, and r
         ->and(Snapshot::find($snapshot->id))->not->toBeNull()
         ->and(SnapshotFile::where('snapshot_id', $snapshot->id)->value('error'))->toBe('Volume unreachable');
 });
+
+test('it keeps the volume when a backup completes on it while its files are being deleted', function () {
+    $volume = Volume::factory()->local()->create();
+    Snapshot::factory()->onVolumes($volume)->withFile()->create();
+
+    $realProvider = app(FilesystemProvider::class);
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldReceive('getForVolume')->andReturnUsing(function (Volume $volume) use ($realProvider) {
+        Snapshot::factory()->onVolumes($volume)->withFile()->create();
+
+        return $realProvider->getForVolume($volume);
+    });
+    app()->instance(FilesystemProvider::class, $provider);
+
+    expect(fn () => DeleteVolumeAction::run($volume))
+        ->toThrow(VolumeFilesNotDeletedException::class, 'a backup completed while it was being deleted');
+
+    expect(Volume::find($volume->id))->not->toBeNull()
+        ->and($volume->snapshotFiles()->count())->toBe(2);
+});

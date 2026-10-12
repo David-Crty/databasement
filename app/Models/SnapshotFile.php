@@ -8,6 +8,7 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\FilesystemSupport;
 use Database\Factories\SnapshotFileFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -125,6 +126,28 @@ class SnapshotFile extends Model
     public function storedFilename(): string
     {
         return (string) $this->snapshot->filename;
+    }
+
+    /**
+     * Delete each copy's file from its volume. A copy whose file could not be
+     * deleted keeps the error on its row.
+     *
+     * @param  Collection<int, SnapshotFile>  $files
+     * @return Collection<int, SnapshotFile> The copies whose file is still on its volume
+     */
+    public static function removeEachFromVolume(Collection $files): Collection
+    {
+        return $files->reject(function (SnapshotFile $file): bool {
+            try {
+                $file->removeFromVolume();
+
+                return true;
+            } catch (Throwable $e) {
+                $file->update(['error' => $e->getMessage()]);
+
+                return false;
+            }
+        })->values();
     }
 
     /**

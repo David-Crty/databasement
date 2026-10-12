@@ -68,3 +68,24 @@ test('it keeps the server and its snapshots when a file cannot be deleted, and r
         ->and(Snapshot::find($snapshot->id))->not->toBeNull()
         ->and(SnapshotFile::where('volume_id', $unreachable->id)->value('error'))->toBe('Volume unreachable');
 });
+
+test('it keeps the server when a backup completes while its files are being deleted', function () {
+    $volume = Volume::factory()->local()->create();
+    $server = DatabaseServer::factory()->create();
+    Snapshot::factory()->forServer($server)->onVolumes($volume)->withFile()->create();
+
+    $realProvider = app(FilesystemProvider::class);
+    $provider = Mockery::mock(FilesystemProvider::class);
+    $provider->shouldReceive('getForVolume')->andReturnUsing(function (Volume $volume) use ($realProvider, $server) {
+        Snapshot::factory()->forServer($server)->onVolumes($volume)->withFile()->create();
+
+        return $realProvider->getForVolume($volume);
+    });
+    app()->instance(FilesystemProvider::class, $provider);
+
+    expect(fn () => DeleteDatabaseServerAction::run($server))
+        ->toThrow(DatabaseServerFilesNotDeletedException::class, 'a backup completed while it was being deleted');
+
+    expect(DatabaseServer::find($server->id))->not->toBeNull()
+        ->and($server->snapshots()->count())->toBe(2);
+});
