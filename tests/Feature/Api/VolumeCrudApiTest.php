@@ -112,6 +112,16 @@ test('store returns validation errors for missing required fields', function () 
         ->assertJsonValidationErrors(['name', 'config']);
 });
 
+test('store rejects a name another volume already has', function () {
+    Volume::factory()->create(['name' => 'Offsite']);
+    $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/volumes/local', ['name' => 'Offsite', 'config' => ['path' => '/tmp/backups']])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['name']);
+});
+
 test('store validates type-specific config', function () {
     $user = User::factory()->create();
 

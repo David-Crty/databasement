@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Volume\CreateVolumeAction;
+use App\Actions\Volume\DeleteVolumeAction;
 use App\Enums\VolumeType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Volume\StoreFtpVolumeRequest;
@@ -108,7 +110,7 @@ class VolumeController extends Controller
     {
         $this->authorize('delete', $volume);
 
-        $volume->delete();
+        DeleteVolumeAction::run($volume);
 
         return response()->noContent();
     }
@@ -118,12 +120,13 @@ class VolumeController extends Controller
         $this->authorize('create', Volume::class);
 
         $validated = $request->validated();
-        $volumeType = VolumeType::from($validated['type']);
 
-        $validated['config'] = $volumeType->encryptSensitiveFields($validated['config']);
-        $validated['organization_id'] = app(CurrentOrganization::class)->id();
-
-        $volume = Volume::create($validated);
+        $volume = CreateVolumeAction::run(
+            app(CurrentOrganization::class)->model(),
+            VolumeType::from($validated['type']),
+            $validated['name'],
+            $validated['config'],
+        );
 
         return new VolumeResource($volume)
             ->response()

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Volume;
 
+use App\Actions\Volume\DeleteVolumeAction;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\Snapshot;
@@ -65,8 +66,7 @@ class Index extends Component
             return;
         }
 
-        $volume->skipFileCleanup = $this->keepFiles;
-        $volume->delete();
+        DeleteVolumeAction::run($volume, $this->keepFiles);
         $this->closeDeletion();
 
         $this->success(__('Volume deleted successfully!'));
