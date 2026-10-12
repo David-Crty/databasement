@@ -212,8 +212,10 @@ This means agent mode requires zero database configuration.
 - `Volume` - Storage destinations (local, S3, etc.)
 
 **Queue Jobs**:
-- `ProcessBackupJob` - Wraps `BackupTask` service for async execution (2 retries, 1hr timeout)
-- `ProcessRestoreJob` - Wraps `RestoreTask` service for async execution (no retries, 1hr timeout)
+- `ProcessBackupJob` - Wraps `BackupTask` service for async execution
+- `ProcessRestoreJob` - Wraps `RestoreTask` service for async execution
+
+Both take their tries, timeout and backoff from the `backup.job_tries` / `backup.job_timeout` / `backup.job_backoff` app settings (Configuration → Backup; defaults 3 tries, 7200s, 60s).
 
 **Services**:
 - `BackupTask` - Executes database backups (dump, compress, transfer to volume)

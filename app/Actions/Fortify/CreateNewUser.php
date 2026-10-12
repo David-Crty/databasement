@@ -64,8 +64,7 @@ class CreateNewUser implements CreatesNewUsers
         ]);
 
         // Attach to main org and grant the Admin role (in addition to the
-        // super_admin flag). The assignment action seeds the global roles first,
-        // covering a fresh install where the seeder has not run.
+        // super_admin flag). The built-in roles are seeded by migration.
         $user->organizations()->attach($defaultOrg->id);
         AssignRoleToUserAction::run($user, 'admin', $defaultOrg);
 
