@@ -20,44 +20,139 @@ The MCP server wraps the same services that power the web UI and REST API, so be
 
 | Tool | Description | Destructive? |
 |------|-------------|:---:|
-| **list-database-servers** | List all registered servers with connection details and backup config. Optionally filter by database type. | No |
-| **list-snapshots** | List backup snapshots, optionally filtered by server. Returns most recent first. | No |
-| **trigger-backup** | Trigger an on-demand backup for a server. Returns snapshot IDs and job IDs for status tracking. | No |
-| **trigger-restore** | Restore a snapshot to a target server. Drops and recreates the target database. | **Yes** |
-| **get-job-status** | Check the status of a backup or restore job (pending, running, completed, failed, cancelled). | No |
+| **list-organizations-tool** | List the organizations you belong to and which one is active. | No |
+| **list-database-servers-tool** | List all registered servers with connection details and backup config. Optionally filter by database type. | No |
+| **list-snapshots-tool** | List backup snapshots, optionally filtered by server. Returns most recent first. | No |
+| **trigger-backup-tool** | Trigger an on-demand backup for a server. Returns snapshot IDs and job IDs for status tracking. | No |
+| **trigger-restore-tool** | Restore a snapshot to a target server. Drops and recreates the target database. | **Yes** |
+| **get-job-status-tool** | Check the status of a backup or restore job (pending, running, completed, failed, cancelled). | No |
+
+Tools run with the permissions of the token's user: triggering a backup needs the **run-backups** ability and a restore needs **operate-restores** (see [Permissions](./permissions.md)).
 
 ## Setup
 
-The MCP server is available at `/mcp`, protected by [Sanctum](https://laravel.com/docs/sanctum) token authentication.
+The MCP server is served over the Streamable HTTP transport at `/mcp`, protected by [Sanctum](https://laravel.com/docs/sanctum) token authentication. Any client that supports remote HTTP servers with a custom header can connect to it directly.
 
 ### 1. Create an API Token
 
-Go to **Settings → API Tokens** in the Databasement UI and create a new token.
+Open **API Tokens** from the left menu and create a new token.
 
 ### 2. Configure Your AI Client
 
-Add the following to your MCP client configuration (e.g., `~/.claude/settings.json` or `.mcp.json` for Claude Code, `mcp.json` for Cursor):
+In the examples below, replace `https://databasement.example.com` with your instance address and `YOUR_API_TOKEN` with the token from step 1.
 
-```json
+<Tabs groupId="mcp-client">
+<TabItem value="claude-code" label="Claude Code" default>
+
+```bash
+claude mcp add --transport http --scope user databasement https://databasement.example.com/mcp \
+  --header "Authorization: Bearer YOUR_API_TOKEN"
+```
+
+`--scope user` makes Databasement available in every project, since your backups are not tied to any one codebase.
+
+</TabItem>
+<TabItem value="cursor" label="Cursor">
+
+```json title="~/.cursor/mcp.json"
 {
   "mcpServers": {
     "databasement": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://your-databasement-instance.com/mcp",
-        "--header",
-        "Authorization: Bearer YOUR_SANCTUM_TOKEN"
-      ]
+      "url": "https://databasement.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
+      }
     }
   }
 }
 ```
 
-Replace the URL with your Databasement instance address and the token with the one generated in step 1.
+</TabItem>
+<TabItem value="vscode" label="VS Code">
 
-Tools will appear natively in your AI client (e.g., as `mcp__databasement__trigger-backup-tool` in Claude Code).
+Run **MCP: Open User Configuration** from the Command Palette so the server is available in every workspace. VS Code prompts for the token once and stores it securely, so it never lands in the file:
 
-:::note
-[mcp-remote](https://www.npmjs.com/package/mcp-remote) requires Node.js to be installed. It bridges the HTTP transport to stdio, which is supported by all MCP clients.
-:::
+```json title="mcp.json"
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "databasement-token",
+      "description": "Databasement API token",
+      "password": true
+    }
+  ],
+  "servers": {
+    "databasement": {
+      "type": "http",
+      "url": "https://databasement.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:databasement-token}"
+      }
+    }
+  }
+}
+```
+
+This applies to regular (extension host) chat sessions. VS Code does not forward servers that need interactive input to Agent Host sessions, so for those, configure Databasement in `~/.copilot/mcp-config.json` instead.
+
+</TabItem>
+<TabItem value="codex" label="Codex CLI">
+
+```toml title="~/.codex/config.toml"
+[mcp_servers.databasement]
+url = "https://databasement.example.com/mcp"
+bearer_token_env_var = "DATABASEMENT_TOKEN"
+```
+
+Export `DATABASEMENT_TOKEN` in the shell that starts Codex.
+
+</TabItem>
+<TabItem value="gemini" label="Gemini CLI">
+
+```json title="~/.gemini/settings.json"
+{
+  "mcpServers": {
+    "databasement": {
+      "httpUrl": "https://databasement.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="other" label="Claude Desktop / other">
+
+Clients that only support local (stdio) servers, or remote servers authenticated by OAuth only, such as Claude Desktop, can reach Databasement through [mcp-remote](https://www.npmjs.com/package/mcp-remote), a stdio-to-HTTP bridge that requires Node.js:
+
+```json title="claude_desktop_config.json"
+{
+  "mcpServers": {
+    "databasement": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://databasement.example.com/mcp",
+        "--header",
+        "Authorization:${DATABASEMENT_AUTH_HEADER}"
+      ],
+      "env": {
+        "DATABASEMENT_AUTH_HEADER": "Bearer YOUR_API_TOKEN"
+      }
+    }
+  }
+}
+```
+
+The header value goes through `env`, with no space after `Authorization:`, because some clients (Cursor, Claude Desktop on Windows) split arguments on spaces, which would break a header written as `Authorization: Bearer …`.
+
+</TabItem>
+</Tabs>
+
+### 3. Choose an Organization
+
+Tools act on your **main organization** by default. To work in another one, ask the assistant to list your organizations, then add its ID to the endpoint URL (`https://databasement.example.com/mcp?org_id=ORG_ID`) or send it in an `X-Organization-Id` header alongside `Authorization`.

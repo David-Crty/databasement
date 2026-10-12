@@ -2179,6 +2179,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Added
 
+- `1.10.1` API tokens can be limited to chosen abilities when created from Settings → API Tokens, and the token list shows each token's access. A scoped token can only do what its abilities cover, even for a super admin; existing tokens keep full access ([#526](https://github.com/David-Crty/databasement/pull/526))
 - `1.10.0` Snapshots of a server run through a remote agent can be deleted, by hand or through retention, when the app cannot reach their volume: the files it cannot delete are handed to the agent, and the snapshot shows as Deleting until the agent reports. Agents older than 1.10.0 are never handed these deletions, which fail after waiting the backup job timeout, so upgrade agents along with the server ([#695](https://github.com/David-Crty/databasement/pull/695))
 
 ### Changed
@@ -2187,6 +2188,21 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.10.1` Two backups of the same database that finish in the same second each get their own file, instead of the second overwriting the first so that deleting either snapshot, even a locked one, removed the file the other still used. Backup file names now end with a short random suffix ([#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` Deleting a database server, a volume or an organization removes its backup files first, and deletes nothing when a file cannot be removed, instead of leaving untracked files on unreachable storage. The web UI says so and the API answers 409; retry once the storage is reachable, or delete while keeping the files. Snapshots whose file an interrupted deletion already removed are no longer offered for download or restore ([#702](https://github.com/David-Crty/databasement/pull/702))
+- `1.10.1` Volume names only need to be unique within an organization, so creating a volume no longer fails because another organization uses the name. A taken name answers 422 on the API instead of a server error, and merging organizations renames a clashing volume after the organization it came from, such as "Local (Acme)" ([#702](https://github.com/David-Crty/databasement/pull/702), [#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` A custom role still held by users can no longer be deleted, and the Roles screen asks to give its members another role first, instead of leaving them without any abilities. Deleting or merging an organization also removes its role assignments and direct ability grants ([#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` "Backup now" on a whole server shows each backup configuration as started, waiting for its agent to list the databases, or failed with the reason, instead of always saying every backup started. A single backup on an agent-backed server in all or pattern mode says the discovery was dispatched ([#702](https://github.com/David-Crty/databasement/pull/702))
+- `1.10.1` A backup in all or pattern mode that matches no database, or whose server cannot be listed, records a failed job and sends a failure notification, instead of reporting that the backup started on the web, the API and MCP ([#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` Triggering a backup on a server whose backups are disabled says so (422 on the API, a tool error on MCP) instead of answering that permission is denied ([#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` A failed backup or restore sends its failure notification only once, and a restore that cannot be handed to its agent is now notified too ([#702](https://github.com/David-Crty/databasement/pull/702), [#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` Volumes in notify-only storage limit mode warn when a backup taken by a remote agent goes past the limit, and also when another target volume of the same backup failed ([#702](https://github.com/David-Crty/databasement/pull/702))
+- `1.10.1` The Scheduled Restores page shows why a run was skipped, in words, including a restore that was rejected, such as a snapshot stored only on a local volume for a target run through an agent ([#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` Changing a server's SSH tunnel between password and key authentication, or enabling it, requires the new credential instead of saving a tunnel with none, and drops the credentials of the type no longer used along with an old key's passphrase ([#702](https://github.com/David-Crty/databasement/pull/702), [#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` The API refuses with 409 to delete a backup schedule still used by backups or scheduled restores of any organization, instead of failing with a server error, and rejects a scheduled restore onto the application's own database when it is saved ([#702](https://github.com/David-Crty/databasement/pull/702))
+- `1.10.1` Snapshots and scheduled restores just created through the API return their default values instead of `null` ([#704](https://github.com/David-Crty/databasement/pull/704))
+- `1.10.1` The MCP restore tool answers with a tool error when a restore cannot be handed to its agent, and API, MCP and console messages stay in English whatever `APP_LOCALE` says ([#702](https://github.com/David-Crty/databasement/pull/702))
+- `1.10.1` A stuck agent job is failed even when its "lost contact" log line cannot be written ([#702](https://github.com/David-Crty/databasement/pull/702))
 - `1.10.0` **Breaking:** The queue worker runs as the application user set by `PUID`/`PGID` instead of root, so the app can delete the backups it writes, and agents drop to that user too. The worker service is now the same image started with `ENABLE_QUEUE_WORKER`, `ENABLE_WEB_SERVER` and `ENABLE_SCHEDULER`; an old `command:` running `artisan queue:work` still works with a warning but its arguments are ignored, and the Helm chart no longer reads `worker.command`. Backups outside `/data` written by an older worker need a one-off `chown`, described in the "Migrate to 1.10" page ([#696](https://github.com/David-Crty/databasement/pull/696))
 - `1.10.0` A snapshot whose file could not be deleted from its volume is kept, with the error shown on the copy left, so deleting it again or the next retention run retries instead of leaving an untracked file behind. One failed deletion no longer stops retention from cleaning up the other snapshots ([#694](https://github.com/David-Crty/databasement/pull/694))
 - `1.10.0` Registering the first user creates the demo database server and backup again, instead of failing silently and leaving the new install empty ([#698](https://github.com/David-Crty/databasement/pull/698))
@@ -2509,7 +2525,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.0
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.1
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
@@ -3580,6 +3596,8 @@ Its holder can grant any ability to anyone in the org. Give `manage-users` only 
 
 These are the **seeded defaults** for the built-in roles. They are fully editable at runtime, and you can create custom roles or grant extra abilities to individual users — so real access may differ.
 
+Built-in roles cannot be deleted. A custom role can only be deleted once no user holds it in any organization: give its members another role first.
+
 | Ability | Viewer | Operator | Member | Admin |
 |---------|:------:|:--------:|:------:|:-----:|
 | `run-backups` | ❌ | ✅ | ✅ | ✅ |
@@ -3610,7 +3628,7 @@ Databasement provides a REST API for managing database servers, backups, snapsho
 
 ## Authentication
 
-All API requests require a Bearer token. Create one from **Settings → API Tokens** in the Databasement UI.
+All API requests require a Bearer token. Create one from **API Tokens** in the left menu.
 
 Include the token in the `Authorization` header:
 
@@ -3643,47 +3661,142 @@ The MCP server wraps the same services that power the web UI and REST API, so be
 
 | Tool | Description | Destructive? |
 |------|-------------|:---:|
-| **list-database-servers** | List all registered servers with connection details and backup config. Optionally filter by database type. | No |
-| **list-snapshots** | List backup snapshots, optionally filtered by server. Returns most recent first. | No |
-| **trigger-backup** | Trigger an on-demand backup for a server. Returns snapshot IDs and job IDs for status tracking. | No |
-| **trigger-restore** | Restore a snapshot to a target server. Drops and recreates the target database. | **Yes** |
-| **get-job-status** | Check the status of a backup or restore job (pending, running, completed, failed, cancelled). | No |
+| **list-organizations-tool** | List the organizations you belong to and which one is active. | No |
+| **list-database-servers-tool** | List all registered servers with connection details and backup config. Optionally filter by database type. | No |
+| **list-snapshots-tool** | List backup snapshots, optionally filtered by server. Returns most recent first. | No |
+| **trigger-backup-tool** | Trigger an on-demand backup for a server. Returns snapshot IDs and job IDs for status tracking. | No |
+| **trigger-restore-tool** | Restore a snapshot to a target server. Drops and recreates the target database. | **Yes** |
+| **get-job-status-tool** | Check the status of a backup or restore job (pending, running, completed, failed, cancelled). | No |
+
+Tools run with the permissions of the token's user: triggering a backup needs the **run-backups** ability and a restore needs **operate-restores** (see [Permissions](./permissions.md)).
 
 ## Setup
 
-The MCP server is available at `/mcp`, protected by [Sanctum](https://laravel.com/docs/sanctum) token authentication.
+The MCP server is served over the Streamable HTTP transport at `/mcp`, protected by [Sanctum](https://laravel.com/docs/sanctum) token authentication. Any client that supports remote HTTP servers with a custom header can connect to it directly.
 
 ### 1. Create an API Token
 
-Go to **Settings → API Tokens** in the Databasement UI and create a new token.
+Open **API Tokens** from the left menu and create a new token.
 
 ### 2. Configure Your AI Client
 
-Add the following to your MCP client configuration (e.g., `~/.claude/settings.json` or `.mcp.json` for Claude Code, `mcp.json` for Cursor):
+In the examples below, replace `https://databasement.example.com` with your instance address and `YOUR_API_TOKEN` with the token from step 1.
 
-```json
+<Tabs groupId="mcp-client">
+<TabItem value="claude-code" label="Claude Code" default>
+
+```bash
+claude mcp add --transport http --scope user databasement https://databasement.example.com/mcp \
+  --header "Authorization: Bearer YOUR_API_TOKEN"
+```
+
+`--scope user` makes Databasement available in every project, since your backups are not tied to any one codebase.
+
+</TabItem>
+<TabItem value="cursor" label="Cursor">
+
+```json title="~/.cursor/mcp.json"
 {
   "mcpServers": {
     "databasement": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://your-databasement-instance.com/mcp",
-        "--header",
-        "Authorization: Bearer YOUR_SANCTUM_TOKEN"
-      ]
+      "url": "https://databasement.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
+      }
     }
   }
 }
 ```
 
-Replace the URL with your Databasement instance address and the token with the one generated in step 1.
+</TabItem>
+<TabItem value="vscode" label="VS Code">
 
-Tools will appear natively in your AI client (e.g., as `mcp__databasement__trigger-backup-tool` in Claude Code).
+Run **MCP: Open User Configuration** from the Command Palette so the server is available in every workspace. VS Code prompts for the token once and stores it securely, so it never lands in the file:
 
-:::note
-[mcp-remote](https://www.npmjs.com/package/mcp-remote) requires Node.js to be installed. It bridges the HTTP transport to stdio, which is supported by all MCP clients.
-:::
+```json title="mcp.json"
+{
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "databasement-token",
+      "description": "Databasement API token",
+      "password": true
+    }
+  ],
+  "servers": {
+    "databasement": {
+      "type": "http",
+      "url": "https://databasement.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:databasement-token}"
+      }
+    }
+  }
+}
+```
+
+This applies to regular (extension host) chat sessions. VS Code does not forward servers that need interactive input to Agent Host sessions, so for those, configure Databasement in `~/.copilot/mcp-config.json` instead.
+
+</TabItem>
+<TabItem value="codex" label="Codex CLI">
+
+```toml title="~/.codex/config.toml"
+[mcp_servers.databasement]
+url = "https://databasement.example.com/mcp"
+bearer_token_env_var = "DATABASEMENT_TOKEN"
+```
+
+Export `DATABASEMENT_TOKEN` in the shell that starts Codex.
+
+</TabItem>
+<TabItem value="gemini" label="Gemini CLI">
+
+```json title="~/.gemini/settings.json"
+{
+  "mcpServers": {
+    "databasement": {
+      "httpUrl": "https://databasement.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_TOKEN"
+      }
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem value="other" label="Claude Desktop / other">
+
+Clients that only support local (stdio) servers, or remote servers authenticated by OAuth only, such as Claude Desktop, can reach Databasement through [mcp-remote](https://www.npmjs.com/package/mcp-remote), a stdio-to-HTTP bridge that requires Node.js:
+
+```json title="claude_desktop_config.json"
+{
+  "mcpServers": {
+    "databasement": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://databasement.example.com/mcp",
+        "--header",
+        "Authorization:${DATABASEMENT_AUTH_HEADER}"
+      ],
+      "env": {
+        "DATABASEMENT_AUTH_HEADER": "Bearer YOUR_API_TOKEN"
+      }
+    }
+  }
+}
+```
+
+The header value goes through `env`, with no space after `Authorization:`, because some clients (Cursor, Claude Desktop on Windows) split arguments on spaces, which would break a header written as `Authorization: Bearer …`.
+
+</TabItem>
+</Tabs>
+
+### 3. Choose an Organization
+
+Tools act on your **main organization** by default. To work in another one, ask the assistant to list your organizations, then add its ID to the endpoint URL (`https://databasement.example.com/mcp?org_id=ORG_ID`) or send it in an `X-Organization-Id` header alongside `Authorization`.
 
 ---
 
