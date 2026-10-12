@@ -35,15 +35,16 @@ trait RunsServerBackups
             return;
         }
 
-        $successCount = count(array_filter($results, fn ($v): bool => $v instanceof BackupDiscoveryState));
-        $failureCount = count($results) - $successCount;
+        $startedCount = count(array_filter($results, fn ($v): bool => $v === BackupDiscoveryState::NotNeeded));
+        $failureCount = count(array_filter($results, is_string(...)));
+        $waitingCount = count($results) - $startedCount - $failureCount;
 
         $description = implode("\n", array_map(
             fn (string $label, BackupDiscoveryState|string $status): string => match ($status) {
-                BackupDiscoveryState::NotNeeded => '✓',
-                BackupDiscoveryState::Dispatched, BackupDiscoveryState::AlreadyRunning => '⏳',
-                default => '✗',
-            }." {$label}",
+                BackupDiscoveryState::NotNeeded => "✓ {$label}",
+                BackupDiscoveryState::Dispatched, BackupDiscoveryState::AlreadyRunning => "⏳ {$label}",
+                default => "✗ {$label}: {$status}",
+            },
             array_keys($results),
             array_values($results),
         ));
@@ -67,7 +68,7 @@ trait RunsServerBackups
             return;
         }
 
-        if ($successCount === 0) {
+        if ($failureCount === count($results)) {
             $this->error(
                 title: __('All backups failed!'),
                 description: $description,
@@ -78,10 +79,16 @@ trait RunsServerBackups
         }
 
         $this->warning(
-            title: __(':count backups started, :failures failed', [
-                'count' => $successCount,
-                'failures' => $failureCount,
-            ]),
+            title: $waitingCount === 0
+                ? __(':count backups started, :failures failed', [
+                    'count' => $startedCount,
+                    'failures' => $failureCount,
+                ])
+                : __(':count backups started, :waiting waiting for database discovery, :failures failed', [
+                    'count' => $startedCount,
+                    'waiting' => $waitingCount,
+                    'failures' => $failureCount,
+                ]),
             description: $description,
         );
     }

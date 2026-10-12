@@ -601,14 +601,16 @@ test('can delete a database server via api', function () {
     $this->assertDatabaseMissing('database_servers', ['id' => $server->id]);
 });
 
-test('deleting a server whose files cannot be deleted answers 409', function () {
+test('deleting a server whose files cannot be deleted answers 409 without the storage errors', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create();
     DeleteDatabaseServerAction::shouldRun()->andThrow(new DatabaseServerFilesNotDeletedException($server, ['Offsite: Volume unreachable']));
 
     $this->actingAs($user, 'sanctum')
         ->deleteJson("/api/v1/database-servers/{$server->id}")
-        ->assertConflict();
+        ->assertConflict()
+        ->assertJsonPath('message', 'The database server was kept because some of its backup files could not be deleted.')
+        ->assertDontSee('Volume unreachable');
 });
 
 // ─── Filter by managed_by ───────────────────────────────────────────────────

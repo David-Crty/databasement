@@ -11,6 +11,7 @@
     ":count backup file could not be found on its storage volume.|:count backup files could not be found on their storage volumes.": ":count backup file could not be found on its storage volume.|:count backup files could not be found on their storage volumes.",
     ":count backup file missing|:count backup files missing": ":count backup file missing|:count backup files missing",
     ":count backups started, :failures failed": ":count backups started, :failures failed",
+    ":count backups started, :waiting waiting for database discovery, :failures failed": ":count backups started, :waiting waiting for database discovery, :failures failed",
     ":count configured": ":count configured",
     ":count database server is assigned to this agent and will be unlinked.|:count database servers are assigned to this agent and will be unlinked.": ":count database server is assigned to this agent and will be unlinked.|:count database servers are assigned to this agent and will be unlinked.",
     ":count jobs in the last 30 days": ":count jobs in the last 30 days",

@@ -22,6 +22,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 
 /**
  * @tags Volumes
@@ -117,7 +118,9 @@ class VolumeController extends Controller
         try {
             DeleteVolumeAction::run($volume);
         } catch (VolumeFilesNotDeletedException $e) {
-            abort(409, $e->getMessage());
+            Log::warning($e->getMessage(), ['volume_id' => $volume->id, 'errors' => $e->errors]);
+
+            abort(409, 'The volume was kept because some backup files could not be deleted from it.');
         }
 
         return response()->noContent();
