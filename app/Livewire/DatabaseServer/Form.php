@@ -852,7 +852,7 @@ class Form extends \Livewire\Form
             return [
                 'id' => $v->id,
                 'name' => $isLocalWithAgent
-                    ? "{$v->name} ({$v->type}) — ".__('not available for remote agents')
+                    ? "{$v->name} ({$v->type}) — ".__('needs an agent that transfers files through this server')
                     : "{$v->name} ({$v->type})",
                 'disabled' => $isLocalWithAgent,
             ];

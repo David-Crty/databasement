@@ -10,7 +10,6 @@ use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Agent\Relay\RelayNotSupportedException;
-use App\Services\Agent\Relay\RelayUploadStore;
 use App\Services\Agent\Relay\RelayVolumes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -209,8 +208,6 @@ class AgentController extends Controller
 
         $agentJob->trackedJob()?->mergeLogs($validated['logs'] ?? []);
 
-        app(RelayUploadStore::class)->forget($agentJob);
-
         return response()->json([
             'status' => 'ok',
             ...$handler->complete($agentJob, $validated),
@@ -237,8 +234,6 @@ class AgentController extends Controller
         ]);
 
         $agentJob->markFailed($validated['error_message']);
-
-        app(RelayUploadStore::class)->forget($agentJob);
 
         $agentJob->trackedJob()?->mergeLogs($validated['logs'] ?? []);
 

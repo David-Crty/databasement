@@ -182,6 +182,39 @@ describe('file transfers', function () {
             ->assertJsonPath('received', 4);
     });
 
+    test('completing an upload again after it was written succeeds', function () {
+        $agent = Agent::factory()->create(['transfer_via_server' => true]);
+        $volume = Volume::factory()->local()->create();
+        $agentJob = relayBackupJob($agent, $volume);
+        $token = claimAsAgent($agent, $agentJob);
+        $base = "/api/v1/agent/jobs/{$agentJob->id}/volumes/{$volume->id}";
+        $path = archivePath($agentJob);
+
+        relayCall($token, 'PUT', "{$base}/upload?".http_build_query(['path' => $path, 'offset' => 0]), 'abcd')->assertOk();
+        $complete = fn () => $this->withToken($token)->postJson("{$base}/upload/complete", ['path' => $path, 'size' => 4]);
+
+        $complete()->assertOk();
+        // The agent retries when the first response is lost on the way back.
+        $complete()->assertOk();
+    });
+
+    test('a staged upload is dropped once its job ends', function () {
+        $agent = Agent::factory()->create(['transfer_via_server' => true]);
+        $volume = Volume::factory()->local()->create();
+        $agentJob = relayBackupJob($agent, $volume);
+        $token = claimAsAgent($agent, $agentJob);
+
+        relayCall($token, 'PUT', "/api/v1/agent/jobs/{$agentJob->id}/volumes/{$volume->id}/upload?".http_build_query([
+            'path' => archivePath($agentJob),
+            'offset' => 0,
+        ]), 'abcd')->assertOk();
+        expect(storage_path("app/agent-relay/{$agentJob->id}"))->toBeDirectory();
+
+        $agentJob->markFailed('Lost contact with the agent.');
+
+        expect(storage_path("app/agent-relay/{$agentJob->id}"))->not->toBeDirectory();
+    });
+
     test('a restore downloads its source copy through the server', function () {
         $agent = Agent::factory()->create(['transfer_via_server' => true]);
         ['agentJob' => $agentJob, 'restore' => $restore] = dispatchAgentRestore($agent, Volume::factory()->local()->create());

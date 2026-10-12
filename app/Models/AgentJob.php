@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\AgentJobType;
 use App\Services\Agent\Handlers\AgentJobHandler;
+use App\Services\Agent\Relay\RelayUploadStore;
 use Database\Factories\AgentJobFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -164,6 +165,8 @@ class AgentJob extends Model
             'completed_at' => now(),
             'lease_expires_at' => null,
         ]);
+
+        $this->forgetRelayUploads();
     }
 
     /**
@@ -177,6 +180,8 @@ class AgentJob extends Model
             'completed_at' => now(),
             'lease_expires_at' => null,
         ]);
+
+        $this->forgetRelayUploads();
     }
 
     /**
@@ -198,7 +203,21 @@ class AgentJob extends Model
 
         $this->refresh();
 
+        if ($failed) {
+            $this->forgetRelayUploads();
+        }
+
         return $failed;
+    }
+
+    /**
+     * Drop the uploads the agent left unfinished through the server. Every
+     * way a job ends goes through here (the agent's report, a lost agent, a
+     * timeout or a cancellation), so no staged file outlives its job.
+     */
+    private function forgetRelayUploads(): void
+    {
+        app(RelayUploadStore::class)->forget($this);
     }
 
     /**

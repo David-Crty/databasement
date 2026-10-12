@@ -68,6 +68,8 @@ class AgentFileController extends Controller
      * Complete an upload.
      *
      * Checks that all `size` bytes arrived, then writes the file to the volume.
+     * A retry whose first attempt already wrote the file (its response lost on
+     * the way back) finds it on the volume at that size and succeeds.
      */
     public function completeUpload(Request $request, AgentJob $agentJob, string $volumeId): JsonResponse
     {
@@ -85,6 +87,10 @@ class AgentFileController extends Controller
         $received = $partPath !== null ? (int) filesize($partPath) : 0;
 
         if ($partPath === null || $received !== (int) $validated['size']) {
+            if ($partPath === null && $this->isStored($request, $volumeId, $path, (int) $validated['size'])) {
+                return response()->json(['status' => 'ok']);
+            }
+
             return response()->json([
                 'message' => "Received {$received} of {$validated['size']} bytes.",
                 'received' => $received,
@@ -168,6 +174,20 @@ class AgentFileController extends Controller
         $filesystem = $this->filesystemProvider->getForVolume($this->volume($request, $volumeId));
 
         return response()->json(['deleted' => FilesystemSupport::deleteFile($filesystem, $path)]);
+    }
+
+    /**
+     * Whether the volume already holds the file at this size.
+     */
+    private function isStored(Request $request, string $volumeId, string $path, int $size): bool
+    {
+        try {
+            $filesystem = $this->filesystemProvider->getForVolume($this->volume($request, $volumeId));
+
+            return $filesystem->fileExists($path) && $filesystem->fileSize($path) === $size;
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     private function reject(Request $request, AgentJob $agentJob, string $volumeId, string $operation, string $path): ?JsonResponse
