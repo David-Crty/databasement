@@ -50,7 +50,7 @@ class DatabaseServerPolicy
             return false;
         }
 
-        return $user->isDemo() || $user->can(Ability::ManageDatabaseServers->value);
+        return $user->tokenCovers(Ability::ManageDatabaseServers->value) && ($user->isDemo() || $user->can(Ability::ManageDatabaseServers->value));
     }
 
     /**
@@ -93,7 +93,7 @@ class DatabaseServerPolicy
             return false;
         }
 
-        return $user->isDemo() || $user->can(Ability::UseAdminer->value);
+        return $user->tokenCovers(Ability::UseAdminer->value) && ($user->isDemo() || $user->can(Ability::UseAdminer->value));
     }
 
     /**
@@ -116,7 +116,7 @@ class DatabaseServerPolicy
             return false;
         }
 
-        return $user->isDemo() || $user->can(Ability::RunBackups->value);
+        return $user->tokenCovers(Ability::RunBackups->value) && ($user->isDemo() || $user->can(Ability::RunBackups->value));
     }
 
     /**
@@ -125,6 +125,7 @@ class DatabaseServerPolicy
     public function restore(User $user, DatabaseServer $databaseServer): bool
     {
         return $this->ownedByCurrentOrganization($databaseServer->organization_id)
+            && $user->tokenCovers(Ability::OperateRestores->value)
             && ($user->isDemo() || $user->can(Ability::OperateRestores->value));
     }
 }

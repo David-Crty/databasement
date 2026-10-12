@@ -68,6 +68,6 @@ class RestorePolicy
      */
     private function canOperateRestores(User $user): bool
     {
-        return $user->isDemo() || $user->can(Ability::OperateRestores->value);
+        return $user->tokenCovers(Ability::OperateRestores->value) && ($user->isDemo() || $user->can(Ability::OperateRestores->value));
     }
 }

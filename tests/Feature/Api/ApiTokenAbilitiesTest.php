@@ -94,6 +94,23 @@ test('a super admin token scoped to the required ability still bypasses Bouncer 
     Queue::assertPushed(ProcessBackupJob::class);
 });
 
+test('a scoped token limits the demo user despite its policy bypass', function () {
+    Queue::fake();
+    config(['app.demo_mode' => true]);
+
+    $demoUser = User::factory()->withAbilities([])->create(['email' => User::DEMO_EMAIL]);
+    $server = createDatabaseServer(['database_names' => ['testdb']]);
+    $token = $demoUser->createToken('scoped', [Ability::DownloadSnapshots->value])->plainTextToken;
+
+    BouncerScope::apply(null);
+
+    $this->withToken($token)
+        ->postJson("/api/v1/database-servers/{$server->id}/backup")
+        ->assertForbidden();
+
+    Queue::assertNothingPushed();
+});
+
 test('session auth is unaffected by token scoping', function () {
     Queue::fake();
 
