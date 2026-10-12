@@ -234,4 +234,7 @@ The domain is the singular model area the action belongs to, matching the Livewi
 - **Fakes:** `Queue::fake()`, `Http::fake()` and `Process::fake()` for the outside world; mock infrastructure services (`DatabaseProvider`, …) as the existing tests do. Fake **another action** (`DispatchRestoreAction::shouldRun()->once()`) only when its effect is expensive or already covered by its own test. Never mock models.
 - **No authorization in action tests.** Actions have none; the edge tests carry the allow/deny pair named by ability.
 - **Entry-point tests cover the edge contract:** authorization, status codes and response shape, error mapping, how edge input becomes action arguments, and one unmocked happy path that proves the edge is wired.
+- **To prove input mapping without re-testing the rule**, fake the action at the edge: `TriggerBackupAction::shouldRun()->once()->withArgs(fn (Backup $backup) => $backup->is($second))`. Keep the single happy path unmocked.
+- **Review heuristic:** an edge test that asserts `Queue::assertPushed` or `assertDatabaseHas` beyond its one happy path is probably re-testing an action. Move the case to the action test.
+- The "Where does a test go?" table in `CLAUDE.md` (Test Strategy) sums this up.
 - `tests/Unit/ArchitectureTest.php` enforces the naming, traits and layering rules above.

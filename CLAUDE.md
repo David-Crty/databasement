@@ -83,6 +83,16 @@ A failing run adds a `failures` array with the file, line, and message for each 
 - Do not test framework internals or trust that Laravel/Livewire works correctly
 - Keep tests minimal and focused - one test per behavior when possible
 
+#### Where does a test go?
+
+| You are testing… | Put it in… |
+|---|---|
+| A business rule, an edge case of an operation, what gets persisted, dispatched or notified | `tests/Feature/Actions/<Domain>/<Action>Test.php` |
+| Who may call it (abilities, demo mode, organization isolation) | The edge test, as an allow/deny pair named by ability |
+| How edge input becomes action arguments | The edge test, with `<Action>::shouldRun()->withArgs(...)` |
+| Status codes, JSON shape, MCP text, toasts, command output | The edge test |
+| That the edge is wired at all | **One** unmocked happy path per edge |
+
 #### What NOT to Test
 - **Form validation rules** - Laravel validation works, don't test `required`, `max:255`, etc.
 - **Eloquent relationships** - Don't test that `hasMany`/`belongsTo` work
