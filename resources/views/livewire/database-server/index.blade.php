@@ -122,11 +122,13 @@
                                      wire:click="openAdminer('{{ $server->id }}')" spinner
                                      class="text-accent" />
                     @endif
+                    @if($server->backups_enabled && $server->backups->isNotEmpty())
                     @can('backup', $server)
                         <x-menu-item :title="__('Backup now')" icon="bi.database-fill-up"
                                      wire:click="runBackupAll('{{ $server->id }}')" spinner
                                      class="text-info" />
                     @endcan
+                    @endif
                     @can('restore', $server)
                         <x-menu-item :title="__('Restore')" icon="bi.database-fill-down"
                                      wire:click="confirmRestore('{{ $server->id }}')" spinner

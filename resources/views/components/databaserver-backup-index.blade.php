@@ -28,6 +28,7 @@
             {{ \Illuminate\Support\Str::limit($label['retention'], 15) }}
         </span>
     @endif
+    @if($server->backups_enabled)
     @can('backup', $server)
         <x-button
             icon="bi.database-fill-up"
@@ -38,4 +39,5 @@
             class="btn-ghost btn-xs text-info ml-auto shrink-0 -mr-1"
         />
     @endcan
+    @endif
 </div>

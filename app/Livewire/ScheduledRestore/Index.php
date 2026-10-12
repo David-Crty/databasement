@@ -136,21 +136,12 @@ class Index extends Component
         }
 
         if ($result->skipReason !== null) {
-            $this->warning($this->skipMessage($result->skipReason));
+            $this->warning(ScheduledRestore::skipReasonLabel($result->skipReason));
 
             return;
         }
 
         $this->success(__('Scheduled restore triggered.'));
-    }
-
-    private function skipMessage(string $reason): string
-    {
-        return match ($reason) {
-            ScheduledRestore::SKIP_NO_SNAPSHOT => __('No snapshot is available to restore from yet.'),
-            ScheduledRestore::SKIP_PREVIOUS_IN_FLIGHT => __('A previous run of this scheduled restore is still in progress.'),
-            default => __('Scheduled restore skipped.'),
-        };
     }
 
     public function confirmDelete(string $id): void

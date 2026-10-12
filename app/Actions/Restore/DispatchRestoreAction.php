@@ -34,12 +34,13 @@ class DispatchRestoreAction
         }
 
         // Without a payload no agent job exists to fail the restore later, so
-        // fail it here rather than leave it pending until it times out.
+        // fail it here, and notify it, rather than leave it pending until it
+        // times out.
         try {
             $payload = $this->payloadBuilder->buildRestore($restore);
         } catch (RuntimeException $e) {
             $restore->job->log("Restore failed: {$e->getMessage()}", 'error');
-            $restore->job->markFailed($e);
+            FailRestoreAction::run($restore, $e);
 
             throw $e;
         }

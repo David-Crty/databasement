@@ -27,6 +27,14 @@ test('lists existing scheduled restores', function () {
         ->assertSee($scheduled->targetServer->name);
 });
 
+test('a skipped run shows why in words', function () {
+    createScheduledRestore(['last_executed_at' => now(), 'last_skip_reason' => ScheduledRestore::SKIP_NO_SNAPSHOT]);
+
+    Livewire::test(Index::class)
+        ->assertSee('No snapshot is available to restore from yet.')
+        ->assertDontSee(ScheduledRestore::SKIP_NO_SNAPSHOT);
+});
+
 test('openCreate dispatches the modal open event', function () {
     Livewire::test(Index::class)
         ->call('openCreate')

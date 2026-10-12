@@ -1012,6 +1012,7 @@
   "This is the only super admin account. It cannot be deleted.": "Αυτός είναι ο μοναδικός λογαριασμός super admin. Δεν μπορεί να διαγραφεί.",
   "This is the only time the public key will be shown. It is not stored — copy it before leaving this page.": "Αυτή είναι η μόνη φορά που θα εμφανιστεί το δημόσιο κλειδί. Δεν αποθηκεύεται — αντιγράψτε το πριν φύγετε από αυτή τη σελίδα.",
   "This job belongs to a different organization:": "Αυτό το job ανήκει σε διαφορετικό οργανισμό:",
+  "This role is still assigned to users. Give them another role before deleting it.": "Αυτός ο ρόλος εξακολουθεί να έχει ανατεθεί σε χρήστες. Δώστε τους έναν άλλο ρόλο πριν τον διαγράψετε.",
   "This scheduled restore is disabled. Do you want to run it anyway?": "Αυτή η προγραμματισμένη επαναφορά είναι απενεργοποιημένη. Θέλεις να την εκτελέσεις ούτως ή άλλως;",
   "This snapshot is locked. Unlock it to delete.": "Αυτό το snapshot είναι κλειδωμένο. Ξεκλειδώστε το για να το διαγράψετε.",
   "This snapshot is stored on several volumes. Choose which copy to download.": "Αυτό το snapshot είναι αποθηκευμένο σε πολλά volumes. Επιλέξτε ποιο αντίγραφο θέλετε να κατεβάσετε.",

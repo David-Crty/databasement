@@ -110,10 +110,12 @@
                         <x-button :label="__('Browse')" icon="o-table-cells" wire:click="openAdminer" spinner
                                   class="btn-outline btn-accent btn-sm" />
                     @endif
+                    @if($server->backups_enabled && $server->backups->isNotEmpty())
                     @can('backup', $server)
                         <x-button :label="__('Backup now')" icon="bi.database-fill-up" wire:click="runBackupAll" spinner
                                   class="btn-outline btn-info btn-sm" />
                     @endcan
+                    @endif
                     @can('restore', $server)
                         <x-button :label="__('Restore')" icon="bi.database-fill-down" wire:click="confirmRestore" spinner
                                   class="btn-outline btn-success btn-sm" />

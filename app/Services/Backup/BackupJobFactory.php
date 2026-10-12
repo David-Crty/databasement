@@ -19,8 +19,8 @@ use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\NotificationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class BackupJobFactory
 {
@@ -83,7 +83,9 @@ class BackupJobFactory
         }
 
         if (empty($databases)) {
-            Log::warning("No databases found on server [{$server->name}] for backup [{$backup->id}].");
+            $this->recordPreflightFailure($backup, $method, $triggeredByUserId, new RuntimeException('No database on the server matches this backup configuration.'));
+
+            return [];
         }
 
         foreach ($databases as $databaseName) {

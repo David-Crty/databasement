@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\DB;
 use Silber\Bouncer\BouncerFacade as Bouncer;
+use Silber\Bouncer\Database\Models;
 
 /**
  * Centralises the application's Bouncer scoping configuration.
@@ -46,5 +48,18 @@ class BouncerScope
     public static function ensureFlags(): void
     {
         self::apply(Bouncer::scope()->get());
+    }
+
+    /**
+     * Remove every role assignment and direct ability grant scoped to an
+     * organization that no longer exists. Nothing references the scope, so
+     * no foreign key removes them with the organization.
+     */
+    public static function forgetOrganization(string $organizationId): void
+    {
+        DB::table(Models::table('assigned_roles'))->where('scope', $organizationId)->delete();
+        DB::table(Models::table('permissions'))->where('scope', $organizationId)->delete();
+
+        DB::afterCommit(fn () => Bouncer::refresh());
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\Organization\DeleteOrganizationAction;
+use App\Actions\Role\SyncUserAbilitiesAction;
 use App\Enums\SnapshotFileStatus;
 use App\Models\DatabaseServer;
 use App\Models\Organization;
@@ -79,6 +80,18 @@ test('delete removes memberships but keeps the user accounts', function () {
         ->and(User::find($member->id))->not->toBeNull('User account should survive org deletion')
         ->and(DB::table('organization_user')->where('organization_id', $org->id)->exists())
         ->toBeFalse('Membership pivot rows should be removed');
+});
+
+test('delete removes the role assignments and direct abilities held in the organization', function () {
+    $org = Organization::factory()->create();
+    $member = User::factory()->create();
+    attachUserToOrg($member, $org, 'member');
+    SyncUserAbilitiesAction::run($member, ['run-backups'], $org);
+
+    DeleteOrganizationAction::run($org);
+
+    expect(DB::table('assigned_roles')->where('scope', $org->id)->exists())->toBeFalse()
+        ->and(DB::table('permissions')->where('scope', $org->id)->exists())->toBeFalse();
 });
 
 test('delete rejects the default organization', function () {

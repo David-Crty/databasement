@@ -13,8 +13,8 @@ use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\User;
 use App\Services\Backup\Databases\DatabaseProvider;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     Queue::fake();
@@ -33,6 +33,17 @@ test('it creates a snapshot and dispatches backup job for single database', func
         ->and($result->snapshots[0]->backup_id)->toBe($backup->id);
 
     Queue::assertPushed(ProcessBackupJob::class, 1);
+});
+
+test('a server whose backups are disabled is not backed up', function () {
+    $server = DatabaseServer::factory()->withoutBackups()->create(['backups_enabled' => false]);
+    $backup = Backup::factory()->for($server)->selected(['test_db'])->create();
+
+    expect(fn () => TriggerBackupAction::run($backup))
+        ->toThrow(ValidationException::class, 'Backups are disabled for this database server.');
+
+    expect(Snapshot::count())->toBe(0);
+    Queue::assertNothingPushed();
 });
 
 test('it tracks the user who triggered the backup', function () {
@@ -185,26 +196,30 @@ test('a server unreachable while listing its databases gets a failed snapshot fo
     $backup = Backup::factory()->for($server)->create(['database_selection_mode' => DatabaseSelectionMode::All->value]);
     $this->mock(DatabaseProvider::class)->shouldReceive('listDatabasesForServer')->andThrow(new RuntimeException('Connection refused'));
 
-    $result = TriggerBackupAction::run($backup, method: 'scheduled');
+    expect(fn () => TriggerBackupAction::run($backup, method: 'scheduled'))
+        ->toThrow(ValidationException::class, 'No backup was started');
 
     $snapshot = Snapshot::where('database_server_id', $server->id)->sole();
-    expect($result->snapshots)->toBeEmpty()
-        ->and($snapshot->database_name)->toBe('(all databases)')
+    expect($snapshot->database_name)->toBe('(all databases)')
         ->and($snapshot->method)->toBe('scheduled')
         ->and($snapshot->job->status)->toBe(BackupJobStatus::Failed)
         ->and($snapshot->job->error_message)->toBe('Connection refused');
     Queue::assertNothingPushed();
 });
 
-test('a server with no database to back up starts nothing', function () {
-    $server = DatabaseServer::factory()->withoutBackups()->create(['name' => 'Empty PostgreSQL']);
-    $backup = Backup::factory()->for($server)->create(['database_selection_mode' => DatabaseSelectionMode::All->value]);
-    $this->mock(DatabaseProvider::class)->shouldReceive('listDatabasesForServer')->andReturn([]);
-    Log::shouldReceive('warning')
-        ->once()
-        ->with(Mockery::pattern('/No databases found on server \[Empty PostgreSQL\] for backup \[.+\]\./'));
+test('a backup matching no database starts nothing and fails its run with the reason', function () {
+    $server = DatabaseServer::factory()->withoutBackups()->create();
+    $backup = Backup::factory()->for($server)->create([
+        'database_selection_mode' => DatabaseSelectionMode::Pattern->value,
+        'database_include_pattern' => '^nothing_',
+    ]);
+    $this->mock(DatabaseProvider::class)->shouldReceive('listDatabasesForServer')->andReturn(['app', 'billing']);
 
-    expect(TriggerBackupAction::run($backup)->snapshots)->toBeEmpty()
-        ->and(Snapshot::count())->toBe(0);
+    expect(fn () => TriggerBackupAction::run($backup))
+        ->toThrow(ValidationException::class, 'No backup was started');
+
+    expect(Snapshot::sole()->job)
+        ->status->toBe(BackupJobStatus::Failed)
+        ->error_message->toBe('No database on the server matches this backup configuration.');
     Queue::assertNothingPushed();
 });

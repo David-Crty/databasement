@@ -278,6 +278,21 @@ test('switching a server\'s SSH authentication to a key drops the stored passwor
         ->private_key->toBe('-----BEGIN OPENSSH PRIVATE KEY-----');
 });
 
+test('switching a server\'s SSH authentication requires the new credential', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->withSshTunnel()->create(['database_names' => ['mydb']]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.ssh_auth_type', 'key')
+        ->call('save')
+        ->assertHasErrors(['form.ssh_private_key' => 'required']);
+
+    expect($server->fresh()->sshConfig)
+        ->auth_type->toBe('password')
+        ->password->not->toBeNull();
+});
+
 test('disabling SSH tunnel clears SSH config link', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->withSshTunnel()->create([

@@ -7,10 +7,13 @@ use App\Jobs\ProcessRestoreJob;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\DatabaseServer;
+use App\Models\NotificationChannel;
 use App\Models\Snapshot;
 use App\Models\Volume;
+use App\Notifications\RestoreFailedNotification;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\DTO\RestoreConfig;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(fn () => Queue::fake());
@@ -61,7 +64,8 @@ test('the agent reads the copy it can reach, not the local one', function () {
     expect($agentJob->payload['volume']['id'])->toBe($s3->id);
 });
 
-test('a restore whose copy vanishes before dispatch is failed instead of left pending', function () {
+test('a restore whose copy vanishes before dispatch is failed and notified instead of left pending', function () {
+    NotificationChannel::factory()->email()->create();
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => Agent::factory()->create()->id]);
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->onVolumes(Volume::factory()->s3()->create())->create();
@@ -74,4 +78,5 @@ test('a restore whose copy vanishes before dispatch is failed instead of left pe
 
     expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Failed)
         ->and(AgentJob::where('restore_id', $restore->id)->exists())->toBeFalse();
+    Notification::assertSentTimes(RestoreFailedNotification::class, 1);
 });

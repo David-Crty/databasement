@@ -116,10 +116,6 @@ class DatabaseServerPolicy
             return false;
         }
 
-        if ($databaseServer->backups_enabled === false || $databaseServer->backups->isEmpty()) {
-            return false;
-        }
-
         return $user->isDemo() || $user->can(Ability::RunBackups->value);
     }
 

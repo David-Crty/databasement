@@ -40,6 +40,7 @@ test('authenticated users can trigger a backup', function () {
 
     $response->assertStatus(202)
         ->assertJsonPath('message', 'Backup started successfully!')
+        ->assertJsonPath('snapshots.0.deleting', false)
         ->assertJsonStructure([
             'message',
             'snapshots' => [
@@ -48,4 +49,17 @@ test('authenticated users can trigger a backup', function () {
         ]);
 
     Queue::assertPushed(ProcessBackupJob::class);
+});
+
+test('a backup of a server whose backups are disabled is rejected as such, not as forbidden', function () {
+    Queue::fake();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = DatabaseServer::factory()->create(['backups_enabled' => false]);
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/database-servers/{$server->id}/backup")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['backup' => 'Backups are disabled for this database server.']);
+
+    Queue::assertNothingPushed();
 });

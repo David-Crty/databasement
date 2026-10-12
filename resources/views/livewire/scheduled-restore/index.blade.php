@@ -95,7 +95,7 @@
                         <div class="text-xs text-base-content/60">{{ $scheduledRestore->last_executed_at->diffForHumans() }}</div>
                         @if($skipped)
                             <div class="text-xs text-base-content/70">
-                                <span class="font-medium">{{ __('Reason:') }}</span> {{ __($scheduledRestore->last_skip_reason) }}
+                                <span class="font-medium">{{ __('Reason:') }}</span> {{ \App\Models\ScheduledRestore::skipReasonLabel($scheduledRestore->last_skip_reason) }}
                             </div>
                         @elseif($scheduledRestore->lastRestore)
                             <a

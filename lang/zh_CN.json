@@ -1012,6 +1012,7 @@
   "This is the only super admin account. It cannot be deleted.": "这是唯一的超级管理员账户，不能被删除。",
   "This is the only time the public key will be shown. It is not stored — copy it before leaving this page.": "公钥只会显示这一次，系统不会保存它——请在离开此页面前复制保存。",
   "This job belongs to a different organization:": "此 job 属于其他组织：",
+  "This role is still assigned to users. Give them another role before deleting it.": "该角色仍分配给了用户。请先为他们指定其他角色，再删除该角色。",
   "This scheduled restore is disabled. Do you want to run it anyway?": "此定时 restore 已被禁用，是否仍要运行？",
   "This snapshot is locked. Unlock it to delete.": "此 snapshot 已锁定，解锁后才能删除。",
   "This snapshot is stored on several volumes. Choose which copy to download.": "此 snapshot 存储在多个卷上，请选择要下载的副本。",

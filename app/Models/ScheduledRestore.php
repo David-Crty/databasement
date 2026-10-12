@@ -32,6 +32,19 @@ class ScheduledRestore extends Model
         static::addGlobalScope(new DatabaseServerOrganizationScope('target_server_id'));
     }
 
+    /**
+     * What a skip reason means, for people. A run rejected outright stores
+     * the rejection itself as its reason.
+     */
+    public static function skipReasonLabel(string $reason): string
+    {
+        return match ($reason) {
+            self::SKIP_NO_SNAPSHOT => __('No snapshot is available to restore from yet.'),
+            self::SKIP_PREVIOUS_IN_FLIGHT => __('A previous run of this scheduled restore is still in progress.'),
+            default => $reason,
+        };
+    }
+
     protected $fillable = [
         'name',
         'source_server_id',
@@ -43,6 +56,15 @@ class ScheduledRestore extends Model
         'enabled',
         'last_executed_at',
         'last_skip_reason',
+    ];
+
+    /**
+     * The column defaults, so a scheduled restore just created reads them too.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'enabled' => true,
     ];
 
     /**

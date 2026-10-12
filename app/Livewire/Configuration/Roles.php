@@ -6,6 +6,7 @@ use App\Actions\Role\CreateRoleAction;
 use App\Actions\Role\DeleteRoleAction;
 use App\Actions\Role\UpdateRoleAction;
 use App\Enums\Ability;
+use App\Exceptions\Role\RoleInUseException;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Models\User;
 use App\Traits\Toast;
@@ -100,7 +101,14 @@ class Roles extends Component
             return;
         }
 
-        DeleteRoleAction::run($role);
+        try {
+            DeleteRoleAction::run($role);
+        } catch (RoleInUseException) {
+            $this->closeDeletion();
+            $this->error(__('This role is still assigned to users. Give them another role before deleting it.'));
+
+            return;
+        }
 
         $this->closeDeletion();
         $this->success(__('Role deleted.'));

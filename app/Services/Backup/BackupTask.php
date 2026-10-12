@@ -19,6 +19,7 @@ use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
 use App\Support\Formatters;
+use Illuminate\Support\Str;
 
 class BackupTask
 {
@@ -308,6 +309,10 @@ class BackupTask
     /**
      * Generate the filename to store in the volume.
      * Includes optional path prefix for organizing backups.
+     *
+     * The random suffix keeps two backups of the same database started in
+     * the same second from sharing a file, where one would overwrite the
+     * other and deleting either would remove both.
      */
     private function generateFilename(string $serverName, string $databaseName, string $baseExtension, CompressorInterface $compressor, string $backupPath): string
     {
@@ -316,7 +321,9 @@ class BackupTask
         $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName) ?? $databaseName;
         $compressionExtension = $compressor->getExtension();
 
-        $filename = sprintf('%s-%s-%s.%s.%s', $sanitizedServerName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
+        $suffix = Str::lower(Str::random(6));
+
+        $filename = sprintf('%s-%s-%s-%s.%s.%s', $sanitizedServerName, $sanitizedDbName, $timestamp, $suffix, $baseExtension, $compressionExtension);
 
         if (! empty($backupPath)) {
             $path = Formatters::resolveDatePlaceholders(trim($backupPath, '/'));

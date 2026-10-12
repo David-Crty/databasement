@@ -293,7 +293,7 @@ test('trigger backup returns snapshot ids', function () {
 
 test('trigger backup rejects server without backup config', function () {
     Queue::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
 
     // Create server without the factory's afterCreating hook
     $server = \App\Models\DatabaseServer::create([
@@ -312,7 +312,20 @@ test('trigger backup rejects server without backup config', function () {
         'database_server_id' => $server->id,
     ]);
 
-    $response->assertHasErrors();
+    $response->assertHasErrors(['No backup configuration found for this database server.']);
+});
+
+test('trigger backup says when the server\'s backups are disabled', function () {
+    Queue::fake();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = createDatabaseServer(['backups_enabled' => false]);
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
+        'database_server_id' => $server->id,
+    ]);
+
+    $response->assertHasErrors(['Backups are disabled for this database server.']);
+    Queue::assertNothingPushed();
 });
 
 test('trigger backup targets a specific backup id when provided', function () {

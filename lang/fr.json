@@ -1012,6 +1012,7 @@
   "This is the only super admin account. It cannot be deleted.": "Il s’agit du seul compte super admin. Il ne peut pas être supprimé.",
   "This is the only time the public key will be shown. It is not stored — copy it before leaving this page.": "C’est la seule fois où la clé publique sera affichée. Elle n’est pas stockée — copiez-la avant de quitter cette page.",
   "This job belongs to a different organization:": "Ce job appartient à une autre organisation :",
+  "This role is still assigned to users. Give them another role before deleting it.": "Ce rôle est encore attribué à des utilisateurs. Attribuez-leur un autre rôle avant de le supprimer.",
   "This scheduled restore is disabled. Do you want to run it anyway?": "Cette restauration planifiée est désactivée. Voulez-vous l’exécuter malgré tout ?",
   "This snapshot is locked. Unlock it to delete.": "Ce snapshot est verrouillé. Déverrouillez-le pour le supprimer.",
   "This snapshot is stored on several volumes. Choose which copy to download.": "Ce snapshot est stocké sur plusieurs volumes. Choisissez la copie à télécharger.",
