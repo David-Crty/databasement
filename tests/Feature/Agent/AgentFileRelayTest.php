@@ -53,6 +53,17 @@ function claimThroughApi(Agent $agent, bool $supportsRelay = true): ?array
 }
 
 /**
+ * Where a backup job may write an archive named $name: in its backup path,
+ * or at the volume root when it has none.
+ */
+function archivePath(AgentJob $agentJob, string $name = 'archive.gz'): string
+{
+    $directory = trim($agentJob->payload['backup_path'], '/');
+
+    return $directory === '' ? $name : "{$directory}/{$name}";
+}
+
+/**
  * Call a job file endpoint as an agent with a raw body. `call()` skips the
  * headers `withToken()` sets, so the token goes in as a server variable.
  */
@@ -147,7 +158,7 @@ describe('file transfers', function () {
         $volume = Volume::factory()->local()->create();
         $agentJob = relayBackupJob($agent, $volume);
         $job = claimThroughApi($agent);
-        $path = trim($agentJob->payload['backup_path'], '/').'/archive.sql.gz';
+        $path = archivePath($agentJob, 'archive.sql.gz');
 
         agentFilesystem($agent, $job['payload']['volumes'][0])->write($path, 'dumped database');
 
@@ -161,7 +172,7 @@ describe('file transfers', function () {
         $agentJob = relayBackupJob($agent, $volume);
         $token = claimAsAgent($agent, $agentJob);
         $url = "/api/v1/agent/jobs/{$agentJob->id}/volumes/{$volume->id}/upload?".http_build_query([
-            'path' => trim($agentJob->payload['backup_path'], '/').'/archive.sql.gz',
+            'path' => archivePath($agentJob, 'archive.sql.gz'),
         ]);
 
         relayCall($token, 'PUT', $url.'&offset=0', 'abcd')->assertOk();
@@ -204,8 +215,7 @@ describe('file transfers', function () {
         $agentJob = relayBackupJob($agent, $volume);
         $token = claimAsAgent($agent, $agentJob);
 
-        $directory = trim($agentJob->payload['backup_path'], '/');
-        [$method, $volumeId, $endpoint, $path] = $request($volume, $directory);
+        [$method, $volumeId, $endpoint, $path] = $request($volume, $agentJob);
 
         relayCall($token, $method, "/api/v1/agent/jobs/{$agentJob->id}/volumes/{$volumeId}/{$endpoint}?".http_build_query(['path' => $path, 'offset' => 0]), 'x')
             ->assertForbidden();
@@ -213,9 +223,9 @@ describe('file transfers', function () {
         // Each returns [method, volume id, endpoint, path]. Typed as a Closure
         // in the test, so Pest passes it through instead of calling it.
         'writing outside the backup path' => [fn (Volume $volume) => ['PUT', $volume->id, 'upload', 'elsewhere/archive.gz']],
-        'climbing out of the volume' => [fn (Volume $volume, string $directory) => ['PUT', $volume->id, 'upload', "{$directory}/../../etc/passwd"]],
-        'reading as a backup' => [fn (Volume $volume, string $directory) => ['GET', $volume->id, 'file', "{$directory}/archive.gz"]],
-        'a volume of another job' => [fn (Volume $volume, string $directory) => ['PUT', Volume::factory()->local()->create()->id, 'upload', "{$directory}/archive.gz"]],
+        'climbing out of the volume' => [fn (Volume $volume, AgentJob $agentJob) => ['PUT', $volume->id, 'upload', archivePath($agentJob, '../../etc/passwd')]],
+        'reading as a backup' => [fn (Volume $volume, AgentJob $agentJob) => ['GET', $volume->id, 'file', archivePath($agentJob)]],
+        'a volume of another job' => [fn (Volume $volume, AgentJob $agentJob) => ['PUT', Volume::factory()->local()->create()->id, 'upload', archivePath($agentJob)]],
     ]);
 
     test('an agent transferring directly cannot relay its other volumes', function () {
@@ -225,7 +235,7 @@ describe('file transfers', function () {
         $token = claimAsAgent($agent, $agentJob);
 
         relayCall($token, 'PUT', "/api/v1/agent/jobs/{$agentJob->id}/volumes/{$s3->id}/upload?".http_build_query([
-            'path' => trim($agentJob->payload['backup_path'], '/').'/archive.gz',
+            'path' => archivePath($agentJob),
             'offset' => 0,
         ]), 'x')->assertForbidden();
     });
