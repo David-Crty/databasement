@@ -16,6 +16,7 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\Filesystems\FtpFilesystem;
 use App\Services\Backup\Filesystems\LocalFilesystem;
 use App\Services\Backup\Filesystems\SftpFilesystem;
+use App\Services\Backup\Filesystems\RelayFilesystem;
 use App\Services\Backup\Filesystems\SmbFilesystem;
 use App\Services\Backup\ShellProcessor;
 use App\Services\CurrentOrganization;
@@ -68,6 +69,7 @@ class AppServiceProvider extends ServiceProvider
             $provider->add(new FtpFilesystem);
             $provider->add(new AzureFilesystem);
             $provider->add(new SmbFilesystem);
+            $provider->add(new RelayFilesystem);
 
             return $provider;
         });

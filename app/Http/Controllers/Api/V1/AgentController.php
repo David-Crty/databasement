@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\AgentJobType;
 use App\Exceptions\Backup\JobCancelledException;
+use App\Http\Controllers\Api\V1\Concerns\RejectsInactiveAgentJobs;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Services\Agent\AgentApiClient;
+use App\Services\Agent\Relay\RelayNotSupportedException;
+use App\Services\Agent\Relay\RelayUploadStore;
+use App\Services\Agent\Relay\RelayVolumes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +22,8 @@ use RuntimeException;
  */
 class AgentController extends Controller
 {
+    use RejectsInactiveAgentJobs;
+
     /**
      * Shared validation rules for agent log entries.
      *
@@ -74,8 +80,11 @@ class AgentController extends Controller
      * Atomically claims the next pending job for this agent. `job_types`
      * lists the job types the agent can run; agents that predate restore
      * support send none and are only handed backup and discovery jobs.
+     * `capabilities` lists what else the agent supports: `relay` once it can
+     * transfer files through the server. A job whose volumes must be relayed
+     * fails at claim when the agent cannot.
      */
-    public function claimJob(Request $request): JsonResponse
+    public function claimJob(Request $request, RelayVolumes $relayVolumes): JsonResponse
     {
         /** @var Agent $agent */
         $agent = $request->user();
@@ -83,11 +92,15 @@ class AgentController extends Controller
         $validated = $request->validate([
             'job_types' => 'nullable|array',
             'job_types.*' => 'string',
+            'capabilities' => 'nullable|array',
+            'capabilities.*' => 'string',
         ]);
 
         $jobTypes = $validated['job_types'] ?? AgentJobType::legacyValues();
+        $supportsRelay = in_array(RelayVolumes::CAPABILITY, $validated['capabilities'] ?? [], true);
 
-        $job = DB::transaction(function () use ($agent, $jobTypes): ?AgentJob {
+        /** @var array{0: AgentJob|null, 1: array<string, mixed>|null, 2: RelayNotSupportedException|null} $claim */
+        $claim = DB::transaction(function () use ($agent, $jobTypes, $relayVolumes, $supportsRelay): array {
             /** @var AgentJob|null $job */
             $job = AgentJob::query()
                 ->where(function ($query) {
@@ -105,7 +118,7 @@ class AgentController extends Controller
                 ->first();
 
             if ($job === null) {
-                return null;
+                return [null, null, null];
             }
 
             $job->claim($agent);
@@ -115,13 +128,25 @@ class AgentController extends Controller
             } catch (JobCancelledException) {
                 $job->markFailed('Cancelled.');
 
-                return null;
+                return [null, null, null];
             }
 
-            return $job;
+            try {
+                return [$job, $relayVolumes->payloadFor($job, $agent, $supportsRelay), null];
+            } catch (RelayNotSupportedException $e) {
+                $job->markFailed($e->getMessage());
+
+                return [$job, null, $e];
+            }
         });
 
-        if ($job === null) {
+        [$job, $payload, $relayError] = $claim;
+
+        if ($relayError !== null && $job !== null) {
+            $job->handler()->fail($job, $relayError, []);
+        }
+
+        if ($job === null || $payload === null) {
             return response()->json(['job' => null]);
         }
 
@@ -131,7 +156,7 @@ class AgentController extends Controller
                 'type' => $job->type->value,
                 'snapshot_id' => $job->snapshot_id,
                 // Agents up to 1.8 read the job type from the payload.
-                'payload' => [...$job->payload, 'type' => $job->type->value],
+                'payload' => [...$payload, 'type' => $job->type->value],
                 'attempts' => $job->attempts,
                 'max_attempts' => $job->max_attempts,
                 // Agents resend a running command's log entry only to a
@@ -184,6 +209,8 @@ class AgentController extends Controller
 
         $agentJob->trackedJob()?->mergeLogs($validated['logs'] ?? []);
 
+        app(RelayUploadStore::class)->forget($agentJob);
+
         return response()->json([
             'status' => 'ok',
             ...$handler->complete($agentJob, $validated),
@@ -211,6 +238,8 @@ class AgentController extends Controller
 
         $agentJob->markFailed($validated['error_message']);
 
+        app(RelayUploadStore::class)->forget($agentJob);
+
         $agentJob->trackedJob()?->mergeLogs($validated['logs'] ?? []);
 
         $handler->fail($agentJob, new RuntimeException($validated['error_message']), $validated);
@@ -235,21 +264,5 @@ class AgentController extends Controller
         }
 
         return $this->ack($request, $agentJob);
-    }
-
-    private function rejectUnlessActive(Request $request, AgentJob $agentJob, string $action): ?JsonResponse
-    {
-        /** @var Agent $agent */
-        $agent = $request->user();
-
-        if ($agentJob->agent_id !== $agent->id) {
-            return response()->json(['message' => 'This job is not assigned to your agent.'], 403);
-        }
-
-        if (! in_array($agentJob->status, [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])) {
-            return response()->json(['message' => "Cannot {$action} a job with status '{$agentJob->status}'."], 409);
-        }
-
-        return null;
     }
 }

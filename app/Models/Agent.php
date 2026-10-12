@@ -29,6 +29,7 @@ class Agent extends Model
         'last_heartbeat_at',
         'version',
         'commit_hash',
+        'transfer_via_server',
         'organization_id',
     ];
 
@@ -36,6 +37,7 @@ class Agent extends Model
     {
         return [
             'last_heartbeat_at' => 'datetime',
+            'transfer_via_server' => 'boolean',
         ];
     }
 
@@ -61,6 +63,17 @@ class Agent extends Model
     public function agentJobs(): HasMany
     {
         return $this->hasMany(AgentJob::class);
+    }
+
+    /**
+     * Whether servers behind the agent with this id can back up to and
+     * restore from the app's local volumes. Only an agent that moves files
+     * through the server reaches them; a null id (no agent) always does.
+     */
+    public static function reachesLocalVolumes(?string $agentId): bool
+    {
+        return $agentId === null
+            || self::query()->whereKey($agentId)->where('transfer_via_server', true)->exists();
     }
 
     /**

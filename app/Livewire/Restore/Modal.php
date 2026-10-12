@@ -292,7 +292,7 @@ class Modal extends Component
             ->where('snapshot_id', $this->selectedSnapshotId)
             ->completed()
             ->fileExists()
-            ->when($this->targetServer?->agent_id !== null, fn ($query) => $query->reachableByAgent())
+            ->when($this->targetServer?->agent_id !== null, fn ($query) => $query->reachableByAgent($this->targetServer?->agent))
             ->with('volume')
             ->oldest('id')
             ->get()

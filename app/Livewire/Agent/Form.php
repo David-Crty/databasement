@@ -12,12 +12,19 @@ class Form extends \Livewire\Form
     public string $name = '';
 
     /**
+     * Move backup files through this server instead of letting the agent
+     * reach the storage volumes itself.
+     */
+    public bool $transfer_via_server = false;
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
     {
         return [
             'name' => 'required|string|max:255',
+            'transfer_via_server' => 'boolean',
         ];
     }
 
@@ -25,6 +32,7 @@ class Form extends \Livewire\Form
     {
         $this->agent = $agent;
         $this->name = $agent->name;
+        $this->transfer_via_server = $agent->transfer_via_server;
     }
 
     public function store(): Agent
@@ -33,6 +41,7 @@ class Form extends \Livewire\Form
 
         return Agent::create([
             'name' => $this->name,
+            'transfer_via_server' => $this->transfer_via_server,
             'organization_id' => app(CurrentOrganization::class)->id(),
         ]);
     }
@@ -43,6 +52,7 @@ class Form extends \Livewire\Form
 
         return $this->agent->update([
             'name' => $this->name,
+            'transfer_via_server' => $this->transfer_via_server,
         ]);
     }
 }

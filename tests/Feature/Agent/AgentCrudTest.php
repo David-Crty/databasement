@@ -121,6 +121,18 @@ describe('agent editing', function () {
         expect($agent->fresh()->name)->toBe('New Name');
     });
 
+    test('manage-agents allows making an agent transfer files through the server', function () {
+        $user = User::factory()->withAbilities([Ability::ManageAgents->value])->create();
+        $agent = Agent::factory()->create();
+
+        Livewire::actingAs($user)
+            ->test(Edit::class, ['agent' => $agent])
+            ->set('form.transfer_via_server', true)
+            ->call('save');
+
+        expect($agent->fresh()->transfer_via_server)->toBeTrue();
+    });
+
     test('manage-agents allows regenerating a token', function () {
         $user = User::factory()->withAbilities([Ability::ManageAgents->value])->create();
         $agent = Agent::factory()->create();

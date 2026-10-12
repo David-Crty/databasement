@@ -15,6 +15,7 @@ Core application settings including database, timezone, proxy configuration, and
 | `APP_DEBUG`             | Enable debug mode (set to `false` in production) | `false`                 |
 | `APP_DISPLAY_TIMEZONE`  | Timezone for UI, backup filenames, and crons     | `UTC`                   |
 | `API_RATE_LIMIT`        | Max API requests per minute, per token           | `300`                   |
+| `PHP_POST_MAX_SIZE`     | Largest request body accepted (PHP `post_max_size`); caps the chunks of [agents transferring through the server](../../user-guide/agents.md#transferring-files-through-the-server) | `64M` |
 
 ### API Rate Limit
 

@@ -95,7 +95,7 @@ class AgentJobPayloadBuilder
      */
     public function buildRestore(Restore $restore): array
     {
-        $copies = $restore->snapshot->files()->completed()->fileExists()->reachableByAgent()->with('volume');
+        $copies = $restore->snapshot->files()->completed()->fileExists()->reachableByAgent($restore->targetServer->agent)->with('volume');
 
         if ($restore->snapshot_file_id !== null) {
             $copies->whereKey($restore->snapshot_file_id);

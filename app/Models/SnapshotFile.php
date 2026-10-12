@@ -86,13 +86,18 @@ class SnapshotFile extends Model
 
     /**
      * Scope to copies a remote agent can read: every volume type except the
-     * app's own local disk.
+     * app's own local disk, which only an agent that transfers files through
+     * this server reaches.
      *
      * @param  Builder<SnapshotFile>  $query
      * @return Builder<SnapshotFile>
      */
-    public function scopeReachableByAgent(Builder $query): Builder
+    public function scopeReachableByAgent(Builder $query, ?Agent $agent = null): Builder
     {
+        if ($agent?->transfer_via_server) {
+            return $query;
+        }
+
         return $query->whereHas('volume', function (Builder $volume): void {
             /** @var Builder<Volume> $volume */
             $volume->where('type', '!=', VolumeType::LOCAL->value);

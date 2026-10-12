@@ -184,6 +184,11 @@ ENV ENABLE_QUEUE_WORKER="false"
 ENV ENABLE_DATABASE_MIGRATION="true"
 ENV TZ="UTC"
 
+# Agent mode: chunk size (MB) when an agent uploads files through the server.
+# Must stay under the server's post_max_size (PHP_POST_MAX_SIZE, 64M by
+# default, see php-custom.ini) and any reverse proxy's request body limit.
+ENV DATABASEMENT_AGENT_RELAY_CHUNK_MB="16"
+
 # supervisord drops to `application` via setuid without rewriting the environment,
 # so children would inherit root's HOME=/root (mode 0700). libpq treats a permission
 # error on $HOME/.postgresql/postgresql.crt as fatal to the TLS handshake, breaking

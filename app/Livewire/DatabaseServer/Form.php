@@ -318,8 +318,8 @@ class Form extends \Livewire\Form
             $this->agent_id = null;
         }
 
-        // Clear volume selection(s) if they were local (incompatible with agents)
-        if ($this->use_agent) {
+        // Clear volume selection(s) if they were local (unreachable by the agent)
+        if ($this->excludesLocalVolumes()) {
             foreach ($this->backups as $index => $backup) {
                 $volumeIds = array_values(array_filter((array) ($backup['volume_ids'] ?? [])));
                 if ($volumeIds === []) {
@@ -808,6 +808,16 @@ class Form extends \Livewire\Form
         return ! empty($this->agent_id);
     }
 
+    /**
+     * Whether the server's backups cannot use local volumes: an agent reaches
+     * them only when it transfers files through this server. Until an agent
+     * is picked, they are excluded.
+     */
+    public function excludesLocalVolumes(): bool
+    {
+        return $this->use_agent && ! ($this->hasAgent() && Agent::reachesLocalVolumes($this->agent_id));
+    }
+
     public function getSelectedAgent(): ?Agent
     {
         if (! $this->hasAgent()) {
@@ -834,8 +844,10 @@ class Form extends \Livewire\Form
      */
     public function getVolumeOptions(): array
     {
-        return $this->getAllVolumes()->map(function ($v) {
-            $isLocalWithAgent = $this->use_agent && $v->getVolumeType() === \App\Enums\VolumeType::LOCAL;
+        $excludesLocalVolumes = $this->excludesLocalVolumes();
+
+        return $this->getAllVolumes()->map(function ($v) use ($excludesLocalVolumes) {
+            $isLocalWithAgent = $excludesLocalVolumes && $v->getVolumeType() === \App\Enums\VolumeType::LOCAL;
 
             return [
                 'id' => $v->id,
@@ -871,7 +883,7 @@ class Form extends \Livewire\Form
             foreach ($this->backups as $index => $entry) {
                 $rules = array_merge(
                     $rules,
-                    BackupForm::rulesFor($index, $entry, $serverType, $this->hasAgent()),
+                    BackupForm::rulesFor($index, $entry, $serverType, $this->excludesLocalVolumes()),
                 );
             }
         }

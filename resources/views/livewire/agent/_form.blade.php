@@ -10,6 +10,12 @@
             type="text"
             required
         />
+
+        <x-toggle
+            wire:model="form.transfer_via_server"
+            :label="__('Transfer files through this server')"
+            :hint="__('The agent sends and receives backup files over its connection to this server, which reads and writes the storage volumes. The agent then needs no access to the volumes, and can also use local volumes.')"
+        />
     </div>
 
     <!-- Form Actions -->

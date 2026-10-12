@@ -323,6 +323,30 @@ test('cannot create an agent-backed server with a local volume', function () {
         ->assertJsonValidationErrors(['backups.0.volume_ids']);
 });
 
+test('can create a server with a local volume behind an agent transferring through this server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $agent = \App\Models\Agent::factory()->create(['transfer_via_server' => true]);
+    $volume = Volume::factory()->local()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Agent MySQL',
+            'database_type' => 'mysql',
+            'host' => 'db.internal',
+            'port' => 3306,
+            'username' => 'root',
+            'agent_id' => $agent->id,
+            'backups' => [[
+                'database_selection_mode' => 'all',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => dailySchedule()->id,
+                'retention_policy' => 'days',
+                'retention_days' => 14,
+            ]],
+        ])
+        ->assertCreated();
+});
+
 test('can create a server with backup config including gfs retention', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();

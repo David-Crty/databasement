@@ -211,7 +211,7 @@ class BackupJobFactory
         }
 
         if ($targetServer->agent_id !== null) {
-            $reachableCopies = $snapshot->files()->completed()->fileExists()->reachableByAgent();
+            $reachableCopies = $snapshot->files()->completed()->fileExists()->reachableByAgent($targetServer->agent);
 
             if ($snapshotFileId !== null) {
                 $reachableCopies->whereKey($snapshotFileId);

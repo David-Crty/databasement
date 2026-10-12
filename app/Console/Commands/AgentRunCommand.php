@@ -47,6 +47,8 @@ class AgentRunCommand extends Command
         }
 
         $client = new AgentApiClient($url, $token);
+        // Relay volumes reach the server through the same client.
+        app()->instance(AgentApiClient::class, $client);
         $runners = $this->runners();
 
         $this->log('Databasement Agent starting...');

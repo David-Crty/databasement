@@ -207,7 +207,7 @@ final class BackupForm
         int $index,
         array $entry,
         DatabaseType $serverType,
-        bool $isAgent,
+        bool $excludesLocalVolumes,
     ): array {
         $prefix = "backups.{$index}.";
 
@@ -216,11 +216,11 @@ final class BackupForm
             $prefix.'volume_ids.*' => [
                 'required',
                 Rule::exists('volumes', 'id')->where('organization_id', app(CurrentOrganization::class)->id()),
-                function (string $attribute, mixed $value, \Closure $fail) use ($isAgent): void {
-                    if ($isAgent
+                function (string $attribute, mixed $value, \Closure $fail) use ($excludesLocalVolumes): void {
+                    if ($excludesLocalVolumes
                         && Volume::whereKey($value)->where('type', \App\Enums\VolumeType::LOCAL->value)->exists()
                     ) {
-                        $fail(__('Local volumes cannot be used with remote agents.'));
+                        $fail(__('Local volumes can only be used by agents that transfer files through this server.'));
                     }
                 },
             ],

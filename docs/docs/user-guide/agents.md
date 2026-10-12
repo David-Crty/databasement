@@ -155,11 +155,26 @@ Server and agents are compatible within the same minor version: a patch release 
 
 ## Constraints
 
-- **No local volume** — the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
-- **Restores read from a reachable volume** — a restore onto an agent-backed server downloads the snapshot on the agent's network, so the snapshot must have a copy on a volume the agent can reach. Copies on the server's local storage are not offered as a source.
+- **No local volume** — unless it [transfers files through the server](#transferring-files-through-the-server), the agent uploads from its own network, so it must use a reachable destination (S3-compatible or SFTP/FTP), not the server's local storage.
+- **Restores read from a reachable volume** — a restore onto an agent-backed server downloads the snapshot on the agent's network, so the snapshot must have a copy on a volume the agent can reach. Copies on the server's local storage are only offered as a source when the agent transfers files through the server.
 - **A lost agent delays the retry** — an agent reports every 30 seconds while a dump runs, and a backup whose agent goes silent for 10 minutes (a restart or a network outage included) is started again from scratch. Agents up to 1.8.4 cannot report during a dump, so their backups are retried only once the full backup job timeout has passed.
 - **Cancelling stops the agent at its next report**: every 30 seconds while a command runs, or at its next step. Agents up to 1.8.4 do not stop: they run the whole job and only see it was cancelled when they report the result.
 - **Restores are never retried** — a restore drops and recreates the target database, so a restore interrupted by a lost agent is reported as failed rather than run again. It is given the full backup job timeout to finish, and fails if no agent claims it within that time.
+
+## Transferring files through the server
+
+By default the agent reaches the storage volumes itself, so it needs network access and credentials for each of them. Tick **Transfer files through this server** on the agent instead, and the agent sends and receives backup files over the same HTTPS connection it polls with: Databasement writes them to the volume, reads them back for restores and deletes them. The agent then needs no route to the volumes, never receives their credentials, and can use the server's local volumes.
+
+Every file then crosses the server, so it carries the backup traffic and needs temporary disk space (under `storage/app/agent-relay`) for the archive being uploaded. Uploads are sent in chunks of 16 MB, which you can change with `DATABASEMENT_AGENT_RELAY_CHUNK_MB` on the agent. The server image accepts chunks up to 64 MB, set by `PHP_POST_MAX_SIZE` on the server (for example `128M`), but a reverse proxy in front of it must accept them too: nginx, for instance, rejects bodies over 1 MB by default, so raise its `client_max_body_size` or set the chunk size to 1.
+
+When tuning it, keep in mind:
+
+- **Larger chunks mean fewer requests**, but past 16 MB the transfer barely speeds up: bandwidth, not the per-request overhead, sets its pace.
+- **The agent holds each chunk in memory**, and the HTTP client may copy it, so a 32 MB chunk can use around 100 MB during an upload.
+- **A dropped connection resends the whole chunk**, so smaller chunks lose less on an unstable link.
+- **Proxies and WAFs often cap request bodies** somewhere between 1 and 32 MB. If uploads fail with HTTP 413, lower the chunk size below that limit.
+
+Local volumes always go through the server, whatever the setting. Agents older than this feature cannot transfer through the server: a job that needs it fails, asking you to update the agent.
 
 ## Restoring through an agent
 

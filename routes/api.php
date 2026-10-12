@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AgentController;
+use App\Http\Controllers\Api\V1\AgentFileController;
 use App\Http\Controllers\Api\V1\BackupJobController;
 use App\Http\Controllers\Api\V1\BackupScheduleController;
 use App\Http\Controllers\Api\V1\DatabaseServerController;
@@ -74,4 +75,11 @@ Route::middleware(['throttle-failed-agent-auth', 'auth:sanctum', 'agent'])->name
     Route::post('jobs/{agentJob}/ack', [AgentController::class, 'ack'])->name('jobs.ack');
     Route::post('jobs/{agentJob}/fail', [AgentController::class, 'fail'])->name('jobs.fail');
     Route::post('jobs/{agentJob}/discovered-databases', [AgentController::class, 'discoveredDatabases'])->name('jobs.discovered-databases');
+
+    // Files of the job's volumes, for an agent that transfers them through the server.
+    Route::put('jobs/{agentJob}/volumes/{volumeId}/upload', [AgentFileController::class, 'uploadChunk'])->name('jobs.files.upload');
+    Route::post('jobs/{agentJob}/volumes/{volumeId}/upload/complete', [AgentFileController::class, 'completeUpload'])->name('jobs.files.complete');
+    Route::get('jobs/{agentJob}/volumes/{volumeId}/file', [AgentFileController::class, 'download'])->name('jobs.files.download');
+    Route::get('jobs/{agentJob}/volumes/{volumeId}/file/exists', [AgentFileController::class, 'exists'])->name('jobs.files.exists');
+    Route::delete('jobs/{agentJob}/volumes/{volumeId}/file', [AgentFileController::class, 'delete'])->name('jobs.files.delete');
 });
