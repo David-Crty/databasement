@@ -9,6 +9,7 @@ use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Agent\AgentJobPayloadBuilder;
+use App\Services\Agent\Relay\RelayUploadStore;
 use App\Services\Agent\Relay\RelayVolumes;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -16,6 +17,7 @@ use App\Support\FilesystemSupport;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Illuminate\Testing\TestResponse;
 use League\Flysystem\Filesystem;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -241,6 +243,72 @@ describe('file transfers', function () {
             ->and(storage_path("app/agent-relay/{$running->id}/live.part"))->toBeFile();
     });
 
+    test('a backup does not overwrite a file it did not write', function () {
+        $agent = Agent::factory()->create(['transfer_via_server' => true]);
+        $volume = Volume::factory()->local()->create();
+        $agentJob = relayBackupJob($agent, $volume);
+        $token = claimAsAgent($agent, $agentJob);
+        $path = archivePath($agentJob);
+        $existing = $volume->config['path'].'/'.$path;
+        File::ensureDirectoryExists(dirname($existing));
+        File::put($existing, 'another snapshot');
+        $base = "/api/v1/agent/jobs/{$agentJob->id}/volumes/{$volume->id}";
+
+        relayCall($token, 'PUT', "{$base}/upload?".http_build_query(['path' => $path, 'offset' => 0]), 'evil')->assertOk();
+        $this->withToken($token)
+            ->postJson("{$base}/upload/complete", ['path' => $path, 'size' => 4, 'sha256' => hash('sha256', 'evil')])
+            ->assertConflict();
+
+        expect(File::get($existing))->toBe('another snapshot');
+    });
+
+    test('a backup only deletes the files it wrote', function () {
+        $agent = Agent::factory()->create(['transfer_via_server' => true]);
+        $volume = Volume::factory()->local()->create();
+        $agentJob = relayBackupJob($agent, $volume);
+        $token = claimAsAgent($agent, $agentJob);
+        $existing = $volume->config['path'].'/'.archivePath($agentJob);
+        File::ensureDirectoryExists(dirname($existing));
+        File::put($existing, 'another snapshot');
+
+        relayCall($token, 'DELETE', "/api/v1/agent/jobs/{$agentJob->id}/volumes/{$volume->id}/file?".http_build_query(['path' => archivePath($agentJob)]))
+            ->assertForbidden();
+
+        expect($existing)->toBeFile();
+    });
+
+    test('a completion sent while the first still writes is asked to wait', function () {
+        $agent = Agent::factory()->create(['transfer_via_server' => true]);
+        $volume = Volume::factory()->local()->create();
+        $agentJob = relayBackupJob($agent, $volume);
+        $token = claimAsAgent($agent, $agentJob);
+        $path = archivePath($agentJob);
+        app(RelayUploadStore::class)->completionLock($agentJob, $volume->id, $path)->get();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/volumes/{$volume->id}/upload/complete", [
+                'path' => $path,
+                'size' => 4,
+                'sha256' => hash('sha256', 'abcd'),
+            ])
+            ->assertAccepted();
+    });
+
+    test('the agent keeps asking while the server writes the upload, through a proxy timeout', function () {
+        Sleep::fake();
+        Http::fake([
+            '*' => Http::sequence()
+                ->push(['message' => 'Gateway Timeout'], 504)
+                ->push(['status' => 'in_progress'], 202)
+                ->push(['status' => 'ok'], 200),
+        ]);
+
+        (new AgentApiClient('http://databasement.test', 'token'))->completeUpload('job', 'volume', 'archive.gz', 4, hash('sha256', 'abcd'));
+
+        Http::assertSentCount(3);
+        Sleep::assertSleptTimes(2);
+    });
+
     test('a restore downloads its source copy through the server', function () {
         $agent = Agent::factory()->create(['transfer_via_server' => true]);
         ['agentJob' => $agentJob, 'restore' => $restore] = dispatchAgentRestore($agent, Volume::factory()->local()->create());
@@ -283,6 +351,8 @@ describe('file transfers', function () {
         // in the test, so Pest passes it through instead of calling it.
         'writing outside the backup path' => [fn (Volume $volume) => ['PUT', $volume->id, 'upload', 'elsewhere/archive.gz']],
         'climbing out of the volume' => [fn (Volume $volume, AgentJob $agentJob) => ['PUT', $volume->id, 'upload', archivePath($agentJob, '../../etc/passwd')]],
+        // Flysystem turns backslashes into slashes and resolves the `..`.
+        'climbing out of the backup path with backslashes' => [fn (Volume $volume, AgentJob $agentJob) => ['PUT', $volume->id, 'upload', archivePath($agentJob, 'x\\..\\..\\other.gz')]],
         'reading as a backup' => [fn (Volume $volume, AgentJob $agentJob) => ['GET', $volume->id, 'file', archivePath($agentJob)]],
         'a volume of another job' => [fn (Volume $volume, AgentJob $agentJob) => ['PUT', Volume::factory()->local()->create()->id, 'upload', archivePath($agentJob)]],
     ]);

@@ -100,7 +100,7 @@ class RelayVolumes
      */
     public function allows(AgentJob $job, string $volumeId, string $operation, string $path): bool
     {
-        if ($path === '' || str_starts_with($path, '/') || in_array('..', explode('/', $path), true)) {
+        if (! self::isPlainPath($path)) {
             return false;
         }
 
@@ -128,6 +128,28 @@ class RelayVolumes
         return $pathAllowed
             && in_array($operation, $operations, true)
             && in_array($volumeId, $volumeIds, true);
+    }
+
+    /**
+     * Whether the path names a file the way Flysystem will resolve it: plain
+     * forward-slash segments, none empty, `.` or `..`. Flysystem turns `\`
+     * into `/` and resolves `..` before writing, so a path like
+     * `backups/x\..\..\other.gz` would otherwise pass the directory check
+     * and land outside it.
+     */
+    private static function isPlainPath(string $path): bool
+    {
+        if ($path === '' || str_contains($path, '\\') || preg_match('#\p{C}#u', $path) !== 0) {
+            return false;
+        }
+
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

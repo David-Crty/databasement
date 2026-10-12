@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -18,6 +19,11 @@ class AgentApiClient
     public const string VERSION_HEADER = 'X-Databasement-Version';
 
     public const string COMMIT_HEADER = 'X-Databasement-Commit';
+
+    /**
+     * Seconds between two checks on an upload the server is still writing.
+     */
+    private const int COMPLETION_POLL_SECONDS = 5;
 
     public function __construct(
         private string $url,
@@ -143,13 +149,49 @@ class AgentApiClient
     /**
      * Finish an upload: the server checks it received `size` bytes matching
      * `sha256` and writes the file to the volume.
+     *
+     * Writing a large file can outlast the request (a proxy's read timeout,
+     * often 60 seconds), but the server keeps writing. So a dropped request is
+     * sent again, and while the write runs the server answers 202: the agent
+     * asks again until it ends. Only failing to reach the server several
+     * times in a row gives up.
      */
     public function completeUpload(string $jobId, string $volumeId, string $path, int $size, string $sha256): void
     {
-        $response = $this->fileRequest(timeout: 3600)
-            ->post($this->fileUrl($jobId, $volumeId, 'upload/complete'), ['path' => $path, 'size' => $size, 'sha256' => $sha256]);
+        $unreachable = 0;
 
-        $this->throwUnlessSuccessful($response);
+        while (true) {
+            try {
+                $response = $this->request(timeout: 120)
+                    ->post($this->fileUrl($jobId, $volumeId, 'upload/complete'), ['path' => $path, 'size' => $size, 'sha256' => $sha256]);
+            } catch (ConnectionException $e) {
+                if (++$unreachable >= 5) {
+                    throw $e;
+                }
+
+                Sleep::for(self::COMPLETION_POLL_SECONDS)->seconds();
+
+                continue;
+            }
+
+            // A proxy timing out answers 502/504 while the server keeps writing.
+            if ($response->serverError() && ++$unreachable < 5) {
+                Sleep::for(self::COMPLETION_POLL_SECONDS)->seconds();
+
+                continue;
+            }
+
+            if ($response->status() === 202) {
+                $unreachable = 0;
+                Sleep::for(self::COMPLETION_POLL_SECONDS)->seconds();
+
+                continue;
+            }
+
+            $this->throwUnlessSuccessful($response);
+
+            return;
+        }
     }
 
     /**

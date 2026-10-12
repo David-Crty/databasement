@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\AgentJobType;
 use App\Http\Controllers\Api\V1\Concerns\RejectsInactiveAgentJobs;
 use App\Http\Controllers\Controller;
 use App\Models\Agent;
@@ -72,9 +73,11 @@ class AgentFileController extends Controller
      * Complete an upload.
      *
      * Checks that all `size` bytes arrived with the given SHA-256, then writes
-     * the file to the volume. A retry whose first attempt already wrote it
-     * (its response lost on the way back) succeeds when it carries the same
-     * SHA-256 the upload was committed with.
+     * the file to the volume. The write keeps running if the agent or a proxy
+     * drops the request: a completion sent meanwhile answers 202 until it
+     * ends, and one sent after succeeds when it carries the SHA-256 the
+     * upload was committed with. A file the job did not write is never
+     * overwritten.
      */
     public function completeUpload(Request $request, AgentJob $agentJob, string $volumeId): JsonResponse
     {
@@ -84,12 +87,31 @@ class AgentFileController extends Controller
             'sha256' => ['required', 'string', 'regex:/^[0-9a-f]{64}$/'],
         ]);
         $path = $validated['path'];
-        $sha256 = $validated['sha256'];
 
         if ($rejection = $this->reject($request, $agentJob, $volumeId, RelayVolumes::WRITE, $path)) {
             return $rejection;
         }
 
+        $lock = $this->uploads->completionLock($agentJob, $volumeId, $path);
+
+        if (! $lock->get()) {
+            $agentJob->extendLease();
+
+            return response()->json(['status' => 'in_progress'], Response::HTTP_ACCEPTED);
+        }
+
+        try {
+            return $this->commitUpload($request, $agentJob, $volumeId, $path, (int) $validated['size'], $validated['sha256']);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Write a fully received upload to its volume, under its completion lock.
+     */
+    private function commitUpload(Request $request, AgentJob $agentJob, string $volumeId, string $path, int $size, string $sha256): JsonResponse
+    {
         $partPath = $this->uploads->received($agentJob, $volumeId, $path);
 
         if ($partPath === null) {
@@ -104,13 +126,15 @@ class AgentFileController extends Controller
 
         $received = (int) filesize($partPath);
 
-        if ($received !== (int) $validated['size']) {
+        if ($received !== $size) {
             return response()->json([
-                'message' => "Received {$received} of {$validated['size']} bytes.",
+                'message' => "Received {$received} of {$size} bytes.",
                 'received' => $received,
             ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        // The write outlives a dropped connection; a retry waits on the lock.
+        ignore_user_abort(true);
         set_time_limit(0);
 
         if (! hash_equals($sha256, (string) hash_file('sha256', $partPath))) {
@@ -119,8 +143,20 @@ class AgentFileController extends Controller
             return response()->json(['message' => 'The uploaded file does not match its SHA-256.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $volume = $this->volume($request, $volumeId);
+
+        if (! $this->uploads->owns($agentJob, $volumeId, $path)
+            && $this->filesystemProvider->getForVolume($volume)->fileExists($path)) {
+            $this->uploads->discard($agentJob, $volumeId, $path);
+
+            return response()->json(['message' => 'A file this job did not write already exists at this path.'], Response::HTTP_CONFLICT);
+        }
+
+        // Owned before the write, so a write that fails halfway can be redone.
+        $this->uploads->markOwned($agentJob, $volumeId, $path);
+
         try {
-            $this->filesystemProvider->transfer($this->volume($request, $volumeId), $partPath, $path);
+            $this->filesystemProvider->transfer($volume, $partPath, $path);
         } catch (Throwable $e) {
             // A failed write may have left the volume's file truncated, so an
             // earlier commit of it no longer holds.
@@ -192,7 +228,8 @@ class AgentFileController extends Controller
      * Delete a file.
      *
      * Deletes the file and the directories it leaves empty. A file already
-     * absent is not an error.
+     * absent is not an error. A backup only deletes the files it wrote; a
+     * cleanup deletes the copy the server chose for it.
      */
     public function delete(Request $request, AgentJob $agentJob, string $volumeId): JsonResponse
     {
@@ -200,6 +237,10 @@ class AgentFileController extends Controller
 
         if ($rejection = $this->reject($request, $agentJob, $volumeId, RelayVolumes::DELETE, $path)) {
             return $rejection;
+        }
+
+        if ($agentJob->type === AgentJobType::Backup && ! $this->uploads->owns($agentJob, $volumeId, $path)) {
+            return response()->json(['message' => 'This job can only delete files it wrote.'], Response::HTTP_FORBIDDEN);
         }
 
         $filesystem = $this->filesystemProvider->getForVolume($this->volume($request, $volumeId));

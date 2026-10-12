@@ -3,6 +3,9 @@
 namespace App\Services\Agent\Relay;
 
 use App\Models\AgentJob;
+use App\Support\QueueTimeouts;
+use Illuminate\Contracts\Cache\Lock;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
 
@@ -86,6 +89,38 @@ class RelayUploadStore
         $markerPath = $this->basePath($job, $volumeId, $path).'.done';
 
         return is_file($markerPath) ? File::get($markerPath) : null;
+    }
+
+    /**
+     * Record that the job wrote this file on the volume, so it may later
+     * overwrite or delete it. Kept until the job's files are forgotten.
+     */
+    public function markOwned(AgentJob $job, string $volumeId, string $path): void
+    {
+        $markerPath = $this->basePath($job, $volumeId, $path).'.owned';
+        File::ensureDirectoryExists(dirname($markerPath));
+        File::put($markerPath, '');
+    }
+
+    /**
+     * Whether the job wrote this file on the volume.
+     */
+    public function owns(AgentJob $job, string $volumeId, string $path): bool
+    {
+        return is_file($this->basePath($job, $volumeId, $path).'.owned');
+    }
+
+    /**
+     * The lock held while an upload is written to its volume, so a retried
+     * completion waits for the first instead of writing the file again. It
+     * expires with the job's timeout, which no transfer can outlive.
+     */
+    public function completionLock(AgentJob $job, string $volumeId, string $path): Lock
+    {
+        return Cache::lock(
+            'agent-relay:'.$job->id.':'.hash('sha256', $volumeId.'|'.$path),
+            max(60, QueueTimeouts::jobTimeout()),
+        );
     }
 
     public function discard(AgentJob $job, string $volumeId, string $path): void
