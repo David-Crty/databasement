@@ -3,6 +3,7 @@
 namespace App\Livewire\DatabaseServer;
 
 use App\Actions\Backup\TriggerBackupAction;
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\BackupDiscoveryState;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
@@ -71,8 +72,7 @@ class Index extends Component
             return;
         }
 
-        $server->skipFileCleanup = $this->keepFiles;
-        $server->delete();
+        DeleteDatabaseServerAction::run($server, $this->keepFiles);
         $this->closeDeletion();
 
         $this->success(__('Database server deleted successfully!'));

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Actions\Backup\SyncBackupConfigurationsAction;
 use App\Actions\Backup\TriggerBackupAction;
+use App\Actions\DatabaseServer\CreateDatabaseServerAction;
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
+use App\Actions\DatabaseServer\UpdateDatabaseServerAction;
 use App\Actions\Restore\TriggerRestoreAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestoreRequest;
@@ -62,22 +64,10 @@ class DatabaseServerController extends Controller
         $this->authorize('create', DatabaseServer::class);
 
         $validated = $request->validated();
-        $hasBackupsPayload = array_key_exists('backups', $validated);
-        $backupsPayload = $validated['backups'] ?? [];
+        $backups = array_key_exists('backups', $validated) ? (array) $validated['backups'] : null;
         unset($validated['backups']);
 
-        // Default backups_enabled to true if not provided (matches DB column default)
-        if (! array_key_exists('backups_enabled', $validated)) {
-            $validated['backups_enabled'] = true;
-        }
-
-        DatabaseServer::buildExtraConfig($validated);
-
-        $validated['organization_id'] = app(CurrentOrganization::class)->id();
-
-        /** @var array<string, mixed> $validated */
-        $server = DatabaseServer::create($validated);
-        $this->syncBackupConfigurations($server, $backupsPayload, $hasBackupsPayload);
+        $server = CreateDatabaseServerAction::run(app(CurrentOrganization::class)->model(), $validated, backups: $backups);
 
         $server->load(['backups.volumes', 'backups.backupSchedule']);
 
@@ -94,24 +84,10 @@ class DatabaseServerController extends Controller
         $this->authorize('update', $databaseServer);
 
         $validated = $request->validated();
-        $hasBackupsPayload = array_key_exists('backups', $validated);
-        $backupsPayload = $validated['backups'] ?? [];
+        $backups = array_key_exists('backups', $validated) ? (array) $validated['backups'] : null;
         unset($validated['backups']);
 
-        // Skip password update if blank/missing
-        if (array_key_exists('password', $validated) && ($validated['password'] === '' || $validated['password'] === null)) {
-            unset($validated['password']);
-        }
-
-        // Preserve current backups_enabled if not provided
-        if (! array_key_exists('backups_enabled', $validated)) {
-            $validated['backups_enabled'] = $databaseServer->backups_enabled;
-        }
-
-        DatabaseServer::buildExtraConfig($validated, $databaseServer->extra_config, $databaseServer->database_type->value);
-
-        $databaseServer->update($validated);
-        $this->syncBackupConfigurations($databaseServer, $backupsPayload, $hasBackupsPayload);
+        UpdateDatabaseServerAction::run($databaseServer, $validated, backups: $backups);
 
         $databaseServer->load(['backups.volumes', 'backups.backupSchedule']);
 
@@ -127,7 +103,7 @@ class DatabaseServerController extends Controller
     {
         $this->authorize('delete', $databaseServer);
 
-        $databaseServer->delete();
+        DeleteDatabaseServerAction::run($databaseServer);
 
         return response()->noContent();
     }
@@ -215,17 +191,5 @@ class DatabaseServerController extends Controller
             'message' => 'Restore started successfully!',
             'restore' => new RestoreResource($restore),
         ], 202);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $backupsPayload
-     */
-    private function syncBackupConfigurations(DatabaseServer $server, array $backupsPayload, bool $hasBackupsPayload): void
-    {
-        if (! $hasBackupsPayload) {
-            return;
-        }
-
-        SyncBackupConfigurationsAction::run($server, $backupsPayload);
     }
 }

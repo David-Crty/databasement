@@ -2,6 +2,7 @@
 
 namespace App\Livewire\DatabaseServer;
 
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
 use App\Livewire\DatabaseServer\Concerns\OpensServerRestore;
@@ -84,8 +85,7 @@ class Show extends Component
     {
         $this->authorize('delete', $this->server);
 
-        $this->server->skipFileCleanup = $this->keepFiles;
-        $this->server->delete();
+        DeleteDatabaseServerAction::run($this->server, $this->keepFiles);
         $this->showDeleteModal = false;
 
         $this->success(
