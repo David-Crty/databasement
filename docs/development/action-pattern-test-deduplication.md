@@ -99,11 +99,6 @@ Then open the PR:
 
 | Domain | Edge test (file :: test or line) | Duplicates (action test) | Decision | Added by |
 |---|---|---|---|---|
-| BackupSchedule | `Configuration/BackupTest.php:165`, `:176` (a schedule in use by backups / by a scheduled restore is kept) | `Actions/BackupSchedule/DeleteBackupScheduleActionTest.php` | | 1.4 |
-| BackupSchedule | `Configuration/BackupTest.php` and `Api/BackupScheduleCrudApiTest.php:69`, `:132`, `:189` (create / update / delete persist) | `Actions/BackupSchedule/{Create,Update,Delete}BackupScheduleActionTest.php` | | 1.4 |
-| Volume | `Api/VolumeCrudApiTest.php:86` (created with sensitive fields encrypted) and `Volume/CreateTest.php` | `Actions/Volume/CreateVolumeActionTest.php` | | 1.6 |
-| Volume | `Volume/EditTest.php` (blank secret kept, locked volume only changes name and limit) | `Actions/Volume/UpdateVolumeActionTest.php` | | 1.6 |
-| Volume | `Volume/IndexTest.php` and `Api/VolumeCrudApiTest.php:145` (delete, keep files) | `Actions/Volume/DeleteVolumeActionTest.php` | | 1.6 |
 | DatabaseServer | `Api/DatabaseServerSshConfigCrudApiTest.php` (blank credentials kept, new key drops the passphrase, auth switch clears the other secrets, in-use delete refused) | `Actions/DatabaseServer/{Create,Update,Delete}SshConfigActionTest.php` | | 1.7 |
 | DatabaseServer | `DatabaseServer/SshTunnelTest.php` (SSH config created / preserved through the server form) | `Actions/DatabaseServer/{Create,Update}SshConfigActionTest.php` | | 1.7 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:479` (blank password kept) and `DatabaseServer/EditTest.php` (same through the form) | `Actions/DatabaseServer/UpdateDatabaseServerActionTest.php` | | 1.8 |
