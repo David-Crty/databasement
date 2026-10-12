@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\Restore\CompleteRestoreAction;
 use App\Enums\SnapshotFileStatus;
 use App\Exceptions\Backup\JobCancelledException;
 use App\Facades\AppConfig;
@@ -125,9 +126,7 @@ class ProcessRestoreJob implements ShouldQueue
 
             $restoreTask->execute($config, $job);
 
-            $job->markCompleted();
-
-            app(NotificationService::class)->notifyRestoreSuccess($restore);
+            CompleteRestoreAction::run($restore);
 
             Log::info('Restore completed successfully', [
                 'restore_id' => $this->restoreId,

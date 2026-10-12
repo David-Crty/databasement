@@ -3,13 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Actions\Agent\FailAgentJobAction;
+use App\Actions\Backup\FailBackupAction;
+use App\Actions\Restore\FailRestoreAction;
 use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Exceptions\Backup\JobCancelledException;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\Snapshot;
-use App\Services\NotificationService;
 use App\Support\QueueTimeouts;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -196,7 +197,11 @@ class RecoverStuckJobsCommand extends Command
                     report($e);
                 }
 
-                $job->markFailed($exception);
+                match (true) {
+                    $job->snapshot !== null => FailBackupAction::run($job->snapshot->setRelation('job', $job), $exception),
+                    $job->restore !== null => FailRestoreAction::run($job->restore->setRelation('job', $job), $exception),
+                    default => $job->markFailed($exception),
+                };
             } catch (JobCancelledException) {
                 continue;
             }
@@ -208,12 +213,6 @@ class RecoverStuckJobsCommand extends Command
                 'snapshot_id' => $job->snapshot?->id,
                 'restore_id' => $job->restore?->id,
             ]);
-
-            if ($job->snapshot !== null) {
-                app(NotificationService::class)->notifyBackupFailed($job->snapshot, $exception);
-            } elseif ($job->restore !== null) {
-                app(NotificationService::class)->notifyRestoreFailed($job->restore, $exception);
-            }
         }
 
         // A timed-out job must never run or be revived afterwards: an agent

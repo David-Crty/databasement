@@ -133,6 +133,9 @@ Then open the PR:
 | DatabaseServer | `DatabaseServer/CreateTest.php` and `Api/DatabaseServerCrudApiTest.php` (server created with its backups, SSH tunnel and channels) | `Actions/DatabaseServer/CreateDatabaseServerActionTest.php` | | 1.8 |
 | DatabaseServer | `Livewire/DatabaseServer/IndexTest.php`, `DatabaseServer/ShowTest.php` and `Api/DatabaseServerCrudApiTest.php:644` (delete, keep files) | `Actions/DatabaseServer/DeleteDatabaseServerActionTest.php` | | 1.8 |
 | Agent | `Agent/AgentApiTest.php` and `Agent/AgentRestoreTest.php` (`/fail` marks the job failed, merges logs, fails the tracked job); `Console/RecoverStuckJobsTest.php` (agent job failed after max attempts, unclaimed cleanup job failed) | `Actions/Agent/FailAgentJobActionTest.php`. The agent API tests stay thick (protocol), only their business assertions are candidates | | 1.9 |
+| Backup | `Jobs/ProcessBackupJobTest.php:36`, `:307`, `:331`, `:365` (archive and copies recorded, success and storage-limit notifications) and `Agent/AgentApiTest.php` (ack records the archive, notifies) | `Actions/Backup/{RecordBackupResult,CompleteBackup,FailBackup}ActionTest.php`. Keep the job's retry, quota and `failed()` tests and the agent protocol tests | | 1.10 |
+| Restore | `Jobs/ProcessRestoreJobTest.php` and `Agent/AgentRestoreTest.php` (`describe('reporting')`: job completed or failed, notification sent) | `Actions/Restore/{CompleteRestore,FailRestore}ActionTest.php` | | 1.10 |
+| Backup | `Agent/RecoverStuckJobsTest.php` (timed-out backup or restore failed and notified) | `FailBackupActionTest.php`, `FailRestoreActionTest.php` | | 1.10 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1

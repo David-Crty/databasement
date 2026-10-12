@@ -253,6 +253,30 @@ describe('job acknowledgement', function () {
         Notification::assertSentTimes(\App\Notifications\BackupSuccessNotification::class, 1);
     });
 
+    test('acknowledging a backup over a notify-only storage limit sends the warning', function () {
+        \App\Models\NotificationChannel::factory()->email()->create();
+
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+        $file = $agentJob->snapshot->files()->first();
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", [
+                'filename' => 'backup.sql.gz',
+                'file_size' => 12345,
+                'volumes' => [[
+                    'volume_id' => $file->volume_id,
+                    'volume_name' => 'R2 Bucket',
+                    'status' => 'completed',
+                    'storage_warning' => 'Storage limit reached for volume "R2 Bucket".',
+                ]],
+            ])
+            ->assertOk();
+
+        expect($agentJob->snapshot->job->fresh()->status)->toBe(BackupJobStatus::Completed);
+        Notification::assertSentTimes(\App\Notifications\StorageLimitWarningNotification::class, 1);
+    });
+
     test('ack rejects an unsafe filename', function (string $filename) {
         // An agent is lower-trust than the central server it reports to, so the
         // filename it supplies must not reach the download path unsanitised.

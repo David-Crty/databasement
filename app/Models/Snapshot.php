@@ -314,19 +314,6 @@ class Snapshot extends Model
     }
 
     /**
-     * Mark snapshot as completed with optional checksum
-     */
-    public function markCompleted(?string $checksum = null): void
-    {
-        $this->update([
-            'checksum' => $checksum,
-        ]);
-
-        // Mark the job as completed
-        $this->job->markCompleted();
-    }
-
-    /**
      * Scope to filter by database server
      *
      * @param  Builder<Snapshot>  $query
