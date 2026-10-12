@@ -3,6 +3,7 @@
 use App\Actions\Volume\DeleteVolumeAction;
 use App\Enums\Ability;
 use App\Exceptions\Volume\VolumeFilesNotDeletedException;
+use App\Models\Organization;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -122,6 +123,15 @@ test('store rejects a name another volume already has', function () {
         ->postJson('/api/v1/volumes/local', ['name' => 'Offsite', 'config' => ['path' => '/tmp/backups']])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['name']);
+});
+
+test('store accepts a name only another organization uses', function () {
+    Volume::factory()->create(['name' => 'Offsite', 'organization_id' => Organization::factory()->create()->id]);
+    $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/volumes/local', ['name' => 'Offsite', 'config' => ['path' => '/tmp/backups']])
+        ->assertCreated();
 });
 
 test('store validates type-specific config', function () {

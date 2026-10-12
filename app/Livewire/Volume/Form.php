@@ -9,6 +9,8 @@ use App\Models\Volume;
 use App\Services\CurrentOrganization;
 use App\Services\VolumeConnectionTester;
 use App\Support\Formatters;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -111,7 +113,7 @@ class Form extends \Livewire\Form
     public function store(): void
     {
         $rules = $this->rules();
-        $rules['name'][] = 'unique:volumes,name';
+        $rules['name'][] = $this->uniqueNameRule(app(CurrentOrganization::class)->id());
 
         $this->validate($rules);
 
@@ -126,11 +128,19 @@ class Form extends \Livewire\Form
     public function update(): void
     {
         $rules = $this->rules();
-        $rules['name'][] = 'unique:volumes,name,'.$this->volume->id;
+        $rules['name'][] = $this->uniqueNameRule($this->volume->organization_id, ignoreId: $this->volume->id);
 
         $this->validate($rules);
 
         UpdateVolumeAction::run($this->volume, $this->name, $this->applyMaxStorageToConfig($this->getActiveConfig()));
+    }
+
+    /**
+     * Volume names are unique within an organization only.
+     */
+    private function uniqueNameRule(string $organizationId, ?string $ignoreId = null): Unique
+    {
+        return Rule::unique('volumes', 'name')->where('organization_id', $organizationId)->ignore($ignoreId);
     }
 
     /**
@@ -141,7 +151,7 @@ class Form extends \Livewire\Form
     public function updateLockedVolume(): void
     {
         $this->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:volumes,name,'.$this->volume->id],
+            'name' => ['required', 'string', 'max:255', $this->uniqueNameRule($this->volume->organization_id, ignoreId: $this->volume->id)],
             'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
             'storageLimitNotifyOnly' => ['boolean'],
         ]);

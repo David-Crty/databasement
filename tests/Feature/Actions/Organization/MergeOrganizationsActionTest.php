@@ -89,6 +89,19 @@ test('merge carries a source member\'s direct abilities into the destination', f
         ->and(DB::table('permissions')->where('scope', $source->id)->exists())->toBeFalse();
 });
 
+test('merge renames a source volume whose name the destination already uses', function () {
+    $source = Organization::factory()->create(['name' => 'Acme']);
+    $destination = Organization::factory()->create();
+    Volume::factory()->create(['name' => 'Local', 'organization_id' => $destination->id]);
+    $sourceVolume = Volume::factory()->create(['name' => 'Local', 'organization_id' => $source->id]);
+    $otherVolume = Volume::factory()->create(['name' => 'Offsite', 'organization_id' => $source->id]);
+
+    MergeOrganizationsAction::run($source, $destination);
+
+    expect($sourceVolume->fresh())->name->toBe('Local (Acme)')->organization_id->toBe($destination->id)
+        ->and($otherVolume->fresh()->name)->toBe('Offsite');
+});
+
 test('merge rejects the default organization as source', function () {
     MergeOrganizationsAction::run(Organization::default(), Organization::factory()->create());
 })->throws(InvalidArgumentException::class);

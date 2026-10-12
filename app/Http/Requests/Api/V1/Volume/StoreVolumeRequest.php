@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Api\V1\Volume;
 
 use App\Enums\VolumeType;
+use App\Services\CurrentOrganization;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 abstract class StoreVolumeRequest extends FormRequest
 {
@@ -23,7 +25,7 @@ abstract class StoreVolumeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255', 'unique:volumes,name'],
+            'name' => ['required', 'string', 'max:255', Rule::unique('volumes', 'name')->where('organization_id', app(CurrentOrganization::class)->id())],
             'config' => ['required', 'array'],
             ...$this->configRules(),
         ];
