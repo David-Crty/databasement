@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\Ability;
 use App\Livewire\ApiToken\Index;
 use App\Models\User;
 use Livewire\Livewire;
@@ -12,7 +13,8 @@ test('can create a new api token and use it to authenticate', function () {
         ->set('tokenName', 'Test Token')
         ->call('createToken');
 
-    expect($user->tokens()->where('name', 'Test Token')->exists())->toBeTrue();
+    $token = $user->tokens()->where('name', 'Test Token')->firstOrFail();
+    expect($token->can('*'))->toBeTrue();
 
     // Use the created token to call the API
     $plainTextToken = $component->get('newToken');
@@ -20,6 +22,73 @@ test('can create a new api token and use it to authenticate', function () {
     $this->withHeader('Authorization', 'Bearer '.$plainTextToken)
         ->getJson(route('api.database-servers.index'))
         ->assertOk();
+});
+
+test('can create a scoped api token limited to the selected abilities', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value, Ability::DownloadSnapshots->value])->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('tokenName', 'Scoped Token')
+        ->set('fullAccess', false)
+        ->set('tokenAbilities', [Ability::RunBackups->value, Ability::DownloadSnapshots->value])
+        ->call('createToken');
+
+    $token = $user->tokens()->where('name', 'Scoped Token')->firstOrFail();
+
+    expect($token->can('*'))->toBeFalse()
+        ->and($token->can(Ability::RunBackups->value))->toBeTrue()
+        ->and($token->can(Ability::DownloadSnapshots->value))->toBeTrue()
+        ->and($token->can(Ability::ManageVolumes->value))->toBeFalse();
+});
+
+test('creating a scoped token rejects abilities outside the catalogue', function () {
+    $user = User::factory()->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('tokenName', 'Bad Token')
+        ->set('fullAccess', false)
+        ->set('tokenAbilities', ['not-a-real-ability'])
+        ->call('createToken')
+        ->assertHasErrors(['tokenAbilities.0']);
+
+    expect($user->tokens()->where('name', 'Bad Token')->exists())->toBeFalse();
+});
+
+test('without manage-users, a token cannot be scoped to it', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageUsers->value)->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('tokenName', 'Escalated Token')
+        ->set('fullAccess', false)
+        ->set('tokenAbilities', [Ability::ManageUsers->value])
+        ->call('createToken')
+        ->assertHasErrors(['tokenAbilities.0'])
+        ->assertDontSee(Ability::ManageUsers->label());
+
+    expect($user->tokens()->where('name', 'Escalated Token')->exists())->toBeFalse();
+});
+
+test('lists the abilities a scoped token carries', function () {
+    $user = User::factory()->create();
+    $user->createToken('Scoped Token', [Ability::RunBackups->value]);
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->assertSee(Ability::RunBackups->label())
+        ->assertDontSee(Ability::DownloadSnapshots->label());
+});
+
+test('lists the user\'s current abilities for a full-access token', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $user->createToken('Legacy Token');
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->assertSee(__('Follow user permissions'))
+        ->assertViewHas('ownerAbilities', [$user->id => [Ability::RunBackups->value]]);
 });
 
 test('can revoke an existing token', function () {

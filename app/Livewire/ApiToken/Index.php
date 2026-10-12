@@ -2,13 +2,15 @@
 
 namespace App\Livewire\ApiToken;
 
+use App\Enums\Ability;
+use App\Models\User;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Laravel\Sanctum\PersonalAccessToken;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 #[Title('API Tokens')]
@@ -16,8 +18,12 @@ class Index extends Component
 {
     use Toast;
 
-    #[Validate('required|string|max:255')]
     public string $tokenName = '';
+
+    public bool $fullAccess = true;
+
+    /** @var list<string> */
+    public array $tokenAbilities = [];
 
     public bool $showCreateModal = false;
 
@@ -39,17 +45,23 @@ class Index extends Component
     public function closeCreateModal(): void
     {
         $this->showCreateModal = false;
-        $this->tokenName = '';
+        $this->reset(['tokenName', 'fullAccess', 'tokenAbilities']);
     }
 
     public function createToken(): void
     {
-        $this->validate();
+        $this->validate([
+            'tokenName' => 'required|string|max:255',
+            'tokenAbilities' => 'array',
+            'tokenAbilities.*' => Rule::in($this->abilitiesHeldBy(Auth::user())),
+        ]);
 
-        $token = Auth::user()->createToken($this->tokenName);
+        $abilities = $this->fullAccess ? ['*'] : $this->tokenAbilities;
+
+        $token = Auth::user()->createToken($this->tokenName, $abilities);
 
         $this->newToken = $token->plainTextToken;
-        $this->tokenName = '';
+        $this->reset(['tokenName', 'fullAccess', 'tokenAbilities']);
         $this->showCreateModal = false;
         $this->showTokenModal = true;
     }
@@ -91,6 +103,16 @@ class Index extends Component
         $this->success(__('API token revoked successfully.'));
     }
 
+    /**
+     * Catalogue abilities a user holds in the current organization.
+     *
+     * @return list<string>
+     */
+    private function abilitiesHeldBy(User $user): array
+    {
+        return array_values(array_filter(Ability::names(), fn (string $ability) => $user->can($ability)));
+    }
+
     public function canDelete(PersonalAccessToken $token): bool
     {
         $user = Auth::user();
@@ -114,8 +136,21 @@ class Index extends Component
             $query->where('tokenable_id', $user->id);
         }
 
+        $tokens = $query->get();
+        $grantable = $this->abilitiesHeldBy($user);
+
         return view('livewire.api-token.index', [
-            'tokens' => $query->get(),
+            'tokens' => $tokens,
+            'ownerAbilities' => $tokens->pluck('tokenable')->filter()->unique('id')
+                ->mapWithKeys(fn (User $owner) => [$owner->id => $this->abilitiesHeldBy($owner)])
+                ->all(),
+            'abilityGroups' => array_filter(array_map(
+                fn (array $abilities) => array_values(array_filter(
+                    $abilities,
+                    fn (Ability $ability) => in_array($ability->value, $grantable, true),
+                )),
+                Ability::grouped(),
+            )),
         ]);
     }
 }

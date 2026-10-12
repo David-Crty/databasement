@@ -39,7 +39,7 @@ class VolumePolicy
             return false;
         }
 
-        return $user->isDemo() || $user->can(Ability::ManageVolumes->value);
+        return $user->tokenCovers(Ability::ManageVolumes->value) && ($user->isDemo() || $user->can(Ability::ManageVolumes->value));
     }
 
     /**
