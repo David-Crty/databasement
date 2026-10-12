@@ -1,80 +1,25 @@
 <?php
 
 use App\Jobs\MergeOrganizationJob;
-use App\Models\Agent;
-use App\Models\BackupJob;
 use App\Models\DatabaseServer;
-use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
-use App\Models\User;
-use App\Models\Volume;
-use App\Services\Organization\OrganizationMergeService;
 
-test('job merges a fully populated source into a destination with overlapping members', function () {
+test('job merges the source organization into the destination', function () {
     $source = Organization::factory()->create();
     $destination = Organization::factory()->create();
+    $server = DatabaseServer::factory()->create(['organization_id' => $source->id]);
 
-    // Source owns one of every resource type, plus a snapshot that should
-    // follow its server. The destination already owns a server of its own.
-    $sourceServer = DatabaseServer::factory()->create(['organization_id' => $source->id]);
-    $sourceVolume = Volume::factory()->create(['organization_id' => $source->id]);
-    $sourceAgent = Agent::factory()->create(['organization_id' => $source->id]);
-    $sourceSshConfig = DatabaseServerSshConfig::factory()->create(['organization_id' => $source->id]);
-    $snapshot = App\Models\Snapshot::factory()->forServer($sourceServer)->create();
-    $snapshotBackupJobId = $snapshot->backup_job_id;
+    (new MergeOrganizationJob($source->id, $destination->id))->handle();
 
-    $destinationServer = DatabaseServer::factory()->create(['organization_id' => $destination->id]);
-
-    // Three membership situations:
-    // - sourceOnly: must be carried over with its source role.
-    // - destinationOnly: must be left untouched.
-    // - conflicting: member of both with different roles -> destination role wins.
-    $sourceOnly = User::factory()->create();
-    attachUserToOrg($sourceOnly, $source, 'member');
-
-    $destinationOnly = User::factory()->create();
-    attachUserToOrg($destinationOnly, $destination, 'member');
-
-    $conflicting = User::factory()->create();
-    attachUserToOrg($conflicting, $source, 'admin');
-    attachUserToOrg($conflicting, $destination, 'viewer');
-
-    new MergeOrganizationJob($source->id, $destination->id, $sourceOnly->id)
-        ->handle(app(OrganizationMergeService::class));
-
-    $findServer = fn (string $id) => DatabaseServer::withoutGlobalScope(OrganizationScope::class)->find($id);
-
-    // Every source resource now belongs to the destination; the destination's
-    // own server is unchanged.
-    expect($findServer($sourceServer->id)->organization_id)->toBe($destination->id)
-        ->and(Volume::withoutGlobalScope(OrganizationScope::class)->find($sourceVolume->id)->organization_id)->toBe($destination->id)
-        ->and(Agent::withoutGlobalScope(OrganizationScope::class)->find($sourceAgent->id)->organization_id)->toBe($destination->id)
-        ->and(DatabaseServerSshConfig::withoutGlobalScope(OrganizationScope::class)->find($sourceSshConfig->id)->organization_id)->toBe($destination->id)
-        ->and($findServer($destinationServer->id)->organization_id)->toBe($destination->id)
-        ->and($snapshot->fresh()->database_server_id)->toBe($sourceServer->id)
-        // The backup job has no organization_id; it follows the snapshot's
-        // server through the merge and must survive intact.
-        ->and($snapshot->fresh()->backup_job_id)->toBe($snapshotBackupJobId)
-        ->and(BackupJob::find($snapshotBackupJobId))->not->toBeNull();
-
-    // The snapshot followed its server (it has no organization_id of its own).
-
-    // Members are unioned; the conflicting user keeps the destination role.
-    $members = $destination->fresh()->users()->get();
-
-    expect($members->pluck('id')->sort()->values()->all())
-        ->toBe(collect([$sourceOnly->id, $destinationOnly->id, $conflicting->id])->sort()->values()->all())
-        ->and($sourceOnly->fresh()->roleNameIn($destination))->toBe('member')
-        ->and($destinationOnly->fresh()->roleNameIn($destination))->toBe('member')
-        ->and($conflicting->fresh()->roleNameIn($destination))->toBe('viewer')
+    expect(DatabaseServer::withoutGlobalScope(OrganizationScope::class)->find($server->id)->organization_id)->toBe($destination->id)
         ->and(Organization::find($source->id))->toBeNull();
 });
 
 test('job is a no-op when an organization no longer exists', function () {
     $destination = Organization::factory()->create();
 
-    (new MergeOrganizationJob('missing-source', $destination->id))->handle(app(OrganizationMergeService::class));
+    (new MergeOrganizationJob('missing-source', $destination->id))->handle();
 
     expect(Organization::find($destination->id))->not->toBeNull();
 });

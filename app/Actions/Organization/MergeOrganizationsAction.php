@@ -1,21 +1,27 @@
 <?php
 
-namespace App\Services\Organization;
+namespace App\Actions\Organization;
 
+use App\Actions\Role\AssignRoleToUserAction;
+use App\Actions\Role\SyncUserAbilitiesAction;
 use App\Models\Agent;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\Volume;
-use App\Services\Roles\AssignRoleToUserAction;
-use App\Services\Roles\SyncUserAbilitiesAction;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
-class OrganizationMergeService
+class MergeOrganizationsAction
 {
+    use AsFake, AsObject;
+
     /**
      * Merge all of the source organization's resources into the destination
      * organization, then delete the source.
@@ -25,8 +31,10 @@ class OrganizationMergeService
      * unioned (a user already in the destination keeps their destination role).
      * Snapshots and backup jobs follow automatically because they derive their
      * organization from their parent database server.
+     *
+     * @throws InvalidArgumentException When the source is the default organization or the destination itself
      */
-    public function merge(Organization $source, Organization $destination, ?int $actorUserId = null): void
+    public function handle(Organization $source, Organization $destination, ?int $triggeredByUserId = null): void
     {
         if ($source->is_default) {
             throw new InvalidArgumentException('The default organization cannot be merged into another organization.');
@@ -55,38 +63,8 @@ class OrganizationMergeService
             'source_name' => $source->name,
             'destination_id' => $destination->id,
             'destination_name' => $destination->name,
-            'actor_user_id' => $actorUserId,
+            'actor_user_id' => $triggeredByUserId,
             'reassigned' => $counts,
-        ]);
-    }
-
-    /**
-     * Delete an organization, cascading the deletion of its servers, volumes,
-     * agents and SSH configs. When $keepFiles is true, backup files on storage
-     * are preserved (only database records are removed).
-     *
-     * This deliberately runs without a wrapping transaction: the cascade deletes
-     * backup files from storage (an irreversible side effect), so a rollback
-     * would leave the database referencing files that no longer exist. Running
-     * unwrapped keeps database rows and storage consistent — both are removed
-     * together — and matches every other delete path (server, volume, snapshot),
-     * which also clean up files synchronously without a transaction. A mid-cascade
-     * failure leaves a partially deleted org, which is safely re-deletable.
-     */
-    public function delete(Organization $organization, ?int $actorUserId = null, bool $keepFiles = false): void
-    {
-        if ($organization->is_default) {
-            throw new InvalidArgumentException('The default organization cannot be deleted.');
-        }
-
-        $organization->skipFileCleanup = $keepFiles;
-        $organization->delete();
-
-        Log::info('Organization deleted', [
-            'organization_id' => $organization->id,
-            'organization_name' => $organization->name,
-            'actor_user_id' => $actorUserId,
-            'kept_files' => $keepFiles,
         ]);
     }
 
@@ -94,9 +72,9 @@ class OrganizationMergeService
      * Reassign every row owned by the source org to the destination org,
      * bypassing the organization global scope. Returns the number of rows moved.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<covariant \Illuminate\Database\Eloquent\Model>  $query
+     * @param  Builder<covariant Model>  $query
      */
-    private function reassign(\Illuminate\Database\Eloquent\Builder $query, Organization $source, Organization $destination): int
+    private function reassign(Builder $query, Organization $source, Organization $destination): int
     {
         return $query
             ->withoutGlobalScope(OrganizationScope::class)
@@ -124,12 +102,12 @@ class OrganizationMergeService
             $destination->users()->attach($user->id);
 
             $role = $user->roleNameIn($source) ?? 'viewer';
-            app(AssignRoleToUserAction::class)->execute($user, $role, $destination);
+            AssignRoleToUserAction::run($user, $role, $destination);
 
             $directAbilities = $user->directAbilitiesIn($source);
 
             if ($directAbilities !== []) {
-                app(SyncUserAbilitiesAction::class)->execute($user, $directAbilities, $destination);
+                SyncUserAbilitiesAction::run($user, $directAbilities, $destination);
             }
 
             $added++;
