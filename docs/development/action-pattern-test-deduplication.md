@@ -123,6 +123,9 @@ Then open the PR:
 | BackupSchedule | `Configuration/BackupTest.php` and `Api/BackupScheduleCrudApiTest.php:69`, `:132`, `:189` (create / update / delete persist) | `Actions/BackupSchedule/{Create,Update,Delete}BackupScheduleActionTest.php` | | 1.4 |
 | ScheduledRestore | `Api/ScheduledRestoreCrudApiTest.php:60` and `Livewire/ScheduledRestore/ModalTest.php` (create / update persist the definition) | `Actions/ScheduledRestore/{Create,Update}ScheduledRestoreActionTest.php` | | 1.5 |
 | ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php` and `Api/ScheduledRestoreCrudApiTest.php` (delete) | `Actions/ScheduledRestore/DeleteScheduledRestoreActionTest.php` | | 1.5 |
+| Volume | `Api/VolumeCrudApiTest.php:86` (created with sensitive fields encrypted) and `Volume/CreateTest.php` | `Actions/Volume/CreateVolumeActionTest.php` | | 1.6 |
+| Volume | `Volume/EditTest.php` (blank secret kept, locked volume only changes name and limit) | `Actions/Volume/UpdateVolumeActionTest.php` | | 1.6 |
+| Volume | `Volume/IndexTest.php` and `Api/VolumeCrudApiTest.php:145` (delete, keep files) | `Actions/Volume/DeleteVolumeActionTest.php` | | 1.6 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1
