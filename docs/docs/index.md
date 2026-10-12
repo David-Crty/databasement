@@ -1,6 +1,8 @@
 ---
 sidebar_position: 0
 slug: /
+title: Self-Hosted Database Backup Manager
+description: Databasement is a self-hosted web app to schedule, store and restore backups of MySQL, PostgreSQL, MariaDB, SQL Server, MongoDB, SQLite, Firebird and Redis databases.
 ---
 
 ![Databasement Banner](/img/banner-v2.png)
@@ -47,30 +49,36 @@ Open http://localhost:2226 and create your first admin account.
 
 ### Self-Hosting
 
-Learn how to deploy Databasement on your own infrastructure:
+Deploy and configure Databasement on your own infrastructure:
 
-- [Introduction](self-hosting/intro) - Overview and requirements
-- [Configuration](self-hosting/configuration) - Environment variables reference
-- [Docker Guide](self-hosting/docker) - Deploy with Docker
-- [Docker Compose Guide](self-hosting/docker-compose) - Deploy with Docker Compose
-- [Kubernetes + Helm](self-hosting/kubernetes-helm) - Deploy on Kubernetes
-- [Native Ubuntu](self-hosting/native-ubuntu) - Traditional installation without Docker
+- [Introduction](./self-hosting/intro.md): overview and requirements
+- [Configuration](./self-hosting/configuration/index.md): environment variables for the [application](./self-hosting/configuration/application.md), [backups](./self-hosting/configuration/backup.md), [notifications](./self-hosting/configuration/notification.md) and [SSO](./self-hosting/configuration/sso.md)
+- [Docker](./self-hosting/docker.md): run the single container
+- [Docker Compose](./self-hosting/docker-compose.md): run it with its own database container
+- [Kubernetes + Helm](./self-hosting/kubernetes-helm.md): deploy with the Helm chart
+- [Versioning](./self-hosting/versioning.md): release versions and image tags
+- [Native Ubuntu Installation](./self-hosting/native-ubuntu.md): install without Docker
+- [Migrate to 1.10](./self-hosting/migrate-to-1-10.md): queue worker change for Docker Compose installs
 
 ### User Guide
 
-Learn how to use Databasement:
+Back up, restore and manage your databases:
 
-- [Getting Started](user-guide/intro) - First steps after installation
-- [Database Servers](user-guide/database-servers) - Managing database connections
-- [Backups](user-guide/backups) - Creating and managing backups
-- [Snapshots](user-guide/snapshots) - Working with backup snapshots
-- [Storage Volumes](user-guide/volumes) - Configuring backup storage
+- [Introduction](./user-guide/intro.md): first steps after installation
+- [Database Servers](./user-guide/database-servers.md): register and test database connections
+- [SSH Tunnel](./user-guide/ssh-tunnel.md): reach databases through a bastion host
+- [Remote Agents](./user-guide/agents.md): back up private databases without opening inbound ports
+- [Backups](./user-guide/backups.md): schedule backups and set retention
+- [Snapshots](./user-guide/snapshots.md): browse, download and restore snapshots
+- [Storage Volumes](./user-guide/volumes.md): choose where backups are stored
+- [Organizations](./user-guide/organizations.md): separate teams and their resources
+- [Permissions](./user-guide/permissions.md): roles and abilities
+- [MCP Server](./user-guide/mcp.md): manage backups from an AI assistant
+- [REST API](./user-guide/api.md): automate backups from scripts and CI/CD
 
 ### Contributing
 
-Want to contribute to Databasement?
-
-- [Development Guide](contributing/development) - Set up a local development environment
+- [Development Guide](./contributing/development.md): set up a local development environment
 
 ## Quick Links
 

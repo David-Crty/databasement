@@ -8,7 +8,7 @@ Databasement provides a REST API for managing database servers, backups, snapsho
 
 ## Authentication
 
-All API requests require a Bearer token. Create one from **Settings → API Tokens** in the Databasement UI.
+All API requests require a Bearer token. Create one from **API Tokens** in the left menu.
 
 Include the token in the `Authorization` header:
 

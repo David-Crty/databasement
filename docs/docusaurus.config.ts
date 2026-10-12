@@ -17,10 +17,22 @@ const versions: string[] = fs.existsSync(versionsFile)
     : [];
 const isVersioned = versions.length > 0;
 
+const baseUrl = '/databasement/';
+
 const config: Config = {
     title: 'Databasement',
     tagline: 'Simple and powerful database backup management',
     favicon: 'img/favicon.ico',
+    headTags: [
+        {
+            tagName: 'link',
+            attributes: {rel: 'icon', type: 'image/svg+xml', href: `${baseUrl}img/favicon.svg`},
+        },
+        {
+            tagName: 'link',
+            attributes: {rel: 'apple-touch-icon', sizes: '180x180', href: `${baseUrl}img/apple-touch-icon.png`},
+        },
+    ],
 
     plugins: [
         [
@@ -65,7 +77,7 @@ const config: Config = {
     ],
 
     url: isLocalBuild ? 'http://localhost:3000' : 'https://david-crty.github.io',
-    baseUrl: '/databasement/',
+    baseUrl,
 
     organizationName: 'David-Crty',
     projectName: 'databasement',
