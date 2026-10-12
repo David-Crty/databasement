@@ -1,6 +1,5 @@
 @php
     $isDesktop = $variant === 'desktop';
-    $hasFilters = $search || $statusFilter !== '' || $serverFilter !== '' || $dbTypeFilter !== '' || $fileMissing !== '';
 @endphp
 
 @if($isDesktop)
@@ -32,12 +31,14 @@
         :options="$statusOptions"
         class="!select-sm w-32"
     />
-    <label class="flex items-center gap-1.5 cursor-pointer text-sm text-warning">
-        <input type="checkbox" class="checkbox checkbox-warning checkbox-xs" wire:model.live="fileMissing" value="1" @checked($fileMissing !== '') />
-        <x-icon name="o-exclamation-triangle" class="w-4 h-4" />
-        {{ __('Missing') }}
-    </label>
-    @if($hasFilters)
+    <x-select
+        :placeholder="__('All Snapshots')"
+        placeholder-value=""
+        wire:model.live="flagFilter"
+        :options="$flagOptions"
+        class="!select-sm w-36"
+    />
+    @if($this->hasFilters)
         <x-button
             icon="o-x-mark"
             wire:click="clear"
@@ -84,12 +85,14 @@
                 :options="$statusOptions"
                 class="!select-sm w-32"
             />
-            <label class="flex items-center gap-1.5 cursor-pointer text-sm text-warning">
-                <input type="checkbox" class="checkbox checkbox-warning checkbox-xs" wire:model.live="fileMissing" value="1" @checked($fileMissing !== '') />
-                <x-icon name="o-exclamation-triangle" class="w-4 h-4" />
-                {{ __('Missing') }}
-            </label>
-            @if($hasFilters)
+            <x-select
+                :placeholder="__('All Snapshots')"
+                placeholder-value=""
+                wire:model.live="flagFilter"
+                :options="$flagOptions"
+                class="!select-sm w-36"
+            />
+            @if($this->hasFilters)
                 <x-button
                     icon="o-x-mark"
                     wire:click="clear"
@@ -122,12 +125,14 @@
             wire:model.live="statusFilter"
             :options="$statusOptions"
         />
-        <label class="flex items-center gap-2 cursor-pointer text-sm text-warning">
-            <input type="checkbox" class="checkbox checkbox-warning checkbox-sm" wire:model.live="fileMissing" value="1" @checked($fileMissing !== '') />
-            <x-icon name="o-exclamation-triangle" class="w-4 h-4" />
-            {{ __('File missing') }}
-        </label>
-        @if($hasFilters)
+        <x-select
+            :label="__('Show')"
+            :placeholder="__('All Snapshots')"
+            placeholder-value=""
+            wire:model.live="flagFilter"
+            :options="$flagOptions"
+        />
+        @if($this->hasFilters)
             <x-button
                 :label="__('Clear filters')"
                 icon="o-x-mark"

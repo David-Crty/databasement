@@ -67,6 +67,7 @@ class DatabaseServerResource extends JsonResource
             'database_selection_mode' => $backup->database_selection_mode,
             'database_names' => $backup->database_names,
             'database_include_pattern' => $backup->database_include_pattern,
+            'excluded_tables' => $backup->excluded_tables,
         ];
     }
 }

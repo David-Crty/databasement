@@ -6,9 +6,11 @@ use App\Contracts\BackupLogger;
 use App\Exceptions\SshTunnelException;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\SshTunnelService;
+use App\Support\FilesystemSupport;
 
 /**
- * Provides SSH tunnel management for backup and restore tasks.
+ * Provides SSH tunnel management, and the cleanup that ends a run, for
+ * backup and restore tasks.
  */
 trait UsesSshTunnel
 {
@@ -49,6 +51,19 @@ trait UsesSshTunnel
             $logger->log('SSH tunnel closed');
         }
         $this->tunnelEndpoint = null;
+    }
+
+    /**
+     * End a run: close its SSH tunnel and remove its working directory.
+     */
+    protected function cleanUpRun(string $workingDirectory, BackupLogger $logger): void
+    {
+        $this->closeSshTunnel($logger);
+
+        if (is_dir($workingDirectory)) {
+            $logger->log('Cleaning up temporary files', 'info');
+            FilesystemSupport::cleanupDirectory($workingDirectory);
+        }
     }
 
     /**

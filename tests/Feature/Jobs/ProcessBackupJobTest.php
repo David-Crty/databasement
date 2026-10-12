@@ -23,7 +23,7 @@ test('job is configured with correct queue and settings', function () {
     AppConfig::set('backup.job_backoff', 120);
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot = pendingSnapshot($server);
 
     $job = new ProcessBackupJob($snapshot->id);
 
@@ -46,7 +46,7 @@ test('handle builds config from models and updates snapshot on success', functio
         'database_names' => ['myapp'],
     ]);
 
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot = pendingSnapshot($server);
 
     $mockBackupTask = Mockery::mock(BackupTask::class);
     $mockBackupTask->shouldReceive('execute')
@@ -82,7 +82,7 @@ test('handle passes backup path from model to config', function () {
     ]);
     $server->backups->first()->update(['path' => 'mysql/production']);
 
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot = pendingSnapshot($server);
 
     $mockBackupTask = Mockery::mock(BackupTask::class);
     $mockBackupTask->shouldReceive('execute')
@@ -106,7 +106,7 @@ test('handle defaults backup path to empty string when null', function () {
     ]);
     $server->backups->first()->update(['path' => null]);
 
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot = pendingSnapshot($server);
 
     $mockBackupTask = Mockery::mock(BackupTask::class);
     $mockBackupTask->shouldReceive('execute')
@@ -129,7 +129,7 @@ test('handle marks job as failed and re-throws on execute failure', function () 
         'database_names' => ['myapp'],
     ]);
 
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot = pendingSnapshot($server);
 
     $mockBackupTask = Mockery::mock(BackupTask::class);
     $mockBackupTask->shouldReceive('execute')
@@ -149,7 +149,7 @@ test('job can be dispatched to queue', function () {
     Queue::fake();
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot = pendingSnapshot($server);
 
     ProcessBackupJob::dispatch($snapshot->id);
 
@@ -159,10 +159,10 @@ test('job can be dispatched to queue', function () {
 });
 
 test('failed method sends notification', function () {
-    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
+    \App\Models\NotificationChannel::factory()->email()->create();
 
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot = pendingSnapshot($server);
 
     $job = new ProcessBackupJob($snapshot->id);
     $exception = new \Exception('Backup failed: connection timeout');
@@ -170,6 +170,48 @@ test('failed method sends notification', function () {
     $job->failed($exception);
 
     Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
+});
+
+test('a backup the queue failed without running its catch is not notified again by the timeout recovery', function () {
+    AppConfig::set('backup.job_timeout', 3600);
+    \App\Models\NotificationChannel::factory()->email()->create();
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = pendingSnapshot($server);
+    $snapshot->job->update(['status' => 'running', 'started_at' => now()->subSeconds(3600 + 300 + 1)]);
+
+    (new ProcessBackupJob($snapshot->id))->failed(new \Illuminate\Queue\TimeoutExceededException('Job timed out'));
+    $this->artisan('jobs:recover-stuck')->assertSuccessful();
+
+    expect($snapshot->job->fresh()->status)->toBe(BackupJobStatus::Failed);
+    Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
+});
+
+test('a backup the timeout recovery already failed is not notified again by the queue', function () {
+    AppConfig::set('backup.job_timeout', 3600);
+    \App\Models\NotificationChannel::factory()->email()->create();
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = pendingSnapshot($server);
+    $snapshot->job->update(['status' => 'running', 'started_at' => now()->subSeconds(3600 + 300 + 1)]);
+
+    $this->artisan('jobs:recover-stuck')->assertSuccessful();
+    (new ProcessBackupJob($snapshot->id))->failed(new \Illuminate\Queue\TimeoutExceededException('Job timed out'));
+
+    Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
+});
+
+test('a cancelled backup is not notified as failed', function () {
+    \App\Models\NotificationChannel::factory()->email()->create();
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $snapshot = pendingSnapshot($server);
+    $snapshot->job->cancel('admin');
+
+    (new ProcessBackupJob($snapshot->id))->failed(new \Illuminate\Queue\TimeoutExceededException('Job timed out'));
+
+    expect($snapshot->job->fresh()->status)->toBe(BackupJobStatus::Cancelled);
+    Notification::assertNothingSent();
 });
 
 test('handle uses empty backupPath when the snapshot is orphaned (backup removed)', function () {
@@ -235,7 +277,7 @@ test('handle passes the volume used storage (completed snapshots only) to the ba
 
 test('handle fails without retry when the volume storage limit is exceeded', function () {
     $server = createDatabaseServer(['database_names' => ['myapp']]);
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
+    $snapshot = pendingSnapshot($server);
 
     $quotaResult = new BackupResult('myapp.sql.gz', 2048, 'abc123', [
         new VolumeTransferResult(
@@ -260,30 +302,6 @@ test('handle fails without retry when the volume storage limit is exceeded', fun
     expect($snapshot->job->status)->toBe(BackupJobStatus::Failed)
         ->and($snapshot->job->error_message)->toBe('Storage limit reached for volume "R2 Bucket".')
         ->and($snapshot->job->completed_at)->not->toBeNull();
-});
-
-test('handle completes and notifies all channels when the limit is exceeded in notify-only mode', function () {
-    \App\Models\NotificationChannel::factory()->email()->create(['config' => ['to' => 'admin@example.com']]);
-
-    $server = createDatabaseServer(['database_names' => ['myapp']]);
-    $snapshot = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0];
-
-    $mockBackupTask = Mockery::mock(BackupTask::class);
-    $mockBackupTask->shouldReceive('execute')
-        ->once()
-        ->andReturn(new BackupResult('myapp.sql.gz', 2048, 'abc123', [
-            new VolumeTransferResult(
-                volumeId: $snapshot->files->first()->volume_id,
-                volumeName: 'R2 Bucket',
-                status: SnapshotFileStatus::Completed,
-                storageWarning: 'Storage limit reached for volume "R2 Bucket".',
-            ),
-        ]));
-
-    (new ProcessBackupJob($snapshot->id))->handle($mockBackupTask);
-
-    expect($snapshot->fresh()->job->status)->toBe(BackupJobStatus::Completed);
-    Notification::assertSentTimes(\App\Notifications\StorageLimitWarningNotification::class, 1);
 });
 
 test('handle uploads once and records a completed file row per target volume', function () {

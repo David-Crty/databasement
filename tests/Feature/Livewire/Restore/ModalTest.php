@@ -1,15 +1,17 @@
 <?php
 
+use App\Actions\Restore\TriggerRestoreAction;
+use App\Actions\Role\SyncUserAbilitiesAction;
 use App\Enums\Ability;
 use App\Enums\BackupJobStatus;
 use App\Jobs\ProcessRestoreJob;
 use App\Livewire\Restore\Modal;
-use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DTO\RestoreOptions;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
@@ -27,6 +29,16 @@ beforeEach(function () {
     $mock->shouldReceive('listDatabasesForServer')->andReturn([]);
     app()->instance(DatabaseProvider::class, $mock);
 });
+
+/**
+ * Expect the modal to restore $snapshot onto $target as $schemaName.
+ */
+function expectRestoreOf(Snapshot $snapshot, DatabaseServer $target, string $schemaName): void
+{
+    TriggerRestoreAction::shouldRun()->once()
+        ->withArgs(fn (Snapshot $restored, DatabaseServer $onto, string $schema) => $restored->is($snapshot) && $onto->is($target) && $schema === $schemaName)
+        ->andReturn(new Restore);
+}
 
 // ============================================================================
 // from-server mode
@@ -71,24 +83,21 @@ test('from-server mode: queues restore job and dispatches restore-created', func
         ->and($restore->job->status)->toBe(BackupJobStatus::Pending);
 });
 
-test('rejects restore when the target server is agent-backed', function () {
-    Queue::fake();
-
+test('an agent-backed target only offers source copies its agent can reach', function () {
     $agent = \App\Models\Agent::factory()->create();
     $agentTarget = DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => $agent->id]);
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
-    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create();
+    $local = \App\Models\Volume::factory()->local()->create();
+    $s3 = \App\Models\Volume::factory()->s3()->create();
+    $otherS3 = \App\Models\Volume::factory()->s3()->create();
+    $snapshot = Snapshot::factory()->forServer($source)->onVolumes($local, $s3, $otherS3)->create();
 
-    // Craft a request that bypasses the UI picker, which hides agent-backed servers.
-    Livewire::test(Modal::class)
+    $component = Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
-        ->set('targetServerId', $agentTarget->id)
-        ->set('schemaName', 'restored_db')
-        ->call('restore')
-        ->assertNotDispatched('restore-created');
+        ->set('targetServerId', $agentTarget->id);
 
-    Queue::assertNothingPushed();
-    expect(Restore::count())->toBe(0);
+    expect(array_column($component->get('sourceFileOptions'), 'name'))->toBe([$s3->name, $otherS3->name])
+        ->and($component->get('selectedSnapshotFileId'))->toBe($snapshot->files()->where('volume_id', $s3->id)->value('id'));
 });
 
 test('from-server mode: only shows snapshots matching target database type', function () {
@@ -197,12 +206,11 @@ test('from-snapshot mode: target select lists only servers matching the snapshot
         ->assertDontSee('Postgres Target');
 });
 
-test('from-snapshot mode: choosing a target prefills the schema and queues restore', function () {
-    Queue::fake();
-
+test('from-snapshot mode: choosing a target prefills the schema and restores onto it', function () {
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create(['database_name' => 'mydb']);
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    expectRestoreOf($snapshot, $target, 'restored_db');
 
     Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
@@ -211,8 +219,6 @@ test('from-snapshot mode: choosing a target prefills the schema and queues resto
         ->set('schemaName', 'restored_db')
         ->call('restore')
         ->assertDispatched('restore-created');
-
-    Queue::assertPushed(ProcessRestoreJob::class, 1);
 });
 
 test('from-snapshot mode: is a single step with no back navigation', function () {
@@ -231,12 +237,11 @@ test('from-snapshot mode: is a single step with no back navigation', function ()
 // from-restore-index mode
 // ============================================================================
 
-test('from-restore-index mode: walks both steps and queues restore', function () {
-    Queue::fake();
-
+test('from-restore-index mode: walks both steps and restores the chosen snapshot', function () {
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create(['database_name' => 'app_db']);
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    expectRestoreOf($snapshot, $target, 'fresh_db');
 
     Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-restore-index')
@@ -250,8 +255,6 @@ test('from-restore-index mode: walks both steps and queues restore', function ()
         ->set('schemaName', 'fresh_db')
         ->call('restore')
         ->assertDispatched('restore-created');
-
-    Queue::assertPushed(ProcessRestoreJob::class, 1);
 });
 
 test('from-restore-index mode: step 2 only shows target servers compatible with chosen snapshot', function () {
@@ -309,9 +312,7 @@ test('from-restore-index mode: passing restoreId pre-fills snapshot, target, and
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $snapshot = Snapshot::factory()->forServer($source)->withFile()->create(['database_name' => 'app_db']);
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
-    $job = BackupJob::create(['status' => 'completed']);
-    $restore = Restore::create([
-        'backup_job_id' => $job->id,
+    $restore = Restore::factory()->create([
         'snapshot_id' => $snapshot->id,
         'target_server_id' => $target->id,
         'schema_name' => 'previous_schema',
@@ -394,13 +395,29 @@ test('without operate-restores, starting a restore in from-snapshot mode is forb
         ->assertForbidden();
 });
 
+test('without operate-restores, submitting a restore is forbidden', function () {
+    Queue::fake();
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer(DatabaseServer::factory()->create(['database_type' => 'mysql']))->withFile()->create();
+
+    $component = Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('schemaName', 'restored_db');
+
+    SyncUserAbilitiesAction::run($this->user, [], $this->user->organizations()->sole());
+
+    $component->call('restore')->assertForbidden();
+
+    Queue::assertNothingPushed();
+});
+
 // ============================================================================
 // multi-volume source selection
 // ============================================================================
 
-test('source volume select is preset and the chosen copy lands on the restore', function () {
-    Queue::fake();
-
+test('source volume select is preset and the chosen copy is restored from', function () {
     $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql']);
 
@@ -409,6 +426,9 @@ test('source volume select is preset and the chosen copy lands on the restore', 
     $snapshot = Snapshot::factory()->forServer($source)->onVolumes($volumeA, $volumeB)->create();
 
     $fileB = $snapshot->files()->where('volume_id', $volumeB->id)->firstOrFail();
+    TriggerRestoreAction::shouldRun()->once()
+        ->withArgs(fn (Snapshot $restored, DatabaseServer $onto, string $schema, RestoreOptions $options, ?string $snapshotFileId) => $snapshotFileId === $fileB->id)
+        ->andReturn(new Restore);
 
     $component = Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
@@ -425,9 +445,6 @@ test('source volume select is preset and the chosen copy lands on the restore', 
         ->set('schemaName', 'restored_db')
         ->call('restore')
         ->assertDispatched('restore-created');
-
-    $restore = Restore::where('snapshot_id', $snapshot->id)->firstOrFail();
-    expect($restore->snapshot_file_id)->toBe($fileB->id);
 });
 
 test('source volume select is hidden for single-copy snapshots', function () {
@@ -460,4 +477,77 @@ test('rejects a source copy that does not belong to the selected snapshot', func
         ->assertHasErrors(['snapshot_file_id']);
 
     Queue::assertNothingPushed();
+});
+
+// The ownership option used to be swapped for a bare notice on snapshots dumped
+// with ownership and privilege information, which left the reporter of #525 —
+// who runs exactly that setup — with no way to say who owns the restored
+// database. No dump carries that, so the field stays; only its reach narrows.
+test('destination step offers a database owner field whatever the snapshot preserves', function (bool $preservesPrivileges, string $label) {
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres', 'username' => 'databasement']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create([
+        'metadata' => $preservesPrivileges ? ['dump_privileges' => true] : [],
+    ]);
+
+    $component = Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->assertSee($label)
+        // Nothing runs until an owner is named, so nothing is previewed either.
+        ->assertDontSee('ALTER DATABASE')
+        ->set('schemaName', 'restored_db')
+        ->set('ownerUser', 'webapp')
+        ->assertSee('ALTER DATABASE "restored_db" OWNER TO "webapp"');
+
+    // Restoring as the owner is announced only where it happens: a snapshot that
+    // carries its own owners restores its objects under them.
+    if ($preservesPrivileges) {
+        $component->assertDontSee('SET ROLE');
+    } else {
+        $component->assertSee('SET ROLE "webapp"');
+    }
+})->with([
+    'snapshot preserving ownership' => [true, 'Set database owner before restore'],
+    'portable snapshot' => [false, 'Transfer database ownership to user before restore'],
+]);
+
+test('the owner of a privilege-preserving restore reaches the restore options', function () {
+    TriggerRestoreAction::shouldRun()->once()
+        ->withArgs(fn (Snapshot $restored, DatabaseServer $onto, string $schema, RestoreOptions $options) => $options->ownerUser === 'webapp')
+        ->andReturn(new Restore);
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create([
+        'metadata' => ['dump_privileges' => true],
+    ]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('schemaName', 'restored_db')
+        ->set('ownerUser', 'webapp')
+        ->call('restore');
+});
+
+test('parallel restore is offered for custom-format snapshots and reaches the restore options', function () {
+    TriggerRestoreAction::shouldRun()->once()
+        ->withArgs(fn (Snapshot $restored, DatabaseServer $onto, string $schema, RestoreOptions $options) => $options->parallelRestore)
+        ->andReturn(new Restore);
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $plain = Snapshot::factory()->forServer($source)->withFile()->create();
+    $custom = Snapshot::factory()->forServer($source)->withFile()->create(['metadata' => ['dump_format' => 'custom']]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $plain->id)
+        ->assertDontSee('Parallel restore (4 jobs)')
+        ->call('selectSnapshot', $custom->id)
+        ->assertSee('Parallel restore (4 jobs)')
+        ->set('schemaName', 'restored_db')
+        ->set('parallelRestore', true)
+        ->call('restore');
 });

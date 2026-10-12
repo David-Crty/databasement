@@ -16,14 +16,7 @@ abstract class BaseCompressor implements CompressorInterface
 
     public function compress(string $inputPath): string
     {
-        $outputPath = $this->getCompressedPath($inputPath);
-
-        // Remove any leftover archive from a previous failed attempt.
-        // A corrupted file from a timed-out attempt can cause compressors to
-        // fail, hang indefinitely, or prompt for overwrite confirmation.
-        if (file_exists($outputPath) && ! unlink($outputPath)) {
-            throw new \RuntimeException("Failed to remove stale archive: {$outputPath}");
-        }
+        $outputPath = $this->removeStaleArchive($inputPath);
 
         $this->shellProcessor->process($this->getCompressCommandLine($inputPath));
 
@@ -31,6 +24,50 @@ abstract class BaseCompressor implements CompressorInterface
         // but others (7z) do not. Clean up defensively to ensure consistent behavior.
         if (file_exists($inputPath)) {
             unlink($inputPath);
+        }
+
+        return $outputPath;
+    }
+
+    public function compressCommandOutput(string $command, string $inputPath): string
+    {
+        $outputPath = $this->removeStaleArchive($inputPath);
+        $statusFile = $outputPath.'.status';
+
+        // A pipeline exits with its last command's status, so a dump that dies
+        // halfway would leave a truncated but valid archive behind a success.
+        // `set -o pipefail` would catch it, but dash (Ubuntu's sh) lacks it, so
+        // the dump's own status is kept in a file and becomes the exit status
+        // once the compressor has succeeded. Running it from the dump's
+        // directory keeps the file names, and so the logged command, short.
+        try {
+            $this->shellProcessor->process(sprintf(
+                '{ ( %s ); echo $? > %s; } | %s && exit "$(cat %s)"',
+                $command,
+                escapeshellarg(basename($statusFile)),
+                $this->getCompressStdinCommandLine(basename($inputPath)),
+                escapeshellarg(basename($statusFile)),
+            ), workingDirectory: dirname($inputPath));
+        } finally {
+            if (file_exists($statusFile)) {
+                unlink($statusFile);
+            }
+        }
+
+        return $outputPath;
+    }
+
+    /**
+     * Remove any leftover archive from a previous failed attempt. A corrupted
+     * file from a timed-out attempt can cause compressors to fail, hang
+     * indefinitely, or prompt for overwrite confirmation.
+     */
+    private function removeStaleArchive(string $inputPath): string
+    {
+        $outputPath = $this->getCompressedPath($inputPath);
+
+        if (file_exists($outputPath) && ! unlink($outputPath)) {
+            throw new \RuntimeException("Failed to remove stale archive: {$outputPath}");
         }
 
         return $outputPath;

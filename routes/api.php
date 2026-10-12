@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\V1\UserOrganizationController;
 use App\Http\Controllers\Api\V1\VolumeController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function () {
+Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->name('api.')->prefix('v1')->group(function () {
     Route::apiResource('database-servers', DatabaseServerController::class)
         ->only(['index', 'show', 'store', 'destroy']);
     Route::put('database-servers/{database_server}', [DatabaseServerController::class, 'update'])
@@ -32,8 +32,10 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
         ->only(['index', 'show'])
         ->parameters(['jobs' => 'backupJob']);
 
+    Route::post('snapshots/bulk-delete', [SnapshotController::class, 'bulkDestroy'])
+        ->name('snapshots.bulk-destroy');
     Route::apiResource('snapshots', SnapshotController::class)
-        ->only(['index', 'show']);
+        ->only(['index', 'show', 'destroy']);
 
     Route::apiResource('volumes', VolumeController::class)
         ->only(['index', 'show', 'destroy']);
@@ -59,7 +61,12 @@ Route::middleware(['auth:sanctum'])->name('api.')->prefix('v1')->group(function 
         ->name('user.organizations');
 });
 
-// Agent API routes — authenticated via Sanctum with agent-specific token check
+// Agent API routes — authenticated via Sanctum with agent-specific token check.
+// Deliberately left off `throttle:api`: an agent polls heartbeat + claim every
+// DATABASEMENT_AGENT_POLL_INTERVAL seconds (2 req/tick, so 120 req/min at the
+// minimum interval of 1s) and does not sleep while jobs are queued. A 429 on
+// ack would also lose the result of a backup that already uploaded.
+// Failed-auth attempts are throttled separately by `throttle-failed-agent-auth`.
 Route::middleware(['throttle-failed-agent-auth', 'auth:sanctum', 'agent'])->name('api.agent.')->prefix('v1/agent')->group(function () {
     Route::post('heartbeat', [AgentController::class, 'heartbeat'])->name('heartbeat');
     Route::post('jobs/claim', [AgentController::class, 'claimJob'])->name('jobs.claim');

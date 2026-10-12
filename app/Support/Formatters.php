@@ -34,6 +34,14 @@ class Formatters
     }
 
     /**
+     * Whole milliseconds since a microtime(true) timestamp
+     */
+    public static function elapsedMs(float $since): int
+    {
+        return (int) round((microtime(true) - $since) * 1000);
+    }
+
+    /**
      * Format bytes into human-readable file size
      */
     public static function humanFileSize(?int $bytes): string
@@ -129,9 +137,6 @@ class Formatters
      * Normalize a free-form direction string to a value accepted by Eloquent's
      * orderBy(), which since Laravel 13.8 requires the literal 'asc'|'desc'.
      *
-     * @return 'asc'|'desc'
-     */
-    /**
      * @return 'asc'|'desc'
      */
     public static function sortDirection(string $direction): string

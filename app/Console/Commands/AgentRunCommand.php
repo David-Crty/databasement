@@ -2,27 +2,39 @@
 
 namespace App\Console\Commands;
 
-use App\Exceptions\Backup\VolumeTransferException;
-use App\Models\DatabaseServer;
 use App\Services\Agent\AgentApiClient;
 use App\Services\Agent\AgentAuthenticationException;
-use App\Services\Backup\BackupTask;
-use App\Services\Backup\Databases\DatabaseProvider;
-use App\Services\Backup\DTO\BackupConfig;
-use App\Services\Backup\DTO\VolumeTransferResult;
-use App\Services\Backup\InMemoryBackupLogger;
-use App\Support\FilesystemSupport;
+use App\Services\Agent\Runners\AgentJobRunner;
+use App\Services\Agent\Runners\BackupJobRunner;
+use App\Services\Agent\Runners\CleanupJobRunner;
+use App\Services\Agent\Runners\DiscoveryJobRunner;
+use App\Services\Agent\Runners\RestoreJobRunner;
 use Illuminate\Console\Command;
 
 class AgentRunCommand extends Command
 {
     protected $signature = 'agent:run {--once : Run a single poll iteration and exit}';
 
-    protected $description = 'Run the remote backup agent (polls for jobs from the Databasement server)';
+    protected $description = 'Run the remote agent (polls the Databasement server for backup and restore jobs)';
+
+    /**
+     * The job types this agent runs. The server only hands out jobs whose
+     * type is listed here.
+     *
+     * @var list<class-string<AgentJobRunner>>
+     */
+    private const RUNNERS = [
+        BackupJobRunner::class,
+        DiscoveryJobRunner::class,
+        RestoreJobRunner::class,
+        CleanupJobRunner::class,
+    ];
 
     private bool $shouldStop = false;
 
-    public function handle(BackupTask $backupTask): int
+    private ?string $runningJobId = null;
+
+    public function handle(): int
     {
         $url = config('agent.url');
         $token = config('agent.token');
@@ -35,27 +47,22 @@ class AgentRunCommand extends Command
         }
 
         $client = new AgentApiClient($url, $token);
+        $runners = $this->runners();
 
         $this->log('Databasement Agent starting...');
         $this->log("Server: {$url}");
         $this->log("Poll interval: {$pollInterval}s");
 
-        $this->registerSignalHandlers();
+        $this->registerSignalHandlers($client);
 
         while (! $this->shouldStop) {
             try {
                 $client->heartbeat();
 
-                $job = $client->claimJob();
+                $job = $client->claimJob(array_keys($runners));
 
                 if ($job !== null) {
-                    $jobType = $job['payload']['type'] ?? 'backup';
-
-                    if ($jobType === 'discover') {
-                        $this->executeDiscoveryJob($job, $client);
-                    } else {
-                        $this->executeBackupJob($job, $client, $backupTask);
-                    }
+                    $this->runJob($job, $runners, $client);
                 } elseif (! $this->option('once')) {
                     sleep($pollInterval);
                 }
@@ -80,108 +87,87 @@ class AgentRunCommand extends Command
         return self::SUCCESS;
     }
 
-    private function registerSignalHandlers(): void
+    /**
+     * @return array<string, AgentJobRunner>
+     */
+    private function runners(): array
+    {
+        $runners = [];
+
+        foreach (self::RUNNERS as $runnerClass) {
+            $runner = app($runnerClass);
+            $runners[$runner->type()->value] = $runner;
+        }
+
+        return $runners;
+    }
+
+    /**
+     * @param  array{id: string, type?: string, payload: array<string, mixed>, merges_logs?: bool}  $job
+     * @param  array<string, AgentJobRunner>  $runners
+     */
+    private function runJob(array $job, array $runners, AgentApiClient $client): void
+    {
+        // Servers up to 1.8 only send the type inside the payload, and
+        // backup payloads never carried one.
+        $type = $job['type'] ?? $job['payload']['type'] ?? 'backup';
+        $runner = $runners[$type] ?? null;
+
+        if ($runner === null) {
+            $this->log("Job {$job['id']} has unsupported type '{$type}'.", 'error');
+            $client->fail($job['id'], "This agent cannot run '{$type}' jobs. Update the agent.");
+
+            return;
+        }
+
+        $this->runningJobId = $job['id'];
+
+        try {
+            $runner->run($job, $client, $this->log(...));
+        } finally {
+            $this->runningJobId = null;
+        }
+    }
+
+    private function registerSignalHandlers(AgentApiClient $client): void
     {
         if (extension_loaded('pcntl')) {
             pcntl_async_signals(true);
-            pcntl_signal(SIGTERM, fn () => $this->shouldStop = true);
-            pcntl_signal(SIGINT, fn () => $this->shouldStop = true);
+            pcntl_signal(SIGTERM, fn () => $this->stop('SIGTERM', $client));
+            pcntl_signal(SIGINT, fn () => $this->stop('SIGINT', $client));
         }
     }
 
     /**
-     * @param  array{id: string, snapshot_id: string|null, payload: array<string, mixed>}  $job
+     * Finish the running job, then exit. The job's log is told first, since
+     * an orchestrator usually kills the agent before the job can finish
+     * (Kubernetes eviction, scale-down or rollout), and the server would
+     * otherwise only see the agent go silent.
      */
-    private function executeBackupJob(array $job, AgentApiClient $client, BackupTask $backupTask): void
+    private function stop(string $signal, AgentApiClient $client): void
     {
-        $logger = new InMemoryBackupLogger;
-
-        try {
-            $payload = $job['payload'];
-            $databaseName = $payload['database']['database_name'] ?? '';
-
-            $this->log("Processing job {$job['id']}: {$payload['server_name']} / {$databaseName}");
-
-            $logger->log("Starting backup for database: {$databaseName}", 'info');
-
-            $workingDirectory = FilesystemSupport::createWorkingDirectory('backup', $job['id']);
-            $config = BackupConfig::fromPayload($payload, $workingDirectory); // @phpstan-ignore argument.type
-
-            $result = $backupTask->execute(
-                $config,
-                $logger,
-                onProgress: fn () => $client->jobHeartbeat($job['id'], $logger->flush()),
-            );
-
-            $client->ack(
-                $job['id'],
-                $result->filename,
-                $result->fileSize,
-                $result->checksum,
-                $this->volumeResultPayloads($result->volumeResults),
-                $logger->flush(),
-            );
-            $this->log("Job completed: {$result->filename}");
-        } catch (VolumeTransferException $e) {
-            // Some uploads may have succeeded — report the per-volume
-            // outcomes so the app records the good copies before failing.
-            $logger->log("Backup failed: {$e->getMessage()}", 'error');
-            $this->log("Job failed: {$e->getMessage()}", 'error');
-            $client->fail(
-                $job['id'],
-                $e->getMessage(),
-                $logger->flush(),
-                $this->volumeResultPayloads($e->result->volumeResults),
-                $e->result->filename,
-                $e->result->fileSize,
-            );
-        } catch (\Throwable $e) {
-            $logger->log("Backup failed: {$e->getMessage()}", 'error');
-            $this->log("Job failed: {$e->getMessage()}", 'error');
-            $client->fail($job['id'], $e->getMessage(), $logger->flush());
+        if ($this->shouldStop) {
+            return;
         }
-    }
 
-    /**
-     * @param  list<VolumeTransferResult>  $volumeResults
-     * @return array<int, array<string, mixed>>
-     */
-    private function volumeResultPayloads(array $volumeResults): array
-    {
-        return array_map(fn (VolumeTransferResult $volumeResult) => $volumeResult->toPayload(), $volumeResults);
-    }
+        $this->shouldStop = true;
 
-    /**
-     * @param  array{id: string, snapshot_id: string|null, payload: array<string, mixed>}  $job
-     */
-    private function executeDiscoveryJob(array $job, AgentApiClient $client): void
-    {
+        if ($this->runningJobId === null) {
+            return;
+        }
+
+        $message = "Agent received {$signal} and is shutting down. If it is stopped before the job finishes, the job will be retried.";
+        $this->log($message, 'warning');
+
         try {
-            $payload = $job['payload'];
-            $serverName = $payload['server_name'] ?? 'unknown';
-
-            $this->log("Processing discovery job {$job['id']}: {$serverName}");
-
-            $tempServer = DatabaseServer::forConnectionTest([
-                'database_type' => $payload['database']['type'] ?? 'mysql',
-                'host' => $payload['database']['host'] ?? '',
-                'port' => $payload['database']['port'] ?? 3306,
-                'username' => $payload['database']['username'] ?? '',
-                'password' => $payload['database']['password'] ?? '',
-                'extra_config' => $payload['database']['extra_config'] ?? null,
-            ]);
-
-            $databases = app(DatabaseProvider::class)->listDatabasesForServer($tempServer);
-
-            if (($payload['selection_mode'] ?? '') === 'pattern' && ! empty($payload['pattern'])) {
-                $databases = DatabaseServer::filterDatabasesByPattern($databases, $payload['pattern']);
-            }
-
-            $client->reportDiscoveredDatabases($job['id'], $databases);
-            $this->log('Discovery completed: '.count($databases).' database(s) found');
+            $client->jobHeartbeat($this->runningJobId, [[
+                'timestamp' => now()->toIso8601String(),
+                'type' => 'log',
+                'level' => 'warning',
+                'message' => $message,
+            ]]);
         } catch (\Throwable $e) {
-            $this->log("Discovery failed: {$e->getMessage()}", 'error');
-            $client->fail($job['id'], $e->getMessage());
+            $this->log("Could not report the shutdown to the server: {$e->getMessage()}", 'warning');
         }
     }
 

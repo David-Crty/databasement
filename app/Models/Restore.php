@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Models\Scopes\DatabaseServerOrganizationScope;
+use Database\Factories\RestoreFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -12,6 +14,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Restore extends Model
 {
+    /** @use HasFactory<RestoreFactory> */
+    use HasFactory;
+
     use HasUlids;
 
     protected static function booted(): void

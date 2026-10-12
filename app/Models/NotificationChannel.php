@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Support\Facades\Crypt;
 
 /**
  * @mixin IdeHelperNotificationChannel
@@ -49,19 +48,7 @@ class NotificationChannel extends Model
      */
     public function getDecryptedConfig(): array
     {
-        $config = $this->config;
-
-        foreach ($this->type->sensitiveFields() as $field) {
-            if (! empty($config[$field])) {
-                try {
-                    $config[$field] = Crypt::decryptString($config[$field]);
-                } catch (\Illuminate\Contracts\Encryption\DecryptException) {
-                    // Value is not encrypted (legacy data), return as-is
-                }
-            }
-        }
-
-        return $config;
+        return $this->type->decryptSensitiveFields($this->config);
     }
 
     /**

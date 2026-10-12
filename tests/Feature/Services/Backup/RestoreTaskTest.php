@@ -14,6 +14,7 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\InMemoryBackupLogger;
 use App\Services\Backup\PostScriptRunner;
 use App\Services\Backup\RestoreTask;
+use App\Services\Backup\ShellProcessor;
 use App\Services\SshTunnelService;
 use Tests\Support\TestShellProcessor;
 
@@ -48,6 +49,25 @@ function buildSnapshotVolumeConfig(): VolumeConfig
         type: 'local',
         name: 'Test Volume',
         config: ['root' => '/tmp/backups'],
+    );
+}
+
+/**
+ * The task wired to this file's fakes, with any of them swapped for the test.
+ */
+function makeRestoreTask(
+    DatabaseProvider $provider,
+    ?ShellProcessor $shellProcessor = null,
+    ?CompressorFactory $compressorFactory = null,
+    ?SshTunnelService $sshTunnelService = null,
+): RestoreTask {
+    return new RestoreTask(
+        $provider,
+        $shellProcessor ?? test()->shellProcessor,
+        test()->filesystemProvider,
+        $compressorFactory ?? test()->compressorFactory,
+        $sshTunnelService ?? test()->sshTunnelService,
+        new PostScriptRunner,
     );
 }
 
@@ -107,14 +127,7 @@ test('execute calls transferOwnership when ownerUser is set and database is Post
 
     setupDownloadMock();
 
-    $restoreTask = new RestoreTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask($mockProvider);
 
     $config = new RestoreConfig(
         targetServer: buildTargetConfig(),
@@ -151,14 +164,7 @@ test('execute does not call transferOwnership for non-PostgreSQL databases', fun
 
     setupDownloadMock();
 
-    $restoreTask = new RestoreTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask($mockProvider);
 
     $config = new RestoreConfig(
         targetServer: buildTargetConfig(),
@@ -191,14 +197,7 @@ test('execute passes forceDatabase flag to prepareForRestore', function () {
 
     setupDownloadMock();
 
-    $restoreTask = new RestoreTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask($mockProvider);
 
     $config = new RestoreConfig(
         targetServer: buildTargetConfig(),
@@ -221,14 +220,7 @@ test('execute restores successfully', function () {
     $mockProvider = buildMockRestoreProvider();
     setupDownloadMock();
 
-    $restoreTask = new RestoreTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask($mockProvider);
 
     $config = buildRestoreConfig();
     mkdir($config->workingDirectory, 0755, true);
@@ -245,14 +237,7 @@ test('execute restores successfully', function () {
 });
 
 test('execute throws when database types are incompatible', function () {
-    $restoreTask = new RestoreTask(
-        new DatabaseProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask(new DatabaseProvider);
 
     $config = new RestoreConfig(
         targetServer: new DatabaseConnectionConfig(
@@ -280,14 +265,7 @@ test('execute throws when database types are incompatible', function () {
 });
 
 test('execute throws for Redis restore', function () {
-    $restoreTask = new RestoreTask(
-        new DatabaseProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask(new DatabaseProvider);
 
     $config = new RestoreConfig(
         targetServer: new DatabaseConnectionConfig(
@@ -350,6 +328,7 @@ test('execute establishes SSH tunnel when target server requires it', function (
             'sourcedb',
             null,
             false,
+            false,
         )
         ->andReturn($mockHandler);
 
@@ -367,14 +346,7 @@ test('execute establishes SSH tunnel when target server requires it', function (
     $sshTunnelService->shouldReceive('isActive')->andReturn(true);
     $sshTunnelService->shouldReceive('close')->once();
 
-    $restoreTask = new RestoreTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask($mockProvider, sshTunnelService: $sshTunnelService);
 
     $workingDirectory = $this->tempDir.'/ssh-test-'.uniqid();
     mkdir($workingDirectory, 0755, true);
@@ -398,14 +370,7 @@ test('execute cleans up working directory on success', function () {
     $mockProvider = buildMockRestoreProvider();
     setupDownloadMock();
 
-    $restoreTask = new RestoreTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask($mockProvider);
 
     $config = buildRestoreConfig();
     mkdir($config->workingDirectory, 0755, true);
@@ -449,14 +414,7 @@ test('execute cleans up working directory on failure', function () {
     $compressorFactory = Mockery::mock(\App\Services\Backup\Compressors\CompressorFactory::class);
     $compressorFactory->shouldReceive('make')->andReturn($compressor);
 
-    $restoreTask = new RestoreTask(
-        $mockProvider,
-        $shellProcessor,
-        $this->filesystemProvider,
-        $compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask($mockProvider, shellProcessor: $shellProcessor, compressorFactory: $compressorFactory);
 
     $config = buildRestoreConfig();
     mkdir($config->workingDirectory, 0755, true);
@@ -470,14 +428,7 @@ test('execute cleans up working directory on failure', function () {
 test('execute runs post-restore script with restore variables after successful restore', function () {
     setupDownloadMock();
 
-    $restoreTask = new RestoreTask(
-        buildMockRestoreProvider(),
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $restoreTask = makeRestoreTask(buildMockRestoreProvider());
 
     $config = new RestoreConfig(
         targetServer: buildTargetConfig(),
@@ -503,4 +454,44 @@ test('execute runs post-restore script with restore variables after successful r
         ->and($lastEnv)->toHaveKey('RESTORE_DATABASE_NAME', 'restored_db')
         ->and($lastEnv)->toHaveKey('RESTORE_SOURCE_DATABASE', 'sourcedb')
         ->and($lastEnv)->toHaveKey('RESTORE_SNAPSHOT_FILENAME', 'backup.sql.gz');
+});
+
+test('execute restores an encrypted custom-format PostgreSQL snapshot', function () {
+    config(['backup.encryption_key' => 'base64:dGVzdGtleXRlc3RrZXl0ZXN0a2V5dGVzdGtleXRlc3Q=']);
+
+    $mockProvider = buildMockRestoreProvider();
+    setupDownloadMock();
+
+    $restoreTask = makeRestoreTask($mockProvider);
+
+    $config = new RestoreConfig(
+        targetServer: new DatabaseConnectionConfig(
+            databaseType: DatabaseType::POSTGRESQL,
+            serverName: 'Target Server',
+            host: 'localhost',
+            port: 5432,
+            username: 'postgres',
+            password: 'secret',
+        ),
+        snapshotVolume: buildSnapshotVolumeConfig(),
+        snapshotFilename: 'backup.dump.7z',
+        snapshotFileSize: 1024,
+        snapshotCompressionType: CompressionType::ENCRYPTED,
+        snapshotDatabaseType: DatabaseType::POSTGRESQL,
+        snapshotDatabaseName: 'sourcedb',
+        schemaName: 'restored_db',
+        workingDirectory: $this->tempDir.'/restore-custom-'.uniqid(),
+        snapshotDumpFormat: 'custom',
+    );
+    mkdir($config->workingDirectory, 0755, true);
+
+    $logger = new InMemoryBackupLogger;
+    $restoreTask->execute($config, $logger);
+
+    $successLogs = collect($logger->getLogs())
+        ->where('level', 'success')
+        ->pluck('message')
+        ->toArray();
+
+    expect($successLogs)->toContain('Restore completed successfully');
 });

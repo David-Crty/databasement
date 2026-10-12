@@ -21,6 +21,7 @@ should render deployment with default values:
       template:
         metadata:
           labels:
+            app.kubernetes.io/component: app
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: databasement
@@ -94,11 +95,7 @@ should render deployment with default values:
               volumeMounts:
                 - mountPath: /data
                   name: data
-            - args:
-                - sh
-                - -c
-                - php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --max-jobs=1000
-              env:
+            - env:
                 - name: SERVER_NAME
                   value: :2226
                 - name: APP_NAME
@@ -123,6 +120,12 @@ should render deployment with default values:
                 - name: LOG_LEVEL
                   value: warning
                 - name: ENABLE_DATABASE_MIGRATION
+                  value: "false"
+                - name: ENABLE_QUEUE_WORKER
+                  value: "true"
+                - name: ENABLE_WEB_SERVER
+                  value: "false"
+                - name: ENABLE_SCHEDULER
                   value: "false"
               image: davidcrty/databasement:0.0.0-dev
               imagePullPolicy: Always
@@ -216,6 +219,7 @@ should render deployment with mysql database:
       template:
         metadata:
           labels:
+            app.kubernetes.io/component: app
             app.kubernetes.io/instance: RELEASE-NAME
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/name: databasement
@@ -300,11 +304,7 @@ should render deployment with mysql database:
               volumeMounts:
                 - mountPath: /data
                   name: data
-            - args:
-                - sh
-                - -c
-                - php artisan db:wait --check-migrations && php artisan queue:work --queue=backups,default --max-jobs=1000
-              env:
+            - env:
                 - name: SERVER_NAME
                   value: :2226
                 - name: APP_NAME
@@ -340,6 +340,12 @@ should render deployment with mysql database:
                 - name: LOG_LEVEL
                   value: warning
                 - name: ENABLE_DATABASE_MIGRATION
+                  value: "false"
+                - name: ENABLE_QUEUE_WORKER
+                  value: "true"
+                - name: ENABLE_WEB_SERVER
+                  value: "false"
+                - name: ENABLE_SCHEDULER
                   value: "false"
               image: davidcrty/databasement:0.0.0-dev
               imagePullPolicy: Always

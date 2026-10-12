@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\Backup\SnapshotCleanupService;
+use App\Actions\Snapshot\ApplyRetentionPoliciesAction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -23,8 +23,8 @@ class CleanupExpiredSnapshotsJob implements ShouldQueue
         $this->onQueue('backups');
     }
 
-    public function handle(SnapshotCleanupService $service): void
+    public function handle(): void
     {
-        $service->run($this->dryRun);
+        ApplyRetentionPoliciesAction::run($this->dryRun);
     }
 }

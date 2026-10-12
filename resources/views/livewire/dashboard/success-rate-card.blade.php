@@ -10,7 +10,7 @@
                 @if($runningJobs > 0)
                     <span class="text-sm font-normal text-warning flex items-center gap-1">
                             <x-loading class="loading-xs"/>
-                            {{ $runningJobs }} {{ __('running') }}
+                            {{ trans_choice('{1} :count running|[2,*] :count running', $runningJobs, ['count' => $runningJobs]) }}
                         </span>
                 @endif
             </div>

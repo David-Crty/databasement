@@ -2,11 +2,14 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasSelectOptions;
+use App\Enums\Concerns\HasSensitiveConfigFields;
 use App\Rules\CommaSeparatedEmails;
-use Illuminate\Support\Facades\Crypt;
 
 enum NotificationChannelType: string
 {
+    use HasSelectOptions, HasSensitiveConfigFields;
+
     case Email = 'email';
     case Slack = 'slack';
     case Discord = 'discord';
@@ -110,43 +113,5 @@ enum NotificationChannelType: string
             self::Gotify => array_filter(['URL' => $config['url'] ?? '']),
             self::Webhook => array_filter(['URL' => $config['url'] ?? '']),
         };
-    }
-
-    /**
-     * Merge sensitive fields from persisted config when form values are empty.
-     *
-     * @param  array<string, mixed>  $formConfig
-     * @param  array<string, mixed>  $persistedConfig
-     * @return array<string, mixed>
-     */
-    public function mergeSensitiveFromPersisted(array $formConfig, array $persistedConfig): array
-    {
-        foreach ($this->sensitiveFields() as $field) {
-            if (empty($formConfig[$field]) && ! empty($persistedConfig[$field])) {
-                $formConfig[$field] = $persistedConfig[$field];
-            }
-        }
-
-        return $formConfig;
-    }
-
-    /**
-     * Encrypt sensitive fields, optionally preserving existing encrypted values.
-     *
-     * @param  array<string, mixed>  $config
-     * @param  array<string, mixed>  $persistedEncrypted
-     * @return array<string, mixed>
-     */
-    public function encryptSensitiveFields(array $config, array $persistedEncrypted = []): array
-    {
-        foreach ($this->sensitiveFields() as $field) {
-            if (! empty($config[$field])) {
-                $config[$field] = Crypt::encryptString($config[$field]);
-            } elseif (! empty($persistedEncrypted[$field])) {
-                $config[$field] = $persistedEncrypted[$field];
-            }
-        }
-
-        return $config;
     }
 }

@@ -12,7 +12,6 @@ use Livewire\Livewire;
 
 test('storage distribution chart builds doughnut chart data grouped by volume', function () {
     $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
 
     // Create two servers with different volumes
     $volume1 = Volume::factory()->create(['name' => 'volume-one']);
@@ -25,13 +24,13 @@ test('storage distribution chart builds doughnut chart data grouped by volume', 
     $server2->backups->first()->volumes()->sync([$volume2->id]);
 
     // Create snapshots on different volumes
-    $snapshots1 = $factory->createSnapshots($server1->backups->first(), 'manual', $user->id);
-    $snapshots1[0]->update(['file_size' => 1024 * 1024 * 100]); // 100 MB
-    $snapshots1[0]->files()->update(['status' => SnapshotFileStatus::Completed]);
+    $snapshot1 = pendingSnapshot($server1, $user->id);
+    $snapshot1->update(['file_size' => 1024 * 1024 * 100]); // 100 MB
+    $snapshot1->files()->update(['status' => SnapshotFileStatus::Completed]);
 
-    $snapshots2 = $factory->createSnapshots($server2->backups->first(), 'manual', $user->id);
-    $snapshots2[0]->update(['file_size' => 1024 * 1024 * 50]); // 50 MB
-    $snapshots2[0]->files()->update(['status' => SnapshotFileStatus::Completed]);
+    $snapshot2 = pendingSnapshot($server2, $user->id);
+    $snapshot2->update(['file_size' => 1024 * 1024 * 50]); // 50 MB
+    $snapshot2->files()->update(['status' => SnapshotFileStatus::Completed]);
 
     $component = Livewire::withoutLazyLoading()
         ->actingAs($user)
@@ -58,15 +57,13 @@ test('storage distribution chart handles no snapshots', function () {
 
 test('storage distribution chart labels include formatted size', function () {
     $user = User::factory()->create();
-    $factory = app(BackupJobFactory::class);
-
     $volume = Volume::factory()->create(['name' => 'my-storage']);
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
     $server->backups->first()->volumes()->sync([$volume->id]);
 
-    $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
-    $snapshots[0]->update(['file_size' => 1024 * 1024 * 256]); // 256 MB
-    $snapshots[0]->files()->update(['status' => SnapshotFileStatus::Completed]);
+    $snapshot = pendingSnapshot($server, $user->id);
+    $snapshot->update(['file_size' => 1024 * 1024 * 256]); // 256 MB
+    $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
 
     $component = Livewire::withoutLazyLoading()
         ->actingAs($user)

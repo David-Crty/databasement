@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\ScheduledRestore\CreateScheduledRestoreAction;
+use App\Actions\ScheduledRestore\DeleteScheduledRestoreAction;
+use App\Actions\ScheduledRestore\RunScheduledRestoreAction;
+use App\Actions\ScheduledRestore\UpdateScheduledRestoreAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveScheduledRestoreRequest;
 use App\Http\Resources\ScheduledRestoreResource;
@@ -11,7 +15,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\Artisan;
 
 /**
  * @tags Scheduled Restores
@@ -25,7 +28,7 @@ class ScheduledRestoreController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $perPage = max(1, min($request->integer('per_page', 15), 100));
+        $perPage = $this->perPage($request);
 
         $scheduledRestores = ScheduledRestore::query()
             ->whereHas('targetServer')
@@ -54,7 +57,7 @@ class ScheduledRestoreController extends Controller
     {
         $this->authorize('create', ScheduledRestore::class);
 
-        $scheduledRestore = ScheduledRestore::create($request->validated());
+        $scheduledRestore = CreateScheduledRestoreAction::run($request->validated());
 
         return (new ScheduledRestoreResource($scheduledRestore))
             ->response()
@@ -68,9 +71,7 @@ class ScheduledRestoreController extends Controller
     {
         $this->authorize('update', $scheduledRestore);
 
-        $scheduledRestore->update($request->validated());
-
-        return new ScheduledRestoreResource($scheduledRestore);
+        return new ScheduledRestoreResource(UpdateScheduledRestoreAction::run($scheduledRestore, $request->validated()));
     }
 
     /**
@@ -82,7 +83,7 @@ class ScheduledRestoreController extends Controller
     {
         $this->authorize('delete', $scheduledRestore);
 
-        $scheduledRestore->delete();
+        DeleteScheduledRestoreAction::run($scheduledRestore);
 
         return response()->noContent();
     }
@@ -90,16 +91,23 @@ class ScheduledRestoreController extends Controller
     /**
      * Run a scheduled restore immediately.
      *
+     * Works on a disabled scheduled restore too: `enabled` only decides whether
+     * the scheduler runs it, and a run triggered here leaves it disabled.
+     *
      * @response 202
      */
     public function run(ScheduledRestore $scheduledRestore): JsonResponse
     {
         $this->authorize('run', $scheduledRestore);
 
-        Artisan::call('restores:run', ['scheduledRestore' => $scheduledRestore->id]);
+        $result = RunScheduledRestoreAction::run($scheduledRestore);
 
         return response()->json([
-            'message' => __('Scheduled restore triggered.'),
+            'message' => $result->skipReason !== null
+                ? __('Scheduled restore skipped.')
+                : __('Scheduled restore triggered.'),
+            'restore_id' => $result->restore?->id,
+            'skip_reason' => $result->skipReason,
         ], 202);
     }
 }

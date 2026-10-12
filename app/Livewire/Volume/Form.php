@@ -2,11 +2,15 @@
 
 namespace App\Livewire\Volume;
 
+use App\Actions\Volume\CreateVolumeAction;
+use App\Actions\Volume\UpdateVolumeAction;
 use App\Enums\VolumeType;
 use App\Models\Volume;
 use App\Services\CurrentOrganization;
 use App\Services\VolumeConnectionTester;
 use App\Support\Formatters;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -49,8 +53,6 @@ class Form extends \Livewire\Form
     public ?string $connectionTestMessage = null;
 
     public bool $connectionTestSuccess = false;
-
-    public bool $testingConnection = false;
 
     public function __construct(
         Component $component,
@@ -111,32 +113,34 @@ class Form extends \Livewire\Form
     public function store(): void
     {
         $rules = $this->rules();
-        $rules['name'][] = 'unique:volumes,name';
+        $rules['name'][] = $this->uniqueNameRule(app(CurrentOrganization::class)->id());
 
         $this->validate($rules);
 
-        $data = [
-            'name' => $this->name,
-            'type' => $this->type,
-            'config' => $this->buildConfig(),
-        ];
-
-        $data['organization_id'] = app(CurrentOrganization::class)->id();
-
-        Volume::create($data);
+        CreateVolumeAction::run(
+            app(CurrentOrganization::class)->model(),
+            VolumeType::from($this->type),
+            $this->name,
+            $this->applyMaxStorageToConfig($this->getActiveConfig()),
+        );
     }
 
     public function update(): void
     {
         $rules = $this->rules();
-        $rules['name'][] = 'unique:volumes,name,'.$this->volume->id;
+        $rules['name'][] = $this->uniqueNameRule($this->volume->organization_id, ignoreId: $this->volume->id);
 
         $this->validate($rules);
 
-        $this->volume->update([
-            'name' => $this->name,
-            'config' => $this->buildConfig(),
-        ]);
+        UpdateVolumeAction::run($this->volume, $this->name, $this->applyMaxStorageToConfig($this->getActiveConfig()));
+    }
+
+    /**
+     * Volume names are unique within an organization only.
+     */
+    private function uniqueNameRule(string $organizationId, ?string $ignoreId = null): Unique
+    {
+        return Rule::unique('volumes', 'name')->where('organization_id', $organizationId)->ignore($ignoreId);
     }
 
     /**
@@ -147,15 +151,12 @@ class Form extends \Livewire\Form
     public function updateLockedVolume(): void
     {
         $this->validate([
-            'name' => ['required', 'string', 'max:255', 'unique:volumes,name,'.$this->volume->id],
+            'name' => ['required', 'string', 'max:255', $this->uniqueNameRule($this->volume->organization_id, ignoreId: $this->volume->id)],
             'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
             'storageLimitNotifyOnly' => ['boolean'],
         ]);
 
-        $this->volume->update([
-            'name' => $this->name,
-            'config' => $this->applyMaxStorageToConfig($this->volume->config),
-        ]);
+        UpdateVolumeAction::run($this->volume, $this->name, $this->applyMaxStorageToConfig($this->volume->getDecryptedConfig()));
     }
 
     /**
@@ -166,22 +167,6 @@ class Form extends \Livewire\Form
     public function getActiveConfig(): array
     {
         return $this->{VolumeType::from($this->type)->configPropertyName()};
-    }
-
-    /**
-     * Build the config array with sensitive fields encrypted.
-     * Preserves existing encrypted values when the submitted field is empty.
-     *
-     * @return array<string, mixed>
-     */
-    protected function buildConfig(): array
-    {
-        $volumeType = VolumeType::from($this->type);
-        $persistedConfig = $this->volume !== null ? $this->volume->config : [];
-
-        $config = $volumeType->encryptSensitiveFields($this->getActiveConfig(), $persistedConfig);
-
-        return $this->applyMaxStorageToConfig($config);
     }
 
     /**
@@ -216,7 +201,6 @@ class Form extends \Livewire\Form
 
     public function testConnection(): void
     {
-        $this->testingConnection = true;
         $this->connectionTestMessage = null;
 
         $volumeType = VolumeType::from($this->type);
@@ -232,9 +216,8 @@ class Form extends \Livewire\Form
         try {
             $this->validate($filteredRules);
         } catch (ValidationException) {
-            $this->testingConnection = false;
             $this->connectionTestSuccess = false;
-            $this->connectionTestMessage = 'Please fill in all required configuration fields.';
+            $this->connectionTestMessage = __('Please fill in all required configuration fields.');
 
             return;
         }
@@ -257,6 +240,5 @@ class Form extends \Livewire\Form
 
         $this->connectionTestSuccess = $result['success'];
         $this->connectionTestMessage = $result['message'];
-        $this->testingConnection = false;
     }
 }

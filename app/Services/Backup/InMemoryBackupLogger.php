@@ -9,8 +9,6 @@ class InMemoryBackupLogger implements BackupLogger
     /** @var array<int, array<string, mixed>> */
     private array $logs = [];
 
-    private int $flushedIndex = 0;
-
     public function logCommand(string $command, ?string $output = null, ?int $exitCode = null, ?float $startTime = null): void
     {
         $this->logs[] = [
@@ -67,17 +65,6 @@ class InMemoryBackupLogger implements BackupLogger
         }
 
         $this->logs[] = $entry;
-    }
-
-    /**
-     * @return array<int, array<string, mixed>>
-     */
-    public function flush(): array
-    {
-        $new = array_slice($this->logs, $this->flushedIndex);
-        $this->flushedIndex = count($this->logs);
-
-        return $new;
     }
 
     /**

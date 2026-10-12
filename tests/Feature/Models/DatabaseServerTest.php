@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Agent;
+use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 
@@ -111,53 +112,25 @@ test('requiresSftpTransfer returns correct value', function () {
         ->and($mysqlWithSsh->requiresSftpTransfer())->toBeFalse();
 });
 
-test('buildExtraConfig folds type-specific fields into extra_config', function (
-    array $data,
-    ?array $existing,
-    ?string $previousType,
-    ?array $expected,
-) {
-    DatabaseServer::buildExtraConfig($data, $existing, $previousType);
-
-    expect($data['extra_config'])->toEqual($expected);
-
-    // Handled keys are always pulled out of $data.
-    foreach (['auth_source', 'dump_flags', 'dump_format', 'dump_privileges', 'ssl_enabled'] as $key) {
-        expect($data)->not->toHaveKey($key);
-    }
+test('parseExcludedTables normalizes separators, blanks and duplicates', function (mixed $value, array $expected) {
+    expect(Backup::parseExcludedTables($value))->toBe($expected);
 })->with([
-    // [data, existing, previousType, expected extra_config]
-
-    'keeps type-specific string value' => [
-        ['database_type' => 'mongodb', 'auth_source' => 'records'], null, null, ['auth_source' => 'records'],
-    ],
-    'keeps custom dump_format constant' => [
-        ['database_type' => 'postgres', 'dump_format' => 'custom'], null, null, ['dump_format' => 'custom'],
-    ],
-    'keeps boolean flag when enabled' => [
-        ['database_type' => 'mysql', 'ssl_enabled' => true], null, null, ['ssl_enabled' => true],
-    ],
-    'keeps ssl_enabled for postgres' => [
-        ['database_type' => 'postgres', 'ssl_enabled' => true], null, null, ['ssl_enabled' => true],
-    ],
-    'drops field not relevant to the type' => [
-        ['database_type' => 'sqlite', 'dump_flags' => '--anything'], null, null, null,
-    ],
-    'folds multiple keys at once' => [
-        ['database_type' => 'postgres', 'dump_flags' => '-v', 'dump_format' => 'custom', 'dump_privileges' => true],
-        null, null,
-        ['dump_flags' => '-v', 'dump_format' => 'custom', 'dump_privileges' => true],
-    ],
-    'clears existing key when value no longer qualifies' => [
-        ['database_type' => 'mongodb', 'auth_source' => ''], ['auth_source' => 'records'], null, null,
-    ],
-    'preserves existing config when key absent from data' => [
-        ['database_type' => 'mongodb'], ['auth_source' => 'records'], null, ['auth_source' => 'records'],
-    ],
-    'resets stale config on type change' => [
-        ['database_type' => 'mysql', 'ssl_enabled' => true], ['auth_source' => 'records'], 'mongodb', ['ssl_enabled' => true],
-    ],
-    'clears stale config on type change when no replacement keys are provided' => [
-        ['database_type' => 'mysql'], ['auth_source' => 'records'], 'mongodb', null,
-    ],
+    'comma separated' => ['web_api_log, web_service_log', ['web_api_log', 'web_service_log']],
+    'newline separated' => ["web_api_log\nweb_service_log", ['web_api_log', 'web_service_log']],
+    'mixed separators with blanks' => [" web_api_log ,,\r\n  web_service_log \n", ['web_api_log', 'web_service_log']],
+    'duplicates collapsed' => ['audit_log, audit_log', ['audit_log']],
+    'already a list' => [['audit_log'], ['audit_log']],
+    'empty string' => ['', []],
+    'null' => [null, []],
 ]);
+
+test('backupToTrigger picks the named configuration, or the oldest one when none is named', function () {
+    $server = DatabaseServer::factory()->create();
+    $oldest = $server->backups->first();
+    $second = Backup::factory()->for($server)->create();
+    $server->load('backups');
+
+    expect($server->backupToTrigger($second->id)?->id)->toBe($second->id)
+        ->and($server->backupToTrigger(null)?->id)->toBe($oldest->id)
+        ->and($server->backupToTrigger(DatabaseServer::factory()->create()->backups->first()->id))->toBeNull();
+});

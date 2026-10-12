@@ -15,6 +15,7 @@ use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\InMemoryBackupLogger;
 use App\Services\Backup\PostScriptRunner;
+use App\Services\Backup\ShellProcessor;
 use App\Services\SshTunnelService;
 use Tests\Support\TestShellProcessor;
 
@@ -70,6 +71,25 @@ function buildVolumeConfig(): VolumeConfig
     );
 }
 
+/**
+ * The task wired to this file's fakes, with any of them swapped for the test.
+ */
+function makeBackupTask(
+    DatabaseProvider $provider,
+    ?ShellProcessor $shellProcessor = null,
+    ?CompressorFactory $compressorFactory = null,
+    ?SshTunnelService $sshTunnelService = null,
+): BackupTask {
+    return new BackupTask(
+        $provider,
+        $shellProcessor ?? test()->shellProcessor,
+        test()->filesystemProvider,
+        $compressorFactory ?? test()->compressorFactory,
+        $sshTunnelService ?? test()->sshTunnelService,
+        new PostScriptRunner,
+    );
+}
+
 function buildBackupConfig(?string $workingDirectory = null): BackupConfig
 {
     return new BackupConfig(
@@ -85,14 +105,7 @@ test('execute returns BackupResult with filename, fileSize, and checksum', funct
 
     test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider);
 
     $config = buildBackupConfig();
     mkdir($config->workingDirectory, 0755, true);
@@ -106,34 +119,42 @@ test('execute returns BackupResult with filename, fileSize, and checksum', funct
         ->and($result->checksum)->toMatch('/^[a-f0-9]{64}$/');
 });
 
-test('execute calls onProgress callback at each checkpoint', function () {
-    $mockProvider = buildMockDatabaseProvider();
+test('two backups of the same database started in the same second get their own file', function () {
+    $this->freezeSecond();
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->twice();
 
-    test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
+    $filenames = collect([1, 2])->map(function () {
+        $config = buildBackupConfig();
+        mkdir($config->workingDirectory, 0755, true);
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
+        return makeBackupTask(buildMockDatabaseProvider())->execute($config, new InMemoryBackupLogger)->filename;
+    });
+
+    expect($filenames->unique())->toHaveCount(2);
+});
+
+test('execute pipes a dump written to stdout straight into the compressor', function () {
+    $mockHandler = Mockery::mock(DatabaseInterface::class);
+    $mockHandler->shouldReceive('dump')->once()->andReturn(
+        new DatabaseOperationResult(command: 'mariadb-dump myapp', writesToStdout: true),
     );
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')->once()->andReturn($mockHandler);
+
+    $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $backupTask = makeBackupTask($mockProvider);
 
     $config = buildBackupConfig();
     mkdir($config->workingDirectory, 0755, true);
 
-    $progressCount = 0;
+    $result = $backupTask->execute($config, new InMemoryBackupLogger);
 
-    $backupTask->execute(
-        $config,
-        new InMemoryBackupLogger,
-        onProgress: function () use (&$progressCount) {
-            $progressCount++;
-        },
-    );
-
-    expect($progressCount)->toBe(3);
+    expect($this->shellProcessor->getCommands())->toBe([
+        "{ ( mariadb-dump myapp ); echo \$? > 'dump.sql.gz.status'; } | gzip -6 -c > 'dump.sql.gz' && exit \"\$(cat 'dump.sql.gz.status')\"",
+    ])
+        ->and($result->filename)->toEndWith('.sql.gz');
 });
 
 test('execute establishes SSH tunnel when server requires it', function () {
@@ -169,7 +190,8 @@ test('execute establishes SSH tunnel when server requires it', function () {
             Mockery::on(fn ($c) => $c->host === 'private-db.internal'),
             'myapp',
             '127.0.0.1',
-            54321
+            54321,
+            null, null, null, false, [],
         )
         ->andReturn($mockHandler);
 
@@ -187,14 +209,7 @@ test('execute establishes SSH tunnel when server requires it', function () {
     $sshTunnelService->shouldReceive('isActive')->andReturn(true);
     $sshTunnelService->shouldReceive('close')->once();
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider, sshTunnelService: $sshTunnelService);
 
     $workingDirectory = $this->tempDir.'/ssh-test-'.uniqid();
     mkdir($workingDirectory, 0755, true);
@@ -211,7 +226,7 @@ test('execute establishes SSH tunnel when server requires it', function () {
     expect($result)->toBeInstanceOf(BackupResult::class);
 });
 
-test('execute uses server host and port when no SSH tunnel is needed', function () {
+test('execute uses server host and port, and the excluded tables, when no SSH tunnel is needed', function () {
     $mockHandler = Mockery::mock(DatabaseInterface::class);
     $mockHandler->shouldReceive('dump')
         ->once()
@@ -226,22 +241,22 @@ test('execute uses server host and port when no SSH tunnel is needed', function 
             Mockery::type(DatabaseConnectionConfig::class),
             'myapp',
             'localhost',
-            3306
+            3306,
+            null, null, null, false, ['audit_log'],
         )
         ->andReturn($mockHandler);
 
     $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider);
 
-    $config = buildBackupConfig();
+    $config = new BackupConfig(
+        database: buildDbConfig(),
+        volumes: [buildVolumeConfig()],
+        databaseName: 'myapp',
+        workingDirectory: test()->tempDir.'/execute-test-'.uniqid(),
+        excludedTables: ['audit_log'],
+    );
     mkdir($config->workingDirectory, 0755, true);
 
     $backupTask->execute($config, new InMemoryBackupLogger);
@@ -252,14 +267,7 @@ test('execute cleans up working directory on success', function () {
 
     $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider);
 
     $config = buildBackupConfig();
     mkdir($config->workingDirectory, 0755, true);
@@ -286,14 +294,7 @@ test('execute cleans up working directory on failure', function () {
         ->once()
         ->andThrow(new \App\Exceptions\ShellProcessFailed('Command failed'));
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider, shellProcessor: $shellProcessor);
 
     $config = buildBackupConfig();
     mkdir($config->workingDirectory, 0755, true);
@@ -319,14 +320,7 @@ test('execute uses custom compression type and level', function () {
 
     $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider);
 
     $workingDirectory = $this->tempDir.'/compression-test-'.uniqid();
     mkdir($workingDirectory, 0755, true);
@@ -358,14 +352,7 @@ test('execute runs post-backup script with backup variables after successful bac
 
     test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider);
 
     $workingDirectory = $this->tempDir.'/post-script-test-'.uniqid();
     mkdir($workingDirectory, 0755, true);
@@ -397,14 +384,7 @@ test('execute skips post-backup script when none configured', function () {
 
     test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider);
 
     $workingDirectory = $this->tempDir.'/post-script-none-'.uniqid();
     mkdir($workingDirectory, 0755, true);
@@ -430,26 +410,19 @@ test('execute logs warning and continues when post-backup script fails', functio
 
     $throwingShellProcessor = new class extends TestShellProcessor
     {
-        public function process(string $command, array $env = []): string
+        public function process(string $command, array $env = [], ?string $workingDirectory = null): string
         {
             if (str_contains($command, 'post-backup-script.sh')) {
                 throw new \App\Exceptions\ShellProcessFailed('Script exited with code 1');
             }
 
-            return parent::process($command, $env);
+            return parent::process($command, $env, $workingDirectory);
         }
     };
 
     $compressorFactory = new CompressorFactory($throwingShellProcessor);
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $throwingShellProcessor,
-        $this->filesystemProvider,
-        $compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider, shellProcessor: $throwingShellProcessor, compressorFactory: $compressorFactory);
 
     $workingDirectory = $this->tempDir.'/post-script-fail-'.uniqid();
     mkdir($workingDirectory, 0755, true);
@@ -472,19 +445,50 @@ test('execute logs warning and continues when post-backup script fails', functio
     expect($warningLogs)->not->toBeEmpty();
 });
 
+test('execute deletes the uploaded copies of a job cancelled after its upload', function () {
+    $uploaded = null;
+    test()->filesystemProvider->shouldReceive('transferFromConfig')->once()
+        ->andReturnUsing(function ($volume, $source, string $destination) use (&$uploaded) {
+            $uploaded = $destination;
+        });
+    $filesystem = Mockery::mock(\League\Flysystem\Filesystem::class);
+    $filesystem->shouldReceive('delete')->once()->with(Mockery::on(function (string $path) use (&$uploaded) {
+        return $path === $uploaded;
+    }));
+    test()->filesystemProvider->shouldReceive('getForVolumeConfig')->once()->andReturn($filesystem);
+
+    $cancellingShellProcessor = new class extends TestShellProcessor
+    {
+        public function process(string $command, array $env = [], ?string $workingDirectory = null): string
+        {
+            if (str_contains($command, 'post-backup-script.sh')) {
+                throw new \App\Exceptions\Backup\JobCancelledException;
+            }
+
+            return parent::process($command, $env, $workingDirectory);
+        }
+    };
+
+    $backupTask = makeBackupTask(buildMockDatabaseProvider(), shellProcessor: $cancellingShellProcessor, compressorFactory: new CompressorFactory($cancellingShellProcessor));
+
+    $workingDirectory = $this->tempDir.'/cancelled-'.uniqid();
+    mkdir($workingDirectory, 0755, true);
+
+    expect(fn () => $backupTask->execute(new BackupConfig(
+        database: buildDbConfig(),
+        volumes: [buildVolumeConfig()],
+        databaseName: 'myapp',
+        workingDirectory: $workingDirectory,
+        postBackupScript: 'sleep 60',
+    ), new InMemoryBackupLogger))->toThrow(\App\Exceptions\Backup\JobCancelledException::class);
+});
+
 test('execute prepends backup path with date variables to filename', function () {
     $mockProvider = buildMockDatabaseProvider();
 
     test()->filesystemProvider->shouldReceive('transferFromConfig')->once();
 
-    $backupTask = new BackupTask(
-        $mockProvider,
-        $this->shellProcessor,
-        $this->filesystemProvider,
-        $this->compressorFactory,
-        $this->sshTunnelService,
-        new PostScriptRunner,
-    );
+    $backupTask = makeBackupTask($mockProvider);
 
     $workingDirectory = $this->tempDir.'/path-test-'.uniqid();
     mkdir($workingDirectory, 0755, true);
@@ -506,14 +510,7 @@ test('execute prepends backup path with date variables to filename', function ()
 
 function buildQuotaBackupTask(): BackupTask
 {
-    return new BackupTask(
-        buildMockDatabaseProvider(),
-        test()->shellProcessor,
-        test()->filesystemProvider,
-        test()->compressorFactory,
-        test()->sshTunnelService,
-        new PostScriptRunner,
-    );
+    return makeBackupTask(buildMockDatabaseProvider());
 }
 
 /**

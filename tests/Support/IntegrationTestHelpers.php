@@ -48,6 +48,14 @@ class IntegrationTestHelpers
                 'database' => config('testing.databases.mysql.database').$suffix,
                 'database_type' => 'mysql',
             ],
+            'mariadb' => [
+                'host' => config('testing.databases.mariadb.host'),
+                'port' => (int) config('testing.databases.mariadb.port'),
+                'username' => config('testing.databases.mariadb.username'),
+                'password' => config('testing.databases.mariadb.password'),
+                'database' => config('testing.databases.mariadb.database').$suffix,
+                'database_type' => 'mysql',
+            ],
             'postgres' => [
                 'host' => config('testing.databases.postgres.host'),
                 'port' => (int) config('testing.databases.postgres.port'),
@@ -99,6 +107,16 @@ class IntegrationTestHelpers
             ],
             default => throw new InvalidArgumentException("Unsupported database type: {$type}"),
         };
+    }
+
+    /**
+     * The DatabaseType behind an integration target. They are the same name
+     * everywhere but MariaDB, which the app stores as `mysql` and the suite
+     * keeps separate so both engines get exercised against their own server.
+     */
+    public static function databaseTypeOf(string $target): string
+    {
+        return $target === 'mariadb' ? 'mysql' : $target;
     }
 
     /**
@@ -357,7 +375,7 @@ class IntegrationTestHelpers
      */
     public static function connectToDatabase(string $type, DatabaseServer $server, string $databaseName): PDO
     {
-        return DatabaseType::from($type)->createPdo($server, $databaseName);
+        return DatabaseType::from(self::databaseTypeOf($type))->createPdo($server, $databaseName);
     }
 
     /**
@@ -494,9 +512,10 @@ class IntegrationTestHelpers
             return;
         }
 
-        $pdo = DatabaseType::from($type)->createPdo($server);
+        $engine = self::databaseTypeOf($type);
+        $pdo = DatabaseType::from($engine)->createPdo($server);
 
-        if ($type === 'mysql') {
+        if ($engine === 'mysql') {
             $pdo->exec("DROP DATABASE IF EXISTS `{$databaseName}`");
         } elseif ($type === 'postgres') {
             $pdo->exec("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{$databaseName}' AND pid <> pg_backend_pid()");
@@ -561,9 +580,10 @@ class IntegrationTestHelpers
 
         $databaseName = self::resolveTestDatabaseName($server);
 
-        $pdo = DatabaseType::from($type)->createPdo($server);
+        $engine = self::databaseTypeOf($type);
+        $pdo = DatabaseType::from($engine)->createPdo($server);
 
-        if ($type === 'mysql') {
+        if ($engine === 'mysql') {
             $pdo->exec("DROP DATABASE IF EXISTS `{$databaseName}`");
             $pdo->exec("CREATE DATABASE `{$databaseName}`");
         } elseif ($type === 'postgres') {
@@ -572,7 +592,7 @@ class IntegrationTestHelpers
             $pdo->exec("CREATE DATABASE \"{$databaseName}\"");
         }
 
-        $fixtureFile = match ($type) {
+        $fixtureFile = match ($engine) {
             'mysql' => __DIR__.'/../Integration/fixtures/mysql-init.sql',
             'postgres' => __DIR__.'/../Integration/fixtures/postgres-init.sql',
             default => throw new InvalidArgumentException("loadTestData does not support database type: {$type}. Use createTestSqliteDatabase for SQLite."),

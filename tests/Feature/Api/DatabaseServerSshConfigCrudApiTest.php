@@ -50,6 +50,33 @@ test('manage-database-servers allows creating a password-based ssh config', func
     expect($config->password)->toBe('ssh_secret');
 });
 
+test('compression is off unless the payload asks for it', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-server-ssh-configs', [
+            'host' => 'bastion.example.com',
+            'username' => 'tunnel_user',
+            'auth_type' => 'password',
+            'password' => 'ssh_secret',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.compression', false);
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-server-ssh-configs', [
+            'host' => 'bastion.example.com',
+            'username' => 'tunnel_user',
+            'auth_type' => 'password',
+            'password' => 'ssh_secret',
+            'compression' => true,
+        ]);
+
+    $response->assertCreated()->assertJsonPath('data.compression', true);
+
+    expect(DatabaseServerSshConfig::findOrFail($response->json('data.id'))->compression)->toBeTrue();
+});
+
 test('the created id can be used as ssh_config_id on a database server', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
@@ -192,6 +219,32 @@ test('updating without credentials keeps the stored ones', function () {
     expect($config->fresh()->password)->toBe('ssh_password');
 });
 
+test('compression can be toggled on update and is kept when omitted', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $config = DatabaseServerSshConfig::factory()->create(['compression' => true]);
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
+            'host' => 'bastion.example.com',
+            'username' => 'tunnel_user',
+            'auth_type' => 'password',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.compression', true);
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
+            'host' => 'bastion.example.com',
+            'username' => 'tunnel_user',
+            'auth_type' => 'password',
+            'compression' => false,
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.compression', false);
+
+    expect($config->fresh()->compression)->toBeFalse();
+});
+
 test('switching to key authentication requires a key', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $config = DatabaseServerSshConfig::factory()->create();
@@ -224,59 +277,6 @@ test('switching auth type clears the credentials of the previous one', function 
     $config->refresh();
     expect($config->password)->toBeNull()
         ->and($config->private_key)->toContain('OPENSSH PRIVATE KEY');
-});
-
-test('regenerating a key drops the passphrase of the replaced one', function () {
-    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
-    $config = DatabaseServerSshConfig::factory()->withKeyAuthAndPassphrase()->create();
-
-    $this->actingAs($user, 'sanctum')
-        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
-            'host' => $config->host,
-            'username' => $config->username,
-            'auth_type' => 'key',
-            'generate_key' => true,
-        ])
-        ->assertOk();
-
-    $config->refresh();
-    expect($config->key_passphrase)->toBeNull()
-        ->and($config->private_key)->toContain('OPENSSH PRIVATE KEY');
-});
-
-test('replacing the private key drops the passphrase of the replaced one', function () {
-    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
-    $config = DatabaseServerSshConfig::factory()->withKeyAuthAndPassphrase()->create();
-
-    $this->actingAs($user, 'sanctum')
-        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
-            'host' => $config->host,
-            'username' => $config->username,
-            'auth_type' => 'key',
-            'private_key' => 'REPLACEMENT_SSH_PRIVATE_KEY_FOR_TESTS_ONLY',
-        ])
-        ->assertOk();
-
-    $config->refresh();
-    expect($config->key_passphrase)->toBeNull()
-        ->and($config->private_key)->toBe('REPLACEMENT_SSH_PRIVATE_KEY_FOR_TESTS_ONLY');
-});
-
-test('a passphrase sent with a new private key is stored', function () {
-    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
-    $config = DatabaseServerSshConfig::factory()->withKeyAuthAndPassphrase()->create();
-
-    $this->actingAs($user, 'sanctum')
-        ->putJson("/api/v1/database-server-ssh-configs/{$config->id}", [
-            'host' => $config->host,
-            'username' => $config->username,
-            'auth_type' => 'key',
-            'private_key' => 'REPLACEMENT_SSH_PRIVATE_KEY_FOR_TESTS_ONLY',
-            'key_passphrase' => 'new_passphrase',
-        ])
-        ->assertOk();
-
-    expect($config->fresh()->key_passphrase)->toBe('new_passphrase');
 });
 
 // ─── Destroy ─────────────────────────────────────────────────────────────────

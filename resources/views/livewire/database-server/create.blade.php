@@ -8,7 +8,7 @@
 
     @include('livewire.database-server._form', [
         'form' => $form,
-        'submitLabel' => 'Create Database Server',
+        'submitLabel' => __('Create Database Server'),
         'isEdit' => false,
     ])
 </div>

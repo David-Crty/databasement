@@ -2,15 +2,19 @@
 
 namespace App\Livewire\ScheduledRestore;
 
+use App\Actions\ScheduledRestore\DeleteScheduledRestoreAction;
+use App\Actions\ScheduledRestore\RunScheduledRestoreAction;
 use App\Enums\DatabaseType;
+use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
+use App\Support\Formatters;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
@@ -21,7 +25,7 @@ use Livewire\WithPagination;
 #[Title('Scheduled Restores')]
 class Index extends Component
 {
-    use AuthorizesRequests, FiltersAndPaginates, Toast, WithPagination;
+    use AuthorizesRequests, ConfirmsDeletion, FiltersAndPaginates, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -45,9 +49,9 @@ class Index extends Component
     private const ALLOWED_SORT_COLUMNS = ['name'];
 
     #[Locked]
-    public ?string $deleteScheduledRestoreId = null;
+    public ?string $runScheduledRestoreId = null;
 
-    public bool $showDeleteModal = false;
+    public bool $showRunDisabledModal = false;
 
     #[On('scheduled-restore-saved')]
     public function refreshAfterSave(): void
@@ -90,34 +94,71 @@ class Index extends Component
 
         $this->authorize('run', $scheduledRestore);
 
-        Artisan::call('restores:run', ['scheduledRestore' => $scheduledRestore->id]);
+        if (! $scheduledRestore->enabled) {
+            $this->runScheduledRestoreId = $id;
+            $this->showRunDisabledModal = true;
+
+            return;
+        }
+
+        $this->dispatchRun($scheduledRestore);
+    }
+
+    public function runDisabledNow(): void
+    {
+        if (! $this->runScheduledRestoreId) {
+            return;
+        }
+
+        $scheduledRestore = ScheduledRestore::findOrFail($this->runScheduledRestoreId);
+
+        $this->authorize('run', $scheduledRestore);
+
+        $this->runScheduledRestoreId = null;
+        $this->showRunDisabledModal = false;
+
+        $this->dispatchRun($scheduledRestore);
+    }
+
+    private function dispatchRun(ScheduledRestore $scheduledRestore): void
+    {
+        try {
+            $result = RunScheduledRestoreAction::run($scheduledRestore);
+        } catch (ValidationException $e) {
+            $this->error($e->getMessage(), timeout: 0);
+
+            return;
+        } catch (\Throwable $e) {
+            report($e);
+            $this->error(__('Unable to run the scheduled restore.'), timeout: 0);
+
+            return;
+        }
+
+        if ($result->skipReason !== null) {
+            $this->warning(ScheduledRestore::skipReasonLabel($result->skipReason));
+
+            return;
+        }
 
         $this->success(__('Scheduled restore triggered.'));
     }
 
     public function confirmDelete(string $id): void
     {
-        $scheduledRestore = ScheduledRestore::findOrFail($id);
-
-        $this->authorize('delete', $scheduledRestore);
-
-        $this->deleteScheduledRestoreId = $id;
-        $this->showDeleteModal = true;
+        $this->confirmDeletion(ScheduledRestore::query(), $id);
     }
 
     public function deleteScheduledRestore(): void
     {
-        if (! $this->deleteScheduledRestoreId) {
+        $scheduledRestore = $this->pendingDeletion(ScheduledRestore::query());
+
+        if ($scheduledRestore === null) {
             return;
         }
 
-        $scheduledRestore = ScheduledRestore::findOrFail($this->deleteScheduledRestoreId);
-
-        $this->authorize('delete', $scheduledRestore);
-
-        $scheduledRestore->delete();
-        $this->deleteScheduledRestoreId = null;
-        $this->showDeleteModal = false;
+        DeleteScheduledRestoreAction::run($scheduledRestore);
+        $this->closeDeletion();
 
         $this->success(__('Scheduled restore deleted.'));
     }
@@ -138,11 +179,7 @@ class Index extends Component
      */
     public function serverOptions(): array
     {
-        return DatabaseServer::query()
-            ->orderBy('name')
-            ->get()
-            ->map(fn (DatabaseServer $server) => ['id' => $server->id, 'name' => $server->name])
-            ->toArray();
+        return DatabaseServer::toSelectOptions();
     }
 
     /**
@@ -155,9 +192,7 @@ class Index extends Component
 
     public function render(): View
     {
-        $sortColumn = in_array($this->sortBy['column'], self::ALLOWED_SORT_COLUMNS, true)
-            ? $this->sortBy['column']
-            : 'name';
+        $sortColumn = Formatters::sortColumn($this->sortBy['column'] ?? null, self::ALLOWED_SORT_COLUMNS, 'name');
 
         $query = ScheduledRestore::query()
             ->with(['sourceServer', 'targetServer', 'backupSchedule', 'lastRestore.job'])
@@ -170,7 +205,7 @@ class Index extends Component
             ->when($this->sourceServerFilter, fn (Builder $q) => $q->where('source_server_id', $this->sourceServerFilter))
             ->when($this->targetServerFilter, fn (Builder $q) => $q->where('target_server_id', $this->targetServerFilter))
             ->when($this->dbTypeFilter, fn (Builder $q) => $q->whereHas('targetServer', fn (Builder $sq) => $sq->whereRaw('database_type = ?', [$this->dbTypeFilter])))
-            ->orderBy($sortColumn, $this->sortBy['direction'] === 'desc' ? 'desc' : 'asc');
+            ->orderBy($sortColumn, Formatters::sortDirection($this->sortBy['direction']));
 
         return view('livewire.scheduled-restore.index', [
             'scheduledRestores' => $query->paginate(15),

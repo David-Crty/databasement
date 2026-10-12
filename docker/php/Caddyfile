@@ -1,0 +1,49 @@
+# FrankenPHP configuration for Databasement.
+#
+# Derived from the Caddyfile shipped in dunglas/frankenphp, keeping its
+# environment hooks, with the front-controller restriction below added.
+#
+# https://frankenphp.dev/docs/config
+{
+	skip_install_trust
+
+	{$CADDY_GLOBAL_OPTIONS}
+
+	frankenphp {
+		{$FRANKENPHP_CONFIG}
+	}
+}
+
+{$CADDY_EXTRA_CONFIG}
+
+{$SERVER_NAME:localhost} {
+	root {$SERVER_ROOT:public/}
+	encode zstd br gzip
+
+	{$CADDY_SERVER_EXTRA_DIRECTIVES}
+
+	# Only the front controller runs. Laravel is served entirely through
+	# public/index.php, which try_files reaches internally, so no .php file
+	# needs to be addressable by URL and none is.
+	#
+	# Two spellings have to be refused, and each is handled by a different line
+	# below.
+	#
+	# The matcher ends in *.php* rather than *.php because php_server splits on
+	# .php: a request for /x.php/y does not end in .php, yet it would still run
+	# x.php with /y as PATH_INFO.
+	#
+	# try_files omits the {path}/index.php entry that php_server includes by
+	# default. That entry runs a directory's index.php when the directory itself
+	# is requested, and such a request carries no .php for the matcher to catch.
+	@phpFile path *.php*
+	error @phpFile "Not found" 404
+
+	php_server {
+		try_files {path} index.php
+	}
+}
+
+# Site blocks dropped in this directory are included, provided they use the
+# .caddyfile extension.
+import Caddyfile.d/*.caddyfile

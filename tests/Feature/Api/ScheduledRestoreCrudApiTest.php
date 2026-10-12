@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\Ability;
+use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
+use App\Models\Snapshot;
 use App\Models\User;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Queue;
 
 // ─── Index ───────────────────────────────────────────────────────────────────
 
@@ -74,13 +76,34 @@ test('can create a scheduled restore via api', function () {
 
     $response->assertCreated()
         ->assertJsonPath('data.name', 'Nightly')
-        ->assertJsonPath('data.backup_schedule_id', $schedule->id);
+        ->assertJsonPath('data.backup_schedule_id', $schedule->id)
+        ->assertJsonPath('data.enabled', true);
 
     $this->assertDatabaseHas('scheduled_restores', [
         'name' => 'Nightly',
         'source_server_id' => $source->id,
         'target_server_id' => $target->id,
     ]);
+});
+
+test('store rejects a scheduled restore over the application database', function () {
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    [$source, $target] = createRestoreServerPair();
+    makeAppDatabaseServer($target, 'databasement_app');
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/scheduled-restores', [
+            'name' => 'Nightly',
+            'source_server_id' => $source->id,
+            'source_database_name' => 'app',
+            'target_server_id' => $target->id,
+            'schema_name' => 'databasement_app',
+            'backup_schedule_id' => dailySchedule()->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['schema_name' => 'Cannot restore over the application database.']);
+
+    expect(ScheduledRestore::count())->toBe(0);
 });
 
 test('store rejects mismatched server types', function () {
@@ -100,6 +123,24 @@ test('store rejects mismatched server types', function () {
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['target_server_id']);
+});
+
+test('store validates the schema name against the target server type', function () {
+    $user = User::factory()->create();
+    [$source, $target] = createRestoreServerPair();
+    $schedule = dailySchedule();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/scheduled-restores', [
+            'name' => 'Nightly',
+            'source_server_id' => $source->id,
+            'source_database_name' => 'app',
+            'target_server_id' => $target->id,
+            'schema_name' => '-restored',
+            'backup_schedule_id' => $schedule->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['schema_name']);
 });
 
 test('without operate-restores, creating a scheduled restore via api is forbidden', function () {
@@ -172,7 +213,7 @@ test('can delete a scheduled restore via api', function () {
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 test('can trigger a scheduled restore run via api', function () {
-    Artisan::spy();
+    Queue::fake();
 
     // operate-restores alone is sufficient to run a scheduled restore.
     $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
@@ -182,14 +223,14 @@ test('can trigger a scheduled restore run via api', function () {
         'source_server_id' => $source->id,
         'target_server_id' => $target->id,
     ]);
+    Snapshot::factory()->forServer($source)->create(['database_name' => $scheduled->source_database_name]);
 
     $this->actingAs($user, 'sanctum')
         ->postJson("/api/v1/scheduled-restores/{$scheduled->id}/run")
-        ->assertAccepted();
+        ->assertAccepted()
+        ->assertJson(['skip_reason' => null]);
 
-    Artisan::shouldHaveReceived('call')
-        ->with('restores:run', ['scheduledRestore' => $scheduled->id])
-        ->once();
+    Queue::assertPushed(ProcessRestoreJob::class, 1);
 });
 
 test('without operate-restores, triggering a scheduled restore via api is forbidden', function () {

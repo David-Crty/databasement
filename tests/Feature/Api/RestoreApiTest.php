@@ -1,10 +1,13 @@
 <?php
 
+use App\Actions\Restore\TriggerRestoreAction;
 use App\Enums\Ability;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\DatabaseServer;
+use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
+use App\Services\Backup\DTO\RestoreOptions;
 use Illuminate\Support\Facades\Queue;
 
 test('unauthenticated users cannot trigger a restore', function () {
@@ -120,4 +123,21 @@ test('restore rejects nonexistent snapshot', function () {
 
     $response->assertUnprocessable()
         ->assertJsonValidationErrors(['snapshot_id']);
+});
+
+test('the owner_user option reaches the restore options', function () {
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($server)->create();
+    TriggerRestoreAction::shouldRun()->once()
+        ->withArgs(fn (Snapshot $restored, DatabaseServer $onto, string $schema, RestoreOptions $options) => $options->ownerUser === 'webapp')
+        ->andReturn(Restore::factory()->create());
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/database-servers/{$server->id}/restore", [
+            'snapshot_id' => $snapshot->id,
+            'schema_name' => 'target_db',
+            'options' => ['owner_user' => 'webapp'],
+        ])
+        ->assertStatus(202);
 });

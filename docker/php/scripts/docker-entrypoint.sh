@@ -12,4 +12,16 @@ if [ -z "${APP_DISPLAY_TIMEZONE:-}" ] && [ -n "${TZ:-}" ] && [ "${TZ}" != "UTC" 
 fi
 export TZ=UTC
 
+# A worker started with `command: ... php artisan queue:work ...` would bypass
+# start.sh and run as root. Run it as a worker-only supervisord instead.
+case "$*" in
+    *"artisan queue:work"*)
+        echo "WARNING: Overriding the command to run the queue worker is deprecated and its arguments are ignored." >&2
+        echo "WARNING: Remove 'command:' from the worker service and set ENABLE_QUEUE_WORKER=true, ENABLE_WEB_SERVER=false, ENABLE_SCHEDULER=false instead." >&2
+        echo "WARNING: See https://david-crty.github.io/databasement/self-hosting/migrate-to-1-10" >&2
+        export ENABLE_QUEUE_WORKER=true ENABLE_WEB_SERVER=false ENABLE_SCHEDULER=false
+        exec /usr/local/bin/start.sh
+        ;;
+esac
+
 exec "$@"

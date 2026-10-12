@@ -2,10 +2,10 @@
 
 namespace App\Actions\Fortify;
 
+use App\Actions\Role\AssignRoleToUserAction;
 use App\Models\Organization;
 use App\Models\User;
 use App\Services\DemoBackupService;
-use App\Services\Roles\AssignRoleToUserAction;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -31,7 +31,7 @@ class CreateNewUser implements CreatesNewUsers
     {
         // Only allow registration if no users exist (first admin)
         if (User::count() > 0) {
-            abort(403, 'Registration is closed. Please contact an administrator for an invitation.');
+            abort(403, __('Registration is closed. Please contact an administrator for an invitation.'));
         }
 
         Validator::make($input, [
@@ -64,14 +64,13 @@ class CreateNewUser implements CreatesNewUsers
         ]);
 
         // Attach to main org and grant the Admin role (in addition to the
-        // super_admin flag). The assignment action seeds the global roles first,
-        // covering a fresh install where the seeder has not run.
+        // super_admin flag). The built-in roles are seeded by migration.
         $user->organizations()->attach($defaultOrg->id);
-        app(AssignRoleToUserAction::class)->execute($user, 'admin', $defaultOrg);
+        AssignRoleToUserAction::run($user, 'admin', $defaultOrg);
 
         if ($createDemoBackup) {
             try {
-                $this->demoBackupService->createDemoBackup();
+                $this->demoBackupService->createDemoBackup($defaultOrg);
             } catch (\Throwable $e) {
                 // Log the error but don't fail registration
                 Log::warning('Failed to create demo backup during registration', [

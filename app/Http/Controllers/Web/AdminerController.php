@@ -46,9 +46,12 @@ class AdminerController extends Controller
             DatabaseType::SQLITE => 'sqlite',
         };
 
-        $serverAddress = $server->database_type === DatabaseType::SQLITE
-            ? ''
-            : $server->host.':'.$server->port;
+        // Adminer's MySQL driver reads a non-numeric suffix as the socket.
+        $serverAddress = match (true) {
+            $server->database_type === DatabaseType::SQLITE => '',
+            $server->database_type === DatabaseType::MYSQL && DatabaseType::MYSQL->isSocketHost($server->host) => 'localhost:'.$server->host,
+            default => $server->host.':'.$server->port,
+        };
 
         $db = '';
         $databaseNames = $server->resolveDatabaseNames();

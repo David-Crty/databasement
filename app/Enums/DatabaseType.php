@@ -2,12 +2,15 @@
 
 namespace App\Enums;
 
+use App\Enums\Concerns\HasSelectOptions;
 use App\Models\DatabaseServer;
 use App\Rules\SafeDatabasePath;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 enum DatabaseType: string
 {
+    use HasSelectOptions;
+
     case MYSQL = 'mysql';
     case POSTGRESQL = 'postgres';
     case SQLITE = 'sqlite';
@@ -60,6 +63,35 @@ enum DatabaseType: string
         };
     }
 
+    /**
+     * Whether the dump client can leave out individual tables:
+     * `mariadb-dump --ignore-table` and `pg_dump --exclude-table-and-children`.
+     */
+    public function supportsExcludedTables(): bool
+    {
+        return match ($this) {
+            self::MYSQL, self::POSTGRESQL => true,
+            default => false,
+        };
+    }
+
+    /**
+     * Whether the host may be an absolute path to a Unix socket: a directory
+     * for libpq, the socket file itself for the MySQL clients.
+     */
+    public function supportsSocketHost(): bool
+    {
+        return match ($this) {
+            self::MYSQL, self::POSTGRESQL => true,
+            default => false,
+        };
+    }
+
+    public function isSocketHost(string $host): bool
+    {
+        return $this->supportsSocketHost() && str_starts_with($host, '/');
+    }
+
     public function defaultPort(): int
     {
         return match ($this) {
@@ -86,6 +118,12 @@ enum DatabaseType: string
         // Force TCP by using 127.0.0.1 instead.
         if ($this === self::MYSQL && $host === 'localhost') {
             $host = '127.0.0.1';
+        }
+
+        if ($this === self::MYSQL && $this->isSocketHost($host)) {
+            return $database
+                ? sprintf('mysql:unix_socket=%s;dbname=%s', $host, $database)
+                : sprintf('mysql:unix_socket=%s', $host);
         }
 
         return match ($this) {
@@ -152,6 +190,18 @@ enum DatabaseType: string
     }
 
     /**
+     * The charset a database name is held to on every type that names an
+     * identifier rather than a path. It is also the last line of defence for
+     * the PDO DSN, which interpolates a database name unescaped and treats `;`
+     * and `=` as structure: an identifier restricted to this set carries no
+     * character the DSN parser can act on.
+     *
+     * Anchored with \A and \z rather than ^ and $, which would let a trailing
+     * newline through.
+     */
+    public const string IDENTIFIER_PATTERN = '/\A[a-zA-Z0-9_]+\z/';
+
+    /**
      * Validation rules for a destination database name/path of this type.
      *
      * SQLite accepts any non-empty path. Firebird is a path too but with a
@@ -166,7 +216,7 @@ enum DatabaseType: string
         return match ($this) {
             self::SQLITE => ['required', 'string', 'max:255', new SafeDatabasePath],
             self::FIREBIRD => ['required', 'string', 'max:255', 'regex:/^[a-zA-Z0-9_\/\\\\.\-: ]+$/', new SafeDatabasePath(allowBackslashes: true)],
-            default => ['required', 'string', 'max:64', 'regex:/^[a-zA-Z0-9_]+$/'],
+            default => ['required', 'string', 'max:64', 'regex:'.self::IDENTIFIER_PATTERN],
         };
     }
 
@@ -214,13 +264,23 @@ enum DatabaseType: string
     }
 
     /**
-     * @return array<array{id: string, name: string}>
+     * Every extension {@see dumpExtension()} can produce, across all types and
+     * dump formats. Consumers that have to recognise a dump file without
+     * knowing which type produced it (the encrypted archive is extracted before
+     * the type is known) match against this set.
+     *
+     * @return array<string>
      */
-    public static function toSelectOptions(): array
+    public static function dumpExtensions(): array
     {
-        return array_map(
-            fn (self $type) => ['id' => $type->value, 'name' => $type->label()],
-            self::cases()
-        );
+        $extensions = [];
+
+        foreach (self::cases() as $type) {
+            foreach ([null, 'custom'] as $format) {
+                $extensions[] = $type->dumpExtension($format);
+            }
+        }
+
+        return array_values(array_unique($extensions));
     }
 }

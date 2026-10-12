@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\DatabaseServer\CreateSshConfigAction;
+use App\Actions\DatabaseServer\DeleteSshConfigAction;
+use App\Actions\DatabaseServer\UpdateSshConfigAction;
+use App\Exceptions\DatabaseServer\SshConfigInUseException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveDatabaseServerSshConfigRequest;
 use App\Http\Resources\DatabaseServerSshConfigResource;
@@ -26,7 +30,7 @@ class DatabaseServerSshConfigController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $perPage = max(1, min($request->integer('per_page', 15), 100));
+        $perPage = $this->perPage($request);
 
         $sshConfigs = DatabaseServerSshConfig::query()
             ->orderBy('host')
@@ -61,10 +65,7 @@ class DatabaseServerSshConfigController extends Controller
         $validated = $request->validated();
         $publicKey = $this->generateKeyIfRequested($request, $keyGenerator, $validated);
 
-        $validated['port'] ??= 22;
-        $validated['organization_id'] = app(CurrentOrganization::class)->id();
-
-        $sshConfig = DatabaseServerSshConfig::create($this->clearUnusedCredentials($validated));
+        $sshConfig = CreateSshConfigAction::run(app(CurrentOrganization::class)->model(), $validated);
 
         return new DatabaseServerSshConfigResource($sshConfig)
             ->withPublicKey($publicKey)
@@ -87,28 +88,9 @@ class DatabaseServerSshConfigController extends Controller
         $this->authorize('update', $databaseServerSshConfig);
 
         $validated = $request->validated();
-
-        // Blank credentials mean "keep the stored one" — they are never
-        // readable back through the API, so a client cannot echo them. This
-        // runs before key generation, whose deliberate blanks must survive.
-        foreach (DatabaseServerSshConfig::SENSITIVE_FIELDS as $field) {
-            if (array_key_exists($field, $validated) && blank($validated[$field])) {
-                unset($validated[$field]);
-            }
-        }
-
-        // A client-supplied private key invalidates the passphrase held for the
-        // one it replaces, so that passphrase is dropped unless the request
-        // supplies one for the new key.
-        if (filled($validated['private_key'] ?? null) && ! array_key_exists('key_passphrase', $validated)) {
-            $validated['key_passphrase'] = null;
-        }
-
         $publicKey = $this->generateKeyIfRequested($request, $keyGenerator, $validated);
 
-        $validated['port'] ??= $databaseServerSshConfig->port;
-
-        $databaseServerSshConfig->update($this->clearUnusedCredentials($validated));
+        UpdateSshConfigAction::run($databaseServerSshConfig, $validated);
 
         return new DatabaseServerSshConfigResource($databaseServerSshConfig)
             ->withPublicKey($publicKey);
@@ -125,13 +107,11 @@ class DatabaseServerSshConfigController extends Controller
     {
         $this->authorize('delete', $databaseServerSshConfig);
 
-        if ($databaseServerSshConfig->databaseServers()->exists()) {
-            return response()->json([
-                'message' => 'This SSH configuration is still used by one or more database servers.',
-            ], 422);
+        try {
+            DeleteSshConfigAction::run($databaseServerSshConfig);
+        } catch (SshConfigInUseException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
         }
-
-        $databaseServerSshConfig->delete();
 
         return response()->noContent();
     }
@@ -159,24 +139,5 @@ class DatabaseServerSshConfigController extends Controller
         $validated['key_passphrase'] = null;
 
         return $keypair['public'];
-    }
-
-    /**
-     * Wipe the credentials belonging to the auth type that is not in use, so a
-     * config never keeps a stale password next to a private key.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function clearUnusedCredentials(array $data): array
-    {
-        if ($data['auth_type'] === 'password') {
-            $data['private_key'] = null;
-            $data['key_passphrase'] = null;
-        } else {
-            $data['password'] = null;
-        }
-
-        return $data;
     }
 }

@@ -1,6 +1,9 @@
 <?php
 
+use App\Actions\Backup\TriggerBackupAction;
+use App\Actions\Restore\DispatchRestoreAction;
 use App\Enums\Ability;
+use App\Enums\BackupDiscoveryState;
 use App\Jobs\ProcessBackupJob;
 use App\Jobs\ProcessRestoreJob;
 use App\Mcp\Servers\DatabasementServer;
@@ -10,11 +13,13 @@ use App\Mcp\Tools\ListOrganizationsTool;
 use App\Mcp\Tools\ListSnapshotsTool;
 use App\Mcp\Tools\TriggerBackupTool;
 use App\Mcp\Tools\TriggerRestoreTool;
+use App\Models\Backup;
 use App\Models\BackupJob;
 use App\Models\Organization;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
+use App\Services\Backup\DTO\TriggerBackupResult;
 use Illuminate\Support\Facades\Queue;
 
 test('list database servers returns server data', function () {
@@ -125,6 +130,21 @@ test('trigger restore dispatches job', function () {
     Queue::assertPushed(ProcessRestoreJob::class);
 });
 
+test('trigger restore reports a restore its agent cannot be given', function () {
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    $server = createDatabaseServer(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($server)->create();
+    DispatchRestoreAction::shouldRun()->andThrow(new RuntimeException('No copy of this snapshot is available on a volume the agent can reach.'));
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerRestoreTool::class, [
+        'snapshot_id' => $snapshot->id,
+        'database_server_id' => $server->id,
+        'schema_name' => 'restore_target',
+    ]);
+
+    $response->assertHasErrors(['No copy of this snapshot is available on a volume the agent can reach.']);
+});
+
 test('trigger restore rejects type mismatch', function () {
     Queue::fake();
     $user = User::factory()->create();
@@ -136,6 +156,22 @@ test('trigger restore rejects type mismatch', function () {
         'snapshot_id' => $snapshot->id,
         'database_server_id' => $pgServer->id,
         'schema_name' => 'restore_target',
+    ]);
+
+    $response->assertHasErrors();
+    Queue::assertNothingPushed();
+});
+
+test('trigger restore validates the schema name against the target server type', function () {
+    Queue::fake();
+    $user = User::factory()->create();
+    $server = createDatabaseServer(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($server)->create();
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerRestoreTool::class, [
+        'snapshot_id' => $snapshot->id,
+        'database_server_id' => $server->id,
+        'schema_name' => '-restore_target',
     ]);
 
     $response->assertHasErrors();
@@ -170,6 +206,17 @@ test('get job status returns status info', function () {
     $response->assertOk()
         ->assertSee('completed')
         ->assertSee('status_db');
+});
+
+test('get job status does not reach another organization\'s job', function () {
+    $user = User::factory()->create();
+    $foreign = foreignSnapshot();
+
+    $response = DatabasementServer::actingAs($user)->tool(GetJobStatusTool::class, [
+        'job_id' => $foreign->backup_job_id,
+    ]);
+
+    $response->assertHasErrors();
 });
 
 test('list database servers includes backup configuration', function () {
@@ -246,7 +293,7 @@ test('trigger backup returns snapshot ids', function () {
 
 test('trigger backup rejects server without backup config', function () {
     Queue::fake();
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
 
     // Create server without the factory's afterCreating hook
     $server = \App\Models\DatabaseServer::create([
@@ -265,31 +312,36 @@ test('trigger backup rejects server without backup config', function () {
         'database_server_id' => $server->id,
     ]);
 
-    $response->assertHasErrors();
+    $response->assertHasErrors(['No backup configuration found for this database server.']);
 });
 
-test('trigger backup targets a specific backup id when provided', function () {
+test('trigger backup says when the server\'s backups are disabled', function () {
     Queue::fake();
     $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
-    $server = createDatabaseServer(['database_type' => 'mysql']);
-
-    // Add a second backup on a weekly schedule so there are two to choose from
-    $weekly = \App\Models\BackupSchedule::firstOrCreate(['name' => 'Weekly'], ['expression' => '0 3 * * 0']);
-    $secondBackup = \App\Models\Backup::factory()->for($server)->create([
-        'backup_schedule_id' => $weekly->id,
-        'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
-        'database_names' => ['mydb'],
-    ]);
+    $server = createDatabaseServer(['backups_enabled' => false]);
 
     $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
         'database_server_id' => $server->id,
-        'backup_id' => $secondBackup->id,
     ]);
 
-    $response->assertOk();
+    $response->assertHasErrors(['Backups are disabled for this database server.']);
+    Queue::assertNothingPushed();
+});
 
-    $snapshot = Snapshot::first();
-    expect($snapshot?->backup_id)->toBe($secondBackup->id);
+test('trigger backup targets a specific backup id when provided', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = createDatabaseServer(['database_type' => 'mysql']);
+    $secondBackup = Backup::factory()->for($server)->create();
+
+    TriggerBackupAction::shouldRun()
+        ->once()
+        ->withArgs(fn (Backup $backup) => $backup->is($secondBackup))
+        ->andReturn(new TriggerBackupResult([], BackupDiscoveryState::NotNeeded));
+
+    DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
+        'database_server_id' => $server->id,
+        'backup_id' => $secondBackup->id,
+    ])->assertOk();
 });
 
 test('trigger backup rejects a backup id that does not belong to the server', function () {

@@ -1,6 +1,11 @@
 <?php
 
+use App\Facades\AppConfig;
+use App\Models\BackupSchedule;
+use App\Models\ScheduledRestore;
 use Dotenv\Dotenv;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -29,6 +34,40 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    // Runs only when the scheduler is resolved (schedule:run, schedule:list, ...),
+    // so other commands do not read the database while booting.
+    ->withSchedule(function (Schedule $schedule) {
+        // Register backup schedules dynamically from the database
+        try {
+            foreach (BackupSchedule::all() as $backupSchedule) {
+                $schedule->command('backups:run', [$backupSchedule->id])
+                    ->cron($backupSchedule->expression);
+            }
+        } catch (QueryException) {
+            // Table may not exist yet (pre-migration)
+        }
+
+        // Register scheduled restores dynamically from the database
+        try {
+            foreach (ScheduledRestore::where('enabled', true)->with('backupSchedule')->get() as $scheduledRestore) {
+                $schedule->command('restores:run', [$scheduledRestore->id])
+                    ->cron($scheduledRestore->backupSchedule->expression);
+            }
+        } catch (QueryException) {
+            // Table may not exist yet (pre-migration)
+        }
+
+        // Cleanup expired snapshots (default: every day at 4:00 AM)
+        $schedule->command('snapshots:cleanup')->cron(AppConfig::get('backup.cleanup_cron'));
+
+        // Verify snapshot files exist on volumes (default: every day at 5:00 AM)
+        $schedule->command('snapshots:verify-files')
+            ->cron(AppConfig::get('backup.verify_files_cron'))
+            ->when(fn () => AppConfig::get('backup.verify_files'));
+
+        // Recover stuck jobs (expired agent leases and timed-out backup jobs)
+        $schedule->command('jobs:recover-stuck')->everyFiveMinutes();
+    })
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(
             at: env('TRUSTED_PROXIES', TRUSTED_PROXIES_DEFAULT),
@@ -55,15 +94,27 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\SetCurrentOrganization::class,
             \App\Http\Middleware\ScopeBouncer::class,
         ]);
+        // OrganizationScope is a no-op while no organization is resolved, so
+        // SetCurrentOrganization has to run ahead of SubstituteBindings: a route
+        // {model} parameter bound before it resolves across every tenant.
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\SetCurrentOrganization::class,
+        );
         $middleware->preventRequestForgery(except: [
             'adminer',
         ]);
         $middleware->alias([
             'agent' => \App\Http\Middleware\EnsureAgentToken::class,
+            'user' => \App\Http\Middleware\EnsureUserToken::class,
             'throttle-failed-agent-auth' => \App\Http\Middleware\ThrottleFailedAgentAuth::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // An agent reporting on a job cancelled after its request was let in.
+        $exceptions->dontReport(\App\Exceptions\Backup\JobCancelledException::class);
+        $exceptions->render(fn (\App\Exceptions\Backup\JobCancelledException $e) => response()->json(['message' => $e->getMessage()], 409));
+
         $exceptions->renderable(function (\Illuminate\Contracts\Encryption\DecryptException $e, $request) {
             if ($request->is('two-factor-challenge')) {
                 return redirect()->route('login')->withErrors([

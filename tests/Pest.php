@@ -134,7 +134,7 @@ function attachUserToOrg(
         $user->organizations()->attach($org->id);
     }
 
-    app(\App\Services\Roles\AssignRoleToUserAction::class)->execute($user, $role, $org);
+    \App\Actions\Role\AssignRoleToUserAction::run($user, $role, $org);
 }
 
 function dailySchedule(): \App\Models\BackupSchedule
@@ -195,18 +195,57 @@ function foreignSnapshot(string $databaseType = 'mysql'): \App\Models\Snapshot
 }
 
 /**
+ * The pending snapshot (and its job) of a manual run of the server's first
+ * backup configuration, created the way the app creates it.
+ */
+function pendingSnapshot(\App\Models\DatabaseServer $server, ?int $triggeredByUserId = null): \App\Models\Snapshot
+{
+    return app(\App\Services\Backup\BackupJobFactory::class)
+        ->createSnapshots($server->backups->first(), 'manual', $triggeredByUserId)[0];
+}
+
+/**
  * A completed restore owned by an organization the actor is not a member of.
  */
 function foreignRestore(): \App\Models\Restore
 {
     $snapshot = foreignSnapshot();
 
-    return \App\Models\Restore::create([
-        'backup_job_id' => \App\Models\BackupJob::create(['status' => 'completed'])->id,
+    return \App\Models\Restore::factory()->create([
         'snapshot_id' => $snapshot->id,
         'target_server_id' => $snapshot->database_server_id,
         'schema_name' => 'victim_confidential_schema',
     ]);
+}
+
+/**
+ * Create a restore of a MySQL snapshot onto a server behind $agent and
+ * dispatch it, returning the restore and the agent job it produced.
+ *
+ * @return array{restore: \App\Models\Restore, agentJob: \App\Models\AgentJob}
+ */
+function dispatchAgentRestore(\App\Models\Agent $agent, \App\Models\Volume ...$volumes): array
+{
+    $target = \App\Models\DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => $agent->id]);
+    $source = \App\Models\DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = \App\Models\Snapshot::factory()->forServer($source)
+        ->onVolumes(...($volumes ?: [\App\Models\Volume::factory()->s3()->create()]))
+        ->create();
+
+    $restore = app(\App\Services\Backup\BackupJobFactory::class)->createRestore($snapshot, $target, 'restored_db');
+    \App\Actions\Restore\DispatchRestoreAction::run($restore);
+
+    return ['restore' => $restore, 'agentJob' => \App\Models\AgentJob::where('restore_id', $restore->id)->sole()];
+}
+
+/**
+ * Claim $agentJob for $agent and return a token the agent can call the API with.
+ */
+function claimAsAgent(\App\Models\Agent $agent, \App\Models\AgentJob $agentJob): string
+{
+    $agentJob->claim($agent);
+
+    return $agent->createToken('agent')->plainTextToken;
 }
 
 /**
@@ -241,6 +280,22 @@ function createScheduledRestore(array $attrs = []): \App\Models\ScheduledRestore
         'source_database_name' => 'app',
         'schema_name' => 'restored_db',
     ], array_diff_key($attrs, ['source' => null, 'target' => null])));
+}
+
+/**
+ * Point the app's own connection at $server, as when databasement backs up
+ * the MySQL server it runs on.
+ */
+function makeAppDatabaseServer(\App\Models\DatabaseServer $server, string $database): void
+{
+    $connection = config('database.default');
+
+    config([
+        "database.connections.{$connection}.driver" => 'mysql',
+        "database.connections.{$connection}.host" => $server->host,
+        "database.connections.{$connection}.port" => $server->port,
+        "database.connections.{$connection}.database" => $database,
+    ]);
 }
 
 /*

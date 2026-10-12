@@ -2,13 +2,12 @@
 
 namespace App\Livewire\Configuration;
 
+use App\Livewire\Configuration\Concerns\GatesConfigurationWrites;
 use App\Models\DatabaseServer;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
-use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Displays the environment variables that control application behavior
@@ -18,7 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 #[Title('Configuration')]
 class Application extends Component
 {
-    use Toast;
+    use GatesConfigurationWrites, Toast;
 
     public Form $form;
 
@@ -32,15 +31,14 @@ class Application extends Component
      * DatabaseServerPolicy@manageAdminer (super admins). The rest of the screen
      * is read-only for everyone.
      */
-    #[Computed]
-    public function canManage(): bool
+    protected function manageGate(): array
     {
-        return auth()->user()->can('manageAdminer', DatabaseServer::class);
+        return ['manageAdminer', DatabaseServer::class];
     }
 
     public function saveApplicationConfig(): void
     {
-        abort_unless(auth()->user()->can('manageAdminer', DatabaseServer::class), Response::HTTP_FORBIDDEN);
+        $this->authorizeManage();
 
         $this->form->saveApplication();
 

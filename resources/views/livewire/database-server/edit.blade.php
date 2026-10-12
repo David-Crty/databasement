@@ -7,7 +7,7 @@
 
     @include('livewire.database-server._form', [
         'form' => $form,
-        'submitLabel' => 'Update Database Server',
+        'submitLabel' => __('Update Database Server'),
         'isEdit' => true,
     ])
 </div>

@@ -1,23 +1,10 @@
 <div>
-    <x-header :title="__('Configuration')" separator>
-        <x-slot:subtitle>
-            {{ __('Define what each role can do. Changes apply immediately, no redeploy needed.') }}
-        </x-slot:subtitle>
-    </x-header>
-
-    @include('livewire.configuration._tabs', ['active' => 'roles'])
+    <x-configuration-header active="roles" :subtitle="__('Define what each role can do. Changes apply immediately, no redeploy needed.')" />
 
     <x-card shadow class="min-w-0">
-        <x-card-heading :title="__('Roles')" :subtitle="__('Roles bundle abilities that control what users can do.')">
-            <x-button
-                :label="__('Documentation')"
-                icon="o-book-open"
-                link="https://david-crty.github.io/databasement/user-guide/permissions"
-                external
-                class="btn-ghost btn-sm"
-            />
+        <x-card-heading :title="__('Roles')" :subtitle="__('Roles bundle abilities that control what users can do.')" docs="user-guide/permissions">
             @can('create', \Silber\Bouncer\Database\Role::class)
-                <x-button :label="__('New role')" icon="o-plus" wire:click="openCreate" class="btn-primary btn-sm" />
+                <x-button :label="__('New role')" icon="o-plus" wire:click="openCreate" spinner class="btn-primary btn-sm" />
             @endcan
         </x-card-heading>
 
@@ -43,10 +30,10 @@
             @scope('cell_actions', $role)
                 <div class="flex justify-end flex-nowrap gap-1">
                     @can('update', $role)
-                        <x-button icon="o-pencil" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openEdit({{ $role->id }})" :tooltip-left="__('Edit')" />
+                        <x-button icon="o-pencil" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openEdit({{ $role->id }})" spinner :tooltip-left="__('Edit')" />
                     @endcan
                     @can('delete', $role)
-                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDelete({{ $role->id }})" :tooltip-left="__('Delete')" />
+                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDelete({{ $role->id }})" spinner :tooltip-left="__('Delete')" />
                     @endcan
                 </div>
             @endscope
@@ -66,7 +53,7 @@
 
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showFormModal = false" />
-            <x-button :label="__('Save')" class="btn-primary" wire:click="save" spinner="save" />
+            <x-button :label="__('Save')" class="btn-primary" wire:click="save" spinner />
         </x-slot:actions>
     </x-modal>
 

@@ -1,26 +1,13 @@
 <div>
-    <x-header :title="__('Configuration')" separator>
-        <x-slot:subtitle>
-            @if ($this->canManage)
-                {{ __('Manage application settings.') }}
-            @else
-                {{ __('View application settings. Only administrators can modify these settings.') }}
-            @endif
-        </x-slot:subtitle>
-    </x-header>
-
-    @include('livewire.configuration._tabs', ['active' => 'application'])
+    <x-configuration-header
+        active="application"
+        :subtitle="$this->canManage
+            ? __('Manage application settings.')
+            : __('View application settings. Only administrators can modify these settings.')"
+    />
 
     <x-card shadow class="min-w-0">
-        <x-card-heading :title="__('Application')" :subtitle="__('Environment variables controlling application behavior.')">
-            <x-button
-                :label="__('Documentation')"
-                icon="o-book-open"
-                link="https://david-crty.github.io/databasement/self-hosting/configuration/application"
-                external
-                class="btn-ghost btn-sm"
-            />
-        </x-card-heading>
+        <x-card-heading :title="__('Application')" :subtitle="__('Environment variables controlling application behavior.')" docs="self-hosting/configuration/application" />
         @include('livewire.configuration._config-table', ['rows' => $appConfig])
 
         <form wire:submit="saveApplicationConfig" class="mt-4 border-t border-base-200/60 pt-4">

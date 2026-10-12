@@ -14,6 +14,14 @@ You can also trigger verification manually from the dashboard.
 
 See [Backup Configuration](../self-hosting/configuration/backup.md) for `BACKUP_VERIFY_FILES` and `BACKUP_VERIFY_FILES_CRON` settings.
 
+## Deleting Snapshots
+
+On the Snapshots page, tick the rows to delete, or tick the header checkbox to select the whole page and then **Select all matching snapshots** to extend the selection to every snapshot matching the current search and filters. Filtering on **File missing** first is a quick way to clean up snapshots whose files were removed from the volume.
+
+Deletion runs in the background on the queue worker, and the snapshots show as **Deleting** until they are removed. Locked snapshots and snapshots whose backup is still in progress are skipped. Through the API, use `DELETE /api/v1/snapshots/{id}` for one snapshot or `POST /api/v1/snapshots/bulk-delete` with a list of `ids` for many.
+
+A snapshot is only removed once its file is gone from every volume. If a volume cannot be reached or refuses the deletion, the snapshot is kept and that volume's badge turns red with the error, so the file is never left on the volume untracked. Delete the snapshot again once the volume is back; retention retries on its own at its next run.
+
 ## Restore Process
 
 When you restore a snapshot, Databasement:
@@ -24,12 +32,20 @@ When you restore a snapshot, Databasement:
 4. Drops and recreates the target database (if it exists)
 5. Restores the data using native database tools
 
+A pending or running restore can be cancelled from the **Restores** page or its job logs, with the `operate-restores` ability. It stops at its next step, or within 30 seconds while a command runs. A restore cancelled after step 4 leaves the target database partially restored.
+
 ### Restore Commands
 
-**MySQL/MariaDB:**
+**MariaDB** (10.2 and later):
 ```bash
 mariadb --host='...' --port='...' --user='...' --password='...' --skip_ssl \
   'database_name' -e "source /path/to/dump.sql"
+```
+
+**MySQL** (and MariaDB below 10.2), using the bundled Oracle client:
+```bash
+/opt/mysql-client/bin/mysql --host='...' --port='...' --user='...' --password='...' --ssl-mode=DISABLED \
+  'database_name' < '/path/to/dump.sql'
 ```
 
 **PostgreSQL:**
@@ -37,6 +53,8 @@ mariadb --host='...' --port='...' --user='...' --password='...' --skip_ssl \
 PGPASSWORD='...' psql --host='...' --port='...' --username='...' \
   'database_name' -f '/path/to/dump.sql'
 ```
+
+Custom-format snapshots are restored with `pg_restore` instead, one table at a time by default. For large databases, tick **Parallel restore (4 jobs)** in the restore dialog to run it with `--jobs=4`. Leave it off when the database uses an extension whose tables reference each other, such as pgAgent: a parallel restore loads their data in any order and fails their foreign keys.
 
 **SQLite:**
 ```bash

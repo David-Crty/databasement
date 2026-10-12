@@ -6,11 +6,11 @@
         <div class="flex items-end justify-between">
             <div class="flex items-baseline gap-1.5">
                 <span class="text-3xl font-bold tabular-nums">{{ number_format($totalSnapshots) }}</span>
-                <span class="text-sm text-base-content/40">{{ __('snapshots') }}</span>
+                <span class="text-sm text-base-content/40">{{ __('Snapshots') }}</span>
             </div>
 
             @if($missingSnapshots > 0)
-                <a href="{{ route('snapshots.index', ['fileMissing' => '1']) }}"
+                <a href="{{ route('snapshots.index', ['flagFilter' => 'missing']) }}"
                    class="badge badge-warning badge-sm gap-1 py-2.5 hover:brightness-95 transition-all" wire:navigate>
                     <x-icon name="o-exclamation-triangle" class="w-3.5 h-3.5"/>
                     {{ $missingSnapshots }} {{ __('missing') }}

@@ -51,7 +51,7 @@ sudo apt install -y mariadb-client
 ```
 
 :::note
-Databasement uses the MariaDB CLI tools (`mariadb-dump`, `mariadb`) to back up and restore both MariaDB and MySQL servers.
+On a native install Databasement uses the MariaDB CLI tools (`mariadb-dump`, `mariadb`) for both MariaDB and MySQL servers. The Docker image also ships Oracle's `mysqldump` and runs it for MySQL servers and for MariaDB servers below 10.2, which `mariadb-dump` cannot read; a native install has only the MariaDB client, so those servers are not supported here.
 :::
 
 ### For PostgreSQL backups

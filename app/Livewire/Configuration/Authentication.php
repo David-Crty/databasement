@@ -57,6 +57,14 @@ class Authentication extends Component
                 'value' => config('oauth.auto_create_users') ? 'true' : 'false',
                 'description' => __('Automatically create users on first OAuth login.'),
             ],
+            ...collect(['google' => 'GOOGLE', 'github' => 'GITHUB', 'gitlab' => 'GITLAB'])
+                ->map(fn (string $env, string $provider) => [
+                    'env' => "OAUTH_{$env}_AUTO_CREATE_USERS",
+                    'value' => (config("oauth.providers.{$provider}.auto_create_users") ?? config('oauth.auto_create_users')) ? 'true' : 'false',
+                    'description' => __('Automatically create users on first OAuth login.'),
+                ])
+                ->values()
+                ->all(),
             [
                 'env' => 'OAUTH_DEFAULT_ROLE',
                 'value' => config('oauth.default_role') ?: '-',

@@ -29,6 +29,8 @@ class RestoreRequest extends FormRequest
         return [
             'snapshot_id' => ['required', 'string', 'exists:snapshots,id'],
             'schema_name' => $server->database_type->databaseNameRules(),
+            'options' => ['nullable', 'array'],
+            'options.owner_user' => ['nullable', 'string', 'max:255'],
         ];
     }
 

@@ -2,6 +2,9 @@
 
 namespace App\Livewire\Volume;
 
+use App\Actions\Volume\DeleteVolumeAction;
+use App\Exceptions\Volume\VolumeFilesNotDeletedException;
+use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\Snapshot;
 use App\Models\Volume;
@@ -9,7 +12,6 @@ use App\Queries\VolumeQuery;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -18,18 +20,13 @@ use Livewire\WithPagination;
 #[Title('Volumes')]
 class Index extends Component
 {
-    use AuthorizesRequests, FiltersAndPaginates, Toast, WithPagination;
+    use AuthorizesRequests, ConfirmsDeletion, FiltersAndPaginates, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
-
-    #[Locked]
-    public ?string $deleteId = null;
-
-    public bool $showDeleteModal = false;
 
     public int $deleteSnapshotCount = 0;
 
@@ -51,11 +48,8 @@ class Index extends Component
 
     public function confirmDelete(string $id): void
     {
-        $volume = Volume::findOrFail($id);
+        $volume = $this->confirmDeletion(Volume::query(), $id);
 
-        $this->authorize('delete', $volume);
-
-        $this->deleteId = $id;
         // Only snapshots whose sole remaining copy lives on this volume are
         // deleted with it; multi-volume snapshots survive.
         $this->deleteSnapshotCount = Snapshot::query()
@@ -63,23 +57,26 @@ class Index extends Component
             ->whereDoesntHave('files', fn ($q) => $q->whereRaw('volume_id != ?', [$volume->id]))
             ->count();
         $this->keepFiles = false;
-        $this->showDeleteModal = true;
     }
 
     public function delete(): void
     {
-        if (! $this->deleteId) {
+        $volume = $this->pendingDeletion(Volume::query());
+
+        if ($volume === null) {
             return;
         }
 
-        $volume = Volume::findOrFail($this->deleteId);
+        try {
+            DeleteVolumeAction::run($volume, $this->keepFiles);
+        } catch (VolumeFilesNotDeletedException) {
+            $this->closeDeletion();
+            $this->error(__('The volume was kept because some backup files could not be deleted from it. Try again, or delete it while keeping the files.'));
 
-        $this->authorize('delete', $volume);
+            return;
+        }
 
-        $volume->skipFileCleanup = $this->keepFiles;
-        $volume->delete();
-        $this->deleteId = null;
-        $this->showDeleteModal = false;
+        $this->closeDeletion();
 
         $this->success(__('Volume deleted successfully!'));
     }

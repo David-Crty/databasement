@@ -22,7 +22,6 @@ trait OpensAdminerForServer
             serverName: $server->name,
             databaseIcon: $server->database_type->icon(),
             databaseType: $server->database_type->label(),
-            adminerUrl: route('adminer'),
         );
     }
 }

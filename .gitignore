@@ -17,7 +17,9 @@ Homestead.yaml
 npm-debug.log
 yarn-error.log
 /auth.json
-/.claude
+/.claude/skills/
+/.claude/worktrees/
+/.claude/settings.local.json
 /.fleet
 /.idea
 /.nova

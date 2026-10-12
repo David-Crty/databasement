@@ -307,6 +307,66 @@ test('can create database server with dump flags', function () {
         ->toBe('--no-tablespaces --column-statistics=0');
 });
 
+test('can create database server with excluded tables', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'MySQL Excluding Logs')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.backups.0.exclude_tables', true)
+        ->set('form.backups.0.excluded_tables', "web_api_log, web_service_log\naudit_log")
+        ->set('form.backups.0.database_names.0', 'myapp')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('database-servers.index'));
+
+    $server = DatabaseServer::where('name', 'MySQL Excluding Logs')->first();
+
+    expect($server->backups->first()->excluded_tables)
+        ->toBe(['web_api_log', 'web_service_log', 'audit_log']);
+});
+
+test('rejects excluded table names that are not plain identifiers', function (string $excluded) {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'MySQL Bad Exclusions')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'mysql.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.backups.0.exclude_tables', true)
+        ->set('form.backups.0.excluded_tables', $excluded)
+        ->set('form.backups.0.database_names.0', 'myapp')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->call('save')
+        ->assertHasErrors('form.backups.0.excluded_tables');
+
+    expect(DatabaseServer::where('name', 'MySQL Bad Exclusions')->exists())->toBeFalse();
+})->with([
+    'space in name' => ['web api log'],
+    'statement terminator' => ['logs; DROP TABLE users'],
+    'sql comment' => ['logs --'],
+    'schema qualified' => ['datasoft.web_api_log'],
+    'shell substitution' => ['$(whoami)'],
+    'wildcard' => ['web_*'],
+    'over 64 characters' => ['a123456789012345678901234567890123456789012345678901234567890123456789'],
+]);
+
 test('can create mysql database server with ssl_enabled', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create(['name' => 'Test Volume']);
@@ -465,7 +525,7 @@ test('backup summary is incomplete until volume and schedule are set, then rende
     $component
         ->assertDontSee('Configuration incomplete')
         ->assertSee('Summary')
-        ->assertSee('all databases')
+        ->assertSee('All databases')
         ->assertSee('Prod Backups')
         ->assertSee('Every day at 2:00am (Daily)')
         ->assertSee('the last 30 days');
@@ -614,3 +674,84 @@ test('without manage-database-servers, the create screen is forbidden', function
         ->test(Create::class)
         ->assertForbidden();
 });
+
+test('postgres connection database round-trips through the form', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'postgres')
+        ->assertSee('Connection database')
+        ->set('form.name', 'Managed PG')
+        ->set('form.host', 'pg.example.com')
+        ->set('form.port', 5432)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.connection_database', 'app_db')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_names.0', 'app_db')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    $server = DatabaseServer::where('name', 'Managed PG')->firstOrFail();
+
+    expect($server->getExtraConfig('connection_database'))->toBe('app_db')
+        ->and(DatabaseProvider::connectionDatabase($server->extra_config))->toBe('app_db');
+
+    // The edit form must hydrate it back, otherwise saving again silently drops it.
+    Livewire::actingAs($user)
+        ->test(\App\Livewire\DatabaseServer\Edit::class, ['server' => $server])
+        ->assertSet('form.connection_database', 'app_db');
+});
+
+test('a failed save points the user at the first invalid field', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    $component = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.name', 'Prod MySQL')
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.example.com')
+        ->set('form.port', 3306)
+        ->set('form.username', 'dbuser')
+        ->set('form.password', 'secret123')
+        ->set('form.dump_flags', '--result-file asdasd')
+        ->set('form.backups.0.volume_ids', [$volume->id])
+        ->set('form.backups.0.backup_schedule_id', dailySchedule()->id)
+        ->set('form.backups.0.retention_days', 14)
+        ->set('form.backups.0.database_names.0', 'myapp_production')
+        ->call('save')
+        ->assertHasErrors('form.dump_flags')
+        ->assertDispatched('validation-failed', field: 'form.dump_flags')
+        // The offending field lives in a collapsed section, so the error is
+        // unreachable unless the section is expanded too.
+        ->assertSet('form.dump_config_open', true);
+
+    expect(json_encode($component->effects['xjs'] ?? []))
+        ->toContain('1 field needs your attention');
+});
+
+test('the dump preview names the client the detected server needs', function (?string $version, string $expectedBinary) {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $provider = Mockery::mock(DatabaseProvider::class)->makePartial();
+    $provider->shouldReceive('serverVersionForServer')->andReturn($version);
+    app()->instance(DatabaseProvider::class, $provider);
+
+    $form = Livewire::actingAs($user)
+        ->test(Create::class)
+        ->set('form.database_type', 'mysql')
+        ->set('form.host', 'db.local')
+        ->set('form.username', 'root')
+        ->set('form.password', 'secret')
+        ->viewData('form');
+
+    expect($form->getDumpCommandPreview())->toStartWith($expectedBinary);
+})->with([
+    'MySQL' => ['8.4.11', '/opt/mysql-client/bin/mysqldump '],
+    'unreachable server keeps the previous output' => [null, 'mariadb-dump '],
+]);

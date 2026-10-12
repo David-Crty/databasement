@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\BackupSchedule\CreateBackupScheduleAction;
+use App\Actions\BackupSchedule\DeleteBackupScheduleAction;
+use App\Actions\BackupSchedule\UpdateBackupScheduleAction;
+use App\Exceptions\Backup\BackupScheduleInUseException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveBackupScheduleRequest;
 use App\Http\Resources\BackupScheduleResource;
@@ -24,7 +28,7 @@ class BackupScheduleController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $perPage = min($request->integer('per_page', 15), 100);
+        $perPage = $this->perPage($request);
 
         $schedules = BackupSchedule::query()
             ->orderBy('name')
@@ -50,7 +54,7 @@ class BackupScheduleController extends Controller
     {
         $this->authorize('create', BackupSchedule::class);
 
-        $schedule = BackupSchedule::create($request->validated());
+        $schedule = CreateBackupScheduleAction::run($request->string('name')->value(), $request->string('expression')->value());
 
         return (new BackupScheduleResource($schedule))
             ->response()
@@ -64,13 +68,18 @@ class BackupScheduleController extends Controller
     {
         $this->authorize('update', $backupSchedule);
 
-        $backupSchedule->update($request->validated());
-
-        return new BackupScheduleResource($backupSchedule);
+        return new BackupScheduleResource(UpdateBackupScheduleAction::run(
+            $backupSchedule,
+            $request->string('name')->value(),
+            $request->string('expression')->value(),
+        ));
     }
 
     /**
      * Delete a backup schedule.
+     *
+     * A schedule that backups or scheduled restores still run on cannot be
+     * deleted.
      *
      * @response 204
      */
@@ -78,7 +87,11 @@ class BackupScheduleController extends Controller
     {
         $this->authorize('delete', $backupSchedule);
 
-        $backupSchedule->delete();
+        try {
+            DeleteBackupScheduleAction::run($backupSchedule);
+        } catch (BackupScheduleInUseException $e) {
+            abort(409, $e->getMessage());
+        }
 
         return response()->noContent();
     }

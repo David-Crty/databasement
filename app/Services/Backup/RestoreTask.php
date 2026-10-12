@@ -13,7 +13,6 @@ use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
-use App\Support\FilesystemSupport;
 use App\Support\Formatters;
 
 class RestoreTask
@@ -38,7 +37,7 @@ class RestoreTask
      * Execute the core restore workflow: download, decompress, prepare, restore.
      *
      * This is the pure restore engine with no model persistence.
-     * `ProcessRestoreJob` delegates to this method.
+     * `ProcessRestoreJob` and the remote agent delegate to this method.
      */
     public function execute(RestoreConfig $config, BackupLogger $logger): void
     {
@@ -71,7 +70,7 @@ class RestoreTask
             ]);
             $transferStart = microtime(true);
             $this->filesystemProvider->downloadFromConfig($config->snapshotVolume, $config->snapshotFilename, $compressedFile);
-            $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
+            $transferDuration = Formatters::humanDuration(Formatters::elapsedMs($transferStart));
             $logger->log('Download completed successfully in '.$transferDuration, 'success');
 
             // Decompress the archive
@@ -85,9 +84,15 @@ class RestoreTask
                 $config->snapshotDatabaseName,
                 $config->snapshotDumpFormat,
                 $config->snapshotDumpPrivileges,
+                $config->parallelRestore,
             );
 
             $this->prepareDatabase($database, $config->schemaName, $logger, $config->forceDatabase);
+
+            if ($config->ownerUser !== null && $database instanceof Databases\PostgresqlDatabase) {
+                $logger->log("Transferring ownership of database \"{$config->schemaName}\" to user \"{$config->ownerUser}\"", 'info');
+                $database->transferOwnership($config->schemaName, $config->ownerUser, $logger);
+            }
 
             $logger->log('Restoring database from snapshot', 'info', [
                 'source_database' => $config->snapshotDatabaseName,
@@ -100,11 +105,6 @@ class RestoreTask
             }
             if ($result->log !== null) {
                 $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
-            }
-
-            if ($config->ownerUser !== null && $database instanceof Databases\PostgresqlDatabase) {
-                $logger->log("Transferring ownership of database \"{$config->schemaName}\" to user \"{$config->ownerUser}\"", 'info');
-                $database->transferOwnership($config->schemaName, $config->ownerUser, $logger);
             }
 
             // Mark job as completed
@@ -127,14 +127,7 @@ class RestoreTask
                 ],
             );
         } finally {
-            // Close SSH tunnel if active
-            $this->closeSshTunnel($logger);
-
-            // Clean up working directory and all files within
-            if (is_dir($config->workingDirectory)) {
-                $logger->log('Cleaning up temporary files', 'info');
-                FilesystemSupport::cleanupDirectory($config->workingDirectory);
-            }
+            $this->cleanUpRun($config->workingDirectory, $logger);
         }
     }
 

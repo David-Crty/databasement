@@ -8,7 +8,11 @@ This is a Laravel application for managing database server backups. It uses Live
 
 ## Development Commands
 
-**IMPORTANT**: All PHP commands MUST be run through Docker. Never run `php`, `composer`, or `vendor/bin/*` commands directly on the host. Use the Makefile targets or `docker compose exec --user application -T app <command>` instead. Always include `--user application` to ensure correct file permissions.
+**IMPORTANT**: All PHP commands MUST be run through Docker. Never run `php`, `composer`, or `vendor/bin/*` commands directly on the host. Use the Makefile targets or `docker compose exec --user application -T app <command>` instead. Always include `--user application` to ensure correct file permissions. 
+
+**In a git worktree, use the Makefile targets** (they work unchanged there, a bare `docker compose` does not). Load the `worktree-development` skill before running anything in one.
+
+This overrides any bundled guideline or skill that shows a bare command — notably the `pestphp/pest-plugin-agent` rules at the end of this file, whose `vendor/bin/pest --agent='…'` examples must be run as `docker compose exec --user application -T app vendor/bin/pest --agent='…'`.
 
 ### Setup and Installation
 ```bash
@@ -35,9 +39,34 @@ make test                           # Run all tests in parallel (fast iteration)
 make test-sequential                # Run tests sequentially (for debugging only)
 make test-filter FILTER=DatabaseServer  # Run specific test class/method
 make test-coverage                  # Run tests with coverage report
+make test-tia                       # Fast TIA replay - a hint only, never a gate (see below)
+make test-tia-baseline              # (Re)record the TIA baseline
 ```
 
-Tests run in parallel by default using Pest's parallel testing feature. This significantly speeds up the test suite (~12-18s for 350+ tests). Use `make test-sequential` if you need to debug test order issues.
+Tests run in parallel by default using Pest's parallel testing feature. The full suite is about 1700 tests. Use `make test-sequential` if you need to debug test order issues.
+
+`make test` and the pre-commit hook can take a few minutes depending on the machine (around 5 minutes in CI). Give the Bash call a long timeout (up to 600000 ms) or run it in the background.
+
+#### Test Impact Analysis (`make test-tia`)
+
+Pest 5's TIA replays cached results and re-runs only the tests affected by the working tree, turning the ~110s suite into a ~2s replay. It is **opt-in only** — it is deliberately absent from `make test`, the pre-commit hook, and CI.
+
+**Never treat a green `make test-tia` as proof the suite passes.** On this codebase the recorded graph carries test edges for only 177 of 291 `app/` files, and `app/Livewire` is almost entirely missing (2 of 70 files have edges). Removing an `authorize()` call from a Livewire component produced `1487 passed` under TIA while the full suite failed on it. Use it for fast inner-loop feedback, then always confirm with `make test` before committing.
+
+Two gotchas if you touch these targets:
+- `php artisan test` rejects `--tia` (Collision does not forward the option), so the TIA targets call `vendor/bin/pest` directly.
+- The baseline **must** be recorded with `--coverage`. Without it, Pest's own recorder registers zero `app/` files (pcov only sees files compiled inside its start window, and Laravel compiles everything during bootstrap), so every change replays green.
+
+#### One-off snippets (`--agent`)
+
+`pestphp/pest-plugin-agent` runs a snippet inside the full test environment (factories, `RefreshDatabase`, HTTP/Livewire assertions) without creating a test file. Prefer this over `tinker` when you need to verify behaviour that depends on the testing config:
+
+```bash
+docker compose exec --user application -T app vendor/bin/pest \
+  --agent='$user = \App\Models\User::factory()->create(); $this->actingAs($user)->get("/dashboard")->assertOk();'
+```
+
+The rest of the `pest-plugin-agent` skill applies as written.
 
 #### Agent-Optimized Output (laravel/pao)
 
@@ -53,6 +82,16 @@ A failing run adds a `failures` array with the file, line, and message for each 
 - Focus on testing business logic and behaviors
 - Do not test framework internals or trust that Laravel/Livewire works correctly
 - Keep tests minimal and focused - one test per behavior when possible
+
+#### Where does a test go?
+
+| You are testing… | Put it in… |
+|---|---|
+| A business rule, an edge case of an operation, what gets persisted, dispatched or notified | `tests/Feature/Actions/<Domain>/<Action>Test.php` |
+| Who may call it (abilities, demo mode, organization isolation) | The edge test, as an allow/deny pair named by ability |
+| How edge input becomes action arguments | The edge test, with `<Action>::shouldRun()->withArgs(...)` |
+| Status codes, JSON shape, MCP text, toasts, command output | The edge test |
+| That the edge is wired at all | **One** unmocked happy path per edge |
 
 #### What NOT to Test
 - **Form validation rules** - Laravel validation works, don't test `required`, `max:255`, etc.
@@ -88,6 +127,8 @@ make analyse            # Alias for phpstan
 
 make ide-helper         # Regenerate model type hints for PHPStan
 ```
+
+PHPStan analyses `app/` only (level 7). `pestphp/pest-plugin-phpstan` is registered in `phpstan.neon` so Pest's functional API (`it`/`test`/`expect`, closure `$this`) is understood, but it stays dormant until `tests/` is added to `paths` — which is a separate piece of work (~380 errors at level 2, 1000+ at level 7).
 
 ### Model Type Hints (IDE Helper)
 
@@ -129,7 +170,7 @@ The Docker setup provides:
 
 ## Agent Mode
 
-When `DATABASEMENT_URL` is set, the app runs as a remote agent — it only executes the `agent:run` CLI command (polls an API and runs `BackupTask`). It never uses the app's own database.
+When `DATABASEMENT_URL` is set, the app runs as a remote agent — it only executes the `agent:run` CLI command (polls an API and runs `BackupTask` or `RestoreTask`). It never uses the app's own database.
 
 Config files check `env('DATABASEMENT_URL')` to swap database-dependent drivers for in-memory/no-op alternatives:
 
@@ -139,6 +180,14 @@ Config files check `env('DATABASEMENT_URL')` to swap database-dependent drivers 
 - **Session**: `array` driver
 
 This means agent mode requires zero database configuration.
+
+**Agent job types** (`App\Enums\AgentJobType`) each have two halves: an app-side `AgentJobHandler` (`app/Services/Agent/Handlers/`: lease, max attempts, the job record it reports to, what ack/fail do) and an agent-side `AgentJobRunner` (`app/Services/Agent/Runners/`, registered in `AgentRunCommand::RUNNERS`). A new type needs an enum case, both halves, and a `Dispatch*Action` (`app/Actions/`) that routes to the agent or the app queue. Agents advertise their runners' types when claiming and are only handed those, so an older agent never receives a type it cannot run; agents up to 1.8 advertise nothing and get backup + discover. Keep the `payload.type` the claim response adds and the `discovered-databases` endpoint: 1.8 agents rely on both.
+
+**Agent compatibility is guaranteed within a minor version.** Agents send their version on every request (`X-Databasement-Version` / `X-Databasement-Commit`), and the Agents page and sidebar treat an agent whose major.minor matches the server's as up to date, whatever the patch. A patch release must therefore never break an agent of the same minor, in either direction (new server with an older agent, or the reverse).
+
+- **Breaking for agents**: removing or renaming an `/api/v1/agent/*` endpoint or a response field the agent reads, making a request field required, changing what a payload field means, or changing what the agent sends in a way the previous server rejects.
+- **Not breaking** (fine in a patch): a new job type (agents advertise their runners, so older ones never receive it), a new optional request field, a new response key older agents ignore.
+- A breaking change ships in a **new minor**, and its PR title uses the `agent` scope with a `!` (`feat(agent)!: …`, `fix(agent)!: …`). `make release` refuses a patch version when a commit since the last tag has that title, even when the changelog entry was written beforehand, and the `/changelog` skill checks the same.
 
 ## Architecture
 
@@ -163,8 +212,10 @@ This means agent mode requires zero database configuration.
 - `Volume` - Storage destinations (local, S3, etc.)
 
 **Queue Jobs**:
-- `ProcessBackupJob` - Wraps `BackupTask` service for async execution (2 retries, 1hr timeout)
-- `ProcessRestoreJob` - Wraps `RestoreTask` service for async execution (no retries, 1hr timeout)
+- `ProcessBackupJob` - Wraps `BackupTask` service for async execution
+- `ProcessRestoreJob` - Wraps `RestoreTask` service for async execution
+
+Both take their tries, timeout and backoff from the `backup.job_tries` / `backup.job_timeout` / `backup.job_backoff` app settings (Configuration → Backup; defaults 3 tries, 7200s, 60s).
 
 **Services**:
 - `BackupTask` - Executes database backups (dump, compress, transfer to volume)
@@ -174,12 +225,7 @@ This means agent mode requires zero database configuration.
 
 1. **Livewire Architecture**: The app uses class-based Livewire components for all main pages (CRUD operations, settings). Authentication flows use plain Blade views rendered by Laravel Fortify. All full-page components use `Route::livewire()` routing.
 
-2. **Mary UI Components**: All UI components use Mary UI (built on daisyUI). Components are used without prefixes (e.g., `<x-button>`, `<x-input>`, `<x-card>`). Key patterns:
-   - Modals use `wire:model` with boolean properties (e.g., `$showDeleteModal`)
-   - Tables use `<table class="table-default">` with custom styling
-   - Alerts use `class="alert-success"` format (not `variant`)
-   - Selects use `:options` prop with `[['id' => '', 'name' => '']]` format
-   - Dark mode follows system preference (`prefers-color-scheme`)
+2. **Mary UI Components**: All UI components use Mary UI (built on daisyUI), without a prefix (`<x-button>`, `<x-input>`, `<x-card>`). See "Working with Mary UI Components" below. Dark mode follows system preference (`prefers-color-scheme`).
 
 3. **Database Connection Testing**: `DatabaseProvider::testConnectionForServer()` orchestrates connection tests (including SSH tunnels and SFTP for remote SQLite), delegating to the appropriate `DatabaseInterface` handler. Each handler implements its own `testConnection()` method.
 
@@ -199,6 +245,28 @@ This means agent mode requires zero database configuration.
    - **Same-server restore**: Can restore old snapshots back to the same server (e.g., rollback)
    - Both services handle MySQL, MariaDB, and PostgreSQL with appropriate SSL/connection handling
 
+### Actions
+
+An operation that more than one edge performs (Livewire, REST API, MCP, console/scheduler, agent API, queue jobs) lives in one action class, `App\Actions\<Domain>\<Verb><Subject>Action`.
+
+**When to use one:** a business operation, meaning it changes state, enforces a domain rule (and throws when it is broken), and has one outcome you can name with a verb. Rule of thumb: an action decides and records; an engine does the work.
+
+**When not to:**
+- Engines and drivers that do the work given a complete config (`BackupTask`, `RestoreTask`, `Databases/*`, `Filesystems/*`, `Compressors/*`, `ShellProcessor`, `SshTunnelService`). They touch no models and also run inside the agent, which has no database.
+- Builders, agent protocol code and infrastructure (`BackupJobFactory`, `AgentJobPayloadBuilder`, `Services/Agent/*`, `NotificationService`, `CurrentOrganization`).
+- Reads (`app/Queries`, model scopes) and input validation.
+- A mutation only one edge performs: keep it in that edge until a second edge needs it.
+- A thin wrapper around a single service call that is already shared.
+
+**Rules** (`tests/Unit/ArchitectureTest.php` enforces the shape):
+- Only `use AsFake, AsObject;` from `lorisleiva/laravel-actions` (never `AsAction`/`AsController`/`AsJob`/`AsCommand`/`AsListener`), not `final`, one public `handle()`. Call it everywhere as `X::run(...)`, never injected or resolved with `app()`.
+- Verbs: `Create`, `Update`, `Delete`, `Sync`, `Assign`, `Trigger`, `Dispatch`, `Run`, `Record`, `Complete`, `Fail`, `Finish`, `Apply`, `Verify`, `Merge`. No vague verbs (`Handle`, `Process`, `Save`, `Get`, `Check`) and no edge words (`Api`, `Livewire`, `Mcp`, `Job`, …).
+- Edges validate input, authorize, resolve the current organization and user, and translate the result (toasts, HTTP status, MCP text). Actions take an `Organization` and a `?int $triggeredByUserId` explicitly and return models, scalars or `readonly *Result` DTOs, never UI strings. They throw a `ValidationException` for input the user can fix, or a domain exception in `App\Exceptions\<Domain>\` for a state conflict.
+- Wrap multi-row writes in `DB::transaction()`, keep storage deletions outside it, and defer new side effects with `DB::afterCommit()`.
+- Never rename or move an `App\Jobs\*` class: queued payloads reference it. A job's `handle()` just calls the action.
+- Action tests in `tests/Feature/Actions/<Domain>/` own the business rules; entry-point tests cover only their edge's contract (see "Where does a test go?").
+- Refactoring agent-side code into actions must keep every `/api/v1/agent/*` request and response identical (see "Agent compatibility" above).
+
 ### Routing
 
 Routes are defined in `routes/web.php`:
@@ -216,6 +284,35 @@ Pre-commit hook automatically runs:
 3. `make test` - Run all tests in parallel
 
 Ensure tests pass and code is formatted before committing.
+
+### Commit and PR Titles (changelog)
+
+`CHANGELOG.md` (Keep a Changelog, **one section per minor version** with every entry prefixed by the patch that shipped it, no Unreleased section) is written at release time by the `/changelog` skill, from the commits since the last tag. The app renders it as Markdown at `/changelog` (styled by `.changelog` in `resources/css/app.css`), and `docs/scripts/sync-changelog.js` publishes it as a documentation page. PRs are squash-merged, so the **PR title becomes the commit subject the skill reads**. Write it as a conventional commit, `type(scope)?: description`:
+
+| Title prefix | Changelog section |
+|---|---|
+| `feat:` | Added |
+| `fix:` | Fixed |
+| `fix(security):` | Security |
+| `perf:`, `refactor:` | Changed (only when an operator would notice; otherwise `chore:`) |
+| any type whose description starts with "remove" / "drop" | Removed |
+| any type whose description starts with "deprecate" | Deprecated |
+| `chore:`, `ci:`, `test:`, `docs:`, `style:`, dependency bumps | skipped |
+
+Breaking changes use `feat!:` / `fix!:` (or a `BREAKING CHANGE:` footer) and render with a **Breaking:** prefix. The PR body keeps explaining the *why*; it becomes the commit body the skill reads for wording. GitHub appends `(#NNN)`, which becomes the PR link. Branch names do not matter. Feature PRs must not edit `CHANGELOG.md`: the release step writes it.
+
+### Releasing
+
+`make release VERSION=x.y.z` does everything from a clean, up-to-date `main`:
+
+1. If `CHANGELOG.md` has no `` `x.y.z` `` entries, it runs the `/changelog x.y.z` skill headlessly (`claude -p`), which files the commits since the last tag under the `[x.y]` section tagged with the patch, commits to `main` with `--no-verify` (`main` already passed the hook and the commit only touches `CHANGELOG.md`) and pushes.
+2. It re-checks that the entries exist and are on `origin/main`, then tags `vx.y.z` and pushes the tag.
+3. The workflows build the Docker images, Helm chart, docs, and the GitHub Release.
+4. It runs the `/release-issues x.y.z` skill headlessly, which comments on every issue closed by the release's PRs, pinging the reporters with what changed for them and what they need to do (e.g. update the agent). It skips issues already announced for that version, so rerunning it by hand after a failure is safe; a failure only warns, since the tag is already out.
+
+A release containing a `<type>(agent)!:` commit must open a new minor (`x.y.0`, or a new major): `make release` checks this before anything else and stops on a patch version (see "Agent compatibility" under Agent Mode).
+
+To review the entry before tagging, run `/changelog x.y.z` in Claude Code first; `make release` then finds the entry and only tags. The version is the skill's only argument and it always writes and commits.
 
 ### Running a Single Test
 
@@ -241,17 +338,17 @@ Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bounc
 
 - **Scope model**: this is Bouncer's "scoped relations, global role abilities" mode — `Bouncer::scope()->to($org->id)->onlyRelations()->dontScopeRoleAbilities()`. `onlyRelations()` keeps the roles/abilities entities global, `dontScopeRoleAbilities()` keeps the role→ability grants global, and `to($org->id)` scopes only the user↔role assignments (`assigned_roles.scope`). **All three flags must always be applied together** — mixing them is what makes the read path (`$user->can()`) return wrong results. Centralized in `App\Support\BouncerScope` (`apply($orgId)` for the request scope, `ensureFlags()` for definition writes that must not disturb the active scope). The `ScopeBouncer` middleware applies it per request; tests do so in `setupOrgContext()`.
 - **Ability catalogue**: a fixed, code-defined enum `app/Enums/Ability.php` — eleven abilities in two groups (`Operations`: run-backups, download-snapshots, delete-snapshots, operate-restores, use-adminer; `Configuration`: manage-database-servers, manage-volumes, manage-agents, manage-backup-settings, manage-notifications, manage-users). Viewing needs no ability (read access comes from org membership). To add one: add the enum case (plus `label()`/`description()`/`group()`), grant it to the relevant built-in roles in the role-seeding migration's `builtInRoles()` map, enforce it in the policy, add the (role, ability) rows to `RoleAbilityMatrixTest`, and add an allow/deny pair at the resource's enforcement boundary (see the testing convention below).
-- **Built-in roles**: there is **no `UserRole` enum**. The built-in roles (admin/member/operator/viewer) and their default ability grants are defined literally in `database/migrations/2026_06_26_160000_migrate_organization_roles_to_bouncer.php` (`builtInRoles()`), which is the sole seeder. There is **no `demo` role** (see the demo-mode note below). A `roles.built_in` boolean column marks them; it is the runtime source of truth for "is this a protected built-in" (`$role->built_in`, used by `RolePolicy@delete`, `DeleteRoleAction` and the Roles screen). There is no `SeedRolesAction`/`BouncerSeeder` — `RefreshDatabase`/`migrate:fresh` seed roles via the migration, and the factory only *assigns* by role-name string.
+- **Built-in roles**: there is **no `UserRole` enum**. The built-in roles (admin/member/operator/viewer) and their default ability grants are defined literally in `database/migrations/2026_06_26_160000_migrate_organization_roles_to_bouncer.php` (`builtInRoles()`), which is the sole seeder. The `demo` role is not built in: `DemoModeMiddleware` creates it (see the demo-mode note below). A `roles.built_in` boolean column marks them; it is the runtime source of truth for "is this a protected built-in" (`$role->built_in`, used by `RolePolicy@delete`, `DeleteRoleAction` and the Roles screen). There is no `SeedRolesAction`/`BouncerSeeder` — `RefreshDatabase`/`migrate:fresh` seed roles via the migration, and the factory only *assigns* by role-name string.
 - **Enforcement**: policies call `$user->can('ability-name')`. Super admins bypass catalogue abilities via a `Gate::before` in `AppServiceProvider::registerBouncer()` (scoped to catalogue ability names only, so `UserPolicy`'s self/last-super-admin guards still apply).
 - **Config screens authorize through policies, not inline ability/super-admin checks.** Every `Configuration/*` screen gates on a policy method (`$user->can('<action>', <Model>::class)`); the policy method delegates to the governing catalogue ability (or `isSuperAdmin()` for global concerns). This keeps the components uniform with the model-backed screens (Roles/Orgs) even where the "settings" have no dedicated model — the check is attached to a related model's policy. Super admins keep access via the `Gate::before` catalogue bypass (for ability-backed methods) or the `isSuperAdmin()` method body (for global ones).
 - **Backup / Notification** are still governed by the `manage-backup-settings` / `manage-notifications` catalogue abilities, but via policies: `BackupSchedulePolicy@manageSettings` (the settings form + cleanup/verify) plus `@create/@update/@delete` (schedule CRUD, shared with the API), and `NotificationChannelPolicy@manage` (channel CRUD + test). Both screens are **viewable by every org member**; forms render read-only for users without the ability (`canManage` computed → `:disabled` inputs / hidden buttons) and every write action calls `abort_unless($user->can('<action>', <Model>::class), 403)`.
 - **`Configuration/Application`**: mostly displays env-driven values (APP_DEBUG, timezone, trusted proxies) read-only, plus one runtime setting — the global `app.adminer_enabled` toggle. Viewable by every member; only **super admins** may change it, via `DatabaseServerPolicy@manageAdminer` (`canManage` = `can('manageAdminer', DatabaseServer::class)` → `isSuperAdmin()`; `saveApplicationConfig` `abort_unless(...)`). `DatabaseServerPolicy@adminer` (the separate *use* gate) is two-level: the global `app.adminer_enabled` switch **and** the per-role `use-adminer` ability (or the demo bypass) — disabling the switch blocks Adminer for everyone regardless of ability.
 - **Still super-admin-only to *modify* (not catalogue abilities)**: authentication/SSO, role management, and organizations. The `Configuration/Authentication`, `Roles` and `Organizations` screens are all **viewable by every org member** (read-only for non-super-admins; write actions gated); there is **no** view-blocking `mount()` guard on any of them — every configuration tab now renders the same way (viewable, mutations gated). Auth write actions use `abort_unless($user->isSuperAdmin(), 403)`; Roles and Organizations use their registered policies (see below).
 - **Organizations screen** (`app/Livewire/Configuration/Organization.php`): viewable by all members but the org list is **scoped** — super admins see every org, other members see only the orgs they belong to (so the page never discloses other tenants' names or cross-tenant resource counts). `OrganizationPolicy::viewAny` is `true`; `create`/`update`/`delete` are `isSuperAdmin()` (with `update`/`delete` also returning false for the default org). The blade gates the manage UI with `@can('create'|'update', …)` — `@can('update', $org)` conveniently encodes both the super-admin and non-default checks — and each write action calls `$this->authorize(...)`.
-- **Runtime mutations**: the Roles screen lives under **Configuration → Roles** (`app/Livewire/Configuration/Roles.php`, route `configuration.roles`); it is **viewable by all members** (read-only role → ability mapping, shown as badges) but **mutating roles is reserved for super admins**, enforced by `RolePolicy` (registered against Bouncer's `Silber\Bouncer\Database\Role` in `AppServiceProvider` — there is no custom `App\Models\Role`). `viewAny` is `true`; `create`/`update` are `isSuperAdmin()`; `delete` is `isSuperAdmin() && ! $role->built_in` (so built-in roles are policy-protected from deletion, and the delete button is hidden via `@can('delete', $role)`). The component calls `$this->authorize('create'|'update'|'delete', …)`; the blade gates with `@can`. Mutations run through single-purpose actions in `app/Services/Roles/` (`CreateRoleAction`, `UpdateRoleAction`, `DeleteRoleAction` operate on global definitions; `AssignRoleToUserAction` writes the per-org assignment and restores the caller's scope). Each refreshes Bouncer's cache (`Bouncer::refresh()`/`refreshFor()`) so changes apply immediately.
+- **Runtime mutations**: the Roles screen lives under **Configuration → Roles** (`app/Livewire/Configuration/Roles.php`, route `configuration.roles`); it is **viewable by all members** (read-only role → ability mapping, shown as badges) but **mutating roles is reserved for super admins**, enforced by `RolePolicy` (registered against Bouncer's `Silber\Bouncer\Database\Role` in `AppServiceProvider` — there is no custom `App\Models\Role`). `viewAny` is `true`; `create`/`update` are `isSuperAdmin()`; `delete` is `isSuperAdmin() && ! $role->built_in` (so built-in roles are policy-protected from deletion, and the delete button is hidden via `@can('delete', $role)`). The component calls `$this->authorize('create'|'update'|'delete', …)`; the blade gates with `@can`. Mutations run through single-purpose actions in `app/Actions/Role/` (`CreateRoleAction`, `UpdateRoleAction`, `DeleteRoleAction` operate on global definitions; `AssignRoleToUserAction` writes the per-org assignment and restores the caller's scope). Each refreshes Bouncer's cache (`Bouncer::refresh()`/`refreshFor()`) so changes apply immediately.
 - **Direct user abilities**: the user form (`app/Livewire/User/Form.php`) can grant abilities to a user *on top of* their role, per-org, via `SyncUserAbilitiesAction` (stored as user-scoped rows in `permissions`; read with `User::directAbilitiesIn($org)`). These are additive — effective abilities = role abilities + direct abilities. Setting them requires the `manage-users` ability (`Form::syncAbilities` gates on `can(manage-users)`; the `_abilities` toggle grid is shown via `@can('manage-users')`). This is deliberate: a `manage-users` holder can already reach every catalogue ability by assigning the Admin role, so granting direct abilities — including to themselves — adds no privilege beyond that. Granting `super_admin` stays separately gated (the form's super-admin checkbox is `isSuperAdmin()`-only), and the accepted self-escalation is documented in `docs/user-guide/permissions.md` and locked by a test in `UserAbilitiesTest`. The toggle grid is the shared `resources/views/components/ability-toggles.blade.php`, reused by the Roles screen; `Ability::grouped()` provides the grouped catalogue.
 - **Role helpers on `User`**: `roleNameIn($org)` / `roleNamesIn($org)` (role names assigned in an org), `isAdmin()` (super admin or org `admin`), `isDemo()` (demo mode is enabled **and** the email is `User::DEMO_EMAIL` — not a role). There is no `roleIn()`/`canOperate()` — check the specific ability instead.
-- **Demo mode**: there is no `demo` role. When `app.demo_mode` is on, `DemoModeMiddleware` lazily creates the demo user (`User::DEMO_EMAIL`, a fixed const) and assigns it the **`viewer`** role; `User::isDemo()` keys off demo-mode + that email, fully decoupled from roles. The demo user is read-only on config (the `BlocksDemoWrites` trait short-circuits Create/Edit saves with a `demo_notice`) but **can run backups/restores** because those policies grant `$user->isDemo() || $user->can(...)` (`DatabaseServerPolicy@backup/@restore`, `RestorePolicy@create/update/delete/run`). It's also blocked from profile/password/2FA settings by the middleware.
+- **Demo mode**: when `app.demo_mode` is on, `DemoModeMiddleware` lazily creates the demo user (`User::DEMO_EMAIL`, a fixed const) and a custom (not built-in) **`demo`** role granting operate-restores, delete-snapshots and download-snapshots, and assigns that role to the user. `User::isDemo()` keys off demo-mode + that email, independent of roles. The demo user is read-only on config (the `BlocksDemoWrites` trait short-circuits Create/Edit saves with a `demo_notice`) but **can run backups/restores** because those policies grant `$user->isDemo() || $user->can(...)` (`DatabaseServerPolicy@backup/@restore`, `RestorePolicy@create/update/delete/run`). Its snapshot deletes are a no-op, decided at the edges: the Snapshots page shows a demo toast, and the API answers with the count it would have deleted without calling `DispatchSnapshotDeletionAction`. It's also blocked from profile/password/2FA settings by the middleware.
 - **Testing authorization (by ability, never role)**: roles are runtime-editable, so permission tests **actor and name by ability, never role**. Three `UserFactory` actors, all on a no-grant `viewer` baseline + per-org direct abilities: `withAbilities([X])` proves X is *sufficient* (happy path); `withAllAbilitiesExcept(X)` proves X is *necessary* (deny case — holds every other ability and is still forbidden, far stronger than an empty grant); `withAbilities([])` is the zero-ability actor for pure-view tests (viewing needs no ability). Cover each guarded boundary (Livewire / HTTP / API) with an allow + deny pair **named for the ability** — e.g. `manage-volumes allows …` / `without manage-volumes, … is forbidden` — never `org admin can …`. Don't gate permission tests on `->viewer()` / `->create(['role' => …])`; role/super-admin helpers remain only for super-admin-scoped screens (organizations/auth/roles, `isAdmin`/`isSuperAdmin`), demo behaviour (`isDemo`), and the role→ability seed guardrail `RoleAbilityMatrixTest`. A test that 422s on validation before `authorize()` needs no specific actor.
 - **ULID gotcha**: `users.id` is a BIGINT, but the Bouncer *scope* is an `Organization` ULID, so the `scope` columns in the published Bouncer migration are `string(26)` (see `database/migrations/*_create_bouncer_tables.php`). The column carries the org id on `assigned_roles` and stays null on the global roles/abilities rows; `roles.name` is uniquely indexed (global). The user/role entity morphs stay BIGINT.
 - **Important**: do **not** register a custom `App\Models\Role` extending Bouncer's model — it breaks Livewire v4 component hydration. Use Bouncer's `Role` directly; PHPStan column/property errors for it (including `built_in`) are ignored via `phpstan.neon`.
@@ -262,50 +359,58 @@ Authorization is built on [silber/bouncer](https://github.com/JosephSilber/bounc
 - Public properties are automatically bound to views
 - Use `#[Validate]` attributes or Form objects for validation
 - Call `$this->validate()` before processing data
-- Use `Session::flash()` for one-time messages (shown via `@if (session('success'))`)
+- Feedback messages use `App\Traits\Toast` (`$this->success(...)`, `$this->error(...)`), never `Mary\Traits\Toast`, whose public helpers become client-callable actions. See the `mary-ui` skill.
 - Return `$this->redirect()` with `navigate: true` for SPA-like navigation
 - Blade files contain only view markup; all PHP logic is in component classes
 
 ### Working with Mary UI Components
 
-- All components are prefixed with `x-` (e.g., `<x-button>`, `<x-input>`, `<x-card>`)
-- Use Heroicons for icons (e.g., `icon="o-user"` for outline icons, `icon="s-user"` for solid)
-- Modal pattern: Add boolean property to component class, use `wire:model` in blade
-- Select pattern: Use `:options` prop with array format `[['id' => 'value', 'name' => 'Label']]`
-- Alert pattern: Use `class="alert-success"`, `class="alert-error"`, etc.
-- Form components: `<x-input>`, `<x-password>`, `<x-select>`, `<x-checkbox>`, etc.
-- Translated attributes: always use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"` — interpolation double-encodes special characters (see "Avoiding HTML Encoding Artifacts" below)
-- Documentation: https://mary-ui.com/docs/components/button
+The `mary-ui` skill is the reference (props per installed version, patterns, gotchas). The rules that apply to every view:
+
+- Translated attributes use `:attr` bindings (`:label="__('Host')"`), never `label="{{ __('Host') }}"`, which double-encodes (see "Avoiding HTML Encoding Artifacts" below).
+- Every `<x-button>` / `<x-menu-item>` whose `wire:click` calls a method takes the bare `spinner` prop; a `$set('x', …)` / `$toggle('x')` click takes `spinner="x"` instead. The skill covers submit buttons and the other cases.
 
 ### Resource Index Pages
 
 For new index pages (listing resources with tables, search, filters), follow the existing patterns in:
 - `app/Livewire/DatabaseServer/Index.php` + `resources/views/livewire/database-server/index.blade.php`
-- `app/Livewire/BackupJob/Index.php` + `resources/views/livewire/backup-job/index.blade.php`
+- `app/Livewire/Snapshot/Index.php` + `resources/views/livewire/snapshot/index.blade.php`
 
 Use Mary UI's `<x-table>` component with `@scope` directives for cell rendering.
 
 ### Localization
 
-The app uses Laravel's JSON translation files with the `__('...')` helper. Translations live in `lang/{locale}.json`. Available locales are defined in `config/app.php` under `available_locales`. The `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
+The app uses Laravel's JSON translation files with the `__('...')` helper. Keys are the English source strings themselves. Translations live in `lang/{locale}.json`, available locales are defined in `config/app.php` under `available_locales`, and the `SetLocale` middleware (`app/Http/Middleware/SetLocale.php`) resolves locale from cookie, then browser `Accept-Language`, then `config('app.locale')`.
 
-#### Extracting Translation Strings
+#### `make update-translation`
 
-To find all translatable strings in the codebase:
+Translations are kept in step with the code by one command, which runs five steps (only the third calls an API):
 
-```bash
-# Extract all __('...') and __("...") calls from PHP and Blade files
-# Handles escaped quotes (e.g., __('You\'re logged in')) and double-quoted strings (e.g., __("Use \"auto\""))
-grep -rhoP "__\(\s*'(?:[^'\\\\]|\\\\.)*'" app/ resources/ --include='*.php' --include='*.blade.php' | sed "s/__(\s*'//" | sed "s/'$//" | sed "s/\\\'/'/g" > /tmp/_keys1.txt
-grep -rhoP '__\(\s*"(?:[^"\\\\]|\\\\.)*"' app/ resources/ --include='*.php' --include='*.blade.php' | sed 's/__(\s*"//' | sed 's/"$//' | sed 's/\\"/"/g' > /tmp/_keys2.txt
-cat /tmp/_keys1.txt /tmp/_keys2.txt | sort -u
-```
+1. `translatable:export en` (kkomelin/laravel-translatable-string-exporter) scans `app/` and `resources/` for `__()`, `trans_choice()` and `@lang()` and rewrites **`lang/en.json`**, the generated, committed inventory of every translatable string. English is the key *and* the value; nothing changes at runtime.
+2. `translations:sync` (`app/Console/Commands/TranslationsSyncCommand.php`) prunes keys the code no longer uses from each target locale. It **never adds a key**, so "missing" always means "not translated yet" rather than "filled with English".
+3. `ai-translator:translate-json` (kargnas/laravel-ai-translator) sends only the keys a locale is missing to Claude, and its own validator retries a chunk that drops a `:placeholder`. Config lives in `config/ai-translator.php`; the `additional_rules` there are the machine-readable form of the conventions below.
+4. `translations:sync` again, to strip the `_comment` banner the translator writes into every file and restore `en.json` key order and formatting.
+5. `translations:sync --check` writes nothing and fails when a locale is out of sync, so drift is visible without an API key.
+
+`make check-translation` runs steps 1 and 5 only -- no API key, no cost. Both packages are dev dependencies; nothing in this pipeline runs in production.
+
+The API key is read from `.env.local` in the main checkout (gitignored, one `ANTHROPIC_API_KEY=...` line; worktrees use the main checkout's). The Makefile forwards it into the container with a bare `-e ANTHROPIC_API_KEY`, so it never reaches a command line. Target locales are the `LOCALES` variable at the top of the `Makefile`.
+
+**Do not use `ai-translator:find-unused`.** Its scanner regex cannot match keys containing `)` or `'` (47 of ours), reports them as unused, and deletes them with `--force`. Pruning is `translations:sync`'s job.
+
+#### Strings the exporter cannot see
+
+`#[Title('...')]` attributes cannot hold a `__()` call, so the layouts translate `$title` at render time and the title strings are listed in `lang/persistent-strings.json`. Anything else built dynamically belongs in that file too.
+
+Deliberately **not** translated: API, CLI and MCP responses, backup/restore job-log lines, and enum `label()` values (see `docs/development/extending.md`).
 
 #### Adding a New Locale
 
 1. Add the locale to `config/app.php` in the `available_locales` array (key = locale code, value = display label)
-2. Create `lang/{locale}.json` with translations (copy `lang/fr.json` as a template)
-3. All `__('...')` keys not present in the JSON file fall back to the key itself (English)
+2. Add it to `LOCALES` in the `Makefile`, and add any locale-specific rules (quotation marks, plural behaviour) to `additional_rules` in `config/ai-translator.php`
+3. Create an empty `lang/{locale}.json` containing `{}` and run `make update-translation`
+
+All `__('...')` keys not present in a JSON file fall back to the key itself (English).
 
 #### Avoiding HTML Encoding Artifacts
 
@@ -341,10 +446,7 @@ These are standard industry jargon that developers worldwide understand regardle
 
 #### Updating an Existing Locale
 
-1. Run the extraction command above to find all translatable strings
-2. Compare against the existing `lang/{locale}.json` to find missing keys
-3. Add translations for any missing keys (using typographic apostrophes in values)
-4. Ensure technical terms listed in **Technical Terms — Do Not Over-Translate** above stay in English — both as standalone labels and within compound phrases
+Run `make update-translation`. Never hand-edit `lang/en.json` (it is generated) and never add keys to a target locale by hand -- a key present with an English value looks translated to every check we have.
 
 ## Important Files
 
@@ -371,24 +473,11 @@ The Laravel Boost guidelines are specifically curated by Laravel maintainers for
 
 ## Foundational Context
 
-This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
+This application is a Laravel application running on PHP 8.5. You are an expert with the Laravel ecosystem. Always use the APIs that match the installed major version of each package — do not assume a version.
 
-- php - 8.5
-- laravel/fortify (FORTIFY) - v1
-- laravel/framework (LARAVEL) - v13
-- laravel/mcp (MCP) - v0
-- laravel/prompts (PROMPTS) - v0
-- laravel/sanctum (SANCTUM) - v4
-- laravel/socialite (SOCIALITE) - v5
-- livewire/livewire (LIVEWIRE) - v4
-- larastan/larastan (LARASTAN) - v3
-- laravel/boost (BOOST) - v2
-- laravel/pail (PAIL) - v1
-- laravel/pint (PINT) - v1
-- laravel/sail (SAIL) - v1
-- pestphp/pest (PEST) - v4
-- phpunit/phpunit (PHPUNIT) - v12
-- rector/rector (RECTOR) - v2
+Before relying on a package's API, confirm its installed version:
+- PHP packages: run `composer show --direct` to list direct dependencies with versions, or `composer show <vendor/package>` for a single package.
+- JS packages: check `package.json` for the installed versions.
 
 ## Skills Activation
 
@@ -435,7 +524,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 ## Searching Documentation (IMPORTANT)
 
-- Always use `search-docs` before making code changes. Do not skip this step. It returns version-specific docs based on installed packages automatically.
+- Use `search-docs` before changes that depend on Laravel ecosystem APIs, behavior, configuration, or version-specific syntax. Skip it for copy-only edits and other changes where package documentation is irrelevant. Reuse sufficient results already in context instead of searching again.
 - Pass a `packages` array to scope results when you know which packages are relevant.
 - Use multiple broad, topic-based queries: `['rate limiting', 'routing rate limiting', 'routing']`. Expect the most relevant results first.
 - Do not add package names to queries because package info is already shared. Use `test resource table`, not `filament 4 test resource table`.
@@ -446,6 +535,11 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 2. Use `"quoted phrases"` for exact position matching: `"infinite scroll"` requires adjacent words in order.
 3. Combine words and phrases for mixed queries: `middleware "rate limit"`.
 4. Use multiple queries for OR logic: `queries=["authentication", "middleware"]`.
+
+## Project Rules
+
+- This project contains committed, area-grouped rules in `.ai/rules` when that directory exists (settled decisions, non-obvious traps, standing constraints). Framework and package guidelines that only apply to specific paths (testing, frontend, components) also live there, under `.ai/rules/boost` — this is not just recorded decisions, it is load-bearing guidance you have not seen inline. Before you enter plan mode or create/edit any file, you MUST first: open @.ai/rules/index.md (it maps file globs to rule files), read every rule file whose globs cover the path(s) in scope, and run `grep -rin 'keyword' .ai/rules` to catch what a path match alone misses. Do not write code until you have read and are following every matching rule. If `.ai/rules` does not exist, continue without it.
+- Record a rule with `record-rule` only when the user explicitly asks for one. Instructions for the work at hand are not rules, no matter how emphatic: "remove this typo", "use X here" are work to do, not rules to record. Never record a rule on your own initiative, as a byproduct of a change, or to summarize what you just did. When the user does ask, pass a `glob` (e.g. `app/Http/Controllers/**`), a short `title`, and a few-line `note`. Use `record-rule` rather than your native memory or notes tool, because native memory is personal and session-scoped, while only `.ai/rules` is shared with the team and persists in the repo.
 
 ## Artisan
 
@@ -475,13 +569,17 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 # Deployment
 
 - Laravel can be deployed using [Laravel Cloud](https://cloud.laravel.com/), which is the fastest way to deploy and scale production Laravel applications.
+- Activate the `deploying-to-cloud` skill whenever deploying to Laravel Cloud, configuring Cloud environments or resources, using the Cloud CLI, or troubleshooting Cloud deployments.
 
 === tests rules ===
 
 # Test Enforcement
 
-- Every change must be programmatically tested. Write a new test or update an existing test, then run the affected tests to make sure they pass.
-- Run the minimum number of tests needed to ensure code quality and speed. Use `php artisan test --compact` with a specific filename or filter.
+- Add or update tests for behavior and logic changes when a test provides meaningful regression coverage.
+- Pure copy, styling, and layout-only changes do not require new or updated tests.
+- When test coverage applies, run the affected tests and ensure they pass.
+- Test the changed behavior and its important failure modes, but do not add tests beyond them.
+- Read the `testing-best-practices` skill before writing tests.
 
 === laravel/core rules ===
 
@@ -517,7 +615,7 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 # Livewire
 
-- Livewire allow to build dynamic, reactive interfaces in PHP without writing JavaScript.
+- Livewire allows you to build dynamic, reactive interfaces in PHP without writing JavaScript.
 - You can use Alpine.js for client-side interactions instead of JavaScript frameworks.
 - Keep state server-side so the UI reflects it. Validate and authorize in actions as you would in HTTP requests.
 
@@ -530,11 +628,61 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 === pest/core rules ===
 
-## Pest
+# Pest
 
-- This project uses Pest for testing. Create tests: `php artisan make:test --pest {name}`.
-- The `{name}` argument should not include the test suite directory. Use `php artisan make:test --pest SomeFeatureTest` instead of `php artisan make:test --pest Feature/SomeFeatureTest`.
-- Run tests: `php artisan test --compact` or filter: `php artisan test --compact --filter=testName`.
-- Do NOT delete tests without approval.
+- This project uses Pest. Create tests with `php artisan make:test --pest {name}`.
+- Do not include the test suite directory in `{name}`. Use `SomeFeatureTest`, not `Feature/SomeFeatureTest`.
+- Read the `testing-best-practices` skill for guidance on coverage, naming, structure, dependency isolation, and review.
+- Do not delete tests or test files without approval. They are part of the application.
+
+## Running Tests
+
+- Run the narrowest set of tests that covers the change. Pass a file path or `--filter=testName` to `php artisan test --compact`.
+- Rerun a test after each change to it.
+- Run `vendor/bin/pest` to call the test runner directly. It accepts the same file path and `--filter=testName` arguments.
+- After the feature tests pass, ask the user to run the complete suite with `php artisan test --compact`.
+
+=== pestphp/pest-plugin-agent/core rules ===
+
+## Pest Agent Plugin
+
+`vendor/bin/pest --agent="<code>"` runs a one-off Pest assertion without creating a test file — the fastest way to verify that a change actually works (a route response, a model relationship, a rendered page, a form submission, mail firing, a screenshot, JavaScript errors, and so on).
+
+### ALWAYS load the skill first
+
+Whenever the user asks you to check, verify, confirm, or "make sure" something **works** — and it can be exercised on a route, page, form, model, job, mail, notification, or screenshot — you **MUST** load the **`pest-plugin-agent` skill before doing anything else**. Do not reach for a shell command, a throwaway test file, or manual reasoning first. This includes prompts like "verify the login form works", "did my change break X", "screenshot the homepage", "check this route returns 200", "make sure the mail fires", "is the form working", or any behavioral check after a Blade, Livewire, CSS, or JS change. Load the skill, then follow it exactly.
+
+### NEVER fight shell escaping — use SINGLE outer quotes
+
+Inline the snippet, but wrap it in **single** quotes, not double. Single quotes tell the shell to interpret nothing, so `$variables`, `\App\Models\User`, backticks, and `!` all pass through to PHP literally — **there is nothing to escape.** Use double quotes for PHP string literals inside:
+
+```bash
+vendor/bin/pest --agent='$user = \App\Models\User::factory()->create(); visit("/login")->type("email", $user->email)->press("Log in")->assertPathIs("/dashboard");'
+```
+
+Double outer quotes are the trap the shell springs on you — `--agent="…$user…"` makes the shell interpolate `$user` to nothing. Never do that, and never hand-escape `\$`.
+
+The one thing single quotes can't contain is a literal single quote (an apostrophe in the PHP). Only then, fall back to a file: **Write** the snippet to a `.php` file (plain body statements — no `<?php`, no `use`, fully qualified class names) and run `vendor/bin/pest --agent="$(cat /path/to/snippet.php)"`. `"$(cat …)"` passes the contents verbatim without re-parsing. The plugin resolves the test suite's `uses`/namespace itself, so the file's location does not matter (a scratch/temp path is fine — it need not live under `tests/`).
+
+### Browser checks require the browser plugin — ask before installing
+
+Whenever the request can only be answered in a real browser — "does login work", "is the page responsive", "screenshot the homepage", "check the mobile layout", "does the button click through", "are there JS/console errors", or any visual/interaction check — the `visit()` browser API is needed. It comes from a **separate** package, `pestphp/pest-plugin-browser`, which is powered by Playwright.
+
+If `visit()` is undefined (or the package is not installed), **do not install it silently — ask the user for permission first**, since it pulls in Node/Playwright dependencies and downloads browser binaries. Explain that the browser check needs it and confirm before running these commands:
+
+```bash
+composer require pestphp/pest-plugin-browser --dev   # the browser plugin (needs Node.js)
+npm install playwright@latest                         # Playwright driver
+npx playwright install                                # download the browser binaries
+```
+
+Once the user approves and it's installed, add `tests/Browser/Screenshots` to `.gitignore` so captured screenshots aren't committed. Browser assertions then run through the same `vendor/bin/pest --agent='…'` flow:
+
+```bash
+vendor/bin/pest --agent='visit("/login")->type("email", "test@example.com")->type("password", "password")->press("Log in")->assertPathIs("/dashboard");'
+vendor/bin/pest --agent='visit("/")->on()->mobile()->screenshot(fullPage: false, filename: "home-mobile");'
+```
+
+For full usage — backend examples, browser testing, screenshots, responsive checks, combining frontend and backend assertions, RefreshDatabase guidance, and pitfalls — load the **`pest-plugin-agent` skill**.
 
 </laravel-boost-guidelines>

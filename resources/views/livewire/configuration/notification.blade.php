@@ -1,27 +1,15 @@
 <div>
-    <x-header :title="__('Configuration')" separator>
-        <x-slot:subtitle>
-            {{ __('Manage notification channels for backup and restore events.') }}
-        </x-slot:subtitle>
-    </x-header>
-
-    @include('livewire.configuration._tabs', ['active' => 'notification'])
+    <x-configuration-header active="notification" :subtitle="__('Manage notification channels for backup and restore events.')" />
 
     <x-card shadow class="min-w-0">
-        <x-card-heading :title="__('Notification Channels')" :subtitle="__('Assign channels per database server to receive alerts on backup and restore events.')">
-            <x-button
-                :label="__('Documentation')"
-                icon="o-book-open"
-                link="https://david-crty.github.io/databasement/self-hosting/configuration/notification"
-                external
-                class="btn-ghost btn-sm"
-            />
+        <x-card-heading :title="__('Notification Channels')" :subtitle="__('Assign channels per database server to receive alerts on backup and restore events.')" docs="self-hosting/configuration/notification">
             @if ($this->canManage)
                 <x-button
                     :label="__('Add Channel')"
                     icon="o-plus"
                     class="btn-primary btn-sm"
                     wire:click="openChannelModal"
+                    spinner
                 />
             @endif
         </x-card-heading>
@@ -50,8 +38,8 @@
                 @if ($this->canManage)
                     <div class="flex justify-end flex-nowrap gap-1">
                         <x-button icon="o-paper-airplane" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="sendTestNotification('{{ $channel->id }}')" spinner="sendTestNotification('{{ $channel->id }}')" :tooltip-left="__('Test')" />
-                        <x-button icon="o-pencil-square" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openChannelModal('{{ $channel->id }}')" :tooltip-left="__('Edit')" />
-                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDeleteChannel('{{ $channel->id }}')" :tooltip-left="__('Delete')" />
+                        <x-button icon="o-pencil-square" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openChannelModal('{{ $channel->id }}')" spinner :tooltip-left="__('Edit')" />
+                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDeleteChannel('{{ $channel->id }}')" spinner :tooltip-left="__('Delete')" />
                     </div>
                 @endif
             @endscope
@@ -118,23 +106,17 @@
                 class="btn-primary"
                 :label="__('Save')"
                 wire:click="saveChannel"
-                spinner="saveChannel"
+                spinner
             />
         </x-slot:actions>
     </x-modal>
 
     <!-- Delete Channel Confirmation Modal -->
-    <x-modal wire:model="showDeleteChannelModal" :title="__('Delete Channel')">
-        <p>{{ __('Are you sure you want to delete this notification channel? This action cannot be undone.') }}</p>
-
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showDeleteChannelModal = false" />
-            <x-button
-                class="btn-error"
-                :label="__('Delete')"
-                wire:click="deleteChannel"
-                spinner="deleteChannel"
-            />
-        </x-slot:actions>
-    </x-modal>
+    <x-confirm-modal
+        model="showDeleteChannelModal"
+        :title="__('Delete Channel')"
+        :message="__('Are you sure you want to delete this notification channel? This action cannot be undone.')"
+        on-confirm="deleteChannel"
+        :confirm-label="__('Delete')"
+    />
 </div>

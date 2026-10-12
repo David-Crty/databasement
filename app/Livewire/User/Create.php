@@ -2,11 +2,12 @@
 
 namespace App\Livewire\User;
 
+use App\Actions\Role\AssignRoleToUserAction;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\User;
 use App\Services\CurrentOrganization;
-use App\Services\Roles\AssignRoleToUserAction;
+use App\Traits\SurfacesValidationErrors;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -20,7 +21,7 @@ use Silber\Bouncer\Database\Role;
 #[Title('Add User')]
 class Create extends Component
 {
-    use AuthorizesRequests, Toast;
+    use AuthorizesRequests, SurfacesValidationErrors, Toast;
 
     public Form $form;
 
@@ -43,7 +44,7 @@ class Create extends Component
     {
         $this->authorize('create', User::class);
 
-        $user = $this->form->store();
+        $user = $this->withValidationFeedback(fn (): User => $this->form->store());
 
         $this->invitationUrl = $user->getInvitationUrl();
         $this->showCopyModal = true;
@@ -69,7 +70,7 @@ class Create extends Component
         // Membership and role assignment must both succeed, or neither.
         DB::transaction(function () use ($user, $currentOrg) {
             $user->organizations()->attach($currentOrg->id());
-            app(AssignRoleToUserAction::class)->execute($user, $this->existingUserRole, $currentOrg->model());
+            AssignRoleToUserAction::run($user, $this->existingUserRole, $currentOrg->model());
         });
 
         $this->success(

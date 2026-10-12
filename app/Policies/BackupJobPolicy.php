@@ -3,7 +3,6 @@
 namespace App\Policies;
 
 use App\Enums\Ability;
-use App\Enums\BackupJobStatus;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
 use App\Models\User;
@@ -35,14 +34,15 @@ class BackupJobPolicy
     }
 
     /**
-     * Determine whether the user can delete the model.
-     * Only pending jobs can be deleted (cancelled before they start), and only
-     * by a member of the job's owning org with the ability (evaluated in the
-     * current scope). Super admins can cancel any pending job.
+     * Determine whether the user can cancel the job.
+     * Only a job still in progress can be cancelled, by a member of its
+     * owning org (evaluated in the current scope) who may start it again:
+     * run-backups for a backup, operate-restores for a restore. Super admins
+     * can cancel any job in progress.
      */
-    public function delete(User $user, BackupJob $backupJob): bool
+    public function cancel(User $user, BackupJob $backupJob): bool
     {
-        if ($backupJob->status !== BackupJobStatus::Pending) {
+        if (! $backupJob->status->isInProgress()) {
             return false;
         }
 
@@ -51,10 +51,13 @@ class BackupJobPolicy
         }
 
         $orgId = $this->resolveOrganizationId($backupJob);
+        $ability = $backupJob->restore()->withoutGlobalScopes()->exists()
+            ? Ability::OperateRestores
+            : Ability::RunBackups;
 
         return $orgId !== null
             && $orgId === app(CurrentOrganization::class)->model()->id
-            && $user->can(Ability::DeleteSnapshots->value);
+            && $user->can($ability->value);
     }
 
     /**

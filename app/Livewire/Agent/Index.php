@@ -2,13 +2,13 @@
 
 namespace App\Livewire\Agent;
 
+use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\Agent;
 use App\Queries\AgentQuery;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
@@ -17,18 +17,13 @@ use Livewire\WithPagination;
 #[Title('Agents')]
 class Index extends Component
 {
-    use AuthorizesRequests, FiltersAndPaginates, Toast, WithPagination;
+    use AuthorizesRequests, ConfirmsDeletion, FiltersAndPaginates, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
-
-    #[Locked]
-    public ?string $deleteId = null;
-
-    public bool $showDeleteModal = false;
 
     public int $deleteServerCount = 0;
 
@@ -40,6 +35,7 @@ class Index extends Component
         return [
             ['key' => 'name', 'label' => __('Name'), 'class' => 'w-64'],
             ['key' => 'status', 'label' => __('Status'), 'class' => 'w-32', 'sortable' => false],
+            ['key' => 'version', 'label' => __('Version'), 'class' => 'w-40', 'sortable' => false],
             ['key' => 'servers', 'label' => __('Servers'), 'class' => 'w-32', 'sortable' => false],
             ['key' => 'last_heartbeat_at', 'label' => __('Last Heartbeat'), 'class' => 'w-48'],
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-40'],
@@ -48,28 +44,21 @@ class Index extends Component
 
     public function confirmDelete(string $id): void
     {
-        $agent = Agent::findOrFail($id);
+        $agent = $this->confirmDeletion(Agent::query(), $id);
 
-        $this->authorize('delete', $agent);
-
-        $this->deleteId = $id;
         $this->deleteServerCount = $agent->databaseServers()->count();
-        $this->showDeleteModal = true;
     }
 
     public function delete(): void
     {
-        if (! $this->deleteId) {
+        $agent = $this->pendingDeletion(Agent::query());
+
+        if ($agent === null) {
             return;
         }
 
-        $agent = Agent::findOrFail($this->deleteId);
-
-        $this->authorize('delete', $agent);
-
         $agent->delete();
-        $this->deleteId = null;
-        $this->showDeleteModal = false;
+        $this->closeDeletion();
 
         $this->success(__('Agent deleted successfully!'));
     }

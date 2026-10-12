@@ -25,7 +25,7 @@ class SnapshotsMissingNotification extends BaseFailedNotification
             title: '⚠️ '.trans_choice(':count backup file missing|:count backup files missing', $count, ['count' => $count]),
             body: trans_choice(':count backup file could not be found on its storage volume.|:count backup files could not be found on their storage volumes.', $count, ['count' => $count]),
             actionText: '🔗 '.__('View Missing Files'),
-            actionUrl: route('snapshots.index', ['fileMissing' => '1']),
+            actionUrl: route('snapshots.index', ['flagFilter' => 'missing']),
             errorLabel: '📁 '.__('Missing Files'),
         );
     }

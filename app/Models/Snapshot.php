@@ -16,7 +16,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 
 /**
  * @mixin IdeHelperSnapshot
@@ -28,8 +27,6 @@ class Snapshot extends Model
 
     use HasUlids;
 
-    public bool $skipFileCleanup = false;
-
     protected $fillable = [
         'backup_job_id',
         'database_server_id',
@@ -39,6 +36,9 @@ class Snapshot extends Model
         'checksum',
         'started_at',
         'database_name',
+        'comment',
+        'locked',
+        'deleting',
         'database_type',
         'compression_type',
         'method',
@@ -46,73 +46,27 @@ class Snapshot extends Model
         'triggered_by_user_id',
     ];
 
+    /**
+     * The column defaults, so a snapshot just created reads them too.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'locked' => false,
+        'deleting' => false,
+    ];
+
     protected function casts(): array
     {
         return [
             'started_at' => 'datetime',
             'file_size' => 'integer',
+            'locked' => 'boolean',
+            'deleting' => 'boolean',
             'database_type' => DatabaseType::class,
             'metadata' => 'array',
             'compression_type' => CompressionType::class,
         ];
-    }
-
-    /**
-     * Generate metadata array for a snapshot.
-     * Sensitive fields (passwords) are excluded from the volume configs.
-     *
-     * @param  Collection<int, Volume>  $volumes
-     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volumes: list<array{id: string, type: string, config: array<string, mixed>}>, agent?: array{name: string}, dump_format?: string, dump_privileges?: bool}
-     */
-    public static function generateMetadata(DatabaseServer $server, string $databaseName, Collection $volumes): array
-    {
-        $sshTunnel = ['enabled' => false];
-        if ($server->requiresSshTunnel() && $server->sshConfig !== null) {
-            $safeSshConfig = $server->sshConfig->getSafe();
-            $sshTunnel = [
-                'enabled' => true,
-                'host' => $safeSshConfig['host'] ?? null,
-                'port' => $safeSshConfig['port'] ?? 22,
-                'username' => $safeSshConfig['username'] ?? null,
-                'auth_type' => $safeSshConfig['auth_type'] ?? 'password',
-            ];
-        }
-
-        $metadata = [
-            'database_server' => [
-                'host' => $server->host,
-                'port' => $server->port,
-                'username' => $server->username,
-                'database_name' => $databaseName,
-                'ssh_tunnel' => $sshTunnel,
-            ],
-            'volumes' => array_values($volumes->map(fn (Volume $volume) => [
-                'id' => $volume->id,
-                'type' => $volume->type,
-                'config' => $volume->getSafeConfig(),
-            ])->all()),
-        ];
-
-        // Record the agent name when the backup runs through a remote agent,
-        // so the logs modal can show how the job was executed.
-        if ($server->agent_id !== null && $server->agent !== null) {
-            $metadata['agent'] = ['name' => $server->agent->name];
-        }
-
-        // Record dump format for restore-time dispatch. Absent → plain (default for legacy snapshots).
-        if ($server->database_type === DatabaseType::POSTGRESQL
-            && $server->getExtraConfig('dump_format') === 'custom') {
-            $metadata['dump_format'] = 'custom';
-        }
-
-        // Record whether ownership/privilege information was preserved in the dump.
-        // Absent → stripped via --no-owner/--no-privileges (default for legacy snapshots).
-        if ($server->database_type === DatabaseType::POSTGRESQL
-            && (bool) $server->getExtraConfig('dump_privileges')) {
-            $metadata['dump_privileges'] = true;
-        }
-
-        return $metadata;
     }
 
     /**
@@ -175,12 +129,9 @@ class Snapshot extends Model
         // Tenancy is inherited from the database server the snapshot was taken from.
         static::addGlobalScope(new DatabaseServerOrganizationScope('database_server_id'));
 
-        // Delete the backup files, associated restores and job when snapshot is deleted
+        // Files on storage are removed by the actions before the row goes;
+        // this only keeps the rows that point at the snapshot consistent.
         static::deleting(function (Snapshot $snapshot) {
-            if (! $snapshot->skipFileCleanup) {
-                $snapshot->deleteBackupFiles();
-            }
-
             // The copy rows would cascade at the DB level, but delete them
             // explicitly so the restores' snapshot_file_id nullOnDelete fires
             // consistently across drivers.
@@ -262,21 +213,6 @@ class Snapshot extends Model
     }
 
     /**
-     * Delete every stored copy of the backup file from its volume.
-     * Returns true when at least one file was deleted.
-     */
-    public function deleteBackupFiles(): bool
-    {
-        $deleted = false;
-
-        foreach ($this->files()->completed()->get() as $file) {
-            $deleted = $file->deleteFromVolume() || $deleted;
-        }
-
-        return $deleted;
-    }
-
-    /**
      * True when at least one uploaded copy is still present on its volume.
      * Losing one copy while another remains is not a data loss.
      */
@@ -309,19 +245,6 @@ class Snapshot extends Model
     }
 
     /**
-     * Mark snapshot as completed with optional checksum
-     */
-    public function markCompleted(?string $checksum = null): void
-    {
-        $this->update([
-            'checksum' => $checksum,
-        ]);
-
-        // Mark the job as completed
-        $this->job->markCompleted();
-    }
-
-    /**
      * Scope to filter by database server
      *
      * @param  Builder<Snapshot>  $query
@@ -341,6 +264,25 @@ class Snapshot extends Model
     public function scopeCompleted(Builder $query): Builder
     {
         return $query->whereRelation('job', 'status', BackupJobStatus::Completed);
+    }
+
+    /**
+     * Scope to snapshots a user may delete: unlocked, not already queued for
+     * deletion, with a finished backup job.
+     *
+     * @param  Builder<Snapshot>  $query
+     * @return Builder<Snapshot>
+     */
+    public function scopeDeletable(Builder $query): Builder
+    {
+        return $query
+            ->where('locked', false)
+            ->where('deleting', false)
+            ->whereHas('job', fn (Builder $q) => $q->whereIn('status', [
+                BackupJobStatus::Completed,
+                BackupJobStatus::Failed,
+                BackupJobStatus::Cancelled,
+            ]));
     }
 
     /**

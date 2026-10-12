@@ -23,8 +23,6 @@ class ScheduledRestore extends Model
 
     public const string SKIP_PREVIOUS_IN_FLIGHT = 'previous_in_flight';
 
-    public const string SKIP_DISABLED = 'disabled';
-
     /**
      * Tenancy is inherited from the target server; the source server is
      * constrained to the same organization at validation time.
@@ -32,6 +30,19 @@ class ScheduledRestore extends Model
     protected static function booted(): void
     {
         static::addGlobalScope(new DatabaseServerOrganizationScope('target_server_id'));
+    }
+
+    /**
+     * What a skip reason means, for people. A run rejected outright stores
+     * the rejection itself as its reason.
+     */
+    public static function skipReasonLabel(string $reason): string
+    {
+        return match ($reason) {
+            self::SKIP_NO_SNAPSHOT => __('No snapshot is available to restore from yet.'),
+            self::SKIP_PREVIOUS_IN_FLIGHT => __('A previous run of this scheduled restore is still in progress.'),
+            default => $reason,
+        };
     }
 
     protected $fillable = [
@@ -45,6 +56,15 @@ class ScheduledRestore extends Model
         'enabled',
         'last_executed_at',
         'last_skip_reason',
+    ];
+
+    /**
+     * The column defaults, so a scheduled restore just created reads them too.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'enabled' => true,
     ];
 
     /**
@@ -81,6 +101,14 @@ class ScheduledRestore extends Model
     public function targetServer(): BelongsTo
     {
         return $this->belongsTo(DatabaseServer::class, 'target_server_id');
+    }
+
+    /**
+     * Whether running this would restore over the application's own database.
+     */
+    public function targetsAppDatabase(): bool
+    {
+        return $this->targetServer->isAppDatabase($this->schema_name);
     }
 
     /**

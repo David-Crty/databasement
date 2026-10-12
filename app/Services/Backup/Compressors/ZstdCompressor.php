@@ -26,6 +26,14 @@ class ZstdCompressor extends BaseCompressor
         return sprintf('zstd -%d%s --rm %s', $this->getLevel(), $threads, escapeshellarg($inputPath));
     }
 
+    public function getCompressStdinCommandLine(string $inputPath): string
+    {
+        $threads = $this->isMultithreaded() ? ' -T0' : '';
+
+        // -q keeps zstd's summary line out of stderr, which becomes the error message when the dump fails
+        return sprintf('zstd -q -%d%s -o %s', $this->getLevel(), $threads, escapeshellarg($this->getCompressedPath($inputPath)));
+    }
+
     public function getDecompressCommandLine(string $outputPath): string
     {
         // -d decompress, --rm removes the compressed file after decompression

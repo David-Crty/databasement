@@ -2,15 +2,11 @@
 
 use App\Enums\DatabaseSelectionMode;
 use App\Models\Backup;
-use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Volume;
 
 beforeEach(function () {
-    $this->schedule = BackupSchedule::firstOrCreate(
-        ['name' => 'Daily'],
-        ['expression' => '0 2 * * *'],
-    );
+    $this->schedule = dailySchedule();
     $this->volume = Volume::factory()->local()->create(['name' => 'S3 Prod']);
 });
 

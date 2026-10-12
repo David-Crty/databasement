@@ -5,11 +5,16 @@ namespace App\Services\Agent;
 use App\Enums\CompressionType;
 use App\Facades\AppConfig;
 use App\Models\Backup;
+use App\Models\Restore;
 use App\Models\Snapshot;
+use App\Models\SnapshotFile;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
+use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Support\Formatters;
+use Illuminate\Support\Collection;
+use RuntimeException;
 
 class AgentJobPayloadBuilder
 {
@@ -24,9 +29,10 @@ class AgentJobPayloadBuilder
      *     backup_path: string,
      *     server_name: string,
      *     post_backup_script: string|null,
+     *     excluded_tables: list<string>,
      * }
      */
-    public function build(Snapshot $snapshot): array
+    public function buildBackup(Snapshot $snapshot): array
     {
         $server = $snapshot->databaseServer;
 
@@ -44,6 +50,7 @@ class AgentJobPayloadBuilder
             compressionLevel: AppConfig::get('backup.compression_level'),
             compressionMultithread: (bool) AppConfig::get('backup.compression_multithread'),
             postBackupScript: AppConfig::get('backup.post_backup_script'),
+            excludedTables: Backup::parseExcludedTables($snapshot->backup?->excluded_tables),
         );
 
         return $config->toPayload();
@@ -54,7 +61,6 @@ class AgentJobPayloadBuilder
      *
      * @param  'manual'|'scheduled'  $method
      * @return array{
-     *     type: 'discover',
      *     backup_id: string,
      *     database: array{type: string, host: string, port: int, username: string, password: string, extra_config: array<string, mixed>|null},
      *     selection_mode: string,
@@ -69,7 +75,6 @@ class AgentJobPayloadBuilder
         $server = $backup->databaseServer;
 
         return [
-            'type' => 'discover',
             'backup_id' => $backup->id,
             'database' => DatabaseConnectionConfig::fromServer($server)->toPayload(),
             'selection_mode' => $backup->database_selection_mode->value,
@@ -77,6 +82,50 @@ class AgentJobPayloadBuilder
             'server_name' => $server->name,
             'method' => $method,
             'triggered_by_user_id' => $triggeredByUserId,
+        ];
+    }
+
+    /**
+     * Build a self-contained work order payload for a restore agent job.
+     *
+     * The source copy is fixed here rather than at run time: the agent cannot
+     * look it up, so it reads the user's pick or the first copy it can reach.
+     *
+     * @return array<string, mixed>
+     */
+    public function buildRestore(Restore $restore): array
+    {
+        $copies = $restore->snapshot->files()->completed()->fileExists()->reachableByAgent()->with('volume');
+
+        if ($restore->snapshot_file_id !== null) {
+            $copies->whereKey($restore->snapshot_file_id);
+        }
+
+        $sourceFile = $copies->oldest('id')->first();
+
+        if ($sourceFile === null) {
+            throw new RuntimeException('No copy of this snapshot is available on a volume the agent can reach.');
+        }
+
+        return RestoreConfig::fromRestore($restore, $sourceFile, '')->toPayload();
+    }
+
+    /**
+     * Build a payload for a cleanup agent job removing these copies of a
+     * snapshot's archive.
+     *
+     * @param  Collection<int, SnapshotFile>  $files
+     * @return array{filename: string, server_name: string, files: list<array{id: string, volume: array{id: string|null, type: string, name: string, config: array<string, mixed>}}>}
+     */
+    public function buildCleanup(Snapshot $snapshot, Collection $files): array
+    {
+        return [
+            'filename' => $snapshot->filename,
+            'server_name' => $snapshot->databaseServer->name,
+            'files' => array_values($files->map(fn (SnapshotFile $file): array => [
+                'id' => $file->id,
+                'volume' => VolumeConfig::fromVolume($file->volume)->toPayload(),
+            ])->all()),
         ];
     }
 

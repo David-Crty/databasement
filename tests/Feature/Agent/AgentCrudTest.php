@@ -78,6 +78,27 @@ describe('agent creation', function () {
             ->and($agent->tokens)->toHaveCount(1);
     });
 
+    test('deployment snippets pin the agent to the server version', function (?string $appVersion, string $imageTag, string $chartFlag) {
+        config(['app.version' => $appVersion]);
+        $user = User::factory()->withAbilities([Ability::ManageAgents->value])->create();
+
+        $component = Livewire::actingAs($user)
+            ->test(Create::class)
+            ->set('form.name', 'My Agent')
+            ->call('save');
+
+        expect($component->get('dockerCommand'))->toContain("davidcrty/databasement:{$imageTag}")
+            ->and($component->get('dockerComposeConfig'))->toContain("davidcrty/databasement:{$imageTag}")
+            ->and($component->get('helmCommand'))->toContain($component->get('newToken'));
+
+        $chartFlag === ''
+            ? expect($component->get('helmCommand'))->not->toContain('--version')
+            : expect($component->get('helmCommand'))->toContain($chartFlag);
+    })->with([
+        'release' => ['v1.9.2', '1.9', '--version 1.9.2'],
+        'untagged build' => [null, '1', ''],
+    ]);
+
     test('without manage-agents cannot open the create screen', function () {
         $user = User::factory()->withAllAbilitiesExcept(Ability::ManageAgents->value)->create();
 

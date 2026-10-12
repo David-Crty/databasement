@@ -2,6 +2,7 @@
 
 namespace App\Livewire\DatabaseServer\Connection;
 
+use App\Enums\DatabaseType;
 use App\Livewire\DatabaseServer\Form;
 use App\Rules\SafeHost;
 
@@ -14,7 +15,7 @@ class ClientServerConnectionRules extends ConnectionRules
     public function rules(Form $form): array
     {
         return [
-            'host' => ['required', 'string', 'max:255', new SafeHost],
+            'host' => ['required', 'string', 'max:255', new SafeHost(DatabaseType::tryFrom($form->database_type))],
             'port' => 'required|integer|min:1|max:65535',
             'username' => 'required|string|max:255',
             'password' => 'nullable',

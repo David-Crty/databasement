@@ -31,7 +31,6 @@ test('can download snapshot from local storage', function () {
         'filename' => $backupFilename,
         'file_size' => filesize($backupFilePath),
     ]);
-    $snapshot->update(['filename' => $backupFilename]);
     $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
@@ -54,8 +53,7 @@ test('download refuses a filename that escapes the volume root', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
     $server->backups->first()->volumes()->sync([$volume->id]);
 
-    $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual', $user->id)[0];
+    $snapshot = pendingSnapshot($server, $user->id);
     $snapshot->update(['filename' => '../'.basename($secret), 'file_size' => filesize($secret)]);
     $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
@@ -84,7 +82,6 @@ test('download returns 404 when local file is missing', function () {
         'filename' => 'nonexistent-backup.sql.gz',
         'file_size' => 1024,
     ]);
-    $snapshot->update(['filename' => 'nonexistent-backup.sql.gz']);
     $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
@@ -112,7 +109,6 @@ test('can download snapshot from s3 storage redirects to presigned url', functio
         'filename' => 'test-backup.sql.gz',
         'file_size' => 1024,
     ]);
-    $snapshot->update(['filename' => 'test-backup.sql.gz']);
     $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
@@ -163,7 +159,6 @@ test('s3 download presigned url includes volume prefix in key path', function ()
         'filename' => 'myapp-backup-2024-01-13.sql.gz',
         'file_size' => 2048,
     ]);
-    $snapshot->update(['filename' => 'myapp-backup-2024-01-13.sql.gz']);
     $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();
 
@@ -238,8 +233,7 @@ test('download rejects a file id that belongs to another snapshot', function () 
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
     $server->backups->first()->volumes()->sync([$volume->id]);
 
-    $factory = app(BackupJobFactory::class);
-    $snapshot = $factory->createSnapshots($server->backups->first(), 'manual', $user->id)[0];
+    $snapshot = pendingSnapshot($server, $user->id);
     $snapshot->update(['filename' => 'a.sql.gz']);
     $snapshot->files()->update(['status' => SnapshotFileStatus::Completed]);
     $snapshot->job->markCompleted();

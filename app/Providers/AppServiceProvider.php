@@ -26,13 +26,18 @@ use Dedoc\Scramble\Support\Generator\Parameter;
 use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
 use Silber\Bouncer\BouncerFacade as Bouncer;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 
@@ -108,6 +113,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
         $this->registerBouncer();
+        $this->configureApiRateLimiting();
 
         // Mary UI 2.9's <x-tab> references <x-mary-badge> internally, but its
         // service provider only registers the `mary-` internal alias for a fixed
@@ -185,6 +191,48 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Configure the rate limit for the v1 API.
+     *
+     * Keyed per access token so each credential has its own budget instead of
+     * sharing one bucket across every token a user holds. `auth:sanctum` runs
+     * before the throttle, so in practice every request that reaches the
+     * limiter is authenticated; the user and IP fallbacks below only exist so
+     * an unkeyed request can never bypass the limit entirely.
+     */
+    private function configureApiRateLimiting(): void
+    {
+        RateLimiter::for('api', function (Request $request) {
+            $perMinute = (int) config('api.rate_limit');
+
+            if ($perMinute <= 0) {
+                return Limit::none();
+            }
+
+            return Limit::perMinute($perMinute)->by($this->apiRateLimitKey($request));
+        });
+    }
+
+    private function apiRateLimitKey(Request $request): string
+    {
+        $user = $request->user();
+        $token = $user?->currentAccessToken();
+
+        if ($token instanceof PersonalAccessToken) {
+            return 'token:'.$token->getKey();
+        }
+
+        // Session-authenticated requests carry a TransientToken with no id, so
+        // key them by user. Never by IP: behind a proxy that TRUSTED_PROXIES
+        // does not cover, $request->ip() is the proxy's address and every
+        // client behind it would share one bucket.
+        if ($user !== null) {
+            return 'user:'.$user->getAuthIdentifier();
+        }
+
+        return 'ip:'.$request->ip();
+    }
+
+    /**
      * Log deprecation warnings for environment variables that have been
      * replaced by in-app configuration (volumes, backup, notifications).
      */
@@ -203,17 +251,22 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Keep the queue's retry_after above the longest a backup/restore may run.
      *
-     * Only workers act on retry_after, so this is skipped for web requests to
-     * avoid a database read on every one. Agent mode runs on the sync driver and
-     * has no database at all.
+     * Only workers act on retry_after, so it is read when `queue:work` starts
+     * (before the worker opens its queue connection) rather than on every boot,
+     * which would put a database read in front of every request and command.
+     * Agent mode runs on the sync driver and has no database at all.
      */
     private function configureQueueTimeouts(): void
     {
-        if (config('agent.enabled') || ! $this->app->runningInConsole()) {
+        if (config('agent.enabled')) {
             return;
         }
 
-        QueueTimeouts::apply();
+        Event::listen(function (CommandStarting $event): void {
+            if ($event->command === 'queue:work') {
+                QueueTimeouts::apply();
+            }
+        });
     }
 
     /**

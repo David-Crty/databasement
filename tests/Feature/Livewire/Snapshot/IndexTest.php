@@ -9,17 +9,20 @@ use App\Models\Snapshot;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\BackupJobFactory;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
 
 beforeEach(function () {
-    // The Snapshot index gates cancelling/deleting on delete-snapshots and
-    // restoring on operate-restores. The default actor holds exactly those, so
-    // the happy-path tests below double as the allow cases for both abilities.
+    // The Snapshot index gates deleting on delete-snapshots, restoring on
+    // operate-restores, and cancelling and editing comments on run-backups.
+    // The default actor holds exactly those, so the happy-path tests below
+    // double as the allow cases for each ability.
     $this->user = User::factory()->withAbilities([
         Ability::DeleteSnapshots->value,
         Ability::OperateRestores->value,
+        Ability::RunBackups->value,
     ])->create();
     actingAs($this->user);
 });
@@ -106,14 +109,30 @@ test('dbType filter narrows the list', function () {
         ->assertDontSee('pg_db');
 });
 
-test('fileMissing filter shows only snapshots with missing files', function () {
+test('flag filter shows only snapshots with missing files', function () {
     Snapshot::factory()->withFile()->create(['database_name' => 'present_db']);
     Snapshot::factory()->fileMissing()->create(['database_name' => 'gone_db']);
 
     Livewire::test(Index::class)
-        ->set('fileMissing', '1')
+        ->set('flagFilter', 'missing')
         ->assertSee('gone_db')
         ->assertDontSee('present_db');
+});
+
+test('flag filter shows only locked snapshots', function () {
+    Snapshot::factory()->withFile()->create(['database_name' => 'unlocked_db']);
+    Snapshot::factory()->withFile()->create(['database_name' => 'locked_db', 'locked' => true]);
+
+    Livewire::test(Index::class)
+        ->set('flagFilter', 'locked')
+        ->assertSee('locked_db')
+        ->assertDontSee('unlocked_db');
+});
+
+test('legacy fileMissing deeplink still selects the missing flag', function () {
+    Livewire::withQueryParams(['fileMissing' => '1'])
+        ->test(Index::class)
+        ->assertSet('flagFilter', 'missing');
 });
 
 test('triggerRestore dispatches open-restore-modal with from-snapshot mode', function () {
@@ -124,37 +143,34 @@ test('triggerRestore dispatches open-restore-modal with from-snapshot mode', fun
         ->assertDispatched('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id);
 });
 
-test('can cancel a pending backup job', function () {
+test('can cancel a backup in progress', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $snapshots = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual');
-    $job = $snapshots[0]->job;
+    $job = pendingSnapshot($server)->job;
 
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $job->id)
         ->assertSet('cancelJobId', $job->id)
-        ->call('deletePendingJob');
+        ->call('cancelJob');
 
-    expect(BackupJob::find($job->id))->toBeNull();
+    expect($job->fresh()->status)->toBe(BackupJobStatus::Cancelled);
 });
 
-test('cannot cancel a pending backup job from another organization', function () {
+test('cannot cancel a backup from another organization', function () {
     // A pending job whose snapshot belongs to a server in another org. The
     // policy resolves the owning org via snapshot → server.
-    $otherOrg = \App\Models\Organization::factory()->create();
-    $server = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
-    $job = Snapshot::factory()->forServer($server)->create()->job;
+    $job = foreignSnapshot()->job;
     $job->update(['status' => BackupJobStatus::Pending]);
 
-    // Acting as the default-org admin (beforeEach); the job belongs to $otherOrg,
-    // so even with the delete-snapshots ability the cancel must be forbidden.
+    // Acting as the default-org user (beforeEach); the job belongs to another org,
+    // so even with the run-backups ability the cancel must be forbidden.
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $job->id)
         ->assertForbidden();
 
-    expect(BackupJob::find($job->id))->not->toBeNull();
+    expect($job->fresh()->status)->toBe(BackupJobStatus::Pending);
 });
 
-test('cannot cancel a non-pending job', function () {
+test('cannot cancel a finished job', function () {
     $snapshot = Snapshot::factory()->withFile()->create();
     // Default factory creates a completed job.
     expect($snapshot->job->status)->toBe(BackupJobStatus::Completed);
@@ -187,17 +203,17 @@ test('without delete-snapshots, deleting a snapshot is forbidden', function () {
     expect(Snapshot::find($snapshot->id))->not->toBeNull();
 });
 
-test('without delete-snapshots, cancelling a pending job is forbidden', function () {
+test('without run-backups, cancelling a backup is forbidden', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
-    $job = app(BackupJobFactory::class)->createSnapshots($server->backups->first(), 'manual')[0]->job;
+    $job = pendingSnapshot($server)->job;
 
-    actingAs(User::factory()->withAbilities([])->create());
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::RunBackups->value)->create());
 
     Livewire::test(Index::class)
         ->call('confirmCancelJob', $job->id)
         ->assertForbidden();
 
-    expect(BackupJob::find($job->id))->not->toBeNull();
+    expect($job->fresh()->status)->toBe(BackupJobStatus::Pending);
 });
 
 test('without operate-restores, triggering a restore is forbidden', function () {
@@ -232,13 +248,13 @@ test('clear resets all filters', function () {
         ->set('statusFilter', 'completed')
         ->set('serverFilter', 'x')
         ->set('dbTypeFilter', 'mysql')
-        ->set('fileMissing', '1')
+        ->set('flagFilter', 'locked')
         ->call('clear')
         ->assertSet('search', '')
         ->assertSet('statusFilter', '')
         ->assertSet('serverFilter', '')
         ->assertSet('dbTypeFilter', '')
-        ->assertSet('fileMissing', '');
+        ->assertSet('flagFilter', '');
 });
 
 test('download-snapshots allows opening the copy picker for a multi-volume snapshot', function () {
@@ -281,6 +297,96 @@ test('without download-snapshots, opening the copy picker is forbidden', functio
         ->assertForbidden();
 });
 
+test('run-backups allows adding a comment to a snapshot', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $snapshot = Snapshot::factory()->withFile()->create();
+    $comment = 'Backup before upgrading to version 1.37';
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('editComment', $snapshot->id)
+        ->assertSet('editCommentSnapshotId', $snapshot->id)
+        ->assertSet('commentDraft', '')
+        ->set('commentDraft', $comment)
+        ->call('saveComment')
+        ->assertSet('editCommentSnapshotId', null)
+        ->assertSee($comment);
+
+    expect($snapshot->fresh()->comment)->toBe($comment);
+});
+
+test('saving a blank comment clears it', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['comment' => 'Old note']);
+
+    Livewire::test(Index::class)
+        ->call('editComment', $snapshot->id)
+        ->assertSet('commentDraft', 'Old note')
+        ->set('commentDraft', '   ')
+        ->call('saveComment');
+
+    expect($snapshot->fresh()->comment)->toBeNull();
+});
+
+test('cancelling an edit leaves the comment untouched', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['comment' => 'Old note']);
+
+    Livewire::test(Index::class)
+        ->call('editComment', $snapshot->id)
+        ->set('commentDraft', 'Discarded')
+        ->call('cancelEditComment')
+        ->assertSet('editCommentSnapshotId', null);
+
+    expect($snapshot->fresh()->comment)->toBe('Old note');
+});
+
+test('without run-backups, the comment is read-only', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['comment' => 'Old note']);
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::RunBackups->value)->create());
+
+    Livewire::test(Index::class)
+        ->assertSee('Old note')
+        ->assertDontSee('Add comment')
+        ->call('editComment', $snapshot->id)
+        ->assertForbidden();
+});
+
+test('delete-snapshots allows locking a snapshot against cleanup', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeTrue();
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id);
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
+});
+
+test('a locked snapshot cannot be deleted even with delete-snapshots', function () {
+    $snapshot = Snapshot::factory()->withFile()->create(['locked' => true]);
+
+    Livewire::test(Index::class)
+        ->call('confirmDeleteSnapshot', $snapshot->id)
+        ->assertForbidden();
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
+});
+
+test('without delete-snapshots, locking a snapshot is forbidden', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::DeleteSnapshots->value)->create());
+
+    Livewire::test(Index::class)
+        ->call('toggleLock', $snapshot->id)
+        ->assertForbidden();
+
+    expect($snapshot->fresh()->locked)->toBeFalse();
+});
+
 test('?job= from another org opens the logs modal when the user is a member', function () {
     // Both Snapshot and Restore are organization-scoped, so BackupJobPolicy has
     // to bypass those scopes to work out who owns a job. Without that, a member
@@ -301,11 +407,110 @@ test('?job= from another org opens the logs modal when the user is a member', fu
 });
 
 test('?job= from another org is forbidden when the user is not a member', function () {
-    $otherOrg = \App\Models\Organization::factory()->create();
-    $server = DatabaseServer::factory()->create(['organization_id' => $otherOrg->id]);
-    $job = Snapshot::factory()->forServer($server)->create()->job;
+    $job = foreignSnapshot()->job;
 
     Livewire::withQueryParams(['job' => $job->id])
         ->test(Index::class)
         ->assertForbidden();
+});
+
+test('viewLogs does not render a job from another organization', function () {
+    $job = foreignSnapshot()->job;
+    $job->log('mariadb-dump --host=other-org-host', 'info');
+
+    // Acting as the default-org user (beforeEach), who is not a member of
+    // the job's org. selectedJobId is client-writable, so the modal must resolve
+    // the job through the view policy rather than trusting the id.
+    Livewire::test(Index::class)
+        ->call('viewLogs', $job->id)
+        ->assertDontSee('other-org-host');
+});
+
+test('the logs modal shows the command heartbeat only while a command runs', function (string $status, bool $withHeartbeat, bool $shown) {
+    $job = Snapshot::factory()->create()->job;
+    $job->update([
+        'status' => $status,
+        'command_heartbeat_at' => $withHeartbeat ? now()->subSeconds(10) : null,
+    ]);
+
+    $component = Livewire::withQueryParams(['job' => $job->id])->test(Index::class);
+
+    $shown
+        ? $component->assertSee('Command running, last heartbeat')
+        : $component->assertDontSee('Command running, last heartbeat');
+})->with([
+    'running command' => ['running', true, true],
+    'no command running, or an agent up to 1.8.4' => ['running', false, false],
+    'finished job' => ['completed', true, false],
+]);
+
+test('delete-snapshots allows bulk deleting the selected snapshots, counting the ones it skips', function () {
+    $selected = Snapshot::factory()->withFile()->create();
+    $locked = Snapshot::factory()->withFile()->create(['locked' => true]);
+    $running = Snapshot::factory()->withFile()->create();
+    $running->job->update(['status' => BackupJobStatus::Running]);
+    $untouched = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->set('selected', [$selected->id, $locked->id, $running->id])
+        ->call('confirmBulkDelete')
+        ->assertSet('showDeleteModal', true)
+        ->assertSet('bulkDeleteCount', 1)
+        ->assertSet('bulkSkipCount', 2)
+        ->call('bulkDeleteSnapshots')
+        ->assertSet('selected', []);
+
+    expect(Snapshot::find($selected->id))->toBeNull()
+        ->and(Snapshot::find($untouched->id))->not->toBeNull();
+});
+
+test('a snapshot queued for deletion shows as deleting until the worker removes it', function () {
+    Queue::fake();
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->set('selected', [$snapshot->id])
+        ->call('bulkDeleteSnapshots')
+        ->assertSee(__('Deleting'));
+
+    expect($snapshot->fresh()->deleting)->toBeTrue();
+});
+
+test('selecting all matching snapshots deletes every snapshot matching the filters', function () {
+    $matching = Snapshot::factory()->withFile()->count(2)->create(['database_name' => 'orders_db']);
+    $other = Snapshot::factory()->withFile()->create(['database_name' => 'users_db']);
+
+    Livewire::test(Index::class)
+        ->set('search', 'orders')
+        ->set('selected', [$matching[0]->id])
+        ->set('selectAllMatching', true)
+        ->call('confirmBulkDelete')
+        ->call('bulkDeleteSnapshots');
+
+    expect(Snapshot::whereKey($matching->pluck('id'))->count())->toBe(0)
+        ->and(Snapshot::find($other->id))->not->toBeNull();
+});
+
+test('changing a filter clears the selection', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    Livewire::test(Index::class)
+        ->set('selected', [$snapshot->id])
+        ->set('selectAllMatching', true)
+        ->set('search', 'something')
+        ->assertSet('selected', [])
+        ->assertSet('selectAllMatching', false);
+});
+
+test('without delete-snapshots, bulk deleting snapshots is forbidden', function () {
+    $snapshot = Snapshot::factory()->withFile()->create();
+
+    actingAs(User::factory()->withAllAbilitiesExcept(Ability::DeleteSnapshots->value)->create());
+
+    Livewire::test(Index::class)
+        ->set('selected', [$snapshot->id])
+        ->call('bulkDeleteSnapshots')
+        ->assertForbidden();
+
+    expect(Snapshot::find($snapshot->id))->not->toBeNull();
 });

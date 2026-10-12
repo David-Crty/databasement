@@ -8,10 +8,7 @@ use App\Enums\DatabaseType;
     <!-- Section 1: Basic Information -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-3 sm:p-8">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="badge badge-primary badge-lg font-bold">1</span>
-                <h3 class="card-title text-lg">{{ __('Basic Information') }}</h3>
-            </div>
+            <x-form-section-header step="1" :title="__('Basic Information')" />
 
             <div class="space-y-4">
                 <x-input
@@ -84,10 +81,7 @@ use App\Enums\DatabaseType;
     <!-- Section 2: Connection Details -->
     <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-3 sm:p-8">
-            <div class="flex items-center gap-3 mb-4">
-                <span class="badge badge-primary badge-lg font-bold">2</span>
-                <h3 class="card-title text-lg">{{ __('Connection Details') }}</h3>
-            </div>
+            <x-form-section-header step="2" :title="__('Connection Details')" />
 
             <div class="space-y-4">
                 <!-- Database Type Selection -->
@@ -134,7 +128,7 @@ use App\Enums\DatabaseType;
 
                                     @if($form->dump_format === 'custom')
                                         <x-alert class="alert-warning" icon="o-exclamation-triangle">
-                                            {{ __('Custom format archives are version-sensitive: the target restore server must be PostgreSQL 17 or newer. Restores run with 4 parallel pg_restore workers.') }}
+                                            {{ __('Custom format archives are version-sensitive: the target restore server must be no older than this one. Restores run with 4 parallel pg_restore workers.') }}
                                         </x-alert>
                                     @endif
 
@@ -176,12 +170,9 @@ use App\Enums\DatabaseType;
                                 type="button"
                                 icon="{{ $form->connectionTestSuccess ? 'o-check-circle' : 'o-bolt' }}"
                                 wire:click="testConnection"
-                                :disabled="$form->testingConnection"
-                                spinner="testConnection"
+                                spinner
                             >
-                                @if($form->testingConnection)
-                                    {{ __('Testing...') }}
-                                @elseif($form->connectionTestSuccess)
+                                @if($form->connectionTestSuccess)
                                     {{ __('Connection Verified') }}
                                     @if(!empty($form->connectionTestDetails['ping_ms']))
                                         ({{ $form->connectionTestDetails['ping_ms'] }}ms)
@@ -194,6 +185,7 @@ use App\Enums\DatabaseType;
                             @if($form->connectionTestSuccess && !empty($form->connectionTestDetails['output']))
                                 <x-button
                                     wire:click="$toggle('form.showConnectionDetails')"
+                                    spinner="form.showConnectionDetails"
                                     class="btn-ghost btn-sm"
                                     icon="{{ $form->showConnectionDetails ? 'o-eye-slash' : 'o-eye' }}"
                                     :label="$form->showConnectionDetails ? __('Hide Details') : __('Show Details')"
@@ -266,16 +258,11 @@ use App\Enums\DatabaseType;
 
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
-                <!-- Card header -->
-                <div class="flex items-start gap-3 mb-6">
-                    <span class="badge badge-primary badge-lg font-bold">3</span>
-                    <div>
-                        <h3 class="card-title text-lg leading-snug">{{ __('Backup Configurations') }}</h3>
-                        <p class="text-xs text-base-content/60 mt-0.5">
-                            {{ __('Attach one or more backup configurations — each with its own schedule, volume, retention, and database selection.') }}
-                        </p>
-                    </div>
-                </div>
+                <x-form-section-header
+                    step="3"
+                    :title="__('Backup Configurations')"
+                    :subtitle="__('Attach one or more backup configurations — each with its own schedule, volume, retention, and database selection.')"
+                />
 
                 <div class="space-y-4">
                     @foreach($form->backups as $index => $backup)
@@ -294,6 +281,7 @@ use App\Enums\DatabaseType;
                     <div class="flex justify-center pt-2">
                         <x-button
                             wire:click="addBackup"
+                            spinner
                             icon="o-plus"
                             class="btn-outline btn-primary"
                             :label="__('Add another backup configuration')"
@@ -309,10 +297,7 @@ use App\Enums\DatabaseType;
     @if($form->connectionTestSuccess or $form->hasAgent() or $isEdit or $form->isSqlite() or $form->isFirebird())
         <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body p-3 sm:p-8">
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="badge badge-primary badge-lg font-bold">{{ $form->backups_enabled ? 4 : 3 }}</span>
-                    <h3 class="card-title text-lg">{{ __('Notifications') }}</h3>
-                </div>
+                <x-form-section-header :step="$form->backups_enabled ? 4 : 3" :title="__('Notifications')" />
 
                 @php
                     $notificationChannels = $form->getNotificationChannels();
@@ -421,6 +406,9 @@ use App\Enums\DatabaseType;
                                             <button
                                                 type="button"
                                                 wire:click="$set('form.notification_channel_ids', [])"
+                                                wire:loading.attr="disabled"
+                                                wire:loading.class="opacity-50"
+                                                wire:target="form.notification_channel_ids"
                                                 class="text-xs text-base-content/60 hover:text-base-content hover:underline cursor-pointer"
                                             >
                                                 {{ __('Clear all') }}
@@ -435,6 +423,9 @@ use App\Enums\DatabaseType;
                                                 role="checkbox"
                                                 aria-checked="{{ $isSelected ? 'true' : 'false' }}"
                                                 wire:click="toggleNotificationChannel('{{ $channel->id }}')"
+                                                wire:loading.attr="disabled"
+                                                wire:loading.class="opacity-50"
+                                                wire:target="toggleNotificationChannel('{{ $channel->id }}')"
                                                 wire:key="channel-card-{{ $channel->id }}"
                                                 class="relative flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all cursor-pointer {{ $isSelected ? 'border-primary bg-primary/5 shadow-sm' : 'border-base-300 bg-base-100 hover:bg-base-200' }}"
                                             >

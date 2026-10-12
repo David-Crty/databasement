@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Volume\Connectors;
 
+use App\Rules\SafeHost;
 use App\Rules\SafePath;
 
 class FtpConfig extends BaseConfig
@@ -29,7 +30,7 @@ class FtpConfig extends BaseConfig
     public static function rules(string $prefix): array
     {
         return [
-            "{$prefix}.host" => ['required_if:type,ftp', 'string', 'max:255'],
+            "{$prefix}.host" => ['required_if:type,ftp', 'string', 'max:255', new SafeHost],
             "{$prefix}.port" => ['nullable', 'integer', 'min:1', 'max:65535'],
             "{$prefix}.username" => ['required_if:type,ftp', 'string', 'max:255'],
             "{$prefix}.password" => ['required_if:type,ftp', 'string', 'max:1000'],

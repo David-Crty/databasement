@@ -25,19 +25,20 @@
                 icon="o-arrow-path"
                 class="btn-warning btn-sm"
                 wire:click="confirmRegenerate"
+                spinner
             />
         </div>
     </x-card>
 
     <!-- REGENERATE TOKEN CONFIRMATION MODAL -->
-    <x-modal wire:model="showRegenerateModal" :title="__('Regenerate Token')" class="backdrop-blur">
-        <p>{{ __('This will revoke the current token. The agent will need to be reconfigured with the new token.') }}</p>
-
-        <x-slot:actions>
-            <x-button :label="__('Cancel')" @click="$wire.showRegenerateModal = false" />
-            <x-button :label="__('Regenerate')" class="btn-warning" wire:click="regenerateToken" spinner="regenerateToken" />
-        </x-slot:actions>
-    </x-modal>
+    <x-confirm-modal
+        model="showRegenerateModal"
+        :title="__('Regenerate Token')"
+        :message="__('This will revoke the current token. The agent will need to be reconfigured with the new token.')"
+        on-confirm="regenerateToken"
+        :confirm-label="__('Regenerate')"
+        confirm-class="btn-warning"
+    />
 
     @include('livewire.agent._token-modal')
 </div>

@@ -15,6 +15,7 @@ test('encrypted command generation', function () {
 
     expect($compressor->getExtension())->toBe('7z')
         ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx=6 -mhe=on -p'secret123' '/path/to/dump.sql.7z' '/path/to/dump.sql'")
+        ->and($compressor->getCompressStdinCommandLine('/path/to/dump.sql'))->toBe("7z a -t7z -mx=6 -mhe=on -p'secret123' -si'dump.sql' '/path/to/dump.sql.7z'")
         ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.7z'))->toBe("7z x -y -o'/path/to' -p'secret123' '/path/to/dump.sql.7z'");
 });
 
@@ -70,4 +71,29 @@ test('encrypted compressor removes stale archive before compressing', function (
     expect(file_get_contents($compressedPath))->not->toBe('corrupted archive');
 
     unlink($compressedPath);
+});
+
+test('encrypted compressor locates the extracted dump for every dump extension', function (string $extension) {
+    $outputDir = sys_get_temp_dir().'/encrypted-decompress-'.uniqid();
+    mkdir($outputDir, 0755, true);
+    file_put_contents($outputDir.'/dump.'.$extension, 'extracted dump');
+
+    $compressor = new EncryptedCompressor($this->shellProcessor, 6, 'secret123');
+
+    expect($compressor->getDecompressedPath($outputDir))->toBe($outputDir.'/dump.'.$extension);
+
+    unlink($outputDir.'/dump.'.$extension);
+    rmdir($outputDir);
+})->with(\App\Enums\DatabaseType::dumpExtensions());
+
+test('encrypted compressor reports a missing dump when nothing was extracted', function () {
+    $outputDir = sys_get_temp_dir().'/encrypted-decompress-empty-'.uniqid();
+    mkdir($outputDir, 0755, true);
+
+    $compressor = new EncryptedCompressor($this->shellProcessor, 6, 'secret123');
+
+    expect(fn () => $compressor->getDecompressedPath($outputDir))
+        ->toThrow(RuntimeException::class, 'Decompression failed: output file not found');
+
+    rmdir($outputDir);
 });

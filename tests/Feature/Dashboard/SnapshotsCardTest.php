@@ -10,19 +10,17 @@ use Livewire\Livewire;
 test('snapshots card calculates correct total', function () {
     // The dashboard is viewable by any org member — no ability required.
     $user = User::factory()->withAbilities([])->create();
-    $factory = app(BackupJobFactory::class);
-
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
 
     // Create 3 completed jobs
     for ($i = 0; $i < 3; $i++) {
-        $snapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
-        $snapshots[0]->job->markCompleted();
+        $snapshot = pendingSnapshot($server, $user->id);
+        $snapshot->job->markCompleted();
     }
 
     // Create 1 failed job (should not be counted)
-    $failedSnapshots = $factory->createSnapshots($server->backups->first(), 'manual', $user->id);
-    $failedSnapshots[0]->job->markFailed(new Exception('Test error'));
+    $failedSnapshot = pendingSnapshot($server, $user->id);
+    $failedSnapshot->job->markFailed(new Exception('Test error'));
 
     Livewire::withoutLazyLoading()
         ->actingAs($user)

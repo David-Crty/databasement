@@ -2,14 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Actions\Restore\CompleteRestoreAction;
+use App\Actions\Restore\FailRestoreAction;
 use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\JobCancelledException;
 use App\Facades\AppConfig;
 use App\Models\Restore;
-use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\RestoreConfig;
-use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\RestoreTask;
-use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
 use App\Support\QueueTimeouts;
 use Illuminate\Bus\Queueable;
@@ -56,9 +56,19 @@ class ProcessRestoreJob implements ShouldQueue
     }
 
     /**
-     * Execute the job.
+     * Execute the job. A cancelled job ends here, wherever its runner was:
+     * it is neither retried nor reported as failed.
      */
     public function handle(RestoreTask $restoreTask): void
+    {
+        try {
+            $this->process($restoreTask);
+        } catch (JobCancelledException) {
+            Log::info('Restore cancelled', ['restore_id' => $this->restoreId]);
+        }
+    }
+
+    private function process(RestoreTask $restoreTask): void
     {
         $restore = Restore::with(['job', 'snapshot.files.volume', 'snapshot.databaseServer', 'snapshotFile.volume', 'targetServer.sshConfig'])
             ->findOrFail($this->restoreId);
@@ -108,28 +118,15 @@ class ProcessRestoreJob implements ShouldQueue
 
             $job->log("Reading snapshot from volume: {$sourceFile->volume->name}", 'info');
 
-            $config = new RestoreConfig(
-                targetServer: DatabaseConnectionConfig::fromServer($targetServer),
-                snapshotVolume: VolumeConfig::fromVolume($sourceFile->volume),
-                snapshotFilename: $sourceFile->storedFilename(),
-                snapshotFileSize: $snapshot->file_size,
-                snapshotCompressionType: $snapshot->compression_type,
-                snapshotDatabaseType: $snapshot->database_type,
-                snapshotDatabaseName: $snapshot->database_name,
-                schemaName: $restore->schema_name,
-                workingDirectory: FilesystemSupport::createWorkingDirectory('restore', $restore->id),
-                forceDatabase: filter_var($restore->getOption('force_database', false), FILTER_VALIDATE_BOOLEAN),
-                ownerUser: is_string($value = $restore->getOption('owner_user')) && $value !== '' ? $value : null,
-                snapshotDumpFormat: is_string($format = ($snapshot->metadata['dump_format'] ?? null)) ? $format : null,
-                snapshotDumpPrivileges: (bool) ($snapshot->metadata['dump_privileges'] ?? false),
-                postRestoreScript: AppConfig::get('backup.post_restore_script'),
+            $config = RestoreConfig::fromRestore(
+                $restore,
+                $sourceFile,
+                FilesystemSupport::createWorkingDirectory('restore', $restore->id),
             );
 
             $restoreTask->execute($config, $job);
 
-            $job->markCompleted();
-
-            app(NotificationService::class)->notifyRestoreSuccess($restore);
+            CompleteRestoreAction::run($restore);
 
             Log::info('Restore completed successfully', [
                 'restore_id' => $this->restoreId,
@@ -154,11 +151,22 @@ class ProcessRestoreJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        $restore = Restore::with(['targetServer', 'snapshot'])->find($this->restoreId);
+        $restore = Restore::with(['job', 'targetServer', 'snapshot'])->find($this->restoreId);
+
         if ($restore === null) {
             return;
         }
 
-        app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
+        try {
+            // A worker killed on timeout never reached its own catch, so the
+            // job is still running and its log does not say why it stopped.
+            if ($restore->job->status->isInProgress()) {
+                $restore->job->log("Restore failed: {$exception->getMessage()}", 'error');
+            }
+
+            FailRestoreAction::run($restore, $exception);
+        } catch (JobCancelledException) {
+            // Cancelled meanwhile: nothing to conclude or notify.
+        }
     }
 }

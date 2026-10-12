@@ -6,13 +6,24 @@
     "guidelines": true,
     "herd_mcp": false,
     "mcp": true,
+    "packages": [
+        "pestphp/pest-plugin-agent"
+    ],
     "sail": false,
     "skills": [
+        "infer-conventions",
         "fortify-development",
         "laravel-best-practices",
+        "testing-best-practices",
         "mcp-development",
         "socialite-development",
         "livewire-development",
-        "pest-testing"
+        "ai-sdk-development",
+        "pest-testing",
+        "tailwindcss-development",
+        "pest-plugin-agent",
+        "changelog",
+        "mary-ui",
+        "worktree-development"
     ]
 }

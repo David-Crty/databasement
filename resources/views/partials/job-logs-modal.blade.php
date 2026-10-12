@@ -38,6 +38,11 @@
                         <div class="min-w-0">
                             <div class="text-sm text-base-content/70">
                                 {{ $this->selectedJob->snapshot ? __('Backup') : __('Restore') }}
+                                @if($snapshot)
+                                    <div class="badge">
+                                        # {{ $snapshot->id }}
+                                    </div>
+                                @endif
                             </div>
                             <div class="font-semibold truncate">
                                 @if($this->selectedJob->snapshot)
@@ -51,6 +56,7 @@
                     {{-- Right: Status + Metadata button --}}
                     <div class="flex items-center gap-2 sm:gap-4">
                         <x-job-status-indicator :status="$this->selectedJob->status" />
+                        @include('partials.cancel-job-button', ['job' => $this->selectedJob, 'label' => __('Cancel job')])
                         @if($snapshot?->metadata)
                             <x-button
                                 :label="__('Metadata')"
@@ -63,6 +69,40 @@
                     </div>
                 </div>
 
+                {{-- Command heartbeat: counted live in the browser between page refreshes --}}
+                @if($this->selectedJob->status === \App\Enums\BackupJobStatus::Running && $this->selectedJob->command_heartbeat_at)
+                    <div
+                        wire:key="command-heartbeat-{{ $this->selectedJob->command_heartbeat_at->getTimestamp() }}"
+                        x-data="{
+                            ageAtRender: {{ (int) max(0, $this->selectedJob->command_heartbeat_at->diffInSeconds(now())) }},
+                            renderedAt: Date.now(),
+                            now: Date.now(),
+                            timer: null,
+                            init() { this.timer = setInterval(() => this.now = Date.now(), 1000) },
+                            destroy() { clearInterval(this.timer) },
+                            get seconds() { return this.ageAtRender + Math.floor((this.now - this.renderedAt) / 1000) },
+                            get stale() { return this.seconds >= {{ \App\Models\BackupJob::COMMAND_HEARTBEAT_WARNING_SECONDS }} },
+                            get ago() {
+                                const format = new Intl.RelativeTimeFormat(document.documentElement.lang || undefined, { numeric: 'auto' });
+                                return this.seconds < 60 ? format.format(-this.seconds, 'second') : format.format(-Math.floor(this.seconds / 60), 'minute');
+                            },
+                        }"
+                    >
+                        <div x-show="!stale" class="flex items-center gap-2 text-sm text-base-content/70">
+                            <x-loading class="loading-dots loading-xs text-success" />
+                            <span>{{ __('Command running, last heartbeat') }} <span x-text="ago"></span></span>
+                        </div>
+                        <x-alert x-show="stale" x-cloak class="alert-warning" icon="o-exclamation-triangle">
+                            <span>{{ __('Last heartbeat from the running command:') }} <span x-text="ago"></span>. {{ __('The worker or agent running it may have stopped.') }}</span>
+                            @if($this->selectedJob->snapshot?->databaseServer?->agent_id)
+                                <span class="opacity-80">
+                                    {{ __('This backup is retried automatically after :minutes minutes without a heartbeat.', ['minutes' => intdiv(\App\Console\Commands\RecoverStuckJobsCommand::COMMAND_HEARTBEAT_STALE_SECONDS, 60)]) }}
+                                </span>
+                            @endif
+                        </x-alert>
+                    </div>
+                @endif
+
                 {{-- File missing warning --}}
                 @if($snapshot && $snapshot->hasMissingFile())
                     @php $lastVerifiedAt = $snapshot->lastVerifiedAt(); @endphp
@@ -70,7 +110,7 @@
                         {{ __('Backup file is missing from volume') }}
                         @if($lastVerifiedAt)
                             <span class="text-base-content/70">
-                                — {{ __('checked') }} {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }} ({{ $lastVerifiedAt->diffForHumans() }})
+                                — {{ __('Last checked') }} {{ \App\Support\Formatters::humanDate($lastVerifiedAt) }} ({{ $lastVerifiedAt->diffForHumans() }})
                             </span>
                         @endif
                     </x-alert>
@@ -90,10 +130,7 @@
                         {{-- Volume Type(s) --}}
                         @foreach($snapshot->files as $file)
                             @if($file->volume)
-                                <div class="badge badge-outline gap-1.5">
-                                    <x-volume-type-icon :type="$file->volume->type" class="w-3.5 h-3.5" />
-                                    {{ $file->volume->getVolumeType()?->label() ?? $file->volume->type }}
-                                </div>
+                                <x-volume-type-badge :volume="$file->volume" class="badge-outline gap-1.5" />
                             @endif
                         @endforeach
 
@@ -319,3 +356,23 @@
         </x-slot:actions>
     @endif
 </x-modal>
+
+<x-confirm-modal
+    model="showCancelJobModal"
+    :title="__('Cancel Job')"
+    :message="__('The job stops at its next step, or within 30 seconds while a command runs.')"
+    on-confirm="cancelJob"
+    :confirm-label="__('Cancel job')"
+    :cancel-label="__('Keep running')"
+>
+    @if($cancelJobRestoreTarget)
+        <x-alert icon="o-exclamation-triangle" class="alert-warning mt-4">
+            <div class="space-y-1">
+                <div class="font-semibold">{{ __('The target database may be left unusable: :target', ['target' => $cancelJobRestoreTarget]) }}</div>
+                <div>{{ __('Once the restore has started loading data, the previous content of this database is already gone. Cancelling then leaves it partially restored, with only some of its tables and rows. Run a restore again to get a usable database.') }}</div>
+            </div>
+        </x-alert>
+    @else
+        <p class="mt-2 text-sm opacity-80">{{ __('The source database is not affected: the dump only reads it, and its partial file is discarded.') }}</p>
+    @endif
+</x-confirm-modal>

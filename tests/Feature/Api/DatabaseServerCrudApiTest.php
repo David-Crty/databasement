@@ -1,12 +1,18 @@
 <?php
 
+use App\Actions\Backup\TriggerBackupAction;
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\Ability;
-use App\Models\BackupSchedule;
+use App\Enums\BackupDiscoveryState;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
+use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
+use App\Models\Organization;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DTO\TriggerBackupResult;
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -18,7 +24,7 @@ test('unauthenticated users cannot create database servers', function () {
 test('without manage-database-servers, creating a server via api is forbidden', function () {
     $user = User::factory()->withAllAbilitiesExcept(Ability::ManageDatabaseServers->value)->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -41,7 +47,7 @@ test('without manage-database-servers, creating a server via api is forbidden', 
 test('can create a mysql database server via api', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -127,6 +133,65 @@ test('store normalizes sqlite selection mode to selected', function () {
     $response->assertCreated();
 });
 
+test('store keeps the connection and selected databases of an mssql server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'MSSQL',
+            'database_type' => 'mssql',
+            'host' => 'mssql.example.com',
+            'port' => 1433,
+            'username' => 'sa',
+            'password' => 'secret',
+            'backups' => [[
+                'database_selection_mode' => 'selected',
+                'database_names' => ['sales'],
+                'volume_ids' => [$volume->id],
+                'backup_schedule_id' => dailySchedule()->id,
+                'retention_policy' => 'days',
+                'retention_days' => 7,
+            ]],
+        ])
+        ->assertCreated();
+
+    $server = DatabaseServer::where('name', 'MSSQL')->firstOrFail();
+    expect($server->host)->toBe('mssql.example.com')
+        ->and($server->port)->toBe(1433)
+        ->and($server->username)->toBe('sa')
+        ->and($server->getDecryptedPassword())->toBe('secret')
+        ->and($server->backups->first()->database_names)->toBe(['sales']);
+});
+
+test('store keeps the connection and windows file paths of a firebird server', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $volume = Volume::factory()->local()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Firebird',
+            'database_type' => 'firebird',
+            'host' => 'fb.example.com',
+            'port' => 3050,
+            'username' => 'SYSDBA',
+            'password' => 'masterkey',
+            'backups' => [[
+                'database_names' => ['C:\\data\\app.fdb'],
+                'volume_ids' => [$volume->id],
+                'backup_schedule_id' => dailySchedule()->id,
+                'retention_policy' => 'days',
+                'retention_days' => 7,
+            ]],
+        ])
+        ->assertCreated();
+
+    $server = DatabaseServer::where('name', 'Firebird')->firstOrFail();
+    expect($server->host)->toBe('fb.example.com')
+        ->and($server->username)->toBe('SYSDBA')
+        ->and($server->backups->first()->database_names)->toBe(['C:\\data\\app.fdb']);
+});
+
 test('store moves auth_source and dump_flags to extra_config', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
@@ -145,6 +210,43 @@ test('store moves auth_source and dump_flags to extra_config', function () {
         ->assertJsonPath('data.extra_config.dump_flags', '--single-transaction');
 });
 
+/** A MySQL server payload whose one backup excludes $excludedTables. */
+function serverPayloadExcluding(array $excludedTables): array
+{
+    return [
+        'name' => 'MySQL excluding logs',
+        'database_type' => 'mysql',
+        'host' => 'localhost',
+        'port' => 3306,
+        'username' => 'root',
+        'backups' => [[
+            'database_selection_mode' => 'all',
+            'volume_id' => Volume::factory()->local()->create()->id,
+            'backup_schedule_id' => dailySchedule()->id,
+            'retention_policy' => 'days',
+            'retention_days' => 14,
+            'excluded_tables' => $excludedTables,
+        ]],
+    ];
+}
+
+test('store saves excluded_tables on the backup configuration', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', serverPayloadExcluding(['web_api_log', 'web_service_log']))
+        ->assertCreated()
+        ->assertJsonPath('data.backups.0.excluded_tables', ['web_api_log', 'web_service_log']);
+});
+
+test('store rejects excluded table names that are not plain identifiers', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/database-servers', serverPayloadExcluding(['logs; DROP TABLE users']))
+        ->assertJsonValidationErrors('backups.0.excluded_tables.0');
+});
+
 test('update preserves extra_config when keys are not sent', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create([
@@ -152,7 +254,7 @@ test('update preserves extra_config when keys are not sent', function () {
         'extra_config' => ['dump_flags' => '--single-transaction'],
     ]);
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->putJson("/api/v1/database-servers/{$server->id}", [
@@ -204,7 +306,7 @@ test('cannot create an agent-backed server with a local volume', function () {
     $user = User::factory()->create();
     $agent = \App\Models\Agent::factory()->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     // Local volumes live on the API host and are unreachable from a remote agent.
     $this->actingAs($user, 'sanctum')
@@ -230,7 +332,7 @@ test('cannot create an agent-backed server with a local volume', function () {
 test('can create a server with backup config including gfs retention', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -271,7 +373,7 @@ test('without manage-database-servers, updating a server via api is forbidden', 
     $user = User::factory()->withAllAbilitiesExcept(Ability::ManageDatabaseServers->value)->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->putJson("/api/v1/database-servers/{$server->id}", [
@@ -295,7 +397,7 @@ test('can update a database server via api', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $response = $this->actingAs($user, 'sanctum')
         ->putJson("/api/v1/database-servers/{$server->id}", [
@@ -325,7 +427,7 @@ test('update attaches an ssh config to a server that has none', function () {
     $server = DatabaseServer::factory()->create(['database_type' => 'mysql']);
     $sshConfig = DatabaseServerSshConfig::factory()->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     expect($server->ssh_config_id)->toBeNull();
 
@@ -351,23 +453,21 @@ test('update attaches an ssh config to a server that has none', function () {
     expect($server->fresh()->sshConfig->host)->toBe('bastion.example.com');
 });
 
-test('blank password keeps existing password on update', function () {
+test('an ssh config from another organization is rejected', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
-    $server = DatabaseServer::factory()->create([
-        'database_type' => 'mysql',
-        'password' => 'original-password',
-    ]);
+    $foreignOrg = Organization::factory()->create();
+    $foreignConfig = DatabaseServerSshConfig::factory()->create(['organization_id' => $foreignOrg->id]);
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
-        ->putJson("/api/v1/database-servers/{$server->id}", [
-            'name' => $server->name,
+        ->postJson('/api/v1/database-servers', [
+            'name' => 'Tunnelled',
             'database_type' => 'mysql',
-            'host' => $server->host,
-            'port' => $server->port,
-            'username' => $server->username,
-            'password' => '',
+            'host' => 'localhost',
+            'port' => 3306,
+            'username' => 'root',
+            'ssh_config_id' => $foreignConfig->id,
             'backups' => [[
                 'database_selection_mode' => 'all',
                 'volume_id' => $volume->id,
@@ -375,17 +475,18 @@ test('blank password keeps existing password on update', function () {
                 'retention_policy' => 'days',
                 'retention_days' => 14,
             ]],
-        ]);
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('ssh_config_id');
 
-    $server->refresh();
-    expect($server->getDecryptedPassword())->toBe('original-password');
+    expect(DatabaseServer::withoutGlobalScopes()->where('name', 'Tunnelled')->exists())->toBeFalse();
 });
 
 test('update syncs backup configuration', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
     $newVolume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->putJson("/api/v1/database-servers/{$server->id}", [
@@ -405,6 +506,60 @@ test('update syncs backup configuration', function () {
     $server->refresh();
     expect($server->backups->first()->volumes->first()->id)->toBe($newVolume->id)
         ->and($server->backups->first()->retention_policy)->toBe('forever');
+});
+
+test('update rejects a backup configuration id from another server and changes nothing', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $otherBackup = DatabaseServer::factory()->create(['database_type' => 'postgres'])->backups->first();
+    $backup = $server->backups->first();
+
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-servers/{$server->id}", [
+            'name' => 'Renamed',
+            'database_type' => 'postgres',
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'backups' => [[
+                'id' => $otherBackup->id,
+                'database_selection_mode' => 'all',
+                'volume_ids' => $backup->volumes->pluck('id')->all(),
+                'backup_schedule_id' => $backup->backup_schedule_id,
+                'retention_policy' => 'forever',
+            ]],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['backups.0.id']);
+
+    expect($server->refresh()->name)->not->toBe('Renamed');
+});
+
+test('a connection database cannot smuggle extra parameters into the dsn', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $volume = Volume::factory()->local()->create();
+    $schedule = dailySchedule();
+
+    // The value is interpolated into a PDO DSN, where `;` starts another
+    // keyword=value pair rather than being part of the database name.
+    $this->actingAs($user, 'sanctum')
+        ->putJson("/api/v1/database-servers/{$server->id}", [
+            'name' => $server->name,
+            'database_type' => 'postgres',
+            'host' => $server->host,
+            'port' => $server->port,
+            'username' => $server->username,
+            'connection_database' => 'app_db;host=attacker.example.com',
+            'backups' => [[
+                'database_selection_mode' => 'all',
+                'volume_id' => $volume->id,
+                'backup_schedule_id' => $schedule->id,
+                'retention_policy' => 'forever',
+            ]],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['connection_database']);
 });
 
 test('update returns validation errors', function () {
@@ -444,6 +599,18 @@ test('can delete a database server via api', function () {
         ->assertNoContent();
 
     $this->assertDatabaseMissing('database_servers', ['id' => $server->id]);
+});
+
+test('deleting a server whose files cannot be deleted answers 409 without the storage errors', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create();
+    DeleteDatabaseServerAction::shouldRun()->andThrow(new DatabaseServerFilesNotDeletedException($server, ['Offsite: Volume unreachable']));
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson("/api/v1/database-servers/{$server->id}")
+        ->assertConflict()
+        ->assertJsonPath('message', 'The database server was kept because some of its backup files could not be deleted.')
+        ->assertDontSee('Volume unreachable');
 });
 
 // ─── Filter by managed_by ───────────────────────────────────────────────────
@@ -523,7 +690,7 @@ test('test connection returns failure details', function () {
 test('store rejects sqlite server without file paths on the backup', function () {
     $user = User::factory()->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -543,7 +710,7 @@ test('store rejects sqlite server without file paths on the backup', function ()
 test('store rejects days retention without retention_days', function () {
     $user = User::factory()->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -566,7 +733,7 @@ test('store rejects days retention without retention_days', function () {
 test('store rejects gfs retention with every tier at zero', function () {
     $user = User::factory()->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -592,7 +759,7 @@ test('store rejects gfs retention with every tier at zero', function () {
 test('store rejects selected mode without any database names', function () {
     $user = User::factory()->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -617,7 +784,7 @@ test('store rejects selected mode without any database names', function () {
 test('store rejects pattern mode without a pattern', function () {
     $user = User::factory()->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -642,7 +809,7 @@ test('store rejects pattern mode without a pattern', function () {
 test('store rejects pattern mode with an invalid regex', function () {
     $user = User::factory()->create();
     $volume = Volume::factory()->local()->create();
-    $schedule = BackupSchedule::firstOrCreate(['name' => 'Daily'], ['expression' => '0 2 * * *']);
+    $schedule = dailySchedule();
 
     $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/database-servers', [
@@ -676,16 +843,26 @@ test('backup endpoint returns 422 when the requested backup id does not exist on
         ->assertJsonPath('message', 'No backup configuration found for this database server.');
 });
 
-test('backup endpoint uses the first backup when no backup_id is provided', function () {
-    \Illuminate\Support\Facades\Queue::fake();
+test('backup endpoint returns 422 when backup_id is not a single id', function () {
     $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
-    $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
-    $backup = $server->backups->first();
+    $server = DatabaseServer::factory()->create();
 
     $this->actingAs($user, 'sanctum')
-        ->postJson("/api/v1/database-servers/{$server->id}/backup")
-        ->assertStatus(202);
+        ->postJson("/api/v1/database-servers/{$server->id}/backup?backup_id[]={$server->backups->first()->id}")
+        ->assertStatus(422);
+});
 
-    $snapshot = \App\Models\Snapshot::first();
-    expect($snapshot?->backup_id)->toBe($backup->id);
+test('backup_id selects which configuration the api triggers', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = DatabaseServer::factory()->create();
+    $second = Backup::factory()->for($server)->create();
+
+    TriggerBackupAction::shouldRun()
+        ->once()
+        ->withArgs(fn (Backup $backup) => $backup->is($second))
+        ->andReturn(new TriggerBackupResult([], BackupDiscoveryState::NotNeeded));
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson("/api/v1/database-servers/{$server->id}/backup?backup_id={$second->id}")
+        ->assertAccepted();
 });

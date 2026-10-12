@@ -2,13 +2,14 @@
 
 namespace App\Livewire\DatabaseServer;
 
-use App\Enums\DatabaseType;
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
+use App\Livewire\DatabaseServer\Concerns\OpensServerRestore;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Restore;
-use App\Services\Backup\TriggerBackupAction;
 use App\Traits\OpensAdminerForServer;
 use App\Traits\RunsServerBackups;
 use App\Traits\Toast;
@@ -22,7 +23,7 @@ use Livewire\Component;
 #[Title('Database Server')]
 class Show extends Component
 {
-    use AuthorizesRequests, OpensAdminerForServer, RunsServerBackups, Toast;
+    use AuthorizesRequests, OpensAdminerForServer, OpensServerRestore, RunsServerBackups, Toast;
 
     public DatabaseServer $server;
 
@@ -31,8 +32,6 @@ class Show extends Component
     public int $restoresCount = 0;
 
     public bool $showDeleteModal = false;
-
-    public bool $showRedisRestoreModal = false;
 
     public int $deleteSnapshotCount = 0;
 
@@ -55,32 +54,18 @@ class Show extends Component
         $this->restoresCount = Restore::where('target_server_id', $server->id)->count();
     }
 
-    public function runBackupAll(TriggerBackupAction $action): void
+    public function runBackupAll(): void
     {
         $this->authorize('backup', $this->server);
 
         $this->server->load(['backups.volumes', 'backups.backupSchedule']);
 
-        $this->triggerAllBackups($this->server, $action);
+        $this->triggerAllBackups($this->server);
     }
 
     public function confirmRestore(): void
     {
-        $this->authorize('restore', $this->server);
-
-        if ($this->server->agent_id) {
-            $this->error(__('Restore is not yet supported for agent-backed servers.'));
-
-            return;
-        }
-
-        if ($this->server->database_type === DatabaseType::REDIS) {
-            $this->showRedisRestoreModal = true;
-
-            return;
-        }
-
-        $this->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $this->server->id);
+        $this->openRestoreFor($this->server);
     }
 
     public function openAdminer(): void
@@ -101,8 +86,15 @@ class Show extends Component
     {
         $this->authorize('delete', $this->server);
 
-        $this->server->skipFileCleanup = $this->keepFiles;
-        $this->server->delete();
+        try {
+            DeleteDatabaseServerAction::run($this->server, $this->keepFiles);
+        } catch (DatabaseServerFilesNotDeletedException) {
+            $this->showDeleteModal = false;
+            $this->error(__('The database server was kept because some backup files could not be deleted. Try again, or delete it while keeping the files.'));
+
+            return;
+        }
+
         $this->showDeleteModal = false;
 
         $this->success(

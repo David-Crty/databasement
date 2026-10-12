@@ -74,6 +74,25 @@ test('adminer builds correct credentials for MySQL', function () {
         ->assertOk();
 });
 
+test('adminer passes a MySQL socket host as the socket', function () {
+    $user = User::factory()->withAbilities([Ability::UseAdminer->value])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create([
+        'database_type' => 'mysql',
+        'host' => '/var/run/mysqld/mysqld.sock',
+    ]);
+
+    $this->mock(AdminerService::class)
+        ->shouldReceive('render')
+        ->once()
+        ->withArgs(fn ($credentials) => $credentials['server'] === 'localhost:/var/run/mysqld/mysqld.sock');
+
+    session()->put('adminer_server_id', $server->id);
+
+    $this->actingAs($user)
+        ->get(route('adminer'))
+        ->assertOk();
+});
+
 test('adminer builds pgsql driver for PostgreSQL', function () {
     $user = User::factory()->withAbilities([Ability::UseAdminer->value])->create();
     $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'postgres']);

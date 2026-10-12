@@ -46,9 +46,7 @@ class BackupJobQuery
                         $query->whereHas('restore');
                     }
                 }),
-                AllowedFilter::callback('search', function (Builder $query, $value) {
-                    self::applySearch($query, $value);
-                }),
+                AllowedFilter::callback('search', self::applySearch(...)),
             )
             ->allowedSorts(
                 AllowedSort::field('created_at'),

@@ -2,9 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Actions\Organization\DeleteOrganizationAction;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
-use App\Services\Organization\OrganizationMergeService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,7 +25,7 @@ class DeleteOrganizationJob implements ShouldQueue
         public bool $keepFiles = false,
     ) {}
 
-    public function handle(OrganizationMergeService $service): void
+    public function handle(): void
     {
         $organization = Organization::withoutGlobalScope(OrganizationScope::class)->find($this->organizationId);
 
@@ -33,6 +33,6 @@ class DeleteOrganizationJob implements ShouldQueue
             return;
         }
 
-        $service->delete($organization, $this->actorUserId, $this->keepFiles);
+        DeleteOrganizationAction::run($organization, $this->actorUserId, $this->keepFiles);
     }
 }

@@ -3,7 +3,9 @@
 namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
+use App\Enums\DatabaseType;
 use App\Rules\SafeHost;
+use App\Services\Backup\Databases\Concerns\TestsConnection;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Support\Formatters;
 use MongoDB\Driver\Command;
@@ -12,6 +14,8 @@ use MongoDB\Driver\Manager;
 
 class MongodbDatabase implements DatabaseInterface
 {
+    use TestsConnection;
+
     /** @var array<string, mixed> */
     private array $config;
 
@@ -40,12 +44,13 @@ class MongodbDatabase implements DatabaseInterface
         ];
 
         if (! empty($this->config['dump_flags'])) {
-            $parts[] = DatabaseOperationResult::escapeFlags($this->config['dump_flags']);
+            $parts[] = DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::MONGODB);
         }
 
-        $parts[] = '--archive='.escapeshellarg($outputPath);
+        // A bare --archive writes the archive to stdout.
+        $parts[] = '--archive';
 
-        return new DatabaseOperationResult(command: implode(' ', $parts));
+        return new DatabaseOperationResult(command: implode(' ', $parts), writesToStdout: true);
     }
 
     public function restore(string $inputPath): DatabaseOperationResult
@@ -96,10 +101,10 @@ class MongodbDatabase implements DatabaseInterface
             $authDb = $this->authSource();
             $cursor = $manager->executeCommand($authDb, new Command(['ping' => 1]));
             $response = $cursor->toArray()[0];
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            $durationMs = Formatters::elapsedMs($startTime);
 
             if (! isset($response->ok) || (int) $response->ok !== 1) {
-                return ['success' => false, 'message' => 'Unexpected response from MongoDB server', 'details' => []];
+                return $this->connectionFailed('Unexpected response from MongoDB server');
             }
 
             $serverInfo = ['dbms' => 'MongoDB'];
@@ -115,30 +120,9 @@ class MongodbDatabase implements DatabaseInterface
                 // Non-critical
             }
 
-            return [
-                'success' => true,
-                'message' => 'Connection successful',
-                'details' => [
-                    'ping_ms' => $durationMs,
-                    'output' => json_encode($serverInfo, JSON_PRETTY_PRINT),
-                ],
-            ];
+            return $this->connectionSucceededWithInfo($durationMs, $serverInfo);
         } catch (MongoException $e) {
-            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-
-            if ($durationMs >= 9500) {
-                return [
-                    'success' => false,
-                    'message' => 'Connection timed out after '.Formatters::humanDuration($durationMs).'. Please check the host and port are correct and accessible.',
-                    'details' => [],
-                ];
-            }
-
-            return [
-                'success' => false,
-                'message' => $e->getMessage(),
-                'details' => [],
-            ];
+            return $this->driverConnectionFailure($e, $startTime);
         }
     }
 

@@ -66,6 +66,7 @@
         @if(count($form->backups) > 1)
             <x-button
                 wire:click="removeBackup({{ $index }})"
+                spinner
                 icon="o-trash"
                 class="btn-ghost btn-sm text-error shrink-0"
                 tooltip="{{ __('Remove this backup configuration') }}"
@@ -102,6 +103,7 @@
                             @if(count($pathRows) > 1)
                                 <x-button
                                     wire:click="removeDatabasePath({{ $index }}, {{ $pathIndex }})"
+                                    spinner
                                     icon="o-trash"
                                     class="btn-ghost btn-square btn-sm text-error"
                                     type="button"
@@ -111,6 +113,7 @@
                     @endforeach
                     <x-button
                         wire:click="addDatabasePath({{ $index }})"
+                        spinner
                         icon="o-plus"
                         class="btn-ghost btn-sm"
                         :label="__('Add path')"
@@ -306,6 +309,26 @@
                         @endif
                     </div>
                 @endif
+
+                @if($serverType->supportsExcludedTables())
+                    <x-toggle
+                        :id="'exclude-tables-'.$index"
+                        wire:model.live="form.backups.{{ $index }}.exclude_tables"
+                        :label="__('Exclude tables')"
+                        :hint="__('Leave specific tables out of every database in this backup')"
+                        class="toggle-primary"
+                    />
+
+                    @if(! empty($backup['exclude_tables']))
+                        <x-textarea
+                            wire:model="form.backups.{{ $index }}.excluded_tables"
+                            :label="__('Excluded Tables')"
+                            :placeholder="__('e.g., web_api_log, web_service_log')"
+                            :hint="__('Table names without schema prefix, separated by commas or new lines.')"
+                            rows="3"
+                        />
+                    @endif
+                @endif
             </div>
         @endif
 
@@ -478,6 +501,9 @@
                                 <button
                                     type="button"
                                     wire:click="$set('form.backups.{{ $index }}.retention_days', {{ $mark }})"
+                                    wire:loading.attr="disabled"
+                                    wire:loading.class="opacity-50"
+                                    wire:target="form.backups.{{ $index }}.retention_days"
                                     class="text-xs tabular-nums font-mono transition-colors {{ (int) ($backup['retention_days'] ?? 0) === $mark ? 'font-bold text-primary' : 'text-base-content/40 hover:text-base-content/70' }}"
                                 >
                                     {{ $mark }}
@@ -596,31 +622,19 @@
 
                     <dl class="grid gap-y-2 gap-x-4 text-sm" style="grid-template-columns: auto 1fr;">
                         @if($summaryWhat)
-                            <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                                <x-icon name="o-circle-stack" class="w-3.5 h-3.5" />
-                                {{ __('What') }}
-                            </dt>
+                            <x-summary-term icon="o-circle-stack" :label="__('What')" />
                             <dd class="font-semibold text-base-content">{{ $summaryWhat }}</dd>
                         @endif
 
-                        <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                            <x-icon name="o-server-stack" class="w-3.5 h-3.5" />
-                            {{ __('Where') }}
-                        </dt>
+                        <x-summary-term icon="o-server-stack" :label="__('Where')" />
                         <dd class="font-semibold text-base-content">
                             {{ $summaryVolume }}@if($resolvedPathPreview)<span class="text-base-content/50 font-normal font-mono text-xs"> / {{ $resolvedPathPreview }}</span>@endif
                         </dd>
 
-                        <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                            <x-icon name="o-clock" class="w-3.5 h-3.5" />
-                            {{ __('When') }}
-                        </dt>
+                        <x-summary-term icon="o-clock" :label="__('When')" />
                         <dd class="font-semibold text-base-content">{{ $summarySchedule }}</dd>
 
-                        <dt class="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-base-content/50">
-                            <x-icon name="o-archive-box" class="w-3.5 h-3.5" />
-                            {{ __('Keep') }}
-                        </dt>
+                        <x-summary-term icon="o-archive-box" :label="__('Keep')" />
                         <dd class="font-semibold text-base-content">{{ $summaryHowLong }}</dd>
                     </dl>
                 </div>

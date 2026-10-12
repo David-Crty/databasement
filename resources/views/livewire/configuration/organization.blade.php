@@ -1,23 +1,14 @@
 <div>
-    <x-header :title="__('Configuration')" separator>
-        <x-slot:subtitle>
-            {{ __('Manage organizations and their resources.') }}
-        </x-slot:subtitle>
-    </x-header>
-
-    @include('livewire.configuration._tabs', ['active' => 'organizations'])
+    <x-configuration-header active="organizations" :subtitle="__('Manage organizations and their resources.')" />
 
     <x-card shadow class="min-w-0">
-        <x-card-heading :title="__('Organizations')" :subtitle="__('Organizations let you group users, servers, and volumes into isolated workspaces.')">
-            <x-button
-                :label="__('Documentation')"
-                icon="o-book-open"
-                link="https://david-crty.github.io/databasement/user-guide/organizations"
-                external
-                class="btn-ghost btn-sm"
-            />
+        <x-card-heading :title="__('Organizations')" :subtitle="__('Organizations let you group users, servers, and volumes into isolated workspaces.')" docs="user-guide/organizations">
+            @can('viewAcrossOrganizations', \App\Models\DatabaseServer::class)
+                <x-button :label="__('Servers across organizations')" icon="o-server-stack" class="btn-outline btn-sm"
+                          @click="$dispatch('open-cross-organization-servers-modal')" />
+            @endcan
             @can('create', \App\Models\Organization::class)
-                <x-button :label="__('New Organization')" icon="o-plus" class="btn-primary btn-sm" wire:click="openCreateModal" />
+                <x-button :label="__('New Organization')" icon="o-plus" class="btn-primary btn-sm" wire:click="openCreateModal" spinner />
             @endcan
         </x-card-heading>
 
@@ -46,14 +37,18 @@
                 {{-- update/delete policies already return false for the default org and non-super-admins --}}
                 @can('update', $org)
                     <div class="flex justify-end flex-nowrap gap-1">
-                        <x-button icon="o-pencil" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openEditModal('{{ $org->id }}')" :tooltip-left="__('Edit')" />
-                        <x-button icon="o-arrows-pointing-in" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openMergeModal('{{ $org->id }}')" :tooltip-left="__('Merge')" />
-                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDelete('{{ $org->id }}')" :tooltip-left="__('Delete')" />
+                        <x-button icon="o-pencil" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openEditModal('{{ $org->id }}')" spinner :tooltip-left="__('Edit')" />
+                        <x-button icon="o-arrows-pointing-in" class="btn-ghost btn-xs tooltip tooltip-left" wire:click="openMergeModal('{{ $org->id }}')" spinner :tooltip-left="__('Merge')" />
+                        <x-button icon="o-trash" class="btn-ghost btn-xs text-error tooltip tooltip-left" wire:click="confirmDelete('{{ $org->id }}')" spinner :tooltip-left="__('Delete')" />
                     </div>
                 @endcan
             @endscope
         </x-table>
     </x-card>
+
+    @can('viewAcrossOrganizations', \App\Models\DatabaseServer::class)
+        <livewire:configuration.cross-organization-servers-modal />
+    @endcan
 
     @can('create', \App\Models\Organization::class)
     {{-- Create Modal --}}
@@ -61,7 +56,7 @@
         <x-input :label="__('Name')" wire:model="newOrgName" />
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showCreateModal = false" />
-            <x-button :label="__('Create')" class="btn-primary" wire:click="createOrganization" />
+            <x-button :label="__('Create')" class="btn-primary" wire:click="createOrganization" spinner />
         </x-slot:actions>
     </x-modal>
 
@@ -70,7 +65,7 @@
         <x-input :label="__('Name')" wire:model="editOrgName" />
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showEditModal = false" />
-            <x-button :label="__('Save')" class="btn-primary" wire:click="updateOrganization" />
+            <x-button :label="__('Save')" class="btn-primary" wire:click="updateOrganization" spinner />
         </x-slot:actions>
     </x-modal>
 
@@ -87,7 +82,7 @@
         />
         <x-slot:actions>
             <x-button :label="__('Cancel')" @click="$wire.showMergeModal = false" />
-            <x-button :label="__('Merge')" class="btn-primary" wire:click="mergeOrganization" />
+            <x-button :label="__('Merge')" class="btn-primary" wire:click="mergeOrganization" spinner />
         </x-slot:actions>
     </x-modal>
 

@@ -14,11 +14,13 @@ use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Scopes\OrganizationScope;
 use App\Models\Snapshot;
+use App\Models\Volume;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\NotificationService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 class BackupJobFactory
 {
@@ -81,7 +83,9 @@ class BackupJobFactory
         }
 
         if (empty($databases)) {
-            Log::warning("No databases found on server [{$server->name}] for backup [{$backup->id}].");
+            $this->recordPreflightFailure($backup, $method, $triggeredByUserId, new RuntimeException('No database on the server matches this backup configuration.'));
+
+            return [];
         }
 
         foreach ($databases as $databaseName) {
@@ -124,7 +128,7 @@ class BackupJobFactory
                 'database_type' => $server->database_type,
                 'compression_type' => CompressionType::from(AppConfig::get('backup.compression')),
                 'method' => $method,
-                'metadata' => Snapshot::generateMetadata($server, $databaseName, $volumes),
+                'metadata' => $this->snapshotMetadata($server, $databaseName, $volumes),
                 'triggered_by_user_id' => $triggeredByUserId,
             ]);
 
@@ -152,7 +156,7 @@ class BackupJobFactory
      *
      * @param  'manual'|'scheduled'  $method
      */
-    private function recordPreflightFailure(
+    public function recordPreflightFailure(
         Backup $backup,
         string $method,
         ?int $triggeredByUserId,
@@ -210,6 +214,20 @@ class BackupJobFactory
             ]);
         }
 
+        if ($targetServer->agent_id !== null) {
+            $reachableCopies = $snapshot->files()->completed()->fileExists()->reachableByAgent();
+
+            if ($snapshotFileId !== null) {
+                $reachableCopies->whereKey($snapshotFileId);
+            }
+
+            if ($reachableCopies->doesntExist()) {
+                throw ValidationException::withMessages([
+                    $snapshotFileId !== null ? 'snapshot_file_id' : 'snapshot_id' => 'The target server runs through a remote agent, which cannot read snapshots stored on a local volume.',
+                ]);
+            }
+        }
+
         // Tenant boundary, enforced here because scheduled restores reach this
         // factory from the CLI, where no organization scope is active.
         $sourceOrganizationId = DatabaseServer::withoutGlobalScope(OrganizationScope::class)
@@ -246,5 +264,63 @@ class BackupJobFactory
         $restore->load(['job', 'snapshot.files.volume', 'snapshot.databaseServer', 'targetServer']);
 
         return $restore;
+    }
+
+    /**
+     * Generate metadata array for a snapshot.
+     * Sensitive fields (passwords) are excluded from the volume configs.
+     *
+     * @param  Collection<int, Volume>  $volumes
+     * @return array{database_server: array{host: string|null, port: int|null, username: string|null, database_name: string, ssh_tunnel: array{enabled: bool, host?: string, port?: int, username?: string, auth_type?: string}}, volumes: list<array{id: string, type: string, config: array<string, mixed>}>, agent?: array{name: string}, dump_format?: string, dump_privileges?: bool}
+     */
+    private function snapshotMetadata(DatabaseServer $server, string $databaseName, Collection $volumes): array
+    {
+        $sshTunnel = ['enabled' => false];
+        if ($server->requiresSshTunnel() && $server->sshConfig !== null) {
+            $safeSshConfig = $server->sshConfig->getSafe();
+            $sshTunnel = [
+                'enabled' => true,
+                'host' => $safeSshConfig['host'] ?? null,
+                'port' => $safeSshConfig['port'] ?? 22,
+                'username' => $safeSshConfig['username'] ?? null,
+                'auth_type' => $safeSshConfig['auth_type'] ?? 'password',
+            ];
+        }
+
+        $metadata = [
+            'database_server' => [
+                'host' => $server->host,
+                'port' => $server->port,
+                'username' => $server->username,
+                'database_name' => $databaseName,
+                'ssh_tunnel' => $sshTunnel,
+            ],
+            'volumes' => array_values($volumes->map(fn (Volume $volume) => [
+                'id' => $volume->id,
+                'type' => $volume->type,
+                'config' => $volume->getSafeConfig(),
+            ])->all()),
+        ];
+
+        // Record the agent name when the backup runs through a remote agent,
+        // so the logs modal can show how the job was executed.
+        if ($server->agent_id !== null && $server->agent !== null) {
+            $metadata['agent'] = ['name' => $server->agent->name];
+        }
+
+        // Record dump format for restore-time dispatch. Absent → plain (default for legacy snapshots).
+        if ($server->database_type === DatabaseType::POSTGRESQL
+            && $server->getExtraConfig('dump_format') === 'custom') {
+            $metadata['dump_format'] = 'custom';
+        }
+
+        // Record whether ownership/privilege information was preserved in the dump.
+        // Absent → stripped via --no-owner/--no-privileges (default for legacy snapshots).
+        if ($server->database_type === DatabaseType::POSTGRESQL
+            && (bool) $server->getExtraConfig('dump_privileges')) {
+            $metadata['dump_privileges'] = true;
+        }
+
+        return $metadata;
     }
 }

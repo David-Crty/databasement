@@ -42,6 +42,11 @@ Super admins can manage organizations from **Configuration > Organizations**:
 
 The default organization cannot be renamed or deleted. Organization names must be unique.
 
+**Servers across organizations** opens a read-only list of every database server in the
+installation with its latest backup status, so a super admin can spot a stalled backup without
+switching organizations one by one. Opening a server from that list switches the current
+organization to the one owning it.
+
 ## User Management
 
 The **Users** page shows members of the currently selected organization.

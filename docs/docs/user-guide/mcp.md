@@ -24,7 +24,7 @@ The MCP server wraps the same services that power the web UI and REST API, so be
 | **list-snapshots** | List backup snapshots, optionally filtered by server. Returns most recent first. | No |
 | **trigger-backup** | Trigger an on-demand backup for a server. Returns snapshot IDs and job IDs for status tracking. | No |
 | **trigger-restore** | Restore a snapshot to a target server. Drops and recreates the target database. | **Yes** |
-| **get-job-status** | Check the status of a backup or restore job (pending, running, completed, failed). | No |
+| **get-job-status** | Check the status of a backup or restore job (pending, running, completed, failed, cancelled). | No |
 
 ## Setup
 

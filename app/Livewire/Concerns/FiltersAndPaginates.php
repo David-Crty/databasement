@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Concerns;
 
+use Livewire\Attributes\Computed;
+
 /**
  * Shared filter plumbing for paginated index pages: changing a filter returns
  * to page one, and "clear" resets every filter at once.
@@ -32,6 +34,21 @@ trait FiltersAndPaginates
         if (is_string($property) && in_array($property, $this->filterProperties(), true)) {
             $this->resetPage();
         }
+    }
+
+    /**
+     * Whether any filter is set; every filter defaults to an empty string.
+     */
+    #[Computed]
+    public function hasFilters(): bool
+    {
+        foreach ($this->filterProperties() as $property) {
+            if ($this->{$property} !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function clear(): void

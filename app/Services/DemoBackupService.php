@@ -2,25 +2,27 @@
 
 namespace App\Services;
 
+use App\Actions\DatabaseServer\CreateDatabaseServerAction;
+use App\Actions\Volume\CreateVolumeAction;
 use App\Enums\DatabaseSelectionMode;
+use App\Enums\VolumeType;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
-use App\Models\Volume;
+use App\Models\Organization;
 use RuntimeException;
 
 class DemoBackupService
 {
-    public function __construct(private readonly CurrentOrganization $currentOrganization) {}
-
     /**
      * Create a demo backup configuration for the application's own database.
      *
+     * @param  Organization  $organization  Organization that owns the created volume and server
      * @param  string|null  $connectionName  Optional connection name to use (defaults to database.default config)
      *
      * @throws RuntimeException If database connection type is unsupported
      */
-    public function createDemoBackup(?string $connectionName = null): DatabaseServer
+    public function createDemoBackup(Organization $organization, ?string $connectionName = null): DatabaseServer
     {
         $connection = $connectionName ?? config('database.default');
         $dbConfig = config("database.connections.{$connection}");
@@ -32,27 +34,15 @@ class DemoBackupService
             default => throw new RuntimeException("Unsupported database connection: {$connection}"),
         };
 
-        // Create local volume for backups
-        $volume = Volume::create([
-            'name' => 'Local Backups',
-            'type' => 'local',
-            'config' => [
-                'path' => '/data/backups',
-            ],
-            'organization_id' => $this->currentOrganization->id(),
-        ]);
+        $volume = CreateVolumeAction::run($organization, VolumeType::LOCAL, 'Local Backups', ['path' => '/data/backups']);
 
-        // Create database server entry based on type
-        if ($databaseType === 'sqlite') {
-            $databaseServer = DatabaseServer::create([
+        $server = $databaseType === 'sqlite'
+            ? [
                 'name' => 'Databasement Database',
                 'database_type' => 'sqlite',
                 'description' => 'Demo database',
-                'organization_id' => $this->currentOrganization->id(),
-            ]);
-            $backupDatabaseNames = [$dbConfig['database']];
-        } else {
-            $databaseServer = DatabaseServer::create([
+            ]
+            : [
                 'name' => 'Databasement Database',
                 'host' => $dbConfig['host'] ?? '127.0.0.1',
                 'port' => (int) ($dbConfig['port'] ?? ($databaseType === 'postgres' ? 5432 : 3306)),
@@ -60,24 +50,21 @@ class DemoBackupService
                 'username' => $dbConfig['username'] ?? '',
                 'password' => $dbConfig['password'] ?? '',
                 'description' => 'Demo database',
-                'organization_id' => $this->currentOrganization->id(),
-            ]);
-            $backupDatabaseNames = [$dbConfig['database'] ?? 'databasement'];
-        }
+            ];
 
-        // Create backup configuration
         $dailySchedule = BackupSchedule::firstOrCreate(
             ['name' => 'Daily'],
             ['expression' => '0 2 * * *'],
         );
 
-        Backup::create([
-            'database_server_id' => $databaseServer->id,
+        $databaseServer = CreateDatabaseServerAction::run($organization, $server, backups: [[
+            'volume_ids' => [$volume->id],
             'backup_schedule_id' => $dailySchedule->id,
+            'retention_policy' => Backup::RETENTION_DAYS,
             'retention_days' => 14,
             'database_selection_mode' => DatabaseSelectionMode::Selected->value,
-            'database_names' => $backupDatabaseNames,
-        ])->volumes()->attach($volume);
+            'database_names' => [$databaseType === 'sqlite' ? $dbConfig['database'] : ($dbConfig['database'] ?? 'databasement')],
+        ]]);
 
         return $databaseServer->load('backups.volumes');
     }

@@ -1,6 +1,9 @@
 <?php
 
+use App\Actions\Volume\DeleteVolumeAction;
 use App\Enums\Ability;
+use App\Exceptions\Volume\VolumeFilesNotDeletedException;
+use App\Models\Organization;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -112,6 +115,25 @@ test('store returns validation errors for missing required fields', function () 
         ->assertJsonValidationErrors(['name', 'config']);
 });
 
+test('store rejects a name another volume already has', function () {
+    Volume::factory()->create(['name' => 'Offsite']);
+    $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/volumes/local', ['name' => 'Offsite', 'config' => ['path' => '/tmp/backups']])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['name']);
+});
+
+test('store accepts a name only another organization uses', function () {
+    Volume::factory()->create(['name' => 'Offsite', 'organization_id' => Organization::factory()->create()->id]);
+    $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/volumes/local', ['name' => 'Offsite', 'config' => ['path' => '/tmp/backups']])
+        ->assertCreated();
+});
+
 test('store validates type-specific config', function () {
     $user = User::factory()->create();
 
@@ -151,6 +173,18 @@ test('can delete a volume via api', function () {
         ->assertNoContent();
 
     $this->assertDatabaseMissing('volumes', ['id' => $volume->id]);
+});
+
+test('deleting a volume whose files cannot be deleted answers 409 without the storage errors', function () {
+    $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+    $volume = Volume::factory()->create();
+    DeleteVolumeAction::shouldRun()->andThrow(new VolumeFilesNotDeletedException($volume, ['Volume unreachable']));
+
+    $this->actingAs($user, 'sanctum')
+        ->deleteJson("/api/v1/volumes/{$volume->id}")
+        ->assertConflict()
+        ->assertJsonPath('message', 'The volume was kept because some backup files could not be deleted from it.')
+        ->assertDontSee('Volume unreachable');
 });
 
 // ─── Test Connection ────────────────────────────────────────────────────────

@@ -156,12 +156,11 @@ persistence:
 
 ### Worker Configuration
 
-The queue worker runs as a sidecar container by default. You can customize its behavior:
+The queue worker runs as a sidecar container by default. You can customize its resources:
 
 ```yaml
 worker:
   enabled: true
-  command: "php artisan queue:work --queue=backups,default --tries=3 --timeout=3600"
   resources:
     limits:
       cpu: 500m
@@ -180,6 +179,34 @@ worker:
 ```
 
  > ℹ️ Separate worker deployment requires either ReadWriteMany storage or AWS S3 storage + an external database (MySQL/PostgreSQL).
+
+### Remote Agents
+
+The chart can also run [remote agents](https://david-crty.github.io/databasement/user-guide/agents), one Deployment per enabled entry under `agents`. Set `app.enabled: false` to deploy only the agents, for example in the cluster that hosts your databases:
+
+```yaml
+app:
+  enabled: false
+
+agents:
+  main:
+    enabled: true
+    url: https://backup.yourdomain.com
+    token:
+      value: "token-shown-when-creating-the-agent"
+      # Or reference an existing secret instead:
+      # fromSecret:
+      #   secretName: databasement-agents
+      #   secretKey: main
+    # pollInterval: 5
+    # resources: {}
+    # extraEnv: {}
+    # extraEnvFrom: []
+    # extraVolumeMounts: []
+    # extraVolumes: []
+```
+
+Agents do not inherit the top-level `extraEnv`, `extraEnvFrom`, `extraVolumeMounts` or `extraVolumes`, which configure the app and worker and often carry their credentials. Set them per agent instead.
 
 ## License
 

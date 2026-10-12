@@ -4,6 +4,7 @@ namespace App\Livewire\Concerns;
 
 use App\Models\DatabaseServer;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DTO\RestoreOptions;
 
 /**
  * Holds the destination-step state shared by the restore modals and powers the
@@ -31,6 +32,9 @@ trait InteractsWithTargetDatabases
     /** Transfer database ownership to this user after restore (PostgreSQL only). */
     public string $ownerUser = '';
 
+    /** Restore a custom-format snapshot with parallel pg_restore jobs (PostgreSQL only). */
+    public bool $parallelRestore = false;
+
     /** @var array<int, string> */
     public array $existingDatabases = [];
 
@@ -56,17 +60,9 @@ trait InteractsWithTargetDatabases
         $this->schemaName = $database;
     }
 
-    /**
-     * Build the per-restore options map, omitting empty values.
-     *
-     * @return array<string, mixed>
-     */
-    protected function buildOptions(): array
+    protected function restoreOptions(): RestoreOptions
     {
-        return array_filter([
-            'force_database' => $this->forceDatabase ?: null,
-            'owner_user' => ($owner = trim($this->ownerUser)) !== '' ? $owner : null,
-        ]);
+        return new RestoreOptions($this->forceDatabase, $this->ownerUser, $this->parallelRestore);
     }
 
     /**

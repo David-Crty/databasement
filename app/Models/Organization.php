@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use App\Models\Scopes\OrganizationScope;
 use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,30 +18,6 @@ class Organization extends Model
     use HasFactory;
 
     use HasUlids;
-
-    /**
-     * When true, backup files on storage are preserved while cascading the
-     * deletion of the organization's servers and volumes (only DB records go).
-     */
-    public bool $skipFileCleanup = false;
-
-    protected static function booted(): void
-    {
-        // Cascade-delete owned resources through Eloquent so backup files and
-        // related jobs/restores are cleaned up. The database-level cascade on
-        // organization_id would remove the rows but skip these side effects.
-        static::deleting(function (Organization $organization) {
-            foreach ($organization->databaseServers()->withoutGlobalScope(OrganizationScope::class)->get() as $server) {
-                $server->skipFileCleanup = $organization->skipFileCleanup;
-                $server->delete();
-            }
-
-            foreach ($organization->volumes()->withoutGlobalScope(OrganizationScope::class)->get() as $volume) {
-                $volume->skipFileCleanup = $organization->skipFileCleanup;
-                $volume->delete();
-            }
-        });
-    }
 
     protected $fillable = [
         'name',

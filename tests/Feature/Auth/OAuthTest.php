@@ -36,6 +36,9 @@ beforeEach(function () {
     Config::set('oauth.providers.github.enabled', true);
     Config::set('oauth.auto_link_by_email', true);
     Config::set('oauth.auto_create_users', true);
+    Config::set('oauth.providers.google.auto_create_users', null);
+    Config::set('oauth.providers.github.auto_create_users', null);
+    Config::set('oauth.providers.gitlab.auto_create_users', null);
     Config::set('oauth.default_role', 'member');
     Config::set('oauth.role_mapping.claim', 'groups');
     Config::set('oauth.role_mapping.admin', '');
@@ -179,6 +182,25 @@ test('oauth callback fails when auto-create is disabled and no matching user', f
 
     expect(User::where('email', 'unknown@example.com')->exists())->toBeFalse();
 });
+
+test('public providers only create users when explicitly allowed', function (string $provider, bool $created) {
+    Config::set('oauth', require config_path('oauth.php'));
+    Config::set("oauth.providers.{$provider}.enabled", true);
+    if ($provider === 'oidc') {
+        enableOidcProvider();
+    }
+
+    Socialite::fake($provider, fakeOidcUser("{$provider}-new", 'new@example.com'));
+
+    $this->get(route('oauth.callback', $provider));
+
+    expect(User::where('email', 'new@example.com')->exists())->toBe($created);
+})->with([
+    'google' => ['google', false],
+    'github' => ['github', false],
+    'gitlab.com' => ['gitlab', false],
+    'oidc' => ['oidc', true],
+]);
 
 test('oauth callback fails when email is not provided', function () {
     Socialite::fake('github', (new SocialiteUser)->map([

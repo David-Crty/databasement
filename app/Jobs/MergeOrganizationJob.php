@@ -2,9 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Actions\Organization\MergeOrganizationsAction;
 use App\Models\Organization;
 use App\Models\Scopes\OrganizationScope;
-use App\Services\Organization\OrganizationMergeService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -25,7 +25,7 @@ class MergeOrganizationJob implements ShouldQueue
         public ?int $actorUserId = null,
     ) {}
 
-    public function handle(OrganizationMergeService $service): void
+    public function handle(): void
     {
         $source = Organization::withoutGlobalScope(OrganizationScope::class)->find($this->sourceId);
         $destination = Organization::withoutGlobalScope(OrganizationScope::class)->find($this->destinationId);
@@ -34,6 +34,6 @@ class MergeOrganizationJob implements ShouldQueue
             return;
         }
 
-        $service->merge($source, $destination, $this->actorUserId);
+        MergeOrganizationsAction::run($source, $destination, $this->actorUserId);
     }
 }

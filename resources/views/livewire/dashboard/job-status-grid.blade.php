@@ -12,6 +12,7 @@
                             'completed' => 'bg-success',
                             'failed' => 'bg-error',
                             'running' => 'bg-warning',
+                            'cancelled' => 'bg-neutral',
                             default => 'bg-info',
                         };
 
@@ -27,6 +28,9 @@
                     @endphp
                     <button
                         wire:click="viewLogs('{{ $job->id }}')"
+                        wire:loading.attr="disabled"
+                        wire:loading.class="animate-pulse opacity-40"
+                        wire:target="viewLogs('{{ $job->id }}')"
                         data-server="{{ $serverName }}"
                         data-database="{{ $databaseName }}"
                         data-type="{{ $jobType }}"

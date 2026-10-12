@@ -23,7 +23,6 @@ const config: Config = {
     favicon: 'img/favicon.ico',
 
     plugins: [
-        require.resolve('docusaurus-lunr-search'),
         [
             'docusaurus-plugin-llms',
             {
@@ -46,6 +45,8 @@ const config: Config = {
                     'self-hosting/native-ubuntu.md',
                     'self-hosting/configuration/**',
                     'self-hosting/versioning.md',
+                    'self-hosting/migrate-to-1-10.md',
+                    'changelog.md',
                     'user-guide/intro.md',
                     'user-guide/database-servers.md',
                     'user-guide/volumes.md',
@@ -77,7 +78,20 @@ const config: Config = {
     },
     onBrokenLinks: 'throw',
 
-    themes: ['@docusaurus/theme-mermaid'],
+    themes: [
+        '@docusaurus/theme-mermaid',
+        [
+            // Builds one search index per docs version and searches only the
+            // version being read, instead of offering hits from every version.
+            '@easyops-cn/docusaurus-search-local',
+            {
+                hashed: true,
+                indexBlog: false,
+                docsRouteBasePath: '/',
+                highlightSearchTermsOnTargetPage: true,
+            },
+        ],
+    ],
 
     i18n: {
         defaultLocale: 'en',
@@ -139,6 +153,12 @@ const config: Config = {
                     position: 'left',
                     label: 'User Guide',
                 },
+                {
+                    type: 'doc',
+                    docId: 'changelog',
+                    position: 'left',
+                    label: 'Changelog',
+                },
                 ...(isVersioned ? [{
                     type: 'docsVersionDropdown' as const,
                     position: 'right' as const,
@@ -191,7 +211,7 @@ const config: Config = {
         prism: {
             theme: prismThemes.github,
             darkTheme: prismThemes.dracula,
-            additionalLanguages: ['bash', 'yaml', 'docker'],
+            additionalLanguages: ['bash', 'yaml', 'docker', 'diff'],
         },
     } satisfies Preset.ThemeConfig,
 };

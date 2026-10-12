@@ -12,7 +12,7 @@ When you create a backup, Databasement:
 
 1. Connects to the database server (via SSH tunnel if configured)
 2. Runs the appropriate dump command for the database type
-3. Compresses the output with gzip
+3. Compresses the output with the configured compressor (gzip, zstd, or encrypted 7-Zip)
 4. Transfers the compressed file to the selected storage volume
 5. Creates a snapshot record with metadata
 
@@ -20,16 +20,22 @@ When you create a backup, Databasement:
 
 Databasement uses native database tools for reliable backups:
 
-**MySQL/MariaDB:**
+**MariaDB** (10.2 and later):
 ```bash
-mariadb-dump --routines --add-drop-table --complete-insert --hex-blob --quote-names --skip_ssl \
-  --host='...' --port='...' --user='...' --password='...' 'database_name' > dump.sql
+mariadb-dump --single-transaction --routines --add-drop-table --hex-blob --quote-names --skip_ssl \
+  --host='...' --port='...' --user='...' --password='...' 'database_name'
+```
+
+**MySQL** (and MariaDB below 10.2), using the bundled Oracle client:
+```bash
+/opt/mysql-client/bin/mysqldump --single-transaction --routines --add-drop-table --hex-blob --quote-names --ssl-mode=DISABLED \
+  --host='...' --port='...' --user='...' --password='...' 'database_name'
 ```
 
 **PostgreSQL:**
 ```bash
 PGPASSWORD='...' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers \
-  --host='...' --port='...' --username='...' 'database_name' -f dump.sql
+  --host='...' --port='...' --username='...' 'database_name'
 ```
 
 **SQLite:**
@@ -41,21 +47,34 @@ This creates a consistent snapshot and is safe for databases running in WAL mode
 
 **Firebird:**
 ```bash
-gbak -b -g -user '...' -password '...' '/path/to/source.fdb' '/path/to/dump.fbk'
+gbak -b -g -user '...' -password '...' '/path/to/source.fdb' stdout
 ```
 
 **MongoDB:**
 ```bash
 mongodump --host='...' --port='...' --username='...' --password='...' \
-  --authenticationDatabase='admin' --db='database_name' --archive=dump.archive
+  --authenticationDatabase='admin' --db='database_name' --archive
 ```
 
 **Redis/Valkey:**
 ```bash
-redis-cli -h '...' -p '...' -a '...' --no-auth-warning --rdb dump.rdb
+redis-cli -h '...' -p '...' -a '...' --no-auth-warning --rdb -
 ```
 
-All dumps are then compressed with gzip before being transferred to the storage volume.
+Except for SQLite and SQL Server, whose dumps need a real file and are compressed once written, these commands write the dump to stdout and it is piped straight into the compressor, so only the compressed archive is ever written to disk. A dump that fails partway fails the backup.
+
+## Excluding Tables
+
+Each backup configuration of a MySQL / MariaDB or PostgreSQL server can leave tables out of its dumps. Turn on **Exclude tables** under **What to back up** and enter bare table names (no schema prefix), separated by commas or new lines, for example `web_api_log, audit_log`. The list applies to every database that backup dumps, so a daily backup can skip log tables while a weekly one keeps everything.
+
+- **MySQL / MariaDB**: each name is qualified with the database being dumped (`--ignore-table=mydb.web_api_log`).
+- **PostgreSQL**: each name becomes `--exclude-table-and-children="web_api_log"`, matching the table in every schema along with its partitions. The match is case-sensitive. This needs `pg_dump` 16 or later, which the Docker image ships; a native install must provide it too.
+
+Names may contain letters, digits, `_` and `$`, up to 64 characters for MySQL / MariaDB and 63 for PostgreSQL (its default identifier limit), with at most 200 names. Names that match no table are ignored.
+
+:::warning Excluded tables are not in the snapshot
+A restore leaves an excluded table as it is on the target, but **Drop and recreate database before restore** removes it with the rest of the database.
+:::
 
 ## Failed Backups
 
@@ -67,6 +86,10 @@ If a backup fails, check:
 4. **Timeout**: Large databases may need more time
 
 Failed backup reasons are logged and visible in the snapshot details.
+
+## Cancelling a Backup
+
+A pending or running backup can be cancelled from its row on the **Snapshots** page or from its job logs. The backup stops at its next step, or within 30 seconds while a dump or a script runs, and is not retried. An upload in progress finishes first, and the copies already uploaded are deleted. Cancelling requires the `run-backups` ability.
 
 ## Retention Policies
 

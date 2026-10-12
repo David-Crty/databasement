@@ -4,6 +4,7 @@ namespace App\Livewire\Configuration;
 
 use App\Jobs\DeleteOrganizationJob;
 use App\Jobs\MergeOrganizationJob;
+use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Models\Organization as OrganizationModel;
 use App\Models\Scopes\OrganizationScope;
 use App\Services\CurrentOrganization;
@@ -18,7 +19,7 @@ use Livewire\Component;
 #[Title('Configuration')]
 class Organization extends Component
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, ConfirmsDeletion;
     use Toast;
 
     public bool $showCreateModal = false;
@@ -30,10 +31,6 @@ class Organization extends Component
     public ?string $editingOrgId = null;
 
     public string $editOrgName = '';
-
-    public bool $showDeleteModal = false;
-
-    public ?string $deleteOrgId = null;
 
     public bool $keepFiles = false;
 
@@ -135,27 +132,24 @@ class Organization extends Component
 
     public function confirmDelete(string $orgId): void
     {
-        $org = OrganizationModel::findOrFail($orgId);
+        $this->confirmDeletion(OrganizationModel::query(), $orgId);
 
-        $this->authorize('delete', $org);
-
-        $this->deleteOrgId = $orgId;
         $this->keepFiles = false;
-        $this->showDeleteModal = true;
     }
 
     public function deleteOrganization(): mixed
     {
-        $org = OrganizationModel::findOrFail($this->deleteOrgId);
+        $org = $this->pendingDeletion(OrganizationModel::query());
 
-        $this->authorize('delete', $org);
+        if ($org === null) {
+            return null;
+        }
 
         $this->ensureNotCurrentOrg($org);
 
         DeleteOrganizationJob::dispatch($org->id, $this->actorId(), $this->keepFiles);
 
-        $this->showDeleteModal = false;
-        $this->deleteOrgId = null;
+        $this->closeDeletion();
 
         $this->success(__('Organization deletion queued. It will complete shortly.'));
 

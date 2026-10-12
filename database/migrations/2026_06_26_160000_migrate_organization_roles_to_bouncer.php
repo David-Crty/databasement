@@ -1,8 +1,8 @@
 <?php
 
+use App\Actions\Role\AssignRoleToUserAction;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\Roles\AssignRoleToUserAction;
 use App\Support\BouncerScope;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -23,9 +23,7 @@ return new class extends Migration
      * spelled out per role so this migration stays self-contained and replays
      * correctly even if the enum later changes or a case is renamed/removed.
      *
-     * There is no demo role: the demo user (see DemoModeMiddleware) is assigned
-     * the viewer role, and its access is enforced via User::isDemo() rather than
-     * a dedicated role.
+     * The demo role is not built in: DemoModeMiddleware creates it in demo mode.
      *
      * @return array<string, array{title: string, abilities: list<string>}>
      */
@@ -109,10 +107,8 @@ return new class extends Migration
             return;
         }
 
-        $assignRole = app(AssignRoleToUserAction::class);
-
         DB::table('organization_user')->whereNotNull('role')->orderBy('user_id')->each(
-            function (object $pivot) use ($assignRole): void {
+            function (object $pivot): void {
                 $org = Organization::find($pivot->organization_id);
                 $user = User::find($pivot->user_id);
 
@@ -120,7 +116,7 @@ return new class extends Migration
                     return;
                 }
 
-                $assignRole->execute($user, (string) $pivot->role, $org);
+                AssignRoleToUserAction::run($user, (string) $pivot->role, $org);
             }
         );
 

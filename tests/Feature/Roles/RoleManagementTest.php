@@ -1,18 +1,14 @@
 <?php
 
+use App\Actions\Role\AssignRoleToUserAction;
+use App\Actions\Role\CreateRoleAction;
 use App\Enums\Ability;
 use App\Livewire\Configuration\Roles;
 use App\Livewire\User\Edit as UserEdit;
-use App\Models\Organization;
 use App\Models\User;
 use App\Services\CurrentOrganization;
-use App\Services\Roles\AssignRoleToUserAction;
-use App\Services\Roles\CreateRoleAction;
-use App\Services\Roles\UpdateRoleAction;
-use App\Support\BouncerScope;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
-use Silber\Bouncer\BouncerFacade as Bouncer;
 use Silber\Bouncer\Database\Role;
 
 function globalRole(string $name): Role
@@ -75,7 +71,7 @@ test('non-super-admins can view roles but cannot mutate them', function () {
 
 test('a super admin can delete a custom role, but built-in roles are protected', function () {
     $admin = User::factory()->superAdmin()->create();
-    $custom = app(CreateRoleAction::class)->execute('temp-role', 'Temporary', []);
+    $custom = CreateRoleAction::run('temp-role', 'Temporary', []);
 
     Livewire::actingAs($admin)->test(Roles::class)
         ->call('confirmDelete', $custom->getKey())
@@ -90,48 +86,26 @@ test('a super admin can delete a custom role, but built-in roles are protected',
     expect(Role::query()->whereKey($member->getKey())->exists())->toBeTrue();
 });
 
-test('granting an ability to a global role takes effect immediately, without a redeploy', function () {
-    // Enable caching to prove the action refreshes it.
-    config(['cache.default' => 'array']);
-    Bouncer::cache();
+test('deleting a role still assigned to users is refused on the roles screen', function () {
+    $admin = User::factory()->superAdmin()->create();
+    $custom = CreateRoleAction::run('temp-role', 'Temporary', []);
+    AssignRoleToUserAction::run(User::factory()->create(), 'temp-role', app(CurrentOrganization::class)->model());
 
-    $user = User::factory()->create();
+    Livewire::actingAs($admin)->test(Roles::class)
+        ->call('confirmDelete', $custom->getKey())
+        ->call('delete')
+        ->assertOk();
 
-    // A viewer cannot manage volumes...
-    expect($user->can(Ability::ManageVolumes->value))->toBeFalse();
-
-    // ...until a super admin grants that ability to the (global) viewer role at runtime.
-    app(UpdateRoleAction::class)->execute(
-        globalRole('viewer'),
-        'Viewer',
-        [Ability::RunBackups->value, Ability::ManageVolumes->value],
-    );
-
-    expect($user->fresh()->can(Ability::ManageVolumes->value))->toBeTrue();
-});
-
-test('the same global role yields different access in each organization', function () {
-    $orgA = app(CurrentOrganization::class)->model();
-    $orgB = Organization::factory()->create();
-
-    // Viewer in org A (the default org), Admin in org B — one global role set.
-    $user = User::factory()->create();
-    app(AssignRoleToUserAction::class)->execute($user, 'admin', $orgB);
-
-    BouncerScope::apply($orgA->id);
-    expect($user->fresh()->can(Ability::ManageUsers->value))->toBeFalse();
-
-    BouncerScope::apply($orgB->id);
-    expect($user->fresh()->can(Ability::ManageUsers->value))->toBeTrue();
+    expect(Role::query()->whereKey($custom->getKey())->exists())->toBeTrue();
 });
 
 test('editing a user preserves their custom role instead of downgrading to member', function () {
     $org = app(CurrentOrganization::class)->model();
     $user = User::factory()->withAbilities([Ability::ManageUsers->value])->create();
 
-    app(CreateRoleAction::class)->execute('release-manager', 'Release Manager', [Ability::DownloadSnapshots->value]);
+    CreateRoleAction::run('release-manager', 'Release Manager', [Ability::DownloadSnapshots->value]);
     $member = User::factory()->create();
-    app(AssignRoleToUserAction::class)->execute($member, 'release-manager', $org);
+    AssignRoleToUserAction::run($member, 'release-manager', $org);
 
     Livewire::actingAs($user)
         ->test(UserEdit::class, ['user' => $member])

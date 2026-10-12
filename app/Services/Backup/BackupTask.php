@@ -4,11 +4,13 @@ namespace App\Services\Backup;
 
 use App\Contracts\BackupLogger;
 use App\Enums\SnapshotFileStatus;
+use App\Exceptions\Backup\JobRevokedException;
 use App\Exceptions\Backup\StorageQuotaExceededException;
 use App\Exceptions\Backup\VolumeTransferException;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Concerns\UsesSshTunnel;
+use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\BackupResult;
@@ -16,8 +18,8 @@ use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\SshTunnelService;
-use App\Support\FilesystemSupport;
 use App\Support\Formatters;
+use Illuminate\Support\Str;
 
 class BackupTask
 {
@@ -42,16 +44,12 @@ class BackupTask
      *
      * This is the pure backup engine with no model persistence.
      * `ProcessBackupJob` delegates to this method.
-     *
-     * @param  callable|null  $onProgress  Called after dump, compression, and transfer steps
      */
-    public function execute(
-        BackupConfig $config,
-        BackupLogger $logger,
-        ?callable $onProgress = null,
-    ): BackupResult {
+    public function execute(BackupConfig $config, BackupLogger $logger): BackupResult
+    {
         $this->shellProcessor->setLogger($logger);
         $db = $config->database;
+        $filename = null;
 
         try {
             if ($db->requiresSshTunnel()) {
@@ -67,30 +65,14 @@ class BackupTask
                 $config->databaseName,
                 $this->getConnectionHost($db),
                 $this->getConnectionPort($db),
+                excludedTables: $config->excludedTables,
             );
 
-            $result = $database->dump($workingFile);
-            if ($result->command !== null) {
-                $this->shellProcessor->process($result->command);
-            }
-            if ($result->log !== null) {
-                $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
-            }
-
-            if ($onProgress !== null) {
-                $onProgress();
-            }
-
-            // Compress
             $compressor = $this->compressorFactory->make($config->compressionType, $config->compressionLevel, $config->compressionMultithread);
-            $archive = $compressor->compress($workingFile);
+            $archive = $this->dumpAndCompress($database, $workingFile, $compressor, $logger);
             $fileSize = filesize($archive);
             if ($fileSize === false) {
                 throw new \RuntimeException("Failed to get file size for: {$archive}");
-            }
-
-            if ($onProgress !== null) {
-                $onProgress();
             }
 
             // Generate the filename once — the same archive is uploaded to
@@ -101,10 +83,6 @@ class BackupTask
             $volumeResults = [];
             foreach ($config->volumes as $volume) {
                 $volumeResults[] = $this->transferToVolume($volume, $archive, $filename, $fileSize, $humanFileSize, $logger);
-            }
-
-            if ($onProgress !== null) {
-                $onProgress();
             }
 
             // Checksum
@@ -157,13 +135,52 @@ class BackupTask
             );
 
             return $result;
-        } finally {
-            $this->closeSshTunnel($logger);
-
-            if (is_dir($config->workingDirectory)) {
-                $logger->log('Cleaning up temporary files', 'info');
-                FilesystemSupport::cleanupDirectory($config->workingDirectory);
+        } catch (JobRevokedException $e) {
+            if ($filename !== null) {
+                $this->deleteUploads($config->volumes, $filename);
             }
+
+            throw $e;
+        } finally {
+            $this->cleanUpRun($config->workingDirectory, $logger);
+        }
+    }
+
+    /**
+     * Dump the database into a compressed archive. A dump written to stdout is
+     * piped straight into the compressor, so only the archive ever lands on
+     * disk; otherwise the dump file is written first, then compressed.
+     */
+    private function dumpAndCompress(DatabaseInterface $database, string $workingFile, CompressorInterface $compressor, BackupLogger $logger): string
+    {
+        $result = $database->dump($workingFile);
+
+        if ($result->writesToStdout && $result->command !== null) {
+            $archive = $compressor->compressCommandOutput($result->command, $workingFile);
+        } else {
+            if ($result->command !== null) {
+                $this->shellProcessor->process($result->command);
+            }
+            $archive = $compressor->compress($workingFile);
+        }
+
+        if ($result->log !== null) {
+            $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
+        }
+
+        return $archive;
+    }
+
+    /**
+     * Remove the copies of an archive that no snapshot will record, on a best
+     * effort basis: a volume it never reached has nothing to delete.
+     *
+     * @param  array<int, VolumeConfig>  $volumes
+     */
+    private function deleteUploads(array $volumes, string $filename): void
+    {
+        foreach ($volumes as $volume) {
+            rescue(fn () => $this->filesystemProvider->getForVolumeConfig($volume)->delete($filename), report: false);
         }
     }
 
@@ -215,7 +232,7 @@ class BackupTask
             );
         }
 
-        $transferDuration = Formatters::humanDuration((int) round((microtime(true) - $transferStart) * 1000));
+        $transferDuration = Formatters::humanDuration(Formatters::elapsedMs($transferStart));
         $logger->log('Transfer completed successfully in '.$transferDuration, 'success');
 
         return new VolumeTransferResult(
@@ -292,6 +309,10 @@ class BackupTask
     /**
      * Generate the filename to store in the volume.
      * Includes optional path prefix for organizing backups.
+     *
+     * The random suffix keeps two backups of the same database started in
+     * the same second from sharing a file, where one would overwrite the
+     * other and deleting either would remove both.
      */
     private function generateFilename(string $serverName, string $databaseName, string $baseExtension, CompressorInterface $compressor, string $backupPath): string
     {
@@ -300,7 +321,9 @@ class BackupTask
         $sanitizedDbName = preg_replace('/[^a-zA-Z0-9-_]/', '-', $databaseName) ?? $databaseName;
         $compressionExtension = $compressor->getExtension();
 
-        $filename = sprintf('%s-%s-%s.%s.%s', $sanitizedServerName, $sanitizedDbName, $timestamp, $baseExtension, $compressionExtension);
+        $suffix = Str::lower(Str::random(6));
+
+        $filename = sprintf('%s-%s-%s-%s.%s.%s', $sanitizedServerName, $sanitizedDbName, $timestamp, $suffix, $baseExtension, $compressionExtension);
 
         if (! empty($backupPath)) {
             $path = Formatters::resolveDatePlaceholders(trim($backupPath, '/'));

@@ -2,6 +2,7 @@
 
 namespace App\Rules;
 
+use App\Enums\DatabaseType;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
@@ -21,13 +22,26 @@ readonly class SafeHost implements ValidationRule
      */
     public const PATTERN = '/\A[A-Za-z0-9._:\[\]-]+\z/';
 
+    /**
+     * An absolute Unix socket path, for the types that
+     * {@see DatabaseType::supportsSocketHost()}. Still free of the DSN and URI
+     * delimiters above.
+     */
+    public const SOCKET_PATH_PATTERN = '/\A\/[A-Za-z0-9._\/-]*\z/';
+
+    public function __construct(private ?DatabaseType $databaseType = null) {}
+
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         if (! is_string($value) || $value === '') {
             return;
         }
 
-        if (preg_match(self::PATTERN, $value) !== 1) {
+        if (preg_match(self::PATTERN, $value) === 1) {
+            return;
+        }
+
+        if (! $this->databaseType?->supportsSocketHost() || preg_match(self::SOCKET_PATH_PATTERN, $value) !== 1) {
             $fail(__('The :attribute may only contain letters, numbers, dots, dashes, underscores, colons and square brackets.'));
         }
     }

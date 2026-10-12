@@ -52,7 +52,8 @@ test('dump builds the mongodump --uri command scoping the database in the path',
     $result = $this->db->dump('/tmp/dump.archive');
 
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
-        ->and($result->command)->toBe("mongodump --uri='{$expectedUri}' --archive='/tmp/dump.archive'");
+        ->and($result->command)->toBe("mongodump --uri='{$expectedUri}' --archive")
+        ->and($result->writesToStdout)->toBeTrue();
 })->with([
     'anonymous' => [
         ['host' => 'mongo.example.com', 'port' => 27017, 'user' => '', 'pass' => '', 'database' => 'mydb', 'auth_source' => 'admin'],

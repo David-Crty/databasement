@@ -2,6 +2,7 @@
 
 namespace App\Livewire\User;
 
+use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\User;
 use App\Services\CurrentOrganization;
@@ -19,7 +20,7 @@ use Silber\Bouncer\Database\Role;
 #[Title('Users')]
 class Index extends Component
 {
-    use AuthorizesRequests, FiltersAndPaginates, Toast, WithPagination;
+    use AuthorizesRequests, ConfirmsDeletion, FiltersAndPaginates, Toast, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -35,11 +36,6 @@ class Index extends Component
 
     /** @var list<string> */
     private const ALLOWED_SORT_COLUMNS = ['name', 'email', 'created_at'];
-
-    #[Locked]
-    public ?int $deleteId = null;
-
-    public bool $showDeleteModal = false;
 
     public string $deleteBlockReason = '';
 
@@ -111,32 +107,21 @@ class Index extends Component
 
     public function confirmDelete(int $id): void
     {
-        $user = User::findOrFail($id);
+        $user = $this->confirmDeletion(User::query(), $id);
 
-        $this->authorize('delete', $user);
-
-        $this->deleteId = $id;
         $this->deleteBlockReason = $this->getDeleteBlockReason($user);
-        $this->showDeleteModal = true;
     }
 
     public function delete(): void
     {
-        if (! $this->deleteId) {
-            return;
-        }
+        $user = $this->pendingDeletion(User::query());
 
-        $user = User::findOrFail($this->deleteId);
-
-        $this->authorize('delete', $user);
-
-        if ($this->getDeleteBlockReason($user) !== '') {
+        if ($user === null || $this->getDeleteBlockReason($user) !== '') {
             return;
         }
 
         $user->delete();
-        $this->deleteId = null;
-        $this->showDeleteModal = false;
+        $this->closeDeletion();
 
         $this->success(__('User deleted successfully.'));
     }
@@ -201,9 +186,7 @@ class Index extends Component
     {
         $currentOrg = app(CurrentOrganization::class);
 
-        $sortColumn = in_array($this->sortBy['column'], self::ALLOWED_SORT_COLUMNS, true)
-            ? $this->sortBy['column']
-            : 'created_at';
+        $sortColumn = Formatters::sortColumn($this->sortBy['column'] ?? null, self::ALLOWED_SORT_COLUMNS, 'created_at');
 
         $query = User::query();
 

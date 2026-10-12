@@ -14,6 +14,7 @@ test('gzip command generation', function () {
 
     expect($compressor->getExtension())->toBe('gz')
         ->and($compressor->getCompressCommandLine('/path/to/dump.sql'))->toBe("gzip -6 '/path/to/dump.sql'")
+        ->and($compressor->getCompressStdinCommandLine('/path/to/dump.sql'))->toBe("gzip -6 -c > '/path/to/dump.sql.gz'")
         ->and($compressor->getDecompressCommandLine('/path/to/dump.sql.gz'))->toBe("gzip -d '/path/to/dump.sql.gz'");
 });
 
