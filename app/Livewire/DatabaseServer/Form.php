@@ -1026,11 +1026,7 @@ class Form extends \Livewire\Form
             return null;
         }
 
-        $existingConfigId = $this->ssh_config_mode === 'existing'
-            ? $this->ssh_config_id
-            : $this->server?->ssh_config_id;
-
-        $existing = $existingConfigId !== null ? DatabaseServerSshConfig::find($existingConfigId) : null;
+        $existing = $this->sshConfigToUpdate();
 
         if ($existing !== null) {
             Gate::authorize('update', $existing);
@@ -1047,6 +1043,19 @@ class Form extends \Livewire\Form
             'private_key' => $this->ssh_private_key,
             'key_passphrase' => $this->ssh_key_passphrase,
         ];
+    }
+
+    /**
+     * The saved SSH configuration this form's SSH settings are applied to:
+     * the one picked in "existing" mode, otherwise the server's own.
+     */
+    private function sshConfigToUpdate(): ?DatabaseServerSshConfig
+    {
+        $configId = $this->ssh_config_mode === 'existing'
+            ? $this->ssh_config_id
+            : $this->server?->ssh_config_id;
+
+        return $configId !== null ? DatabaseServerSshConfig::find($configId) : null;
     }
 
     /**
@@ -1342,8 +1351,13 @@ class Form extends \Livewire\Form
             'ssh_auth_type' => 'required|string|in:password,key',
         ];
 
-        // Sensitive fields are optional when editing existing server or using existing SSH config
-        $credentialsOptional = ($this->ssh_config_mode === 'existing' && $this->ssh_config_id) || $this->server !== null;
+        // A blank credential keeps the stored one, so it may only be left
+        // blank when the configuration being updated already holds one for
+        // the selected authentication type.
+        $stored = $this->sshConfigToUpdate();
+        $credentialsOptional = $stored !== null
+            && $stored->auth_type === $this->ssh_auth_type
+            && filled($this->ssh_auth_type === 'password' ? $stored->password : $stored->private_key);
         $credentialRule = $credentialsOptional ? 'nullable|string' : 'required|string';
 
         if ($this->ssh_auth_type === 'password') {
