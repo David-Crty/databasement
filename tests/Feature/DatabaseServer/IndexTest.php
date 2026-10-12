@@ -151,6 +151,27 @@ test('runBackupAll says which backups wait for their agent to list the databases
         ->and($toast['description'])->toStartWith('⏳ ')->toContain("\n✓ ");
 });
 
+test('runBackupAll counts a backup waiting for its agent apart from the started ones and says why one failed', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
+    \App\Models\Backup::factory()->selected(['other_db'])->for($server)->create();
+
+    \App\Actions\Backup\TriggerBackupAction::shouldRun()->twice()->andReturnUsing(
+        fn () => new TriggerBackupResult([], BackupDiscoveryState::Dispatched),
+        fn () => throw new \RuntimeException('Volume is full'),
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('runBackupAll', $server->id);
+
+    preg_match('/^toast\((.*)\)$/s', $component->effects['xjs'][0]['expression'], $matches);
+    $toast = json_decode($matches[1], true)['toast'];
+
+    expect($toast['title'])->toBe('0 backups started, 1 waiting for database discovery, 1 failed')
+        ->and($toast['description'])->toStartWith('⏳ ')->toEndWith(': Volume is full');
+});
+
 test('user can toggle backups for a server from the index', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['backups_enabled' => true]);

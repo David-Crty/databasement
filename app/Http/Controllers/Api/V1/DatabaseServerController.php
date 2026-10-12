@@ -25,6 +25,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 
 /**
  * @tags Database Servers
@@ -110,7 +111,9 @@ class DatabaseServerController extends Controller
         try {
             DeleteDatabaseServerAction::run($databaseServer);
         } catch (DatabaseServerFilesNotDeletedException $e) {
-            abort(409, $e->getMessage());
+            Log::warning($e->getMessage(), ['database_server_id' => $databaseServer->id, 'errors' => $e->errors]);
+
+            abort(409, 'The database server was kept because some of its backup files could not be deleted.');
         }
 
         return response()->noContent();

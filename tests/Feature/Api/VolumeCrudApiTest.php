@@ -175,14 +175,16 @@ test('can delete a volume via api', function () {
     $this->assertDatabaseMissing('volumes', ['id' => $volume->id]);
 });
 
-test('deleting a volume whose files cannot be deleted answers 409', function () {
+test('deleting a volume whose files cannot be deleted answers 409 without the storage errors', function () {
     $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
     $volume = Volume::factory()->create();
     DeleteVolumeAction::shouldRun()->andThrow(new VolumeFilesNotDeletedException($volume, ['Volume unreachable']));
 
     $this->actingAs($user, 'sanctum')
         ->deleteJson("/api/v1/volumes/{$volume->id}")
-        ->assertConflict();
+        ->assertConflict()
+        ->assertJsonPath('message', 'The volume was kept because some backup files could not be deleted from it.')
+        ->assertDontSee('Volume unreachable');
 });
 
 // ─── Test Connection ────────────────────────────────────────────────────────
