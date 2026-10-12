@@ -59,6 +59,15 @@ class ScheduledRestore extends Model
     ];
 
     /**
+     * The column defaults, so a scheduled restore just created reads them too.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'enabled' => true,
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

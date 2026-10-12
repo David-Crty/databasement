@@ -40,6 +40,7 @@ test('authenticated users can trigger a backup', function () {
 
     $response->assertStatus(202)
         ->assertJsonPath('message', 'Backup started successfully!')
+        ->assertJsonPath('snapshots.0.deleting', false)
         ->assertJsonStructure([
             'message',
             'snapshots' => [

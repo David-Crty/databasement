@@ -46,6 +46,16 @@ class Snapshot extends Model
         'triggered_by_user_id',
     ];
 
+    /**
+     * The column defaults, so a snapshot just created reads them too.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'locked' => false,
+        'deleting' => false,
+    ];
+
     protected function casts(): array
     {
         return [

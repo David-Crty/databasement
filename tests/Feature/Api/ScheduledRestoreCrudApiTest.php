@@ -76,7 +76,8 @@ test('can create a scheduled restore via api', function () {
 
     $response->assertCreated()
         ->assertJsonPath('data.name', 'Nightly')
-        ->assertJsonPath('data.backup_schedule_id', $schedule->id);
+        ->assertJsonPath('data.backup_schedule_id', $schedule->id)
+        ->assertJsonPath('data.enabled', true);
 
     $this->assertDatabaseHas('scheduled_restores', [
         'name' => 'Nightly',
