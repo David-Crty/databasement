@@ -85,6 +85,26 @@ test('can create a scheduled restore via api', function () {
     ]);
 });
 
+test('store rejects a scheduled restore over the application database', function () {
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    [$source, $target] = createRestoreServerPair();
+    makeAppDatabaseServer($target, 'databasement_app');
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/scheduled-restores', [
+            'name' => 'Nightly',
+            'source_server_id' => $source->id,
+            'source_database_name' => 'app',
+            'target_server_id' => $target->id,
+            'schema_name' => 'databasement_app',
+            'backup_schedule_id' => dailySchedule()->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['schema_name' => 'Cannot restore over the application database.']);
+
+    expect(ScheduledRestore::count())->toBe(0);
+});
+
 test('store rejects mismatched server types', function () {
     $user = User::factory()->create();
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);

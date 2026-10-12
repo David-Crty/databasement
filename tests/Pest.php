@@ -282,6 +282,22 @@ function createScheduledRestore(array $attrs = []): \App\Models\ScheduledRestore
     ], array_diff_key($attrs, ['source' => null, 'target' => null])));
 }
 
+/**
+ * Point the app's own connection at $server, as when databasement backs up
+ * the MySQL server it runs on.
+ */
+function makeAppDatabaseServer(\App\Models\DatabaseServer $server, string $database): void
+{
+    $connection = config('database.default');
+
+    config([
+        "database.connections.{$connection}.driver" => 'mysql',
+        "database.connections.{$connection}.host" => $server->host,
+        "database.connections.{$connection}.port" => $server->port,
+        "database.connections.{$connection}.database" => $database,
+    ]);
+}
+
 /*
 |--------------------------------------------------------------------------
 | Datasets

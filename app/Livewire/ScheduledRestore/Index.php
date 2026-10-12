@@ -2,6 +2,7 @@
 
 namespace App\Livewire\ScheduledRestore;
 
+use App\Actions\ScheduledRestore\DeleteScheduledRestoreAction;
 use App\Actions\ScheduledRestore\RunScheduledRestoreAction;
 use App\Enums\DatabaseType;
 use App\Livewire\Concerns\ConfirmsDeletion;
@@ -165,7 +166,7 @@ class Index extends Component
             return;
         }
 
-        $scheduledRestore->delete();
+        DeleteScheduledRestoreAction::run($scheduledRestore);
         $this->closeDeletion();
 
         $this->success(__('Scheduled restore deleted.'));

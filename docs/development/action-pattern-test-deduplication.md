@@ -121,6 +121,8 @@ Then open the PR:
 | Snapshot | `Agent/AgentSnapshotCleanupTest.php` `describe('reporting')` (removed copies forgotten, failed copy kept with the agent's error) | `Actions/Snapshot/FinishSnapshotDeletionActionTest.php` | | 1.3 |
 | BackupSchedule | `Configuration/BackupTest.php:165`, `:176` (a schedule in use by backups / by a scheduled restore is kept) | `Actions/BackupSchedule/DeleteBackupScheduleActionTest.php` | | 1.4 |
 | BackupSchedule | `Configuration/BackupTest.php` and `Api/BackupScheduleCrudApiTest.php:69`, `:132`, `:189` (create / update / delete persist) | `Actions/BackupSchedule/{Create,Update,Delete}BackupScheduleActionTest.php` | | 1.4 |
+| ScheduledRestore | `Api/ScheduledRestoreCrudApiTest.php:60` and `Livewire/ScheduledRestore/ModalTest.php` (create / update persist the definition) | `Actions/ScheduledRestore/{Create,Update}ScheduledRestoreActionTest.php` | | 1.5 |
+| ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php` and `Api/ScheduledRestoreCrudApiTest.php` (delete) | `Actions/ScheduledRestore/DeleteScheduledRestoreActionTest.php` | | 1.5 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1

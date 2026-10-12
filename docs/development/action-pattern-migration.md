@@ -956,6 +956,9 @@ Record new findings here instead of widening the migration.
 - **MCP list tools** (`ListDatabaseServersTool`, `ListSnapshotsTool`, `GetJobStatusTool`) do not use `app/Queries/*`. `ListSnapshotsTool` loads the job `logs` blob.
 - **Naming collision:** `App\Livewire\Actions\Logout` sits in a Livewire "Actions" namespace.
 
+**Found during Task 1**
+- `ScheduledRestoreController::run` wraps its messages in `__()`, although API responses are deliberately not translated. Same shape of divergence as step 1.2 fixed for backups.
+
 **To investigate separately** (reported by the inventory, not verified)
 - Livewire methods authorized only in `mount()` that open outbound connections:
   - `DatabaseServer\Form` `testConnection`, `testSshConnection`, `generateSshKey` and `loadDatabases`;
