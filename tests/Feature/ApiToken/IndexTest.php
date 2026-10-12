@@ -25,7 +25,7 @@ test('can create a new api token and use it to authenticate', function () {
 });
 
 test('can create a scoped api token limited to the selected abilities', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->withAbilities([Ability::RunBackups->value, Ability::DownloadSnapshots->value])->create();
 
     Livewire::actingAs($user)
         ->test(Index::class)
@@ -54,6 +54,21 @@ test('creating a scoped token rejects abilities outside the catalogue', function
         ->assertHasErrors(['tokenAbilities.0']);
 
     expect($user->tokens()->where('name', 'Bad Token')->exists())->toBeFalse();
+});
+
+test('without manage-users, a token cannot be scoped to it', function () {
+    $user = User::factory()->withAllAbilitiesExcept(Ability::ManageUsers->value)->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('tokenName', 'Escalated Token')
+        ->set('fullAccess', false)
+        ->set('tokenAbilities', [Ability::ManageUsers->value])
+        ->call('createToken')
+        ->assertHasErrors(['tokenAbilities.0'])
+        ->assertDontSee(Ability::ManageUsers->label());
+
+    expect($user->tokens()->where('name', 'Escalated Token')->exists())->toBeFalse();
 });
 
 test('accessLabel reports full access or the ability count per token, not just anywhere on the page', function () {

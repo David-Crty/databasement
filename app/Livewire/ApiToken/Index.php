@@ -6,6 +6,7 @@ use App\Enums\Ability;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Laravel\Sanctum\PersonalAccessToken;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -51,12 +52,10 @@ class Index extends Component
         $this->validate([
             'tokenName' => 'required|string|max:255',
             'tokenAbilities' => 'array',
-            'tokenAbilities.*' => 'in:'.implode(',', Ability::names()),
+            'tokenAbilities.*' => Rule::in($this->grantableAbilities()),
         ]);
 
-        $abilities = $this->fullAccess
-            ? ['*']
-            : array_values(array_intersect($this->tokenAbilities, Ability::names()));
+        $abilities = $this->fullAccess ? ['*'] : $this->tokenAbilities;
 
         $token = Auth::user()->createToken($this->tokenName, $abilities);
 
@@ -121,6 +120,18 @@ class Index extends Component
         );
     }
 
+    /**
+     * Catalogue abilities the current user holds, the only ones a scoped token may carry.
+     *
+     * @return list<string>
+     */
+    private function grantableAbilities(): array
+    {
+        $user = Auth::user();
+
+        return array_values(array_filter(Ability::names(), fn (string $ability) => $user->can($ability)));
+    }
+
     public function canDelete(PersonalAccessToken $token): bool
     {
         $user = Auth::user();
@@ -144,9 +155,17 @@ class Index extends Component
             $query->where('tokenable_id', $user->id);
         }
 
+        $grantable = $this->grantableAbilities();
+
         return view('livewire.api-token.index', [
             'tokens' => $query->get(),
-            'abilityGroups' => Ability::grouped(),
+            'abilityGroups' => array_filter(array_map(
+                fn (array $abilities) => array_values(array_filter(
+                    $abilities,
+                    fn (Ability $ability) => in_array($ability->value, $grantable, true),
+                )),
+                Ability::grouped(),
+            )),
         ]);
     }
 }

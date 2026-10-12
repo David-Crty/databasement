@@ -175,15 +175,20 @@ class AppServiceProvider extends ServiceProvider
         // This also enforces Sanctum token scoping for the catalogue: a real,
         // scoped-out PersonalAccessToken is denied outright before Bouncer's
         // role/direct-ability resolution ever runs, without touching the 12
-        // individual policy files. Session auth and legacy `['*']` tokens are
-        // unaffected (User::tokenCovers()).
+        // individual policy files. It runs before the super-admin bypass, so a
+        // scoped token limits a super admin too. Session auth and legacy `['*']`
+        // tokens are unaffected (User::tokenCovers()).
         Gate::before(function (?User $user, string $ability): ?bool {
-            if ($user?->isSuperAdmin() && in_array($ability, Ability::names(), true)) {
-                return true;
+            if ($user === null || ! in_array($ability, Ability::names(), true)) {
+                return null;
             }
 
-            if ($user !== null && in_array($ability, Ability::names(), true) && ! $user->tokenCovers($ability)) {
+            if (! $user->tokenCovers($ability)) {
                 return false;
+            }
+
+            if ($user->isSuperAdmin()) {
+                return true;
             }
 
             return null;

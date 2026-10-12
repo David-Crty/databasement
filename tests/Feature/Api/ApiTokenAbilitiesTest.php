@@ -62,13 +62,28 @@ test('a full-access token still defers to Bouncer as before', function () {
     Queue::assertPushed(ProcessBackupJob::class);
 });
 
-test('a super admin token bypasses ability scoping for the catalogue', function () {
+test('a scoped token limits a super admin too', function () {
     Queue::fake();
 
     $superAdmin = User::factory()->superAdmin()->create();
     $server = createDatabaseServer(['database_names' => ['testdb']]);
-    // Scoped to an unrelated ability — the super-admin bypass still applies.
     $token = $superAdmin->createToken('scoped', [Ability::DownloadSnapshots->value])->plainTextToken;
+
+    BouncerScope::apply(null);
+
+    $this->withToken($token)
+        ->postJson("/api/v1/database-servers/{$server->id}/backup")
+        ->assertForbidden();
+
+    Queue::assertNothingPushed();
+});
+
+test('a super admin token scoped to the required ability still bypasses Bouncer grants', function () {
+    Queue::fake();
+
+    $superAdmin = User::factory()->superAdmin()->create();
+    $server = createDatabaseServer(['database_names' => ['testdb']]);
+    $token = $superAdmin->createToken('scoped', [Ability::RunBackups->value])->plainTextToken;
 
     BouncerScope::apply(null);
 
