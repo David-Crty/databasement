@@ -3,37 +3,9 @@
 use App\Actions\Role\SyncUserAbilitiesAction;
 use App\Enums\Ability;
 use App\Livewire\User\Edit;
-use App\Models\Organization;
 use App\Models\User;
 use App\Services\CurrentOrganization;
-use App\Support\BouncerScope;
 use Livewire\Livewire;
-
-test('a direct ability grants access on top of the role, without changing it', function () {
-    $org = app(CurrentOrganization::class)->model();
-    $user = User::factory()->create();
-
-    expect($user->can(Ability::ManageVolumes->value))->toBeFalse();
-
-    SyncUserAbilitiesAction::run($user, [Ability::ManageVolumes->value], $org);
-
-    expect($user->fresh()->can(Ability::ManageVolumes->value))->toBeTrue()
-        ->and($user->fresh()->roleNameIn($org))->toBe('viewer');
-});
-
-test('direct abilities are scoped to the organization', function () {
-    $orgA = app(CurrentOrganization::class)->model();
-    $orgB = Organization::factory()->create();
-
-    $user = User::factory()->create();
-    SyncUserAbilitiesAction::run($user, [Ability::ManageVolumes->value], $orgA);
-
-    BouncerScope::apply($orgA->id);
-    expect($user->fresh()->can(Ability::ManageVolumes->value))->toBeTrue();
-
-    BouncerScope::apply($orgB->id);
-    expect($user->fresh()->can(Ability::ManageVolumes->value))->toBeFalse();
-});
 
 test('a super admin can grant direct abilities through the edit user form', function () {
     $org = app(CurrentOrganization::class)->model();

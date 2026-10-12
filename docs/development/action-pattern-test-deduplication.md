@@ -99,14 +99,11 @@ Then open the PR:
 
 | Domain | Edge test (file :: test or line) | Duplicates (action test) | Decision | Added by |
 |---|---|---|---|---|
-| Agent | `Agent/AgentApiTest.php` and `Agent/AgentRestoreTest.php` (`/fail` marks the job failed, merges logs, fails the tracked job); `Console/RecoverStuckJobsTest.php` (agent job failed after max attempts, unclaimed cleanup job failed) | `Actions/Agent/FailAgentJobActionTest.php`. The agent API tests stay thick (protocol), only their business assertions are candidates | | 1.9 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1
 
-Cover these first (step 1 of §3) when their domain comes up. Today they are reached only through edges:
-
-- `CreateRoleAction`, `UpdateRoleAction`, `DeleteRoleAction`, `AssignRoleToUserAction`, `SyncUserAbilitiesAction`. They are covered through `Roles/RoleManagementTest`, `Roles/UserAbilitiesTest` and `UserFactory` setup. Keep `RoleAbilityMatrixTest` as it is: it is the role→ability seed guardrail, not a duplicate.
+None. Task 2 gave every action its own test file.
 
 ## 7. Keeping duplication from coming back
 
