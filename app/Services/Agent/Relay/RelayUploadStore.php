@@ -15,7 +15,8 @@ class RelayUploadStore
 {
     /**
      * Append a chunk at the given offset and return the bytes received so
-     * far. An offset of 0 restarts the upload.
+     * far. An offset of 0 restarts the upload, and forgets any earlier commit
+     * of the same file, which the new upload is about to replace.
      *
      * @param  resource  $chunk
      *
@@ -31,6 +32,10 @@ class RelayUploadStore
 
         if ($offset !== 0 && $offset !== $received) {
             throw new RelayOffsetMismatchException($received);
+        }
+
+        if ($offset === 0) {
+            $this->discardCommitted($job, $volumeId, $path);
         }
 
         $part = fopen($partPath, $offset === 0 ? 'wb' : 'ab');
@@ -86,6 +91,15 @@ class RelayUploadStore
     public function discard(AgentJob $job, string $volumeId, string $path): void
     {
         File::delete($this->partPath($job, $volumeId, $path));
+    }
+
+    /**
+     * Forget that the file was committed, once the volume may no longer hold
+     * what was recorded.
+     */
+    public function discardCommitted(AgentJob $job, string $volumeId, string $path): void
+    {
+        File::delete($this->basePath($job, $volumeId, $path).'.done');
     }
 
     /**

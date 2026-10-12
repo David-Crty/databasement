@@ -122,7 +122,10 @@ class AgentFileController extends Controller
         try {
             $this->filesystemProvider->transfer($this->volume($request, $volumeId), $partPath, $path);
         } catch (Throwable $e) {
+            // A failed write may have left the volume's file truncated, so an
+            // earlier commit of it no longer holds.
             $this->uploads->discard($agentJob, $volumeId, $path);
+            $this->uploads->discardCommitted($agentJob, $volumeId, $path);
 
             return response()->json(['message' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
