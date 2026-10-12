@@ -2,13 +2,13 @@
 
 namespace App\Livewire\DatabaseServer;
 
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
 use App\Livewire\DatabaseServer\Concerns\OpensServerRestore;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Models\Restore;
-use App\Services\Backup\TriggerBackupAction;
 use App\Traits\OpensAdminerForServer;
 use App\Traits\RunsServerBackups;
 use App\Traits\Toast;
@@ -53,13 +53,13 @@ class Show extends Component
         $this->restoresCount = Restore::where('target_server_id', $server->id)->count();
     }
 
-    public function runBackupAll(TriggerBackupAction $action): void
+    public function runBackupAll(): void
     {
         $this->authorize('backup', $this->server);
 
         $this->server->load(['backups.volumes', 'backups.backupSchedule']);
 
-        $this->triggerAllBackups($this->server, $action);
+        $this->triggerAllBackups($this->server);
     }
 
     public function confirmRestore(): void
@@ -85,8 +85,7 @@ class Show extends Component
     {
         $this->authorize('delete', $this->server);
 
-        $this->server->skipFileCleanup = $this->keepFiles;
-        $this->server->delete();
+        DeleteDatabaseServerAction::run($this->server, $this->keepFiles);
         $this->showDeleteModal = false;
 
         $this->success(

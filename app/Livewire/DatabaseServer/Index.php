@@ -2,6 +2,9 @@
 
 namespace App\Livewire\DatabaseServer;
 
+use App\Actions\Backup\TriggerBackupAction;
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
+use App\Enums\BackupDiscoveryState;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\DatabaseServer\Concerns\OpensServerRestore;
@@ -9,7 +12,6 @@ use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\NotificationChannel;
 use App\Queries\DatabaseServerQuery;
-use App\Services\Backup\TriggerBackupAction;
 use App\Traits\OpensAdminerForServer;
 use App\Traits\RunsServerBackups;
 use App\Traits\Toast;
@@ -70,8 +72,7 @@ class Index extends Component
             return;
         }
 
-        $server->skipFileCleanup = $this->keepFiles;
-        $server->delete();
+        DeleteDatabaseServerAction::run($server, $this->keepFiles);
         $this->closeDeletion();
 
         $this->success(__('Database server deleted successfully!'));
@@ -89,7 +90,7 @@ class Index extends Component
         $this->openAdminerForServer(DatabaseServer::findOrFail($id));
     }
 
-    public function runBackup(string $backupId, TriggerBackupAction $action): void
+    public function runBackup(string $backupId): void
     {
         $backup = Backup::with(['databaseServer', 'volumes', 'backupSchedule'])->findOrFail($backupId);
 
@@ -97,23 +98,34 @@ class Index extends Component
 
         try {
             $userId = auth()->id();
-            $action->execute($backup, is_int($userId) ? $userId : null);
-            $this->success(
-                title: __('Backup started successfully!'),
-                description: $backup->getDisplayLabel(),
-            );
+            $result = TriggerBackupAction::run($backup, is_int($userId) ? $userId : null);
+
+            match ($result->discovery) {
+                BackupDiscoveryState::Dispatched => $this->success(
+                    title: __('Database discovery dispatched to agent. Backups will start once databases are discovered.'),
+                    description: $backup->getDisplayLabel(),
+                ),
+                BackupDiscoveryState::AlreadyRunning => $this->info(
+                    title: __('Database discovery is already running on the agent. Backups will start once databases are discovered.'),
+                    description: $backup->getDisplayLabel(),
+                ),
+                BackupDiscoveryState::NotNeeded => $this->success(
+                    title: __('Backup started successfully!'),
+                    description: $backup->getDisplayLabel(),
+                ),
+            };
         } catch (\Throwable $e) {
             $this->error($e->getMessage(), timeout: 0);
         }
     }
 
-    public function runBackupAll(string $serverId, TriggerBackupAction $action): void
+    public function runBackupAll(string $serverId): void
     {
         $server = DatabaseServer::with(['backups.volumes', 'backups.backupSchedule'])->findOrFail($serverId);
 
         $this->authorize('backup', $server);
 
-        $this->triggerAllBackups($server, $action);
+        $this->triggerAllBackups($server);
     }
 
     public function toggleBackupsEnabled(string $id): void

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\DatabaseServer;
 
+use App\Actions\DatabaseServer\CreateDatabaseServerAction;
+use App\Actions\DatabaseServer\UpdateDatabaseServerAction;
 use App\Enums\DatabaseType;
 use App\Enums\NotificationChannelSelection;
 use App\Enums\NotificationTrigger;
@@ -19,11 +21,11 @@ use App\Rules\SafeHost;
 use App\Rules\SafeUsername;
 use App\Services\Backup\Databases\DatabaseProvider;
 use App\Services\Backup\ShellProcessor;
-use App\Services\Backup\SyncBackupConfigurationsAction;
 use App\Services\CurrentOrganization;
 use App\Services\SshKeyGenerator;
 use App\Services\SshTunnelService;
-use Illuminate\Support\Facades\DB;
+use App\Support\BackupConfiguration;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -859,7 +861,7 @@ class Form extends \Livewire\Form
         if ($this->backups_enabled && $serverType !== null) {
             foreach ($this->backups as $index => $entry) {
                 BackupForm::normalizeDatabaseNames($this->backups[$index], $this->availableDatabases, $serverType);
-                BackupForm::normalizeSelection($this->backups[$index], $serverType);
+                BackupConfiguration::normalizeSelection($this->backups[$index], $serverType);
             }
         }
 
@@ -953,17 +955,14 @@ class Form extends \Livewire\Form
         $validated = $this->formValidate();
 
         $serverData = $this->extractServerData($validated);
-        $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
-        DatabaseServer::buildExtraConfig($serverData);
 
-        $serverData['organization_id'] = app(CurrentOrganization::class)->id();
-
-        DB::transaction(function () use ($serverData): void {
-            /** @var array<string, mixed> $serverData */
-            $server = DatabaseServer::create($serverData);
-            $this->syncBackupConfigurations($server);
-            $this->syncNotificationChannels($server);
-        });
+        CreateDatabaseServerAction::run(
+            app(CurrentOrganization::class)->model(),
+            $serverData,
+            backups: $this->backups,
+            sshConfig: $this->sshConfigAttributes(),
+            notificationChannelIds: $this->notificationChannelIdsToLink(),
+        );
 
         return true;
     }
@@ -980,28 +979,21 @@ class Form extends \Livewire\Form
 
         $validated = $this->formValidate();
 
-        $serverData = $this->extractServerData($validated);
-
-        // Only update password if a new one is provided
-        if (isset($serverData['password']) && $serverData['password'] === '') {
-            unset($serverData['password']);
-        }
-
-        $serverData['ssh_config_id'] = $this->createOrUpdateSshConfig();
-        DatabaseServer::buildExtraConfig($serverData, $this->server->extra_config, $this->server->database_type->value);
-
-        DB::transaction(function () use ($serverData): void {
-            $this->server->update($serverData);
-            $this->syncBackupConfigurations($this->server);
-            $this->syncNotificationChannels($this->server);
-        });
+        UpdateDatabaseServerAction::run(
+            $this->server,
+            $this->extractServerData($validated),
+            backups: $this->backups,
+            sshConfig: $this->sshConfigAttributes(),
+            notificationChannelIds: $this->notificationChannelIdsToLink(),
+        );
 
         return true;
     }
 
     /**
      * Strip backup/notification-only fields from the validated payload so the
-     * remaining array can be passed straight to Eloquent's mass assignment.
+     * remaining array can be passed straight to Eloquent's mass assignment,
+     * and unlink the SSH tunnel when it is turned off.
      *
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
@@ -1013,85 +1005,58 @@ class Form extends \Livewire\Form
             $validated['notification_channel_ids'],
         );
 
+        if (! $this->ssh_enabled) {
+            $validated['ssh_config_id'] = null;
+        }
+
         return $validated;
     }
 
     /**
-     * Create or update SSH config based on form state.
-     * Returns the SSH config ID to link to the server.
+     * The SSH settings to save with the server, or null when it connects
+     * directly. Settings for an existing configuration carry its `id`; that
+     * configuration may be shared with other servers, so it is authorized
+     * on its own.
+     *
+     * @return array<string, mixed>|null
      */
-    private function createOrUpdateSshConfig(): ?string
+    private function sshConfigAttributes(): ?array
     {
         if (! $this->ssh_enabled) {
             return null;
         }
 
-        $sshData = [
+        $existingConfigId = $this->ssh_config_mode === 'existing'
+            ? $this->ssh_config_id
+            : $this->server?->ssh_config_id;
+
+        $existing = $existingConfigId !== null ? DatabaseServerSshConfig::find($existingConfigId) : null;
+
+        if ($existing !== null) {
+            Gate::authorize('update', $existing);
+        }
+
+        return [
+            'id' => $existing?->id,
             'host' => $this->ssh_host,
             'port' => $this->ssh_port,
             'username' => $this->ssh_username,
             'auth_type' => $this->ssh_auth_type,
             'compression' => $this->ssh_compression,
+            'password' => $this->ssh_password,
+            'private_key' => $this->ssh_private_key,
+            'key_passphrase' => $this->ssh_key_passphrase,
         ];
-
-        // Add sensitive fields if provided
-        if ($this->ssh_auth_type === 'password') {
-            if (! empty($this->ssh_password)) {
-                $sshData['password'] = $this->ssh_password;
-            }
-            $sshData['private_key'] = null;
-            $sshData['key_passphrase'] = null;
-        } else {
-            if (! empty($this->ssh_private_key)) {
-                $sshData['private_key'] = $this->ssh_private_key;
-            }
-            if (! empty($this->ssh_key_passphrase)) {
-                $sshData['key_passphrase'] = $this->ssh_key_passphrase;
-            }
-            $sshData['password'] = null;
-        }
-
-        // Determine which config to update (if any)
-        $existingConfigId = $this->ssh_config_mode === 'existing'
-            ? $this->ssh_config_id
-            : $this->server?->ssh_config_id;
-
-        if ($existingConfigId !== null) {
-            $config = DatabaseServerSshConfig::find($existingConfigId);
-            if ($config !== null) {
-                // Non-sensitive fields are always updated; sensitive fields only when provided
-                $nonSensitiveFields = ['host', 'port', 'username', 'auth_type', 'compression'];
-                $updateData = array_intersect_key($sshData, array_flip($nonSensitiveFields));
-
-                foreach (DatabaseServerSshConfig::SENSITIVE_FIELDS as $field) {
-                    if (! empty($sshData[$field])) {
-                        $updateData[$field] = $sshData[$field];
-                    }
-                }
-
-                $config->update($updateData);
-
-                return $config->id;
-            }
-        }
-
-        $sshData['organization_id'] = app(CurrentOrganization::class)->id();
-
-        return DatabaseServerSshConfig::create($sshData)->id;
     }
 
-    private function syncBackupConfigurations(DatabaseServer $server): void
+    /**
+     * @return list<string>
+     */
+    private function notificationChannelIdsToLink(): array
     {
-        app(SyncBackupConfigurationsAction::class)->execute($server, $this->backups);
-    }
-
-    private function syncNotificationChannels(DatabaseServer $server): void
-    {
-        if ($this->notification_channel_selection === 'selected') {
-            $server->notificationChannels()->sync($this->notification_channel_ids);
-        } else {
-            $server->notificationChannels()->detach();
-        }
+        return $this->notification_channel_selection === 'selected'
+            ? array_values($this->notification_channel_ids)
+            : [];
     }
 
     /**

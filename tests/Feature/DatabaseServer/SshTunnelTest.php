@@ -261,6 +261,23 @@ test('updating database server preserves SSH config when not changed', function 
     expect($server->sshConfig->host)->toBe($originalHost);
 });
 
+test('switching a server\'s SSH authentication to a key drops the stored password', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->withSshTunnel()->create(['database_names' => ['mydb']]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.ssh_auth_type', 'key')
+        ->set('form.ssh_private_key', '-----BEGIN OPENSSH PRIVATE KEY-----')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($server->fresh()->sshConfig)
+        ->auth_type->toBe('key')
+        ->password->toBeNull()
+        ->private_key->toBe('-----BEGIN OPENSSH PRIVATE KEY-----');
+});
+
 test('disabling SSH tunnel clears SSH config link', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->withSshTunnel()->create([
