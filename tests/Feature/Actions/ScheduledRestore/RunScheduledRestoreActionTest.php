@@ -1,11 +1,13 @@
 <?php
 
+use App\Actions\Restore\TriggerRestoreAction;
 use App\Actions\ScheduledRestore\RunScheduledRestoreAction;
 use App\Jobs\ProcessRestoreJob;
 use App\Models\Restore;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(fn () => Queue::fake());
 
@@ -68,4 +70,18 @@ test('a completed previous restore does not block the next run', function () {
 
     expect(RunScheduledRestoreAction::run($scheduledRestore)->restore)->not->toBeNull();
     Queue::assertPushed(ProcessRestoreJob::class, 1);
+});
+
+test('a rejected restore is recorded as the reason the run was skipped', function () {
+    $scheduledRestore = createScheduledRestore();
+    Snapshot::factory()->forServer($scheduledRestore->sourceServer)->create(['database_name' => 'app']);
+    TriggerRestoreAction::shouldRun()->andThrow(ValidationException::withMessages([
+        'snapshot_id' => 'The target server runs through a remote agent, which cannot read snapshots stored on a local volume.',
+    ]));
+
+    expect(fn () => RunScheduledRestoreAction::run($scheduledRestore))->toThrow(ValidationException::class);
+
+    expect($scheduledRestore->fresh())
+        ->last_skip_reason->toBe('The target server runs through a remote agent, which cannot read snapshots stored on a local volume.')
+        ->last_executed_at->not->toBeNull();
 });

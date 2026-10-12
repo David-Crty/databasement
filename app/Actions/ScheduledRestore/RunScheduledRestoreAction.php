@@ -10,6 +10,7 @@ use App\Services\Backup\DTO\RestoreOptions;
 use App\Services\Backup\DTO\ScheduledRestoreResult;
 use App\Services\Backup\LatestSnapshotResolver;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Lorisleiva\Actions\Concerns\AsFake;
 use Lorisleiva\Actions\Concerns\AsObject;
@@ -30,7 +31,11 @@ class RunScheduledRestoreAction
      * disabled flow never fires on its own. Running one here is always a
      * deliberate act, and leaves it disabled.
      *
-     * @throws ValidationException
+     * A run whose restore is rejected (say, a snapshot its target's agent
+     * cannot read) is recorded with the rejection as its skip reason, so a
+     * scheduled run does not fail unseen.
+     *
+     * @throws ValidationException When the restore is rejected
      */
     public function handle(ScheduledRestore $scheduledRestore): ScheduledRestoreResult
     {
@@ -46,13 +51,19 @@ class RunScheduledRestoreAction
             return $this->markSkipped($scheduledRestore, ScheduledRestore::SKIP_NO_SNAPSHOT);
         }
 
-        $restore = TriggerRestoreAction::run(
-            snapshot: $snapshot,
-            targetServer: $scheduledRestore->targetServer,
-            schemaName: $scheduledRestore->schema_name,
-            options: RestoreOptions::fromArray($scheduledRestore->options ?? []),
-            scheduledRestoreId: $scheduledRestore->id,
-        );
+        try {
+            $restore = TriggerRestoreAction::run(
+                snapshot: $snapshot,
+                targetServer: $scheduledRestore->targetServer,
+                schemaName: $scheduledRestore->schema_name,
+                options: RestoreOptions::fromArray($scheduledRestore->options ?? []),
+                scheduledRestoreId: $scheduledRestore->id,
+            );
+        } catch (ValidationException $e) {
+            $this->markSkipped($scheduledRestore, Str::limit(collect($e->errors())->flatten()->implode(' '), 255, ''));
+
+            throw $e;
+        }
 
         $scheduledRestore->forceFill([
             'last_executed_at' => now(),
