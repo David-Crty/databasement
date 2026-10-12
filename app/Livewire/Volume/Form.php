@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Volume;
 
+use App\Actions\Volume\CreateVolumeAction;
+use App\Actions\Volume\UpdateVolumeAction;
 use App\Enums\VolumeType;
 use App\Models\Volume;
 use App\Services\CurrentOrganization;
@@ -113,15 +115,12 @@ class Form extends \Livewire\Form
 
         $this->validate($rules);
 
-        $data = [
-            'name' => $this->name,
-            'type' => $this->type,
-            'config' => $this->buildConfig(),
-        ];
-
-        $data['organization_id'] = app(CurrentOrganization::class)->id();
-
-        Volume::create($data);
+        CreateVolumeAction::run(
+            app(CurrentOrganization::class)->model(),
+            VolumeType::from($this->type),
+            $this->name,
+            $this->applyMaxStorageToConfig($this->getActiveConfig()),
+        );
     }
 
     public function update(): void
@@ -131,10 +130,7 @@ class Form extends \Livewire\Form
 
         $this->validate($rules);
 
-        $this->volume->update([
-            'name' => $this->name,
-            'config' => $this->buildConfig(),
-        ]);
+        UpdateVolumeAction::run($this->volume, $this->name, $this->applyMaxStorageToConfig($this->getActiveConfig()));
     }
 
     /**
@@ -150,10 +146,7 @@ class Form extends \Livewire\Form
             'storageLimitNotifyOnly' => ['boolean'],
         ]);
 
-        $this->volume->update([
-            'name' => $this->name,
-            'config' => $this->applyMaxStorageToConfig($this->volume->config),
-        ]);
+        UpdateVolumeAction::run($this->volume, $this->name, $this->applyMaxStorageToConfig($this->volume->getDecryptedConfig()));
     }
 
     /**
@@ -164,22 +157,6 @@ class Form extends \Livewire\Form
     public function getActiveConfig(): array
     {
         return $this->{VolumeType::from($this->type)->configPropertyName()};
-    }
-
-    /**
-     * Build the config array with sensitive fields encrypted.
-     * Preserves existing encrypted values when the submitted field is empty.
-     *
-     * @return array<string, mixed>
-     */
-    protected function buildConfig(): array
-    {
-        $volumeType = VolumeType::from($this->type);
-        $persistedConfig = $this->volume !== null ? $this->volume->config : [];
-
-        $config = $volumeType->encryptSensitiveFields($this->getActiveConfig(), $persistedConfig);
-
-        return $this->applyMaxStorageToConfig($config);
     }
 
     /**

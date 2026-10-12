@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\ScheduledRestore\CreateScheduledRestoreAction;
+use App\Actions\ScheduledRestore\DeleteScheduledRestoreAction;
+use App\Actions\ScheduledRestore\RunScheduledRestoreAction;
+use App\Actions\ScheduledRestore\UpdateScheduledRestoreAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\SaveScheduledRestoreRequest;
 use App\Http\Resources\ScheduledRestoreResource;
 use App\Models\ScheduledRestore;
-use App\Services\Backup\RunScheduledRestoreAction;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,7 +57,7 @@ class ScheduledRestoreController extends Controller
     {
         $this->authorize('create', ScheduledRestore::class);
 
-        $scheduledRestore = ScheduledRestore::create($request->validated());
+        $scheduledRestore = CreateScheduledRestoreAction::run($request->validated());
 
         return (new ScheduledRestoreResource($scheduledRestore))
             ->response()
@@ -68,9 +71,7 @@ class ScheduledRestoreController extends Controller
     {
         $this->authorize('update', $scheduledRestore);
 
-        $scheduledRestore->update($request->validated());
-
-        return new ScheduledRestoreResource($scheduledRestore);
+        return new ScheduledRestoreResource(UpdateScheduledRestoreAction::run($scheduledRestore, $request->validated()));
     }
 
     /**
@@ -82,7 +83,7 @@ class ScheduledRestoreController extends Controller
     {
         $this->authorize('delete', $scheduledRestore);
 
-        $scheduledRestore->delete();
+        DeleteScheduledRestoreAction::run($scheduledRestore);
 
         return response()->noContent();
     }
@@ -95,11 +96,11 @@ class ScheduledRestoreController extends Controller
      *
      * @response 202
      */
-    public function run(ScheduledRestore $scheduledRestore, RunScheduledRestoreAction $action): JsonResponse
+    public function run(ScheduledRestore $scheduledRestore): JsonResponse
     {
         $this->authorize('run', $scheduledRestore);
 
-        $result = $action->execute($scheduledRestore);
+        $result = RunScheduledRestoreAction::run($scheduledRestore);
 
         return response()->json([
             'message' => $result->skipReason !== null

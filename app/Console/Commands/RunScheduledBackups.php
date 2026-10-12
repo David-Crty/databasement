@@ -2,9 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Actions\Backup\TriggerBackupAction;
+use App\Enums\BackupDiscoveryState;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
-use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -14,7 +15,7 @@ class RunScheduledBackups extends Command
 
     protected $description = 'Run scheduled backups for a given backup schedule';
 
-    public function handle(TriggerBackupAction $triggerBackup): int
+    public function handle(): int
     {
         $scheduleId = $this->argument('schedule');
 
@@ -43,7 +44,7 @@ class RunScheduledBackups extends Command
 
         foreach ($backups as $backup) {
             try {
-                $this->dispatch($backup, $triggerBackup);
+                $this->dispatch($backup);
             } catch (\Throwable $e) {
                 $failedCount++;
                 Log::error("Failed to dispatch backup job for server [{$backup->databaseServer->name} / {$backup->getDisplayLabel()}]", [
@@ -61,24 +62,24 @@ class RunScheduledBackups extends Command
         return self::SUCCESS;
     }
 
-    private function dispatch(Backup $backup, TriggerBackupAction $triggerBackup): void
+    private function dispatch(Backup $backup): void
     {
         $server = $backup->databaseServer;
-        $result = $triggerBackup->execute($backup, method: 'scheduled');
+        $result = TriggerBackupAction::run($backup, method: 'scheduled');
 
-        if ($result['discovery'] === true) {
+        if ($result->discovery === BackupDiscoveryState::Dispatched) {
             $this->line("  → Dispatched discovery for: {$server->name} [{$backup->getDisplayLabel()}] via agent");
 
             return;
         }
 
-        if ($result['discovery'] === false) {
+        if ($result->discovery === BackupDiscoveryState::AlreadyRunning) {
             $this->line("  → Skipped discovery for: {$server->name} [{$backup->getDisplayLabel()}] (already in-flight)");
 
             return;
         }
 
-        $count = count($result['snapshots']);
+        $count = count($result->snapshots);
         $via = $server->agent_id ? 'agent' : 'queue';
         $dbInfo = $count === 1 ? '1 database' : "{$count} databases";
         $this->line("  → Dispatched backup for: {$server->name} [{$backup->getDisplayLabel()}] ({$dbInfo}) via {$via}");

@@ -2,20 +2,17 @@
 
 namespace App\Services\Agent\Handlers;
 
+use App\Actions\Restore\CompleteRestoreAction;
+use App\Actions\Restore\FailRestoreAction;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\Restore;
-use App\Services\NotificationService;
 use App\Support\QueueTimeouts;
 use RuntimeException;
 use Throwable;
 
 class RestoreJobHandler implements AgentJobHandler
 {
-    public function __construct(
-        private NotificationService $notificationService,
-    ) {}
-
     /**
      * A restore drops and recreates the target database, so a second run
      * after a lost agent is worse than a reported failure.
@@ -50,9 +47,8 @@ class RestoreJobHandler implements AgentJobHandler
         $restore = $this->restore($agentJob);
 
         $agentJob->markCompleted();
-        $restore->job->markCompleted();
 
-        $this->notificationService->notifyRestoreSuccess($restore);
+        CompleteRestoreAction::run($restore);
 
         return [];
     }
@@ -66,9 +62,7 @@ class RestoreJobHandler implements AgentJobHandler
     {
         $restore = $this->restore($agentJob);
 
-        $restore->job->markFailed($exception);
-
-        $this->notificationService->notifyRestoreFailed($restore, $exception);
+        FailRestoreAction::run($restore, $exception);
     }
 
     private function restore(AgentJob $agentJob): Restore

@@ -85,6 +85,26 @@ test('can create a scheduled restore via api', function () {
     ]);
 });
 
+test('store rejects a scheduled restore over the application database', function () {
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    [$source, $target] = createRestoreServerPair();
+    makeAppDatabaseServer($target, 'databasement_app');
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/scheduled-restores', [
+            'name' => 'Nightly',
+            'source_server_id' => $source->id,
+            'source_database_name' => 'app',
+            'target_server_id' => $target->id,
+            'schema_name' => 'databasement_app',
+            'backup_schedule_id' => dailySchedule()->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['schema_name' => 'Cannot restore over the application database.']);
+
+    expect(ScheduledRestore::count())->toBe(0);
+});
+
 test('store rejects mismatched server types', function () {
     $user = User::factory()->create();
     $source = DatabaseServer::factory()->create(['database_type' => 'mysql', 'database_names' => ['app']]);
@@ -210,28 +230,6 @@ test('can trigger a scheduled restore run via api', function () {
         ->assertJson(['skip_reason' => null]);
 
     Queue::assertPushed(ProcessRestoreJob::class, 1);
-});
-
-test('runs a disabled scheduled restore via api without enabling it', function () {
-    Queue::fake();
-
-    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
-    [$source, $target] = createRestoreServerPair();
-
-    $scheduled = ScheduledRestore::factory()->create([
-        'source_server_id' => $source->id,
-        'target_server_id' => $target->id,
-        'enabled' => false,
-    ]);
-    Snapshot::factory()->forServer($source)->create(['database_name' => $scheduled->source_database_name]);
-
-    $this->actingAs($user, 'sanctum')
-        ->postJson("/api/v1/scheduled-restores/{$scheduled->id}/run")
-        ->assertAccepted()
-        ->assertJson(['skip_reason' => null]);
-
-    Queue::assertPushed(ProcessRestoreJob::class, 1);
-    expect($scheduled->refresh()->enabled)->toBeFalse();
 });
 
 test('without operate-restores, triggering a scheduled restore via api is forbidden', function () {

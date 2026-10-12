@@ -2,6 +2,10 @@
 
 namespace App\Livewire\Configuration;
 
+use App\Actions\BackupSchedule\CreateBackupScheduleAction;
+use App\Actions\BackupSchedule\DeleteBackupScheduleAction;
+use App\Actions\BackupSchedule\UpdateBackupScheduleAction;
+use App\Exceptions\Backup\BackupScheduleInUseException;
 use App\Jobs\CleanupExpiredSnapshotsJob;
 use App\Jobs\VerifySnapshotFileJob;
 use App\Livewire\Configuration\Concerns\GatesConfigurationWrites;
@@ -103,15 +107,9 @@ class Backup extends Component
         $this->form->validate($rules);
 
         if ($schedule) {
-            $schedule->update([
-                'name' => $this->form->schedule_name,
-                'expression' => $this->form->schedule_expression,
-            ]);
+            UpdateBackupScheduleAction::run($schedule, $this->form->schedule_name, $this->form->schedule_expression);
         } else {
-            BackupSchedule::create([
-                'name' => $this->form->schedule_name,
-                'expression' => $this->form->schedule_expression,
-            ]);
+            CreateBackupScheduleAction::run($this->form->schedule_name, $this->form->schedule_expression);
         }
 
         $this->showScheduleModal = false;
@@ -133,32 +131,22 @@ class Backup extends Component
             return;
         }
 
-        $schedule = BackupSchedule::withCount([
-            'backups as total_backups_count',
-            'scheduledRestores as scheduled_restores_count',
-        ])->findOrFail($this->deleteScheduleId);
+        $schedule = BackupSchedule::findOrFail($this->deleteScheduleId);
 
         abort_unless(auth()->user()->can('delete', $schedule), Response::HTTP_FORBIDDEN);
 
-        if ((int) $schedule->getAttribute('total_backups_count') > 0) {
-            $this->error(__('Cannot delete a schedule that is in use by database servers.'));
-            $this->showDeleteScheduleModal = false;
-            $this->deleteScheduleId = null;
-
-            return;
-        }
-
-        if ((int) $schedule->getAttribute('scheduled_restores_count') > 0) {
-            $this->error(__('Cannot delete a schedule that is in use by scheduled restores.'));
-            $this->showDeleteScheduleModal = false;
-            $this->deleteScheduleId = null;
-
-            return;
-        }
-
-        $schedule->delete();
         $this->showDeleteScheduleModal = false;
         $this->deleteScheduleId = null;
+
+        try {
+            DeleteBackupScheduleAction::run($schedule);
+        } catch (BackupScheduleInUseException $e) {
+            $this->error($e->backupsCount > 0
+                ? __('Cannot delete a schedule that is in use by database servers.')
+                : __('Cannot delete a schedule that is in use by scheduled restores.'));
+
+            return;
+        }
 
         $this->success(__('Backup schedule deleted.'));
     }

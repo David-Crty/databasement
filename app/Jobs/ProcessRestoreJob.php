@@ -2,13 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Actions\Restore\CompleteRestoreAction;
+use App\Actions\Restore\FailRestoreAction;
 use App\Enums\SnapshotFileStatus;
 use App\Exceptions\Backup\JobCancelledException;
 use App\Facades\AppConfig;
 use App\Models\Restore;
 use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\RestoreTask;
-use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
 use App\Support\QueueTimeouts;
 use Illuminate\Bus\Queueable;
@@ -125,9 +126,7 @@ class ProcessRestoreJob implements ShouldQueue
 
             $restoreTask->execute($config, $job);
 
-            $job->markCompleted();
-
-            app(NotificationService::class)->notifyRestoreSuccess($restore);
+            CompleteRestoreAction::run($restore);
 
             Log::info('Restore completed successfully', [
                 'restore_id' => $this->restoreId,
@@ -154,8 +153,20 @@ class ProcessRestoreJob implements ShouldQueue
     {
         $restore = Restore::with(['job', 'targetServer', 'snapshot'])->find($this->restoreId);
 
-        if ($restore !== null && $restore->job->recordQueueFailure($exception, 'Restore')) {
-            app(NotificationService::class)->notifyRestoreFailed($restore, $exception);
+        if ($restore === null) {
+            return;
+        }
+
+        try {
+            // A worker killed on timeout never reached its own catch, so the
+            // job is still running and its log does not say why it stopped.
+            if ($restore->job->status->isInProgress()) {
+                $restore->job->log("Restore failed: {$exception->getMessage()}", 'error');
+            }
+
+            FailRestoreAction::run($restore, $exception);
+        } catch (JobCancelledException) {
+            // Cancelled meanwhile: nothing to conclude or notify.
         }
     }
 }

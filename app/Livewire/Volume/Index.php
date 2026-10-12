@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Volume;
 
+use App\Actions\Volume\DeleteVolumeAction;
+use App\Exceptions\Volume\VolumeFilesNotDeletedException;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Models\Snapshot;
@@ -65,8 +67,15 @@ class Index extends Component
             return;
         }
 
-        $volume->skipFileCleanup = $this->keepFiles;
-        $volume->delete();
+        try {
+            DeleteVolumeAction::run($volume, $this->keepFiles);
+        } catch (VolumeFilesNotDeletedException) {
+            $this->closeDeletion();
+            $this->error(__('The volume was kept because some backup files could not be deleted from it. Try again, or delete it while keeping the files.'));
+
+            return;
+        }
+
         $this->closeDeletion();
 
         $this->success(__('Volume deleted successfully!'));

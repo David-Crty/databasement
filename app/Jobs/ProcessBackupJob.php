@@ -2,6 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Actions\Backup\CompleteBackupAction;
+use App\Actions\Backup\FailBackupAction;
+use App\Actions\Backup\RecordBackupResultAction;
 use App\Enums\SnapshotFileStatus;
 use App\Exceptions\Backup\JobCancelledException;
 use App\Exceptions\Backup\VolumeTransferException;
@@ -10,10 +13,8 @@ use App\Models\Snapshot;
 use App\Models\SnapshotFile;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupConfig;
-use App\Services\Backup\DTO\BackupResult;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
 use App\Services\Backup\DTO\VolumeConfig;
-use App\Services\NotificationService;
 use App\Support\FilesystemSupport;
 use App\Support\QueueTimeouts;
 use Illuminate\Bus\Queueable;
@@ -116,17 +117,8 @@ class ProcessBackupJob implements ShouldQueue
 
             $result = $backupTask->execute($config, $job);
 
-            $this->persistResult($snapshot, $result);
-
-            $job->markCompleted();
-
-            app(NotificationService::class)->notifyBackupSuccess($snapshot);
-
-            // Notify-only storage limit: the backup was uploaded despite
-            // exceeding a volume's limit, so alert every configured channel.
-            foreach ($result->storageWarnings() as $warning) {
-                app(NotificationService::class)->notifyStorageLimitWarning($snapshot, $warning->storageWarning ?? '', $warning->volumeName);
-            }
+            RecordBackupResultAction::run($snapshot, $result);
+            CompleteBackupAction::run($snapshot);
 
             Log::info('Backup completed successfully', [
                 'snapshot_id' => $this->snapshotId,
@@ -136,7 +128,7 @@ class ProcessBackupJob implements ShouldQueue
         } catch (VolumeTransferException $e) {
             // At least one upload failed. The successful copies are still
             // recorded so their files stay tracked, then the job is failed.
-            $this->persistResult($snapshot, $e->result);
+            RecordBackupResultAction::run($snapshot, $e->result);
 
             $job->log("Backup failed: {$e->getMessage()}", 'error', [
                 'exception' => get_class($e),
@@ -166,40 +158,26 @@ class ProcessBackupJob implements ShouldQueue
     }
 
     /**
-     * Persist the archive fields and per-volume upload outcomes onto the
-     * snapshot and its copy rows.
-     */
-    private function persistResult(Snapshot $snapshot, BackupResult $result): void
-    {
-        $snapshot->update([
-            'filename' => $result->filename,
-            'file_size' => $result->fileSize,
-            'checksum' => $result->checksum,
-        ]);
-
-        foreach ($result->volumeResults as $volumeResult) {
-            $file = $snapshot->files->firstWhere('volume_id', $volumeResult->volumeId);
-            if ($file === null) {
-                continue;
-            }
-
-            if ($volumeResult->status === SnapshotFileStatus::Completed) {
-                $file->markUploaded();
-            } else {
-                $file->markUploadFailed($volumeResult->error);
-            }
-        }
-    }
-
-    /**
      * Handle a job failure (called by Laravel queue after all retries exhausted).
      */
     public function failed(\Throwable $exception): void
     {
         $snapshot = Snapshot::with(['job', 'databaseServer'])->find($this->snapshotId);
 
-        if ($snapshot !== null && $snapshot->job->recordQueueFailure($exception, 'Backup')) {
-            app(NotificationService::class)->notifyBackupFailed($snapshot, $exception);
+        if ($snapshot === null) {
+            return;
+        }
+
+        try {
+            // A worker killed on timeout never reached its own catch, so the
+            // job is still running and its log does not say why it stopped.
+            if ($snapshot->job->status->isInProgress()) {
+                $snapshot->job->log("Backup failed: {$exception->getMessage()}", 'error');
+            }
+
+            FailBackupAction::run($snapshot, $exception);
+        } catch (JobCancelledException) {
+            // Cancelled meanwhile: nothing to conclude or notify.
         }
     }
 }

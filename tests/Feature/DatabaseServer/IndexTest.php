@@ -1,10 +1,14 @@
 <?php
 
+use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\Ability;
+use App\Enums\BackupDiscoveryState;
+use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Livewire\DatabaseServer\Index;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\User;
+use App\Services\Backup\DTO\TriggerBackupResult;
 use Livewire\Livewire;
 
 test('displays database servers in table', function () {
@@ -89,6 +93,18 @@ test('can delete database server', function () {
     ]);
 });
 
+test('a server whose files cannot be deleted is reported instead of failing the request', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create();
+    DeleteDatabaseServerAction::shouldRun()->andThrow(new DatabaseServerFilesNotDeletedException($server, ['Offsite: Volume unreachable']));
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('confirmDelete', $server->id)
+        ->call('delete')
+        ->assertSet('deleteId', null);
+});
+
 test('runBackupAll dispatches backup jobs for all backup configs on the server', function () {
     \Illuminate\Support\Facades\Queue::fake();
 
@@ -112,6 +128,48 @@ test('runBackupAll dispatches backup jobs for all backup configs on the server',
     $backupIds = $server->backups->pluck('id')->sort()->values();
     $snapshotBackupIds = $snapshots->pluck('backup_id')->sort()->values();
     expect($snapshotBackupIds->all())->toBe($backupIds->all());
+});
+
+test('runBackupAll says which backups wait for their agent to list the databases', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
+    \App\Models\Backup::factory()->selected(['other_db'])->for($server)->create();
+
+    \App\Actions\Backup\TriggerBackupAction::shouldRun()->twice()->andReturnValues([
+        new TriggerBackupResult([], BackupDiscoveryState::Dispatched),
+        new TriggerBackupResult([new Snapshot], BackupDiscoveryState::NotNeeded),
+    ]);
+
+    $component = Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('runBackupAll', $server->id);
+
+    preg_match('/^toast\((.*)\)$/s', $component->effects['xjs'][0]['expression'], $matches);
+    $toast = json_decode($matches[1], true)['toast'];
+
+    expect($toast['title'])->toBe('Database discovery dispatched to agent. Backups will start once databases are discovered.')
+        ->and($toast['description'])->toStartWith('⏳ ')->toContain("\n✓ ");
+});
+
+test('runBackupAll counts a backup waiting for its agent apart from the started ones and says why one failed', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
+    \App\Models\Backup::factory()->selected(['other_db'])->for($server)->create();
+
+    \App\Actions\Backup\TriggerBackupAction::shouldRun()->twice()->andReturnUsing(
+        fn () => new TriggerBackupResult([], BackupDiscoveryState::Dispatched),
+        fn () => throw new \RuntimeException('Volume is full'),
+    );
+
+    $component = Livewire::actingAs($user)
+        ->test(Index::class)
+        ->call('runBackupAll', $server->id);
+
+    preg_match('/^toast\((.*)\)$/s', $component->effects['xjs'][0]['expression'], $matches);
+    $toast = json_decode($matches[1], true)['toast'];
+
+    expect($toast['title'])->toBe('0 backups started, 1 waiting for database discovery, 1 failed')
+        ->and($toast['description'])->toStartWith('⏳ ')->toEndWith(': Volume is full');
 });
 
 test('user can toggle backups for a server from the index', function () {

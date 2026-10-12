@@ -134,7 +134,7 @@ function attachUserToOrg(
         $user->organizations()->attach($org->id);
     }
 
-    app(\App\Services\Roles\AssignRoleToUserAction::class)->execute($user, $role, $org);
+    \App\Actions\Role\AssignRoleToUserAction::run($user, $role, $org);
 }
 
 function dailySchedule(): \App\Models\BackupSchedule
@@ -233,7 +233,7 @@ function dispatchAgentRestore(\App\Models\Agent $agent, \App\Models\Volume ...$v
         ->create();
 
     $restore = app(\App\Services\Backup\BackupJobFactory::class)->createRestore($snapshot, $target, 'restored_db');
-    app(\App\Services\Backup\DispatchRestoreAction::class)->execute($restore);
+    \App\Actions\Restore\DispatchRestoreAction::run($restore);
 
     return ['restore' => $restore, 'agentJob' => \App\Models\AgentJob::where('restore_id', $restore->id)->sole()];
 }
@@ -280,6 +280,22 @@ function createScheduledRestore(array $attrs = []): \App\Models\ScheduledRestore
         'source_database_name' => 'app',
         'schema_name' => 'restored_db',
     ], array_diff_key($attrs, ['source' => null, 'target' => null])));
+}
+
+/**
+ * Point the app's own connection at $server, as when databasement backs up
+ * the MySQL server it runs on.
+ */
+function makeAppDatabaseServer(\App\Models\DatabaseServer $server, string $database): void
+{
+    $connection = config('database.default');
+
+    config([
+        "database.connections.{$connection}.driver" => 'mysql',
+        "database.connections.{$connection}.host" => $server->host,
+        "database.connections.{$connection}.port" => $server->port,
+        "database.connections.{$connection}.database" => $database,
+    ]);
 }
 
 /*

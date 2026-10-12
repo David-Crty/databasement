@@ -74,6 +74,20 @@ class DatabaseServerSshConfig extends Model
     }
 
     /**
+     * Drop the credentials of the authentication type not in use, so a
+     * switch of type leaves no stale secret behind.
+     */
+    public function clearUnusedCredentials(): void
+    {
+        if ($this->auth_type === 'password') {
+            $this->private_key = null;
+            $this->key_passphrase = null;
+        } else {
+            $this->password = null;
+        }
+    }
+
+    /**
      * Get display name in format: username@host:port
      */
     public function getDisplayName(): string

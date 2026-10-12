@@ -1,8 +1,8 @@
 <?php
 
+use App\Actions\Role\AssignRoleToUserAction;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\Roles\AssignRoleToUserAction;
 use App\Support\BouncerScope;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -107,10 +107,8 @@ return new class extends Migration
             return;
         }
 
-        $assignRole = app(AssignRoleToUserAction::class);
-
         DB::table('organization_user')->whereNotNull('role')->orderBy('user_id')->each(
-            function (object $pivot) use ($assignRole): void {
+            function (object $pivot): void {
                 $org = Organization::find($pivot->organization_id);
                 $user = User::find($pivot->user_id);
 
@@ -118,7 +116,7 @@ return new class extends Migration
                     return;
                 }
 
-                $assignRole->execute($user, (string) $pivot->role, $org);
+                AssignRoleToUserAction::run($user, (string) $pivot->role, $org);
             }
         );
 

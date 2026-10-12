@@ -82,6 +82,14 @@ class ScheduledRestore extends Model
     }
 
     /**
+     * Whether running this would restore over the application's own database.
+     */
+    public function targetsAppDatabase(): bool
+    {
+        return $this->targetServer->isAppDatabase($this->schema_name);
+    }
+
+    /**
      * @return HasOne<Restore, ScheduledRestore>
      */
     public function lastRestore(): HasOne

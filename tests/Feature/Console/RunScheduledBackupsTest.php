@@ -1,11 +1,14 @@
 <?php
 
-use App\Enums\BackupJobStatus;
+use App\Actions\Backup\TriggerBackupAction;
+use App\Enums\BackupDiscoveryState;
 use App\Jobs\ProcessBackupJob;
+use App\Models\Agent;
+use App\Models\Backup;
 use App\Models\BackupSchedule;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
-use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DTO\TriggerBackupResult;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
@@ -79,208 +82,6 @@ test('only runs backups matching the given schedule', function () {
     Queue::assertPushed(ProcessBackupJob::class, 1);
 });
 
-test('dispatches multiple jobs for server with multiple databases', function () {
-    Queue::fake();
-
-    $server = DatabaseServer::factory()->create([
-        'database_names' => ['db1', 'db2', 'db3'],
-    ]);
-    $schedule = $server->backups->first()->backupSchedule;
-
-    $this->artisan('backups:run', ['schedule' => $schedule->id])
-        ->expectsOutputToContain('3 databases')
-        ->assertExitCode(0);
-
-    Queue::assertPushed(ProcessBackupJob::class, 3);
-});
-
-test('server with no databases does not prevent other backups from running', function () {
-    Queue::fake();
-
-    $schedule = dailySchedule();
-
-    // Server with selection_mode=all but no databases found
-    $emptyServer = DatabaseServer::factory()->create([
-        'name' => 'Empty PostgreSQL',
-        'database_selection_mode' => 'all',
-        'database_names' => null,
-    ]);
-    $emptyServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
-
-    $this->mock(DatabaseProvider::class, function ($mock) {
-        $mock->shouldReceive('listDatabasesForServer')->andReturn([]);
-    });
-
-    // Server with explicit database names
-    $normalServer = DatabaseServer::factory()->create([
-        'name' => 'Normal Server',
-        'database_names' => ['production_db'],
-    ]);
-    $normalServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
-
-    Log::shouldReceive('warning')
-        ->once()
-        ->with(\Mockery::pattern('/No databases found on server \[Empty PostgreSQL\] for backup \[.+\]\./'));
-
-    $this->artisan('backups:run', ['schedule' => $schedule->id])
-        ->expectsOutputToContain('Dispatching 2 backup(s)')
-        ->expectsOutput('All backup jobs dispatched successfully.')
-        ->assertExitCode(0);
-
-    Queue::assertPushed(ProcessBackupJob::class, 1);
-
-    $snapshot = Snapshot::first();
-    expect($snapshot->database_name)->toBe('production_db');
-});
-
-test('server unreachable during all/pattern listing produces a failed preflight snapshot', function () {
-    Queue::fake();
-
-    $schedule = dailySchedule();
-
-    $failingServer = DatabaseServer::factory()->create([
-        'name' => 'Failing Server',
-        'database_selection_mode' => 'all',
-        'database_names' => null,
-    ]);
-    $failingServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
-
-    $normalServer = DatabaseServer::factory()->create([
-        'name' => 'Normal Server',
-        'database_selection_mode' => 'all',
-        'database_names' => null,
-    ]);
-    $normalServer->backups->first()->update(['backup_schedule_id' => $schedule->id]);
-
-    $this->mock(DatabaseProvider::class, function ($mock) use ($normalServer, $failingServer) {
-        $mock->shouldReceive('listDatabasesForServer')
-            ->andReturnUsing(function ($server) use ($normalServer, $failingServer) {
-                if ($server->id === $failingServer->id) {
-                    throw new \RuntimeException('Connection refused');
-                } elseif ($server->id === $normalServer->id) {
-                    return ['production_db', 'other_db'];
-                }
-
-                return [];
-            });
-    });
-
-    $this->artisan('backups:run', ['schedule' => $schedule->id])
-        ->expectsOutputToContain('Dispatching 2 backup(s)')
-        ->expectsOutput('All backup jobs dispatched successfully.')
-        ->assertExitCode(0);
-
-    // Only the normal server's snapshots get dispatched to the queue.
-    Queue::assertPushed(ProcessBackupJob::class, 2);
-
-    $failingSnapshot = Snapshot::where('database_server_id', $failingServer->id)->first();
-    expect($failingSnapshot)->not->toBeNull()
-        ->and($failingSnapshot->database_name)->toBe('(all databases)')
-        ->and($failingSnapshot->method)->toBe('scheduled')
-        ->and($failingSnapshot->job->status)->toBe(BackupJobStatus::Failed)
-        ->and($failingSnapshot->job->error_message)->toBe('Connection refused');
-
-    expect(Snapshot::where('database_server_id', $normalServer->id)->pluck('database_name')->sort()->values()->all())
-        ->toBe(['other_db', 'production_db']);
-});
-
-test('dispatches agent jobs when server has agent', function () {
-    Queue::fake();
-
-    $agent = \App\Models\Agent::factory()->create();
-    $server = DatabaseServer::factory()->create([
-        'agent_id' => $agent->id,
-        'database_names' => ['prod_db'],
-    ]);
-    $schedule = $server->backups->first()->backupSchedule;
-
-    $this->artisan('backups:run', ['schedule' => $schedule->id])
-        ->expectsOutputToContain('via agent')
-        ->assertExitCode(0);
-
-    Queue::assertNothingPushed();
-    expect(\App\Models\AgentJob::count())->toBe(1);
-});
-
-test('dispatches discovery job for agent server with all mode', function () {
-    Queue::fake();
-
-    $agent = \App\Models\Agent::factory()->create();
-    $server = DatabaseServer::factory()->create([
-        'agent_id' => $agent->id,
-        'database_selection_mode' => 'all',
-        'database_names' => null,
-    ]);
-    $schedule = $server->backups->first()->backupSchedule;
-
-    $this->artisan('backups:run', ['schedule' => $schedule->id])
-        ->expectsOutputToContain('Dispatched discovery for')
-        ->assertExitCode(0);
-
-    Queue::assertNothingPushed();
-
-    $discoveryJob = \App\Models\AgentJob::where('type', \App\Enums\AgentJobType::Discover)->first();
-    expect($discoveryJob)->not->toBeNull()
-        ->and($discoveryJob->database_server_id)->toBe($server->id)
-        ->and($discoveryJob->snapshot_id)->toBeNull();
-
-    // Agent servers must defer discovery to the agent — the web app must not
-    // attempt a direct connection, so no pre-flight failure snapshot.
-    expect(Snapshot::where('database_server_id', $server->id)->count())->toBe(0);
-});
-
-test('skips duplicate discovery job when one is already in-flight', function () {
-    Queue::fake();
-
-    $agent = \App\Models\Agent::factory()->create();
-    $server = DatabaseServer::factory()->create([
-        'agent_id' => $agent->id,
-        'database_selection_mode' => 'all',
-        'database_names' => null,
-    ]);
-    $backup = $server->backups->first();
-    $schedule = $backup->backupSchedule;
-
-    // Create an existing in-flight discovery job for THIS backup config
-    \App\Models\AgentJob::factory()->create([
-        'type' => \App\Enums\AgentJobType::Discover,
-        'database_server_id' => $server->id,
-        'status' => \App\Models\AgentJob::STATUS_PENDING,
-        'payload' => ['backup_id' => $backup->id],
-    ]);
-
-    $this->artisan('backups:run', ['schedule' => $schedule->id])
-        ->expectsOutputToContain('already in-flight')
-        ->assertExitCode(0);
-
-    expect(\App\Models\AgentJob::where('type', \App\Enums\AgentJobType::Discover)->count())->toBe(1);
-});
-
-test('dispatches discovery job when previous one completed', function () {
-    Queue::fake();
-
-    $agent = \App\Models\Agent::factory()->create();
-    $server = DatabaseServer::factory()->create([
-        'agent_id' => $agent->id,
-        'database_selection_mode' => 'all',
-        'database_names' => null,
-    ]);
-    $schedule = $server->backups->first()->backupSchedule;
-
-    // Create a completed discovery job (terminal state — should not block)
-    \App\Models\AgentJob::factory()->create([
-        'type' => \App\Enums\AgentJobType::Discover,
-        'database_server_id' => $server->id,
-        'status' => \App\Models\AgentJob::STATUS_COMPLETED,
-    ]);
-
-    $this->artisan('backups:run', ['schedule' => $schedule->id])
-        ->expectsOutputToContain('Dispatched discovery for')
-        ->assertExitCode(0);
-
-    expect(\App\Models\AgentJob::where('type', \App\Enums\AgentJobType::Discover)->count())->toBe(2);
-});
-
 test('skips disabled backups', function () {
     Queue::fake();
 
@@ -348,4 +149,38 @@ test('runs only backups matching the given schedule when the server has multiple
 
     Queue::assertPushed(ProcessBackupJob::class, 1);
     expect(Snapshot::pluck('backup_id')->all())->toBe([$dailyBackup->id]);
+});
+
+test('reports what each backup dispatched', function (bool $viaAgent, Closure $result, string $output) {
+    $server = DatabaseServer::factory()->create(['database_names' => ['app'], 'agent_id' => $viaAgent ? Agent::factory()->create()->id : null]);
+    TriggerBackupAction::shouldRun()->once()
+        ->withArgs(fn (Backup $backup, ?int $userId, string $method) => $method === 'scheduled')
+        ->andReturnUsing($result);
+
+    $this->artisan('backups:run', ['schedule' => $server->backups->first()->backup_schedule_id])
+        ->expectsOutputToContain($output)
+        ->assertExitCode(0);
+})->with([
+    'several databases' => [false, fn () => new TriggerBackupResult([new Snapshot, new Snapshot, new Snapshot], BackupDiscoveryState::NotNeeded), '(3 databases) via queue'],
+    'an agent-backed server' => [true, fn () => new TriggerBackupResult([new Snapshot], BackupDiscoveryState::NotNeeded), '(1 database) via agent'],
+    'a discovery dispatched' => [true, fn () => new TriggerBackupResult([], BackupDiscoveryState::Dispatched), 'Dispatched discovery for'],
+    'a discovery already running' => [true, fn () => new TriggerBackupResult([], BackupDiscoveryState::AlreadyRunning), 'already in-flight'],
+]);
+
+test('a backup that fails to dispatch does not stop the others', function () {
+    $schedule = dailySchedule();
+    $failing = DatabaseServer::factory()->create(['name' => 'Failing Server', 'database_names' => ['db1']]);
+    $failing->backups->first()->update(['backup_schedule_id' => $schedule->id]);
+    $healthy = DatabaseServer::factory()->create(['database_names' => ['db2']]);
+    $healthy->backups->first()->update(['backup_schedule_id' => $schedule->id]);
+
+    TriggerBackupAction::shouldRun()->twice()->andReturnUsing(fn (Backup $backup) => $backup->database_server_id === $failing->id
+        ? throw new RuntimeException('Connection refused')
+        : new TriggerBackupResult([new Snapshot], BackupDiscoveryState::NotNeeded));
+    Log::shouldReceive('error')->once()->withArgs(fn (string $message) => str_contains($message, 'Failing Server'));
+
+    $this->artisan('backups:run', ['schedule' => $schedule->id])
+        ->expectsOutputToContain('Dispatched backup for: '.$healthy->name)
+        ->expectsOutput('Completed with 1 failed server(s).')
+        ->assertExitCode(0);
 });

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Actions\Snapshot\DispatchSnapshotDeletionAction;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SnapshotResource;
-use App\Jobs\DeleteSnapshotsJob;
 use App\Models\Snapshot;
 use App\Queries\SnapshotQuery;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -57,7 +57,9 @@ class SnapshotController extends Controller
 
         abort_if($snapshot->job->status->isInProgress(), 409, 'The backup of this snapshot is still in progress.');
 
-        DeleteSnapshotsJob::dispatchFor(Snapshot::query()->whereKey($snapshot->id), $request->boolean('keep_files'));
+        if (! $this->isDemo($request)) {
+            DispatchSnapshotDeletionAction::run(Snapshot::query()->whereKey($snapshot->id), $request->boolean('keep_files'));
+        }
 
         return response()->noContent(202);
     }
@@ -79,11 +81,20 @@ class SnapshotController extends Controller
             'keep_files' => ['boolean'],
         ]);
 
-        $queued = DeleteSnapshotsJob::dispatchFor(
-            Snapshot::query()->whereKey($validated['ids']),
-            $request->boolean('keep_files'),
-        );
+        $query = Snapshot::query()->whereKey($validated['ids']);
+
+        $queued = $this->isDemo($request)
+            ? $query->deletable()->count()
+            : DispatchSnapshotDeletionAction::run($query, $request->boolean('keep_files'));
 
         return response()->json(['queued' => $queued], 202);
+    }
+
+    /**
+     * The demo user is told what would be deleted, and nothing is.
+     */
+    private function isDemo(Request $request): bool
+    {
+        return $request->user()?->isDemo() === true;
     }
 }

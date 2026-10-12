@@ -1,0 +1,96 @@
+<?php
+
+namespace App\Actions\Snapshot;
+
+use App\Enums\AgentJobType;
+use App\Enums\VolumeType;
+use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
+use App\Models\AgentJob;
+use App\Models\Snapshot;
+use App\Models\SnapshotFile;
+use App\Services\Agent\AgentJobPayloadBuilder;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
+use Throwable;
+
+class DeleteSnapshotAction
+{
+    use AsFake, AsObject;
+
+    public function __construct(
+        private AgentJobPayloadBuilder $payloadBuilder,
+    ) {}
+
+    /**
+     * Delete a snapshot with its file on every volume, or leave the files in
+     * place when asked to.
+     *
+     * The app deletes every copy it can reach itself. On a server backed by
+     * an agent, the copies it could not reach are handed to that agent, which
+     * may be the only one on the volume's network, and the snapshot stays
+     * marked as deleting until the agent reports back.
+     *
+     * @return bool True when the snapshot was deleted, false when its agent finishes the deletion
+     *
+     * @throws SnapshotFilesNotDeletedException When a file could not be removed, which keeps the snapshot
+     */
+    public function handle(Snapshot $snapshot, bool $keepFiles = false): bool
+    {
+        if ($keepFiles) {
+            $snapshot->delete();
+
+            return true;
+        }
+
+        $copies = $snapshot->files()->completed()->with('volume')->get();
+
+        // The app holds every volume's credentials, so it tries each copy
+        // first: only the network can keep it from a volume.
+        $outcomes = $copies
+            ->mapWithKeys(fn (SnapshotFile $file): array => [$file->id => $this->removeFile($file)])
+            ->all();
+
+        // What it could not reach goes to the server's agent, if any. Agents
+        // cannot back up to local volumes, so a local copy is on the app's own
+        // disk and an agent could not do better there.
+        $hasAgent = $snapshot->databaseServer->agent_id !== null;
+        $agentCopies = $copies->filter(fn (SnapshotFile $file): bool => $hasAgent
+            && $outcomes[$file->id] !== null
+            && $file->volume->type !== VolumeType::LOCAL->value);
+
+        if ($agentCopies->isNotEmpty()) {
+            // The app's error is not recorded on a copy handed to the agent:
+            // the agent's report decides what happens to it.
+            RecordSnapshotFileRemovalsAction::run($snapshot, array_diff_key($outcomes, $agentCopies->keyBy('id')->all()));
+
+            $snapshot->update(['deleting' => true]);
+
+            try {
+                AgentJob::enqueue(AgentJobType::Cleanup, $snapshot->database_server_id, $this->payloadBuilder->buildCleanup($snapshot, $agentCopies), [
+                    'snapshot_id' => $snapshot->id,
+                ]);
+            } catch (Throwable $e) {
+                $snapshot->update(['deleting' => false]);
+
+                throw $e;
+            }
+
+            return false;
+        }
+
+        FinishSnapshotDeletionAction::run($snapshot, $outcomes);
+
+        return true;
+    }
+
+    private function removeFile(SnapshotFile $file): ?string
+    {
+        try {
+            $file->removeFromVolume();
+
+            return null;
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+    }
+}

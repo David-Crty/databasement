@@ -2,10 +2,9 @@
 
 namespace App\Mcp\Tools;
 
+use App\Actions\Restore\TriggerRestoreAction;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
-use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\DispatchRestoreAction;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
@@ -14,13 +13,14 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsDestructive;
 use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
+use RuntimeException;
 
 #[Description('Restore a snapshot to a target database server. This is destructive — it drops and recreates the target database. The restore runs asynchronously.')]
 #[IsDestructive]
 #[IsOpenWorld]
 class TriggerRestoreTool extends Tool
 {
-    public function handle(Request $request, BackupJobFactory $backupJobFactory, DispatchRestoreAction $dispatchRestore): Response
+    public function handle(Request $request): Response
     {
         $validated = $request->validate([
             'snapshot_id' => 'required|string|exists:snapshots,id',
@@ -49,17 +49,17 @@ class TriggerRestoreTool extends Tool
         }
 
         try {
-            $restore = $backupJobFactory->createRestore(
+            $restore = TriggerRestoreAction::run(
                 snapshot: $snapshot,
                 targetServer: $targetServer,
                 schemaName: $validated['schema_name'],
-                triggeredByUserId: $user->getAuthIdentifier()
+                triggeredByUserId: $user->getAuthIdentifier(),
             );
         } catch (ValidationException $e) {
             return Response::error(collect($e->errors())->flatten()->implode(' '));
+        } catch (RuntimeException $e) {
+            return Response::error($e->getMessage());
         }
-
-        $dispatchRestore->execute($restore);
 
         return Response::text(
             "Restore started successfully!\n"

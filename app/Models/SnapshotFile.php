@@ -8,6 +8,7 @@ use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Support\FilesystemSupport;
 use Database\Factories\SnapshotFileFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -128,6 +129,31 @@ class SnapshotFile extends Model
     }
 
     /**
+     * Delete each copy's file from its volume. A copy whose file is gone stops
+     * claiming it, so it is no longer offered for download or restore while
+     * its row outlives the file; one whose file could not be deleted keeps
+     * the error on its row.
+     *
+     * @param  Collection<int, SnapshotFile>  $files
+     * @return Collection<int, SnapshotFile> The copies whose file is still on its volume
+     */
+    public static function removeEachFromVolume(Collection $files): Collection
+    {
+        return $files->reject(function (SnapshotFile $file): bool {
+            try {
+                $file->removeFromVolume();
+                $file->update(['file_exists' => false, 'error' => null]);
+
+                return true;
+            } catch (Throwable $e) {
+                $file->update(['error' => $e->getMessage()]);
+
+                return false;
+            }
+        })->values();
+    }
+
+    /**
      * Delete this copy's file from its volume. Returns false when there was
      * no file to delete, which leaves nothing behind either.
      *
@@ -147,25 +173,5 @@ class SnapshotFile extends Model
             $filename,
             ['snapshot_id' => $this->snapshot_id],
         );
-    }
-
-    /**
-     * Best-effort removeFromVolume() for cascades that must not stop: a
-     * failure is logged and reported as nothing deleted.
-     */
-    public function deleteFromVolume(): bool
-    {
-        try {
-            return $this->removeFromVolume();
-        } catch (Throwable $e) {
-            logger()->error('Failed to delete backup file for snapshot', [
-                'snapshot_id' => $this->snapshot_id,
-                'volume_id' => $this->volume_id,
-                'filename' => $this->storedFilename(),
-                'error' => $e->getMessage(),
-            ]);
-
-            return false;
-        }
     }
 }

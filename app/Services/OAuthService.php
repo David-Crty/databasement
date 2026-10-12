@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
+use App\Actions\Role\AssignRoleToUserAction;
 use App\Models\OAuthIdentity;
 use App\Models\Organization;
 use App\Models\User;
-use App\Services\Roles\AssignRoleToUserAction;
 use Illuminate\Support\Facades\DB;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 
@@ -148,7 +148,7 @@ class OAuthService
         if ($role !== null) {
             $org = $this->resolveDefaultOrganization();
             if ($user->belongsToOrganization($org)) {
-                app(AssignRoleToUserAction::class)->execute($user, $role, $org);
+                AssignRoleToUserAction::run($user, $role, $org);
             }
         }
     }
@@ -212,7 +212,7 @@ class OAuthService
         // Attach to default org and assign the resolved role.
         $org = $this->resolveDefaultOrganization();
         $user->organizations()->attach($org->id);
-        app(AssignRoleToUserAction::class)->execute($user, $role, $org);
+        AssignRoleToUserAction::run($user, $role, $org);
 
         return $user;
     }

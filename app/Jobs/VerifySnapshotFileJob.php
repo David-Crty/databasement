@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Services\Backup\SnapshotVerificationService;
+use App\Actions\Snapshot\VerifySnapshotFilesAction;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -23,8 +23,8 @@ class VerifySnapshotFileJob implements ShouldQueue
         $this->onQueue('backups');
     }
 
-    public function handle(SnapshotVerificationService $service): void
+    public function handle(): void
     {
-        $service->run($this->organizationId);
+        VerifySnapshotFilesAction::run($this->organizationId);
     }
 }

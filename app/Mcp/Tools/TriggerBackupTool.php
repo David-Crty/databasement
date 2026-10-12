@@ -2,9 +2,9 @@
 
 namespace App\Mcp\Tools;
 
+use App\Actions\Backup\TriggerBackupAction;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
-use App\Services\Backup\TriggerBackupAction;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
@@ -17,7 +17,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsOpenWorld;
 #[IsOpenWorld]
 class TriggerBackupTool extends Tool
 {
-    public function handle(Request $request, TriggerBackupAction $action): Response
+    public function handle(Request $request): Response
     {
         $validated = $request->validate([
             'database_server_id' => 'required|string|exists:database_servers,id',
@@ -40,13 +40,13 @@ class TriggerBackupTool extends Tool
         try {
             /** @var int|null $userId */
             $userId = $request->user()->getAuthIdentifier();
-            $result = $action->execute($backup, $userId);
+            $result = TriggerBackupAction::run($backup, $userId);
         } catch (ValidationException $e) {
             return Response::error(collect($e->errors())->flatten()->implode(' '));
         }
 
-        $snapshots = collect($result['snapshots']);
-        $message = $result['message'];
+        $snapshots = collect($result->snapshots);
+        $message = $result->message();
 
         if ($snapshots->isNotEmpty()) {
             $snapshotLines = $snapshots->map(fn ($s) => "- Snapshot: {$s->id} (Job ID: {$s->backup_job_id})");

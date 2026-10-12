@@ -2,18 +2,17 @@
 
 namespace App\Services\Agent\Handlers;
 
+use App\Actions\Backup\DispatchBackupAction;
 use App\Models\AgentJob;
 use App\Models\Backup;
 use App\Models\BackupJob;
 use App\Services\Backup\BackupJobFactory;
-use App\Services\Backup\DispatchBackupAction;
 use Throwable;
 
 class DiscoveryJobHandler implements AgentJobHandler
 {
     public function __construct(
         private BackupJobFactory $backupJobFactory,
-        private DispatchBackupAction $dispatchBackup,
     ) {}
 
     public function maxAttempts(): int
@@ -61,7 +60,7 @@ class DiscoveryJobHandler implements AgentJobHandler
                 $payload['triggered_by_user_id'] ?? null,
             );
 
-            $this->dispatchBackup->execute($snapshot);
+            DispatchBackupAction::run($snapshot);
         }
 
         $agentJob->markCompleted();
