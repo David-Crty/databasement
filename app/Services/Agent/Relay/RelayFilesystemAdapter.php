@@ -200,7 +200,7 @@ class RelayFilesystemAdapter implements FilesystemAdapter
         $chunk = '';
 
         while (strlen($chunk) < $this->chunkBytes && ! feof($stream)) {
-            $data = fread($stream, $this->chunkBytes - strlen($chunk));
+            $data = fread($stream, max(1, $this->chunkBytes - strlen($chunk)));
 
             if ($data === false) {
                 throw new \RuntimeException('Could not read the file being uploaded.');
