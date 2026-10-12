@@ -3,13 +3,17 @@
 use App\Actions\Backup\TriggerBackupAction;
 use App\Enums\AgentJobType;
 use App\Enums\BackupDiscoveryState;
+use App\Enums\BackupJobStatus;
 use App\Enums\DatabaseSelectionMode;
 use App\Jobs\ProcessBackupJob;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\Backup;
 use App\Models\DatabaseServer;
+use App\Models\Snapshot;
 use App\Models\User;
+use App\Services\Backup\Databases\DatabaseProvider;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 
 beforeEach(function () {
@@ -174,4 +178,33 @@ test('the discovery message stays in English whatever the app locale', function 
 
     expect(TriggerBackupAction::run($backup)->message())
         ->toBe('Database discovery dispatched to agent. Backups will start once databases are discovered.');
+});
+
+test('a server unreachable while listing its databases gets a failed snapshot for the run', function () {
+    $server = DatabaseServer::factory()->withoutBackups()->create();
+    $backup = Backup::factory()->for($server)->create(['database_selection_mode' => DatabaseSelectionMode::All->value]);
+    $this->mock(DatabaseProvider::class)->shouldReceive('listDatabasesForServer')->andThrow(new RuntimeException('Connection refused'));
+
+    $result = TriggerBackupAction::run($backup, method: 'scheduled');
+
+    $snapshot = Snapshot::where('database_server_id', $server->id)->sole();
+    expect($result->snapshots)->toBeEmpty()
+        ->and($snapshot->database_name)->toBe('(all databases)')
+        ->and($snapshot->method)->toBe('scheduled')
+        ->and($snapshot->job->status)->toBe(BackupJobStatus::Failed)
+        ->and($snapshot->job->error_message)->toBe('Connection refused');
+    Queue::assertNothingPushed();
+});
+
+test('a server with no database to back up starts nothing', function () {
+    $server = DatabaseServer::factory()->withoutBackups()->create(['name' => 'Empty PostgreSQL']);
+    $backup = Backup::factory()->for($server)->create(['database_selection_mode' => DatabaseSelectionMode::All->value]);
+    $this->mock(DatabaseProvider::class)->shouldReceive('listDatabasesForServer')->andReturn([]);
+    Log::shouldReceive('warning')
+        ->once()
+        ->with(Mockery::pattern('/No databases found on server \[Empty PostgreSQL\] for backup \[.+\]\./'));
+
+    expect(TriggerBackupAction::run($backup)->snapshots)->toBeEmpty()
+        ->and(Snapshot::count())->toBe(0);
+    Queue::assertNothingPushed();
 });

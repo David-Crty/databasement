@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Backup\CompleteBackupAction;
 use App\Enums\AgentJobType;
 use App\Enums\BackupJobStatus;
 use App\Enums\SnapshotFileStatus;
@@ -9,6 +10,7 @@ use App\Models\AgentJob;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Models\User;
+use App\Services\Backup\DTO\BackupResult;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
@@ -236,29 +238,14 @@ describe('job acknowledgement', function () {
             ->and($backupJob->logs[0]['message'])->toBe('Starting backup for database: testdb');
     });
 
-    test('acknowledging a backup sends the success notification', function () {
-        \App\Models\NotificationChannel::factory()->email()->create();
-
-        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
-        $agentJob = AgentJob::factory()->claimed($agent)->create();
-        $agentJob->snapshot->databaseServer->update(['notification_trigger' => 'all']);
-
-        $this->withToken($token)
-            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", [
-                'filename' => 'backup.sql.gz',
-                'file_size' => 12345,
-            ])
-            ->assertOk();
-
-        Notification::assertSentTimes(\App\Notifications\BackupSuccessNotification::class, 1);
-    });
-
-    test('acknowledging a backup over a notify-only storage limit sends the warning', function () {
-        \App\Models\NotificationChannel::factory()->email()->create();
-
+    test('the storage warning an agent reports on a volume reaches the completion', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();
         $file = $agentJob->snapshot->files()->first();
+
+        CompleteBackupAction::shouldRun()
+            ->once()
+            ->withArgs(fn (Snapshot $snapshot, BackupResult $result) => $result->volumeResults[0]->storageWarning === 'Storage limit reached for volume "R2 Bucket".');
 
         $this->withToken($token)
             ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", [
@@ -272,9 +259,6 @@ describe('job acknowledgement', function () {
                 ]],
             ])
             ->assertOk();
-
-        expect($agentJob->snapshot->job->fresh()->status)->toBe(BackupJobStatus::Completed);
-        Notification::assertSentTimes(\App\Notifications\StorageLimitWarningNotification::class, 1);
     });
 
     test('ack rejects an unsafe filename', function (string $filename) {
@@ -423,21 +407,6 @@ describe('job failure', function () {
         expect($backupJob->status)->toBe(BackupJobStatus::Failed)
             ->and($backupJob->logs)->toHaveCount(2)
             ->and($backupJob->logs[1]['message'])->toBe('Backup failed: Connection refused');
-    });
-
-    test('fail sends failure notification for backup jobs', function () {
-        \App\Models\NotificationChannel::factory()->email()->create();
-
-        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
-        $agentJob = AgentJob::factory()->claimed($agent)->create();
-
-        $this->withToken($token)
-            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/fail", [
-                'error_message' => 'Connection refused',
-            ])
-            ->assertOk();
-
-        Notification::assertSentTimes(\App\Notifications\BackupFailedNotification::class, 1);
     });
 
     test('failing a discovery job records a failed snapshot and notifies, like a failed pre-flight', function () {

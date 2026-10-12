@@ -1,7 +1,9 @@
 <?php
 
+use App\Actions\Backup\TriggerBackupAction;
 use App\Actions\Restore\DispatchRestoreAction;
 use App\Enums\Ability;
+use App\Enums\BackupDiscoveryState;
 use App\Jobs\ProcessBackupJob;
 use App\Jobs\ProcessRestoreJob;
 use App\Mcp\Servers\DatabasementServer;
@@ -11,11 +13,13 @@ use App\Mcp\Tools\ListOrganizationsTool;
 use App\Mcp\Tools\ListSnapshotsTool;
 use App\Mcp\Tools\TriggerBackupTool;
 use App\Mcp\Tools\TriggerRestoreTool;
+use App\Models\Backup;
 use App\Models\BackupJob;
 use App\Models\Organization;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
+use App\Services\Backup\DTO\TriggerBackupResult;
 use Illuminate\Support\Facades\Queue;
 
 test('list database servers returns server data', function () {
@@ -312,27 +316,19 @@ test('trigger backup rejects server without backup config', function () {
 });
 
 test('trigger backup targets a specific backup id when provided', function () {
-    Queue::fake();
     $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
     $server = createDatabaseServer(['database_type' => 'mysql']);
+    $secondBackup = Backup::factory()->for($server)->create();
 
-    // Add a second backup on a weekly schedule so there are two to choose from
-    $weekly = weeklySchedule();
-    $secondBackup = \App\Models\Backup::factory()->for($server)->create([
-        'backup_schedule_id' => $weekly->id,
-        'database_selection_mode' => \App\Enums\DatabaseSelectionMode::Selected->value,
-        'database_names' => ['mydb'],
-    ]);
+    TriggerBackupAction::shouldRun()
+        ->once()
+        ->withArgs(fn (Backup $backup) => $backup->is($secondBackup))
+        ->andReturn(new TriggerBackupResult([], BackupDiscoveryState::NotNeeded));
 
-    $response = DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
+    DatabasementServer::actingAs($user)->tool(TriggerBackupTool::class, [
         'database_server_id' => $server->id,
         'backup_id' => $secondBackup->id,
-    ]);
-
-    $response->assertOk();
-
-    $snapshot = Snapshot::first();
-    expect($snapshot?->backup_id)->toBe($secondBackup->id);
+    ])->assertOk();
 });
 
 test('trigger backup rejects a backup id that does not belong to the server', function () {

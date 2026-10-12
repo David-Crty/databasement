@@ -1,17 +1,16 @@
 <?php
 
+use App\Actions\Backup\FailBackupAction;
+use App\Actions\Restore\FailRestoreAction;
 use App\Enums\BackupJobStatus;
 use App\Facades\AppConfig;
 use App\Models\Agent;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
 use App\Models\DatabaseServer;
-use App\Models\NotificationChannel;
+use App\Models\Restore;
 use App\Models\Snapshot;
-use App\Notifications\BackupFailedNotification;
-use App\Notifications\RestoreFailedNotification;
 use Illuminate\Support\Facades\Exceptions;
-use Illuminate\Support\Facades\Notification;
 
 /*
  * The agent lease and command heartbeat rules are specified in
@@ -67,37 +66,30 @@ describe('backup job timeouts', function () {
         AppConfig::set('backup.job_timeout', 3600);
     });
 
-    test('fails backup jobs stuck in running state beyond timeout, logs and notifies it', function () {
-        NotificationChannel::factory()->email()->create();
-
+    test('fails a backup stuck in running state beyond timeout through the backup failure, and logs it', function () {
         $job = BackupJob::create([
             'status' => 'running',
             'started_at' => now()->subSeconds(3600 + 300 + 1), // beyond timeout + 5min grace
         ]);
-        Snapshot::factory()->create(['backup_job_id' => $job->id]);
+        $snapshot = Snapshot::factory()->create(['backup_job_id' => $job->id]);
+        FailBackupAction::shouldRun()->once()
+            ->withArgs(fn (Snapshot $failed, Throwable $e) => $failed->is($snapshot) && str_contains($e->getMessage(), 'stuck in running state'));
 
         $this->artisan('jobs:recover-stuck')
             ->assertExitCode(0);
 
-        $job->refresh();
-        expect($job->status)->toBe(BackupJobStatus::Failed)
-            ->and($job->error_message)->toContain('stuck in running state')
-            ->and(collect($job->logs)->last()['message'])->toContain('stuck in running state');
-        Notification::assertSentTimes(BackupFailedNotification::class, 1);
+        expect(collect($job->fresh()->logs)->last()['message'])->toContain('stuck in running state');
     });
 
-    test('notifies a timed-out restore as a failed restore', function () {
-        NotificationChannel::factory()->email()->create();
-
+    test('fails a timed-out restore through the restore failure, and its agent job', function () {
         ['restore' => $restore, 'agentJob' => $agentJob] = dispatchAgentRestore(Agent::factory()->create());
         $restore->job->update(['status' => 'running', 'started_at' => now()->subSeconds(3600 + 300 + 1)]);
+        FailRestoreAction::shouldRun()->once()->withArgs(fn (Restore $failed) => $failed->is($restore));
+        FailBackupAction::shouldNotRun();
 
         $this->artisan('jobs:recover-stuck')->assertSuccessful();
 
-        expect($restore->job->fresh()->status)->toBe(BackupJobStatus::Failed)
-            ->and($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED);
-        Notification::assertSentTimes(RestoreFailedNotification::class, 1);
-        Notification::assertSentTimes(BackupFailedNotification::class, 0);
+        expect($agentJob->fresh()->status)->toBe(AgentJob::STATUS_FAILED);
     });
 
     test('fails backup jobs stuck in pending state beyond timeout', function () {

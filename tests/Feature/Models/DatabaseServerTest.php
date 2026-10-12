@@ -189,3 +189,14 @@ test('parseExcludedTables normalizes separators, blanks and duplicates', functio
     'empty string' => ['', []],
     'null' => [null, []],
 ]);
+
+test('backupToTrigger picks the named configuration, or the oldest one when none is named', function () {
+    $server = DatabaseServer::factory()->create();
+    $oldest = $server->backups->first();
+    $second = Backup::factory()->for($server)->create();
+    $server->load('backups');
+
+    expect($server->backupToTrigger($second->id)?->id)->toBe($second->id)
+        ->and($server->backupToTrigger(null)?->id)->toBe($oldest->id)
+        ->and($server->backupToTrigger(DatabaseServer::factory()->create()->backups->first()->id))->toBeNull();
+});

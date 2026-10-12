@@ -1,12 +1,16 @@
 <?php
 
+use App\Actions\Backup\TriggerBackupAction;
 use App\Enums\Ability;
+use App\Enums\BackupDiscoveryState;
+use App\Models\Backup;
 use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\Organization;
 use App\Models\User;
 use App\Models\Volume;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DTO\TriggerBackupResult;
 
 // ─── Store ───────────────────────────────────────────────────────────────────
 
@@ -532,33 +536,6 @@ test('update syncs backup configuration', function () {
         ->and($server->backups->first()->retention_policy)->toBe('forever');
 });
 
-test('update keeps a backup configuration whose id is sent', function () {
-    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
-    $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
-    $backup = $server->backups->first();
-
-    $this->actingAs($user, 'sanctum')
-        ->putJson("/api/v1/database-servers/{$server->id}", [
-            'name' => $server->name,
-            'database_type' => 'postgres',
-            'host' => $server->host,
-            'port' => $server->port,
-            'username' => $server->username,
-            'backups' => [[
-                'id' => $backup->id,
-                'database_selection_mode' => 'all',
-                'volume_ids' => $backup->volumes->pluck('id')->all(),
-                'backup_schedule_id' => $backup->backup_schedule_id,
-                'retention_policy' => 'forever',
-            ]],
-        ])
-        ->assertOk();
-
-    $server->refresh();
-    expect($server->backups->pluck('id')->all())->toBe([$backup->id])
-        ->and($server->backups->first()->retention_policy)->toBe('forever');
-});
-
 test('update rejects a backup configuration id from another server and changes nothing', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);
@@ -891,16 +868,17 @@ test('backup endpoint returns 422 when backup_id is not a single id', function (
         ->assertStatus(422);
 });
 
-test('backup endpoint uses the first backup when no backup_id is provided', function () {
-    \Illuminate\Support\Facades\Queue::fake();
+test('backup_id selects which configuration the api triggers', function () {
     $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
-    $server = DatabaseServer::factory()->create(['database_names' => ['mydb']]);
-    $backup = $server->backups->first();
+    $server = DatabaseServer::factory()->create();
+    $second = Backup::factory()->for($server)->create();
+
+    TriggerBackupAction::shouldRun()
+        ->once()
+        ->withArgs(fn (Backup $backup) => $backup->is($second))
+        ->andReturn(new TriggerBackupResult([], BackupDiscoveryState::NotNeeded));
 
     $this->actingAs($user, 'sanctum')
-        ->postJson("/api/v1/database-servers/{$server->id}/backup")
-        ->assertStatus(202);
-
-    $snapshot = \App\Models\Snapshot::first();
-    expect($snapshot?->backup_id)->toBe($backup->id);
+        ->postJson("/api/v1/database-servers/{$server->id}/backup?backup_id={$second->id}")
+        ->assertAccepted();
 });

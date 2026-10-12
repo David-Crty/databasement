@@ -99,10 +99,6 @@ Then open the PR:
 
 | Domain | Edge test (file :: test or line) | Duplicates (action test) | Decision | Added by |
 |---|---|---|---|---|
-| Backup | `Console/RunScheduledBackupsTest.php:205`, `:232` (agent discovery dispatched / already running) | `Actions/Backup/TriggerBackupActionTest.php` (discovery cases, ~:90, ~:114) | | seed |
-| Backup | `Console/RunScheduledBackupsTest.php:187` (agent jobs created) | `TriggerBackupActionTest.php` (~:154) | | seed |
-| Backup | `Console/RunScheduledBackupsTest.php:82` (multiple databases → multiple jobs) | `TriggerBackupActionTest.php` (~:45) | | seed |
-| Backup | `Api/DatabaseServerCrudApiTest.php:876`, `:894` and `Mcp/McpServerTest.php:298`, `:322` (which backup configuration is triggered) | none. The rule is `DatabaseServer::backupToTrigger()`: add a model test in `tests/Feature/Models/DatabaseServerTest.php`, then CONVERT the edges to mapping tests (§2 example) | | seed |
 | BackupSchedule | `Configuration/BackupTest.php:165`, `:176` (a schedule in use by backups / by a scheduled restore is kept) | `Actions/BackupSchedule/DeleteBackupScheduleActionTest.php` | | 1.4 |
 | BackupSchedule | `Configuration/BackupTest.php` and `Api/BackupScheduleCrudApiTest.php:69`, `:132`, `:189` (create / update / delete persist) | `Actions/BackupSchedule/{Create,Update,Delete}BackupScheduleActionTest.php` | | 1.4 |
 | Volume | `Api/VolumeCrudApiTest.php:86` (created with sensitive fields encrypted) and `Volume/CreateTest.php` | `Actions/Volume/CreateVolumeActionTest.php` | | 1.6 |
@@ -110,20 +106,16 @@ Then open the PR:
 | Volume | `Volume/IndexTest.php` and `Api/VolumeCrudApiTest.php:145` (delete, keep files) | `Actions/Volume/DeleteVolumeActionTest.php` | | 1.6 |
 | DatabaseServer | `Api/DatabaseServerSshConfigCrudApiTest.php` (blank credentials kept, new key drops the passphrase, auth switch clears the other secrets, in-use delete refused) | `Actions/DatabaseServer/{Create,Update,Delete}SshConfigActionTest.php` | | 1.7 |
 | DatabaseServer | `DatabaseServer/SshTunnelTest.php` (SSH config created / preserved through the server form) | `Actions/DatabaseServer/{Create,Update}SshConfigActionTest.php` | | 1.7 |
-| Backup | `Api/DatabaseServerCrudApiTest.php:509`, `:535`, `:562` (backup configurations upserted by id, missing ones deleted, a foreign id rejected) | `Actions/Backup/SyncBackupConfigurationsActionTest.php` | | 1.8 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:479` (blank password kept) and `DatabaseServer/EditTest.php` (same through the form) | `Actions/DatabaseServer/UpdateDatabaseServerActionTest.php` | | 1.8 |
 | DatabaseServer | `DatabaseServer/CreateTest.php` and `Api/DatabaseServerCrudApiTest.php` (server created with its backups, SSH tunnel and channels) | `Actions/DatabaseServer/CreateDatabaseServerActionTest.php` | | 1.8 |
 | DatabaseServer | `Livewire/DatabaseServer/IndexTest.php`, `DatabaseServer/ShowTest.php` and `Api/DatabaseServerCrudApiTest.php:644` (delete, keep files) | `Actions/DatabaseServer/DeleteDatabaseServerActionTest.php` | | 1.8 |
 | Agent | `Agent/AgentApiTest.php` and `Agent/AgentRestoreTest.php` (`/fail` marks the job failed, merges logs, fails the tracked job); `Console/RecoverStuckJobsTest.php` (agent job failed after max attempts, unclaimed cleanup job failed) | `Actions/Agent/FailAgentJobActionTest.php`. The agent API tests stay thick (protocol), only their business assertions are candidates | | 1.9 |
-| Backup | `Jobs/ProcessBackupJobTest.php:36`, `:307`, `:331`, `:365` (archive and copies recorded, success and storage-limit notifications) and `Agent/AgentApiTest.php` (ack records the archive, notifies) | `Actions/Backup/{RecordBackupResult,CompleteBackup,FailBackup}ActionTest.php`. Keep the job's retry, quota and `failed()` tests and the agent protocol tests | | 1.10 |
-| Backup | `Agent/RecoverStuckJobsTest.php` (timed-out backup or restore failed and notified) | `FailBackupActionTest.php`, `FailRestoreActionTest.php` | | 1.10 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1
 
 Cover these first (step 1 of §3) when their domain comes up. Today they are reached only through edges:
 
-- `DispatchBackupAction`, `DispatchDiscoveryAction` (covered indirectly by `TriggerBackupActionTest` and `AgentApiTest`).
 - `CreateRoleAction`, `UpdateRoleAction`, `DeleteRoleAction`, `AssignRoleToUserAction`, `SyncUserAbilitiesAction`. They are covered through `Roles/RoleManagementTest`, `Roles/UserAbilitiesTest` and `UserFactory` setup. Keep `RoleAbilityMatrixTest` as it is: it is the role→ability seed guardrail, not a duplicate.
 
 ## 7. Keeping duplication from coming back
