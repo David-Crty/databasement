@@ -129,8 +129,10 @@ class SnapshotFile extends Model
     }
 
     /**
-     * Delete each copy's file from its volume. A copy whose file could not be
-     * deleted keeps the error on its row.
+     * Delete each copy's file from its volume. A copy whose file is gone stops
+     * claiming it, so it is no longer offered for download or restore while
+     * its row outlives the file; one whose file could not be deleted keeps
+     * the error on its row.
      *
      * @param  Collection<int, SnapshotFile>  $files
      * @return Collection<int, SnapshotFile> The copies whose file is still on its volume
@@ -140,6 +142,7 @@ class SnapshotFile extends Model
         return $files->reject(function (SnapshotFile $file): bool {
             try {
                 $file->removeFromVolume();
+                $file->update(['file_exists' => false, 'error' => null]);
 
                 return true;
             } catch (Throwable $e) {

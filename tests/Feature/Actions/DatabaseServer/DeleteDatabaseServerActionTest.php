@@ -66,7 +66,9 @@ test('it keeps the server and its snapshots when a file cannot be deleted, and r
 
     expect(DatabaseServer::find($server->id))->not->toBeNull()
         ->and(Snapshot::find($snapshot->id))->not->toBeNull()
-        ->and(SnapshotFile::where('volume_id', $unreachable->id)->value('error'))->toBe('Volume unreachable');
+        ->and(SnapshotFile::where('volume_id', $unreachable->id)->value('error'))->toBe('Volume unreachable')
+        ->and(SnapshotFile::where('volume_id', $reachable->id)->value('file_exists'))->toBeFalse()
+        ->and(SnapshotFile::where('volume_id', $unreachable->id)->value('file_exists'))->toBeTrue();
 });
 
 test('it keeps the server when a backup completes while its files are being deleted', function () {

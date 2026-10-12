@@ -21,11 +21,12 @@ class DeleteVolumeAction
      *
      * The files go first, outside any transaction, so a rollback can never
      * leave rows pointing at files already deleted. When one of them cannot
-     * be removed, nothing is deleted and the error is recorded on its copy:
-     * a retry only finds the files still there. Nothing is deleted either
-     * when a backup completed meanwhile, as its file was not removed.
+     * be removed, no row is deleted: the copies whose file did go are marked
+     * as no longer existing, the error is recorded on the others, and a retry
+     * only finds those files still there. No row is deleted either when a
+     * backup completed meanwhile, as its file was not removed.
      *
-     * @throws VolumeFilesNotDeletedException When a file is still on the volume, which keeps everything
+     * @throws VolumeFilesNotDeletedException When a file is still on the volume, which keeps every row
      */
     public function handle(Volume $volume, bool $keepFiles = false): void
     {
