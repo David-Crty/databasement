@@ -22,7 +22,9 @@ class TriggerBackupAction
      * Trigger one backup configuration.
      *
      * Agent-backed servers in all/pattern mode get no snapshots yet: the agent
-     * lists the databases first, through a discovery job.
+     * lists the databases first, through a discovery job. Otherwise a trigger
+     * that leaves no database to back up is refused: the listing failed or
+     * matched nothing, which a failed backup job already records.
      *
      * @param  'manual'|'scheduled'  $method
      *
@@ -46,6 +48,10 @@ class TriggerBackupAction
             $dispatched = DispatchDiscoveryAction::run($backup, $method, $triggeredByUserId);
 
             return new TriggerBackupResult([], $dispatched ? BackupDiscoveryState::Dispatched : BackupDiscoveryState::AlreadyRunning);
+        }
+
+        if (empty($snapshots)) {
+            throw ValidationException::withMessages(['backup' => 'No backup was started: the databases could not be listed, or none matched.']);
         }
 
         foreach ($snapshots as $snapshot) {
