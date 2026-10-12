@@ -2,6 +2,8 @@
 
 namespace App\Livewire\ScheduledRestore;
 
+use App\Actions\ScheduledRestore\CreateScheduledRestoreAction;
+use App\Actions\ScheduledRestore\UpdateScheduledRestoreAction;
 use App\Enums\DatabaseType;
 use App\Livewire\Concerns\InteractsWithTargetDatabases;
 use App\Models\BackupSchedule;
@@ -118,16 +120,16 @@ class Modal extends Component
             'schema_name' => $this->schemaName,
             'backup_schedule_id' => $this->backupScheduleId,
             'enabled' => $this->enabled,
-            'options' => $this->buildOptions() ?: null,
+            'options' => $this->restoreOptions()->toArray(),
         ];
 
         if ($this->editingId) {
             $scheduledRestore = ScheduledRestore::findOrFail($this->editingId);
             $this->authorize('update', $scheduledRestore);
-            $scheduledRestore->update($payload);
+            UpdateScheduledRestoreAction::run($scheduledRestore, $payload);
         } else {
             $this->authorize('create', ScheduledRestore::class);
-            ScheduledRestore::create($payload);
+            CreateScheduledRestoreAction::run($payload);
         }
 
         $this->showModal = false;

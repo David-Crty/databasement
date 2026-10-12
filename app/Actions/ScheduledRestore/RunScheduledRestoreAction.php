@@ -1,20 +1,25 @@
 <?php
 
-namespace App\Services\Backup;
+namespace App\Actions\ScheduledRestore;
 
+use App\Actions\Restore\TriggerRestoreAction;
 use App\Models\BackupJob;
 use App\Models\Restore;
 use App\Models\ScheduledRestore;
+use App\Services\Backup\DTO\RestoreOptions;
 use App\Services\Backup\DTO\ScheduledRestoreResult;
+use App\Services\Backup\LatestSnapshotResolver;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
+use Lorisleiva\Actions\Concerns\AsFake;
+use Lorisleiva\Actions\Concerns\AsObject;
 
 class RunScheduledRestoreAction
 {
+    use AsFake, AsObject;
+
     public function __construct(
-        private BackupJobFactory $backupJobFactory,
         private LatestSnapshotResolver $resolver,
-        private DispatchRestoreAction $dispatchRestore,
     ) {}
 
     /**
@@ -27,7 +32,7 @@ class RunScheduledRestoreAction
      *
      * @throws ValidationException
      */
-    public function execute(ScheduledRestore $scheduledRestore): ScheduledRestoreResult
+    public function handle(ScheduledRestore $scheduledRestore): ScheduledRestoreResult
     {
         $scheduledRestore->loadMissing('targetServer');
 
@@ -41,16 +46,13 @@ class RunScheduledRestoreAction
             return $this->markSkipped($scheduledRestore, ScheduledRestore::SKIP_NO_SNAPSHOT);
         }
 
-        $restore = $this->backupJobFactory->createRestore(
+        $restore = TriggerRestoreAction::run(
             snapshot: $snapshot,
             targetServer: $scheduledRestore->targetServer,
             schemaName: $scheduledRestore->schema_name,
-            triggeredByUserId: null,
-            options: $scheduledRestore->options ?? [],
+            options: RestoreOptions::fromArray($scheduledRestore->options ?? []),
             scheduledRestoreId: $scheduledRestore->id,
         );
-
-        $this->dispatchRestore->execute($restore);
 
         $scheduledRestore->forceFill([
             'last_executed_at' => now(),
