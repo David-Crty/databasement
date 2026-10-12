@@ -3,6 +3,7 @@
 namespace App\Livewire\ApiToken;
 
 use App\Enums\Ability;
+use App\Models\User;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -52,7 +53,7 @@ class Index extends Component
         $this->validate([
             'tokenName' => 'required|string|max:255',
             'tokenAbilities' => 'array',
-            'tokenAbilities.*' => Rule::in($this->grantableAbilities()),
+            'tokenAbilities.*' => Rule::in($this->abilitiesHeldBy(Auth::user())),
         ]);
 
         $abilities = $this->fullAccess ? ['*'] : $this->tokenAbilities;
@@ -103,14 +104,12 @@ class Index extends Component
     }
 
     /**
-     * Catalogue abilities the current user holds, the only ones a scoped token may carry.
+     * Catalogue abilities a user holds in the current organization.
      *
      * @return list<string>
      */
-    private function grantableAbilities(): array
+    private function abilitiesHeldBy(User $user): array
     {
-        $user = Auth::user();
-
         return array_values(array_filter(Ability::names(), fn (string $ability) => $user->can($ability)));
     }
 
@@ -137,10 +136,14 @@ class Index extends Component
             $query->where('tokenable_id', $user->id);
         }
 
-        $grantable = $this->grantableAbilities();
+        $tokens = $query->get();
+        $grantable = $this->abilitiesHeldBy($user);
 
         return view('livewire.api-token.index', [
-            'tokens' => $query->get(),
+            'tokens' => $tokens,
+            'ownerAbilities' => $tokens->pluck('tokenable')->filter()->unique('id')
+                ->mapWithKeys(fn (User $owner) => [$owner->id => $this->abilitiesHeldBy($owner)])
+                ->all(),
             'abilityGroups' => array_filter(array_map(
                 fn (array $abilities) => array_values(array_filter(
                     $abilities,

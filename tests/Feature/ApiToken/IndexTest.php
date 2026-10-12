@@ -81,6 +81,16 @@ test('lists the abilities a scoped token carries', function () {
         ->assertDontSee(Ability::DownloadSnapshots->label());
 });
 
+test('lists the user\'s current abilities for a full-access token', function () {
+    $user = User::factory()->withAbilities([Ability::RunBackups->value])->create();
+    $user->createToken('Legacy Token');
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->assertSee(__('Follow user permissions'))
+        ->assertViewHas('ownerAbilities', [$user->id => [Ability::RunBackups->value]]);
+});
+
 test('can revoke an existing token', function () {
     $user = User::factory()->create();
     $token = $user->createToken('Token to Delete');

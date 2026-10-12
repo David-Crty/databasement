@@ -18,45 +18,58 @@
                 {{ __('No API tokens yet. Create one to get started.') }}
             </div>
         @else
-            <div class="space-y-4">
+            <ul class="divide-y divide-base-200">
                 @foreach($tokens as $token)
-                    <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
-                        <div class="flex-1">
-                            <div class="font-medium">{{ $token->name }}</div>
-                            <div class="my-1">
+                    <li class="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                        <div class="min-w-0 flex-1">
+                            <div class="font-semibold">{{ $token->name }}</div>
+
+                            <div class="mt-2">
                                 @if(in_array('*', $token->abilities ?? [], true))
-                                    <span class="badge badge-sm badge-ghost">{{ __('Full access') }}</span>
+                                    <div class="flex flex-wrap items-center gap-1">
+                                        <span class="tooltip tooltip-right" data-tip="{{ __('Can do whatever its user can, and changes with their role.') }}">
+                                            <span class="badge badge-sm badge-outline gap-1 whitespace-nowrap">
+                                                <x-icon name="o-user" class="size-3.5" />
+                                                {{ __('Follow user permissions') }}
+                                            </span>
+                                        </span>
+                                        <x-ability-badges :abilities="$ownerAbilities[$token->tokenable_id] ?? []" />
+                                    </div>
                                 @else
                                     <x-ability-badges :abilities="$token->abilities ?? []" />
                                 @endif
                             </div>
-                            <div class="text-sm text-base-content/70">
+
+                            <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-base-content/60">
                                 @if($token->tokenable)
-                                    <span class="font-medium">{{ $token->tokenable->name }}</span>
-                                    @php $tokenRole = $token->tokenable->currentOrgRoleName(); @endphp
-                                    <span class="badge badge-sm badge-ghost ml-1">{{ \Illuminate\Support\Str::headline($tokenRole) }}</span>
-                                    &mdash;
+                                    <span>
+                                        {{ $token->tokenable->name }}
+                                        <span class="badge badge-xs badge-neutral ml-1">{{ \Illuminate\Support\Str::headline($token->tokenable->currentOrgRoleName()) }}</span>
+                                    </span>
                                 @endif
-                                {{ __('Created') }} {{ \App\Support\Formatters::humanDate($token->created_at) }}
-                                @if($token->last_used_at)
-                                    &mdash; {{ __('Last used') }} {{ \App\Support\Formatters::humanDate($token->last_used_at) }}
-                                @else
-                                    &mdash; {{ __('Never used') }}
-                                @endif
+                                <span>{{ __('Created') }} {{ \App\Support\Formatters::humanDate($token->created_at) }}</span>
+                                <span>
+                                    @if($token->last_used_at)
+                                        {{ __('Last used') }} {{ \App\Support\Formatters::humanDate($token->last_used_at) }}
+                                    @else
+                                        {{ __('Never used') }}
+                                    @endif
+                                </span>
                             </div>
                         </div>
+
                         @if($this->canDelete($token))
                             <x-button
                                 icon="o-trash"
                                 wire:click="confirmDelete('{{ $token->id }}')"
                                 spinner
-                                tooltip="{{ __('Revoke') }}"
-                                class="btn-ghost btn-sm text-error"
+                                :tooltip-left="__('Revoke')"
+                                class="btn-ghost btn-sm btn-square text-error"
                             />
                         @endif
-                    </div>
+                    </li>
                 @endforeach
-            </div>
+            </ul>
         @endif
     </x-card>
 
@@ -71,7 +84,7 @@
 
         <label class="flex items-center gap-3 mt-4 cursor-pointer">
             <x-toggle wire:model.live="fullAccess" class="toggle-primary" />
-            <span class="font-medium">{{ __('Full access') }}</span>
+            <span class="font-medium">{{ __('Follow user permissions') }}</span>
         </label>
 
         @unless($fullAccess)
