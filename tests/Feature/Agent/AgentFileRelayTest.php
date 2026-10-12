@@ -191,11 +191,17 @@ describe('file transfers', function () {
         $path = archivePath($agentJob);
 
         relayCall($token, 'PUT', "{$base}/upload?".http_build_query(['path' => $path, 'offset' => 0]), 'abcd')->assertOk();
-        $complete = fn () => $this->withToken($token)->postJson("{$base}/upload/complete", ['path' => $path, 'size' => 4]);
+        $complete = fn (string $contents) => $this->withToken($token)->postJson("{$base}/upload/complete", [
+            'path' => $path,
+            'size' => 4,
+            'sha256' => hash('sha256', $contents),
+        ]);
 
-        $complete()->assertOk();
+        $complete('abcd')->assertOk();
         // The agent retries when the first response is lost on the way back.
-        $complete()->assertOk();
+        $complete('abcd')->assertOk();
+        // A different file of the same size is not taken for the committed one.
+        $complete('wxyz')->assertUnprocessable();
     });
 
     test('a staged upload is dropped once its job ends', function () {

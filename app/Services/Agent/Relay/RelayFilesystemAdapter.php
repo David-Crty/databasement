@@ -65,6 +65,7 @@ class RelayFilesystemAdapter implements FilesystemAdapter
     {
         try {
             $offset = 0;
+            $hash = hash_init('sha256');
 
             while (! feof($contents)) {
                 $chunk = $this->readChunk($contents);
@@ -74,6 +75,7 @@ class RelayFilesystemAdapter implements FilesystemAdapter
                 }
 
                 $this->client->uploadChunk($this->jobId, $this->volumeId, $path, $offset, $chunk);
+                hash_update($hash, $chunk);
                 $offset += strlen($chunk);
             }
 
@@ -82,7 +84,7 @@ class RelayFilesystemAdapter implements FilesystemAdapter
                 $this->client->uploadChunk($this->jobId, $this->volumeId, $path, 0, '');
             }
 
-            $this->client->completeUpload($this->jobId, $this->volumeId, $path, $offset);
+            $this->client->completeUpload($this->jobId, $this->volumeId, $path, $offset, hash_final($hash));
         } catch (Throwable $e) {
             throw UnableToWriteFile::atLocation($path, $e->getMessage(), $e);
         }

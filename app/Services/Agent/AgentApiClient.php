@@ -141,13 +141,13 @@ class AgentApiClient
     }
 
     /**
-     * Finish an upload: the server checks it received `size` bytes and writes
-     * the file to the volume.
+     * Finish an upload: the server checks it received `size` bytes matching
+     * `sha256` and writes the file to the volume.
      */
-    public function completeUpload(string $jobId, string $volumeId, string $path, int $size): void
+    public function completeUpload(string $jobId, string $volumeId, string $path, int $size, string $sha256): void
     {
         $response = $this->fileRequest(timeout: 3600)
-            ->post($this->fileUrl($jobId, $volumeId, 'upload/complete'), ['path' => $path, 'size' => $size]);
+            ->post($this->fileUrl($jobId, $volumeId, 'upload/complete'), ['path' => $path, 'size' => $size, 'sha256' => $sha256]);
 
         $this->throwUnlessSuccessful($response);
     }

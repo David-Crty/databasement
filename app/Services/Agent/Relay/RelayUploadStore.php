@@ -62,6 +62,27 @@ class RelayUploadStore
         return is_file($partPath) ? $partPath : null;
     }
 
+    /**
+     * Record that the upload reached its volume with this SHA-256, so a retry
+     * of the same completion can be told apart from a different upload.
+     */
+    public function markCommitted(AgentJob $job, string $volumeId, string $path, string $sha256): void
+    {
+        $markerPath = $this->basePath($job, $volumeId, $path).'.done';
+        File::ensureDirectoryExists(dirname($markerPath));
+        File::put($markerPath, $sha256);
+    }
+
+    /**
+     * The SHA-256 the upload was committed with, or null when it was not.
+     */
+    public function committedSha256(AgentJob $job, string $volumeId, string $path): ?string
+    {
+        $markerPath = $this->basePath($job, $volumeId, $path).'.done';
+
+        return is_file($markerPath) ? File::get($markerPath) : null;
+    }
+
     public function discard(AgentJob $job, string $volumeId, string $path): void
     {
         File::delete($this->partPath($job, $volumeId, $path));
@@ -77,7 +98,12 @@ class RelayUploadStore
 
     private function partPath(AgentJob $job, string $volumeId, string $path): string
     {
-        return $this->jobDirectory($job).'/'.hash('sha256', $volumeId.'|'.$path).'.part';
+        return $this->basePath($job, $volumeId, $path).'.part';
+    }
+
+    private function basePath(AgentJob $job, string $volumeId, string $path): string
+    {
+        return $this->jobDirectory($job).'/'.hash('sha256', $volumeId.'|'.$path);
     }
 
     private function jobDirectory(AgentJob $job): string

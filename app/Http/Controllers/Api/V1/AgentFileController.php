@@ -59,6 +59,10 @@ class AgentFileController extends Controller
             return response()->json(['message' => $e->getMessage(), 'received' => $e->received], Response::HTTP_CONFLICT);
         }
 
+        if ($ended = $this->forgetIfEnded($agentJob)) {
+            return $ended;
+        }
+
         $agentJob->extendLease();
 
         return response()->json(['received' => $received]);
@@ -67,30 +71,40 @@ class AgentFileController extends Controller
     /**
      * Complete an upload.
      *
-     * Checks that all `size` bytes arrived, then writes the file to the volume.
-     * A retry whose first attempt already wrote the file (its response lost on
-     * the way back) finds it on the volume at that size and succeeds.
+     * Checks that all `size` bytes arrived with the given SHA-256, then writes
+     * the file to the volume. A retry whose first attempt already wrote it
+     * (its response lost on the way back) succeeds when it carries the same
+     * SHA-256 the upload was committed with.
      */
     public function completeUpload(Request $request, AgentJob $agentJob, string $volumeId): JsonResponse
     {
         $validated = $request->validate([
             'path' => 'required|string|max:1000',
             'size' => 'required|integer|min:0',
+            'sha256' => ['required', 'string', 'regex:/^[0-9a-f]{64}$/'],
         ]);
         $path = $validated['path'];
+        $sha256 = $validated['sha256'];
 
         if ($rejection = $this->reject($request, $agentJob, $volumeId, RelayVolumes::WRITE, $path)) {
             return $rejection;
         }
 
         $partPath = $this->uploads->received($agentJob, $volumeId, $path);
-        $received = $partPath !== null ? (int) filesize($partPath) : 0;
 
-        if ($partPath === null || $received !== (int) $validated['size']) {
-            if ($partPath === null && $this->isStored($request, $volumeId, $path, (int) $validated['size'])) {
+        if ($partPath === null) {
+            if ($this->uploads->committedSha256($agentJob, $volumeId, $path) === $sha256) {
+                $agentJob->extendLease();
+
                 return response()->json(['status' => 'ok']);
             }
 
+            return response()->json(['message' => 'No upload of this file was started.', 'received' => 0], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $received = (int) filesize($partPath);
+
+        if ($received !== (int) $validated['size']) {
             return response()->json([
                 'message' => "Received {$received} of {$validated['size']} bytes.",
                 'received' => $received,
@@ -99,12 +113,26 @@ class AgentFileController extends Controller
 
         set_time_limit(0);
 
+        if (! hash_equals($sha256, (string) hash_file('sha256', $partPath))) {
+            $this->uploads->discard($agentJob, $volumeId, $path);
+
+            return response()->json(['message' => 'The uploaded file does not match its SHA-256.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         try {
             $this->filesystemProvider->transfer($this->volume($request, $volumeId), $partPath, $path);
         } catch (Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
-        } finally {
             $this->uploads->discard($agentJob, $volumeId, $path);
+
+            return response()->json(['message' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        // Recorded before the staged part goes, so a retry always finds one.
+        $this->uploads->markCommitted($agentJob, $volumeId, $path, $sha256);
+        $this->uploads->discard($agentJob, $volumeId, $path);
+
+        if ($ended = $this->forgetIfEnded($agentJob)) {
+            return $ended;
         }
 
         $agentJob->extendLease();
@@ -177,17 +205,24 @@ class AgentFileController extends Controller
     }
 
     /**
-     * Whether the volume already holds the file at this size.
+     * Drop the job's staged files when it ended while this request was
+     * writing them: the job's own cleanup may have run before the write
+     * landed, and nothing else would remove them afterwards.
      */
-    private function isStored(Request $request, string $volumeId, string $path, int $size): bool
+    private function forgetIfEnded(AgentJob $agentJob): ?JsonResponse
     {
-        try {
-            $filesystem = $this->filesystemProvider->getForVolume($this->volume($request, $volumeId));
+        $stillActive = AgentJob::query()
+            ->whereKey($agentJob->id)
+            ->whereIn('status', [AgentJob::STATUS_CLAIMED, AgentJob::STATUS_RUNNING])
+            ->exists();
 
-            return $filesystem->fileExists($path) && $filesystem->fileSize($path) === $size;
-        } catch (Throwable) {
-            return false;
+        if ($stillActive) {
+            return null;
         }
+
+        $this->uploads->forget($agentJob);
+
+        return response()->json(['message' => 'The job ended during the transfer.'], Response::HTTP_CONFLICT);
     }
 
     private function reject(Request $request, AgentJob $agentJob, string $volumeId, string $operation, string $path): ?JsonResponse
