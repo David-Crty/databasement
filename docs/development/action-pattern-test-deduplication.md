@@ -103,19 +103,8 @@ Then open the PR:
 | Backup | `Console/RunScheduledBackupsTest.php:187` (agent jobs created) | `TriggerBackupActionTest.php` (~:154) | | seed |
 | Backup | `Console/RunScheduledBackupsTest.php:82` (multiple databases → multiple jobs) | `TriggerBackupActionTest.php` (~:45) | | seed |
 | Backup | `Api/DatabaseServerCrudApiTest.php:876`, `:894` and `Mcp/McpServerTest.php:298`, `:322` (which backup configuration is triggered) | none. The rule is `DatabaseServer::backupToTrigger()`: add a model test in `tests/Feature/Models/DatabaseServerTest.php`, then CONVERT the edges to mapping tests (§2 example) | | seed |
-| ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:88`; `Api/ScheduledRestoreCrudApiTest.php:215`; `Console/RunScheduledRestoresTest.php:15` (a disabled definition runs without being enabled) | `Actions/ScheduledRestore/RunScheduledRestoreActionTest.php` (1.1) | | seed |
-| ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:59`; `Console/RunScheduledRestoresTest.php:34` (no snapshot → skipped) | `RunScheduledRestoreActionTest.php` (1.1) | | seed |
-| Restore | `Livewire/Restore/ModalTest.php:74` (agent-backed target gets an agent job); `Agent/AgentRestoreTest.php:21` (`describe('dispatch')`, agent job instead of queued job) | `Actions/Restore/TriggerRestoreActionTest.php` (agent-backed server) | | 1.1 |
-| Restore | `Livewire/Restore/ModalTest.php:435` (the chosen copy lands on the restore) | `TriggerRestoreActionTest.php` (restores from the chosen copy) | | 1.1 |
-| Restore | `Api/RestoreApiTest.php:126` (owner_user stored) | `TriggerRestoreActionTest.php` (options stored without empty values) and `Unit/Services/Backup/DTO/RestoreOptionsTest.php` | | 1.1 |
-| Restore | `Livewire/Restore/ModalTest.php:49`, `:218`, `:252`; `Api/RestoreApiTest.php:34`; `Mcp/McpServerTest.php` (trigger restore dispatches job) (restore created and queued) | `TriggerRestoreActionTest.php` (creates and queues) | | 1.1 |
-| ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:46`; `Api/ScheduledRestoreCrudApiTest.php:194`; `Console/RunScheduledRestoresTest.php` (happy path) (restore created and dispatched) | `Actions/ScheduledRestore/RunScheduledRestoreActionTest.php` (restores the latest snapshot) | | 1.1 |
-| ScheduledRestore | `Api/ScheduledRestoreCrudApiTest.php:215` (a disabled definition runs without being enabled) | `RunScheduledRestoreActionTest.php` (disabled runs and stays disabled) | | 1.1 |
-| ScheduledRestore | `Console/RunScheduledRestoresTest.php` (skips while a previous restore is in flight) | `RunScheduledRestoreActionTest.php` (skipped while in flight) | | 1.1 |
 | BackupSchedule | `Configuration/BackupTest.php:165`, `:176` (a schedule in use by backups / by a scheduled restore is kept) | `Actions/BackupSchedule/DeleteBackupScheduleActionTest.php` | | 1.4 |
 | BackupSchedule | `Configuration/BackupTest.php` and `Api/BackupScheduleCrudApiTest.php:69`, `:132`, `:189` (create / update / delete persist) | `Actions/BackupSchedule/{Create,Update,Delete}BackupScheduleActionTest.php` | | 1.4 |
-| ScheduledRestore | `Api/ScheduledRestoreCrudApiTest.php:60` and `Livewire/ScheduledRestore/ModalTest.php` (create / update persist the definition) | `Actions/ScheduledRestore/{Create,Update}ScheduledRestoreActionTest.php` | | 1.5 |
-| ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php` and `Api/ScheduledRestoreCrudApiTest.php` (delete) | `Actions/ScheduledRestore/DeleteScheduledRestoreActionTest.php` | | 1.5 |
 | Volume | `Api/VolumeCrudApiTest.php:86` (created with sensitive fields encrypted) and `Volume/CreateTest.php` | `Actions/Volume/CreateVolumeActionTest.php` | | 1.6 |
 | Volume | `Volume/EditTest.php` (blank secret kept, locked volume only changes name and limit) | `Actions/Volume/UpdateVolumeActionTest.php` | | 1.6 |
 | Volume | `Volume/IndexTest.php` and `Api/VolumeCrudApiTest.php:145` (delete, keep files) | `Actions/Volume/DeleteVolumeActionTest.php` | | 1.6 |
@@ -127,7 +116,6 @@ Then open the PR:
 | DatabaseServer | `Livewire/DatabaseServer/IndexTest.php`, `DatabaseServer/ShowTest.php` and `Api/DatabaseServerCrudApiTest.php:644` (delete, keep files) | `Actions/DatabaseServer/DeleteDatabaseServerActionTest.php` | | 1.8 |
 | Agent | `Agent/AgentApiTest.php` and `Agent/AgentRestoreTest.php` (`/fail` marks the job failed, merges logs, fails the tracked job); `Console/RecoverStuckJobsTest.php` (agent job failed after max attempts, unclaimed cleanup job failed) | `Actions/Agent/FailAgentJobActionTest.php`. The agent API tests stay thick (protocol), only their business assertions are candidates | | 1.9 |
 | Backup | `Jobs/ProcessBackupJobTest.php:36`, `:307`, `:331`, `:365` (archive and copies recorded, success and storage-limit notifications) and `Agent/AgentApiTest.php` (ack records the archive, notifies) | `Actions/Backup/{RecordBackupResult,CompleteBackup,FailBackup}ActionTest.php`. Keep the job's retry, quota and `failed()` tests and the agent protocol tests | | 1.10 |
-| Restore | `Jobs/ProcessRestoreJobTest.php` and `Agent/AgentRestoreTest.php` (`describe('reporting')`: job completed or failed, notification sent) | `Actions/Restore/{CompleteRestore,FailRestore}ActionTest.php` | | 1.10 |
 | Backup | `Agent/RecoverStuckJobsTest.php` (timed-out backup or restore failed and notified) | `FailBackupActionTest.php`, `FailRestoreActionTest.php` | | 1.10 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
@@ -136,7 +124,6 @@ Then open the PR:
 Cover these first (step 1 of §3) when their domain comes up. Today they are reached only through edges:
 
 - `DispatchBackupAction`, `DispatchDiscoveryAction` (covered indirectly by `TriggerBackupActionTest` and `AgentApiTest`).
-- `DispatchRestoreAction` (indirectly by `AgentRestoreTest` and the restore edges).
 - `CreateRoleAction`, `UpdateRoleAction`, `DeleteRoleAction`, `AssignRoleToUserAction`, `SyncUserAbilitiesAction`. They are covered through `Roles/RoleManagementTest`, `Roles/UserAbilitiesTest` and `UserFactory` setup. Keep `RoleAbilityMatrixTest` as it is: it is the role→ability seed guardrail, not a duplicate.
 
 ## 7. Keeping duplication from coming back

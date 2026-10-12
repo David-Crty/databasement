@@ -77,3 +77,15 @@ test('a snapshot that did not complete cannot be restored', function () {
 
     Queue::assertNothingPushed();
 });
+
+test('an agent-backed target is rejected when the snapshot only exists on a local volume', function () {
+    $target = DatabaseServer::factory()->create(['database_type' => 'mysql', 'agent_id' => Agent::factory()->create()->id]);
+    $snapshot = Snapshot::factory()->forServer(DatabaseServer::factory()->create(['database_type' => 'mysql']))
+        ->onVolumes(Volume::factory()->local()->create())
+        ->create();
+
+    expect(fn () => TriggerRestoreAction::run($snapshot, $target, 'restored_db'))
+        ->toThrow(ValidationException::class, 'cannot read snapshots stored on a local volume');
+
+    expect(AgentJob::count())->toBe(0);
+});

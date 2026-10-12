@@ -56,3 +56,16 @@ test('it is skipped while its previous restore is in flight', function () {
     expect($result->skipReason)->toBe(ScheduledRestore::SKIP_PREVIOUS_IN_FLIGHT);
     Queue::assertNothingPushed();
 });
+
+test('a completed previous restore does not block the next run', function () {
+    $scheduledRestore = createScheduledRestore();
+    $snapshot = Snapshot::factory()->forServer($scheduledRestore->sourceServer)->create(['database_name' => 'app']);
+    Restore::factory()->create([
+        'snapshot_id' => $snapshot->id,
+        'target_server_id' => $scheduledRestore->target_server_id,
+        'scheduled_restore_id' => $scheduledRestore->id,
+    ]);
+
+    expect(RunScheduledRestoreAction::run($scheduledRestore)->restore)->not->toBeNull();
+    Queue::assertPushed(ProcessRestoreJob::class, 1);
+});

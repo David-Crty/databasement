@@ -232,28 +232,6 @@ test('can trigger a scheduled restore run via api', function () {
     Queue::assertPushed(ProcessRestoreJob::class, 1);
 });
 
-test('runs a disabled scheduled restore via api without enabling it', function () {
-    Queue::fake();
-
-    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
-    [$source, $target] = createRestoreServerPair();
-
-    $scheduled = ScheduledRestore::factory()->create([
-        'source_server_id' => $source->id,
-        'target_server_id' => $target->id,
-        'enabled' => false,
-    ]);
-    Snapshot::factory()->forServer($source)->create(['database_name' => $scheduled->source_database_name]);
-
-    $this->actingAs($user, 'sanctum')
-        ->postJson("/api/v1/scheduled-restores/{$scheduled->id}/run")
-        ->assertAccepted()
-        ->assertJson(['skip_reason' => null]);
-
-    Queue::assertPushed(ProcessRestoreJob::class, 1);
-    expect($scheduled->refresh()->enabled)->toBeFalse();
-});
-
 test('without operate-restores, triggering a scheduled restore via api is forbidden', function () {
     // Necessity proof: holding every ability except operate-restores must still be forbidden.
     $user = User::factory()->withAllAbilitiesExcept(Ability::OperateRestores->value)->create();
