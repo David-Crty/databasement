@@ -480,36 +480,6 @@ test('an ssh config from another organization is rejected', function () {
     expect(DatabaseServer::withoutGlobalScopes()->where('name', 'Tunnelled')->exists())->toBeFalse();
 });
 
-test('blank password keeps existing password on update', function () {
-    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
-    $server = DatabaseServer::factory()->create([
-        'database_type' => 'mysql',
-        'password' => 'original-password',
-    ]);
-    $volume = Volume::factory()->local()->create();
-    $schedule = dailySchedule();
-
-    $this->actingAs($user, 'sanctum')
-        ->putJson("/api/v1/database-servers/{$server->id}", [
-            'name' => $server->name,
-            'database_type' => 'mysql',
-            'host' => $server->host,
-            'port' => $server->port,
-            'username' => $server->username,
-            'password' => '',
-            'backups' => [[
-                'database_selection_mode' => 'all',
-                'volume_id' => $volume->id,
-                'backup_schedule_id' => $schedule->id,
-                'retention_policy' => 'days',
-                'retention_days' => 14,
-            ]],
-        ]);
-
-    $server->refresh();
-    expect($server->getDecryptedPassword())->toBe('original-password');
-});
-
 test('update syncs backup configuration', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->create(['database_type' => 'postgres']);

@@ -99,11 +99,6 @@ Then open the PR:
 
 | Domain | Edge test (file :: test or line) | Duplicates (action test) | Decision | Added by |
 |---|---|---|---|---|
-| DatabaseServer | `Api/DatabaseServerSshConfigCrudApiTest.php` (blank credentials kept, new key drops the passphrase, auth switch clears the other secrets, in-use delete refused) | `Actions/DatabaseServer/{Create,Update,Delete}SshConfigActionTest.php` | | 1.7 |
-| DatabaseServer | `DatabaseServer/SshTunnelTest.php` (SSH config created / preserved through the server form) | `Actions/DatabaseServer/{Create,Update}SshConfigActionTest.php` | | 1.7 |
-| DatabaseServer | `Api/DatabaseServerCrudApiTest.php:479` (blank password kept) and `DatabaseServer/EditTest.php` (same through the form) | `Actions/DatabaseServer/UpdateDatabaseServerActionTest.php` | | 1.8 |
-| DatabaseServer | `DatabaseServer/CreateTest.php` and `Api/DatabaseServerCrudApiTest.php` (server created with its backups, SSH tunnel and channels) | `Actions/DatabaseServer/CreateDatabaseServerActionTest.php` | | 1.8 |
-| DatabaseServer | `Livewire/DatabaseServer/IndexTest.php`, `DatabaseServer/ShowTest.php` and `Api/DatabaseServerCrudApiTest.php:644` (delete, keep files) | `Actions/DatabaseServer/DeleteDatabaseServerActionTest.php` | | 1.8 |
 | Agent | `Agent/AgentApiTest.php` and `Agent/AgentRestoreTest.php` (`/fail` marks the job failed, merges logs, fails the tracked job); `Console/RecoverStuckJobsTest.php` (agent job failed after max attempts, unclaimed cleanup job failed) | `Actions/Agent/FailAgentJobActionTest.php`. The agent API tests stay thick (protocol), only their business assertions are candidates | | 1.9 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 

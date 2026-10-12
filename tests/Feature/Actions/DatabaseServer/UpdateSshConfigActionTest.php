@@ -35,6 +35,22 @@ test('a new key without its own passphrase drops the old key\'s passphrase', fun
     expect($sshConfig->fresh())->private_key->toBe('NEW')->key_passphrase->toBeNull();
 });
 
+test('a new key sent without any passphrase drops the old key\'s passphrase', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create(['auth_type' => 'key', 'private_key' => 'OLD', 'key_passphrase' => 'phrase']);
+
+    UpdateSshConfigAction::run($sshConfig, ['auth_type' => 'key', 'private_key' => 'NEW']);
+
+    expect($sshConfig->fresh())->private_key->toBe('NEW')->key_passphrase->toBeNull();
+});
+
+test('a passphrase sent with a new key is stored', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create(['auth_type' => 'key', 'private_key' => 'OLD', 'key_passphrase' => 'phrase']);
+
+    UpdateSshConfigAction::run($sshConfig, ['auth_type' => 'key', 'private_key' => 'NEW', 'key_passphrase' => 'new-phrase']);
+
+    expect($sshConfig->fresh())->private_key->toBe('NEW')->key_passphrase->toBe('new-phrase');
+});
+
 test('the port is kept when none is given', function () {
     $sshConfig = DatabaseServerSshConfig::factory()->create(['port' => 2222]);
 
