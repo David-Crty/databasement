@@ -45,8 +45,8 @@ class TriggerBackupTool extends Tool
             return Response::error(collect($e->errors())->flatten()->implode(' '));
         }
 
-        $snapshots = collect($result['snapshots']);
-        $message = $result['message'];
+        $snapshots = collect($result->snapshots);
+        $message = $result->message();
 
         if ($snapshots->isNotEmpty()) {
             $snapshotLines = $snapshots->map(fn ($s) => "- Snapshot: {$s->id} (Job ID: {$s->backup_job_id})");

@@ -177,8 +177,8 @@ class DatabaseServerController extends Controller
         $result = TriggerBackupAction::run($backup, $userId);
 
         return response()->json([
-            'message' => $result['message'],
-            'snapshots' => SnapshotResource::collection($result['snapshots']),
+            'message' => $result->message(),
+            'snapshots' => SnapshotResource::collection($result->snapshots),
         ], 202);
     }
 

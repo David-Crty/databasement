@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Actions\Backup\TriggerBackupAction;
+use App\Enums\BackupDiscoveryState;
 use App\Models\Backup;
 use App\Models\BackupSchedule;
 use Illuminate\Console\Command;
@@ -66,19 +67,19 @@ class RunScheduledBackups extends Command
         $server = $backup->databaseServer;
         $result = TriggerBackupAction::run($backup, method: 'scheduled');
 
-        if ($result['discovery'] === true) {
+        if ($result->discovery === BackupDiscoveryState::Dispatched) {
             $this->line("  → Dispatched discovery for: {$server->name} [{$backup->getDisplayLabel()}] via agent");
 
             return;
         }
 
-        if ($result['discovery'] === false) {
+        if ($result->discovery === BackupDiscoveryState::AlreadyRunning) {
             $this->line("  → Skipped discovery for: {$server->name} [{$backup->getDisplayLabel()}] (already in-flight)");
 
             return;
         }
 
-        $count = count($result['snapshots']);
+        $count = count($result->snapshots);
         $via = $server->agent_id ? 'agent' : 'queue';
         $dbInfo = $count === 1 ? '1 database' : "{$count} databases";
         $this->line("  → Dispatched backup for: {$server->name} [{$backup->getDisplayLabel()}] ({$dbInfo}) via {$via}");
