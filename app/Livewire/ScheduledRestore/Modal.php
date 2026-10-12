@@ -118,7 +118,7 @@ class Modal extends Component
             'schema_name' => $this->schemaName,
             'backup_schedule_id' => $this->backupScheduleId,
             'enabled' => $this->enabled,
-            'options' => $this->buildOptions() ?: null,
+            'options' => $this->restoreOptions()->toArray() ?: null,
         ];
 
         if ($this->editingId) {

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Actions\Backup\SyncBackupConfigurationsAction;
 use App\Actions\Backup\TriggerBackupAction;
-use App\Actions\Restore\DispatchRestoreAction;
+use App\Actions\Restore\TriggerRestoreAction;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RestoreRequest;
 use App\Http\Requests\Api\V1\SaveDatabaseServerRequest;
@@ -14,8 +14,8 @@ use App\Http\Resources\SnapshotResource;
 use App\Models\DatabaseServer;
 use App\Models\Snapshot;
 use App\Queries\DatabaseServerQuery;
-use App\Services\Backup\BackupJobFactory;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\DTO\RestoreOptions;
 use App\Services\CurrentOrganization;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -191,11 +191,8 @@ class DatabaseServerController extends Controller
      *
      * @response 202
      */
-    public function restore(
-        RestoreRequest $request,
-        DatabaseServer $databaseServer,
-        BackupJobFactory $backupJobFactory,
-    ): JsonResponse {
+    public function restore(RestoreRequest $request, DatabaseServer $databaseServer): JsonResponse
+    {
         $this->authorize('restore', $databaseServer);
 
         /** @var Snapshot $snapshot */
@@ -206,17 +203,13 @@ class DatabaseServerController extends Controller
         /** @var int|null $userId */
         $userId = auth()->id();
 
-        $ownerUser = trim((string) $request->validated('options.owner_user'));
-
-        $restore = $backupJobFactory->createRestore(
+        $restore = TriggerRestoreAction::run(
             snapshot: $snapshot,
             targetServer: $databaseServer,
             schemaName: $request->validated('schema_name'),
+            options: new RestoreOptions(ownerUser: $request->validated('options.owner_user')),
             triggeredByUserId: $userId,
-            options: array_filter(['owner_user' => $ownerUser]),
         );
-
-        DispatchRestoreAction::run($restore);
 
         return response()->json([
             'message' => 'Restore started successfully!',

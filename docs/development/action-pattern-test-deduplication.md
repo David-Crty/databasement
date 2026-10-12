@@ -108,6 +108,13 @@ Then open the PR:
 | Snapshot | `DemoModeTest.php:119` (Livewire) and `:135` (API) (demo delete is a no-op) | none. Demo handling is edge-owned after step 1.3. | KEEP | seed |
 | ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:88`; `Api/ScheduledRestoreCrudApiTest.php:215`; `Console/RunScheduledRestoresTest.php:15` (a disabled definition runs without being enabled) | `Actions/ScheduledRestore/RunScheduledRestoreActionTest.php` (1.1) | | seed |
 | ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:59`; `Console/RunScheduledRestoresTest.php:34` (no snapshot → skipped) | `RunScheduledRestoreActionTest.php` (1.1) | | seed |
+| Restore | `Livewire/Restore/ModalTest.php:74` (agent-backed target gets an agent job); `Agent/AgentRestoreTest.php:21` (`describe('dispatch')`, agent job instead of queued job) | `Actions/Restore/TriggerRestoreActionTest.php` (agent-backed server) | | 1.1 |
+| Restore | `Livewire/Restore/ModalTest.php:435` (the chosen copy lands on the restore) | `TriggerRestoreActionTest.php` (restores from the chosen copy) | | 1.1 |
+| Restore | `Api/RestoreApiTest.php:126` (owner_user stored) | `TriggerRestoreActionTest.php` (options stored without empty values) and `Unit/Services/Backup/DTO/RestoreOptionsTest.php` | | 1.1 |
+| Restore | `Livewire/Restore/ModalTest.php:49`, `:218`, `:252`; `Api/RestoreApiTest.php:34`; `Mcp/McpServerTest.php` (trigger restore dispatches job) (restore created and queued) | `TriggerRestoreActionTest.php` (creates and queues) | | 1.1 |
+| ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:46`; `Api/ScheduledRestoreCrudApiTest.php:194`; `Console/RunScheduledRestoresTest.php` (happy path) (restore created and dispatched) | `Actions/ScheduledRestore/RunScheduledRestoreActionTest.php` (restores the latest snapshot) | | 1.1 |
+| ScheduledRestore | `Api/ScheduledRestoreCrudApiTest.php:215` (a disabled definition runs without being enabled) | `RunScheduledRestoreActionTest.php` (disabled runs and stays disabled) | | 1.1 |
+| ScheduledRestore | `Console/RunScheduledRestoresTest.php` (skips while a previous restore is in flight) | `RunScheduledRestoreActionTest.php` (skipped while in flight) | | 1.1 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1

@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Role\SyncUserAbilitiesAction;
 use App\Enums\Ability;
 use App\Enums\BackupJobStatus;
 use App\Jobs\ProcessRestoreJob;
@@ -407,6 +408,24 @@ test('without operate-restores, starting a restore in from-snapshot mode is forb
     Livewire::test(Modal::class)
         ->dispatch('open-restore-modal', mode: 'from-snapshot', snapshotId: $snapshot->id)
         ->assertForbidden();
+});
+
+test('without operate-restores, submitting a restore is forbidden', function () {
+    Queue::fake();
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer(DatabaseServer::factory()->create(['database_type' => 'mysql']))->withFile()->create();
+
+    $component = Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('schemaName', 'restored_db');
+
+    SyncUserAbilitiesAction::run($this->user, [], $this->user->organizations()->sole());
+
+    $component->call('restore')->assertForbidden();
+
+    Queue::assertNothingPushed();
 });
 
 // ============================================================================

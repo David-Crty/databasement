@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Restore\DispatchRestoreAction;
 use App\Enums\Ability;
 use App\Jobs\ProcessBackupJob;
 use App\Jobs\ProcessRestoreJob;
@@ -123,6 +124,21 @@ test('trigger restore dispatches job', function () {
         ->assertSee('Restore started successfully');
 
     Queue::assertPushed(ProcessRestoreJob::class);
+});
+
+test('trigger restore reports a restore its agent cannot be given', function () {
+    $user = User::factory()->withAbilities([Ability::OperateRestores->value])->create();
+    $server = createDatabaseServer(['database_type' => 'mysql']);
+    $snapshot = Snapshot::factory()->forServer($server)->create();
+    DispatchRestoreAction::shouldRun()->andThrow(new RuntimeException('No copy of this snapshot is available on a volume the agent can reach.'));
+
+    $response = DatabasementServer::actingAs($user)->tool(TriggerRestoreTool::class, [
+        'snapshot_id' => $snapshot->id,
+        'database_server_id' => $server->id,
+        'schema_name' => 'restore_target',
+    ]);
+
+    $response->assertHasErrors(['No copy of this snapshot is available on a volume the agent can reach.']);
 });
 
 test('trigger restore rejects type mismatch', function () {
