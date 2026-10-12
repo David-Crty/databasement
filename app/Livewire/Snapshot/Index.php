@@ -2,9 +2,9 @@
 
 namespace App\Livewire\Snapshot;
 
+use App\Actions\Snapshot\DispatchSnapshotDeletionAction;
 use App\Enums\BackupJobStatus;
 use App\Enums\DatabaseType;
-use App\Jobs\DeleteSnapshotsJob;
 use App\Livewire\Concerns\CancelsJobs;
 use App\Livewire\Concerns\FiltersAndPaginates;
 use App\Livewire\Concerns\HandlesJobLogsModal;
@@ -327,7 +327,7 @@ class Index extends Component
             return;
         }
 
-        $queued = DeleteSnapshotsJob::dispatchFor($query, $this->keepFiles);
+        $queued = DispatchSnapshotDeletionAction::run($query, $this->keepFiles);
 
         $this->success(trans_choice(
             ':count snapshot will be deleted in the background.|:count snapshots will be deleted in the background.',

@@ -115,6 +115,10 @@ Then open the PR:
 | ScheduledRestore | `Livewire/ScheduledRestore/IndexTest.php:46`; `Api/ScheduledRestoreCrudApiTest.php:194`; `Console/RunScheduledRestoresTest.php` (happy path) (restore created and dispatched) | `Actions/ScheduledRestore/RunScheduledRestoreActionTest.php` (restores the latest snapshot) | | 1.1 |
 | ScheduledRestore | `Api/ScheduledRestoreCrudApiTest.php:215` (a disabled definition runs without being enabled) | `RunScheduledRestoreActionTest.php` (disabled runs and stays disabled) | | 1.1 |
 | ScheduledRestore | `Console/RunScheduledRestoresTest.php` (skips while a previous restore is in flight) | `RunScheduledRestoreActionTest.php` (skipped while in flight) | | 1.1 |
+| Snapshot | `Agent/AgentSnapshotCleanupTest.php` `describe('dispatch')` (app deletes what it reaches, hands the rest to the agent, local copies stay with the app) | `Actions/Snapshot/DeleteSnapshotActionTest.php` | | 1.3 |
+| Snapshot | `Jobs/DeleteSnapshotsJobTest.php` (a large selection is queued in chunks) | `Actions/Snapshot/DispatchSnapshotDeletionActionTest.php` (one job per 500) | | 1.3 |
+| Snapshot | `Api/SnapshotApiTest.php` (bulk delete marks the snapshots deleting and queues them) | `DispatchSnapshotDeletionActionTest.php` (marks and queues) | | 1.3 |
+| Snapshot | `Agent/AgentSnapshotCleanupTest.php` `describe('reporting')` (removed copies forgotten, failed copy kept with the agent's error) | `Actions/Snapshot/FinishSnapshotDeletionActionTest.php` | | 1.3 |
 | DatabaseServer | `Api/DatabaseServerCrudApiTest.php:772` and `DatabaseServer/CreateTest.php:145` (GFS all-zero rejected) | none. This is validation, and the two rule sets are still separate (Task 1 §7). | KEEP until the rule sets are unified | seed |
 
 ## 6. Actions still without a dedicated test after Task 1

@@ -194,7 +194,7 @@ The domain is the singular model area the action belongs to, matching the Livewi
 
 - An action that writes more than one row wraps the writes in `DB::transaction()`.
 - Side effects that leave the database (queue dispatch, notifications, storage I/O, Bouncer cache refresh):
-  - Never move them into or out of a transaction during a refactor without a reason recorded in the commit. The current ordering is load-bearing; for example, `DeleteSnapshotsJob::dispatchFor` marks rows, dispatches, and rolls back the flag if the dispatch throws.
+  - Never move them into or out of a transaction during a refactor without a reason recorded in the commit. The current ordering is load-bearing; for example, `DispatchSnapshotDeletionAction` marks rows, dispatches, and rolls back the flag if the dispatch throws.
   - New code defers them with `DB::afterCommit()`, following the `AssignRoleToUserAction` precedent.
 - Storage deletions stay **outside** DB transactions (see the reasoning in `OrganizationMergeService`).
 

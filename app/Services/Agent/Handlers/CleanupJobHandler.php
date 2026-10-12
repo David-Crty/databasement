@@ -2,7 +2,7 @@
 
 namespace App\Services\Agent\Handlers;
 
-use App\Actions\Snapshot\DeleteSnapshotAction;
+use App\Actions\Snapshot\FinishSnapshotDeletionAction;
 use App\Exceptions\Backup\SnapshotFilesNotDeletedException;
 use App\Models\AgentJob;
 use App\Models\BackupJob;
@@ -79,10 +79,8 @@ class CleanupJobHandler implements AgentJobHandler
             }
         }
 
-        DeleteSnapshotAction::make()->recordRemovals($snapshot, $outcomes);
-
         try {
-            DeleteSnapshotAction::make()->deleteUnlessFilesRemain($snapshot);
+            FinishSnapshotDeletionAction::run($snapshot, $outcomes);
         } catch (SnapshotFilesNotDeletedException $e) {
             Log::warning($e->getMessage());
         }

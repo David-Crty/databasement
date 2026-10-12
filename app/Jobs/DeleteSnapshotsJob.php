@@ -6,7 +6,6 @@ use App\Actions\Snapshot\DeleteSnapshotAction;
 use App\Models\Snapshot;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
@@ -15,8 +14,6 @@ use Throwable;
 class DeleteSnapshotsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
-
-    private const int CHUNK_SIZE = 500;
 
     public int $timeout = 3600;
 
@@ -30,39 +27,6 @@ class DeleteSnapshotsJob implements ShouldQueue
         public bool $keepFiles = false,
     ) {
         $this->onQueue('backups');
-    }
-
-    /**
-     * Mark the deletable snapshots of an already authorized query as deleting
-     * and queue their deletion in chunks, returning how many will be deleted.
-     * The demo user gets the count without anything being deleted.
-     *
-     * @param  Builder<Snapshot>  $query
-     */
-    public static function dispatchFor(Builder $query, bool $keepFiles): int
-    {
-        $snapshotIds = $query->setEagerLoads([])->deletable()
-            ->get(['snapshots.id'])
-            ->map(fn (Snapshot $snapshot): string => $snapshot->id)
-            ->all();
-
-        if (auth()->user()?->isDemo() === true) {
-            return count($snapshotIds);
-        }
-
-        foreach (array_chunk($snapshotIds, self::CHUNK_SIZE) as $chunk) {
-            Snapshot::query()->whereKey($chunk)->update(['deleting' => true]);
-
-            try {
-                self::dispatch($chunk, $keepFiles);
-            } catch (Throwable $e) {
-                Snapshot::query()->whereKey($chunk)->update(['deleting' => false]);
-
-                throw $e;
-            }
-        }
-
-        return count($snapshotIds);
     }
 
     /**

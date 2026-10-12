@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\Snapshot\DispatchSnapshotDeletionAction;
 use App\Jobs\DeleteSnapshotsJob;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
@@ -60,7 +61,7 @@ test('a large selection is queued in chunks', function () {
     Queue::fake();
     Snapshot::factory()->count(501)->create();
 
-    $queued = DeleteSnapshotsJob::dispatchFor(Snapshot::query(), keepFiles: false);
+    $queued = DispatchSnapshotDeletionAction::run(Snapshot::query(), keepFiles: false);
 
     expect($queued)->toBe(501)
         ->and(Snapshot::where('deleting', true)->count())->toBe(501);
