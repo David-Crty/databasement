@@ -1011,6 +1011,7 @@
     "This is the only super admin account. It cannot be deleted.": "This is the only super admin account. It cannot be deleted.",
     "This is the only time the public key will be shown. It is not stored — copy it before leaving this page.": "This is the only time the public key will be shown. It is not stored — copy it before leaving this page.",
     "This job belongs to a different organization:": "This job belongs to a different organization:",
+    "This role is still assigned to users. Give them another role before deleting it.": "This role is still assigned to users. Give them another role before deleting it.",
     "This scheduled restore is disabled. Do you want to run it anyway?": "This scheduled restore is disabled. Do you want to run it anyway?",
     "This snapshot is locked. Unlock it to delete.": "This snapshot is locked. Unlock it to delete.",
     "This snapshot is stored on several volumes. Choose which copy to download.": "This snapshot is stored on several volumes. Choose which copy to download.",
