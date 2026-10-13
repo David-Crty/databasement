@@ -29,13 +29,37 @@
                         <livewire:database-server.connection-status :server="$server" lazy :key="'conn-' . $server->id" />
                     </div>
                 </div>
-                <div>
-                    @can('view', $server)
-                        <a href="{{ route('database-servers.show', $server) }}" wire:navigate
-                           class="table-cell-primary link link-hover hover:text-primary">{{ $server->name }}</a>
-                    @else
-                        <div class="table-cell-primary">{{ $server->name }}</div>
-                    @endcan
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        @can('view', $server)
+                            <a href="{{ route('database-servers.show', $server) }}" wire:navigate
+                               class="table-cell-primary link link-hover hover:text-primary truncate">{{ $server->name }}</a>
+                        @else
+                            <div class="table-cell-primary truncate">{{ $server->name }}</div>
+                        @endcan
+                        @if ($server->getSshDisplayName())
+                            <x-popover>
+                                <x-slot:trigger>
+                                    <x-badge value="SSH" class="badge-warning badge-xs cursor-pointer" />
+                                </x-slot:trigger>
+                                <x-slot:content class="text-sm">
+                                    {{ __('Via') }} {{ $server->getSshDisplayName() }}
+                                </x-slot:content>
+                            </x-popover>
+                        @endif
+                        @if ($server->agent)
+                            @php $agentOnline = $server->agent->isOnline(); @endphp
+                            <x-popover>
+                                <x-slot:trigger>
+                                    <x-badge :value="__('Agent')" class="{{ $agentOnline ? 'badge-success' : 'badge-error' }} badge-xs cursor-pointer" />
+                                </x-slot:trigger>
+                                <x-slot:content class="text-sm flex items-center gap-2">
+                                    <span>{{ __('Via') }} {{ $server->agent->name }}</span>
+                                    <x-agent-status-indicator :status="$server->agent->connectionStatus()" />
+                                </x-slot:content>
+                            </x-popover>
+                        @endif
+                    </div>
                     <div class="flex items-center gap-2 text-sm text-base-content/70">
                         @include('livewire.database-server._notification-indicator', [
                             'server' => $server,
@@ -53,16 +77,6 @@
                                 {{ $server->getConnectionDetails() }}
                             </x-slot:content>
                         </x-popover>
-                        @if ($server->getSshDisplayName())
-                            <x-popover>
-                                <x-slot:trigger>
-                                    <x-badge value="SSH" class="badge-warning badge-xs cursor-pointer" />
-                                </x-slot:trigger>
-                                <x-slot:content class="text-sm">
-                                    {{ __('Via') }} {{ $server->getSshDisplayName() }}
-                                </x-slot:content>
-                            </x-popover>
-                        @endif
                     </div>
                     @if ($server->description)
                         <div class="text-sm text-base-content/50">{{ Str::limit($server->description, 50) }}</div>

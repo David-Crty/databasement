@@ -56,7 +56,7 @@ class DatabaseServerQuery
         $sortColumn = Formatters::sortColumn($sortColumn, self::ALLOWED_SORT_COLUMNS);
 
         return DatabaseServer::query()
-            ->with(['backups.volumes', 'backups.backupSchedule', 'sshConfig', 'notificationChannels'])
+            ->with(['backups.volumes', 'backups.backupSchedule', 'sshConfig', 'agent', 'notificationChannels'])
             ->withCount(['snapshots' => function (Builder $q) {
                 /** @var Builder<Snapshot> $q */
                 return $q->completed();
