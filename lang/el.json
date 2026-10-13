@@ -1054,6 +1054,7 @@
   "Update available:": "Διαθέσιμη ενημέρωση:",
   "Update Database Server": "Ενημέρωση Διακομιστή Βάσης Δεδομένων",
   "Update storage volume configuration": "Ενημέρωση διαμόρφωσης τόμου αποθήκευσης",
+  "Update the agent Docker image to the server version": "Ενημέρωση της εικόνας Docker του agent στην έκδοση του server",
   "Update the Helm repository and upgrade the release": "Ενημερώστε το αποθετήριο Helm και αναβαθμίστε το release",
   "Update user information": "Ενημέρωση στοιχείων χρήστη",
   "Update your database server configuration": "Ενημερώστε τη διαμόρφωση του διακομιστή βάσης δεδομένων σας",

@@ -14,7 +14,13 @@
 @if($status === 'never')
     <span class="text-base-content/50">—</span>
 @else
-    <x-badge :value="$agent->versionLabel()" :icon="$icon" class="{{ $badgeClass }} badge-sm gap-1 whitespace-nowrap font-mono" />
+    @if($agent->needsUpdate())
+        <div class="tooltip" data-tip="{{ __('Update the agent Docker image to the server version') }}">
+            <x-badge :value="$agent->versionLabel()" :icon="$icon" class="{{ $badgeClass }} badge-sm gap-1 whitespace-nowrap font-mono cursor-help" />
+        </div>
+    @else
+        <x-badge :value="$agent->versionLabel()" :icon="$icon" class="{{ $badgeClass }} badge-sm gap-1 whitespace-nowrap font-mono" />
+    @endif
     @if($agent->needsUpdate() && $serverVersion !== null)
         <div class="text-sm text-base-content/70 mt-1">
             {{ __('Server runs :version', ['version' => $serverVersion]) }}
