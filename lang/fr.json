@@ -1054,6 +1054,7 @@
   "Update available:": "Mise à jour disponible :",
   "Update Database Server": "Mettre à jour le serveur de base de données",
   "Update storage volume configuration": "Mettre à jour la configuration du volume de stockage",
+  "Update the agent Docker image to the server version": "Mettre à jour l’image Docker de l’agent vers la version du serveur",
   "Update the Helm repository and upgrade the release": "Mettre à jour le repository Helm et upgrader la release",
   "Update user information": "Mettre à jour les informations de l’utilisateur",
   "Update your database server configuration": "Mettez à jour la configuration de votre serveur de base de données",

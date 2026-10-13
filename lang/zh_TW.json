@@ -1054,6 +1054,7 @@
   "Update available:": "有可用更新：",
   "Update Database Server": "更新資料庫伺服器",
   "Update storage volume configuration": "更新儲存 volume 設定",
+  "Update the agent Docker image to the server version": "將 agent 的 Docker image 更新至伺服器版本",
   "Update the Helm repository and upgrade the release": "更新 Helm repository 並升級 release",
   "Update user information": "更新使用者資訊",
   "Update your database server configuration": "更新你的資料庫伺服器設定",
