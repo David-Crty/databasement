@@ -106,6 +106,10 @@
                 @endif
             @endscope
 
+            @scope('cell_duration_ms', $restore)
+                <span class="font-mono text-sm">{{ $restore->job?->getHumanDuration() ?? '-' }}</span>
+            @endscope
+
             @scope('cell_status', $restore)
                 <x-job-status-cell :job="$restore->job" />
             @endscope

@@ -20,6 +20,7 @@ class SnapshotQuery
         'file_size',
         'database_name',
         'status',
+        'duration_ms',
     ];
 
     /**
@@ -107,6 +108,10 @@ class SnapshotQuery
 
         if ($sortColumn === 'status') {
             return self::orderByJobStatus($query, 'snapshots.backup_job_id', $direction);
+        }
+
+        if ($sortColumn === 'duration_ms') {
+            return self::orderByJobDuration($query, 'snapshots.backup_job_id', $direction);
         }
 
         return $query->orderBy($sortColumn, $direction);

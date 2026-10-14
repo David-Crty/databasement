@@ -122,8 +122,10 @@ class Index extends Component
     {
         return [
             ['key' => 'subject', 'label' => __('Database'), 'sortable' => false],
+            ['key' => 'status', 'label' => __('Status'), 'class' => 'w-36'],
+            ['key' => 'duration_ms', 'label' => __('Duration'), 'class' => 'w-24 whitespace-nowrap'],
+            ['key' => 'file_size', 'label' => __('Size'), 'class' => 'w-24 whitespace-nowrap'],
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-48'],
-            ['key' => 'status', 'label' => __('Status'), 'class' => 'w-44'],
         ];
     }
 

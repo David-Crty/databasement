@@ -127,8 +127,16 @@
                 <div class="text-sm text-base-content/60">{{ \App\Support\Formatters::humanDate($snapshot->created_at) }}</div>
             @endscope
 
+            @scope('cell_file_size', $snapshot)
+                <span class="font-mono text-sm">{{ $snapshot->file_size ? $snapshot->getHumanFileSize() : '-' }}</span>
+            @endscope
+
+            @scope('cell_duration_ms', $snapshot)
+                <span class="font-mono text-sm">{{ $snapshot->job?->getHumanDuration() ?? '-' }}</span>
+            @endscope
+
             @scope('cell_status', $snapshot)
-                <x-job-status-cell :job="$snapshot->job" :status="$snapshot->deleting ? 'deleting' : null" :file-size="$snapshot->getHumanFileSize()" />
+                <x-job-status-cell :job="$snapshot->job" :status="$snapshot->deleting ? 'deleting' : null" />
             @endscope
 
             @scope('actions', $snapshot)
