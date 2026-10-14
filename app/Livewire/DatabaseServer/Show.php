@@ -29,6 +29,8 @@ class Show extends Component
 
     public int $snapshotsCount = 0;
 
+    public int $snapshotsSize = 0;
+
     public int $restoresCount = 0;
 
     public bool $showDeleteModal = false;
@@ -50,7 +52,12 @@ class Show extends Component
         ]);
 
         $this->server = $server;
-        $this->snapshotsCount = $server->snapshots()->completed()->count();
+        $snapshotStats = $server->snapshots()->completed()
+            ->toBase()
+            ->selectRaw('count(*) as total, coalesce(sum(file_size), 0) as size')
+            ->first();
+        $this->snapshotsCount = (int) $snapshotStats?->total;
+        $this->snapshotsSize = (int) $snapshotStats?->size;
         $this->restoresCount = Restore::where('target_server_id', $server->id)->count();
     }
 

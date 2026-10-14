@@ -103,16 +103,17 @@ test('confirmRestore on a Redis server opens the redis info modal', function () 
         ->assertSet('showRedisRestoreModal', true);
 });
 
-test('snapshot counter only includes completed snapshots', function () {
+test('snapshot counter and total size only include completed snapshots', function () {
     // Viewing needs no ability — an org member with zero grants can view a server.
     $user = User::factory()->withAbilities([])->create();
     $server = DatabaseServer::factory()->create();
 
-    Snapshot::factory()->forServer($server)->completed()->create();
-    Snapshot::factory()->forServer($server)->completed()->create();
-    Snapshot::factory()->forServer($server)->failed()->create();
+    Snapshot::factory()->forServer($server)->completed()->create(['file_size' => 1024]);
+    Snapshot::factory()->forServer($server)->completed()->create(['file_size' => 2048]);
+    Snapshot::factory()->forServer($server)->failed()->create(['file_size' => 4096]);
 
     Livewire::actingAs($user)
         ->test(Show::class, ['server' => $server])
-        ->assertSet('snapshotsCount', 2);
+        ->assertSet('snapshotsCount', 2)
+        ->assertSet('snapshotsSize', 3072);
 });

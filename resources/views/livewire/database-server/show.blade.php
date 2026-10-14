@@ -142,7 +142,14 @@
                 <x-icon name="o-archive-box" class="w-8 h-8" />
             </div>
             <div class="stat-title group-hover:text-base-content">{{ __('Snapshots') }}</div>
-            <div class="stat-value font-mono transition-colors group-hover:text-info">{{ $snapshotsCount }}</div>
+            <div class="stat-value font-mono transition-colors group-hover:text-info flex items-baseline gap-2">
+                {{ $snapshotsCount }}
+                @if($snapshotsCount > 0)
+                    <span class="text-sm font-normal text-base-content/60 whitespace-nowrap inline-flex items-center gap-1">
+                        <x-icon name="bi.hdd" class="w-3.5 h-3.5" />{{ \App\Support\Formatters::humanFileSize($snapshotsSize) }}
+                    </span>
+                @endif
+            </div>
             <div class="stat-desc inline-flex items-center gap-1 group-hover:text-info">
                 {{ __('Click to view all') }}
                 <x-icon name="o-arrow-right" class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
