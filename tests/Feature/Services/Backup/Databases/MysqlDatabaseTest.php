@@ -151,6 +151,7 @@ test('dump keeps the MariaDB client for the servers it can read', function (?str
     $result = mysqlDatabaseReportingVersion($version)->dump('/tmp/dump.sql');
 
     expect($result->command)->toStartWith('mariadb-dump ')
+        ->and($result->command)->not->toContain('--set-gtid-purged')
         ->and($result->command)->toContain('--routines')
         ->and($result->command)->toContain('--skip_ssl')
         ->and($result->log)->toBeNull();
@@ -166,6 +167,7 @@ test("dump uses Oracle's client for the servers the MariaDB one cannot read", fu
     expect($result->command)->toStartWith('/opt/mysql-client/bin/mysqldump ')
         ->and($result->command)->toContain('--routines')
         ->and($result->command)->toContain('--ssl-mode=DISABLED')
+        ->and($result->command)->toContain('--set-gtid-purged=OFF')
         ->and($result->command)->not->toContain('--skip_ssl')
         ->and($result->log)->toBeNull();
 })->with([
