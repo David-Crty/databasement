@@ -76,6 +76,19 @@ test('a server whose databases cannot be listed says so instead of offering any'
         ->assertSee('Connection refused');
 });
 
+test('a configuration with nothing to offer says why', function (bool $behindAgent, string $problem) {
+    $server = DatabaseServer::factory()->withoutBackups()->create(['agent_id' => $behindAgent ? Agent::factory()->create()->id : null]);
+    $backup = Backup::factory()->for($server)->pattern('^prod_')->create();
+    $this->mock(DatabaseProvider::class)->shouldReceive('listDatabasesForServer')->andReturn(['staging_db']);
+
+    openBackupDatabasesModal($server)
+        ->assertSet("configurations.{$backup->id}.options", [])
+        ->assertSet("configurations.{$backup->id}.problem", $problem);
+})->with([
+    'a directly reachable server with no matching database' => [false, 'empty'],
+    'an agent-backed server never backed up' => [true, 'no-history'],
+]);
+
 test('an agent-backed server offers the databases its configuration backed up before', function () {
     $server = DatabaseServer::factory()->withoutBackups()->create(['agent_id' => Agent::factory()->create()->id]);
     $backup = Backup::factory()->for($server)->create(['database_selection_mode' => DatabaseSelectionMode::All->value]);
