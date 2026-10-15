@@ -243,14 +243,9 @@ class AppServiceProvider extends ServiceProvider
      */
     private function warnDeprecatedEnvVars(): void
     {
-        if (config('app.has_deprecated_aws_env')) {
-            Log::warning('Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.');
-        }
-
         if (config('app.has_deprecated_backup_env')) {
             Log::warning('Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.');
         }
-
     }
 
     /**

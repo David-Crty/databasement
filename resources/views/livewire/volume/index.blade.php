@@ -3,14 +3,6 @@
         @can('viewForm', App\Models\Volume::class)
             <x-button :label="__('Add Volume')" :link="route('volumes.create')" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
         @endcan
-
-        <x-slot:below>
-            @if($showAwsDeprecationWarning)
-                <x-alert class="alert-warning mb-4" icon="o-exclamation-triangle" dismissible>
-                    {{ __('Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.') }}
-                </x-alert>
-            @endif
-        </x-slot:below>
     </x-index-header>
 
     <!-- TABLE -->
