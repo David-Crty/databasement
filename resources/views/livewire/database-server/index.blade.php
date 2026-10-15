@@ -127,6 +127,13 @@
                         <x-button icon="o-ellipsis-vertical" class="btn-ghost btn-sm" :tooltip-left="__('Actions')" />
                     </x-slot:trigger>
 
+                    @php
+                        $canBackup = $server->backups_enabled && $server->backups->isNotEmpty() && auth()->user()->can('backup', $server);
+                        $canRestore = auth()->user()->can('restore', $server);
+                        $canToggleBackups = $server->backups->isNotEmpty() && auth()->user()->can('update', $server);
+                        $canEdit = auth()->user()->can('viewForm', $server);
+                    @endphp
+
                     @can('view', $server)
                         <x-menu-item :title="__('View')" icon="o-eye"
                                      link="{{ route('database-servers.show', $server) }}" wire:navigate />
@@ -136,8 +143,11 @@
                                      wire:click="openAdminer('{{ $server->id }}')" spinner
                                      class="text-accent" />
                     @endif
-                    @if($server->backups_enabled && $server->backups->isNotEmpty())
-                    @can('backup', $server)
+
+                    @if($canBackup || $canRestore)
+                        <x-menu-separator />
+                    @endif
+                    @if($canBackup)
                         <x-menu-item :title="__('Backup now')" icon="bi.database-fill-up"
                                      wire:click="runBackupAll('{{ $server->id }}')" spinner
                                      class="text-info" />
@@ -146,27 +156,29 @@
                                          wire:click="$dispatch('open-backup-databases-modal', { serverId: '{{ $server->id }}' })"
                                          class="text-info" />
                         @endif
-                    @endcan
                     @endif
-                    @can('restore', $server)
+                    @if($canRestore)
                         <x-menu-item :title="__('Restore')" icon="bi.database-fill-down"
                                      wire:click="confirmRestore('{{ $server->id }}')" spinner
                                      class="text-success" />
-                    @endcan
-                    @can('update', $server)
-                        @if($server->backups->isNotEmpty())
-                            <x-menu-item
-                                :title="$server->backups_enabled ? __('Disable Backup') : __('Enable Backup')"
-                                :icon="$server->backups_enabled ? 'o-pause-circle' : 'o-play-circle'"
-                                wire:click="toggleBackupsEnabled('{{ $server->id }}')"
-                                spinner
-                            />
-                        @endif
-                    @endcan
-                    @can('viewForm', $server)
+                    @endif
+
+                    @if($canEdit || $canToggleBackups)
+                        <x-menu-separator />
+                    @endif
+                    @if($canEdit)
                         <x-menu-item :title="__('Edit')" icon="o-pencil"
                                      link="{{ route('database-servers.edit', $server) }}" wire:navigate />
-                    @endcan
+                    @endif
+                    @if($canToggleBackups)
+                        <x-menu-item
+                            :title="$server->backups_enabled ? __('Disable Backup') : __('Enable Backup')"
+                            :icon="$server->backups_enabled ? 'o-pause-circle' : 'o-play-circle'"
+                            wire:click="toggleBackupsEnabled('{{ $server->id }}')"
+                            spinner
+                        />
+                    @endif
+
                     @can('delete', $server)
                         <x-menu-separator />
                         <x-menu-item :title="__('Delete')" icon="o-trash"
