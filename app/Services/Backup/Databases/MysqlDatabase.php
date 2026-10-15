@@ -129,6 +129,12 @@ class MysqlDatabase implements DatabaseInterface
         $options = self::DUMP_OPTIONS;
         $options[] = $useMysqlClient ? $this->mysqlSslFlag() : $this->getSslFlag();
 
+        // With GTIDs not OFF (Aurora defaults to OFF_PERMISSIVE), Oracle's client
+        // otherwise takes FLUSH TABLES WITH READ LOCK, which RDS and Aurora refuse.
+        if ($useMysqlClient) {
+            $options[] = '--set-gtid-purged=OFF';
+        }
+
         $log = null;
         if (! $useMysqlClient && ! $this->canDumpRoutines()) {
             $options = array_values(array_diff($options, ['--routines']));
