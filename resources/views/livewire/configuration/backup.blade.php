@@ -1,12 +1,6 @@
 <div>
     <x-configuration-header active="backup" :subtitle="__('Manage backup schedules and operation settings.')" />
 
-    @if($showDeprecatedBackupEnv)
-        <x-alert class="alert-warning mb-4" icon="o-exclamation-triangle" dismissible>
-            {{ __('Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.') }}
-        </x-alert>
-    @endif
-
     <div class="grid gap-6">
         <!-- Backup Schedules -->
         <x-card shadow class="min-w-0">

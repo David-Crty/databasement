@@ -194,7 +194,6 @@ class Backup extends Component
         return view('livewire.configuration.backup', [
             'compressionOptions' => $this->getCompressionOptions(),
             'backupSchedules' => $this->backupSchedules(),
-            'showDeprecatedBackupEnv' => config('app.has_deprecated_backup_env'),
             'scheduleHeaders' => [
                 ['key' => 'name', 'label' => __('Name')],
                 ['key' => 'expression', 'label' => __('Schedule')],

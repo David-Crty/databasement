@@ -344,8 +344,6 @@
     "Demo mode is enabled. Snapshots are not deleted.": "Demo mode is enabled. Snapshots are not deleted.",
     "Demo mode: credentials are pre-filled. Just click Log in!": "Demo mode: credentials are pre-filled. Just click Log in!",
     "Deploy the agent next to your database": "Deploy the agent next to your database",
-    "Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.": "Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.",
-    "Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.": "Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.",
     "Description": "Description",
     "Destination": "Destination",
     "Destination database name": "Destination database name",

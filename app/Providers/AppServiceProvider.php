@@ -33,7 +33,6 @@ use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -108,7 +107,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $this->warnDeprecatedEnvVars();
         $this->configureQueueTimeouts();
         $this->registerOidcSocialiteProvider();
         $this->validateOAuthConfiguration();
@@ -235,22 +233,6 @@ class AppServiceProvider extends ServiceProvider
         }
 
         return 'ip:'.$request->ip();
-    }
-
-    /**
-     * Log deprecation warnings for environment variables that have been
-     * replaced by in-app configuration (volumes, backup, notifications).
-     */
-    private function warnDeprecatedEnvVars(): void
-    {
-        if (config('app.has_deprecated_aws_env')) {
-            Log::warning('Deprecated AWS_* environment variables detected. S3 credentials are now configured per-volume in the UI. You can safely remove AWS_* variables from your environment.');
-        }
-
-        if (config('app.has_deprecated_backup_env')) {
-            Log::warning('Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.');
-        }
-
     }
 
     /**
