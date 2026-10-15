@@ -223,3 +223,35 @@ test('a backup matching no database starts nothing and fails its run with the re
         ->error_message->toBe('No database on the server matches this backup configuration.');
     Queue::assertNothingPushed();
 });
+
+test('given databases, only those are backed up, without listing or discovery', function () {
+    $server = DatabaseServer::factory()->withoutBackups()->create(['agent_id' => Agent::factory()->create()->id]);
+    $backup = Backup::factory()->for($server)->pattern('^prod_')->create();
+
+    $result = TriggerBackupAction::run($backup, databaseNames: ['prod_users']);
+
+    expect($result->discovery)->toBe(BackupDiscoveryState::NotNeeded)
+        ->and(array_map(fn (Snapshot $s) => $s->database_name, $result->snapshots))->toBe(['prod_users'])
+        ->and(AgentJob::where('database_server_id', $server->id)->sole()->type)->toBe(AgentJobType::Backup);
+});
+
+test('given databases outside the configuration scope, nothing is backed up', function (DatabaseSelectionMode $mode, array $attributes) {
+    $server = DatabaseServer::factory()->withoutBackups()->create();
+    $backup = Backup::factory()->for($server)->create(['database_selection_mode' => $mode->value, ...$attributes]);
+
+    expect(fn () => TriggerBackupAction::run($backup, databaseNames: ['prod_users', 'staging_db']))
+        ->toThrow(ValidationException::class, 'Not covered by this backup configuration: staging_db.');
+
+    expect(Snapshot::count())->toBe(0);
+})->with([
+    'selected' => [DatabaseSelectionMode::Selected, ['database_names' => ['prod_users']]],
+    'pattern' => [DatabaseSelectionMode::Pattern, ['database_include_pattern' => '^prod_']],
+]);
+
+test('a redis backup cannot be narrowed to some databases', function () {
+    $server = DatabaseServer::factory()->withoutBackups()->create(['database_type' => 'redis']);
+    $backup = Backup::factory()->for($server)->create();
+
+    expect(fn () => TriggerBackupAction::run($backup, databaseNames: ['0']))
+        ->toThrow(ValidationException::class, 'A Redis backup always covers the whole instance.');
+});

@@ -4,24 +4,38 @@ namespace App\Traits;
 
 use App\Actions\Backup\TriggerBackupAction;
 use App\Enums\BackupDiscoveryState;
+use App\Models\Backup;
 use App\Models\DatabaseServer;
 
 /**
- * Triggers every backup configuration on a server and renders a single toast
- * summarising the outcome. Requires the {@see Toast} trait.
+ * Triggers backup configurations and renders a single toast summarising the
+ * outcome. Requires the {@see Toast} trait.
  */
 trait RunsServerBackups
 {
     protected function triggerAllBackups(DatabaseServer $server): void
+    {
+        $this->triggerBackups($server->backups);
+    }
+
+    /**
+     * @param  iterable<Backup>  $backups
+     * @param  array<string, list<string>>  $databaseNames  Per backup id, the only databases to back up
+     */
+    protected function triggerBackups(iterable $backups, array $databaseNames = []): void
     {
         $userId = auth()->id();
 
         /** @var array<string, BackupDiscoveryState|string> $results Per label: the discovery state once triggered, the error otherwise */
         $results = [];
 
-        foreach ($server->backups as $backup) {
+        foreach ($backups as $backup) {
             try {
-                $results[$backup->getDisplayLabel()] = TriggerBackupAction::run($backup, is_int($userId) ? $userId : null)->discovery;
+                $results[$backup->getDisplayLabel()] = TriggerBackupAction::run(
+                    $backup,
+                    is_int($userId) ? $userId : null,
+                    databaseNames: $databaseNames[$backup->id] ?? null,
+                )->discovery;
             } catch (\Throwable $e) {
                 $results[$backup->getDisplayLabel()] = $e->getMessage();
             }
