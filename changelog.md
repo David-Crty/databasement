@@ -14,10 +14,12 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.10] - 2026-10-13 {#v1-10}
+## [1.10] - 2026-10-15 {#v1-10}
 
 ### Added
 
+- `1.10.3` The Snapshots and Restores lists show duration in its own sortable column, and the Snapshots list does the same for size, so the slowest or largest jobs can be found at a glance. The status cell no longer repeats them, but a running job still shows its elapsed time there ([#710](https://github.com/David-Crty/databasement/pull/710))
+- `1.10.3` The database server page shows the total size of its completed snapshots next to their count ([#709](https://github.com/David-Crty/databasement/pull/709))
 - `1.10.2` The database server list shows an Agent badge next to the name of each server backed up through an agent, green when it is online and red when it is offline or never connected, with the agent name in a popover. On the Agents page, an outdated version badge explains on hover that the agent Docker image needs updating ([#708](https://github.com/David-Crty/databasement/pull/708))
 - `1.10.1` API tokens can be limited to chosen abilities when created from Settings → API Tokens, and the token list shows each token's access. A scoped token can only do what its abilities cover, even for a super admin; existing tokens keep full access ([#526](https://github.com/David-Crty/databasement/pull/526))
 - `1.10.0` Snapshots of a server run through a remote agent can be deleted, by hand or through retention, when the app cannot reach their volume: the files it cannot delete are handed to the agent, and the snapshot shows as Deleting until the agent reports. Agents older than 1.10.0 are never handed these deletions, which fail after waiting the backup job timeout, so upgrade agents along with the server ([#695](https://github.com/David-Crty/databasement/pull/695))
@@ -369,7 +371,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.2
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.3
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
