@@ -89,20 +89,21 @@ test('a configuration with nothing to offer says why', function (bool $behindAge
     'an agent-backed server never backed up' => [true, 'no-history'],
 ]);
 
-test('an agent-backed server offers the databases its configuration backed up before', function () {
+test('an agent-backed server offers the databases its configuration backed up before, within its pattern', function () {
     $server = DatabaseServer::factory()->withoutBackups()->create(['agent_id' => Agent::factory()->create()->id]);
-    $backup = Backup::factory()->for($server)->create(['database_selection_mode' => DatabaseSelectionMode::All->value]);
+    $backup = Backup::factory()->for($server)->pattern('^prod_')->create();
     $failedJob = BackupJob::create(['status' => 'failed']);
-    Snapshot::factory()->forServer($server)->create(['database_name' => 'orders']);
-    Snapshot::factory()->forServer($server)->create(['database_name' => 'app']);
-    Snapshot::factory()->forServer($server)->create(['database_name' => 'app']);
-    Snapshot::factory()->forServer($server)->create(['database_name' => '(all databases)', 'backup_job_id' => $failedJob->id]);
+    Snapshot::factory()->forServer($server)->create(['database_name' => 'prod_orders']);
+    Snapshot::factory()->forServer($server)->create(['database_name' => 'prod_app']);
+    Snapshot::factory()->forServer($server)->create(['database_name' => 'prod_app']);
+    Snapshot::factory()->forServer($server)->create(['database_name' => 'staging_app']);
+    Snapshot::factory()->forServer($server)->create(['database_name' => 'prod_users', 'backup_job_id' => $failedJob->id]);
 
     openBackupDatabasesModal($server)
         ->assertSet("configurations.{$backup->id}.source", BackupDatabasesModal::SOURCE_HISTORY)
         ->assertSet("configurations.{$backup->id}.options", [
-            ['id' => 'app', 'name' => 'app'],
-            ['id' => 'orders', 'name' => 'orders'],
+            ['id' => 'prod_app', 'name' => 'prod_app'],
+            ['id' => 'prod_orders', 'name' => 'prod_orders'],
         ]);
 });
 
