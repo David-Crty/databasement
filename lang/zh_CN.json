@@ -344,7 +344,6 @@
   "Demo mode is enabled. Snapshots are not deleted.": "演示模式已启用，Snapshot 不会被删除。",
   "Demo mode: credentials are pre-filled. Just click Log in!": "演示模式：登录信息已自动填写，点击“登录”即可！",
   "Deploy the agent next to your database": "在数据库旁部署 agent",
-  "Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.": "检测到已弃用的 BACKUP_* 环境变量。Backup 设置现在通过 UI 配置。您可以放心从环境中移除 BACKUP_* 变量。",
   "Description": "描述",
   "Destination": "目标",
   "Destination database name": "目标数据库名称",

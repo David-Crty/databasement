@@ -344,7 +344,6 @@
   "Demo mode is enabled. Snapshots are not deleted.": "Η λειτουργία demo είναι ενεργή. Τα snapshots δεν διαγράφονται.",
   "Demo mode: credentials are pre-filled. Just click Log in!": "Λειτουργία demo: τα διαπιστευτήρια είναι προσυμπληρωμένα. Απλά κάντε κλικ στο Σύνδεση!",
   "Deploy the agent next to your database": "Αναπτύξτε το agent δίπλα στη βάση δεδομένων σας",
-  "Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.": "Εντοπίστηκαν παρωχημένες μεταβλητές περιβάλλοντος BACKUP_*. Οι ρυθμίσεις backup πλέον γίνονται στο UI. Μπορείτε να αφαιρέσετε με ασφάλεια τις μεταβλητές BACKUP_* από το περιβάλλον σας.",
   "Description": "Περιγραφή",
   "Destination": "Προορισμός",
   "Destination database name": "Όνομα βάσης δεδομένων προορισμού",

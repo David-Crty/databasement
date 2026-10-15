@@ -134,8 +134,6 @@ return [
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
-    'has_deprecated_backup_env' => (bool) env('BACKUP_WORKING_DIRECTORY'),
-
     'available_locales' => [
         'en' => 'English',
         'fr' => 'Français',

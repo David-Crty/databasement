@@ -344,7 +344,6 @@
   "Demo mode is enabled. Snapshots are not deleted.": "Le mode démo est activé. Les snapshots ne sont pas supprimés.",
   "Demo mode: credentials are pre-filled. Just click Log in!": "Mode démo : les identifiants sont pré-remplis. Cliquez simplement sur Se connecter !",
   "Deploy the agent next to your database": "Déployez l’agent à côté de votre base de données",
-  "Deprecated BACKUP_* environment variables detected. Backup settings are now configured in the UI. You can safely remove BACKUP_* variables from your environment.": "Variables d’environnement BACKUP_* obsolètes détectées. Les paramètres de backup sont désormais configurés dans l’interface. Vous pouvez supprimer sans risque les variables BACKUP_* de votre environnement.",
   "Description": "Description",
   "Destination": "Destination",
   "Destination database name": "Nom de la base de données de destination",
