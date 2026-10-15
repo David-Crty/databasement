@@ -14,6 +14,7 @@ class RestoreQuery
     private const ALLOWED_SORT_COLUMNS = [
         'created_at',
         'status',
+        'duration_ms',
     ];
 
     /**
@@ -72,6 +73,10 @@ class RestoreQuery
 
         if ($sortColumn === 'status') {
             return self::orderByJobStatus($query, 'restores.backup_job_id', $direction);
+        }
+
+        if ($sortColumn === 'duration_ms') {
+            return self::orderByJobDuration($query, 'restores.backup_job_id', $direction);
         }
 
         return $query->orderBy($sortColumn, $direction);

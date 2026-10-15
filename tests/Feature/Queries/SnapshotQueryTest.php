@@ -68,6 +68,20 @@ test('can sort snapshots by column', function () {
         ->and($results->last()->file_size)->toBe(1000);
 });
 
+test('can sort snapshots by job duration', function () {
+    $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
+
+    $slow = pendingSnapshot($server);
+    $slow->job->update(['duration_ms' => 90000]);
+
+    $fast = pendingSnapshot($server);
+    $fast->job->update(['duration_ms' => 1500]);
+
+    $results = SnapshotQuery::buildFromParams(sortColumn: 'duration_ms', sortDirection: 'asc')->get();
+
+    expect($results->pluck('id')->all())->toBe([$fast->id, $slow->id]);
+});
+
 test('snapshot listing does not load the job log payload', function () {
     $factory = app(BackupJobFactory::class);
 

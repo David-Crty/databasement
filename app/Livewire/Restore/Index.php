@@ -62,8 +62,9 @@ class Index extends Component
     {
         return [
             ['key' => 'flow', 'label' => __('Source → Target'), 'sortable' => false],
+            ['key' => 'status', 'label' => __('Status'), 'class' => 'w-36'],
+            ['key' => 'duration_ms', 'label' => __('Duration'), 'class' => 'w-24 whitespace-nowrap'],
             ['key' => 'created_at', 'label' => __('Created'), 'class' => 'w-52'],
-            ['key' => 'status', 'label' => __('Status'), 'class' => 'w-44'],
         ];
     }
 
