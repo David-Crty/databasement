@@ -141,6 +141,11 @@
                         <x-menu-item :title="__('Backup now')" icon="bi.database-fill-up"
                                      wire:click="runBackupAll('{{ $server->id }}')" spinner
                                      class="text-info" />
+                        @if($server->database_type !== \App\Enums\DatabaseType::REDIS)
+                            <x-menu-item :title="__('Backup selected databases')" icon="o-queue-list"
+                                         wire:click="$dispatch('open-backup-databases-modal', { serverId: '{{ $server->id }}' })"
+                                         class="text-info" />
+                        @endif
                     @endcan
                     @endif
                     @can('restore', $server)
@@ -181,6 +186,9 @@
 
     <!-- RESTORE MODAL -->
     <livewire:restore.modal />
+
+    <!-- BACKUP SELECTED DATABASES MODAL -->
+    <livewire:database-server.backup-databases-modal />
 
     <!-- ADMINER MODAL -->
     <livewire:database-server.adminer-modal />

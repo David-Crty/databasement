@@ -44,6 +44,17 @@ services:
       - app
       - rustfs
 
+#  agent:
+#    image: davidcrty/databasement-php
+#    restart: unless-stopped
+#    environment:
+#      DATABASEMENT_URL: 'http://app:2226'
+#      DATABASEMENT_AGENT_TOKEN: ''
+#    volumes:
+#      - .:/app
+#    depends_on:
+#      - app
+
   mysql:
     image: mysql:8.4
     container_name: databasement-mysql
