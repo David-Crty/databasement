@@ -29,6 +29,10 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 - `1.10.0` Artisan commands no longer read the database while booting, so `php artisan key:generate --show` from the install docs returns at once where the database is unreachable, instead of after more than 100 seconds ([#697](https://github.com/David-Crty/databasement/pull/697))
 
+### Removed
+
+- `1.10.6` The startup log and the Volumes page no longer warn about deprecated `AWS_*` variables when `AWS_REGION` or `AWS_DEFAULT_REGION` is set. On EKS with IRSA, Pod Identity or ECS, the platform injects them and S3 volumes without access keys rely on them, so the advice to remove them was wrong. The `BACKUP_*` warning on the Backup configuration page is gone too ([#714](https://github.com/David-Crty/databasement/pull/714))
+
 ### Fixed
 
 - `1.10.5` MySQL backups on Amazon Aurora and RDS work again, instead of failing with "Access denied" since 1.10. Dumps no longer take a global read lock or carry the server's `GTID_PURGED` line, as before 1.10; add `--set-gtid-purged=ON` to the dump flags to keep it ([#713](https://github.com/David-Crty/databasement/pull/713))
@@ -53,6 +57,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Security
 
+- `1.10.6` The Docker image ships PHP 8.5.12, which fixes CVE-2026-109618 and CVE-2026-109619. The base image moves from FrankenPHP 1.12 to 1.13, as upstream no longer rebuilds the 1.12 tags ([#716](https://github.com/David-Crty/databasement/pull/716))
 - `1.10.2` The social login library (`laravel/socialite`) is updated to 5.30.0, which fixes a token replay in its Facebook OIDC provider (CWE-294). Databasement only uses the generic OIDC provider, so it was not exploitable ([#707](https://github.com/David-Crty/databasement/pull/707))
 
 ## [1.9] - 2026-10-11 {#v1-9}
@@ -373,7 +378,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.5
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.6
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
