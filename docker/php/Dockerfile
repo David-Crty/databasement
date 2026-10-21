@@ -12,7 +12,10 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS sqlpackage
 ARG SQLPACKAGE_VERSION=170.3.93
 RUN dotnet tool install --tool-path /opt/sqlpackage microsoft.sqlpackage --version "${SQLPACKAGE_VERSION}"
 
-FROM dunglas/frankenphp:1.12-php8.5-alpine
+# Pinned to the PHP patch so a PHP bump is a deliberate change (8.5.12 fixes
+# CVE-2026-109618 and CVE-2026-109619). Upstream only publishes new PHP patches
+# for the latest FrankenPHP minor, so the minor has to move along with them.
+FROM dunglas/frankenphp:1.13-php8.5.12-alpine
 
 RUN install-php-extensions \
     ctype \
