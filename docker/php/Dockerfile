@@ -12,7 +12,9 @@ FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS sqlpackage
 ARG SQLPACKAGE_VERSION=170.3.93
 RUN dotnet tool install --tool-path /opt/sqlpackage microsoft.sqlpackage --version "${SQLPACKAGE_VERSION}"
 
-FROM dunglas/frankenphp:1.12-php8.5-alpine
+# Upstream only rebuilds the latest FrankenPHP minor with new PHP patches, so a
+# minor that falls behind stops receiving PHP security fixes.
+FROM dunglas/frankenphp:1.13-php8.5-alpine
 
 RUN install-php-extensions \
     ctype \
