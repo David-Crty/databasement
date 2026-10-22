@@ -18,3 +18,5 @@ This policy applies to:
 - Official Helm charts
 
 Third-party dependencies are managed through regular updates but are outside the direct scope of this policy.
+
+Demo mode (`DEMO_MODE`) is also out of scope. It is off by default and exists only to run the public demo instance, where a shared account with known credentials that can download, delete and restore snapshots is intended. Enabling it on a real deployment is not a supported configuration.
