@@ -33,6 +33,8 @@
   <a href="https://github.com/David-Crty/databasement/issues">Report Bug or Request Feature</a>
 </p>
 
+[![Deploy to Railyard](https://app.railyard.run/deploy/badge)](https://app.railyard.run/deploy?repo=https://github.com/David-Crty/databasement)
+
 ---
 
 ## Features
