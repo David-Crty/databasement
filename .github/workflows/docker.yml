@@ -10,7 +10,9 @@ on:
 
 concurrency:
   group: docker-${{ github.ref }}
-  cancel-in-progress: true
+  # Main is never cancelled: the base image is only rebuilt by the push that
+  # touches docker/php, so a cancelled run would leave it unbuilt.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   build-base-image:
