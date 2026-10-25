@@ -52,6 +52,7 @@ jobs:
         run: npm run build
         env:
           DOCS_VERSION: ${{ steps.version.outputs.version }}
+          ANALYTICS_SNIPPET: ${{ vars.DOCS_ANALYTICS_SNIPPET }}
 
       - name: Deploy to gh-pages
         # Clean deploy: removes stale docs files from the branch on every

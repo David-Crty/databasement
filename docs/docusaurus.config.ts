@@ -6,6 +6,8 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const version = process.env.DOCS_VERSION;
 const isLocalBuild = process.env.DOCS_LOCAL === 'true';
+// Raw HTML added to the <head> of every page, e.g. an analytics tag. Nothing when unset.
+const analyticsSnippet = process.env.ANALYTICS_SNIPPET;
 
 // Versioned builds: scripts/prepare-versions.sh snapshots one docs version per
 // 1.x minor from git tags. When versions.json exists, the latest minor is
@@ -35,6 +37,9 @@ const config: Config = {
     ],
 
     plugins: [
+        ...(analyticsSnippet
+            ? [() => ({name: 'analytics-snippet', injectHtmlTags: () => ({headTags: [analyticsSnippet]})})]
+            : []),
         [
             'docusaurus-plugin-llms',
             {
