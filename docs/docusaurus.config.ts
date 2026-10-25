@@ -141,6 +141,13 @@ const config: Config = {
     ],
 
     themeConfig: {
+        announcementBar: {
+            id: 'security-1-10-6',
+            content: `<strong>Security update:</strong> a critical PHP vulnerability affects releases before 1.10.6. Update to <a href="https://github.com/David-Crty/databasement/releases/tag/v1.10.6">1.10.6</a> or later now: <a href="${baseUrl}self-hosting/docker-compose#updating">Docker Compose</a> · <a href="${baseUrl}self-hosting/docker#updating">Docker</a> · <a href="${baseUrl}self-hosting/kubernetes-helm#updating">Helm</a> · <a href="${baseUrl}self-hosting/native-ubuntu#updating-databasement">Ubuntu</a>`,
+            backgroundColor: '#b91c1c',
+            textColor: '#ffffff',
+            isCloseable: true,
+        },
         navbar: {
             title: 'Databasement',
             logo: {
