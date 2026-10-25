@@ -6,7 +6,7 @@ description: >-
   x-table and @scope cells, modals, buttons and `spinner`, badges, alerts, cards, selects, tabs,
   menus, popovers, icons), styling one with daisyUI/Tailwind classes, or debugging a class, attribute
   or prop that has no effect. Lists the available components and how to read their source for props,
-  plus this project's rules, toasts and local components. Not for mail templates (`<x-mail::*>`) or the Docusaurus docs
+  plus this project's rules, toasts and local components. Not for mail templates (`<x-mail::*>`) or the docs site
   site.
 ---
 

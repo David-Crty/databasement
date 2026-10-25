@@ -23,8 +23,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          # Full history + tags: prepare-versions.sh snapshots one docs
-          # version per 1.x minor from the latest patch tag of each minor
+          # Full history + tags: build-versions.sh builds one docs version
+          # per 1.x minor from the latest patch tag of each minor
           fetch-depth: 0
           # Keep the token out of .git/config while npm ci runs third-party
           # scripts; the deploy action authenticates via its own token input
@@ -38,28 +38,31 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
           cache-dependency-path: docs/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Prepare versioned docs from tags
-        run: ./scripts/prepare-versions.sh
-
-      - name: Build documentation
-        run: npm run build
+      - name: Build every docs version from tags
+        run: npm run build:versions
         env:
           DOCS_VERSION: ${{ steps.version.outputs.version }}
           ANALYTICS_SNIPPET: ${{ vars.DOCS_ANALYTICS_SNIPPET }}
+
+      - name: Fetch the live site
+        run: git fetch --no-tags --depth=1 origin gh-pages
+
+      - name: Check no live URL or anchor disappears
+        run: npm run check:urls -- --ref FETCH_HEAD
 
       - name: Deploy to gh-pages
         # Clean deploy: removes stale docs files from the branch on every
         # deploy, but never touches the Helm repository files
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: docs/build
+          folder: docs/dist
           branch: gh-pages
           clean-exclude: |
             charts/**

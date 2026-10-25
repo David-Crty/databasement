@@ -1,0 +1,18 @@
+---
+/** A Heroicon (v2, outline) from src/icons/, inlined so it takes the text color. */
+interface Props {
+    name: string;
+    size?: number;
+    class?: string;
+}
+
+const icons = import.meta.glob<string>('../icons/*.svg', {query: '?raw', import: 'default', eager: true});
+const {name, size = 20, class: className = ''} = Astro.props;
+const svg = icons[`../icons/${name}.svg`];
+if (!svg) {
+    throw new Error(`Unknown icon "${name}": add it to src/icons/ from the heroicons package (24/outline).`);
+}
+const html = svg.replace('<svg ', `<svg width="${size}" height="${size}" class="icon ${className}" `);
+---
+
+<Fragment set:html={html} />

@@ -1,0 +1,991 @@
+---
+import {Image} from 'astro:assets';
+import '../styles/tokens.css';
+import Announcement from '../components/Announcement.astro';
+import Icon from '../components/Icon.astro';
+import mark from '../assets/mark.svg';
+import screenshot from '../assets/screenshot.png';
+import context from 'virtual:docs-context';
+
+const base = import.meta.env.BASE_URL;
+const docs = (slug: string) => `${base}${slug}/`;
+const title = 'Databasement: self-hosted database backup manager';
+const description = 'Schedule, store and restore backups of MySQL, PostgreSQL, MariaDB, SQL Server, MongoDB, SQLite, Firebird and Redis databases from one self-hosted web app.';
+const demo = 'https://databasement-demo.crty.dev/';
+const github = 'https://github.com/David-Crty/databasement';
+const version = context.release ? `v${context.release}` : context.minor ? `v${context.minor}` : '';
+
+const engineLogos = import.meta.glob<{default: ImageMetadata}>('../assets/engines/*.svg', {eager: true});
+const engines = [
+    {key: 'mysql', name: 'MySQL', darkInk: true},
+    {key: 'postgresql', name: 'PostgreSQL'},
+    {key: 'mariadb', name: 'MariaDB', darkInk: true},
+    {key: 'microsoftsqlserver', name: 'SQL Server'},
+    {key: 'mongodb', name: 'MongoDB'},
+    {key: 'sqlite', name: 'SQLite'},
+    {key: 'firebird', name: 'Firebird', darkInk: true},
+    {key: 'redis', name: 'Redis / Valkey'},
+].map((engine) => ({...engine, logo: engineLogos[`../assets/engines/${engine.key}.svg`].default}));
+
+const features = [
+    {icon: 'circle-stack', title: 'Eight engines, one UI', text: 'MySQL, PostgreSQL, MariaDB, SQL Server, MongoDB, SQLite, Firebird and Redis, dumped with their native tools.', link: docs('user-guide/database-servers')},
+    {icon: 'lock-closed', title: 'Private networks', text: 'Reach databases through an SSH bastion, or run a remote agent so nothing needs an inbound port.', link: docs('user-guide/agents'), tags: [{label: 'SSH', tone: 'warning'}, {label: 'Agent', tone: 'success'}]},
+    {icon: 'archive-box', title: 'Schedules and retention', text: 'Recurring backups on a cron schedule. Keep N days, or a GFS policy like 7d/4w/12m.', link: docs('user-guide/backups'), tags: [{label: '7d/4w/12m', tone: 'mono'}]},
+    {icon: 'arrow-uturn-left', title: 'Restore anywhere', text: 'Restore a snapshot to the same server or another one: production to staging in a few clicks.', link: docs('user-guide/snapshots')},
+    {icon: 'server-stack', title: 'Your storage', text: 'Local disk, S3-compatible, Azure Blob, SFTP, FTP or SMB volumes. Compressed with gzip, zstd or encrypted 7-Zip.', link: docs('user-guide/volumes')},
+    {icon: 'bell-alert', title: 'Failure alerts', text: 'Email, Slack, Discord, Telegram, Pushover, Gotify or a webhook when a job fails.', link: docs('self-hosting/configuration/notification')},
+    {icon: 'user-group', title: 'Teams and 2FA', text: 'Organizations, roles and abilities, two-factor authentication and SSO.', link: docs('user-guide/permissions')},
+    {icon: 'command-line', title: 'API and MCP server', text: 'Drive everything from scripts, CI/CD pipelines or an AI assistant.', link: docs('user-guide/api')},
+    {icon: 'cpu-chip', title: 'One container', text: 'Web server, queue worker and scheduler in a single image. Docker, Compose, Helm or Ubuntu.', link: docs('self-hosting/intro')},
+];
+
+const sections = [
+    {id: 'self-hosting', icon: 'rocket-launch', title: 'Self-hosting', text: 'Deploy with Docker, Compose, Helm or a native Ubuntu install, then configure it.', link: docs('self-hosting/intro')},
+    {id: 'user-guide', icon: 'book-open', title: 'User guide', text: 'Register servers, schedule backups, browse snapshots and restore anywhere.', link: docs('user-guide/intro')},
+    {id: 'api', icon: 'command-line', title: 'REST API & MCP', text: 'Automate backups from scripts, CI/CD pipelines and AI assistants.', link: docs('user-guide/api')},
+    {id: 'contributing', icon: 'pencil-square', title: 'Contributing', text: 'Set up the development environment and send your first pull request.', link: docs('contributing/development')},
+];
+
+const footer = [
+    {title: 'Docs', links: [
+        {label: 'Self-hosting', href: docs('self-hosting/intro')},
+        {label: 'User guide', href: docs('user-guide/intro')},
+        {label: 'REST API', href: docs('user-guide/api')},
+        {label: 'MCP server', href: docs('user-guide/mcp')},
+    ]},
+    {title: 'Project', links: [
+        {label: 'GitHub', href: github, external: true},
+        {label: 'Changelog', href: docs('changelog')},
+        {label: 'Report an issue', href: `${github}/issues`, external: true},
+        {label: 'Contributing', href: docs('contributing/development')},
+    ]},
+    {title: 'Try it', links: [
+        {label: 'Live demo', href: demo, external: true},
+        {label: 'Docker Hub', href: 'https://hub.docker.com/r/davidcrty/databasement', external: true},
+        {label: 'llms.txt', href: `${base}llms.txt`},
+    ]},
+];
+
+const quickStart = 'docker run -d -p 2226:2226 davidcrty/databasement:1';
+---
+
+<!doctype html>
+<html lang="en" data-theme="dark">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <link rel="canonical" href={new URL(base, Astro.site)} />
+        <link rel="icon" href={`${base}img/favicon.svg`} type="image/svg+xml" />
+        <link rel="icon" href={`${base}img/favicon.ico`} sizes="32x32" />
+        <link rel="apple-touch-icon" href={`${base}img/apple-touch-icon.png`} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={new URL(`${base}img/banner-v2.png`, Astro.site)} />
+        <script is:inline>
+            // Same key as Starlight's theme picker, so the docs and the landing agree.
+            try {
+                const stored = localStorage.getItem('starlight-theme');
+                const theme = stored === 'light' || stored === 'dark' ? stored : matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+                document.documentElement.dataset.theme = theme;
+            } catch {}
+        </script>
+        {context.analyticsSnippet && <Fragment set:html={context.analyticsSnippet} />}
+    </head>
+    <body>
+        <Announcement />
+        <header class="nav">
+            <div class="nav__inner">
+                <a class="brand" href={base}>
+                    <Image src={mark} alt="" width={30} height={30} />
+                    <span class="wordmark">Databasement</span>
+                </a>
+                {version && <span class="version">{version}</span>}
+                <nav class="nav__links" aria-label="Main">
+                    <a href={docs('self-hosting/intro')}>Self-hosting</a>
+                    <a href={docs('user-guide/intro')}>User guide</a>
+                    <a href={docs('user-guide/api')}>API</a>
+                    <a href={docs('changelog')}>Changelog</a>
+                </nav>
+                <div class="nav__right">
+                    <a class="nav__gh" href={github}>GitHub <Icon name="arrow-up-right" size={14} /></a>
+                    <button class="btn btn--ghost btn--icon btn--sm" type="button" data-theme-toggle aria-label="Switch theme">
+                        <Icon name="sun" size={18} class="when-dark" />
+                        <Icon name="moon" size={18} class="when-light" />
+                    </button>
+                    <a class="btn btn--primary btn--sm" href={demo}>Live demo <Icon name="arrow-up-right" size={16} /></a>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="hero dotgrid">
+                <div class="hero__inner">
+                    <div>
+                        <span class="eyebrow hero__kicker">Open source · Self-hosted · MIT</span>
+                        <h1>Your backups deserve a safe place to live.</h1>
+                        <p class="hero__lead">
+                            Schedule, store and restore backups of eight database engines from one web UI. Runs as a single container on your own infrastructure.
+                        </p>
+                        <div class="hero__cta">
+                            <a class="btn btn--primary btn--lg" href={docs('self-hosting/intro')}>Get started <Icon name="arrow-right" size={18} /></a>
+                            <a class="btn btn--secondary btn--lg" href={demo}>Live demo <Icon name="arrow-up-right" size={18} /></a>
+                        </div>
+                        <div class="cmd hero__cmd">
+                            <span class="tok-prompt">$</span>
+                            <code>{quickStart}</code>
+                            <button class="copy" type="button" data-copy={quickStart} aria-label="Copy command">
+                                <Icon name="clipboard-document" size={16} />
+                            </button>
+                        </div>
+                    </div>
+                    <Image
+                        class="shot"
+                        src={screenshot}
+                        alt="Databasement dashboard: snapshot count, jobs activity chart, latest jobs"
+                        widths={[640, 1280, screenshot.width]}
+                        sizes="(min-width: 900px) 640px, 100vw"
+                    />
+                </div>
+            </section>
+
+            <section class="engines-band">
+                <div class="section__inner engines-band__inner">
+                    <span class="eyebrow">8 engines · native dump tools</span>
+                    <ul class="engines" aria-label="Supported databases">
+                        {engines.map((engine) => (
+                            <li class="engine">
+                                <img src={engine.logo.src} alt="" width="20" height="20" data-ink={engine.darkInk ? 'dark' : undefined} />
+                                {engine.name}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </section>
+
+            <section class="section" id="features">
+                <div class="section__inner">
+                    <div class="section-head">
+                        <span class="eyebrow">Features</span>
+                        <h2>Everything a backup needs, nothing it doesn’t.</h2>
+                        <p>Register a server, pick a schedule and a volume. Databasement handles the dump, the compression, the upload and the cleanup.</p>
+                    </div>
+                    <div class="features">
+                        {features.map((feature) => (
+                            <a class="feature" href={feature.link}>
+                                <span class="feature__icon"><Icon name={feature.icon} /></span>
+                                <h3>{feature.title}</h3>
+                                <p>{feature.text}</p>
+                                {feature.tags && (
+                                    <span class="feature__tags">
+                                        {feature.tags.map((tag) => <span class={`tag tag--${tag.tone}`}>{tag.label}</span>)}
+                                    </span>
+                                )}
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <section class="section section--raised" id="quick-start">
+                <div class="section__inner install">
+                    <div>
+                        <div class="section-head section-head--flush">
+                            <span class="eyebrow">Install</span>
+                            <h2>Running in one command.</h2>
+                            <p>One image bundles the web server, queue worker and scheduler. Pick your platform; the docs cover each step, from the first container to Helm values.</p>
+                        </div>
+                        <div class="install__cta">
+                            <a class="btn btn--primary" href={docs('self-hosting/intro')}>Self-hosting guide <Icon name="arrow-right" size={18} /></a>
+                            <a class="btn btn--secondary" href={docs('self-hosting/configuration')}>Configuration</a>
+                        </div>
+                    </div>
+                    <div class="tabs" data-tabs>
+                        <div class="tabs__list" role="tablist" aria-label="Install method">
+                            <button role="tab" id="install-tab-docker" aria-controls="install-docker" aria-selected="true">Docker</button>
+                            <button role="tab" id="install-tab-compose" aria-controls="install-compose" aria-selected="false" tabindex="-1">Compose</button>
+                            <button role="tab" id="install-tab-helm" aria-controls="install-helm" aria-selected="false" tabindex="-1">Helm</button>
+                        </div>
+                        <div role="tabpanel" id="install-docker" aria-labelledby="install-tab-docker">
+<pre><code><span class="tok-prompt">$ </span><span class="tok-kw">docker</span> run -d \
+  <span class="tok-num">--name</span> databasement \
+  <span class="tok-num">-p</span> 2226:2226 \
+  <span class="tok-num">-e</span> <span class="tok-var">DB_CONNECTION</span>=<span class="tok-str">sqlite</span> \
+  <span class="tok-num">-e</span> <span class="tok-var">DB_DATABASE</span>=<span class="tok-str">/data/database.sqlite</span> \
+  <span class="tok-num">-e</span> <span class="tok-var">ENABLE_QUEUE_WORKER</span>=<span class="tok-str">true</span> \
+  <span class="tok-num">-v</span> ./databasement-data:/data \
+  <span class="tok-var">davidcrty/databasement:1</span></code></pre>
+                        </div>
+                        <div role="tabpanel" id="install-compose" aria-labelledby="install-tab-compose" hidden>
+<pre><code><span class="tok-kw">services</span>:
+  <span class="tok-kw">app</span>:
+    <span class="tok-kw">image</span>: <span class="tok-var">davidcrty/databasement:1</span>
+    <span class="tok-kw">restart</span>: <span class="tok-str">unless-stopped</span>
+    <span class="tok-kw">ports</span>:
+      - <span class="tok-str">"2226:2226"</span>
+    <span class="tok-kw">env_file</span>: <span class="tok-str">.env</span>
+    <span class="tok-kw">volumes</span>:
+      - <span class="tok-str">./data:/data</span>
+
+  <span class="tok-kw">worker</span>:
+    <span class="tok-kw">image</span>: <span class="tok-var">davidcrty/databasement:1</span>
+    <span class="tok-kw">environment</span>:
+      <span class="tok-kw">ENABLE_QUEUE_WORKER</span>: <span class="tok-str">"true"</span>
+      <span class="tok-kw">ENABLE_WEB_SERVER</span>: <span class="tok-str">"false"</span></code></pre>
+                        </div>
+                        <div role="tabpanel" id="install-helm" aria-labelledby="install-tab-helm" hidden>
+<pre><code><span class="tok-prompt">$ </span><span class="tok-kw">helm</span> repo add databasement <span class="tok-str">https://david-crty.github.io/databasement</span>
+<span class="tok-prompt">$ </span><span class="tok-kw">helm</span> repo update
+<span class="tok-prompt">$ </span><span class="tok-kw">helm</span> upgrade --install databasement databasement/databasement <span class="tok-num">-f</span> values.yaml</code></pre>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section" id="documentation-sections">
+                <div class="section__inner">
+                    <div class="section-head">
+                        <span class="eyebrow">Documentation</span>
+                        <h2>Find your way in.</h2>
+                    </div>
+                    <div class="linkcards">
+                        {sections.map((section) => (
+                            <a class="linkcard" id={section.id} href={section.link}>
+                                <span class="feature__icon"><Icon name={section.icon} /></span>
+                                <span class="linkcard__title">{section.title} <Icon name="arrow-right" size={16} /></span>
+                                <span class="linkcard__desc">{section.text}</span>
+                            </a>
+                        ))}
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <div class="footer__inner">
+                <div>
+                    <a class="brand" href={base}>
+                        <Image src={mark} alt="" width={30} height={30} />
+                        <span class="wordmark">Databasement</span>
+                    </a>
+                    <p class="footer__tagline">Simple, open-source web UI for database backup and restore. Self-hosted, MIT licensed.</p>
+                </div>
+                <nav class="footer__cols" aria-label="Footer" id="quick-links">
+                    {footer.map((column) => (
+                        <div>
+                            <h2 class="eyebrow">{column.title}</h2>
+                            <ul>
+                                {column.links.map((link) => (
+                                    <li>
+                                        <a href={link.href}>
+                                            {link.label}
+                                            {link.external && <Icon name="arrow-up-right" size={14} />}
+                                        </a>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </nav>
+            </div>
+            <div class="footer__base">
+                <span>© {new Date().getFullYear()} Databasement · MIT License</span>
+                {version && <span class="footer__ver"><span class="dot"></span>{version}</span>}
+            </div>
+        </footer>
+
+        <script>
+            document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => {
+                const theme = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+                document.documentElement.dataset.theme = theme;
+                try {
+                    localStorage.setItem('starlight-theme', theme);
+                } catch {}
+            });
+
+            for (const button of document.querySelectorAll<HTMLButtonElement>('[data-copy]')) {
+                button.addEventListener('click', async () => {
+                    await navigator.clipboard.writeText(button.dataset.copy ?? '');
+                    button.dataset.copied = '';
+                    setTimeout(() => delete button.dataset.copied, 1600);
+                });
+            }
+
+            for (const root of document.querySelectorAll('[data-tabs]')) {
+                const tabs = [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+                const select = (tab: HTMLButtonElement) => {
+                    for (const other of tabs) {
+                        const selected = other === tab;
+                        other.setAttribute('aria-selected', String(selected));
+                        other.tabIndex = selected ? 0 : -1;
+                        document.getElementById(other.getAttribute('aria-controls')!)!.hidden = !selected;
+                    }
+                    tab.focus();
+                };
+                tabs.forEach((tab, index) => {
+                    tab.addEventListener('click', () => select(tab));
+                    tab.addEventListener('keydown', (event) => {
+                        const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+                        if (step) select(tabs[(index + step + tabs.length) % tabs.length]);
+                    });
+                });
+            }
+        </script>
+    </body>
+</html>
+
+<style>
+    :global(*, *::before, *::after) {
+        box-sizing: border-box;
+    }
+    :global(body) {
+        margin: 0;
+        background: var(--surface);
+        color: var(--ink);
+        font-family: var(--font-sans);
+        font-size: 16px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+    }
+    :global(:focus-visible) {
+        outline: none;
+        box-shadow: var(--focus-ring);
+        border-radius: var(--radius-sm);
+    }
+    :global(.icon) {
+        flex: none;
+    }
+    h1,
+    h2,
+    h3 {
+        margin: 0;
+        font-weight: 600;
+        text-wrap: balance;
+    }
+    a {
+        color: inherit;
+    }
+    .eyebrow {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        line-height: 16px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--ink-muted);
+    }
+
+    /* Brand */
+    .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+    }
+    .brand img {
+        width: 30px;
+        height: 30px;
+    }
+    .wordmark {
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        line-height: 1;
+        background: linear-gradient(to right, var(--brand-cyan), var(--brand-purple), var(--brand-purple-deep));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    /* Buttons and tags */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
+        height: 40px;
+        padding: 0 var(--space-4);
+        border: 1px solid transparent;
+        border-radius: var(--radius-md);
+        font: 600 14px/1 var(--font-sans);
+        text-decoration: none;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+    }
+    .btn--primary {
+        background: var(--accent);
+        color: var(--on-accent);
+    }
+    .btn--primary:hover {
+        background: var(--accent-hover);
+    }
+    .btn--secondary {
+        background: var(--surface-raised);
+        border-color: var(--line-strong);
+        color: var(--ink);
+    }
+    .btn--secondary:hover {
+        background: var(--surface-hover);
+    }
+    .btn--ghost {
+        background: transparent;
+        color: var(--ink-muted);
+    }
+    .btn--ghost:hover {
+        background: var(--surface-hover);
+        color: var(--ink);
+    }
+    .btn--lg {
+        height: 48px;
+        padding: 0 var(--space-5);
+        font-size: 15px;
+    }
+    .btn--sm {
+        height: 32px;
+        padding: 0 var(--space-3);
+        font-size: 13px;
+    }
+    .btn--icon {
+        width: 32px;
+        padding: 0;
+    }
+    :global([data-theme='light']) .when-light,
+    :global([data-theme='dark']) .when-dark {
+        display: none;
+    }
+    .tag {
+        display: inline-flex;
+        align-items: center;
+        height: 22px;
+        padding: 0 var(--space-2);
+        border-radius: var(--radius-sm);
+        background: var(--surface-hover);
+        color: var(--ink-muted);
+        font: 500 12px/1 var(--font-sans);
+    }
+    .tag--mono {
+        font-family: var(--font-mono);
+    }
+    .tag--success {
+        background: var(--success-soft);
+        color: var(--success);
+    }
+    .tag--warning {
+        background: var(--warning-soft);
+        color: var(--warning);
+    }
+
+    /* Nav */
+    .nav {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        height: var(--nav-height);
+        background: color-mix(in srgb, var(--surface) 85%, transparent);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+    }
+    .nav__inner {
+        display: flex;
+        align-items: center;
+        gap: var(--space-5);
+        height: 100%;
+        max-width: var(--page-max);
+        margin: 0 auto;
+        padding: 0 var(--space-5);
+    }
+    .version {
+        display: inline-flex;
+        align-items: center;
+        height: 26px;
+        padding: 0 var(--space-2);
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-sm);
+        font: 500 12px/1 var(--font-mono);
+        color: var(--ink-muted);
+    }
+    .nav__links {
+        display: flex;
+    }
+    .nav__links a,
+    .nav__gh {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 36px;
+        padding: 0 var(--space-3);
+        border-radius: var(--radius-sm);
+        color: var(--ink-muted);
+        font-size: 14px;
+        font-weight: 500;
+        text-decoration: none;
+        white-space: nowrap;
+    }
+    .nav__gh {
+        font: 500 13px/1 var(--font-mono);
+    }
+    .nav__links a:hover,
+    .nav__gh:hover {
+        background: var(--surface-hover);
+        color: var(--ink);
+    }
+    .nav__right {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        margin-left: auto;
+    }
+
+    /* Hero */
+    .dotgrid {
+        background-image: radial-gradient(color-mix(in srgb, var(--ink) 9%, transparent) 1px, transparent 1px);
+        background-size: 24px 24px;
+        background-position: -12px -12px;
+    }
+    .hero {
+        padding: var(--space-9) var(--space-5) var(--space-8);
+        border-bottom: 1px solid var(--line);
+        overflow: hidden;
+    }
+    .hero__inner {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+        gap: var(--space-7);
+        align-items: center;
+        max-width: var(--page-max);
+        margin: 0 auto;
+    }
+    .hero__kicker {
+        color: var(--accent);
+    }
+    .hero h1 {
+        margin-top: var(--space-4);
+        font-size: 64px;
+        line-height: 1.02;
+        letter-spacing: -0.035em;
+    }
+    .hero__lead {
+        max-width: 520px;
+        margin: var(--space-5) 0 0;
+        color: var(--ink-muted);
+        font-size: 19px;
+        line-height: 1.6;
+    }
+    .hero__cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        margin-top: var(--space-6);
+    }
+    .hero__cmd {
+        max-width: 560px;
+        margin-top: var(--space-6);
+    }
+    .shot {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: var(--surface-raised);
+        box-shadow: var(--shadow-frame);
+    }
+
+    /* Code */
+    .cmd {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+        height: 48px;
+        padding: 0 6px 0 var(--space-4);
+        border: 1px solid var(--code-line);
+        border-radius: var(--radius-md);
+        background: var(--code-bg);
+        color: var(--code-ink);
+        font: 400 14px/1 var(--font-mono);
+    }
+    .cmd code {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .copy {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--code-muted);
+        cursor: pointer;
+    }
+    .copy:hover {
+        background: var(--code-line);
+        color: var(--code-ink);
+    }
+    .copy[data-copied] {
+        color: var(--syntax-string);
+    }
+    .tok-prompt {
+        color: var(--code-muted);
+        user-select: none;
+    }
+    .tok-kw {
+        color: var(--syntax-keyword);
+    }
+    .tok-str {
+        color: var(--syntax-string);
+    }
+    .tok-num {
+        color: var(--syntax-number);
+    }
+    .tok-var {
+        color: var(--syntax-var);
+    }
+
+    /* Sections */
+    .section {
+        padding: var(--space-9) var(--space-5);
+    }
+    .section--raised {
+        background: var(--surface-raised);
+        border-block: 1px solid var(--line);
+    }
+    .section__inner {
+        max-width: var(--page-max);
+        margin: 0 auto;
+    }
+    .section-head {
+        max-width: 680px;
+        margin-bottom: var(--space-7);
+    }
+    .section-head--flush {
+        margin-bottom: 0;
+    }
+    .section-head .eyebrow {
+        color: var(--accent);
+    }
+    .section-head h2 {
+        margin-top: var(--space-3);
+        font-size: 44px;
+        line-height: 1.08;
+        letter-spacing: -0.025em;
+    }
+    .section-head p {
+        margin: var(--space-4) 0 0;
+        color: var(--ink-muted);
+        font-size: 19px;
+        line-height: 1.6;
+    }
+
+    /* Engines */
+    .engines-band {
+        padding: var(--space-8) var(--space-5);
+        border-bottom: 1px solid var(--line);
+    }
+    .engines-band__inner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 20px;
+    }
+    .engines {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--space-2);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .engine {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        height: 40px;
+        padding: 0 var(--space-4) 0 var(--space-3);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: var(--surface-raised);
+        font-size: 14px;
+        font-weight: 500;
+    }
+    :global([data-theme='dark']) .engine img[data-ink='dark'] {
+        filter: brightness(0) invert(0.92);
+    }
+
+    /* Features */
+    .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: var(--line);
+    }
+    .feature {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: var(--space-5) var(--space-5) var(--space-6);
+        background: var(--surface-raised);
+        text-decoration: none;
+        transition: background-color 0.15s;
+    }
+    .feature:hover {
+        background: var(--surface-hover);
+    }
+    .feature__icon {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        margin-bottom: var(--space-3);
+        border-radius: var(--radius-md);
+        background: var(--accent-soft);
+        color: var(--accent);
+    }
+    .feature h3 {
+        font-size: 16px;
+        line-height: 1.5;
+    }
+    .feature p {
+        margin: 0;
+        color: var(--ink-muted);
+        font-size: 14px;
+    }
+    .feature__tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: var(--space-2);
+    }
+
+    /* Install */
+    .install {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-8);
+        align-items: center;
+    }
+    .install__cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        margin-top: var(--space-6);
+    }
+    .tabs {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid var(--code-line);
+        border-radius: var(--radius-md);
+        background: var(--code-bg);
+        color: var(--code-ink);
+    }
+    .tabs__list {
+        display: flex;
+        gap: var(--space-1);
+        padding: 0 var(--space-2);
+        background: var(--code-bar);
+        border-bottom: 1px solid var(--code-line);
+    }
+    .tabs__list button {
+        position: relative;
+        height: 40px;
+        padding: 0 var(--space-3);
+        border: 0;
+        background: none;
+        color: var(--code-muted);
+        font: 500 13px/1 var(--font-mono);
+        cursor: pointer;
+    }
+    .tabs__list button:hover,
+    .tabs__list button[aria-selected='true'] {
+        color: var(--code-ink);
+    }
+    .tabs__list button[aria-selected='true']::after {
+        content: '';
+        position: absolute;
+        left: var(--space-3);
+        right: var(--space-3);
+        bottom: -1px;
+        height: 2px;
+        border-radius: 2px 2px 0 0;
+        background: var(--syntax-var);
+    }
+    .tabs pre {
+        margin: 0;
+        padding: var(--space-4) var(--space-5);
+        overflow-x: auto;
+        font: 400 14px/1.65 var(--font-mono);
+    }
+    .tabs code {
+        font: inherit;
+    }
+
+    /* Link cards */
+    .linkcards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: var(--space-4);
+    }
+    .linkcard {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+        padding: var(--space-5);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: var(--surface-raised);
+        text-decoration: none;
+        transition: border-color 0.15s;
+    }
+    .linkcard:hover {
+        border-color: var(--accent);
+    }
+    .linkcard .feature__icon {
+        margin-bottom: var(--space-2);
+    }
+    .linkcard__title {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-weight: 600;
+    }
+    .linkcard__title :global(.icon) {
+        color: var(--ink-muted);
+        transition: transform 0.15s, color 0.15s;
+    }
+    .linkcard:hover .linkcard__title :global(.icon) {
+        transform: translateX(3px);
+        color: var(--accent);
+    }
+    .linkcard__desc {
+        color: var(--ink-muted);
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
+    /* Footer */
+    .footer {
+        border-top: 1px solid var(--line);
+        font-size: 14px;
+    }
+    .footer__inner {
+        display: grid;
+        grid-template-columns: 1.4fr 3fr;
+        gap: var(--space-6);
+        max-width: var(--page-max);
+        margin: 0 auto;
+        padding: var(--space-8) var(--space-5) var(--space-6);
+    }
+    .footer__tagline {
+        max-width: 280px;
+        margin: var(--space-3) 0 0;
+        color: var(--ink-muted);
+        line-height: 1.55;
+    }
+    .footer__cols {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-6);
+    }
+    .footer__cols h2 {
+        margin-bottom: var(--space-3);
+    }
+    .footer__cols ul {
+        display: grid;
+        gap: var(--space-2);
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+    .footer__cols a {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: var(--ink-muted);
+        text-decoration: none;
+    }
+    .footer__cols a:hover {
+        color: var(--ink);
+    }
+    .footer__base {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-4);
+        max-width: var(--page-max);
+        margin: 0 auto;
+        padding: var(--space-4) var(--space-5);
+        border-top: 1px solid var(--line);
+        color: var(--ink-muted);
+        font-size: 13px;
+    }
+    .footer__ver {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        font: 500 13px/1 var(--font-mono);
+    }
+    .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: var(--radius-full);
+        background: var(--success);
+    }
+
+    @media (max-width: 1023px) {
+        .nav__links,
+        .version {
+            display: none;
+        }
+    }
+    @media (max-width: 900px) {
+        .hero__inner,
+        .install,
+        .footer__inner {
+            grid-template-columns: 1fr;
+        }
+        .features {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+    @media (max-width: 767px) {
+        .hero {
+            padding: var(--space-8) var(--space-4) var(--space-7);
+        }
+        .hero h1,
+        .section-head h2 {
+            font-size: 44px;
+            line-height: 1.08;
+            letter-spacing: -0.025em;
+        }
+        .section,
+        .engines-band {
+            padding: var(--space-8) var(--space-4);
+        }
+        .nav__inner {
+            padding: 0 var(--space-4);
+        }
+        .nav__gh {
+            display: none;
+        }
+        .features,
+        .footer__cols {
+            grid-template-columns: 1fr;
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            transition: none !important;
+        }
+    }
+</style>

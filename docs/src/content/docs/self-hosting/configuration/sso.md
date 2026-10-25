@@ -1,0 +1,266 @@
+---
+title: "SSO"
+sidebar:
+  order: 2005
+---
+
+Databasement supports OAuth authentication, allowing users to log in using external identity providers. This can be used alongside or instead of traditional password authentication.
+
+## Supported Providers
+
+- **Google** - Google Workspace and personal accounts
+- **GitHub** - GitHub accounts
+- **GitLab** - GitLab.com or self-hosted GitLab
+- **Generic OIDC** - Any OpenID Connect provider (Keycloak, Authentik, Dex, Okta, etc.)
+
+:::tip[Need another provider?]
+Laravel Socialite supports [many more providers](https://socialiteproviders.com/) including Facebook, Microsoft, Apple, Slack, and 100+ others. Feel free to submit a PR to add support for additional providers.
+:::
+
+## Configuration
+
+OAuth is configured via environment variables. Each provider can be enabled independently.
+
+### Google
+
+1. Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Set authorized redirect URI to: `https://your-domain.com/oauth/google/callback`
+3. Configure environment variables:
+
+```env
+OAUTH_GOOGLE_ENABLED=true
+OAUTH_GOOGLE_CLIENT_ID=your-client-id
+OAUTH_GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+### GitHub
+
+1. Create an OAuth App in [GitHub Developer Settings](https://github.com/settings/developers)
+2. Set authorization callback URL to: `https://your-domain.com/oauth/github/callback`
+3. Configure environment variables:
+
+```env
+OAUTH_GITHUB_ENABLED=true
+OAUTH_GITHUB_CLIENT_ID=your-client-id
+OAUTH_GITHUB_CLIENT_SECRET=your-client-secret
+```
+
+### GitLab
+
+1. Create an OAuth application in GitLab (Admin Area > Applications or User Settings > Applications)
+2. Set redirect URI to: `https://your-domain.com/oauth/gitlab/callback`
+3. Configure environment variables:
+
+```env
+OAUTH_GITLAB_ENABLED=true
+OAUTH_GITLAB_CLIENT_ID=your-application-id
+OAUTH_GITLAB_CLIENT_SECRET=your-secret
+OAUTH_GITLAB_HOST=https://gitlab.com  # Or your self-hosted GitLab URL
+```
+
+### Generic OIDC (Keycloak, Authentik, etc.)
+
+For any OpenID Connect compatible provider:
+
+1. Create a client/application in your identity provider
+2. Set redirect URI to: `https://your-domain.com/oauth/oidc/callback`
+3. Configure environment variables:
+
+```env
+OAUTH_OIDC_ENABLED=true
+OAUTH_OIDC_CLIENT_ID=your-client-id
+OAUTH_OIDC_CLIENT_SECRET=your-client-secret
+OAUTH_OIDC_BASE_URL=https://your-idp.com/realms/your-realm  # The OIDC base URL
+OAUTH_OIDC_LABEL=SSO  # Button label on login page
+```
+
+#### Keycloak Setup
+
+1. In Keycloak Admin Console, go to **Clients** and click **Create client**
+2. Configure the client:
+   - **Client ID**: `databasement` (or your preferred name)
+   - **Client authentication**: **On** (required for confidential clients)
+   - **Authentication flow**: Check **Standard flow** (Authorization Code Flow)
+
+3. In the **Settings** tab, configure the URLs (replace `databasement.example.com` with your domain):
+
+   | Field                           | Value                                                  |
+   | ------------------------------- | ------------------------------------------------------ |
+   | Root URL                        | `https://databasement.example.com`                     |
+   | Home URL                        | `https://databasement.example.com`                     |
+   | Valid redirect URIs             | `https://databasement.example.com/oauth/oidc/callback` |
+   | Valid post logout redirect URIs | `https://databasement.example.com`                     |
+   | Web origins                     | `https://databasement.example.com`                     |
+
+4. Go to the **Credentials** tab and copy the **Client secret**
+
+5. Configure environment variables:
+
+```env
+OAUTH_OIDC_ENABLED=true
+OAUTH_OIDC_CLIENT_ID=databasement
+OAUTH_OIDC_CLIENT_SECRET=your-client-secret
+OAUTH_OIDC_BASE_URL=https://keycloak.example.com/realms/your-realm
+OAUTH_OIDC_LABEL=Keycloak
+```
+
+:::tip[Finding the Issuer URL]
+The issuer URL follows the pattern `https://your-keycloak-server/realms/your-realm-name`. You can find it in **Realm Settings** > **General** > **Endpoints** > **OpenID Endpoint Configuration**.
+:::
+
+#### Authentik Example
+
+```env
+OAUTH_OIDC_ENABLED=true
+OAUTH_OIDC_CLIENT_ID=databasement
+OAUTH_OIDC_CLIENT_SECRET=your-secret
+OAUTH_OIDC_BASE_URL=https://authentik.example.com/application/o/databasement/
+OAUTH_OIDC_LABEL=Authentik
+```
+
+## OAuth-Only Mode
+
+To enforce OAuth/SSO as the only sign-in method, hide the password login form, and reject password authentication on the server:
+
+```env
+OAUTH_ONLY_MODE=true  # Default: false
+```
+
+When enabled:
+
+- The password fields are hidden on the login page; users only see OAuth provider buttons.
+- Password authentication is rejected even if a request bypasses the UI.
+- The "forgot password" and "reset password" routes return `404`.
+- First-user bootstrap registration (when no users exist yet) still works, so the instance can be initialized before connecting an identity provider.
+
+:::caution
+Make sure at least one OAuth provider is configured and working before enabling `OAUTH_ONLY_MODE` — otherwise no one will be able to sign in.
+:::
+
+## User Creation Settings
+
+### Auto-Create Users
+
+Whether a first OAuth login creates a Databasement user depends on the provider. Generic OIDC and self-hosted GitLab, whose accounts you control, follow `OAUTH_AUTO_CREATE_USERS`:
+
+```env
+OAUTH_AUTO_CREATE_USERS=true  # Default: true
+```
+
+Set it to `false` to only allow existing users to log in through them.
+
+Google, GitHub and gitlab.com let anyone with an account sign in, so they do not create users by default: only users who already exist in Databasement can log in through them. To let them create users, set the provider's own variable:
+
+```env
+OAUTH_GOOGLE_AUTO_CREATE_USERS=true  # Default: false
+OAUTH_GITHUB_AUTO_CREATE_USERS=true  # Default: false
+OAUTH_GITLAB_AUTO_CREATE_USERS=true  # Default: false on gitlab.com, OAUTH_AUTO_CREATE_USERS on a self-hosted OAUTH_GITLAB_HOST
+```
+
+Only do this when access is restricted on the provider side (for example a Google Workspace app with an *Internal* consent screen), since every new account gets `OAUTH_DEFAULT_ROLE`.
+
+### Default Role
+
+New users created via OAuth are assigned this role:
+
+```env
+OAUTH_DEFAULT_ROLE=member  # Options: viewer, member, admin
+```
+
+### Default Organization
+
+By default, auto-created OAuth users join the default organization. To assign them to a different organization instead, set:
+
+```env
+OAUTH_DEFAULT_ORGANIZATION_ID=01JA2B3C4D5E6F7G8H9J0KMNPQ  # Organization ULID
+```
+
+You can find the organization ID in **Configuration > Organizations**. See the [Organizations guide](../../user-guide/organizations.md) for more details on multi-org setups.
+
+### Auto-Link by Email
+
+When enabled (default), OAuth logins are automatically linked to existing users with matching email addresses:
+
+```env
+OAUTH_AUTO_LINK_BY_EMAIL=true  # Default: true
+```
+
+## OIDC Group-Based Role Mapping
+
+When using a Generic OIDC provider (Keycloak, Authentik, Dex, etc.), you can map IdP groups to Databasement roles automatically. This lets you control who can access Databasement and what role they get — all from your identity provider.
+
+### How It Works
+
+1. Your IdP includes a `groups` claim in the OIDC token (e.g., `["devops", "databasement-admins"]`)
+2. Databasement checks the user's groups against your configured mappings
+3. The user gets the highest-priority matching role: **admin > member > viewer**
+4. Roles are synced on every login, so changes in the IdP take effect immediately
+
+### Configuration
+
+First, make sure your IdP sends groups in the token. Most IdPs require requesting the `groups` scope:
+
+```env
+OAUTH_OIDC_SCOPES=groups
+```
+
+Then map IdP groups to Databasement roles. Use comma-separated values if multiple IdP groups should map to the same role:
+
+```env
+OAUTH_OIDC_ROLE_MAP_ADMIN=databasement-admins
+OAUTH_OIDC_ROLE_MAP_MEMBER=databasement-members,devops-team
+OAUTH_OIDC_ROLE_MAP_VIEWER=databasement-viewers,interns
+```
+
+When at least one `ROLE_MAP` is set, mapping is active. Users whose groups don't match any mapping get the `OAUTH_DEFAULT_ROLE`.
+
+### Strict Mode
+
+To deny access to users without a matching group (instead of falling back to the default role):
+
+```env
+OAUTH_OIDC_ROLE_STRICT=true
+```
+
+With strict mode, users who don't have any matching group are rejected at login — even returning users whose groups have been revoked in the IdP.
+
+### Custom Claim Name
+
+By default, Databasement reads the `groups` claim. If your IdP uses a different claim name (e.g., `roles` or `realm_access`):
+
+```env
+OAUTH_OIDC_ROLE_CLAIM=roles
+```
+
+### Full Example (Keycloak)
+
+```env
+OAUTH_OIDC_ENABLED=true
+OAUTH_OIDC_CLIENT_ID=databasement
+OAUTH_OIDC_CLIENT_SECRET=your-secret
+OAUTH_OIDC_BASE_URL=https://keycloak.example.com/realms/your-realm
+OAUTH_OIDC_LABEL=Keycloak
+OAUTH_OIDC_SCOPES=groups
+
+OAUTH_OIDC_ROLE_MAP_ADMIN=databasement-admins
+OAUTH_OIDC_ROLE_MAP_MEMBER=databasement-members
+OAUTH_OIDC_ROLE_MAP_VIEWER=databasement-viewers
+OAUTH_OIDC_ROLE_STRICT=true
+```
+
+:::tip[Keycloak Group Mapper]
+In Keycloak, go to your client > **Client scopes** > **databasement-dedicated** > **Mappers** > **Add mapper** > **Group Membership**. Set the token claim name to `groups` and disable "Full group path" to get flat group names.
+:::
+
+### Environment Variables Reference
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OAUTH_OIDC_SCOPES` | *(empty)* | Extra OIDC scopes to request (comma-separated, e.g., `groups`) |
+| `OAUTH_OIDC_ROLE_CLAIM` | `groups` | JWT claim containing the user's groups |
+| `OAUTH_OIDC_ROLE_MAP_ADMIN` | *(empty)* | IdP groups that map to the **admin** role (comma-separated) |
+| `OAUTH_OIDC_ROLE_MAP_MEMBER` | *(empty)* | IdP groups that map to the **member** role (comma-separated) |
+| `OAUTH_OIDC_ROLE_MAP_VIEWER` | *(empty)* | IdP groups that map to the **viewer** role (comma-separated) |
+| `OAUTH_OIDC_ROLE_STRICT` | `false` | Deny login when no group matches (instead of using default role) |
+
+For local development OAuth testing, see the [Development Guide](../../contributing/development.md#oauth--sso-testing).

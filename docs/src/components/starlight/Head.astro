@@ -1,0 +1,7 @@
+---
+import Default from '@astrojs/starlight/components/Head.astro';
+import context from 'virtual:docs-context';
+---
+
+<Default />
+{context.analyticsSnippet && <Fragment set:html={context.analyticsSnippet} />}

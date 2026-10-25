@@ -1,0 +1,119 @@
+/*
+ * Databasement design tokens, shared by the landing page and the docs theme.
+ * Values come from the Databasement design system (tokens.json). Dark is the
+ * base theme; [data-theme="light"] is set by Starlight's theme picker, or by
+ * the landing page's toggle, which share one localStorage key.
+ */
+@font-face { font-family: "Instrument Sans"; src: url("../fonts/InstrumentSans-Variable.woff2") format("woff2"); font-weight: 400 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Instrument Sans"; src: url("../fonts/InstrumentSans-Variable-Italic.woff2") format("woff2"); font-weight: 400 700; font-style: italic; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("../fonts/JetBrainsMono-Variable.woff2") format("woff2"); font-weight: 100 800; font-style: normal; font-display: swap; }
+:root, [data-theme="dark"] {
+  --surface: #15191e;
+  --surface-raised: #1d232a;
+  --surface-sunken: #101317;
+  --surface-hover: #262d36;
+  --line: #2b333d;
+  --line-strong: #66717f;
+  --ink: #ecf9ff;
+  --ink-muted: #a3aebb;
+  --accent: #22d3ee;
+  --accent-hover: #67e8f9;
+  --on-accent: #05262d;
+  --accent-soft: #0e2e35;
+  --violet: #605dff;
+  --violet-soft: #25244f;
+  --violet-text: #b1afff;
+  --pink: #f43098;
+  --pink-soft: #3d1530;
+  --pink-text: #ff8cc6;
+  --success: #00d390;
+  --success-soft: #0c3127;
+  --warning: #fcb700;
+  --warning-soft: #3a2c06;
+  --danger: #ff627d;
+  --danger-soft: #3d1820;
+  --info: #00bafe;
+  --info-soft: #082f42;
+  --code-bg: #0d1117;
+  --code-bar: #161b22;
+  --code-line: #262c36;
+  --code-ink: #e6edf3;
+  --code-muted: #8b949e;
+  --syntax-keyword: #c4b5fd;
+  --syntax-string: #86efac;
+  --syntax-number: #fcd34d;
+  --syntax-var: #67e8f9;
+  --brand-cyan: #22d3ee;
+  --brand-purple: #a855f7;
+  --brand-purple-deep: #9333ea;
+  --shadow-pop: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-frame: 0 24px 64px rgba(0,0,0,0.55);
+  --focus-ring: 0 0 0 2px #15191e, 0 0 0 4px #22d3ee;
+}
+[data-theme="light"] {
+  --surface: #f6f7f9;
+  --surface-raised: #ffffff;
+  --surface-sunken: #edf0f3;
+  --surface-hover: #e6eaef;
+  --line: #dde2e8;
+  --line-strong: #7f8997;
+  --ink: #121820;
+  --ink-muted: #525e6c;
+  --accent: #0c6a84;
+  --accent-hover: #155e75;
+  --on-accent: #ffffff;
+  --accent-soft: #e2f5f9;
+  --violet: #605dff;
+  --violet-soft: #ecebff;
+  --violet-text: #4338ca;
+  --pink: #f43098;
+  --pink-soft: #fde8f2;
+  --pink-text: #b0145a;
+  --success: #047857;
+  --success-soft: #e3f8ef;
+  --warning: #9a4a00;
+  --warning-soft: #fdf1d8;
+  --danger: #be1e3c;
+  --danger-soft: #fde7eb;
+  --info: #0369a1;
+  --info-soft: #e1f2fb;
+  --code-bg: #0f141a;
+  --code-bar: #1a2028;
+  --code-line: #262c36;
+  --code-ink: #e6edf3;
+  --code-muted: #8b949e;
+  --syntax-keyword: #c4b5fd;
+  --syntax-string: #86efac;
+  --syntax-number: #fcd34d;
+  --syntax-var: #67e8f9;
+  --brand-cyan: #0891b2;
+  --brand-purple: #9333ea;
+  --brand-purple-deep: #7e22ce;
+  --shadow-pop: 0 12px 32px rgba(16,24,40,0.12), 0 2px 6px rgba(16,24,40,0.06);
+  --shadow-frame: 0 24px 64px rgba(16,24,40,0.18);
+  --focus-ring: 0 0 0 2px #f6f7f9, 0 0 0 4px #0c6a84;
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+  --space-10: 128px;
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+  --nav-height: 64px;
+  --sidebar-width: 272px;
+  --toc-width: 224px;
+  --prose-max: 760px;
+  --page-max: 1280px;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}

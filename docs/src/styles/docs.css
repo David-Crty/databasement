@@ -1,0 +1,218 @@
+/*
+ * Starlight theme from the design tokens. Starlight's own styles live in
+ * cascade layers, so these unlayered rules win without !important. The
+ * tokens already switch with data-theme, so one mapping serves both themes.
+ */
+:root,
+:root[data-theme='light'] {
+    --sl-font: var(--font-sans);
+    --sl-font-mono: var(--font-mono);
+
+    --sl-color-white: var(--ink);
+    --sl-color-gray-1: var(--ink);
+    --sl-color-gray-2: var(--ink);
+    --sl-color-gray-3: var(--ink-muted);
+    --sl-color-gray-4: var(--line-strong);
+    --sl-color-gray-5: var(--line);
+    --sl-color-gray-6: var(--surface-raised);
+    --sl-color-gray-7: var(--surface-raised);
+    --sl-color-black: var(--surface);
+
+    --sl-color-accent-low: var(--accent-soft);
+    --sl-color-accent: var(--accent);
+    --sl-color-accent-high: var(--accent);
+    --sl-color-text-accent: var(--accent);
+    --sl-color-text-invert: var(--on-accent);
+    --sl-color-bg-accent: var(--accent);
+
+    --sl-color-bg-nav: var(--surface);
+    --sl-color-bg-sidebar: var(--surface);
+    --sl-color-bg-inline-code: var(--surface-sunken);
+    --sl-color-hairline-light: var(--line);
+    --sl-color-hairline: var(--line);
+    --sl-color-hairline-shade: var(--line);
+
+    --sl-text-h1: 2.25rem;
+    --sl-text-h2: 1.625rem;
+    --sl-text-h3: 1.25rem;
+    --sl-text-h4: 1rem;
+    --sl-text-h5: 1rem;
+    --sl-line-height-headings: 1.25;
+    --sl-sidebar-width: 17rem;
+}
+
+:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: var(--radius-sm);
+}
+
+/* Header */
+.header {
+    background: color-mix(in srgb, var(--surface) 85%, transparent);
+    backdrop-filter: blur(10px);
+}
+.site-title {
+    gap: 10px;
+}
+.site-title img {
+    height: 30px;
+}
+.site-title span {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    background: linear-gradient(to right, var(--brand-cyan), var(--brand-purple), var(--brand-purple-deep));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+site-search button[data-open-modal] {
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    color: var(--ink-muted);
+}
+site-search button[data-open-modal]:hover {
+    border-color: var(--ink-muted);
+}
+site-search kbd {
+    font-family: var(--font-mono);
+}
+
+/* Sidebar and table of contents */
+.sidebar-content a[aria-current='page'],
+.sidebar-content a[aria-current='page']:hover,
+.sidebar-content a[aria-current='page']:focus {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 500;
+}
+.sidebar-content a:not([aria-current='page']) {
+    color: var(--ink-muted);
+}
+.sidebar-content a:not([aria-current='page']):hover {
+    background: var(--surface-hover);
+    color: var(--ink);
+}
+.sidebar-content summary .large,
+.sidebar-content .group-label .large {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+}
+starlight-toc a[aria-current='true'] {
+    color: var(--accent);
+}
+
+/* Prose */
+.sl-markdown-content .sl-heading-wrapper.level-h2 {
+    margin-top: var(--space-7);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--line);
+}
+.sl-markdown-content h2 {
+    letter-spacing: -0.01em;
+}
+.content-panel h1 {
+    letter-spacing: -0.02em;
+}
+.sl-markdown-content a:not(:where(.not-content *)) {
+    text-decoration-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+    color: var(--accent-hover);
+    text-decoration-color: currentColor;
+}
+.sl-markdown-content :not(pre) > code:not(:where(.not-content *)) {
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: 0.875em;
+}
+.sl-markdown-content table:not(:where(.not-content *)) {
+    font-size: 14px;
+}
+.sl-markdown-content th:not(:where(.not-content *)) {
+    background: var(--surface-sunken);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+}
+.sl-markdown-content img:not(:where(.not-content *)) {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+}
+
+/* Asides: note is info, tip is success, caution is warning. */
+.starlight-aside {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    font-size: 15px;
+}
+.starlight-aside--note {
+    --sl-color-asides-text-accent: var(--info);
+    background: var(--info-soft);
+    border-color: color-mix(in srgb, var(--info) 28%, transparent);
+}
+.starlight-aside--tip {
+    --sl-color-asides-text-accent: var(--success);
+    background: var(--success-soft);
+    border-color: color-mix(in srgb, var(--success) 28%, transparent);
+}
+.starlight-aside--caution {
+    --sl-color-asides-text-accent: var(--warning);
+    background: var(--warning-soft);
+    border-color: color-mix(in srgb, var(--warning) 32%, transparent);
+}
+.starlight-aside--danger {
+    --sl-color-asides-text-accent: var(--danger);
+    background: var(--danger-soft);
+    border-color: color-mix(in srgb, var(--danger) 32%, transparent);
+}
+.starlight-aside__title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+.starlight-aside__icon {
+    font-size: 1.5em;
+}
+.starlight-aside__content a {
+    color: inherit;
+}
+
+/* Prev / next */
+.pagination-links a {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: none;
+    transition: border-color 0.15s;
+}
+.pagination-links a:hover {
+    border-color: var(--accent);
+}
+.pagination-links .link-title {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Mermaid draws on a transparent ground so it follows the theme. */
+.sl-markdown-content pre.mermaid {
+    background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+    }
+}
