@@ -234,4 +234,16 @@ return [
     'demo_mode' => env('DEMO_MODE', false),
     'demo_user_password' => env('DEMO_USER_PASSWORD', 'demo'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Analytics Snippet
+    |--------------------------------------------------------------------------
+    |
+    | Raw HTML added as-is to the <head> of every page, such as the tracking
+    | tag of Umami, Plausible or Google Analytics. Nothing is added when unset.
+    |
+    */
+
+    'analytics_snippet' => env('ANALYTICS_SNIPPET'),
+
 ];
