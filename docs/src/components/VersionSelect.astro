@@ -26,16 +26,17 @@ const page = Astro.url.pathname.slice(import.meta.env.BASE_URL.length);
 
 <style>
     .version-select select {
+        height: 26px;
+        padding: 0 6px 0 var(--space-2);
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius-sm);
         background: transparent;
-        border: 1px solid var(--sl-color-gray-5);
-        border-radius: 0.375rem;
-        color: var(--sl-color-gray-2);
-        font-size: var(--sl-text-sm);
-        padding: 0.125rem 0.375rem;
+        color: var(--ink-muted);
+        font: 500 12px/1 var(--font-mono);
         cursor: pointer;
     }
     .version-badge {
-        font-size: var(--sl-text-xs);
-        color: var(--sl-color-gray-3);
+        font: 500 12px/1 var(--font-mono);
+        color: var(--ink-muted);
     }
 </style>

@@ -1,7 +1,7 @@
 /**
- * Site-wide announcement shown above the header of every docs page, or `null`
+ * Site-wide announcement shown on the landing page and every docs page, or `null`
  * for none. Change `id` with the message: a reader who closed the banner sees
- * the next one.
+ * the next one. A security notice (tone 'danger') cannot be closed.
  *
  * Links are written relative to the version being read (no leading slash).
  */

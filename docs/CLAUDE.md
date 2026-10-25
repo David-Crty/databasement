@@ -53,7 +53,14 @@ Tags cut before the move to Starlight hold Docusaurus content under `docs/docs/`
 
 ## Look and feel
 
-Design tokens live in `src/styles/tokens.css`, shared by the landing page and the docs; `src/styles/docs.css` maps them onto Starlight's variables. Starlight component overrides are in `src/components/starlight/` (analytics `<head>`, announcement banner, header links with the version picker). The site-wide announcement is `src/announcement.mjs`.
+The look comes from the Databasement design system (claude.ai artifact `1ygXaNtssC2gtbuWS6UPcP`): dark ops-console surfaces, one cyan accent, Instrument Sans + JetBrains Mono, code that stays dark in both themes. Keep it light-touch: Starlight's own layout and components, restyled with CSS.
+
+- `src/styles/tokens.css`: the design tokens and `@font-face` (fonts in `src/fonts/`), shared by the landing page and the docs. Dark is the base, `[data-theme="light"]` the override; Starlight's theme picker and the landing toggle share the `starlight-theme` localStorage key.
+- `src/styles/docs.css`: maps the tokens onto Starlight's `--sl-*` variables and restyles header, sidebar, prose, asides and pager. Starlight's styles are in cascade layers, so plain unlayered rules win.
+- `ec.config.mjs` + `src/code-theme.mjs`: the code block theme (a custom theme object must live in `ec.config.mjs`, not `astro.config.mjs`, or the page and its stylesheet get different hashes).
+- `src/landing/index.astro`: the marketing page, standalone (no Starlight), with its styles inline. Its ids `features`, `quick-start`, `documentation-sections`, `self-hosting`, `user-guide`, `contributing` and `quick-links` are published anchors.
+- Icons are Heroicons v2 outline SVGs in `src/icons/` (copy more from the `heroicons` package, `24/outline/`), inlined with `src/components/Icon.astro`. The logo mark is `src/assets/mark.svg` (from the app's `logo-icon.blade.php`), engine logos are in `src/assets/engines/` (devicon).
+- Starlight component overrides are in `src/components/starlight/` (analytics `<head>`, announcement banner, header links with the version picker). The site-wide announcement is `src/announcement.mjs`, rendered by `src/components/Announcement.astro` on the landing and every docs page; a `danger` (security) notice cannot be dismissed.
 
 ## When adding a page
 

@@ -1,0 +1,101 @@
+---
+/**
+ * The site-wide announcement of src/announcement.mjs, on the landing page and
+ * every docs page. A security notice (tone "danger") cannot be dismissed.
+ */
+import Icon from './Icon.astro';
+import announcement from '../announcement.mjs';
+
+const danger = announcement?.tone === 'danger';
+const html = announcement?.html.replace(/href="(?![a-z]+:|\/|#)/g, `href="${import.meta.env.BASE_URL}`);
+---
+
+{
+    announcement && (
+        <div
+            class:list={['announcement', {'announcement--danger': danger}]}
+            data-id={announcement.id}
+            data-dismissible={danger ? undefined : ''}
+            data-pagefind-ignore
+        >
+            <Icon name={danger ? 'shield-exclamation' : 'information-circle'} size={18} />
+            <p set:html={html} />
+            {!danger && (
+                <button type="button" aria-label="Close">
+                    <Icon name="x-mark" size={16} />
+                </button>
+            )}
+        </div>
+    )
+}
+
+<script>
+    for (const banner of document.querySelectorAll<HTMLElement>('.announcement[data-dismissible]')) {
+        const key = `announcement-closed:${banner.dataset.id}`;
+        try {
+            banner.hidden = localStorage.getItem(key) === '1';
+        } catch {}
+        banner.querySelector('button')?.addEventListener('click', () => {
+            banner.hidden = true;
+            try {
+                localStorage.setItem(key, '1');
+            } catch {}
+        });
+    }
+</script>
+
+<style>
+    .announcement {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-3);
+        min-height: 44px;
+        padding: var(--space-2) var(--space-5);
+        background: var(--info-soft);
+        border-bottom: 1px solid color-mix(in srgb, var(--info) 28%, transparent);
+        color: var(--ink);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        line-height: 1.45;
+    }
+    .announcement[hidden] {
+        display: none;
+    }
+    .announcement > :global(.icon) {
+        flex: none;
+        color: var(--info);
+    }
+    .announcement--danger {
+        background: var(--danger-soft);
+        border-bottom-color: color-mix(in srgb, var(--danger) 32%, transparent);
+    }
+    .announcement--danger > :global(.icon) {
+        color: var(--danger);
+    }
+    .announcement p {
+        margin: 0;
+        text-wrap: balance;
+    }
+    .announcement :global(a) {
+        color: var(--ink);
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        white-space: nowrap;
+    }
+    .announcement button {
+        display: inline-flex;
+        margin-left: auto;
+        padding: var(--space-1);
+        border: 0;
+        border-radius: var(--radius-sm);
+        background: none;
+        color: var(--ink-muted);
+        cursor: pointer;
+    }
+    .announcement button:hover {
+        background: var(--surface-hover);
+        color: var(--ink);
+    }
+</style>

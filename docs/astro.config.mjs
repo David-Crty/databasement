@@ -83,7 +83,7 @@ export default defineConfig({
         starlight({
             title: 'Databasement',
             description: 'Self-hosted backup manager for MySQL, PostgreSQL, MariaDB, SQL Server, MongoDB, SQLite, Firebird and Redis databases.',
-            logo: {src: './src/assets/logo.png', alt: 'Databasement'},
+            logo: {src: './src/assets/mark.svg', alt: 'Databasement'},
             favicon: '/img/favicon.svg',
             head: [
                 {tag: 'link', attrs: {rel: 'icon', href: `${base}img/favicon.ico`, sizes: '32x32'}},
@@ -96,7 +96,6 @@ export default defineConfig({
             lastUpdated: false,
             customCss: ['./src/styles/tokens.css', './src/styles/docs.css'],
             routeMiddleware: './src/routeData.ts',
-            expressiveCode: {shiki: {langAlias: {env: 'dotenv', cron: 'txt'}}},
             components: {
                 Head: './src/components/starlight/Head.astro',
                 Banner: './src/components/starlight/Banner.astro',
