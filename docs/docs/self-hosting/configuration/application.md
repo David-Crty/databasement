@@ -128,6 +128,28 @@ with proxy configuration.
 Checks the [Troubleshooting section](#troubleshooting) for help with proxy configuration.
 :::
 
+## Analytics
+
+Databasement sends no analytics. To track visits with your own tool, set `ANALYTICS_SNIPPET` to the HTML its
+setup page gives you: it is added as-is to the `<head>` of every page, and nothing is added when it is unset.
+
+| Variable            | Description                                | Default |
+| ------------------- | ------------------------------------------ | ------- |
+| `ANALYTICS_SNIPPET` | HTML added to the `<head>` of every page   | -       |
+
+```bash
+# Umami
+ANALYTICS_SNIPPET='<script defer src="https://umami.example.com/script.js" data-website-id="your-website-id"></script>'
+
+# Plausible
+ANALYTICS_SNIPPET='<script defer data-domain="databasement.example.com" src="https://plausible.io/js/script.js"></script>'
+```
+
+:::warning
+The snippet is trusted HTML and runs on every page, including for logged-in users. Only paste code from a
+provider you trust.
+:::
+
 ## Logging
 
 | Variable      | Description       | Default  |
