@@ -1,0 +1,48 @@
+/*
+ * Design tokens shared by the landing page and the docs theme. The design
+ * system replaces these values; everything else reads them.
+ */
+:root {
+    --dbm-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --dbm-font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, monospace;
+
+    --dbm-brand-1: #22d3ee;
+    --dbm-brand-2: #a855f7;
+    --dbm-brand-3: #9333ea;
+    --dbm-gradient: linear-gradient(to right, var(--dbm-brand-1), var(--dbm-brand-2), var(--dbm-brand-3));
+
+    --dbm-bg: #ffffff;
+    --dbm-bg-subtle: #f6f7f9;
+    --dbm-text: #111827;
+    --dbm-text-muted: #4b5563;
+    --dbm-border: #e5e7eb;
+    --dbm-accent: #7c3aed;
+    --dbm-accent-contrast: #ffffff;
+
+    --dbm-announcement-bg: #b91c1c;
+    --dbm-announcement-text: #ffffff;
+
+    --dbm-radius: 0.75rem;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+        --dbm-bg: #0b0d12;
+        --dbm-bg-subtle: #12151c;
+        --dbm-text: #f3f4f6;
+        --dbm-text-muted: #9ca3af;
+        --dbm-border: #262a33;
+        --dbm-accent: #a78bfa;
+        --dbm-accent-contrast: #0b0d12;
+    }
+}
+
+:root[data-theme='dark'] {
+    --dbm-bg: #0b0d12;
+    --dbm-bg-subtle: #12151c;
+    --dbm-text: #f3f4f6;
+    --dbm-text-muted: #9ca3af;
+    --dbm-border: #262a33;
+    --dbm-accent: #a78bfa;
+    --dbm-accent-contrast: #0b0d12;
+}

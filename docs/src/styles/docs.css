@@ -1,0 +1,24 @@
+/* Maps the design tokens onto Starlight's theme variables. */
+:root {
+    --sl-font: var(--dbm-font-sans);
+    --sl-font-mono: var(--dbm-font-mono);
+    --sl-color-accent-low: #2e1065;
+    --sl-color-accent: #7c3aed;
+    --sl-color-accent-high: #ddd6fe;
+}
+
+:root[data-theme='light'] {
+    --sl-color-accent-low: #ede9fe;
+    --sl-color-accent: #6d28d9;
+    --sl-color-accent-high: #4c1d95;
+}
+
+.site-title span {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: var(--dbm-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}

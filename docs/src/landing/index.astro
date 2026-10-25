@@ -1,0 +1,346 @@
+---
+import {Image} from 'astro:assets';
+import '../styles/tokens.css';
+import logo from '../assets/logo.png';
+import screenshot from '../assets/screenshot.png';
+import context from 'virtual:docs-context';
+
+const base = import.meta.env.BASE_URL;
+const docs = (slug: string) => `${base}${slug}/`;
+const title = 'Databasement: self-hosted database backup manager';
+const description = 'Schedule, store and restore backups of MySQL, PostgreSQL, MariaDB, SQL Server, MongoDB, SQLite, Firebird and Redis databases from one self-hosted web app.';
+
+const databases = ['MySQL', 'PostgreSQL', 'MariaDB', 'SQL Server', 'MongoDB', 'SQLite', 'Firebird', 'Redis / Valkey'];
+
+const features = [
+    {title: 'Scheduled backups', text: 'Recurring backups with days-based or GFS retention, applied per database.', link: docs('user-guide/backups')},
+    {title: 'Restore anywhere', text: 'Restore a snapshot to the same server or another one: prod to staging in a few clicks.', link: docs('user-guide/snapshots')},
+    {title: 'Your storage', text: 'Local disk, S3-compatible, Azure Blob, SFTP, FTP or SMB volumes.', link: docs('user-guide/volumes')},
+    {title: 'Private networks', text: 'Reach databases through an SSH bastion, or run a remote agent with no inbound port.', link: docs('user-guide/agents')},
+    {title: 'Failure alerts', text: 'Email, Slack, Discord, Telegram, Pushover, Gotify or webhook when a job fails.', link: docs('self-hosting/configuration/notification')},
+    {title: 'Teams and roles', text: 'Organizations, roles and abilities, two-factor authentication and SSO.', link: docs('user-guide/permissions')},
+    {title: 'API and MCP', text: 'Automate from CI/CD with the REST API, or manage backups from an AI assistant.', link: docs('user-guide/mcp')},
+    {title: 'One container', text: 'Web server, queue worker and scheduler in a single image. Docker, Compose, Helm or Ubuntu.', link: docs('self-hosting/intro')},
+];
+
+const sections = [
+    {id: 'self-hosting', title: 'Self-Hosting', text: 'Deploy, configure and upgrade Databasement on your own infrastructure.', link: docs('self-hosting/intro')},
+    {id: 'user-guide', title: 'User Guide', text: 'Register servers, schedule backups, restore snapshots and automate it all.', link: docs('user-guide/intro')},
+    {id: 'contributing', title: 'Contributing', text: 'Set up a local development environment and send a pull request.', link: docs('contributing/development')},
+];
+
+const quickStart = `docker run -d \\
+  --name databasement \\
+  -p 2226:2226 \\
+  -e DB_CONNECTION=sqlite \\
+  -e DB_DATABASE=/data/database.sqlite \\
+  -e ENABLE_QUEUE_WORKER=true \\
+  -v ./databasement-data:/data \\
+  davidcrty/databasement:1`;
+---
+
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{title}</title>
+        <meta name="description" content={description} />
+        <link rel="canonical" href={new URL(base, Astro.site)} />
+        <link rel="icon" href={`${base}img/favicon.svg`} type="image/svg+xml" />
+        <link rel="icon" href={`${base}img/favicon.ico`} sizes="32x32" />
+        <link rel="apple-touch-icon" href={`${base}img/apple-touch-icon.png`} />
+        <meta property="og:title" content={title} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={new URL(`${base}img/banner-v2.png`, Astro.site)} />
+        <script is:inline>
+            try {
+                const theme = localStorage.getItem('starlight-theme');
+                if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+            } catch {}
+        </script>
+        {context.analyticsSnippet && <Fragment set:html={context.analyticsSnippet} />}
+    </head>
+    <body>
+        <header class="nav">
+            <a class="brand" href={base}>
+                <Image src={logo} alt="" width={32} height={32} />
+                <span>Databasement</span>
+            </a>
+            <nav aria-label="Main">
+                <a href={docs('self-hosting/intro')}>Docs</a>
+                <a href={docs('changelog')}>Changelog</a>
+                <a href="https://databasement-demo.crty.dev/">Demo</a>
+                <a href="https://github.com/David-Crty/databasement">GitHub</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="hero">
+                {context.release && <p class="eyebrow">v{context.release} · open source</p>}
+                <h1>Database backups you can <span class="gradient">actually restore</span></h1>
+                <p class="lead">{description}</p>
+                <div class="actions">
+                    <a class="button primary" href={docs('self-hosting/intro')}>Get started</a>
+                    <a class="button" href="https://databasement-demo.crty.dev/">Try the live demo</a>
+                </div>
+                <ul class="databases" aria-label="Supported databases">
+                    {databases.map((name) => <li>{name}</li>)}
+                </ul>
+            </section>
+
+            <section class="screenshot">
+                <Image src={screenshot} alt="The Databasement dashboard" widths={[640, 1280, screenshot.width]} sizes="(min-width: 1100px) 1100px, 100vw" />
+            </section>
+
+            <section class="features" id="features">
+                <h2>Everything a backup needs, nothing it doesn’t</h2>
+                <div class="grid">
+                    {features.map((feature) => (
+                        <a class="card" href={feature.link}>
+                            <h3>{feature.title}</h3>
+                            <p>{feature.text}</p>
+                        </a>
+                    ))}
+                </div>
+            </section>
+
+            <section class="quick-start" id="quick-start">
+                <div>
+                    <h2>Running in one command</h2>
+                    <p>One container with its own SQLite database. Open <code>http://localhost:2226</code> and create your first admin account.</p>
+                    <p>
+                        Prefer <a href={docs('self-hosting/docker-compose')}>Docker Compose</a>,
+                        <a href={docs('self-hosting/kubernetes-helm')}>Kubernetes with Helm</a> or a
+                        <a href={docs('self-hosting/native-ubuntu')}>native Ubuntu install</a>?
+                    </p>
+                </div>
+                <pre><code>{quickStart}</code></pre>
+            </section>
+
+            <section class="sections" id="documentation-sections">
+                <h2>Documentation</h2>
+                <div class="grid">
+                    {sections.map((section) => (
+                        <a class="card" id={section.id} href={section.link}>
+                            <h3>{section.title}</h3>
+                            <p>{section.text}</p>
+                        </a>
+                    ))}
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <nav aria-label="Footer" id="quick-links">
+                <a href={docs('self-hosting/intro')}>Self-Hosting</a>
+                <a href={docs('user-guide/intro')}>User Guide</a>
+                <a href={docs('contributing/development')}>Contributing</a>
+                <a href={`${base}llms.txt`}>llms.txt</a>
+                <a href="https://github.com/David-Crty/databasement/issues">Report an issue</a>
+            </nav>
+            <p>© {new Date().getFullYear()} Databasement · MIT licensed</p>
+        </footer>
+    </body>
+</html>
+
+<style>
+    :global(*, *::before, *::after) {
+        box-sizing: border-box;
+    }
+    :global(body) {
+        margin: 0;
+        background: var(--dbm-bg);
+        color: var(--dbm-text);
+        font-family: var(--dbm-font-sans);
+        line-height: 1.6;
+    }
+    a {
+        color: inherit;
+    }
+    main,
+    .nav,
+    .footer {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 0 16px;
+    }
+    .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-block: 1rem;
+    }
+    .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        text-decoration: none;
+    }
+    .nav nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.25rem;
+        font-size: 0.95rem;
+    }
+    .nav nav a,
+    .footer a {
+        color: var(--dbm-text-muted);
+        text-decoration: none;
+    }
+    .nav nav a:hover,
+    .footer a:hover {
+        color: var(--dbm-text);
+    }
+    section {
+        padding-block: 4rem;
+    }
+    .hero {
+        text-align: center;
+    }
+    .eyebrow {
+        color: var(--dbm-text-muted);
+        font-size: 0.875rem;
+        margin: 0 0 1rem;
+    }
+    h1 {
+        font-size: clamp(2.25rem, 6vw, 3.75rem);
+        line-height: 1.1;
+        margin: 0 auto 1.5rem;
+        max-width: 18ch;
+        text-wrap: balance;
+    }
+    .gradient {
+        background: var(--dbm-gradient);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+    .lead {
+        color: var(--dbm-text-muted);
+        font-size: 1.15rem;
+        max-width: 60ch;
+        margin: 0 auto 2rem;
+    }
+    .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    .button {
+        border: 1px solid var(--dbm-border);
+        border-radius: var(--dbm-radius);
+        padding: 0.7rem 1.25rem;
+        font-weight: 600;
+        text-decoration: none;
+    }
+    .button.primary {
+        background: var(--dbm-accent);
+        border-color: var(--dbm-accent);
+        color: var(--dbm-accent-contrast);
+    }
+    .databases {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+        list-style: none;
+        padding: 0;
+        margin: 2.5rem 0 0;
+    }
+    .databases li {
+        border: 1px solid var(--dbm-border);
+        border-radius: 999px;
+        padding: 0.25rem 0.75rem;
+        font-size: 0.875rem;
+        color: var(--dbm-text-muted);
+    }
+    .screenshot {
+        padding-top: 0;
+    }
+    .screenshot img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--dbm-border);
+        border-radius: var(--dbm-radius);
+    }
+    h2 {
+        font-size: clamp(1.5rem, 4vw, 2.25rem);
+        line-height: 1.2;
+        margin: 0 0 2rem;
+        text-wrap: balance;
+    }
+    .features h2,
+    .sections h2 {
+        text-align: center;
+    }
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+        gap: 1rem;
+    }
+    .card {
+        display: block;
+        background: var(--dbm-bg-subtle);
+        border: 1px solid var(--dbm-border);
+        border-radius: var(--dbm-radius);
+        padding: 1.25rem;
+        text-decoration: none;
+    }
+    .card:hover {
+        border-color: var(--dbm-accent);
+    }
+    .card h3 {
+        margin: 0 0 0.5rem;
+        font-size: 1.05rem;
+    }
+    .card p {
+        margin: 0;
+        color: var(--dbm-text-muted);
+        font-size: 0.95rem;
+    }
+    .quick-start {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+        gap: 2rem;
+        align-items: center;
+    }
+    .quick-start h2 {
+        margin-bottom: 1rem;
+    }
+    .quick-start p {
+        color: var(--dbm-text-muted);
+    }
+    .quick-start a {
+        color: var(--dbm-accent);
+    }
+    pre {
+        margin: 0;
+        overflow-x: auto;
+        background: var(--dbm-bg-subtle);
+        border: 1px solid var(--dbm-border);
+        border-radius: var(--dbm-radius);
+        padding: 1.25rem;
+        font-family: var(--dbm-font-mono);
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+    .footer {
+        border-top: 1px solid var(--dbm-border);
+        padding-block: 2rem;
+        color: var(--dbm-text-muted);
+        font-size: 0.875rem;
+    }
+    .footer nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1.25rem;
+        margin-bottom: 1rem;
+    }
+</style>

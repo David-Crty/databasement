@@ -1,0 +1,41 @@
+---
+import context from 'virtual:docs-context';
+
+const {versions, minor, siteBase, release} = context;
+const latest = versions[0];
+const baseFor = (version: string) => (version === latest ? siteBase : `${siteBase}${version}/`);
+const page = Astro.url.pathname.slice(import.meta.env.BASE_URL.length);
+---
+
+{
+    versions.length > 1 ? (
+        <label class="version-select">
+            <span class="sr-only">Documentation version</span>
+            <select onchange="location.href = this.value">
+                {versions.map((version) => (
+                    <option value={baseFor(version) + page} selected={version === minor}>
+                        {version === latest ? `${version} (latest)` : version}
+                    </option>
+                ))}
+            </select>
+        </label>
+    ) : (
+        release && <span class="version-badge">v{release}</span>
+    )
+}
+
+<style>
+    .version-select select {
+        background: transparent;
+        border: 1px solid var(--sl-color-gray-5);
+        border-radius: 0.375rem;
+        color: var(--sl-color-gray-2);
+        font-size: var(--sl-text-sm);
+        padding: 0.125rem 0.375rem;
+        cursor: pointer;
+    }
+    .version-badge {
+        font-size: var(--sl-text-xs);
+        color: var(--sl-color-gray-3);
+    }
+</style>

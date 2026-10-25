@@ -1,0 +1,27 @@
+---
+import Default from '@astrojs/starlight/components/SocialIcons.astro';
+import VersionSelect from '../VersionSelect.astro';
+import context from 'virtual:docs-context';
+---
+
+<nav class="header-links" aria-label="Site">
+    <a href="https://databasement-demo.crty.dev/">Demo</a>
+    <a href={`${context.siteBase}llms.txt`} title="LLM-friendly documentation index (llmstxt.org)">llms.txt</a>
+</nav>
+<VersionSelect />
+<Default />
+
+<style>
+    .header-links {
+        display: flex;
+        gap: 1rem;
+        font-size: var(--sl-text-sm);
+    }
+    .header-links a {
+        color: var(--sl-color-gray-2);
+        text-decoration: none;
+    }
+    .header-links a:hover {
+        color: var(--sl-color-white);
+    }
+</style>

@@ -2,19 +2,14 @@
 /node_modules
 
 # Production
-/build
+/dist
 
 # Generated files
-.docusaurus
-.cache-loader
+.astro
+/.build
 
 # Changelog page (generated from the root CHANGELOG.md by scripts/sync-changelog.js)
-/docs/changelog.md
-
-# Versioned docs snapshots (generated from git tags by scripts/prepare-versions.sh)
-/versioned_docs
-/versioned_sidebars
-/versions.json
+/src/content/docs/changelog.md
 
 # Misc
 .DS_Store
@@ -24,5 +19,3 @@
 .env.production.local
 
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*

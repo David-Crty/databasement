@@ -1,4 +1,4 @@
-.PHONY: help install start update-translation check-translation test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
+.PHONY: help install start update-translation check-translation test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build docs-versions release
 
 # Colors for output
 GREEN  := \033[0;32m
@@ -137,11 +137,15 @@ dev-assets: ## Start Vite dev server only
 
 ##@ Documentation
 
-docs: ## Start documentation dev server (Docusaurus)
-	cd docs && $(NPM_EXEC) install && $(NPM_EXEC) run start
+docs: ## Start documentation dev server (Astro + Starlight, latest version)
+	cd docs && $(NPM_EXEC) install && $(NPM_EXEC) run dev
 
-docs-build: ## Build documentation for production (Docusaurus)
+docs-build: ## Build the latest documentation version (fails on a broken page link)
 	cd docs && $(NPM_EXEC) install && $(NPM_EXEC) run build
+
+docs-versions: ## Build every docs version from tags, as deployed, and check no live URL breaks
+	git fetch --no-tags --depth=1 origin gh-pages
+	cd docs && $(NPM_EXEC) install && $(NPM_EXEC) run build:versions && $(NPM_EXEC) run check:urls -- --ref FETCH_HEAD
 
 ##@ Localization
 

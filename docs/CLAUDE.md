@@ -1,54 +1,66 @@
-# Documentation (Docusaurus 3)
+# Documentation site (Astro + Starlight)
 
-GitHub Pages site at `https://david-crty.github.io/databasement/`, deployed by `.github/workflows/docs.yml` on every `v*` tag push (never from `main` merges).
+GitHub Pages site at `https://david-crty.github.io/databasement/`, deployed by `.github/workflows/docs.yml` on every `v*` tag push (never from `main` merges). The root is a marketing landing page (`src/landing/index.astro`); the docs are Starlight pages built from plain Markdown in `src/content/docs/`.
 
 ## Commands
 
 ```bash
-npm run start          # Dev server (single version, working-tree docs)
-npm run build          # Production build — throws on any broken link
-./scripts/prepare-versions.sh   # Regenerate versioned snapshots from git tags (optional, for testing versioning)
+npm run dev                         # Dev server: working-tree docs, latest version only
+npm run build                       # Single-version build into dist/: fails on a broken page link
+npm run build:versions              # The published site: every 1.x minor from its tag, into dist/
+npm run check:urls                  # After build:versions: no live URL or anchor disappears, no broken link
 ```
 
-Run `npm run build` after editing docs — it is the broken-link check.
+Run `npm run build` after editing docs. To test the published site, run `build:versions` then `check:urls` (needs `git fetch origin gh-pages`).
 
 ## Versioning (important)
 
-Docs versions are **ephemeral**: `scripts/prepare-versions.sh` rebuilds one snapshot per 1.x minor from the latest patch tag of that minor, at build time. `versioned_docs/`, `versioned_sidebars/`, and `versions.json` are gitignored — **never commit them, never edit files inside them** (fix the source in `docs/` or the rewrite rules in the script instead).
+Every 1.x minor is a **separate Astro build** of the current project, with the content of that minor's latest patch tag swapped in (`scripts/build-versions.sh`, in a scratch copy under `.build/`). The newest minor is served at the root with the landing page and llms.txt; older ones under `/<minor>/`, each with its own Pagefind index, so search only returns the version being read. Nothing versioned is committed.
+
+`astro.config.mjs` reads `DOCS_MINOR` / `DOCS_VERSIONS` (set by the script) to pick the `base`; with neither set it builds the latest. Versions share one `/_astro/` folder (`build.assetsPrefix`), merged by the script.
+
+Tags cut before the move to Starlight hold Docusaurus content under `docs/docs/`. `scripts/normalize-docusaurus.mjs` rewrites each snapshot on the way in (H1 to `title`, `sidebar_position` to `sidebar.order`, `:::info`/`:::warning` to `:::note`/`:::caution`, Tabs to `.mdx`). To change how an already-published version renders, fix it there or in the script; the working tree is the *next* version and goes live with the next tag.
+
+## URLs never break
+
+`scripts/check-urls.mjs` runs in CI before every deploy: every path and heading anchor the live `gh-pages` branch serves must still exist in the new build (the README, the Helm chart and the app link to pages and anchors such as `#supported-versions`). To rename or move a page, add the old path to `redirects` in `astro.config.mjs` so it keeps resolving; do not remove the check.
 
 ## Changelog page (generated)
 
-`docs/changelog.md` is **generated** by `scripts/sync-changelog.js` from the repository's root `CHANGELOG.md`; it is gitignored, so **never edit it and never commit it** (edit the root `CHANGELOG.md`, which the `/changelog` skill maintains). It is written in two places: `npm run build` / `npm run start` (via the `prebuild` / `prestart` hooks) for a single-version build, and once per snapshot inside `prepare-versions.sh`. Every version gets the same, latest file: the changelog is one history of the project, not a per-version document. The script also adds `{#v1-7}` heading ids, so other pages can link to `../changelog.md#v1-7`. It sits at the docs root rather than under a section, and is linked from the navbar (`docusaurus.config.ts`), which resolves it within the version being read.
+`src/content/docs/changelog.md` is **generated** by `scripts/sync-changelog.js` from the repository's root `CHANGELOG.md`; it is gitignored, so **never edit it and never commit it** (edit the root `CHANGELOG.md`, which the `/changelog` skill maintains). `npm run build` / `npm run dev` write it via the `prebuild` / `predev` hooks, and `build-versions.sh` writes the same, latest file into every version. The script adds `{#v1-7}` heading ids, so other pages can link to `../changelog.md#v1-7`.
 
-Versioned builds drop the current version (`includeCurrentVersion: false`), so a page that only exists in the working tree is never published: that is why each snapshot gets its own copy rather than relying on the build-time hook alone.
+## Search and llms.txt
 
-The working tree `docs/` is the *next* version; it goes live when the next tag is cut. To change an already-published version, the fix must land before the next patch tag of that minor, or be handled by a rewrite in `prepare-versions.sh` (see the `../static/` and absolute-link rewrites there).
-
-## Search
-
-`@easyops-cn/docusaurus-search-local` (a theme, configured in `docusaurus.config.ts`) builds one index per docs version and searches only the version being read, so an older version never returns hits from a newer one. `docsRouteBasePath: '/'` must stay in step with the docs `routeBasePath`. The index is generated at build time into `build/`, nothing is committed.
+- Pagefind (Starlight's built-in search), tuned in `astro.config.mjs` (`pagefind.ranking`) so the long changelog does not outrank the page documenting a feature.
+- `starlight-llms-txt` writes `llms.txt`, `llms-full.txt`, `llms-small.txt` and one set per section (latest version only). `src/routes/page.md.ts` serves each page's Markdown at `<page>.md`.
 
 ## Links & assets
 
-- Internal links: **relative `.md` file paths** — `./backups.md`, `../self-hosting/configuration/backup.md#anchor`. Never absolute URL paths like `/user-guide/backups`: they escape the version and always point to latest.
-- Images/static files: absolute `/img/...` (served from `static/`). Never `../static/...` — it breaks inside versioned snapshots.
-- External-file links (llms.txt etc.): `pathname:///llms.txt`.
+- Internal links: **relative file paths** — `./backups.md`, `../self-hosting/configuration/backup.md#anchor`. `src/plugins/docs-links.mjs` resolves them against the page's file, fails the build on a missing page, and turns them into URLs within the version being read. Never write `/databasement/...` URLs by hand.
+- Images/static files: absolute `/img/...` (served from `public/`); the plugin adds the version's base.
+- Links to site-root files outside any version (llms.txt): `pathname:///llms.txt`.
+- Custom heading ids: `## Webhook {#webhook}` (Sätteri heading attributes). In `.mdx`, escape the braces: `\{#webhook\}`.
 
 ## Structure & style
 
-- Three sections, each an autogenerated sidebar (`sidebars.ts`): `self-hosting/`, `user-guide/`, `contributing/`. Order pages with `sidebar_position` frontmatter; that is the only frontmatter used.
-- One `# H1` per page matching the topic; task-oriented `## sections`; short paragraphs.
+- Four sidebar topics (`starlight-sidebar-topics`, configured in `astro.config.mjs`): `self-hosting/`, `user-guide/`, `contributing/`, and the changelog. Each autogenerates from its directory; group labels are the directory name capitalized (`src/routeData.ts`).
+- Frontmatter: `title` (required, rendered as the page H1, so the body has no `# H1`) and `sidebar.order`. Orders are in thousands (`3000`), with a subdirectory's pages at `<its position>001`, `002`, ...: Starlight places a directory by the lowest order among its pages.
+- Task-oriented `## sections`; short paragraphs.
 - UI element names in **bold** (`**Configuration > Organizations**`), env vars and values in `` `code` ``, env/shell examples in fenced ```bash blocks with the language tag.
-- Admonitions (`:::note`, `:::tip`, `:::info`, `:::warning`) sparingly — one per section at most, `:::warning` only for data-loss/lockout risks.
+- Asides (`:::note`, `:::tip`, `:::caution`, `:::danger`, with an optional `[Title]`) sparingly, one per section at most; `:::caution` only for data-loss/lockout risks.
+- Tabs: rename the page to `.mdx` and import `Tabs`, `TabItem` from `@astrojs/starlight/components`.
 - Keep the technical terms **Backup**, **Restore**, **Snapshot** as-is (project-wide convention).
+
+## Look and feel
+
+Design tokens live in `src/styles/tokens.css`, shared by the landing page and the docs; `src/styles/docs.css` maps them onto Starlight's variables. Starlight component overrides are in `src/components/starlight/` (analytics `<head>`, announcement banner, header links with the version picker). The site-wide announcement is `src/announcement.mjs`.
 
 ## When adding a page
 
-1. Create the `.md` under the right section with `sidebar_position`.
-2. Add it to the `includeOrder` list in `docusaurus.config.ts` (llms.txt plugin) in reading order.
-3. Link it from related pages (relative `.md` links) and run `npm run build`.
+1. Create the `.md` under the right section with `title` and `sidebar.order`.
+2. Link it from related pages (relative `.md` links) and run `npm run build`.
 
 ## Deployment notes
 
-- `gh-pages` also hosts the Helm repo: `charts/`, `index.yaml`, `artifacthub-repo.yml` must survive deploys (handled via `clean-exclude` in the workflow — keep it).
+- `gh-pages` also hosts the Helm repo: `charts/`, `index.yaml`, `artifacthub-repo.yml` must survive deploys (handled via `clean-exclude` in the workflow — keep it). `public/.nojekyll` must stay too, or GitHub Pages hides `_astro/`.
 - The workflow runs from the tagged commit, so workflow/script changes only take effect for tags cut after they land on `main`.
