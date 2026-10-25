@@ -7,7 +7,6 @@ use App\Models\DatabaseServer;
 use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\User;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Livewire\Livewire;
 
 use function Pest\Laravel\actingAs;
@@ -238,8 +237,9 @@ test('another organization restore record cannot be deleted', function () {
     // not reach another tenant's restore history.
     $foreign = foreignRestore();
 
-    expect(fn () => Livewire::test(Index::class)->call('confirmDeleteRestore', $foreign->id))
-        ->toThrow(ModelNotFoundException::class);
+    Livewire::test(Index::class)
+        ->call('confirmDeleteRestore', $foreign->id)
+        ->assertNotFound();
 
     expect(Restore::withoutGlobalScopes()->whereKey($foreign->id)->exists())->toBeTrue();
 });
@@ -247,8 +247,9 @@ test('another organization restore record cannot be deleted', function () {
 test('another organization restore record cannot be re-run', function () {
     $foreign = foreignRestore();
 
-    expect(fn () => Livewire::test(Index::class)->call('rerunRestore', $foreign->id))
-        ->toThrow(ModelNotFoundException::class);
+    Livewire::test(Index::class)
+        ->call('rerunRestore', $foreign->id)
+        ->assertNotFound();
 });
 
 test('viewLogs does not render a job from an org the user is not a member of', function () {

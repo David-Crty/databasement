@@ -18,7 +18,7 @@ class UpdateSshConfigAction
      * the passphrase of the key it replaces, and switching the authentication
      * type drops the other type's credentials.
      *
-     * @param  array<string, mixed>  $attributes  Validated columns to change; a missing key is left unchanged
+     * @param  array<model-property<DatabaseServerSshConfig>, mixed>  $attributes  Validated columns to change; a missing key is left unchanged
      */
     public function handle(DatabaseServerSshConfig $sshConfig, array $attributes): DatabaseServerSshConfig
     {

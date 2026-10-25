@@ -10,7 +10,6 @@ use App\Models\Snapshot;
 use App\Models\User;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\CurrentOrganization;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 
@@ -71,10 +70,10 @@ test('another organization snapshot cannot be deleted from the snapshot list', f
     $user = User::factory()->withAbilities([Ability::DeleteSnapshots->value])->create();
     $foreign = foreignSnapshot();
 
-    expect(fn () => Livewire::actingAs($user)
+    Livewire::actingAs($user)
         ->test(App\Livewire\Snapshot\Index::class)
         ->call('confirmDeleteSnapshot', $foreign->id)
-    )->toThrow(ModelNotFoundException::class);
+        ->assertNotFound();
 
     expect(Snapshot::withoutGlobalScopes()->whereKey($foreign->id)->exists())->toBeTrue();
 });
