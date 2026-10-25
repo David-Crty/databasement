@@ -196,3 +196,4 @@ ENV HOME=/home/application
 HEALTHCHECK NONE
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["/usr/local/bin/start.sh"]
+
