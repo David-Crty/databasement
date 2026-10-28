@@ -122,8 +122,10 @@ agents: {}
 
 # Logging
 logging:
-  channel: stderr
+  channel: stdio
   level: warning
+  # One JSON object per entry, for log collectors. Leave empty for plain text.
+  formatter: Monolog\Formatter\JsonFormatter
 
 # Ingress
 ingress:

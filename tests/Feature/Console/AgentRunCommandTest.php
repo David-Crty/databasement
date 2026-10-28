@@ -18,6 +18,12 @@ beforeEach(function () {
         'agent.poll_interval' => 5,
     ]);
 
+    $this->agentStreams = ['stdout' => fopen('php://memory', 'w+'), 'stderr' => fopen('php://memory', 'w+')];
+    config([
+        'logging.channels.stdio_stdout.with.stream' => $this->agentStreams['stdout'],
+        'logging.channels.stdio_stderr.with.stream' => $this->agentStreams['stderr'],
+    ]);
+
     $this->jobPayload = [
         'id' => 'job-123',
         'snapshot_id' => 'snap-456',
@@ -52,6 +58,16 @@ beforeEach(function () {
     ];
 });
 
+function agentStdout(): string
+{
+    return stream_get_contents(test()->agentStreams['stdout'], offset: 0);
+}
+
+function agentStderr(): string
+{
+    return stream_get_contents(test()->agentStreams['stderr'], offset: 0);
+}
+
 /**
  * Fake the server the agent talks to: a healthy heartbeat, a claim that hands
  * out $job, and the job endpoints in $jobRoutes (paths under /agent/jobs/),
@@ -82,18 +98,17 @@ function fakeAgentServer(?array $job, array $jobRoutes = []): void
 test('fails when agent url and token are not configured', function () {
     config(['agent.url' => '', 'agent.token' => '']);
 
-    $this->artisan('agent:run')
-        ->expectsOutputToContain('DATABASEMENT_URL and DATABASEMENT_AGENT_TOKEN must be configured.')
-        ->assertExitCode(1);
+    $this->artisan('agent:run')->assertExitCode(1);
+
+    expect(agentStderr())->toContain('DATABASEMENT_URL and DATABASEMENT_AGENT_TOKEN must be configured.');
 });
 
 test('exits cleanly when no jobs are available', function () {
     fakeAgentServer(null);
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain('Databasement Agent starting...')
-        ->expectsOutputToContain('Agent stopped gracefully.')
-        ->assertSuccessful();
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(agentStdout())->toContain('Databasement Agent starting...')->toContain('Agent stopped gracefully.');
 
     Http::assertSentCount(2);
 });
@@ -110,10 +125,9 @@ test('processes a job and calls ack on success', function () {
         ->with(Mockery::any(), Mockery::type(AgentJobLogger::class))
         ->andReturn($mockResult);
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain('Processing job job-123: prod-mysql / testdb')
-        ->expectsOutputToContain('Job completed: backup_testdb.sql.gz')
-        ->assertSuccessful();
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(agentStdout())->toContain('Processing job job-123: prod-mysql / testdb')->toContain('Job completed: backup_testdb.sql.gz');
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/ack')
         && $request['filename'] === 'backup_testdb.sql.gz'
@@ -138,9 +152,9 @@ test('reports per-volume outcomes when only some uploads fail', function () {
     $backupTask->shouldReceive('execute')->once()
         ->andThrow(new VolumeTransferException($partialResult, 'Upload failed for volume(s): Offsite'));
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain('Job failed: Upload failed for volume(s): Offsite')
-        ->assertSuccessful();
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(agentStderr())->toContain('Job failed: Upload failed for volume(s): Offsite');
 
     // The successful copy must still reach the app, alongside the failure.
     Http::assertSent(fn ($request) => str_contains($request->url(), '/fail')
@@ -177,9 +191,9 @@ test('processes a legacy single-volume job payload', function () {
             ]);
         });
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain('Job completed: backup_testdb.sql.gz')
-        ->assertSuccessful();
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(agentStdout())->toContain('Job completed: backup_testdb.sql.gz');
 
     expect($capturedConfig->volumes)->toHaveCount(1)
         ->and($capturedConfig->volumes[0]->name)->toBe('Test Volume');
@@ -191,9 +205,9 @@ test('calls fail endpoint when backup task throws', function () {
     $backupTask = $this->mock(BackupTask::class);
     $backupTask->shouldReceive('execute')->once()->andThrow(new RuntimeException('Connection refused'));
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain('Job failed: Connection refused')
-        ->assertSuccessful();
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(agentStderr())->toContain('Job failed: Connection refused');
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/fail')
         && $request['error_message'] === 'Connection refused'
@@ -206,9 +220,9 @@ test('a job the server revoked is stopped without reporting a failure', function
     $this->mock(BackupTask::class)->shouldReceive('execute')->once()
         ->andThrow(new JobRevokedException("Cannot heartbeat a job with status 'failed'."));
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain("Job job-123 stopped: Cannot heartbeat a job with status 'failed'.")
-        ->assertSuccessful();
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(agentStderr())->toContain("Job job-123 stopped: Cannot heartbeat a job with status 'failed'.");
 
     Http::assertNotSent(fn ($request) => str_contains($request->url(), '/fail'));
 });
@@ -223,10 +237,11 @@ test('tells the server when it is stopped by a signal while running a job', func
             throw new RuntimeException('Killed');
         });
 
-    $this->artisan('agent:run')
-        ->expectsOutputToContain('Agent received SIGTERM and is shutting down.')
-        ->expectsOutputToContain('Agent stopped gracefully.')
-        ->assertSuccessful();
+    $this->artisan('agent:run')->assertSuccessful();
+
+    expect(agentStdout())->toContain('Agent stopped gracefully.');
+
+    expect(agentStderr())->toContain('Agent received SIGTERM and is shutting down.');
 
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/agent/jobs/job-123/heartbeat')
         && str_contains($request['logs'][0]['message'] ?? '', 'Agent received SIGTERM')
@@ -248,9 +263,9 @@ test('exits with failure on authentication error', function () {
         '*/agent/heartbeat' => Http::response('Unauthenticated', 401),
     ]);
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain('Authentication failed. Please check your DATABASEMENT_AGENT_TOKEN.')
-        ->assertExitCode(1);
+    $this->artisan('agent:run --once')->assertExitCode(1);
+
+    expect(agentStderr())->toContain('Authentication failed. Please check your DATABASEMENT_AGENT_TOKEN.');
 });
 
 test('processes a discovery job and reports databases', function () {
@@ -283,10 +298,9 @@ test('processes a discovery job and reports databases', function () {
         $mock->shouldReceive('listDatabasesForServer')->once()->andReturn(['app_db', 'analytics_db']);
     });
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain('Processing discovery job job-456: prod-mysql')
-        ->expectsOutputToContain('Discovery completed: 2 database(s) found')
-        ->assertSuccessful();
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(agentStdout())->toContain('Processing discovery job job-456: prod-mysql')->toContain('Discovery completed: 2 database(s) found');
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/discovered-databases')
         && $request['databases'] === ['app_db', 'analytics_db']
@@ -370,10 +384,9 @@ describe('restore jobs', function () {
                 && $config->snapshotVolume->type === 's3'
                 && $config->targetServer->serverName === 'staging-mysql');
 
-        $this->artisan('agent:run --once')
-            ->expectsOutputToContain('Processing restore job job-789: staging-mysql / restored_db')
-            ->expectsOutputToContain('Restore completed: restored_db')
-            ->assertSuccessful();
+        $this->artisan('agent:run --once')->assertSuccessful();
+
+        expect(agentStdout())->toContain('Processing restore job job-789: staging-mysql / restored_db')->toContain('Restore completed: restored_db');
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/claim')
             && in_array('restore', $request['job_types'], true));
@@ -387,9 +400,9 @@ describe('restore jobs', function () {
         $this->mock(RestoreTask::class)->shouldReceive('execute')->once()
             ->andThrow(new RuntimeException('Access denied for user'));
 
-        $this->artisan('agent:run --once')
-            ->expectsOutputToContain('Restore failed: Access denied for user')
-            ->assertSuccessful();
+        $this->artisan('agent:run --once')->assertSuccessful();
+
+        expect(agentStderr())->toContain('Restore failed: Access denied for user');
 
         Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-789/fail')
             && $request['error_message'] === 'Access denied for user');
@@ -399,9 +412,9 @@ describe('restore jobs', function () {
 test('fails a job whose type this agent cannot run', function () {
     fakeAgentServer([...$this->jobPayload, 'type' => 'teleport'], ['job-123/fail']);
 
-    $this->artisan('agent:run --once')
-        ->expectsOutputToContain("Job job-123 has unsupported type 'teleport'.")
-        ->assertSuccessful();
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    expect(agentStderr())->toContain("Job job-123 has unsupported type 'teleport'.");
 
     Http::assertSent(fn ($request) => str_contains($request->url(), '/jobs/job-123/fail')
         && str_contains($request['error_message'], 'Update the agent'));

@@ -10,6 +10,7 @@ use App\Services\Agent\Runners\CleanupJobRunner;
 use App\Services\Agent\Runners\DiscoveryJobRunner;
 use App\Services\Agent\Runners\RestoreJobRunner;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class AgentRunCommand extends Command
 {
@@ -173,8 +174,6 @@ class AgentRunCommand extends Command
 
     private function log(string $message, string $level = 'info'): void
     {
-        $timestamp = now()->format('Y-m-d H:i:s');
-        $prefix = strtoupper($level);
-        $this->line("[{$timestamp}] {$prefix}: {$message}");
+        Log::channel('stdio')->log($level, $message);
     }
 }

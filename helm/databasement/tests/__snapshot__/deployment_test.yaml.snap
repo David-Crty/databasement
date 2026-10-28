@@ -50,9 +50,11 @@ should render deployment with default values:
                 - name: DB_DATABASE
                   value: /data/database.sqlite
                 - name: LOG_CHANNEL
-                  value: stderr
+                  value: stdio
                 - name: LOG_LEVEL
                   value: warning
+                - name: LOG_STDERR_FORMATTER
+                  value: Monolog\Formatter\JsonFormatter
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
               image: davidcrty/databasement:0.0.0-dev
@@ -116,9 +118,11 @@ should render deployment with default values:
                 - name: DB_DATABASE
                   value: /data/database.sqlite
                 - name: LOG_CHANNEL
-                  value: stderr
+                  value: stdio
                 - name: LOG_LEVEL
                   value: warning
+                - name: LOG_STDERR_FORMATTER
+                  value: Monolog\Formatter\JsonFormatter
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
                 - name: ENABLE_QUEUE_WORKER
@@ -167,9 +171,11 @@ should render deployment with default values:
                 - name: DB_DATABASE
                   value: /data/database.sqlite
                 - name: LOG_CHANNEL
-                  value: stderr
+                  value: stdio
                 - name: LOG_LEVEL
                   value: warning
+                - name: LOG_STDERR_FORMATTER
+                  value: Monolog\Formatter\JsonFormatter
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
               image: davidcrty/databasement:0.0.0-dev
@@ -259,9 +265,11 @@ should render deployment with mysql database:
                       key: db-password
                       name: RELEASE-NAME-databasement
                 - name: LOG_CHANNEL
-                  value: stderr
+                  value: stdio
                 - name: LOG_LEVEL
                   value: warning
+                - name: LOG_STDERR_FORMATTER
+                  value: Monolog\Formatter\JsonFormatter
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
               image: davidcrty/databasement:0.0.0-dev
@@ -336,9 +344,11 @@ should render deployment with mysql database:
                       key: db-password
                       name: RELEASE-NAME-databasement
                 - name: LOG_CHANNEL
-                  value: stderr
+                  value: stdio
                 - name: LOG_LEVEL
                   value: warning
+                - name: LOG_STDERR_FORMATTER
+                  value: Monolog\Formatter\JsonFormatter
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
                 - name: ENABLE_QUEUE_WORKER
@@ -398,9 +408,11 @@ should render deployment with mysql database:
                       key: db-password
                       name: RELEASE-NAME-databasement
                 - name: LOG_CHANNEL
-                  value: stderr
+                  value: stdio
                 - name: LOG_LEVEL
                   value: warning
+                - name: LOG_STDERR_FORMATTER
+                  value: Monolog\Formatter\JsonFormatter
                 - name: ENABLE_DATABASE_MIGRATION
                   value: "false"
               image: davidcrty/databasement:0.0.0-dev

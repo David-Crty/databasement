@@ -74,6 +74,12 @@ tests:
                 name: RELEASE-NAME-databasement-agent-main
                 key: token
         documentIndex: 1
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOG_STDERR_FORMATTER
+            value: Monolog\Formatter\JsonFormatter
+        documentIndex: 1
 
   - it: should render one deployment per agent with distinct selectors
     set:

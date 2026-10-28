@@ -3,7 +3,10 @@
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
+use Monolog\Level;
 use Monolog\Processor\PsrLogMessageProcessor;
+
+$logLevel = env('LOG_LEVEL', 'debug');
 
 return [
 
@@ -103,6 +106,36 @@ return [
                 'stream' => 'php://stderr',
             ],
             'processors' => [PsrLogMessageProcessor::class],
+        ],
+
+        'stdio' => [
+            'driver' => 'stack',
+            'channels' => ['stdio_stderr', 'stdio_stdout'],
+            'ignore_exceptions' => false,
+        ],
+
+        // Takes warnings and above, and stops them there (bubble: false), so
+        // stdio_stdout only ever sees what is left.
+        'stdio_stderr' => [
+            'driver' => 'monolog',
+            'level' => Level::fromName($logLevel)->isLowerThan(Level::Warning) ? 'warning' : $logLevel,
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'with' => [
+                'stream' => 'php://stderr',
+                'bubble' => false,
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
+        'stdio_stdout' => [
+            'driver' => 'monolog',
+            'level' => $logLevel,
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'with' => [
+                'stream' => 'php://stdout',
+            ],
         ],
 
         'syslog' => [
