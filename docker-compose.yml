@@ -32,7 +32,6 @@ services:
     volumes:
       - .:/app
       - app-data:/data
-    restart: unless-stopped
     environment:
       TZ: UTC
       ENABLE_QUEUE_WORKER: "true"
