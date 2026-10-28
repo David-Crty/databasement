@@ -152,12 +152,21 @@ provider you trust.
 
 ## Logging
 
-| Variable      | Description       | Default  |
-| ------------- | ----------------- | -------- |
-| `LOG_CHANNEL` | Logging channel   | `stderr` |
-| `LOG_LEVEL`   | Minimum log level | `debug`  |
+| Variable               | Description                                | Default                             |
+| ---------------------- | ------------------------------------------ | ----------------------------------- |
+| `LOG_CHANNEL`          | Logging channel                            | `stdio`                             |
+| `LOG_LEVEL`            | Minimum log level                          | `debug`                             |
+| `LOG_STDERR_FORMATTER` | Monolog formatter for `stdio` and `stderr` | plain text (JSON in the Helm chart) |
 
-For production, `stderr` is recommended as logs will be captured by Docker.
+`stdio` sends warnings and errors to stderr and the rest to stdout, so journald, Cockpit and Kubernetes show errors as
+errors. `stderr` sends everything to stderr. `single` and `daily` write to `storage/logs/` instead of the container output.
+
+For one JSON object per entry (stack traces included), set the following. The Helm chart does this by default
+(`logging.formatter`; set it to `""` for plain text).
+
+```bash
+LOG_STDERR_FORMATTER=Monolog\Formatter\JsonFormatter
+```
 
 ## Complete Example
 
@@ -179,7 +188,7 @@ DB_USERNAME=databasement
 DB_PASSWORD=secure-password-here
 
 # Logging
-LOG_CHANNEL=stderr
+LOG_CHANNEL=stdio
 LOG_LEVEL=warning
 ```
 

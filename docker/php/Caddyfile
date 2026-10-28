@@ -7,6 +7,12 @@
 {
 	skip_install_trust
 
+	# Caddy logs every level to stderr by default, which a container runtime
+	# would report as errors. Its JSON lines carry their own level.
+	log {
+		output stdout
+	}
+
 	{$CADDY_GLOBAL_OPTIONS}
 
 	frankenphp {
