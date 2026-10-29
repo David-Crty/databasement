@@ -1238,7 +1238,10 @@ class Form extends \Livewire\Form
         // Use form values or fall back to existing config values
         $config->password = $this->ssh_password ?: $this->getSshFieldFromConfig('password');
         $config->private_key = $this->ssh_private_key ?: $this->getSshFieldFromConfig('private_key');
-        $config->key_passphrase = $this->ssh_key_passphrase ?: $this->getSshFieldFromConfig('key_passphrase');
+        // A replacement key is saved without the stored passphrase, so the test must not borrow it
+        $config->key_passphrase = filled($this->ssh_private_key)
+            ? $this->ssh_key_passphrase
+            : ($this->ssh_key_passphrase ?: $this->getSshFieldFromConfig('key_passphrase'));
 
         return $config;
     }

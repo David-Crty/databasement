@@ -7,6 +7,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\User;
 use App\Models\Volume;
+use App\Services\SshTunnelService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -454,6 +455,25 @@ test('a validation error on a hidden SSH field expands the SSH editor', function
         ->html();
 
     expect($html)->toContain('showForm: true');
+});
+
+test('the SSH test does not reuse the stored passphrase for a replacement key', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create();
+    $sshConfig = DatabaseServerSshConfig::factory()->withKeyAuthAndPassphrase()->create();
+    $server->update(['ssh_config_id' => $sshConfig->id]);
+
+    $this->mock(SshTunnelService::class)
+        ->shouldReceive('testConnection')
+        ->once()
+        ->withArgs(fn (DatabaseServerSshConfig $config): bool => $config->private_key === 'NEW_KEY' && blank($config->key_passphrase))
+        ->andReturn(['success' => true, 'message' => 'ok']);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.ssh_private_key', 'NEW_KEY')
+        ->call('testSshConnection')
+        ->assertSet('form.sshTestSuccess', true);
 });
 
 test('a failed SSH test says which field is wrong', function () {
