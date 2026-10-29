@@ -7,6 +7,7 @@ use App\Models\DatabaseServer;
 use App\Models\DatabaseServerSshConfig;
 use App\Models\User;
 use App\Models\Volume;
+use App\Services\SshTunnelService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
@@ -312,6 +313,43 @@ test('disabling SSH tunnel clears SSH config link', function () {
     expect($server->requiresSshTunnel())->toBeFalse();
 });
 
+test('choosing "Create new" when editing a server creates a new SSH config and leaves the shared one untouched', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->withSshTunnel()->create(['database_names' => ['mydb']]);
+    $sharedConfig = $server->sshConfig;
+    $otherServer = DatabaseServer::factory()->create(['ssh_config_id' => $sharedConfig->id]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.ssh_config_mode', 'create')
+        ->set('form.ssh_host', 'other-bastion.example.com')
+        ->set('form.ssh_username', 'other_user')
+        ->set('form.ssh_password', 'other_password')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($server->fresh()->sshConfig)
+        ->id->not->toBe($sharedConfig->id)
+        ->host->toBe('other-bastion.example.com');
+    expect($sharedConfig->fresh())
+        ->host->toBe('bastion.example.com')
+        ->password->toBe('ssh_password');
+    expect($otherServer->fresh()->ssh_config_id)->toBe($sharedConfig->id);
+});
+
+test('choosing "Create new" when editing a server requires the new SSH credential', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->withSshTunnel()->create(['database_names' => ['mydb']]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.ssh_config_mode', 'create')
+        ->set('form.ssh_host', 'other-bastion.example.com')
+        ->set('form.ssh_username', 'other_user')
+        ->call('save')
+        ->assertHasErrors(['form.ssh_password' => 'required']);
+});
+
 test('generateSshKey populates private and public key fields with a comment derived from server name', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 
@@ -417,6 +455,25 @@ test('a validation error on a hidden SSH field expands the SSH editor', function
         ->html();
 
     expect($html)->toContain('showForm: true');
+});
+
+test('the SSH test does not reuse the stored passphrase for a replacement key', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->create();
+    $sshConfig = DatabaseServerSshConfig::factory()->withKeyAuthAndPassphrase()->create();
+    $server->update(['ssh_config_id' => $sshConfig->id]);
+
+    $this->mock(SshTunnelService::class)
+        ->shouldReceive('testConnection')
+        ->once()
+        ->withArgs(fn (DatabaseServerSshConfig $config): bool => $config->private_key === 'NEW_KEY' && blank($config->key_passphrase))
+        ->andReturn(['success' => true, 'message' => 'ok']);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.ssh_private_key', 'NEW_KEY')
+        ->call('testSshConnection')
+        ->assertSet('form.sshTestSuccess', true);
 });
 
 test('a failed SSH test says which field is wrong', function () {
