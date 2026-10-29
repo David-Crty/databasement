@@ -312,6 +312,43 @@ test('disabling SSH tunnel clears SSH config link', function () {
     expect($server->requiresSshTunnel())->toBeFalse();
 });
 
+test('choosing "Create new" when editing a server creates a new SSH config and leaves the shared one untouched', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->withSshTunnel()->create(['database_names' => ['mydb']]);
+    $sharedConfig = $server->sshConfig;
+    $otherServer = DatabaseServer::factory()->create(['ssh_config_id' => $sharedConfig->id]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.ssh_config_mode', 'create')
+        ->set('form.ssh_host', 'other-bastion.example.com')
+        ->set('form.ssh_username', 'other_user')
+        ->set('form.ssh_password', 'other_password')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect($server->fresh()->sshConfig)
+        ->id->not->toBe($sharedConfig->id)
+        ->host->toBe('other-bastion.example.com');
+    expect($sharedConfig->fresh())
+        ->host->toBe('bastion.example.com')
+        ->password->toBe('ssh_password');
+    expect($otherServer->fresh()->ssh_config_id)->toBe($sharedConfig->id);
+});
+
+test('choosing "Create new" when editing a server requires the new SSH credential', function () {
+    $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
+    $server = DatabaseServer::factory()->withSshTunnel()->create(['database_names' => ['mydb']]);
+
+    Livewire::actingAs($user)
+        ->test(Edit::class, ['server' => $server])
+        ->set('form.ssh_config_mode', 'create')
+        ->set('form.ssh_host', 'other-bastion.example.com')
+        ->set('form.ssh_username', 'other_user')
+        ->call('save')
+        ->assertHasErrors(['form.ssh_password' => 'required']);
+});
+
 test('generateSshKey populates private and public key fields with a comment derived from server name', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
 

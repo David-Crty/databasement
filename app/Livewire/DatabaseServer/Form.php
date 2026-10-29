@@ -1047,15 +1047,17 @@ class Form extends \Livewire\Form
 
     /**
      * The saved SSH configuration this form's SSH settings are applied to:
-     * the one picked in "existing" mode, otherwise the server's own.
+     * the one picked in "existing" mode. "Create new" always saves a new
+     * configuration, even when the server already has one, since that one
+     * may be shared with other servers.
      */
     private function sshConfigToUpdate(): ?DatabaseServerSshConfig
     {
-        $configId = $this->ssh_config_mode === 'existing'
-            ? $this->ssh_config_id
-            : $this->server?->ssh_config_id;
+        if ($this->ssh_config_mode !== 'existing' || $this->ssh_config_id === null) {
+            return null;
+        }
 
-        return $configId !== null ? DatabaseServerSshConfig::find($configId) : null;
+        return DatabaseServerSshConfig::find($this->ssh_config_id);
     }
 
     /**
@@ -1173,27 +1175,11 @@ class Form extends \Livewire\Form
     }
 
     /**
-     * Get a decrypted SSH config field from the existing config (either linked or selected).
+     * Get a decrypted SSH config field from the configuration the form's SSH settings are applied to.
      */
     private function getSshFieldFromConfig(string $field): ?string
     {
-        $configId = $this->ssh_config_id;
-
-        // If editing server with linked config, use server's config
-        if ($this->server !== null && $this->server->sshConfig !== null) {
-            $configId = $this->server->ssh_config_id;
-        }
-
-        if ($configId === null) {
-            return null;
-        }
-
-        $config = DatabaseServerSshConfig::find($configId);
-        if ($config === null) {
-            return null;
-        }
-
-        $decrypted = $config->getDecrypted();
+        $decrypted = $this->sshConfigToUpdate()?->getDecrypted();
 
         return $decrypted[$field] ?? null;
     }
