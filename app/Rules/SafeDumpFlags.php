@@ -90,8 +90,10 @@ readonly class SafeDumpFlags implements ValidationRule
      */
     private const array RESTORE_UNSAFE = [
         DatabaseType::TIMESCALEDB->value => [
-            '--table', '-t',   // only the named tables, without the hypertable's chunks
-            '--schema', '-n',  // only the named schemas, excluding _timescaledb_internal
+            '--table', '-t',          // only the named tables, without the hypertable's chunks
+            '--table-and-children',   // the named tables and their partitions, still not the catalog
+            '--schema', '-n',         // only the named schemas, excluding _timescaledb_internal
+            '--filter',               // include/exclude rules from a file, which can drop catalog objects
         ],
     ];
 
