@@ -1,5 +1,7 @@
 <?php
 
+use App\Exceptions\Backup\ConnectionException;
+use App\Exceptions\Backup\DatabaseDumpException;
 use App\Services\Backup\Databases\TimescaledbDatabase;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 use App\Services\Backup\InMemoryBackupLogger;
@@ -28,6 +30,20 @@ test('dump is taken with pg_dump, streaming to stdout, just like PostgreSQL', fu
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
         ->and($result->command)->toBe("PGPASSWORD='ts_secret' pg_dump --clean --if-exists --no-owner --no-privileges --quote-all-identifiers --host='ts.local' --port='5432' --username='postgres' --dbname='metrics'")
         ->and($result->writesToStdout)->toBeTrue();
+});
+
+// A selective pg_dump leaves a hypertable unrestorable, so the flag is rejected
+// at execution too, not only at validation, catching a configuration stored
+// before the rule existed.
+test('dump rejects a stored flag that would omit hypertable data', function () {
+    expect(fn () => timescaledbHandler(['dump_flags' => '--table=metrics'])->dump('/tmp/dump.sql'))
+        ->toThrow(DatabaseDumpException::class, 'cannot restore hypertables');
+});
+
+test('dump passes an allowed extra flag through to pg_dump', function () {
+    $command = timescaledbHandler(['dump_flags' => '--no-sync'])->dump('/tmp/dump.sql')->command;
+
+    expect($command)->toContain("'--no-sync' --dbname='metrics'");
 });
 
 // timescaledb_pre_restore()/post_restore() toggle the restoring flag on the
@@ -90,4 +106,32 @@ test('prepareForRestore creates the TimescaleDB extension on the target database
     ]);
 
     $db->prepareForRestore('metrics', new InMemoryBackupLogger, forceDatabase: false);
+});
+
+// A missing or unavailable extension must surface as a ConnectionException, not
+// a bare PDOException, so the restore reports a clean failure.
+test('prepareForRestore wraps a failed extension setup in a ConnectionException', function () {
+    $existsStmt = Mockery::mock(PDOStatement::class);
+    $existsStmt->shouldReceive('execute')->once();
+    $existsStmt->shouldReceive('fetchColumn')->once()->andReturn(1);
+
+    $terminateStmt = Mockery::mock(PDOStatement::class);
+    $terminateStmt->shouldReceive('execute')->once();
+
+    $adminPdo = Mockery::mock(PDO::class);
+    $adminPdo->shouldReceive('prepare')->with('SELECT 1 FROM pg_database WHERE datname = ?')->andReturn($existsStmt);
+    $adminPdo->shouldReceive('prepare')->with(Mockery::pattern('/pg_terminate_backend/'))->andReturn($terminateStmt);
+
+    $extensionPdo = Mockery::mock(PDO::class);
+    $extensionPdo->shouldReceive('exec')->once()->andThrow(new PDOException('extension "timescaledb" is not available'));
+
+    $db = Mockery::mock(TimescaledbDatabase::class)->makePartial()->shouldAllowMockingProtectedMethods();
+    $db->shouldReceive('createPdo')->andReturn($adminPdo);
+    $db->shouldReceive('createPdoForDatabase')->with('metrics')->andReturn($extensionPdo);
+    $db->setConfig([
+        'host' => 'ts.local', 'port' => 5432, 'user' => 'postgres', 'pass' => 'ts_secret', 'database' => 'metrics',
+    ]);
+
+    expect(fn () => $db->prepareForRestore('metrics', new InMemoryBackupLogger, forceDatabase: false))
+        ->toThrow(ConnectionException::class, 'Failed to prepare TimescaleDB extension');
 });

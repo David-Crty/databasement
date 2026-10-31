@@ -3,6 +3,7 @@
 namespace App\Services\Backup\Databases;
 
 use App\Contracts\BackupLogger;
+use App\Enums\DatabaseType;
 use App\Exceptions\Backup\ConnectionException;
 use App\Services\Backup\DTO\DatabaseOperationResult;
 
@@ -20,6 +21,15 @@ use App\Services\Backup\DTO\DatabaseOperationResult;
  */
 class TimescaledbDatabase extends PostgresqlDatabase
 {
+    /**
+     * Dump flags are judged against the TimescaleDB rules, which reject the
+     * selective-dump options that would leave a hypertable unrestorable.
+     */
+    protected function dumpFlagType(): DatabaseType
+    {
+        return DatabaseType::TIMESCALEDB;
+    }
+
     /**
      * Recreate the target database as PostgreSQL would, then make sure the
      * TimescaleDB extension is present so {@see restore()} can call

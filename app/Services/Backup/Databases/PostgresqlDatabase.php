@@ -95,6 +95,16 @@ class PostgresqlDatabase implements DatabaseInterface
         return ! empty($this->config['ssl_enabled']) ? 'PGSSLMODE=require ' : '';
     }
 
+    /**
+     * Engine whose dump-flag rules apply to this handler's dump command.
+     * {@see TimescaledbDatabase} overrides it so flags that would break a
+     * hypertable restore are rejected for a stored configuration too.
+     */
+    protected function dumpFlagType(): DatabaseType
+    {
+        return DatabaseType::POSTGRESQL;
+    }
+
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $options = $this->withPrivilegeOptions(self::DUMP_OPTIONS);
@@ -104,7 +114,7 @@ class PostgresqlDatabase implements DatabaseInterface
 
         $extraFlags = '';
         if (! empty($this->config['dump_flags'])) {
-            $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], DatabaseType::POSTGRESQL);
+            $extraFlags = ' '.DatabaseOperationResult::escapeFlags($this->config['dump_flags'], $this->dumpFlagType());
         }
 
         // An unqualified pattern matches the table in every schema, and the quotes stop pg_dump

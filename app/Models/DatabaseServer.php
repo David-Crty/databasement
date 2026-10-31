@@ -330,7 +330,7 @@ class DatabaseServer extends Model
      */
     public function isAppDatabase(string $schemaName): bool
     {
-        $appDatabaseTypes = [DatabaseType::MYSQL, DatabaseType::POSTGRESQL];
+        $appDatabaseTypes = [DatabaseType::MYSQL, DatabaseType::POSTGRESQL, DatabaseType::TIMESCALEDB];
 
         if (! in_array($this->database_type, $appDatabaseTypes)) {
             return false;
@@ -347,7 +347,10 @@ class DatabaseServer extends Model
 
         $appDbType = $driverToType[$appDbDriver] ?? null;
 
-        if ($appDbType !== $this->database_type) {
+        // A TimescaleDB server targets a PostgreSQL application database, so the
+        // pgsql driver has to match the whole Postgres family, not POSTGRESQL alone.
+        if ($appDbType !== $this->database_type
+            && ! ($appDbType === DatabaseType::POSTGRESQL && $this->database_type->isPostgresFamily())) {
             return false;
         }
 
