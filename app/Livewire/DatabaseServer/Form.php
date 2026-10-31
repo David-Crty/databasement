@@ -677,6 +677,16 @@ class Form extends \Livewire\Form
     }
 
     /**
+     * Whether the current type is PostgreSQL or a PostgreSQL-compatible engine
+     * (TimescaleDB), which share the same dump/restore configuration options.
+     * See {@see DatabaseType::isPostgresFamily()}.
+     */
+    public function isPostgresFamily(): bool
+    {
+        return DatabaseType::tryFrom($this->database_type)?->isPostgresFamily() ?? false;
+    }
+
+    /**
      * Check if current database type is Firebird.
      */
     public function isFirebird(): bool

@@ -156,7 +156,7 @@ class DatabaseServer extends Model
      */
     public function supportsAdminer(): bool
     {
-        return in_array($this->database_type, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL, DatabaseType::SQLITE])
+        return in_array($this->database_type, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL, DatabaseType::TIMESCALEDB, DatabaseType::SQLITE])
             && $this->ssh_config_id === null
             && $this->agent_id === null;
     }

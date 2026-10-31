@@ -50,6 +50,10 @@ readonly class SafeDumpFlags implements ValidationRule
         DatabaseType::POSTGRESQL->value => [
             '--file', '-f',          // output file or directory
         ],
+        // TimescaleDB is dumped by pg_dump too, so it denies the same options.
+        DatabaseType::TIMESCALEDB->value => [
+            '--file', '-f',          // output file or directory
+        ],
         // mongodump
         DatabaseType::MONGODB->value => [
             '--out', '-o',           // output directory
@@ -81,6 +85,7 @@ readonly class SafeDumpFlags implements ValidationRule
     private const array ABBREVIATING = [
         DatabaseType::MYSQL,
         DatabaseType::POSTGRESQL,
+        DatabaseType::TIMESCALEDB,
     ];
 
     /**

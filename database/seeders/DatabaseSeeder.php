@@ -136,6 +136,17 @@ class DatabaseSeeder extends Seeder
             'organization_id' => $defaultOrg->id,
         ]);
 
+        // TimescaleDB server (from docker-compose)
+        $timescaledb = DatabaseServer::create([
+            'name' => 'Local TimescaleDB',
+            'host' => 'timescaledb',
+            'port' => 5432,
+            'database_type' => 'timescaledb',
+            'username' => 'root',
+            'password' => 'root',
+            'organization_id' => $defaultOrg->id,
+        ]);
+
         // SQLite server
         $sqlitePath = '/data/sample.sqlite';
         $this->createSqliteDatabase($sqlitePath);
@@ -204,7 +215,7 @@ class DatabaseSeeder extends Seeder
             'database_selection_mode' => 'all',
         ];
 
-        foreach ([$mysql, $mariadb, $redis, $mongodb, $mssql] as $server) {
+        foreach ([$mysql, $mariadb, $timescaledb, $redis, $mongodb, $mssql] as $server) {
             Backup::create(array_merge($backupDefaults, [
                 'database_server_id' => $server->id,
             ]))->volumes()->attach($volume);

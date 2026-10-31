@@ -506,7 +506,7 @@ class PostgresqlDatabase implements DatabaseInterface
         ]);
     }
 
-    private function getQueryCommand(string $query): string
+    protected function getQueryCommand(string $query): string
     {
         return sprintf(
             '%sPGPASSWORD=%s psql --host=%s --port=%s --user=%s --dbname=%s -t -c %s',

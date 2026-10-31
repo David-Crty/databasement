@@ -23,6 +23,7 @@ class DatabaseProvider
         return match ($type) {
             DatabaseType::MYSQL => new MysqlDatabase,
             DatabaseType::POSTGRESQL => new PostgresqlDatabase,
+            DatabaseType::TIMESCALEDB => new TimescaledbDatabase,
             DatabaseType::SQLITE => new SqliteDatabase($this->sftpFilesystem),
             DatabaseType::REDIS => new RedisDatabase,
             DatabaseType::MONGODB => new MongodbDatabase,
@@ -116,32 +117,32 @@ class DatabaseProvider
             $dbConfig['excluded_tables'] = $excludedTables;
         }
 
-        if (in_array($config->databaseType, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true) && ! empty($extra['ssl_enabled'])) {
+        if (in_array($config->databaseType, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL, DatabaseType::TIMESCALEDB], true) && ! empty($extra['ssl_enabled'])) {
             $dbConfig['ssl_enabled'] = true;
         }
 
         // Marks a live server: the handler may query it for the MySQL/MariaDB
         // flavour, or for the PostgreSQL major that decides which client build
         // to run. Display-only configs, like the dump preview, leave it unset.
-        if (in_array($config->databaseType, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true)) {
+        if (in_array($config->databaseType, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL, DatabaseType::TIMESCALEDB], true)) {
             $dbConfig['probe_server_version'] = true;
         }
 
-        if ($config->databaseType === DatabaseType::POSTGRESQL) {
+        if ($config->databaseType->isPostgresFamily()) {
             $dbConfig['connection_database'] = self::connectionDatabase($extra);
         }
 
-        if ($config->databaseType === DatabaseType::POSTGRESQL
+        if ($config->databaseType->isPostgresFamily()
             && ($snapshotDumpFormat ?? $extra['dump_format'] ?? null) === 'custom') {
             $dbConfig['dump_format'] = 'custom';
         }
 
-        if ($config->databaseType === DatabaseType::POSTGRESQL
+        if ($config->databaseType->isPostgresFamily()
             && ($snapshotDumpPrivileges ?? ! empty($extra['dump_privileges']))) {
             $dbConfig['dump_privileges'] = true;
         }
 
-        if ($config->databaseType === DatabaseType::POSTGRESQL && $parallelRestore) {
+        if ($config->databaseType->isPostgresFamily() && $parallelRestore) {
             $dbConfig['parallel_restore'] = true;
         }
 
@@ -351,7 +352,7 @@ class DatabaseProvider
         }
 
         return match ($server->database_type) {
-            DatabaseType::POSTGRESQL => self::connectionDatabase($server->extra_config ?? []),
+            DatabaseType::POSTGRESQL, DatabaseType::TIMESCALEDB => self::connectionDatabase($server->extra_config ?? []),
             DatabaseType::MSSQL => 'master',
             DatabaseType::FIREBIRD => $server->resolveDatabaseNames()[0] ?? '',
             default => '',

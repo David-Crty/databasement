@@ -21,6 +21,8 @@ class DatabaseServerExtraConfig
     public static function fold(array &$data, ?array $existingExtraConfig = null, ?string $previousType = null): void
     {
         $type = $data['database_type'] ?? '';
+        $typeEnum = is_string($type) ? DatabaseType::tryFrom($type) : null;
+        $isPostgresFamily = $typeEnum?->isPostgresFamily() ?? false;
 
         // Reset extra_config when type changes to avoid stale keys
         $extraConfig = ($previousType !== null && $previousType !== $type) ? [] : ($existingExtraConfig ?? []);
@@ -33,10 +35,10 @@ class DatabaseServerExtraConfig
             ['srv_enabled',         fn ($v) => $type === DatabaseType::MONGODB->value && $v,                       fn () => true],
             ['connection_options',  fn ($v) => $type === DatabaseType::MONGODB->value && $v !== '' && $v !== null, fn ($v) => $v],
             ['dump_flags',          fn ($v) => $type !== DatabaseType::SQLITE->value && $v !== '' && $v !== null,  fn ($v) => $v],
-            ['dump_format',         fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v === 'custom',       fn () => 'custom'],
-            ['dump_privileges',     fn ($v) => $type === DatabaseType::POSTGRESQL->value && $v,                    fn () => true],
-            ['ssl_enabled',         fn ($v) => in_array($type, [DatabaseType::MYSQL->value, DatabaseType::POSTGRESQL->value], true) && $v, fn () => true],
-            ['connection_database', fn ($v) => $type === DatabaseType::POSTGRESQL->value && is_string($v) && trim($v) !== '', fn ($v) => trim($v)],
+            ['dump_format',         fn ($v) => $isPostgresFamily && $v === 'custom',                              fn () => 'custom'],
+            ['dump_privileges',     fn ($v) => $isPostgresFamily && $v,                                           fn () => true],
+            ['ssl_enabled',         fn ($v) => ($type === DatabaseType::MYSQL->value || $isPostgresFamily) && $v, fn () => true],
+            ['connection_database', fn ($v) => $isPostgresFamily && is_string($v) && trim($v) !== '',             fn ($v) => trim($v)],
         ];
 
         foreach ($rules as [$key, $keep, $store]) {
