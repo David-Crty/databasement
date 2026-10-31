@@ -61,10 +61,13 @@ test('SafeDumpFlags accepts or rejects dump flags', function (DatabaseType $type
     'timescaledb table-and-children include' => [DatabaseType::TIMESCALEDB, '--table-and-children=metrics', false],
     'timescaledb selective schema' => [DatabaseType::TIMESCALEDB, '--schema=public', false],
     'timescaledb short schema flag' => [DatabaseType::TIMESCALEDB, '-n public', false],
+    'timescaledb extension-only dump' => [DatabaseType::TIMESCALEDB, '--extension=timescaledb', false],
+    'timescaledb short extension flag' => [DatabaseType::TIMESCALEDB, '-e timescaledb', false],
     'timescaledb filter file' => [DatabaseType::TIMESCALEDB, '--filter=/tmp/filter.txt', false],
     'timescaledb ordinary flags stay allowed' => [DatabaseType::TIMESCALEDB, '--verbose --no-sync', true],
     'postgres selective table is still allowed' => [DatabaseType::POSTGRESQL, '--table=metrics', true],
     'postgres filter file is still allowed' => [DatabaseType::POSTGRESQL, '--filter=/tmp/filter.txt', true],
+    'postgres extension dump is still allowed' => [DatabaseType::POSTGRESQL, '--extension=timescaledb', true],
 ]);
 
 // mariadb-dump and pg_dump expand any unambiguous prefix of a long name, and

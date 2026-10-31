@@ -93,6 +93,7 @@ readonly class SafeDumpFlags implements ValidationRule
             '--table', '-t',          // only the named tables, without the hypertable's chunks
             '--table-and-children',   // the named tables and their partitions, still not the catalog
             '--schema', '-n',         // only the named schemas, excluding _timescaledb_internal
+            '--extension', '-e',      // only the named extensions, omitting the user tables entirely
             '--filter',               // include/exclude rules from a file, which can drop catalog objects
         ],
     ];
