@@ -14,7 +14,7 @@
     "concurrently": "^10.0.6",
     "copy-to-clipboard": "^4.0.2",
     "laravel-vite-plugin": "^3.2",
-    "vite": "^8.3.3"
+    "vite": "^8.3.5"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.64.0",
