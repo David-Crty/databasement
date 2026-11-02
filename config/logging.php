@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\KeepStdoutBelowWarning;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -102,6 +103,7 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'handler' => StreamHandler::class,
             'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter_with' => ['includeStacktraces' => true],
             'with' => [
                 'stream' => 'php://stderr',
             ],
@@ -114,16 +116,14 @@ return [
             'ignore_exceptions' => false,
         ],
 
-        // Takes warnings and above, and stops them there (bubble: false), so
-        // stdio_stdout only ever sees what is left.
         'stdio_stderr' => [
             'driver' => 'monolog',
             'level' => Level::fromName($logLevel)->isLowerThan(Level::Warning) ? 'warning' : $logLevel,
             'handler' => StreamHandler::class,
             'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter_with' => ['includeStacktraces' => true],
             'with' => [
                 'stream' => 'php://stderr',
-                'bubble' => false,
             ],
             'processors' => [PsrLogMessageProcessor::class],
         ],
@@ -133,9 +133,11 @@ return [
             'level' => $logLevel,
             'handler' => StreamHandler::class,
             'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter_with' => ['includeStacktraces' => true],
             'with' => [
                 'stream' => 'php://stdout',
             ],
+            'tap' => [KeepStdoutBelowWarning::class],
         ],
 
         'syslog' => [
