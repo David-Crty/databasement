@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4eed15cf6b4b27e8e1b1598fc9b601eb",
+    "content-hash": "6409415942dd3f5859b55962802cba1e",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -2416,21 +2416,21 @@
         },
         {
             "name": "laravel-notification-channels/telegram",
-            "version": "7.0.0",
+            "version": "8.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel-notification-channels/telegram.git",
-                "reference": "948b3a73a893950f271f5b0fc2df45883d176fc8"
+                "reference": "eea15cb6275aeb03bcba3481a3dde05bfb105800"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel-notification-channels/telegram/zipball/948b3a73a893950f271f5b0fc2df45883d176fc8",
-                "reference": "948b3a73a893950f271f5b0fc2df45883d176fc8",
+                "url": "https://api.github.com/repos/laravel-notification-channels/telegram/zipball/eea15cb6275aeb03bcba3481a3dde05bfb105800",
+                "reference": "eea15cb6275aeb03bcba3481a3dde05bfb105800",
                 "shasum": ""
             },
             "require": {
                 "ext-json": "*",
-                "guzzlehttp/guzzle": "^7.8",
+                "guzzlehttp/guzzle": "^7.8 || ^8.0",
                 "illuminate/contracts": "^12.0 || ^13.0",
                 "illuminate/notifications": "^12.0 || ^13.0",
                 "illuminate/support": "^12.0 || ^13.0",
@@ -2438,10 +2438,11 @@
             },
             "require-dev": {
                 "larastan/larastan": "^3.0",
+                "laravel/pint": "^1.18",
                 "mockery/mockery": "^1.4.4",
                 "orchestra/testbench": "^10.0 || ^11.0",
-                "pestphp/pest": "^4.0",
-                "pestphp/pest-plugin-laravel": "^4.0",
+                "pestphp/pest": "^4.0 || ^5.0",
+                "pestphp/pest-plugin-laravel": "^4.0 || ^5.0",
                 "phpstan/extension-installer": "^1.2",
                 "phpstan/phpstan-deprecation-rules": "^2.0",
                 "phpstan/phpstan-phpunit": "^2.0"
@@ -2482,9 +2483,15 @@
             ],
             "support": {
                 "issues": "https://github.com/laravel-notification-channels/telegram/issues",
-                "source": "https://github.com/laravel-notification-channels/telegram/tree/7.0.0"
+                "source": "https://github.com/laravel-notification-channels/telegram/tree/8.0.0"
             },
-            "time": "2026-03-19T18:58:46+00:00"
+            "funding": [
+                {
+                    "url": "https://github.com/irazasyed",
+                    "type": "github"
+                }
+            ],
+            "time": "2026-08-24T21:54:47+00:00"
         },
         {
             "name": "laravel/fortify",
