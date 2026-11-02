@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Channels;
 
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
 
@@ -20,9 +21,13 @@ class GotifyChannel
             return;
         }
 
-        Http::timeout(10)
+        $response = Http::timeout(10)
+            ->withoutRedirecting()
             ->withHeader('X-Gotify-Key', $token)
-            ->post(rtrim($url, '/').'/message', $payload)
-            ->throw();
+            ->post(rtrim($url, '/').'/message', $payload);
+
+        throw_if($response->redirect(), new RequestException($response));
+
+        $response->throw();
     }
 }

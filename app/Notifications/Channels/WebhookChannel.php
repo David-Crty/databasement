@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Channels;
 
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
 
@@ -22,6 +23,10 @@ class WebhookChannel
         $secret = $config['secret'] ?? null;
         $headers = $secret ? ['X-Webhook-Token' => $secret] : [];
 
-        Http::timeout(10)->withHeaders($headers)->post($url, $payload)->throw();
+        $response = Http::timeout(10)->withoutRedirecting()->withHeaders($headers)->post($url, $payload);
+
+        throw_if($response->redirect(), new RequestException($response));
+
+        $response->throw();
     }
 }

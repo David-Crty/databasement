@@ -27,9 +27,11 @@ use Dedoc\Scramble\Support\Generator\Parameter;
 use Dedoc\Scramble\Support\Generator\Schema;
 use Dedoc\Scramble\Support\Generator\SecurityScheme;
 use Dedoc\Scramble\Support\Generator\Types\StringType;
+use GuzzleHttp\Client as GuzzleClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Channels\SlackWebhookChannel;
 use Illuminate\Routing\Route;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
@@ -53,6 +55,9 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(CurrentOrganization::class);
         $this->app->singleton(AppConfigService::class);
         $this->app->singleton(ShellProcessor::class);
+        $this->app->when(SlackWebhookChannel::class)
+            ->needs(GuzzleClient::class)
+            ->give(fn () => new GuzzleClient(['allow_redirects' => false]));
         $this->app->singleton(CompressorFactory::class);
         $this->app->singleton(CompressorInterface::class, function ($app) {
             return $app->make(CompressorFactory::class)->make();

@@ -19,6 +19,7 @@ use App\Notifications\SnapshotsMissingNotification;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\NotificationService;
 use Illuminate\Http\Client\Request;
+use Illuminate\Notifications\Channels\SlackWebhookChannel;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Slack\SlackMessage;
 use Illuminate\Support\Facades\Http;
@@ -545,8 +546,8 @@ test('custom channel sends HTTP request', function (string $channelClass, array 
     ],
 ]);
 
-test('custom channel throws on HTTP failure', function (string $channelClass, array $channelConfig) {
-    Http::fake(fn () => Http::response('Server Error', 500));
+test('custom channel throws on an error or redirect response', function (string $channelClass, array $channelConfig, int $status, array $headers) {
+    Http::fake(fn () => Http::response('', $status, $headers));
 
     $server = DatabaseServer::factory()->create(['name' => 'Test Server', 'database_names' => ['testdb']]);
     $snapshot = notificationSnapshot($server);
@@ -559,6 +560,8 @@ test('custom channel throws on HTTP failure', function (string $channelClass, ar
 
     expect(fn () => (new $channelClass)->send($notifiable, $notification))
         ->toThrow(\Illuminate\Http\Client\RequestException::class);
+
+    Http::assertSentCount(1);
 })->with([
     'gotify' => [
         GotifyChannel::class,
@@ -572,7 +575,18 @@ test('custom channel throws on HTTP failure', function (string $channelClass, ar
         WebhookChannel::class,
         ['url' => 'https://webhook.example.com/hook'],
     ],
+])->with([
+    'server error' => [500, []],
+    'redirect to instance metadata' => [302, ['Location' => 'http://169.254.169.254/latest/meta-data/']],
 ]);
+
+test('slack webhook channel does not follow redirects', function () {
+    $channel = app(SlackWebhookChannel::class);
+
+    $client = (fn () => $this->http)->call($channel);
+
+    expect($client->getConfig('allow_redirects'))->toBeFalse();
+});
 
 // --- Job failure hooks ---
 

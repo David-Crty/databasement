@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Channels;
 
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Http;
 
@@ -19,6 +20,10 @@ class DiscordWebhookChannel
             return;
         }
 
-        Http::timeout(10)->post($url, $payload)->throw();
+        $response = Http::timeout(10)->withoutRedirecting()->post($url, $payload);
+
+        throw_if($response->redirect(), new RequestException($response));
+
+        $response->throw();
     }
 }

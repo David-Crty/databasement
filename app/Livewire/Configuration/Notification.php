@@ -9,6 +9,8 @@ use App\Services\NotificationService;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -99,8 +101,12 @@ class Notification extends Component
 
             $this->success(__('Test notification sent to: :channel', ['channel' => $channel->name]));
         } catch (\Throwable $e) {
+            Log::warning('Test notification failed', ['channel_id' => $channel->id, 'exception' => $e]);
+
+            $message = $e instanceof RequestException ? "HTTP {$e->response->status()}" : $e->getMessage();
+
             $this->error(
-                title: __('Failed to send test notification: :message', ['message' => $e->getMessage()]),
+                title: __('Failed to send test notification: :message', ['message' => $message]),
                 timeout: 0
             );
         }
