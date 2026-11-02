@@ -1,9 +1,9 @@
 .PHONY: help install start update-translation check-translation test test-sequential test-mysql test-postgres test-filter test-filter-mysql test-filter-postgres test-coverage test-coverage-filter test-tia test-tia-baseline backup-test lint-check lint-fix lint migrate migrate-fresh migrate-fresh-seed db-seed setup clean import-db docs docs-build release
 
 # Colors for output
-GREEN  := \033[0;32m
-YELLOW := \033[0;33m
-NC     := \033[0m # No Color
+GREEN  := $(shell printf '\033[0;32m')
+YELLOW := $(shell printf '\033[0;33m')
+NC     := $(shell printf '\033[0m')
 
 # Docker / PHP helpers
 #
@@ -50,6 +50,7 @@ help: ## Display this help message
 
 install: ## Install dependencies (composer + npm)
 	$(PHP_COMPOSER) install
+	$(PHP_ARTISAN) boost:update --no-discover --no-interaction
 	$(NPM_EXEC) ci
 
 setup: start install
@@ -210,6 +211,12 @@ release: ## Create a new release (usage: make release VERSION=1.0.1)
 		echo "$(YELLOW)Usage: make release VERSION=1.0.1$(NC)"; \
 		exit 1; \
 	fi
+	@for skill in changelog release-issues; do \
+		if [ ! -f .claude/skills/$$skill/SKILL.md ]; then \
+			echo "$(YELLOW)Error: the /$$skill skill is not installed in .claude/skills. Run 'make install' (or php artisan boost:update) first.$(NC)"; \
+			exit 1; \
+		fi; \
+	done
 	@if [ "$$(git branch --show-current)" != "main" ]; then \
 		echo "$(YELLOW)Error: You must be on the main branch to create a release.$(NC)"; \
 		exit 1; \
