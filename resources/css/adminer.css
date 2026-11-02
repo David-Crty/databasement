@@ -11,6 +11,3 @@
 @media not all and (max-width: 800px) {
     #menu { top: 0; }
 }
-
-/* SQLite's free-text file path box; the database dropdown of other drivers stays */
-#dbs:has(input[name="db"]) { display: none !important; }
