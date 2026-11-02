@@ -27,6 +27,16 @@ tests:
     asserts:
       - matchSnapshot: {}
 
+  - it: should log plain text when logging.formatter is empty
+    set:
+      logging.formatter: ""
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: LOG_STDERR_FORMATTER
+            value: Monolog\Formatter\JsonFormatter
+
   - it: should render deployment with mysql database
     set:
       database:

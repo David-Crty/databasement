@@ -42,5 +42,6 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="DEMO_MODE" value="false"/>
+        <env name="LOG_LEVEL" value="debug"/>
     </php>
 </phpunit>

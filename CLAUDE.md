@@ -168,6 +168,8 @@ The Docker setup provides:
 
 **Queue Worker**: The queue service automatically starts with `make start` and processes jobs from the `backups` queue. It restarts automatically on failure and respects a max of 1000 jobs before auto-restarting (prevents memory leaks).
 
+**Logging**: the image sets `LOG_CHANNEL=stdio` (`config/logging.php`): warnings and above to stderr, the rest to stdout, because a container runtime only learns a line's level from its stream. Keep that split intact: supervisord must not merge stderr into stdout, Caddy logs to stdout, and a long-running command that logs (like `agent:run`) writes through `Log::channel('stdio')` rather than `$this->line()`.
+
 ## Agent Mode
 
 When `DATABASEMENT_URL` is set, the app runs as a remote agent — it only executes the `agent:run` CLI command (polls an API and runs `BackupTask` or `RestoreTask`). It never uses the app's own database.

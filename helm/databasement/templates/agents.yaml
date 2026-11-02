@@ -78,6 +78,10 @@ spec:
               value: {{ $.Values.logging.channel | quote }}
             - name: LOG_LEVEL
               value: {{ $.Values.logging.level | quote }}
+            {{- with $.Values.logging.formatter }}
+            - name: LOG_STDERR_FORMATTER
+              value: {{ . | squote }}
+            {{- end }}
             {{- range $key, $value := $agent.extraEnv }}
             - name: {{ $key }}
               value: {{ $value | quote }}

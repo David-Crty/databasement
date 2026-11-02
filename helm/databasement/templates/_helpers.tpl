@@ -148,6 +148,10 @@ Common environment variables for app and worker containers
   value: {{ .Values.logging.channel | quote }}
 - name: LOG_LEVEL
   value: {{ .Values.logging.level | quote }}
+{{- with .Values.logging.formatter }}
+- name: LOG_STDERR_FORMATTER
+  value: {{ . | squote }}
+{{- end }}
 - name: ENABLE_DATABASE_MIGRATION
   value: "false"
 {{- range $key, $value := .Values.extraEnv }}

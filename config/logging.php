@@ -1,9 +1,13 @@
 <?php
 
+use App\Support\KeepStdoutBelowWarning;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
+use Monolog\Level;
 use Monolog\Processor\PsrLogMessageProcessor;
+
+$logLevel = env('LOG_LEVEL', 'debug');
 
 return [
 
@@ -99,10 +103,41 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'handler' => StreamHandler::class,
             'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter_with' => ['includeStacktraces' => true],
             'with' => [
                 'stream' => 'php://stderr',
             ],
             'processors' => [PsrLogMessageProcessor::class],
+        ],
+
+        'stdio' => [
+            'driver' => 'stack',
+            'channels' => ['stdio_stderr', 'stdio_stdout'],
+            'ignore_exceptions' => false,
+        ],
+
+        'stdio_stderr' => [
+            'driver' => 'monolog',
+            'level' => Level::fromName($logLevel)->isLowerThan(Level::Warning) ? 'warning' : $logLevel,
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter_with' => ['includeStacktraces' => true],
+            'with' => [
+                'stream' => 'php://stderr',
+            ],
+            'processors' => [PsrLogMessageProcessor::class],
+        ],
+
+        'stdio_stdout' => [
+            'driver' => 'monolog',
+            'level' => $logLevel,
+            'handler' => StreamHandler::class,
+            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter_with' => ['includeStacktraces' => true],
+            'with' => [
+                'stream' => 'php://stdout',
+            ],
+            'tap' => [KeepStdoutBelowWarning::class],
         ],
 
         'syslog' => [
