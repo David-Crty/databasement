@@ -22,7 +22,7 @@
         "kovah/laravel-socialite-oidc": "^0.8.0",
         "laravel-notification-channels/discord": "^1.7",
         "laravel-notification-channels/pushover": "^5.0",
-        "laravel-notification-channels/telegram": "^7.0",
+        "laravel-notification-channels/telegram": "^8.0",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^13.0",
         "laravel/mcp": "^1.1.2",
