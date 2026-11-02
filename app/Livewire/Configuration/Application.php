@@ -78,6 +78,16 @@ class Application extends Component
                 'value' => config('app.trusted_proxies') ?: '-',
                 'description' => __('IP addresses or CIDR ranges of trusted reverse proxies. Use "*" to trust all.'),
             ],
+            [
+                'env' => 'TLS_VERIFY',
+                'value' => config('app.tls_verify') ? 'true' : 'false',
+                'description' => __('Verify TLS certificates when connecting to OAuth providers and, in agent mode, to the server.'),
+            ],
+            [
+                'env' => 'TLS_CA_BUNDLE',
+                'value' => config('app.tls_ca_bundle') ?: '-',
+                'description' => __('PEM file of the CAs trusted for those connections instead of the system CAs, for a private CA or self-signed certificate.'),
+            ],
         ];
     }
 

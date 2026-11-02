@@ -3,6 +3,7 @@
 namespace App\Services\Agent;
 
 use App\Exceptions\Backup\JobRevokedException;
+use App\Support\TlsVerification;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -122,6 +123,7 @@ class AgentApiClient
             ->withHeaders(self::versionHeaders())
             ->accept('application/json')
             ->timeout($timeout)
+            ->withOptions(['verify' => TlsVerification::option()])
             ->when($retries > 0, fn (PendingRequest $request) => $request->retry($retries, 1000))
             ->post("{$baseUrl}/api/v1{$path}", $data);
     }

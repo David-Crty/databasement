@@ -20,6 +20,7 @@ use App\Services\Backup\Filesystems\SmbFilesystem;
 use App\Services\Backup\ShellProcessor;
 use App\Services\CurrentOrganization;
 use App\Support\QueueTimeouts;
+use App\Support\TlsVerification;
 use Dedoc\Scramble\Scramble;
 use Dedoc\Scramble\Support\Generator\OpenApi;
 use Dedoc\Scramble\Support\Generator\Parameter;
@@ -87,6 +88,7 @@ class AppServiceProvider extends ServiceProvider
                 'client_id' => $provider['client_id'] ?? null,
                 'client_secret' => $provider['client_secret'] ?? null,
                 'redirect' => "/oauth/{$name}/callback",
+                'guzzle' => ['verify' => TlsVerification::option()],
             ];
 
             // Add provider-specific config

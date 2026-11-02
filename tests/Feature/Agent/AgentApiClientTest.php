@@ -36,6 +36,24 @@ describe('heartbeat', function () {
         'tagged build' => ['1.9.2', '1.9.2'],
         'untagged build' => [null, 'dev'],
     ]);
+
+    test('verifies the server certificate as configured', function (bool $verify, ?string $bundle, bool|string $expected) {
+        config(['app.tls_verify' => $verify, 'app.tls_ca_bundle' => $bundle]);
+        $sentVerify = null;
+        Http::fake(function ($request, array $options) use (&$sentVerify) {
+            $sentVerify = $options['verify'];
+
+            return Http::response();
+        });
+
+        $this->client->heartbeat();
+
+        expect($sentVerify)->toBe($expected);
+    })->with([
+        'system CAs' => [true, null, true],
+        'custom CA bundle' => [true, '/certs/ca.pem', '/certs/ca.pem'],
+        'verification disabled' => [false, '/certs/ca.pem', false],
+    ]);
 });
 
 describe('claimJob', function () {
