@@ -8,6 +8,30 @@
         "framework"
     ],
     "license": "MIT",
+    "repositories": [
+        {
+            "type": "package",
+            "package": {
+                "name": "vrana/adminer-compiled",
+                "version": "6.2.0",
+                "dist": {
+                    "url": "https://github.com/vrana/adminer/releases/download/v6.2.0/adminer-6.2.0.php",
+                    "type": "file"
+                }
+            }
+        },
+        {
+            "type": "package",
+            "package": {
+                "name": "vrana/adminer-design-hever",
+                "version": "6.2.0",
+                "dist": {
+                    "url": "https://raw.githubusercontent.com/vrana/adminer/refs/tags/v6.2.0/designs/hever/adminer.css",
+                    "type": "file"
+                }
+            }
+        }
+    ],
     "require": {
         "php": "^8.5",
         "ext-ftp": "*",
@@ -17,7 +41,6 @@
         "codeat3/blade-devicons": "^1.8",
         "davidhsianturi/blade-bootstrap-icons": "^2.2",
         "dedoc/scramble": "^0.13.8",
-        "dg/adminer": "^3.3",
         "jerodev/flysystem-v3-smb-adapter": "^1.2",
         "kovah/laravel-socialite-oidc": "^0.8.0",
         "laravel-notification-channels/discord": "^1.7",
@@ -40,7 +63,9 @@
         "mongodb/mongodb": "^2.2",
         "robsontenorio/mary": "^2.4",
         "silber/bouncer": "^1.0",
-        "spatie/laravel-query-builder": "^7.2"
+        "spatie/laravel-query-builder": "^7.2",
+        "vrana/adminer-compiled": "6.2.0",
+        "vrana/adminer-design-hever": "6.2.0"
     },
     "require-dev": {
         "ext-zlib": "*",
