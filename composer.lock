@@ -283,16 +283,16 @@
         },
         {
             "name": "blade-ui-kit/blade-icons",
-            "version": "1.10.0",
+            "version": "1.10.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/driesvints/blade-icons.git",
-                "reference": "74189a80bbaa4966aebaee54fec3a3c2ef0a5f3a"
+                "reference": "6e072d021ea6249986c330b93293c33d0c4f0e34"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/driesvints/blade-icons/zipball/74189a80bbaa4966aebaee54fec3a3c2ef0a5f3a",
-                "reference": "74189a80bbaa4966aebaee54fec3a3c2ef0a5f3a",
+                "url": "https://api.github.com/repos/driesvints/blade-icons/zipball/6e072d021ea6249986c330b93293c33d0c4f0e34",
+                "reference": "6e072d021ea6249986c330b93293c33d0c4f0e34",
                 "shasum": ""
             },
             "require": {
@@ -360,7 +360,7 @@
                     "type": "paypal"
                 }
             ],
-            "time": "2026-04-23T19:03:45+00:00"
+            "time": "2026-06-30T09:44:12+00:00"
         },
         {
             "name": "brick/math",
@@ -6512,16 +6512,16 @@
         },
         {
             "name": "robsontenorio/mary",
-            "version": "2.9.9",
+            "version": "2.9.11",
             "source": {
                 "type": "git",
                 "url": "https://github.com/robsontenorio/mary.git",
-                "reference": "d02c03f54e16d28288cf26c15f33a8c18debd33e"
+                "reference": "04181dc58690a4201c3e70f73a9dcab54bd86033"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/robsontenorio/mary/zipball/d02c03f54e16d28288cf26c15f33a8c18debd33e",
-                "reference": "d02c03f54e16d28288cf26c15f33a8c18debd33e",
+                "url": "https://api.github.com/repos/robsontenorio/mary/zipball/04181dc58690a4201c3e70f73a9dcab54bd86033",
+                "reference": "04181dc58690a4201c3e70f73a9dcab54bd86033",
                 "shasum": ""
             },
             "require": {
@@ -6586,7 +6586,7 @@
             ],
             "support": {
                 "issues": "https://github.com/robsontenorio/mary/issues",
-                "source": "https://github.com/robsontenorio/mary/tree/2.9.9"
+                "source": "https://github.com/robsontenorio/mary/tree/2.9.11"
             },
             "funding": [
                 {
@@ -6594,7 +6594,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-29T22:01:59+00:00"
+            "time": "2026-10-26T13:16:59+00:00"
         },
         {
             "name": "silber/bouncer",
