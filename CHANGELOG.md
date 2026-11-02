@@ -8,7 +8,7 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.10] - 2026-10-25
+## [1.10] - 2026-11-02
 
 ### Added
 
@@ -30,6 +30,8 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.10.8` Choosing "Create new" for the SSH tunnel when editing a database server creates a new SSH configuration, instead of overwriting the existing one so that every other server sharing it silently tunnelled through the new host. The SSH connection test of a replacement private key no longer falls back to the stored passphrase, so a test can no longer pass while the next backup fails ([#738](https://github.com/David-Crty/databasement/pull/738))
+- `1.10.8` Warnings and errors from the app and the agent go to stderr and everything else to stdout, so journald, Cockpit and Kubernetes tooling show their real level instead of marking agent errors as info. The Docker image now sets `LOG_CHANNEL=stdio`, so the app's own logs reach the container output instead of a file inside the container ([#736](https://github.com/David-Crty/databasement/pull/736))
 - `1.10.5` MySQL backups on Amazon Aurora and RDS work again, instead of failing with "Access denied" since 1.10. Dumps no longer take a global read lock or carry the server's `GTID_PURGED` line, as before 1.10; add `--set-gtid-purged=ON` to the dump flags to keep it ([#713](https://github.com/David-Crty/databasement/pull/713))
 - `1.10.1` Two backups of the same database that finish in the same second each get their own file, instead of the second overwriting the first so that deleting either snapshot, even a locked one, removed the file the other still used. Backup file names now end with a short random suffix ([#704](https://github.com/David-Crty/databasement/pull/704))
 - `1.10.1` Deleting a database server, a volume or an organization removes its backup files first, and deletes nothing when a file cannot be removed, instead of leaving untracked files on unreachable storage. The web UI says so and the API answers 409; retry once the storage is reachable, or delete while keeping the files. Snapshots whose file an interrupted deletion already removed are no longer offered for download or restore ([#702](https://github.com/David-Crty/databasement/pull/702))
@@ -373,7 +375,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.7
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.8
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
