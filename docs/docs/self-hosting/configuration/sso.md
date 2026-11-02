@@ -74,6 +74,8 @@ OAUTH_OIDC_BASE_URL=https://your-idp.com/realms/your-realm  # The OIDC base URL
 OAUTH_OIDC_LABEL=SSO  # Button label on login page
 ```
 
+If your identity provider uses a self-signed certificate or one from a private CA, see [Private CA / Self-Signed Certificates](./application.md#private-ca--self-signed-certificates).
+
 #### Keycloak Setup
 
 1. In Keycloak Admin Console, go to **Clients** and click **Create client**

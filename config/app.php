@@ -246,4 +246,19 @@ return [
 
     'analytics_snippet' => env('ANALYTICS_SNIPPET'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | TLS Verification
+    |--------------------------------------------------------------------------
+    |
+    | How certificates are checked on connections to OAuth providers and, in
+    | agent mode, to the Databasement server. TLS_CA_BUNDLE points to a PEM
+    | file to trust instead of the system CAs, for a private CA. TLS_VERIFY
+    | set to false skips verification entirely.
+    |
+    */
+
+    'tls_verify' => env('TLS_VERIFY', true),
+    'tls_ca_bundle' => env('TLS_CA_BUNDLE'),
+
 ];

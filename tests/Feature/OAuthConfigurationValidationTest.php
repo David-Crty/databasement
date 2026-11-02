@@ -122,3 +122,17 @@ test('does not throw strict mode error when oidc is disabled', function () {
 
     expect(fn () => $provider->performOAuthValidation())->not->toThrow(\InvalidArgumentException::class);
 });
+
+test('oauth providers trust the configured CA bundle', function () {
+    Config::set('app.tls_ca_bundle', '/certs/ca.pem');
+    Config::set('oauth.providers.oidc', [
+        'enabled' => true,
+        'client_id' => 'some-id',
+        'client_secret' => 'some-secret',
+        'base_url' => 'https://idp.example.com',
+    ]);
+
+    (new AppServiceProvider(app()))->register();
+
+    expect(config('services.oidc.guzzle'))->toBe(['verify' => '/certs/ca.pem']);
+});

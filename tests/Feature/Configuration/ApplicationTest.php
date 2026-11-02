@@ -20,7 +20,9 @@ test('application page displays environment variables', function () {
         ->assertSee('Configuration')
         ->assertSee('APP_DEBUG')
         ->assertSee('APP_DISPLAY_TIMEZONE')
-        ->assertSee('TRUSTED_PROXIES');
+        ->assertSee('TRUSTED_PROXIES')
+        ->assertSee('TLS_VERIFY')
+        ->assertSee('TLS_CA_BUNDLE');
 });
 
 test('viewing the application settings needs no ability (read-only for everyone)', function () {
