@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Composer\InstalledVersions;
+
 class AdminerService
 {
     /**
@@ -11,7 +13,8 @@ class AdminerService
      */
     public function render(?array $credentials): void
     {
-        $vendorAdminer = base_path('vendor/dg/adminer');
+        $package = 'vrana/adminer-compiled';
+        $vendorAdminer = (string) InstalledVersions::getInstallPath($package);
 
         $GLOBALS['_adminer_credentials'] = $credentials;
         $GLOBALS['_adminer_css_path'] = $this->resolveViteCssPath();
@@ -20,7 +23,7 @@ class AdminerService
         $this->defineAdminerObject();
 
         chdir($vendorAdminer);
-        include_once $vendorAdminer.'/adminer.php';
+        include_once $vendorAdminer.'/adminer-'.InstalledVersions::getPrettyVersion($package).'.php';
     }
 
     /**

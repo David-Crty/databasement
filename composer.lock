@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6409415942dd3f5859b55962802cba1e",
+    "content-hash": "11a83766830fc8787f97578d53e14ac4",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -833,38 +833,6 @@
                 "source": "https://github.com/dflydev/dflydev-dot-access-data/tree/v3.0.3"
             },
             "time": "2024-07-08T12:26:09+00:00"
-        },
-        {
-            "name": "dg/adminer",
-            "version": "v3.3.1",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/dg/adminer.git",
-                "reference": "04e4219c4c74b56d1bc1d803041d3191669d1735"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/dg/adminer/zipball/04e4219c4c74b56d1bc1d803041d3191669d1735",
-                "reference": "04e4219c4c74b56d1bc1d803041d3191669d1735",
-                "shasum": ""
-            },
-            "type": "library",
-            "notification-url": "https://packagist.org/downloads/",
-            "description": "Customization for Adminer, the best database management tool written in PHP.",
-            "keywords": [
-                "database",
-                "elasticsearch",
-                "mongodb",
-                "mssql",
-                "mysql",
-                "oracle",
-                "postgresql",
-                "sqlite"
-            ],
-            "support": {
-                "source": "https://github.com/dg/adminer/tree/v3.3.1"
-            },
-            "time": "2025-12-11T07:10:50+00:00"
         },
         {
             "name": "doctrine/deprecations",
@@ -10311,6 +10279,24 @@
                 }
             ],
             "time": "2026-04-26T05:33:54+00:00"
+        },
+        {
+            "name": "vrana/adminer-compiled",
+            "version": "6.2.0",
+            "dist": {
+                "type": "file",
+                "url": "https://github.com/vrana/adminer/releases/download/v6.2.0/adminer-6.2.0.php"
+            },
+            "type": "library"
+        },
+        {
+            "name": "vrana/adminer-design-hever",
+            "version": "6.2.0",
+            "dist": {
+                "type": "file",
+                "url": "https://raw.githubusercontent.com/vrana/adminer/refs/tags/v6.2.0/designs/hever/adminer.css"
+            },
+            "type": "library"
         },
         {
             "name": "web-auth/cose-lib",

@@ -34,15 +34,25 @@ function adminer_object()
             return true;
         }
 
+        /** The injected credentials come from the server, not from a form that could carry the token. */
+        public function verifyLoginToken(): bool
+        {
+            return $this->creds === null;
+        }
+
         public function headers()
         {
             header('X-Frame-Options: SAMEORIGIN');
         }
 
-        /** @return array{string} */
+        /**
+         * '' declares support for both colour schemes, so Adminer adds its dark.css and color-scheme meta.
+         *
+         * @return array<string, string>
+         */
         public function css()
         {
-            return [$this->cssPath];
+            return [$this->cssPath => ''];
         }
     };
 }
