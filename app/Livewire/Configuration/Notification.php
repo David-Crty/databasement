@@ -103,10 +103,18 @@ class Notification extends Component
         } catch (\Throwable $e) {
             Log::warning('Test notification failed', ['channel_id' => $channel->id, 'exception' => $e]);
 
-            $message = $e instanceof RequestException ? "HTTP {$e->response->status()}" : $e->getMessage();
+            if ($e instanceof RequestException) {
+                $this->error(
+                    title: __('Failed to send test notification: :message', ['message' => "HTTP {$e->response->status()}"]),
+                    description: __('Check the Databasement logs for the full error.'),
+                    timeout: 0
+                );
+
+                return;
+            }
 
             $this->error(
-                title: __('Failed to send test notification: :message', ['message' => $message]),
+                title: __('Failed to send test notification: :message', ['message' => $e->getMessage()]),
                 timeout: 0
             );
         }

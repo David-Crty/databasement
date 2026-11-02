@@ -115,7 +115,8 @@ test('sendTestNotification shows only the status of a failed HTTP response, neve
     preg_match('/^toast\((.*)\)$/s', $component->effects['xjs'][0]['expression'], $matches);
     $toast = json_decode($matches[1], true)['toast'];
 
-    expect($toast['title'])->toBe('Failed to send test notification: HTTP 500');
+    expect($toast['title'])->toBe('Failed to send test notification: HTTP 500')
+        ->and($toast['description'])->toBe('Check the Databasement logs for the full error.');
 });
 
 test('manage-notifications allows creating notification channels of various types', function (string $type, array $formFields, array $expectedOnEdit) {
