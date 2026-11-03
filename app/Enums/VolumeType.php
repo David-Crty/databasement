@@ -14,6 +14,7 @@ enum VolumeType: string
     case FTP = 'ftp';
     case AZURE = 'azure';
     case SMB = 'smb';
+    case GDRIVE = 'gdrive';
 
     public function label(): string
     {
@@ -24,6 +25,7 @@ enum VolumeType: string
             self::FTP => 'FTP',
             self::AZURE => 'Azure Blob Storage',
             self::SMB => 'Samba / SMB',
+            self::GDRIVE => 'Google Drive',
         };
     }
 
@@ -39,6 +41,7 @@ enum VolumeType: string
             self::FTP => 'o-arrow-up-tray',
             self::AZURE => 'o-server-stack',
             self::SMB => 'o-server',
+            self::GDRIVE => 'o-cloud-arrow-up',
         };
     }
 
@@ -82,6 +85,7 @@ enum VolumeType: string
             self::S3 => ['secret_access_key'],
             self::SFTP, self::FTP, self::SMB => ['password'],
             self::AZURE => ['account_key'],
+            self::GDRIVE => ['client_secret', 'refresh_token'],
         };
     }
 
@@ -145,6 +149,10 @@ enum VolumeType: string
                 'User' => $config['username'] ?? '',
                 'Domain' => $config['domain'] ?? null,
                 'Root' => $config['root'] ?? '/',
+            ]),
+            self::GDRIVE => array_filter([
+                'Client ID' => $config['client_id'] ?? '',
+                'Folder ID' => $config['folder_id'] ?? null,
             ]),
         };
     }

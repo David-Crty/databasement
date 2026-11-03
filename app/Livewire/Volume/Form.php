@@ -49,6 +49,9 @@ class Form extends \Livewire\Form
     /** @var array<string, mixed> */
     public array $smbConfig = [];
 
+    /** @var array<string, mixed> */
+    public array $gdriveConfig = [];
+
     // Connection test state
     public ?string $connectionTestMessage = null;
 
