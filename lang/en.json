@@ -461,6 +461,7 @@
     "Failed to fetch setup data.": "Failed to fetch setup data.",
     "Failed to load recovery codes": "Failed to load recovery codes",
     "Failed to queue restore. Please try again.": "Failed to queue restore. Please try again.",
+    "Failed to send test notification.": "Failed to send test notification.",
     "Failed to send test notification: :message": "Failed to send test notification: :message",
     "failure events only": "failure events only",
     "Failure only": "Failure only",

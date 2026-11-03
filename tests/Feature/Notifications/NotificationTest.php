@@ -18,6 +18,11 @@ use App\Notifications\RestoreSuccessNotification;
 use App\Notifications\SnapshotsMissingNotification;
 use App\Services\Backup\BackupJobFactory;
 use App\Services\NotificationService;
+use GuzzleHttp\Client as GuzzleClient;
+use GuzzleHttp\Exception\BadResponseException;
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\Request;
 use Illuminate\Notifications\Channels\SlackWebhookChannel;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -580,12 +585,15 @@ test('custom channel throws on an error or redirect response', function (string 
     'redirect to instance metadata' => [302, ['Location' => 'http://169.254.169.254/latest/meta-data/']],
 ]);
 
-test('slack webhook channel does not follow redirects', function () {
-    $channel = app(SlackWebhookChannel::class);
+test('slack webhook channel fails on a redirect instead of following it', function () {
+    $redirectOptions = (fn () => $this->http)->call(app(SlackWebhookChannel::class))->getConfig('allow_redirects');
 
-    $client = (fn () => $this->http)->call($channel);
+    $handler = new MockHandler([new Psr7Response(302, ['Location' => 'http://169.254.169.254/latest/meta-data/'])]);
+    $client = new GuzzleClient(['handler' => HandlerStack::create($handler), 'allow_redirects' => $redirectOptions]);
 
-    expect($client->getConfig('allow_redirects'))->toBeFalse();
+    expect(fn () => $client->post('https://hooks.slack.com/services/T/B/X'))
+        ->toThrow(BadResponseException::class)
+        ->and($handler->count())->toBe(0);
 });
 
 // --- Job failure hooks ---

@@ -461,6 +461,7 @@
   "Failed to fetch setup data.": "No se pudieron obtener los datos de configuración.",
   "Failed to load recovery codes": "No se pudieron cargar los códigos de recuperación",
   "Failed to queue restore. Please try again.": "No se pudo poner en cola el restore. Inténtalo de nuevo.",
+  "Failed to send test notification.": "Error al enviar la notificación de prueba.",
   "Failed to send test notification: :message": "No se pudo enviar la notificación de prueba: :message",
   "failure events only": "solo eventos de fallo",
   "Failure only": "Solo fallos",

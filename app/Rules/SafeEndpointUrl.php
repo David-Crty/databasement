@@ -28,7 +28,8 @@ readonly class SafeEndpointUrl implements ValidationRule
 
         $parts = parse_url($value);
 
-        if ($parts === false || ! isset($parts['scheme'], $parts['host']) || $parts['host'] === '') {
+        // A percent-encoded host resolves to nothing here, but the HTTP client may decode it.
+        if ($parts === false || ! isset($parts['scheme'], $parts['host']) || $parts['host'] === '' || str_contains($parts['host'], '%')) {
             $fail(__('The :attribute must be a valid URL including a scheme and host.'));
 
             return;

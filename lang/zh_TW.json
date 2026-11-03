@@ -461,6 +461,7 @@
   "Failed to fetch setup data.": "無法取得設定資料。",
   "Failed to load recovery codes": "無法載入恢復碼",
   "Failed to queue restore. Please try again.": "無法將 restore 加入佇列，請再試一次。",
+  "Failed to send test notification.": "測試通知發送失敗。",
   "Failed to send test notification: :message": "無法傳送測試通知：:message",
   "failure events only": "僅限失敗事件",
   "Failure only": "僅限失敗",
