@@ -35,7 +35,7 @@
 
     @unless($readonly)
         <x-alert class="alert-info" icon="o-information-circle">
-            {{ __('To obtain these credentials, create an OAuth 2.0 Client in the Google Cloud Console, enable the Google Drive API, and generate a refresh token using the OAuth Playground or a similar tool.') }}
+            {{ __('To obtain these credentials, create an OAuth 2.0 Client in the Google Cloud Console and enable the Google Drive API. To generate a refresh token, open the OAuth Playground, select "Use your own OAuth credentials" in the settings, and enter the same Client ID and Client Secret. Add https://developers.google.com/oauthplayground as an authorized redirect URI for the client.') }}
         </x-alert>
     @endunless
 </div>
