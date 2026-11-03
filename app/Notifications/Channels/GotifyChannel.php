@@ -2,12 +2,13 @@
 
 namespace App\Notifications\Channels;
 
-use Illuminate\Http\Client\RequestException;
+use App\Notifications\Concerns\PostsToEndpoint;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\Http;
 
 class GotifyChannel
 {
+    use PostsToEndpoint;
+
     public function send(object $notifiable, Notification $notification): void
     {
         /** @var array{title: string, message: string, priority: int} $payload */
@@ -21,13 +22,6 @@ class GotifyChannel
             return;
         }
 
-        $response = Http::timeout(10)
-            ->withoutRedirecting()
-            ->withHeader('X-Gotify-Key', $token)
-            ->post(rtrim($url, '/').'/message', $payload);
-
-        throw_if($response->redirect(), new RequestException($response));
-
-        $response->throw();
+        $this->postToEndpoint(rtrim($url, '/').'/message', $payload, ['X-Gotify-Key' => $token]);
     }
 }

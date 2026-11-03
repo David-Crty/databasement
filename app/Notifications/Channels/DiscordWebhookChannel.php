@@ -2,12 +2,13 @@
 
 namespace App\Notifications\Channels;
 
-use Illuminate\Http\Client\RequestException;
+use App\Notifications\Concerns\PostsToEndpoint;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\Http;
 
 class DiscordWebhookChannel
 {
+    use PostsToEndpoint;
+
     public function send(object $notifiable, Notification $notification): void
     {
         /** @var array{content: string, embeds: array<int, array<string, mixed>>} $payload */
@@ -20,10 +21,6 @@ class DiscordWebhookChannel
             return;
         }
 
-        $response = Http::timeout(10)->withoutRedirecting()->post($url, $payload);
-
-        throw_if($response->redirect(), new RequestException($response));
-
-        $response->throw();
+        $this->postToEndpoint($url, $payload);
     }
 }
