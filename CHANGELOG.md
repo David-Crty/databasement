@@ -8,10 +8,11 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.10] - 2026-11-02
+## [1.10] - 2026-11-04
 
 ### Added
 
+- `1.10.9` `TLS_CA_BUNDLE` points SSO and remote agent connections at a PEM file to trust instead of the system CAs, so an identity provider or Databasement server whose certificate comes from a private CA, or is self-signed, can be used. `TLS_VERIFY=false` skips verification, for testing only ([#755](https://github.com/David-Crty/databasement/pull/755))
 - `1.10.7` Setting `ANALYTICS_SNIPPET` adds your own analytics tag, such as Umami or Plausible, to the head of every page, including the pages of logged-in users. Nothing is added while it is empty ([#724](https://github.com/David-Crty/databasement/pull/724))
 - `1.10.4` "Backup selected databases" in the database server row menu backs up only the databases you pick, for that one run, such as just the ones an application update touches. Scheduled backups keep their full scope. On a server backed up through an agent in all or pattern mode, the choice is among the databases that configuration has backed up before. Redis servers do not offer it ([#711](https://github.com/David-Crty/databasement/pull/711))
 - `1.10.3` The Snapshots and Restores lists show duration in its own sortable column, and the Snapshots list does the same for size, so the slowest or largest jobs can be found at a glance. The status cell no longer repeats them, but a running job still shows its elapsed time there ([#710](https://github.com/David-Crty/databasement/pull/710))
@@ -30,6 +31,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.10.9` Adminer is the official 6.2.0 release with the Hever design, which has a dark mode, so hovered links, the edit icon and the Limit and Text length fields display correctly again ([#756](https://github.com/David-Crty/databasement/pull/756))
 - `1.10.8` Choosing "Create new" for the SSH tunnel when editing a database server creates a new SSH configuration, instead of overwriting the existing one so that every other server sharing it silently tunnelled through the new host. The SSH connection test of a replacement private key no longer falls back to the stored passphrase, so a test can no longer pass while the next backup fails ([#738](https://github.com/David-Crty/databasement/pull/738))
 - `1.10.8` Warnings and errors from the app and the agent go to stderr and everything else to stdout, so journald, Cockpit and Kubernetes tooling show their real level instead of marking agent errors as info. The Docker image now sets `LOG_CHANNEL=stdio`, so the app's own logs reach the container output instead of a file inside the container ([#736](https://github.com/David-Crty/databasement/pull/736))
 - `1.10.5` MySQL backups on Amazon Aurora and RDS work again, instead of failing with "Access denied" since 1.10. Dumps no longer take a global read lock or carry the server's `GTID_PURGED` line, as before 1.10; add `--set-gtid-purged=ON` to the dump flags to keep it ([#713](https://github.com/David-Crty/databasement/pull/713))
@@ -54,6 +56,8 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Security
 
+- `1.10.9` With generic OIDC, a login is only linked by email to an existing user when the provider sends `email_verified: true`, so nobody can take over an account by registering its email address on the provider ([GHSA-mh6w-2cch-w8v8](https://github.com/David-Crty/databasement/security/advisories/GHSA-mh6w-2cch-w8v8)). A provider that sends no such claim, such as Microsoft Entra ID, gets an explanatory error instead: set `OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM=true` only if users cannot change their own email there. Linking no longer clears the user's password, and if OIDC was enabled, check the `oauth_identities` table for identities you do not recognise
+- `1.10.9` Webhook, Gotify, Discord and Slack notifications no longer follow redirects, so an endpoint can no longer bounce deliveries to the instance metadata address, and a redirect counts as a failed delivery. The test-notification toast only shows the HTTP status of a failure, instead of part of the response or the webhook URL ([#758](https://github.com/David-Crty/databasement/pull/758))
 - `1.10.6` The Docker image ships PHP 8.5.12, which fixes CVE-2026-109618 and CVE-2026-109619. The base image moves from FrankenPHP 1.12 to 1.13, as upstream no longer rebuilds the 1.12 tags ([#716](https://github.com/David-Crty/databasement/pull/716))
 - `1.10.2` The social login library (`laravel/socialite`) is updated to 5.30.0, which fixes a token replay in its Facebook OIDC provider (CWE-294). Databasement only uses the generic OIDC provider, so it was not exploitable ([#707](https://github.com/David-Crty/databasement/pull/707))
 
@@ -375,7 +379,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.8
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.9
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
