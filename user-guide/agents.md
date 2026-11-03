@@ -65,6 +65,8 @@ If you *can* reach the database directly or over SSH, prefer that — it's simpl
 
    When `DATABASEMENT_URL` is set, the container runs in agent mode: it only executes `agent:run` and needs no app key, database or volume of its own.
 
+   If the server uses a self-signed certificate or one from a private CA, also set `TLS_CA_BUNDLE` on the agent (see [Private CA / Self-Signed Certificates](../self-hosting/configuration/application.md#private-ca--self-signed-certificates)).
+
    <Tabs groupId="deployment">
    <TabItem value="docker-compose" label="Docker Compose" default>
 

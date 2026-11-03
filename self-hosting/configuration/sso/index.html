@@ -9,8 +9,8 @@
 
 <link rel="icon" type="image/svg+xml" href="/databasement/img/favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="/databasement/img/apple-touch-icon.png"><link rel="stylesheet" href="/databasement/assets/css/styles.8c70a603.css">
-<script src="/databasement/assets/js/runtime~main.66501f08.js" defer="defer"></script>
-<script src="/databasement/assets/js/main.186022fb.js" defer="defer"></script>
+<script src="/databasement/assets/js/runtime~main.8a14af13.js" defer="defer"></script>
+<script src="/databasement/assets/js/main.849e8136.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -57,6 +57,7 @@
 <li class="">Configure environment variables:</li>
 </ol>
 <div class="language-env codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-env codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#393A34"><span class="token plain">OAUTH_OIDC_ENABLED=true</span><br></div><div class="token-line" style="color:#393A34"><span class="token plain">OAUTH_OIDC_CLIENT_ID=your-client-id</span><br></div><div class="token-line" style="color:#393A34"><span class="token plain">OAUTH_OIDC_CLIENT_SECRET=your-client-secret</span><br></div><div class="token-line" style="color:#393A34"><span class="token plain">OAUTH_OIDC_BASE_URL=https://your-idp.com/realms/your-realm  # The OIDC base URL</span><br></div><div class="token-line" style="color:#393A34"><span class="token plain">OAUTH_OIDC_LABEL=SSO  # Button label on login page</span><br></div></code></pre></div></div>
+<p>If your identity provider uses a self-signed certificate or one from a private CA, see <a class="" href="/databasement/self-hosting/configuration/application#private-ca--self-signed-certificates">Private CA / Self-Signed Certificates</a>.</p>
 <h4 class="anchor anchorTargetStickyNavbar_Vzrq" id="keycloak-setup">Keycloak Setup<a href="#keycloak-setup" class="hash-link" aria-label="Direct link to Keycloak Setup" title="Direct link to Keycloak Setup" translate="no">​</a></h4>
 <ol>
 <li class="">
@@ -114,6 +115,10 @@
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="auto-link-by-email">Auto-Link by Email<a href="#auto-link-by-email" class="hash-link" aria-label="Direct link to Auto-Link by Email" title="Direct link to Auto-Link by Email" translate="no">​</a></h3>
 <p>When enabled (default), OAuth logins are automatically linked to existing users with matching email addresses:</p>
 <div class="language-env codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-env codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#393A34"><span class="token plain">OAUTH_AUTO_LINK_BY_EMAIL=true  # Default: true</span><br></div></code></pre></div></div>
+<p>Linking keeps the user&#x27;s password, so they can still sign in with it.</p>
+<p>With Generic OIDC, an email is only linked when the provider sends <code>email_verified: true</code>, so that nobody can take over an account by registering its address on the provider without owning the mailbox. A provider that sends <code>email_verified: false</code> is always refused. Some providers (Microsoft Entra ID among them) send no <code>email_verified</code> claim at all, and their logins are refused too unless you set:</p>
+<div class="language-env codeBlockContainer_Ckt0 theme-code-block" style="--prism-color:#393A34;--prism-background-color:#f6f8fa"><div class="codeBlockContent_QJqH"><pre tabindex="0" class="prism-code language-env codeBlock_bY9V thin-scrollbar" style="color:#393A34;background-color:#f6f8fa"><code class="codeBlockLines_e6Vv"><div class="token-line" style="color:#393A34"><span class="token plain">OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM=true  # Default: false</span><br></div></code></pre></div></div>
+<p>Only set it when users cannot choose or change their own email address on the provider. Users already linked keep signing in either way, since returning logins are matched on the provider&#x27;s user ID, not the email.</p>
 <h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="oidc-group-based-role-mapping">OIDC Group-Based Role Mapping<a href="#oidc-group-based-role-mapping" class="hash-link" aria-label="Direct link to OIDC Group-Based Role Mapping" title="Direct link to OIDC Group-Based Role Mapping" translate="no">​</a></h2>
 <p>When using a Generic OIDC provider (Keycloak, Authentik, Dex, etc.), you can map IdP groups to Databasement roles automatically. This lets you control who can access Databasement and what role they get — all from your identity provider.</p>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="how-it-works">How It Works<a href="#how-it-works" class="hash-link" aria-label="Direct link to How It Works" title="Direct link to How It Works" translate="no">​</a></h3>

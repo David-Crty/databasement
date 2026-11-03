@@ -74,6 +74,8 @@ OAUTH_OIDC_BASE_URL=https://your-idp.com/realms/your-realm  # The OIDC base URL
 OAUTH_OIDC_LABEL=SSO  # Button label on login page
 ```
 
+If your identity provider uses a self-signed certificate or one from a private CA, see [Private CA / Self-Signed Certificates](./application.md#private-ca--self-signed-certificates).
+
 #### Keycloak Setup
 
 1. In Keycloak Admin Console, go to **Clients** and click **Create client**
@@ -184,6 +186,16 @@ When enabled (default), OAuth logins are automatically linked to existing users 
 ```env
 OAUTH_AUTO_LINK_BY_EMAIL=true  # Default: true
 ```
+
+Linking keeps the user's password, so they can still sign in with it.
+
+With Generic OIDC, an email is only linked when the provider sends `email_verified: true`, so that nobody can take over an account by registering its address on the provider without owning the mailbox. A provider that sends `email_verified: false` is always refused. Some providers (Microsoft Entra ID among them) send no `email_verified` claim at all, and their logins are refused too unless you set:
+
+```env
+OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM=true  # Default: false
+```
+
+Only set it when users cannot choose or change their own email address on the provider. Users already linked keep signing in either way, since returning logins are matched on the provider's user ID, not the email.
 
 ## OIDC Group-Based Role Mapping
 

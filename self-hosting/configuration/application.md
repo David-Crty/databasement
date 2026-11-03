@@ -149,6 +149,27 @@ The snippet is trusted HTML and runs on every page, including for logged-in user
 provider you trust.
 :::
 
+## Private CA / Self-Signed Certificates
+
+Connections to OAuth providers, and from a [remote agent](../../user-guide/agents.md) to the Databasement server,
+verify TLS certificates against the system CAs. When your identity provider or server uses a certificate signed by a
+private CA, point `TLS_CA_BUNDLE` to that CA in PEM format, mounted into the container (on the agents too).
+
+| Variable        | Description                                          | Default     |
+| --------------- | ---------------------------------------------------- | ----------- |
+| `TLS_CA_BUNDLE` | PEM file of the CAs to trust instead of the system's | system CAs  |
+| `TLS_VERIFY`    | Set to `false` to skip certificate verification      | `true`      |
+
+```bash
+TLS_CA_BUNDLE=/certs/ca.pem
+```
+
+The bundle replaces the system CAs for these connections rather than adding to them, so it must hold every CA they
+need: append your CA to the system bundle if you also sign in with Google, GitHub or gitlab.com.
+
+`TLS_VERIFY=false` accepts any certificate, including one presented by an attacker on the network path. Prefer
+`TLS_CA_BUNDLE`, and keep `TLS_VERIFY=false` for testing.
+
 ## Logging
 
 | Variable               | Description                                | Default                             |
