@@ -12,7 +12,8 @@ use Illuminate\Contracts\Validation\ValidationRule;
  * Private and loopback addresses stay allowed on purpose: pointing a volume at
  * an on-premise MinIO is a first-class use case here. What is refused is the
  * link-local range, which serves no storage endpoint and is how cloud instance
- * metadata (and its IAM credentials) is reached.
+ * metadata (and its IAM credentials) is reached, plus Alibaba Cloud's metadata
+ * address, which sits outside it.
  *
  * This narrows the reachable surface, it does not eliminate SSRF: DNS may still
  * change between validation and use. Egress restrictions remain the real control.
@@ -27,7 +28,8 @@ readonly class SafeEndpointUrl implements ValidationRule
 
         $parts = parse_url($value);
 
-        if ($parts === false || ! isset($parts['scheme'], $parts['host']) || $parts['host'] === '') {
+        // A percent-encoded host resolves to nothing here, but the HTTP client may decode it.
+        if ($parts === false || ! isset($parts['scheme'], $parts['host']) || $parts['host'] === '' || str_contains($parts['host'], '%')) {
             $fail(__('The :attribute must be a valid URL including a scheme and host.'));
 
             return;
@@ -40,7 +42,7 @@ readonly class SafeEndpointUrl implements ValidationRule
         }
 
         foreach ($this->addressesFor($parts['host']) as $address) {
-            if ($this->isLinkLocal($address)) {
+            if ($this->isMetadataAddress($address)) {
                 $fail(__('The :attribute must not resolve to a link-local or instance metadata address.'));
 
                 return;
@@ -75,7 +77,7 @@ readonly class SafeEndpointUrl implements ValidationRule
         return $addresses;
     }
 
-    private function isLinkLocal(string $address): bool
+    private function isMetadataAddress(string $address): bool
     {
         $packed = @inet_pton($address);
 
@@ -89,7 +91,8 @@ readonly class SafeEndpointUrl implements ValidationRule
         }
 
         if (strlen($packed) === 4) {
-            return str_starts_with($packed, "\xa9\xfe"); // 169.254.0.0/16
+            return str_starts_with($packed, "\xa9\xfe") // 169.254.0.0/16
+                || $packed === inet_pton('100.100.100.200');
         }
 
         // fe80::/10, plus the IPv6 instance metadata address used by EC2.

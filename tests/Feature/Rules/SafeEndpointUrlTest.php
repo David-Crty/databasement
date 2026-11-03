@@ -22,6 +22,8 @@ test('SafeEndpointUrl accepts or rejects endpoints', function (string $input, bo
     'ec2 metadata ipv6' => ['http://[fd00:ec2::254]/latest/meta-data/', false],
     'ipv6 link local' => ['http://[fe80::1]/', false],
     'ipv4 mapped metadata address' => ['http://[::ffff:169.254.169.254]/', false],
+    'alibaba cloud metadata address' => ['http://100.100.100.200/latest/meta-data/', false],
+    'percent encoded metadata host' => ['http://%31%36%39.254.169.254/', false],
 
     'non http scheme' => ['file:///etc/passwd', false],
     'missing scheme' => ['s3.example.com', false],

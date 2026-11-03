@@ -7,6 +7,11 @@ use App\Models\NotificationChannel;
 use App\Models\User;
 use App\Notifications\BackupFailedNotification;
 use App\Services\NotificationService;
+use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Psr7\Request as Psr7Request;
+use GuzzleHttp\Psr7\Response as Psr7Response;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Livewire\Livewire;
 
@@ -96,6 +101,37 @@ test('sendTestNotification handles notification failure gracefully', function ()
         ->call('sendTestNotification', $channel->id)
         ->assertSuccessful();
 });
+
+test('sendTestNotification never shows the error message, only the HTTP status when there is one', function (Closure $exception, string $expectedTitle) {
+    $channel = NotificationChannel::factory()->create();
+
+    $mock = Mockery::mock(NotificationService::class);
+    $mock->shouldReceive('sendTestNotification')->andThrow($exception());
+    app()->instance(NotificationService::class, $mock);
+
+    $component = Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
+        ->test(Notification::class)
+        ->call('sendTestNotification', $channel->id);
+
+    preg_match('/^toast\((.*)\)$/s', $component->effects['xjs'][0]['expression'], $matches);
+    $toast = json_decode($matches[1], true)['toast'];
+
+    expect($toast['title'])->toBe($expectedTitle)
+        ->and($toast['description'])->toBe('Check the Databasement logs for the full error.');
+})->with([
+    'laravel http client' => [
+        fn () => new RequestException(new Response(new Psr7Response(500, [], '{"AccessKeyId":"ASIAEXAMPLE"}'))),
+        'Failed to send test notification: HTTP 500',
+    ],
+    'guzzle client' => [
+        fn () => new ClientException('Client error: `POST https://hooks.slack.com/services/T/B/secret`', new Psr7Request('POST', 'https://hooks.slack.com/services/T/B/secret'), new Psr7Response(404)),
+        'Failed to send test notification: HTTP 404',
+    ],
+    'no response' => [
+        fn () => new RuntimeException('cURL error 6 for https://discord.com/api/webhooks/1/secret'),
+        'Failed to send test notification.',
+    ],
+]);
 
 test('manage-notifications allows creating notification channels of various types', function (string $type, array $formFields, array $expectedOnEdit) {
     $component = Livewire::actingAs(User::factory()->withAbilities([Ability::ManageNotifications->value])->create())
