@@ -26,12 +26,15 @@ class GdriveFilesystem implements FilesystemInterface
 
         $service = new GoogleDrive($client);
 
+        $options = ['useDisplayPaths' => true];
+
         $folderId = ! empty($config['folder_id']) ? $config['folder_id'] : null;
 
-        $adapter = new GoogleDriveAdapter($service, null, [
-            'useDisplayPaths' => true,
-            'sharedFolderId' => $folderId,
-        ]);
+        if ($folderId !== null) {
+            $options['sharedFolderId'] = $folderId;
+        }
+
+        $adapter = new GoogleDriveAdapter($service, null, $options);
 
         return new Filesystem($adapter);
     }
