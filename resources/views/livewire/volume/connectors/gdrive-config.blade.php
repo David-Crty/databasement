@@ -28,7 +28,7 @@
         wire:model="{{ $configPrefix }}.folder_id"
         :label="__('Folder ID (Optional)')"
         :placeholder="__('e.g., 1aBcDeFgHiJkLmNoPqRsTuVwXyZ')"
-        :hint="__('The ID of a Google Drive folder to store backups in. Leave blank to use the root of the drive.')"
+        :hint="__('The ID of a personal Google Drive folder to store backups in. Shared drives are not supported. Leave blank to use the root of the drive.')"
         type="text"
         :disabled="$readonly"
     />
