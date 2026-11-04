@@ -14,7 +14,7 @@ The [Docker image](./docker.md) ships every client tool for every supported engi
 
 ## Prerequisites
 
-- Ubuntu 24.04 LTS or 22.04 LTS, with root or sudo access
+- Ubuntu 24.04 LTS or 22.04 LTS, and a regular user account with sudo access (the commands below are run as that user, not as root)
 - A [supported application database](./intro.md#supported-application-database-versions) for Databasement itself: SQLite (simplest), MySQL, MariaDB or PostgreSQL
 
 ## Core installation
@@ -65,18 +65,40 @@ sudo apt install -y nodejs
 
 ### Download Databasement
 
+The code belongs to your own account, with `www-data` (which runs PHP-FPM and the workers) as its group. Only creating the directory needs root: everything inside it runs as you, so Composer and npm never run their package scripts as root. The setgid bit (the `2` in `2775`) puts the files you clone into it in the `www-data` group, so you never need to be a member of that group or run `chgrp`:
+
+```bash
+sudo mkdir -p /var/www/databasement
+sudo chown "$USER":www-data /var/www/databasement
+sudo chmod 2775 /var/www/databasement
+```
+
 Pick a version from the [GitHub Releases](https://github.com/David-Crty/databasement/releases) page and check out its tag:
 
 ```bash
 VERSION=v1.10.9   # replace with the latest release
 
-sudo git clone --branch "$VERSION" https://github.com/David-Crty/databasement.git /var/www/databasement
+git clone --branch "$VERSION" https://github.com/David-Crty/databasement.git /var/www/databasement
 cd /var/www/databasement
+```
 
-sudo composer install --no-dev --optimize-autoloader --no-interaction
-sudo npm ci
-sudo npm run build
-sudo php artisan vendor:publish --force --tag=livewire:assets
+Give `www-data` write access to the only places it writes to:
+
+```bash
+chmod -R g+w storage bootstrap/cache
+
+# SQLite only: SQLite also writes its journal next to the database file
+touch database/database.sqlite
+chmod g+w database database/database.sqlite
+```
+
+Install the dependencies and build the assets:
+
+```bash
+composer install --no-dev --optimize-autoloader --no-interaction
+npm ci
+npm run build
+php artisan vendor:publish --force --tag=livewire:assets
 ```
 
 ### Configure the environment
@@ -84,7 +106,7 @@ sudo php artisan vendor:publish --force --tag=livewire:assets
 Create `/var/www/databasement/.env`:
 
 ```bash
-sudo nano /var/www/databasement/.env
+nano /var/www/databasement/.env
 ```
 
 ```bash
@@ -116,19 +138,16 @@ DB_DATABASE=/var/www/databasement/database/database.sqlite
 
 For every other setting (timezone, logging, trusted proxies, SSO), see the [Configuration](./configuration/index.md) page. Settings such as the backup working directory, compression and S3 storage are managed in the web UI under **Configuration → Backup**.
 
-### Set permissions and initialise
+### Initialise the application
 
-PHP-FPM and the workers run as `www-data`, which must be able to write to `storage`, `bootstrap/cache`, the SQLite database and `.env`. Run every `artisan` command as `www-data` from here on, so no file it writes ends up owned by root.
+`.env` holds secrets, so only you and `www-data` may read it. Generate the key as yourself, then run the commands that write to the database and caches as `www-data`, so every file the app later rewrites (logs, caches, the SQLite database) is one it owns:
 
 ```bash
 cd /var/www/databasement
 
-# SQLite only: create the database file
-sudo touch database/database.sqlite
+chmod 640 .env
+php artisan key:generate --force
 
-sudo chown -R www-data:www-data storage bootstrap/cache database .env
-
-sudo -u www-data php artisan key:generate --force
 sudo -u www-data php artisan migrate --force
 sudo -u www-data php artisan optimize
 ```
@@ -377,7 +396,7 @@ Logs:
 ```bash
 sudo journalctl -u databasement-queue -f      # backup and restore jobs
 sudo journalctl -u databasement-scheduler -f  # scheduled runs
-sudo tail -f /var/www/databasement/storage/logs/laravel.log
+tail -f /var/www/databasement/storage/logs/laravel.log
 sudo tail -f /var/log/nginx/error.log
 ```
 
@@ -408,14 +427,13 @@ Check the [GitHub Releases](https://github.com/David-Crty/databasement/releases)
 cd /var/www/databasement
 VERSION=v1.10.9   # the version to update to
 
-sudo git fetch --tags
-sudo git checkout "$VERSION"
+git fetch --tags
+git checkout "$VERSION"
 
-sudo composer install --no-dev --optimize-autoloader --no-interaction
-sudo npm ci
-sudo npm run build
-sudo php artisan vendor:publish --force --tag=livewire:assets
-sudo chown -R www-data:www-data storage bootstrap/cache database
+composer install --no-dev --optimize-autoloader --no-interaction
+npm ci
+npm run build
+php artisan vendor:publish --force --tag=livewire:assets
 
 sudo -u www-data php artisan migrate --force
 sudo -u www-data php artisan optimize
