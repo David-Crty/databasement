@@ -56,6 +56,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Security
 
+- `1.10.10` In the Docker image, supervisord, which runs as root, can no longer be controlled or reconfigured by the application user: its unused control socket is gone and its configuration ships root-owned and read-only in `/etc/supervisor` instead of the app-writable `/config`. The image can now also start with a read-only root filesystem ([#763](https://github.com/David-Crty/databasement/pull/763))
 - `1.10.9` With generic OIDC, a login is only linked by email to an existing user when the provider sends `email_verified: true`, so nobody can take over an account by registering its email address on the provider ([GHSA-mh6w-2cch-w8v8](https://github.com/David-Crty/databasement/security/advisories/GHSA-mh6w-2cch-w8v8)). A provider that sends no such claim, such as Microsoft Entra ID, gets an explanatory error instead: set `OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM=true` only if users cannot change their own email there. Linking no longer clears the user's password, and if OIDC was enabled, check the `oauth_identities` table for identities you do not recognise
 - `1.10.9` Webhook, Gotify, Discord and Slack notifications no longer follow redirects, so an endpoint can no longer bounce deliveries to the instance metadata address, and a redirect counts as a failed delivery. The test-notification toast only shows the HTTP status of a failure, instead of part of the response or the webhook URL ([#758](https://github.com/David-Crty/databasement/pull/758))
 - `1.10.6` The Docker image ships PHP 8.5.12, which fixes CVE-2026-109618 and CVE-2026-109619. The base image moves from FrankenPHP 1.12 to 1.13, as upstream no longer rebuilds the 1.12 tags ([#716](https://github.com/David-Crty/databasement/pull/716))
@@ -379,7 +380,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.9
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.10
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
