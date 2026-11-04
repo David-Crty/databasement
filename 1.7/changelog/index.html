@@ -9,8 +9,8 @@
 
 <link rel="icon" type="image/svg+xml" href="/databasement/img/favicon.svg">
 <link rel="apple-touch-icon" sizes="180x180" href="/databasement/img/apple-touch-icon.png"><link rel="stylesheet" href="/databasement/assets/css/styles.8c70a603.css">
-<script src="/databasement/assets/js/runtime~main.8a14af13.js" defer="defer"></script>
-<script src="/databasement/assets/js/main.849e8136.js" defer="defer"></script>
+<script src="/databasement/assets/js/runtime~main.9684c789.js" defer="defer"></script>
+<script src="/databasement/assets/js/main.4993fe26.js" defer="defer"></script>
 </head>
 <body>
 <svg style="display: none;"><defs>
@@ -23,7 +23,7 @@
 <p>Each section covers one minor version; every entry is prefixed with the patch release
 that shipped it. Releases before 1.0.0 are only listed on
 <a href="https://github.com/David-Crty/databasement/releases" target="_blank" rel="noopener noreferrer" class="">GitHub Releases</a>.</p>
-<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="v1-10"><a href="https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.9" target="_blank" rel="noopener noreferrer" class="">1.10</a> - 2026-11-04<a href="#v1-10" class="hash-link" aria-label="Direct link to v1-10" title="Direct link to v1-10" translate="no">​</a></h2>
+<h2 class="anchor anchorTargetStickyNavbar_Vzrq" id="v1-10"><a href="https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.10" target="_blank" rel="noopener noreferrer" class="">1.10</a> - 2026-11-04<a href="#v1-10" class="hash-link" aria-label="Direct link to v1-10" title="Direct link to v1-10" translate="no">​</a></h2>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="added">Added<a href="#added" class="hash-link" aria-label="Direct link to Added" title="Direct link to Added" translate="no">​</a></h3>
 <ul>
 <li class=""><code>1.10.9</code> <code>TLS_CA_BUNDLE</code> points SSO and remote agent connections at a PEM file to trust instead of the system CAs, so an identity provider or Databasement server whose certificate comes from a private CA, or is self-signed, can be used. <code>TLS_VERIFY=false</code> skips verification, for testing only (<a href="https://github.com/David-Crty/databasement/pull/755" target="_blank" rel="noopener noreferrer" class="">#755</a>)</li>
@@ -70,6 +70,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 </ul>
 <h3 class="anchor anchorTargetStickyNavbar_Vzrq" id="security">Security<a href="#security" class="hash-link" aria-label="Direct link to Security" title="Direct link to Security" translate="no">​</a></h3>
 <ul>
+<li class=""><code>1.10.10</code> In the Docker image, supervisord, which runs as root, can no longer be controlled or reconfigured by the application user: its unused control socket is gone and its configuration ships root-owned and read-only in <code>/etc/supervisor</code> instead of the app-writable <code>/config</code>. The image can now also start with a read-only root filesystem (<a href="https://github.com/David-Crty/databasement/pull/763" target="_blank" rel="noopener noreferrer" class="">#763</a>)</li>
 <li class=""><code>1.10.9</code> With generic OIDC, a login is only linked by email to an existing user when the provider sends <code>email_verified: true</code>, so nobody can take over an account by registering its email address on the provider (<a href="https://github.com/David-Crty/databasement/security/advisories/GHSA-mh6w-2cch-w8v8" target="_blank" rel="noopener noreferrer" class="">GHSA-mh6w-2cch-w8v8</a>). A provider that sends no such claim, such as Microsoft Entra ID, gets an explanatory error instead: set <code>OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM=true</code> only if users cannot change their own email there. Linking no longer clears the user&#x27;s password, and if OIDC was enabled, check the <code>oauth_identities</code> table for identities you do not recognise</li>
 <li class=""><code>1.10.9</code> Webhook, Gotify, Discord and Slack notifications no longer follow redirects, so an endpoint can no longer bounce deliveries to the instance metadata address, and a redirect counts as a failed delivery. The test-notification toast only shows the HTTP status of a failure, instead of part of the response or the webhook URL (<a href="https://github.com/David-Crty/databasement/pull/758" target="_blank" rel="noopener noreferrer" class="">#758</a>)</li>
 <li class=""><code>1.10.6</code> The Docker image ships PHP 8.5.12, which fixes CVE-2026-109618 and CVE-2026-109619. The base image moves from FrankenPHP 1.12 to 1.13, as upstream no longer rebuilds the 1.12 tags (<a href="https://github.com/David-Crty/databasement/pull/716" target="_blank" rel="noopener noreferrer" class="">#716</a>)</li>

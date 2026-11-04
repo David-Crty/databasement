@@ -1,134 +1,125 @@
 # Native Ubuntu Installation
 
-> This guide will help you install Databasement directly on Ubuntu without Docker. This is useful for environments where Docker is not available or when you prefer a traditional installation.
+> This guide installs Databasement directly on Ubuntu, without Docker: Nginx and PHP-FPM serve the app, and two systemd services run the queue worker and the scheduler.
 
 # Native Ubuntu Installation
 
-This guide will help you install Databasement directly on Ubuntu without Docker. This is useful for environments where Docker is not available or when you prefer a traditional installation.
+This guide installs Databasement directly on Ubuntu, without Docker: Nginx and PHP-FPM serve the app, and two systemd services run the queue worker and the scheduler.
+
+It is split in two. The [core installation](#core-installation) is required and gets the web app running. The [database client tools](#database-client-tools) and [optional features](#optional-features) only need to be installed for the engines and storage types you actually use.
+
+:::tip
+The [Docker image](./docker.md) ships every client tool for every supported engine and is the simplest way to run Databasement. A native install is worth it when Docker is not available, or when you only back up one or two engines.
+:::
 
 ## Prerequisites
 
-- Ubuntu 22.04 LTS or 24.04 LTS
-- Root or sudo access
-- A web server (Nginx or Apache)
-- A [supported application database](intro#supported-application-database-versions) (SQLite, MySQL, MariaDB, or PostgreSQL)
+- Ubuntu 24.04 LTS or 22.04 LTS, and a regular user account with sudo access (the commands below are run as that user, not as root)
+- A [supported application database](./intro.md#supported-application-database-versions) for Databasement itself: SQLite (simplest), MySQL, MariaDB or PostgreSQL
 
-## Install PHP 8.4
+## Core installation
+
+### Install PHP 8.5
+
+Databasement requires PHP 8.5, which Ubuntu does not ship, so it comes from the `ondrej/php` PPA.
 
 ```bash
-# Add PHP repository
 sudo add-apt-repository ppa:ondrej/php -y
 sudo apt update
 
-# Install PHP 8.4 and required extensions
 sudo apt install -y \
-    php8.4 \
-    php8.4-fpm \
-    php8.4-cli \
-    php8.4-common \
-    php8.4-curl \
-    php8.4-mbstring \
-    php8.4-xml \
-    php8.4-zip \
-    php8.4-pdo \
-    php8.4-mysql \
-    php8.4-pgsql \
-    php8.4-sqlite3 \
-    php8.4-intl \
-    php8.4-pcntl \
-    php8.4-opcache
+    php8.5-fpm \
+    php8.5-cli \
+    php8.5-curl \
+    php8.5-mbstring \
+    php8.5-xml \
+    php8.5-zip \
+    php8.5-intl \
+    php8.5-sqlite3 \
+    php8.5-mysql \
+    php8.5-pgsql \
+    php8.5-mongodb
 ```
 
-## Install Database CLI Tools
+All of these are required, even if you never use the matching engine: `composer install` refuses to run without `mongodb`, and `ftp`, `pcntl` and `opcache` are already built into the packages above.
 
-Databasement requires database CLI tools to perform backup and restore operations.
-
-### For MySQL/MariaDB backups
+### Install system tools
 
 ```bash
-# Install MariaDB client (includes mariadb-dump and mariadb commands)
-sudo apt install -y mariadb-client
+sudo apt install -y git unzip curl gzip zstd p7zip-full nginx
 ```
 
-:::note
-On a native install Databasement uses the MariaDB CLI tools (`mariadb-dump`, `mariadb`) for both MariaDB and MySQL servers. The Docker image also ships Oracle's `mysqldump` and runs it for MySQL servers and for MariaDB servers below 10.2, which `mariadb-dump` cannot read; a native install has only the MariaDB client, so those servers are not supported here.
-:::
+`gzip` and `zstd` compress backups, and `7z` (from `p7zip-full`) encrypts them when **Configuration → Backup → Compression** is set to encrypted.
 
-### For PostgreSQL backups
+### Install Composer and Node.js
 
-```bash
-# Install PostgreSQL client (includes pg_dump and psql commands)
-sudo apt install -y postgresql-client
-```
-
-### For SQLite backups
-
-SQLite support is built into PHP - no additional tools needed.
-
-## Install Composer
+Node.js is only needed to build the front-end assets.
 
 ```bash
 curl -sS https://getcomposer.org/installer | php
 sudo mv composer.phar /usr/local/bin/composer
-```
 
-## Install Node.js
-
-```bash
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
-## Install Nginx
+### Download Databasement
+
+The code belongs to your own account, with `www-data` (which runs PHP-FPM and the workers) as its group. Only creating the directory needs root: everything inside it runs as you, so Composer and npm never run their package scripts as root. The setgid bit (the `2` in `2775`) puts the files you clone into it in the `www-data` group, so you never need to be a member of that group or run `chgrp`:
 
 ```bash
-sudo apt install -y nginx
+sudo mkdir -p /var/www/databasement
+sudo chown "$USER":www-data /var/www/databasement
+sudo chmod 2775 /var/www/databasement
 ```
 
-## Download and Configure Databasement
+Pick a version from the [GitHub Releases](https://github.com/David-Crty/databasement/releases) page and check out its tag:
 
 ```bash
-# Clone the repository
+VERSION=v1.10.9   # replace with the latest release
+
+git clone --branch "$VERSION" https://github.com/David-Crty/databasement.git /var/www/databasement
 cd /var/www/databasement
-git clone https://github.com/David-Crty/databasement.git .
+```
 
-# Install PHP dependencies
-composer install --no-dev --optimize-autoloader
+Give `www-data` write access to the only places it writes to:
 
-# Install Node dependencies and build assets
-npm install
+```bash
+chmod -R g+w storage bootstrap/cache
+
+# SQLite only: SQLite also writes its journal next to the database file
+touch database/database.sqlite
+chmod g+w database database/database.sqlite
+```
+
+Install the dependencies and build the assets:
+
+```bash
+composer install --no-dev --optimize-autoloader --no-interaction
+npm ci
 npm run build
-
-# Publish Livewire assets
 php artisan vendor:publish --force --tag=livewire:assets
 ```
 
-## Configure Environment
+### Configure the environment
+
+Create `/var/www/databasement/.env`:
 
 ```bash
-# Generate application key
-php artisan key:generate
+nano /var/www/databasement/.env
 ```
-
-Edit the `.env` file with your configuration:
-
-```bash
-nano .env
-```
-
-Essential settings:
 
 ```bash
 APP_ENV=production
 APP_DEBUG=false
 APP_URL=https://your-domain.com
+APP_KEY=
 
-# Database for Databasement (choose one)
 # SQLite (simplest)
 DB_CONNECTION=sqlite
 DB_DATABASE=/var/www/databasement/database/database.sqlite
 
-# Or MySQL
+# Or MySQL / MariaDB
 # DB_CONNECTION=mysql
 # DB_HOST=127.0.0.1
 # DB_PORT=3306
@@ -143,34 +134,35 @@ DB_DATABASE=/var/www/databasement/database/database.sqlite
 # DB_DATABASE=databasement
 # DB_USERNAME=databasement
 # DB_PASSWORD=your-password
-
-# Backup working directory
-BACKUP_WORKING_DIRECTORY=/tmp/backups
 ```
 
-For all available environment variables, see the [Configuration](./configuration) page.
+For every other setting (timezone, logging, trusted proxies, SSO), see the [Configuration](./configuration/index.md) page. Settings such as the backup working directory, compression and S3 storage are managed in the web UI under **Configuration → Backup**.
 
-:::tip S3 Storage
-To store backups in AWS S3 or S3-compatible storage (MinIO, DigitalOcean Spaces, etc.), see the [S3 Storage Configuration](./configuration/backup#s3-storage) section.
-:::
+### Initialise the application
 
-## Run Database Migrations
+`.env` holds secrets, so only you and `www-data` may read it. Generate the key as yourself, then run the commands that write to the database and caches as `www-data`, so every file the app later rewrites (logs, caches, the SQLite database) is one it owns:
 
 ```bash
-# Run migrations
 cd /var/www/databasement
-php artisan migrate --force
+
+chmod 640 .env
+php artisan key:generate --force
+
+sudo -u www-data php artisan migrate --force
+sudo -u www-data php artisan optimize
 ```
 
-## Configure Nginx
+`optimize` caches the configuration, so after any later change to `.env`, run it again and restart the services (`sudo systemctl restart php8.5-fpm databasement-queue databasement-scheduler`).
 
-Create a new Nginx configuration:
+:::warning
+`APP_KEY` also encrypts the stored database credentials and, by default, encrypted backups. Keep a copy of it: without it, those backups cannot be restored.
+:::
+
+### Configure Nginx
 
 ```bash
 sudo nano /etc/nginx/sites-available/databasement
 ```
-
-Add the following configuration:
 
 ```nginx
 server {
@@ -182,7 +174,6 @@ server {
     add_header X-Content-Type-Options "nosniff";
 
     index index.php;
-
     charset utf-8;
 
     location / {
@@ -195,10 +186,11 @@ server {
     error_page 404 /index.php;
 
     location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.4-fpm.sock;
+        fastcgi_pass unix:/var/run/php/php8.5-fpm.sock;
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         include fastcgi_params;
         fastcgi_hide_header X-Powered-By;
+        fastcgi_read_timeout 300;
     }
 
     location ~ /\.(?!well-known).* {
@@ -211,21 +203,20 @@ Enable the site:
 
 ```bash
 sudo ln -s /etc/nginx/sites-available/databasement /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## Configure Queue Worker (Systemd)
+To serve HTTPS, add a certificate (for example with `certbot --nginx`). If Databasement sits behind another reverse proxy instead, see [Reverse Proxy / Trusted Proxies](./configuration/application.md#reverse-proxy--trusted-proxies).
 
-The queue worker is **required** to process backup and restore jobs.
+### Configure the queue worker
 
-Create a systemd service:
+The queue worker is **required**: it runs every backup and restore.
 
 ```bash
 sudo nano /etc/systemd/system/databasement-queue.service
 ```
-
-Add the following:
 
 ```ini
 [Unit]
@@ -235,108 +226,223 @@ After=network.target
 [Service]
 User=www-data
 Group=www-data
-Restart=always
-RestartSec=5
 WorkingDirectory=/var/www/databasement
 ExecStart=/usr/bin/php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-Enable and start the service:
+### Configure the scheduler
+
+The scheduler triggers scheduled backups, retention cleanup and the other periodic jobs.
+
+```bash
+sudo nano /etc/systemd/system/databasement-scheduler.service
+```
+
+```ini
+[Unit]
+Description=Databasement Scheduler
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/databasement
+ExecStart=/usr/bin/php artisan schedule:work --quiet
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start both services:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable databasement-queue
-sudo systemctl start databasement-queue
+sudo systemctl enable --now databasement-queue databasement-scheduler
+sudo systemctl status databasement-queue databasement-scheduler
 ```
 
-Check status:
+### First login
+
+1. Open `APP_URL` in your browser and create the first user account. It becomes the administrator.
+2. Install the [client tools](#database-client-tools) for the engines you back up.
+3. Add a database server, run **Test connection**, then trigger a first backup to check that the worker picks it up.
+
+## Database client tools
+
+Databasement runs each engine's own dump and restore tools. Install only the sections for the engines you back up: a server whose tool is missing fails its connection test or its backup.
+
+### MySQL and MariaDB
 
 ```bash
-sudo systemctl status databasement-queue
+sudo apt install -y mariadb-client
 ```
 
-## Configure Scheduler (Cron)
+The MariaDB client (`mariadb-dump`, `mariadb`) handles both MariaDB and MySQL servers. The Docker image additionally ships Oracle's `mysqldump`, which a native install does not have, so two cases behave differently:
 
-The scheduler runs automated backups based on your configured schedules.
+- **MySQL servers on the year-based version scheme** (26.x and later): stored routines are left out of the backup, and the job log says so. MySQL 8.x and 9.x keep them.
+- **MariaDB servers older than 10.2** cannot be backed up.
+
+### PostgreSQL
+
+`pg_dump` refuses to back up a server newer than itself, and Ubuntu's own `postgresql-client` is version 16 on 24.04 and 14 on 22.04. Install the current client from the PostgreSQL project's repository instead:
 
 ```bash
-crontab -e
+sudo apt install -y postgresql-common
+sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+sudo apt install -y postgresql-client-18 postgresql-client-16
 ```
 
-Add this line:
+Version 18 backs up every supported server. Version 16 is optional: when it is installed, Databasement uses it for PostgreSQL 16 and older servers, so their backups can be restored into a server of the same version (the Docker image does the same).
 
-```cron
-* * * * * cd /var/www/databasement && php artisan schedule:run >> /dev/null 2>&1
+### Redis and Valkey
+
+```bash
+sudo apt install -y redis-tools
 ```
 
-## Verification
+### SQLite
 
-1. Open your browser and navigate to your domain
-2. Create your first user account
-3. Add a database server and test the connection
-4. Create a backup to verify everything works
+```bash
+sudo apt install -y sqlite3
+```
+
+Remote SQLite files are reached over SFTP, which needs nothing more.
+
+### MongoDB
+
+Install `mongodump` and `mongorestore` from MongoDB's Database Tools package:
+
+```bash
+. /etc/os-release
+ARCH=$(dpkg --print-architecture | sed 's/amd64/x86_64/')
+curl -fsSLO "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu${VERSION_ID//./}-${ARCH}-100.17.0.deb"
+sudo apt install -y "./mongodb-database-tools-ubuntu${VERSION_ID//./}-${ARCH}-100.17.0.deb"
+```
+
+Check the [MongoDB download page](https://www.mongodb.com/try/download/database-tools) for a newer version.
+
+### Microsoft SQL Server
+
+SQL Server needs Microsoft's ODBC driver and PHP extensions for connection tests, and `sqlpackage` for backups and restores:
+
+```bash
+# Microsoft's package repository and ODBC driver
+curl -sSLO "https://packages.microsoft.com/config/ubuntu/$(. /etc/os-release; echo $VERSION_ID)/packages-microsoft-prod.deb"
+sudo dpkg -i packages-microsoft-prod.deb
+sudo apt update
+sudo ACCEPT_EULA=Y apt install -y msodbcsql18 unixodbc-dev
+
+# sqlsrv is packaged; pdo_sqlsrv is built with PECL
+sudo apt install -y php8.5-sqlsrv php8.5-dev php-pear
+sudo pecl install pdo_sqlsrv
+echo "extension=pdo_sqlsrv.so" | sudo tee /etc/php/8.5/mods-available/pdo_sqlsrv.ini
+sudo phpenmod pdo_sqlsrv
+
+# sqlpackage, amd64: Microsoft's self-contained build
+curl -fsSL -o sqlpackage.zip https://aka.ms/sqlpackage-linux
+sudo mkdir -p /opt/sqlpackage
+sudo unzip -o sqlpackage.zip -d /opt/sqlpackage
+sudo chmod +x /opt/sqlpackage/sqlpackage
+sudo ln -sf /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage
+```
+
+Microsoft only ships that build for x64. On arm64, install `sqlpackage` as a .NET tool into a system-wide path instead, so the `www-data` worker finds it:
+
+```bash
+sudo apt install -y dotnet-sdk-8.0
+sudo dotnet tool install microsoft.sqlpackage --tool-path /opt/sqlpackage
+sudo ln -sf /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage
+```
+
+### Firebird
+
+Databasement needs the Firebird 5 `gbak` and `isql`, which back up Firebird 3, 4 and 5 servers. Ubuntu only packages Firebird 3, so take the client from the official release:
+
+```bash
+sudo apt install -y libtommath1 libncurses6
+FB=Firebird-5.0.3.1683-0-linux-$(dpkg --print-architecture | sed 's/amd64/x64/')
+curl -fsSLO "https://github.com/FirebirdSQL/firebird/releases/download/v5.0.3/$FB.tar.gz"
+tar xzf "$FB.tar.gz"
+sudo tar xzf "$FB/buildroot.tar.gz" -C / ./opt/firebird
+sudo ln -sf /opt/firebird/bin/gbak /usr/local/bin/gbak
+sudo ln -sf /opt/firebird/bin/isql /usr/local/bin/isql
+```
+
+This only unpacks the client tools; it does not install or start a Firebird server. The links go in `/usr/local/bin` so they take precedence over unixODBC's unrelated `/usr/bin/isql`.
+
+After installing new tools or PHP extensions, restart PHP-FPM and the worker so they pick them up:
+
+```bash
+sudo systemctl restart php8.5-fpm databasement-queue
+```
+
+## Optional features
+
+| Feature | Install |
+|---|---|
+| [SMB volumes](../user-guide/volumes.md) | `sudo apt install -y php8.5-smbclient` |
+| [SSH tunnels](../user-guide/ssh-tunnel.md) | `sudo apt install -y openssh-client sshpass` |
+| S3, Azure Blob, SFTP and FTP volumes | Nothing: built into the core installation |
+
+[Hook scripts](./configuration/backup.md#hook-scripts) run on this host, so any command they call (`jq`, `rclone`, `aws`, ...) must be installed here too.
 
 ## Troubleshooting
 
-- Check Queue Worker Logs
+Logs:
 
 ```bash
-sudo journalctl -u databasement-queue -f
+sudo journalctl -u databasement-queue -f      # backup and restore jobs
+sudo journalctl -u databasement-scheduler -f  # scheduled runs
+tail -f /var/www/databasement/storage/logs/laravel.log
+sudo tail -f /var/log/nginx/error.log
 ```
 
-- Check PHP-FPM Logs
-- Check Nginx Logs
-
-### Test Database CLI Tools
+Check which client tools are on the `PATH` (only the ones for the engines you use need to be found):
 
 ```bash
-# Test MariaDB/MySQL client
-mariadb --version
-# or: mysql --version
-
-# Test PostgreSQL client
-psql --version
-
-# Test pg_dump
-pg_dump --version
+for tool in mariadb-dump pg_dump pg_restore psql redis-cli sqlite3 mongodump mongorestore sqlpackage gbak isql; do
+    command -v "$tool" >/dev/null && echo "found:   $tool" || echo "missing: $tool"
+done
 ```
 
-### Run Artisan Commands
-
-```bash
-php artisan migrate:status
-php artisan config:show database
-```
-
-### More troubleshooting
-
-For additional troubleshooting options including debug mode and trusted proxy configuration, see the [Configuration Troubleshooting](./configuration/application#troubleshooting) section.
-
-## Updating Databasement
-
-Check the [GitHub Releases](https://github.com/David-Crty/databasement/releases) page for available versions, then update to a specific release:
+Check the application state:
 
 ```bash
 cd /var/www/databasement
-
-# Fetch tags and checkout the desired version
-git fetch --tags
-git checkout v1.0.1
-
-# Install dependencies
-composer install --no-dev --optimize-autoloader
-npm install
-npm run build
-
-# Run migrations
-php artisan migrate --force
-
-# Clear caches
-php artisan optimize:clear
-
-# Restart queue worker
-sudo systemctl restart databasement-queue
+sudo -u www-data php artisan migrate:status
+sudo -u www-data php artisan config:show database
 ```
+
+For debug mode and other options, see the [Configuration troubleshooting](./configuration/application.md#troubleshooting) section.
+
+## Updating Databasement
+
+Check the [GitHub Releases](https://github.com/David-Crty/databasement/releases) page and the [changelog](../changelog.md) for the new version, then:
+
+```bash
+cd /var/www/databasement
+VERSION=v1.10.9   # the version to update to
+
+git fetch --tags
+git checkout "$VERSION"
+
+composer install --no-dev --optimize-autoloader --no-interaction
+npm ci
+npm run build
+php artisan vendor:publish --force --tag=livewire:assets
+
+sudo -u www-data php artisan migrate --force
+sudo -u www-data php artisan optimize
+
+sudo -u www-data php artisan queue:restart
+sudo systemctl restart php8.5-fpm databasement-scheduler
+```
+
+`queue:restart` lets the worker finish the job it is running before it exits, and systemd then starts it again on the new code.
