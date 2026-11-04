@@ -230,13 +230,10 @@ WorkingDirectory=/var/www/databasement
 ExecStart=/usr/bin/php artisan queue:work --queue=backups,default --tries=3 --timeout=3600 --sleep=3 --max-jobs=1000
 Restart=always
 RestartSec=5
-TimeoutStopSec=3600
 
 [Install]
 WantedBy=multi-user.target
 ```
-
-`TimeoutStopSec` lets a running backup finish when the service is stopped or restarted.
 
 ### Configure the scheduler
 
@@ -444,5 +441,8 @@ php artisan vendor:publish --force --tag=livewire:assets
 sudo -u www-data php artisan migrate --force
 sudo -u www-data php artisan optimize
 
-sudo systemctl restart php8.5-fpm databasement-queue databasement-scheduler
+sudo -u www-data php artisan queue:restart
+sudo systemctl restart php8.5-fpm databasement-scheduler
 ```
+
+`queue:restart` lets the worker finish the job it is running before it exits, and systemd then starts it again on the new code.
