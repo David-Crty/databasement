@@ -289,7 +289,7 @@ sudo apt install -y mariadb-client
 
 The MariaDB client (`mariadb-dump`, `mariadb`) handles both MariaDB and MySQL servers. The Docker image additionally ships Oracle's `mysqldump`, which a native install does not have, so two cases behave differently:
 
-- **MySQL servers**: stored routines are left out of the backup, and the job log says so.
+- **MySQL servers on the year-based version scheme** (26.x and later): stored routines are left out of the backup, and the job log says so. MySQL 8.x and 9.x keep them.
 - **MariaDB servers older than 10.2** cannot be backed up.
 
 ### PostgreSQL
@@ -348,7 +348,7 @@ sudo pecl install pdo_sqlsrv
 echo "extension=pdo_sqlsrv.so" | sudo tee /etc/php/8.5/mods-available/pdo_sqlsrv.ini
 sudo phpenmod pdo_sqlsrv
 
-# sqlpackage (x64 build)
+# sqlpackage, amd64: Microsoft's self-contained build
 curl -fsSL -o sqlpackage.zip https://aka.ms/sqlpackage-linux
 sudo mkdir -p /opt/sqlpackage
 sudo unzip -o sqlpackage.zip -d /opt/sqlpackage
@@ -356,7 +356,13 @@ sudo chmod +x /opt/sqlpackage/sqlpackage
 sudo ln -sf /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage
 ```
 
-On arm64, install `sqlpackage` as a .NET tool instead (`dotnet tool install microsoft.sqlpackage`).
+Microsoft only ships that build for x64. On arm64, install `sqlpackage` as a .NET tool into a system-wide path instead, so the `www-data` worker finds it:
+
+```bash
+sudo apt install -y dotnet-sdk-8.0
+sudo dotnet tool install microsoft.sqlpackage --tool-path /opt/sqlpackage
+sudo ln -sf /opt/sqlpackage/sqlpackage /usr/local/bin/sqlpackage
+```
 
 ### Firebird
 
@@ -364,9 +370,10 @@ Databasement needs the Firebird 5 `gbak` and `isql`, which back up Firebird 3, 4
 
 ```bash
 sudo apt install -y libtommath1 libncurses6
-curl -fsSLO https://github.com/FirebirdSQL/firebird/releases/download/v5.0.3/Firebird-5.0.3.1683-0-linux-x64.tar.gz
-tar xzf Firebird-5.0.3.1683-0-linux-x64.tar.gz
-sudo tar xzf Firebird-5.0.3.1683-0-linux-x64/buildroot.tar.gz -C / ./opt/firebird
+FB=Firebird-5.0.3.1683-0-linux-$(dpkg --print-architecture | sed 's/amd64/x64/')
+curl -fsSLO "https://github.com/FirebirdSQL/firebird/releases/download/v5.0.3/$FB.tar.gz"
+tar xzf "$FB.tar.gz"
+sudo tar xzf "$FB/buildroot.tar.gz" -C / ./opt/firebird
 sudo ln -sf /opt/firebird/bin/gbak /usr/local/bin/gbak
 sudo ln -sf /opt/firebird/bin/isql /usr/local/bin/isql
 ```
@@ -400,13 +407,12 @@ tail -f /var/www/databasement/storage/logs/laravel.log
 sudo tail -f /var/log/nginx/error.log
 ```
 
-Check that the client tools are on the `PATH`:
+Check which client tools are on the `PATH` (only the ones for the engines you use need to be found):
 
 ```bash
-mariadb-dump --version
-pg_dump --version
-redis-cli --version
-mongodump --version
+for tool in mariadb-dump pg_dump redis-cli sqlite3 mongodump sqlpackage gbak isql; do
+    command -v "$tool" >/dev/null && echo "found:   $tool" || echo "missing: $tool"
+done
 ```
 
 Check the application state:
