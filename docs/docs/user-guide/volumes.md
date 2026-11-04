@@ -21,8 +21,6 @@ Ensure the Databasement container has write access to the specified path. You ma
 ```bash
 docker run -v /path/on/host:/backups davidcrty/databasement
 ```
-
-In multi-container setups (Docker Compose, Kubernetes), where the web server and the queue worker run as separate containers, the backup path must be mounted into **both** — the worker writes snapshots, and the web container reads them to serve downloads. The path (and every directory above it) must also be readable by the web container's application user: the worker often runs as root, so a host directory with `0700` root-only permissions lets backups succeed while downloads fail with a 404.
 :::
 
 ### S3 Storage
@@ -100,56 +98,71 @@ Standard FTP transmits credentials and data in plain text. Enable SSL for secure
 The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
-### Samba / SMB Storage
+### Google Drive
 
-SMB volumes store backups on a Windows file share or a Samba server (common on NAS appliances) — natively, without mounting anything on the host.
+Google Drive volumes store backups in your personal Google Drive. This requires setting up OAuth 2.0 credentials in the Google Cloud Console.
 
 | Field | Description |
 |-------|-------------|
-| **Host** | SMB server hostname or IP address |
-| **Share** | The share name (e.g., `backups`) |
-| **Username** | SMB username |
-| **Password** | SMB password |
-| **Domain / Workgroup** | Domain or workgroup (optional, default: `WORKGROUP`) |
-| **Root Directory** | Base path inside the share (e.g., `/databasement`) |
-
-:::note
-SMB support is built into the Databasement Docker image and connects over SMB2/SMB3 — no host mounts or extra packages needed.
-:::
+| **Client ID** | OAuth 2.0 Client ID from Google Cloud Console |
+| **Client Secret** | OAuth 2.0 Client Secret |
+| **Refresh Token** | OAuth refresh token for offline access |
+| **Folder ID** | Optional — the ID of a Google Drive folder to store backups in. Leave blank to use the root of the drive |
 
 :::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
+The client secret and refresh token are encrypted at rest in the database using Laravel's encryption. They are never stored in plain text.
 :::
 
-### NFS Storage
+:::note
+Only personal Google Drive (My Drive) folders are supported. Shared drives are not supported in this release.
+:::
 
-NFS does not have a dedicated volume type because there is no NFS client at the application layer — NFS is mounted by the operating system. To use an NFS export as a backup destination, **mount it where Databasement runs and point a [Local](#local-storage) volume at the mount path**.
+#### Obtaining Credentials
 
-For example, with Docker Compose:
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or select an existing one).
 
-```yaml
-services:
-  app:
-    volumes:
-      - backups-nfs:/backups
+2. Navigate to **APIs & Services → Library**, search for **Google Drive API**, and enable it.
 
-volumes:
-  backups-nfs:
-    driver: local
-    driver_opts:
-      type: nfs
-      o: "addr=nas.example.com,rw,nfsvers=4"
-      device: ":/export/backups"
+3. Go to **APIs & Services → OAuth consent screen** and configure the consent screen. Set the user type to **External** (or Internal if using Google Workspace).
+
+4. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**. Select **Web application** as the application type.
+
+5. Under **Authorized redirect URIs**, add:
+   ```
+   https://developers.google.com/oauthplayground
+   ```
+
+6. Copy the **Client ID** and **Client Secret**.
+
+#### Generating a Refresh Token
+
+1. Open the [Google OAuth Playground](https://developers.google.com/oauthplayground/).
+
+2. Click the ⚙️ gear icon (settings) in the top right and check **Use your own OAuth credentials**. Enter the Client ID and Client Secret from the previous step.
+
+3. In the left panel under **Step 1**, find **Google Drive API v3** and select the scope `https://www.googleapis.com/auth/drive.file`.
+
+4. Click **Authorize APIs** and sign in with your Google account. If you see a security warning, click **Advanced → Go to (app name)** to proceed.
+
+5. In **Step 2**, click **Exchange authorization code for tokens**.
+
+6. Copy the **Refresh Token** from the response.
+
+#### Finding a Folder ID
+
+To store backups in a specific folder, open the folder in Google Drive. The folder ID is the last part of the URL:
+
 ```
-
-Then create a **Local** volume with path `/backups`. The same approach works for mounting an SMB share via CIFS if you prefer mounting over the native SMB volume type.
+https://drive.google.com/drive/folders/1aBcDeFgHiJkLmNoPqRsTuVwXyZ
+                                        └── this is the folder ID
+```
 
 ## Connection Testing
 
 Before saving a volume, use the **Test Connection** button to verify:
 - The storage location is accessible
 - Write permissions are configured correctly
-- Credentials are valid (for S3/SFTP/FTP)
+- Credentials are valid (for S3/SFTP/FTP/Google Drive)
 
 The test creates a small temporary file, reads it back to verify integrity, then deletes it.
 
