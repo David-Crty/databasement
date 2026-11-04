@@ -105,6 +105,26 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL with the TimescaleDB extension preloaded. Its own service rather
+  # than a flag on `postgres` so backup/restore is exercised against a server
+  # that actually has the extension and hypertables.
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: databasement-timescaledb
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: databasement
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U root -d databasement" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mongodb:
     image: mongo:7
     container_name: databasement-mongodb
@@ -272,6 +292,7 @@ volumes:
   mysql-data:
   mariadb-data:
   postgres-data:
+  timescaledb-data:
   rustfs-data:
   sftp-data:
   mongodb-data:

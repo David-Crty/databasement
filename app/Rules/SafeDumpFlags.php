@@ -19,6 +19,11 @@ use Illuminate\Contracts\Validation\ValidationRule;
  * `--result-file` to mariadb-dump but a repeat count to redis-cli, and `-f` is
  * `--file` to pg_dump but `--force` to mariadb-dump.
  *
+ * A second, smaller set ({@see RESTORE_UNSAFE}) is denied for restore
+ * correctness rather than output safety: options that restrict a dump to a
+ * subset of the database, which for TimescaleDB leaves out the catalog a
+ * hypertable needs to be rebuilt.
+ *
  * `violation()` and `tokenize()` are shared with
  * {@see \App\Services\Backup\DTO\DatabaseOperationResult::escapeFlags()}, which
  * treats them as its last line of defence for configurations stored before a
@@ -50,6 +55,10 @@ readonly class SafeDumpFlags implements ValidationRule
         DatabaseType::POSTGRESQL->value => [
             '--file', '-f',          // output file or directory
         ],
+        // TimescaleDB is dumped by pg_dump too, so it denies the same options.
+        DatabaseType::TIMESCALEDB->value => [
+            '--file', '-f',          // output file or directory
+        ],
         // mongodump
         DatabaseType::MONGODB->value => [
             '--out', '-o',           // output directory
@@ -71,6 +80,25 @@ readonly class SafeDumpFlags implements ValidationRule
     ];
 
     /**
+     * Options that restrict a dump to a subset of the database. pg_dump reads
+     * them against the user tables, so a dump carrying one omits the TimescaleDB
+     * catalog and the chunk tables behind a hypertable, and the standard restore
+     * then cannot recreate the hypertable. Denied for TimescaleDB alone: on
+     * plain PostgreSQL a selective dump is a legitimate choice.
+     *
+     * @var array<string, list<string>>
+     */
+    private const array RESTORE_UNSAFE = [
+        DatabaseType::TIMESCALEDB->value => [
+            '--table', '-t',          // only the named tables, without the hypertable's chunks
+            '--table-and-children',   // the named tables and their partitions, still not the catalog
+            '--schema', '-n',         // only the named schemas, excluding _timescaledb_internal
+            '--extension', '-e',      // only the named extensions, omitting the user tables entirely
+            '--filter',               // include/exclude rules from a file, which can drop catalog objects
+        ],
+    ];
+
+    /**
      * Engines whose client accepts any unambiguous prefix of a long option
      * name, as getopt_long and MySQL's my_getopt both do: `--result-f` is
      * `--result-file` to mariadb-dump, and `--fi` is `--file` to pg_dump.
@@ -81,6 +109,7 @@ readonly class SafeDumpFlags implements ValidationRule
     private const array ABBREVIATING = [
         DatabaseType::MYSQL,
         DatabaseType::POSTGRESQL,
+        DatabaseType::TIMESCALEDB,
     ];
 
     /**
@@ -109,6 +138,16 @@ readonly class SafeDumpFlags implements ValidationRule
             $fail(__('The :attribute may not contain :option, which redirects where the dump is written.', [
                 'option' => $violation,
             ]));
+
+            return;
+        }
+
+        $restoreUnsafe = self::restoreUnsafeViolation($value, $this->type);
+
+        if ($restoreUnsafe !== null) {
+            $fail(__('The :attribute may not contain :option, which produces a dump that cannot restore this database\'s hypertables.', [
+                'option' => $restoreUnsafe,
+            ]));
         }
     }
 
@@ -131,8 +170,28 @@ readonly class SafeDumpFlags implements ValidationRule
      */
     public static function violation(?string $flags, ?DatabaseType $type): ?string
     {
-        $denied = self::DENIED[$type?->value] ?? [];
+        return self::firstDeniedToken($flags, $type, self::DENIED[$type?->value] ?? []);
+    }
 
+    /**
+     * The first option in $flags that would make $type's dump unrestorable, or
+     * null when there is none. Kept apart from {@see violation()} because these
+     * options are legitimate on other engines and carry a different reason: they
+     * are refused for restore correctness, not output redirection.
+     */
+    public static function restoreUnsafeViolation(?string $flags, ?DatabaseType $type): ?string
+    {
+        return self::firstDeniedToken($flags, $type, self::RESTORE_UNSAFE[$type?->value] ?? []);
+    }
+
+    /**
+     * The first token in $flags naming one of $denied, or null when there is
+     * none. Abbreviations are matched on the engines whose client expands them.
+     *
+     * @param  list<string>  $denied
+     */
+    private static function firstDeniedToken(?string $flags, ?DatabaseType $type, array $denied): ?string
+    {
         if ($denied === []) {
             return null;
         }

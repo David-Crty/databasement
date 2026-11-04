@@ -27,7 +27,7 @@
     $type = $this->targetServer?->database_type;
     $isSqlite = $type === DatabaseType::SQLITE;
     $preservesPrivileges = $snapshotPreservesPrivileges ?? false;
-    $offersParallelRestore = $type === DatabaseType::POSTGRESQL && ($snapshotIsCustomFormat ?? true);
+    $offersParallelRestore = ($type?->isPostgresFamily() ?? false) && ($snapshotIsCustomFormat ?? true);
 @endphp
 
 @unless($targetLocked)
@@ -55,7 +55,7 @@
         </x-alert>
     @endif
 
-    @if($type === DatabaseType::POSTGRESQL)
+    @if($type?->isPostgresFamily())
         <x-input
             wire:model.live.debounce.300ms="ownerUser"
             :label="$preservesPrivileges
@@ -89,7 +89,7 @@
         </div>
     @endif
 
-    @if(in_array($type, [DatabaseType::MYSQL, DatabaseType::POSTGRESQL], true))
+    @if($type === DatabaseType::MYSQL || ($type?->isPostgresFamily() ?? false))
         <x-checkbox
             wire:model="forceDatabase"
             :label="__('Drop and recreate database before restore')"

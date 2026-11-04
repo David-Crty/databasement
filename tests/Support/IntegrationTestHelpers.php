@@ -64,6 +64,14 @@ class IntegrationTestHelpers
                 'database' => config('testing.databases.postgres.database').$suffix,
                 'database_type' => 'postgres',
             ],
+            'timescaledb' => [
+                'host' => config('testing.databases.timescaledb.host'),
+                'port' => (int) config('testing.databases.timescaledb.port'),
+                'username' => config('testing.databases.timescaledb.username'),
+                'password' => config('testing.databases.timescaledb.password'),
+                'database' => config('testing.databases.timescaledb.database').$suffix,
+                'database_type' => 'timescaledb',
+            ],
             'sqlite' => [
                 'host' => AppConfig::get('backup.working_directory').'/test_connection'.$suffix.'.sqlite',
                 'port' => 0,
@@ -517,7 +525,7 @@ class IntegrationTestHelpers
 
         if ($engine === 'mysql') {
             $pdo->exec("DROP DATABASE IF EXISTS `{$databaseName}`");
-        } elseif ($type === 'postgres') {
+        } elseif (in_array($type, ['postgres', 'timescaledb'], true)) {
             $pdo->exec("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{$databaseName}' AND pid <> pg_backend_pid()");
             $pdo->exec("DROP DATABASE IF EXISTS \"{$databaseName}\"");
         } elseif ($type === 'mssql') {
@@ -586,7 +594,7 @@ class IntegrationTestHelpers
         if ($engine === 'mysql') {
             $pdo->exec("DROP DATABASE IF EXISTS `{$databaseName}`");
             $pdo->exec("CREATE DATABASE `{$databaseName}`");
-        } elseif ($type === 'postgres') {
+        } elseif (in_array($type, ['postgres', 'timescaledb'], true)) {
             $pdo->exec("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{$databaseName}' AND pid <> pg_backend_pid()");
             $pdo->exec("DROP DATABASE IF EXISTS \"{$databaseName}\"");
             $pdo->exec("CREATE DATABASE \"{$databaseName}\"");
@@ -595,6 +603,7 @@ class IntegrationTestHelpers
         $fixtureFile = match ($engine) {
             'mysql' => __DIR__.'/../Integration/fixtures/mysql-init.sql',
             'postgres' => __DIR__.'/../Integration/fixtures/postgres-init.sql',
+            'timescaledb' => __DIR__.'/../Integration/fixtures/timescaledb-init.sql',
             default => throw new InvalidArgumentException("loadTestData does not support database type: {$type}. Use createTestSqliteDatabase for SQLite."),
         };
 

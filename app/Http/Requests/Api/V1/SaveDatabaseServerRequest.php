@@ -78,7 +78,7 @@ class SaveDatabaseServerRequest extends FormRequest
             $rules['password'] = 'nullable';
         }
 
-        if ($databaseType === DatabaseType::POSTGRESQL) {
+        if ($databaseType?->isPostgresFamily() ?? false) {
             $rules['dump_format'] = ['nullable', 'string', Rule::in(['plain', 'custom'])];
             $rules['dump_privileges'] = 'boolean';
             $rules['connection_database'] = ['nullable', 'string', new MaxBytes(63), 'regex:'.DatabaseType::IDENTIFIER_PATTERN];

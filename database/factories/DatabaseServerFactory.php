@@ -76,6 +76,22 @@ class DatabaseServerFactory extends Factory
     }
 
     /**
+     * Configure the factory for TimescaleDB database type.
+     */
+    public function timescaledb(): static
+    {
+        return $this->state(fn () => [
+            'name' => fake()->company().' TimescaleDB Server',
+            'database_type' => 'timescaledb',
+            'host' => fake()->randomElement(['localhost', '127.0.0.1']),
+            'port' => 5432,
+            'username' => fake()->userName(),
+            'password' => fake()->password(),
+            'database_names' => null,
+        ]);
+    }
+
+    /**
      * Configure the factory for Redis database type.
      */
     public function redis(): static

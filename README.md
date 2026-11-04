@@ -23,7 +23,7 @@
 </p>
 
 <p align="center">
-  A modern, self-hosted database backup management application for MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis.
+  A modern, self-hosted database backup management application for MySQL, PostgreSQL, TimescaleDB, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis.
 </p>
 
 <p align="center">
@@ -37,7 +37,7 @@
 
 ## Features
 
-- **Multi-database support** - Manage MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis/Valkey servers from a single interface
+- **Multi-database support** - Manage MySQL, PostgreSQL, TimescaleDB, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, and Redis/Valkey servers from a single interface
 - **SSH tunnel support** - Connect to databases in private networks through a bastion/jump server with password or key-based authentication
 - **Remote agents** - Back up databases in firewalled or isolated networks with no inbound port: a lightweight agent connects out over HTTPS, dumps locally, and uploads to your storage
 - **Automated backups** - Schedule recurring backups on daily or weekly intervals. Flexible retention policies: simple time-based (days) or GFS (grandfather-father-son)
@@ -92,6 +92,7 @@ For production deployments, see our [configuration guide](https://david-crty.git
 | MySQL      | 5.5, 5.6, 5.7, 8.x, 9.x, 26.x | `mysqldump`                  | Yes     |
 | MariaDB    | 5.x, 10.x, 11.x, 12.x         | `mariadb-dump` / `mysqldump` | Yes     |
 | PostgreSQL | 12, 13, 14, 15, 16, 17, 18    | `pg_dump` v16 / v18          | Yes     |
+| TimescaleDB | 2.x (PostgreSQL 13+)         | `pg_dump` + pre/post restore | Yes     |
 | SQL Server | 2017, 2019, 2022, Azure SQL   | `sqlpackage` (`.dacpac`)     | Yes     |
 | MongoDB    | 4.2, 4.4, 5.0, 6.0, 7.0, 8.0  | `mongodump` / `mongorestore` | Yes     |
 | SQLite     | 3.x                           | `sqlite3 .backup`            | Yes     |
