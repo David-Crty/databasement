@@ -407,7 +407,7 @@ sudo tail -f /var/log/nginx/error.log
 Check which client tools are on the `PATH` (only the ones for the engines you use need to be found):
 
 ```bash
-for tool in mariadb-dump pg_dump redis-cli sqlite3 mongodump sqlpackage gbak isql; do
+for tool in mariadb-dump pg_dump pg_restore psql redis-cli sqlite3 mongodump mongorestore sqlpackage gbak isql; do
     command -v "$tool" >/dev/null && echo "found:   $tool" || echo "missing: $tool"
 done
 ```
