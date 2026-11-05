@@ -175,6 +175,30 @@ test('dump succeeds when remote WAL file is empty (0 bytes)', function () {
         ->and(file_get_contents($localDb.'-wal'))->toBe('');
 });
 
+test('dump throws when remote main database is empty (0 bytes)', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'remote.example.com',
+    ]);
+
+    $stream = fopen('php://memory', 'r+');
+
+    $mockRemoteFs = Mockery::mock(Filesystem::class);
+    $mockRemoteFs->shouldReceive('readStream')
+        ->once()
+        ->with('/data/remote.sqlite')
+        ->andReturn($stream);
+
+    $mockSftp = Mockery::mock(SftpFilesystem::class);
+    $mockSftp->shouldReceive('getFromSshConfig')
+        ->once()
+        ->andReturn($mockRemoteFs);
+
+    $db = new SqliteDatabase($mockSftp);
+    $db->setConfig(['sqlite_path' => '/data/remote.sqlite', 'ssh_config' => $sshConfig]);
+
+    $db->dump($this->tempDir.'/dump.db');
+})->throws(DatabaseDumpException::class, 'Failed to copy remote SQLite file /data/remote.sqlite');
+
 test('restore copies local file and sets permissions', function () {
     $targetFile = $this->tempDir.'/target.sqlite';
     $inputFile = $this->tempDir.'/input.db';
