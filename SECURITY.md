@@ -20,3 +20,5 @@ This policy applies to:
 Third-party dependencies are managed through regular updates but are outside the direct scope of this policy.
 
 Demo mode (`DEMO_MODE`) is also out of scope. It is off by default and exists only to run the public demo instance, where a shared account with known credentials that can download, delete and restore snapshots is intended. Enabling it on a real deployment is not a supported configuration.
+
+Deployments that do not set their own `APP_KEY` are not a supported configuration. `APP_KEY` encrypts every stored credential (database passwords, SSH keys, storage and notification secrets), so each operator must generate a unique one (`php artisan key:generate --show`). Reports that only show an instance running without its own key will be closed as invalid.
