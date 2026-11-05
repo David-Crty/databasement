@@ -50,6 +50,7 @@ class DatabaseServerQuery
      */
     public static function buildFromParams(
         ?string $search = null,
+        ?string $dbTypeFilter = null,
         string $sortColumn = 'created_at',
         string $sortDirection = 'desc'
     ): Builder {
@@ -72,6 +73,9 @@ class DatabaseServerQuery
                         ->orWhere('database_type', 'like', "%{$search}%")
                         ->orWhere('description', 'like', "%{$search}%");
                 });
+            })
+            ->when($dbTypeFilter, function (Builder $query) use ($dbTypeFilter) {
+                $query->whereRaw('database_type = ?', [$dbTypeFilter]);
             })
             ->orderBy($sortColumn, Formatters::sortDirection($sortDirection));
     }
