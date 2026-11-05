@@ -135,7 +135,7 @@ class SqliteDatabase implements DatabaseInterface
 
         try {
             $bytes = stream_copy_to_stream($source, $dest);
-            if ($bytes === false || $bytes === 0) {
+            if ($bytes === false) {
                 throw new DatabaseDumpException("Failed to copy remote SQLite file {$remotePath} to {$localPath}");
             }
         } finally {
