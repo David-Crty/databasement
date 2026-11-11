@@ -33,9 +33,11 @@ The 7-Zip password is not the key as written. When the key starts with `base64:`
 To extract a downloaded backup outside Databasement:
 
 ```bash
-KEY="base64:..."   # your BACKUP_ENCRYPTION_KEY, or APP_KEY if it is unset
+read -rs KEY   # paste BACKUP_ENCRYPTION_KEY, or APP_KEY if it is unset (input is hidden)
 7z x -p"$(printf %s "${KEY#base64:}" | base64 -d | od -An -v -tx1 | tr -d ' \n')" backup.7z
 ```
+
+For a key without the `base64:` prefix, pass it directly instead: `7z x -p"$KEY" backup.7z`.
 
 The archive headers are encrypted too, so a wrong password shows up as `Headers Error` or `Cannot open encrypted archive. Wrong password?` rather than a password prompt.
 
