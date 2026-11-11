@@ -5,6 +5,7 @@ namespace App\Livewire\DatabaseServer;
 use App\Actions\Backup\TriggerBackupAction;
 use App\Actions\DatabaseServer\DeleteDatabaseServerAction;
 use App\Enums\BackupDiscoveryState;
+use App\Enums\DatabaseType;
 use App\Exceptions\DatabaseServer\DatabaseServerFilesNotDeletedException;
 use App\Livewire\Concerns\ConfirmsDeletion;
 use App\Livewire\Concerns\FiltersAndPaginates;
@@ -33,6 +34,9 @@ class Index extends Component
 
     #[Url]
     public string $search = '';
+
+    #[Url]
+    public string $dbTypeFilter = '';
 
     /** @var array<string, string> */
     public array $sortBy = ['column' => 'created_at', 'direction' => 'desc'];
@@ -152,10 +156,19 @@ class Index extends Component
         );
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function dbTypeOptions(): array
+    {
+        return DatabaseType::toSelectOptions();
+    }
+
     public function render(): View
     {
         $servers = DatabaseServerQuery::buildFromParams(
-            search: $this->search,
+            search: $this->search ?: null,
+            dbTypeFilter: $this->dbTypeFilter ?: null,
             sortColumn: $this->sortBy['column'],
             sortDirection: $this->sortBy['direction']
         )->paginate(10);
@@ -166,6 +179,7 @@ class Index extends Component
         return view('livewire.database-server.index', [
             'servers' => $servers,
             'headers' => $this->headers(),
+            'dbTypeOptions' => $this->dbTypeOptions(),
             'canAdminer' => Gate::allows('adminer', DatabaseServer::class),
         ]);
     }
@@ -175,6 +189,6 @@ class Index extends Component
      */
     protected function filterProperties(): array
     {
-        return ['search'];
+        return ['search', 'dbTypeFilter'];
     }
 }
