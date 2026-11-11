@@ -649,6 +649,7 @@
   "No completed snapshots are available for this server yet.": "该服务器暂无已完成的 snapshot。",
   "No database has been backed up with this configuration yet. Run Backup now once so the agent lists them.": "此配置还没有数据库被 Backup 过。运行一次“立即 Backup”，agent 就能列出它们。",
   "No database matches this backup configuration.": "没有数据库匹配此 backup 配置。",
+  "No database servers found matching your filters.": "没有找到符合筛选条件的数据库服务器。",
   "No database servers found matching your search.": "未找到符合搜索条件的数据库服务器。",
   "No database servers yet.": "暂无数据库服务器。",
   "No jobs with this status.": "没有此状态的 job。",

@@ -649,6 +649,7 @@
     "No completed snapshots are available for this server yet.": "No completed snapshots are available for this server yet.",
     "No database has been backed up with this configuration yet. Run Backup now once so the agent lists them.": "No database has been backed up with this configuration yet. Run Backup now once so the agent lists them.",
     "No database matches this backup configuration.": "No database matches this backup configuration.",
+    "No database servers found matching your filters.": "No database servers found matching your filters.",
     "No database servers found matching your search.": "No database servers found matching your search.",
     "No database servers yet.": "No database servers yet.",
     "No jobs with this status.": "No jobs with this status.",

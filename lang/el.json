@@ -649,6 +649,7 @@
   "No completed snapshots are available for this server yet.": "Δεν υπάρχουν ακόμα ολοκληρωμένα snapshots για αυτόν τον server.",
   "No database has been backed up with this configuration yet. Run Backup now once so the agent lists them.": "Δεν έχει γίνει backup σε καμία βάση δεδομένων με αυτή τη ρύθμιση ακόμα. Εκτελέστε Backup τώρα μία φορά ώστε ο agent να τις καταγράψει.",
   "No database matches this backup configuration.": "Καμία βάση δεδομένων δεν ταιριάζει με αυτή τη ρύθμιση backup.",
+  "No database servers found matching your filters.": "Δεν βρέθηκαν διακομιστές βάσης δεδομένων που να ταιριάζουν με τα φίλτρα σας.",
   "No database servers found matching your search.": "Δεν βρέθηκαν servers βάσης δεδομένων που να ταιριάζουν με την αναζήτησή σας.",
   "No database servers yet.": "Δεν υπάρχουν ακόμα servers βάσης δεδομένων.",
   "No jobs with this status.": "Δεν υπάρχουν jobs με αυτήν την κατάσταση.",
