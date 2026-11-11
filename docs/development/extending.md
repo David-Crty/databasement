@@ -87,28 +87,32 @@ The volume system uses dynamic class resolution based on the type value. Use exi
 
 The notification system uses a delegation pattern: concrete notifications extend `BaseFailedNotification` or `BaseSuccessNotification` and inherit all channel support via the `HasChannelRouting` trait. A single `NotificationMessage` (driven by a `NotificationType` enum) renders every channel for both success and failure. Adding a new channel requires no changes to concrete notification classes.
 
+Channels are per-organization `NotificationChannel` records whose `type` is a `NotificationChannelType` case and whose `config` is a JSON array (sensitive keys encrypted). `NotificationService::sendToChannel()` decrypts the config and sends to a `ChannelNotifiable` carrying `routes: [routeKey() => routeValue()]` and the decrypted `channelConfig`. The type is a plain string column, so a new type needs no migration.
+
 ### Files to Update
 
 **Core:**
-- `app/Notifications/NotificationMessage.php` - Add `to{Channel}()` rendering method (success/failure differences key off `$this->type` and `$this->hasError()`)
-- `app/Notifications/Concerns/HasChannelRouting.php` - Add `to{Channel}()` delegation method, add entry to `CHANNEL_MAP`
-- `app/Services/FailureNotificationService.php` - Add route to `getNotificationRoutes()`
-- `app/Services/AppConfigService.php` - Add keys to `AppConfigService::CONFIG` (each key defines its default, type, and sensitivity)
+- `app/Enums/NotificationChannelType.php` - Add the case and its `label()`, `icon()`, `sensitiveFields()` (encrypted at rest, never sent back to the form), `routeValue()` and `configSummary()` (shown in the channel list, never a sensitive field). `routeValue()` must be non-empty for a usable config: `sendToChannel()` skips the channel when it is not. The type picker is built from the enum, so there is nothing else to register.
+- `app/Notifications/NotificationMessage.php` - Add `to{Channel}()` rendering method (success/failure differences key off `$this->type` and `$this->hasError()`). Escape every value with `e()` when the target renders HTML, as `toTelegram()` does.
+- `app/Notifications/Concerns/HasChannelRouting.php` - Add `to{Channel}()` delegation method, add an entry to `CHANNEL_MAP` keyed by the type's `routeKey()`
 
-**Custom Channels** (if not using an existing package):
-- `app/Notifications/Channels/{Channel}Channel.php` - Create class with `send()` method
+**Channel class**, one of:
+- **A package channel** that reads its token from `config/services.php`: set that config in `NotificationService::refreshVendorServiceConfig()` and add the type to the driver-cache reset list below it. The queue worker caches resolved drivers, so without the reset a second channel of the same type would send with the first one's token.
+- **A custom channel**: `app/Notifications/Channels/{Channel}Channel.php` with a `send()` method that reads `$notifiable->channelConfig` and posts with the `PostsToEndpoint` trait (refuses redirects, throws on an HTTP error, returns the response). Throw on any failure, including an error reported in a 200 response body: `NotificationService` logs it, and the **Test** button turns it into an error toast. A user-entered URL must be validated with `SafeEndpointUrl`.
 
 **Configuration UI:**
-- `app/Livewire/Configuration/Form.php` - Add properties, load/save/rules logic
-- `app/Livewire/Configuration/Index.php` - Add to `getChannelOptions()`
-- `resources/views/livewire/configuration/index.blade.php` - Add conditional field section
-
-**Boot-time config** (if package reads from `config/services.php`):
-- `app/Providers/AppServiceProvider.php` - Register config from AppConfig at boot
+- `app/Livewire/Configuration/NotificationChannelForm.php` - Add `config_*` properties (plus a `has_config_*` flag per sensitive field), a `load{Channel}Config()` branch in `setChannel()`, `rules()` (a sensitive field is `required` on create and `nullable` on edit once stored) and `buildConfig()`. `resetFields()` resets everything, so it needs no change.
+- `resources/views/livewire/configuration/notification.blade.php` - Add an `@elseif` block for the type, with `<x-password>` and the `'********'` placeholder for sensitive fields
 
 **Tests:**
-- `tests/Feature/Notifications/FailureNotificationTest.php` - Add rendering and routing tests
-- `tests/Feature/ConfigurationTest.php` - Add save/deselect/pre-select tests
+- `database/factories/NotificationChannelFactory.php` - Add a state named after the type: the routing test calls it by name
+- `tests/Feature/Notifications/NotificationTest.php` - Add the type to the routing dataset, the `via()` test and the rendering dataset. For a custom channel, also to the HTTP-request and error/redirect datasets.
+- `tests/Feature/Configuration/NotificationTest.php` - Add the type to the create-and-reopen dataset
+
+**Docs and translations:**
+- `docs/docs/self-hosting/configuration/notification.md` - Add a section for the channel
+- `docs/docs/index.md`, `docs/docs/self-hosting/configuration/index.md`, `README.md` - Add it to the channel lists
+- Run `make update-translation` for the new form labels and hints
 
 **Optional:**
 - `composer.json` - Add notification channel package if needed
