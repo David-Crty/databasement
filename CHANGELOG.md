@@ -8,10 +8,12 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.10] - 2026-11-04
+## [1.10] - 2026-11-11
 
 ### Added
 
+- `1.10.11` Notifications can be sent to PushPlus, with an optional delivery channel and group topic, which the generic webhook could not reach. A message PushPlus rejects, such as one with a wrong token, makes the test notification fail instead of reporting success ([#774](https://github.com/David-Crty/databasement/pull/774))
+- `1.10.11` The database server list can be filtered by database type, like the Snapshots list ([#764](https://github.com/David-Crty/databasement/pull/764))
 - `1.10.9` `TLS_CA_BUNDLE` points SSO and remote agent connections at a PEM file to trust instead of the system CAs, so an identity provider or Databasement server whose certificate comes from a private CA, or is self-signed, can be used. `TLS_VERIFY=false` skips verification, for testing only ([#755](https://github.com/David-Crty/databasement/pull/755))
 - `1.10.7` Setting `ANALYTICS_SNIPPET` adds your own analytics tag, such as Umami or Plausible, to the head of every page, including the pages of logged-in users. Nothing is added while it is empty ([#724](https://github.com/David-Crty/databasement/pull/724))
 - `1.10.4` "Backup selected databases" in the database server row menu backs up only the databases you pick, for that one run, such as just the ones an application update touches. Scheduled backups keep their full scope. On a server backed up through an agent in all or pattern mode, the choice is among the databases that configuration has backed up before. Redis servers do not offer it ([#711](https://github.com/David-Crty/databasement/pull/711))
@@ -380,7 +382,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.10
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.11
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
