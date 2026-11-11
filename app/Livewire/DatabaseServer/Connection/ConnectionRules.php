@@ -21,7 +21,7 @@ abstract class ConnectionRules
     {
         return match ($type) {
             DatabaseType::MYSQL => new MysqlConnectionRules,
-            DatabaseType::POSTGRESQL => new PostgresConnectionRules,
+            DatabaseType::POSTGRESQL, DatabaseType::TIMESCALEDB => new PostgresConnectionRules,
             DatabaseType::SQLITE => new SqliteConnectionRules,
             DatabaseType::REDIS => new RedisConnectionRules,
             DatabaseType::MONGODB => new MongodbConnectionRules,
