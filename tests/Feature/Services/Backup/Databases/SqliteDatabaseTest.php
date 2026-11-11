@@ -138,12 +138,48 @@ test('dump returns sqlite3 backup command even for nonexistent file', function (
         ->and($result->command)->toContain('/nonexistent/source.sqlite');
 });
 
-test('dump throws when remote stream copy returns zero bytes', function () {
+test('dump succeeds when remote WAL file is empty (0 bytes)', function () {
     $sshConfig = DatabaseServerSshConfig::factory()->create([
         'host' => 'remote.example.com',
     ]);
 
-    // Return an empty stream (0 bytes)
+    $dbStream = fopen('php://memory', 'r+');
+    fwrite($dbStream, 'main db');
+    rewind($dbStream);
+
+    // WAL file exists but is empty (normal after a checkpoint)
+    $walStream = fopen('php://memory', 'r+');
+
+    $mockRemoteFs = Mockery::mock(Filesystem::class);
+    $mockRemoteFs->shouldReceive('readStream')->with('/data/app.sqlite')->andReturn($dbStream);
+    $mockRemoteFs->shouldReceive('fileExists')->with('/data/app.sqlite-wal')->andReturn(true);
+    $mockRemoteFs->shouldReceive('readStream')->with('/data/app.sqlite-wal')->andReturn($walStream);
+    $mockRemoteFs->shouldReceive('fileExists')->with('/data/app.sqlite-shm')->andReturn(false);
+
+    $mockSftp = Mockery::mock(SftpFilesystem::class);
+    $mockSftp->shouldReceive('getFromSshConfig')->andReturn($mockRemoteFs);
+
+    $db = new SqliteDatabase($mockSftp);
+    $db->setConfig(['sqlite_path' => '/data/app.sqlite', 'ssh_config' => $sshConfig]);
+
+    $outputPath = $this->tempDir.'/dump.db';
+    $result = $db->dump($outputPath);
+
+    $localDb = $this->tempDir.'/sftp_download.db';
+
+    expect($result->command)->toContain('sqlite3')
+        ->and($result->log->level)->toBe('warning')
+        ->and($result->log->context['wal_files'])->toBe(['-wal'])
+        ->and(file_get_contents($localDb))->toBe('main db')
+        ->and(file_exists($localDb.'-wal'))->toBeTrue()
+        ->and(file_get_contents($localDb.'-wal'))->toBe('');
+});
+
+test('dump throws when remote main database is empty (0 bytes)', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'remote.example.com',
+    ]);
+
     $stream = fopen('php://memory', 'r+');
 
     $mockRemoteFs = Mockery::mock(Filesystem::class);
