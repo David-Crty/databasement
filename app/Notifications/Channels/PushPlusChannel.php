@@ -26,7 +26,7 @@ class PushPlusChannel
         $payload = ['token' => $token, ...$payload, ...array_filter([
             'channel' => $config['channel'] ?? null,
             'topic' => $config['topic'] ?? null,
-        ])];
+        ], fn (mixed $value): bool => $value !== null && $value !== '')];
 
         $response = $this->postToEndpoint(self::ENDPOINT, $payload);
 

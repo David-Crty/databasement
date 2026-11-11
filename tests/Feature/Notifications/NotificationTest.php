@@ -610,7 +610,8 @@ test('pushplus channel posts the message without a timestamp field', function ()
     Http::assertSent(fn (Request $request) => $request->url() === PushPlusChannel::ENDPOINT
         && $request['token'] === 'pushplus-token'
         && $request['channel'] === 'app'
-        && ! isset($request['topic'], $request['timestamp'])
+        && ! isset($request['topic'])
+        && ! isset($request['timestamp'])
         && str_contains($request['content'], 'Test &lt;Server&gt;'));
 });
 
@@ -622,6 +623,18 @@ test('pushplus channel throws when PushPlus rejects the message', function () {
 
     expect(fn () => (new PushPlusChannel)->send(new ChannelNotifiable(routes: [], channelConfig: ['token' => 'bad-token']), $notification))
         ->toThrow(\RuntimeException::class, 'code 903');
+});
+
+test('pushplus channel keeps a topic of 0', function () {
+    Http::fake([PushPlusChannel::ENDPOINT => Http::response(['code' => 200])]);
+
+    $server = DatabaseServer::factory()->create(['database_names' => ['testdb']]);
+    $notification = new BackupFailedNotification(notificationSnapshot($server), new \Exception("Line one\nLine two"));
+
+    (new PushPlusChannel)->send(new ChannelNotifiable(routes: [], channelConfig: ['token' => 'pushplus-token', 'topic' => '0']), $notification);
+
+    Http::assertSent(fn (Request $request) => $request['topic'] === '0'
+        && str_contains($request['content'], 'Line one<br>'));
 });
 
 test('slack webhook channel fails on a redirect instead of following it', function () {

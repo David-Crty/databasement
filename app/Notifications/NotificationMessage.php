@@ -204,7 +204,7 @@ class NotificationMessage
 
         if ($this->hasError()) {
             $lines[] = '';
-            $lines[] = '<b>'.e($this->errorLabel).':</b> '.e($this->errorMessage);
+            $lines[] = '<b>'.e($this->errorLabel).':</b> '.nl2br(e($this->errorMessage), false);
         }
 
         $lines[] = '';
