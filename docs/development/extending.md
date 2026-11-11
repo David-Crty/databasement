@@ -87,7 +87,7 @@ The volume system uses dynamic class resolution based on the type value. Use exi
 
 The notification system uses a delegation pattern: concrete notifications extend `BaseFailedNotification` or `BaseSuccessNotification` and inherit all channel support via the `HasChannelRouting` trait. A single `NotificationMessage` (driven by a `NotificationType` enum) renders every channel for both success and failure. Adding a new channel requires no changes to concrete notification classes.
 
-Channels are per-organization `NotificationChannel` records whose `type` is a `NotificationChannelType` case and whose `config` is a JSON array (sensitive keys encrypted). `NotificationService::sendToChannel()` decrypts the config and sends to a `ChannelNotifiable` carrying `routes: [routeKey() => routeValue()]` and the decrypted `channelConfig`. The type is a plain string column, so a new type needs no migration.
+Channels are installation-wide `NotificationChannel` records whose `type` is a `NotificationChannelType` case and whose `config` is a JSON array (sensitive keys encrypted). A server notifies either all channels or the ones it selects. `NotificationService::sendToChannel()` decrypts the config and sends to a `ChannelNotifiable` carrying `routes: [routeKey() => routeValue()]` and the decrypted `channelConfig`. The type is a plain string column, so a new type needs no migration.
 
 ### Files to Update
 
