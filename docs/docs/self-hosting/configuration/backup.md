@@ -26,6 +26,19 @@ echo "base64:$(openssl rand -base64 32)"
 If you change the encryption key, you will not be able to restore backups that were encrypted with the previous key. Keep your encryption key safe and backed up separately.
 :::
 
+### Decrypting a Backup Manually
+
+The 7-Zip password is not the key as written. When the key starts with `base64:`, Databasement decodes it and uses the hexadecimal form of the raw bytes as the password. A key without the `base64:` prefix is used as-is.
+
+To extract a downloaded backup outside Databasement:
+
+```bash
+KEY="base64:..."   # your BACKUP_ENCRYPTION_KEY, or APP_KEY if it is unset
+7z x -p"$(printf %s "${KEY#base64:}" | base64 -d | od -An -v -tx1 | tr -d ' \n')" backup.7z
+```
+
+The archive headers are encrypted too, so a wrong password shows up as `Headers Error` or `Cannot open encrypted archive. Wrong password?` rather than a password prompt.
+
 ## Hook Scripts
 
 Run a shell script after **every successful backup** and after **every successful restore**. Configure both from **Configuration → Backup → Hook Scripts** in the web UI — that screen also lists every variable available to each script.
