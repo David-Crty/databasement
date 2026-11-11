@@ -4,6 +4,7 @@ namespace App\Notifications\Concerns;
 
 use App\Notifications\Channels\DiscordWebhookChannel;
 use App\Notifications\Channels\GotifyChannel;
+use App\Notifications\Channels\PushPlusChannel;
 use App\Notifications\Channels\WebhookChannel;
 use App\Notifications\NotificationMessage;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -29,6 +30,7 @@ trait HasChannelRouting
         'telegram' => TelegramChannel::class,
         'pushover' => PushoverChannel::class,
         'gotify' => GotifyChannel::class,
+        'pushplus' => PushPlusChannel::class,
         'discord_webhook' => DiscordWebhookChannel::class,
         'webhook' => WebhookChannel::class,
     ];
@@ -93,6 +95,14 @@ trait HasChannelRouting
     public function toGotify(object $notifiable): array
     {
         return $this->getMessage()->toGotify();
+    }
+
+    /**
+     * @return array{title: string, content: string, template: string}
+     */
+    public function toPushPlus(object $notifiable): array
+    {
+        return $this->getMessage()->toPushPlus();
     }
 
     /**

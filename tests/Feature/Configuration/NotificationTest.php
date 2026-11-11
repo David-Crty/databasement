@@ -165,6 +165,7 @@ test('manage-notifications allows creating notification channels of various type
     'telegram' => ['telegram', ['config_bot_token' => 'bot-token', 'config_chat_id' => '-123456', 'config_topic_id' => '42'], ['has_config_bot_token' => true, 'config_chat_id' => '-123456', 'config_topic_id' => '42']],
     'pushover' => ['pushover', ['config_token' => 'app-token', 'config_user_key' => 'user-key'], ['has_config_token' => true, 'has_config_user_key' => true]],
     'gotify' => ['gotify', ['config_url' => 'https://gotify.example.com', 'config_token' => 'app-token'], ['config_url' => 'https://gotify.example.com', 'has_config_token' => true]],
+    'pushplus' => ['pushplus', ['config_token' => 'pushplus-token', 'config_channel' => 'app'], ['has_config_token' => true, 'config_channel' => 'app', 'config_topic' => '']],
     'webhook' => ['webhook', ['config_url' => 'https://webhook.example.com/notify'], ['config_url' => 'https://webhook.example.com/notify', 'has_config_secret' => false]],
 ]);
 

@@ -22,7 +22,7 @@ Databasement is a web application for managing database server backups. It allow
 - **Automated backups**: Schedule recurring backups with customizable retention
 - **Storage volumes**: Store backups locally, on S3-compatible storage, Azure Blob Storage, Samba/SMB shares, or via SFTP/FTP
 - **Cross-server restore**: Restore snapshots from one server to another
-- **Failure notifications**: Get alerted via Email, Slack, Discord, Telegram, Pushover, Gotify, or Webhook when jobs fail
+- **Failure notifications**: Get alerted via Email, Slack, Discord, Telegram, Pushover, Gotify, PushPlus, or Webhook when jobs fail
 - **User management**: Multi-user support with two-factor authentication
 - **Automation**: REST API and MCP server for scripting, CI/CD, and AI assistant integration
 - **Simple deployment**: Single container with built-in web server, queue worker, and scheduler

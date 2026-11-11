@@ -196,6 +196,20 @@ Enter both the **App Token** and **User Key** on the Configuration page.
 
 Enter your **Gotify Server URL** (e.g., `https://gotify.example.com`) and the **App Token** on the Configuration page.
 
+## PushPlus {#pushplus}
+
+[PushPlus](https://www.pushplus.plus/) delivers notifications to WeChat and other channels, and is widely used in China.
+
+1. Log in to PushPlus and complete real-name verification (unverified accounts cannot send messages)
+2. Copy your **Token** from the user center
+
+Enter the **Token** on the Configuration page. Two fields are optional:
+
+- **Channel**: the PushPlus delivery channel, such as `wechat` (the default), `app` or `mail`. Channels that need a channel code (`webhook`, `cp`) are not supported.
+- **Topic**: a group code, to push to every member of a PushPlus group instead of only yourself.
+
+PushPlus limits how often an account can send (5 requests per minute for real-name users), and test notifications count towards that limit.
+
 ## Webhook {#webhook}
 
 Send failure notifications as JSON payloads to any HTTP endpoint.

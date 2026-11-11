@@ -190,6 +190,34 @@ class NotificationMessage
     }
 
     /**
+     * Rendered with PushPlus's default `html` template, so every value is escaped.
+     *
+     * @return array{title: string, content: string, template: string}
+     */
+    public function toPushPlus(): array
+    {
+        $lines = [e($this->body), ''];
+
+        foreach ($this->fields as $label => $value) {
+            $lines[] = '<b>'.e($label).':</b> '.e($value);
+        }
+
+        if ($this->hasError()) {
+            $lines[] = '';
+            $lines[] = '<b>'.e($this->errorLabel).':</b> '.e($this->errorMessage);
+        }
+
+        $lines[] = '';
+        $lines[] = '<a href="'.e($this->actionUrl).'">'.e($this->actionText).'</a>';
+
+        return [
+            'title' => $this->title,
+            'content' => implode('<br>', $lines),
+            'template' => 'html',
+        ];
+    }
+
+    /**
      * @return array{event: string, title: string, body: string, fields: array<string, string>, error?: string, action_url: string, timestamp: string}
      */
     public function toWebhook(string $event): array
