@@ -69,8 +69,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('jobs:recover-stuck')->everyFiveMinutes();
     })
     ->withMiddleware(function (Middleware $middleware) {
+        // The trusted proxies themselves come from config/trustedproxy.php, which
+        // the middleware reads on each request. Calling env() here would return
+        // null once the configuration is cached, ignoring TRUSTED_PROXIES in .env.
         $middleware->trustProxies(
-            at: env('TRUSTED_PROXIES', TRUSTED_PROXIES_DEFAULT),
             headers: Request::HEADER_X_FORWARDED_FOR |
             Request::HEADER_X_FORWARDED_HOST |
             Request::HEADER_X_FORWARDED_PORT |
