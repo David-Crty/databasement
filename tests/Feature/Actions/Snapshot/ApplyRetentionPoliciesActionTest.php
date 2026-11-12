@@ -301,6 +301,34 @@ test('GFS retention combines daily, weekly, and monthly tiers', function () {
         ->and(Snapshot::find($lastMonthNewest->id))->not->toBeNull();
 });
 
+test('GFS monthly tier keeps the right months when run on the 31st', function () {
+    $this->travelTo(\Carbon\Carbon::create(2026, 10, 31, 12, 0));
+
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, [
+        'retention_policy' => 'gfs',
+        'retention_days' => null,
+        'gfs_keep_daily' => null,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => 6,
+    ]);
+
+    $monthly = [];
+    foreach ([4, 5, 6, 7, 8, 9, 10] as $month) {
+        $monthly[$month] = createSnapshot($server, 'completed', \Carbon\Carbon::create(2026, $month, 15, 12, 0));
+    }
+    $today = createSnapshot($server, 'completed', \Carbon\Carbon::create(2026, 10, 31, 1, 0));
+
+    ApplyRetentionPoliciesAction::run();
+
+    expect(Snapshot::find($today->id))->not->toBeNull()
+        ->and(Snapshot::find($monthly[10]->id))->toBeNull()
+        ->and(Snapshot::find($monthly[9]->id))->not->toBeNull()
+        ->and(Snapshot::find($monthly[6]->id))->not->toBeNull()
+        ->and(Snapshot::find($monthly[5]->id))->not->toBeNull()
+        ->and(Snapshot::find($monthly[4]->id))->toBeNull();
+});
+
 test('GFS retention applies per database_name', function () {
     $server = DatabaseServer::factory()->create();
     updateFirstBackup($server, [

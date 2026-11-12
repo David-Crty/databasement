@@ -150,7 +150,8 @@ class ApplyRetentionPoliciesAction
         for ($i = 0; $i < $periods; $i++) {
             $periodStart = match ($periodType) {
                 'week' => $now->copy()->subWeeks($i)->startOfWeek(),
-                default => $now->copy()->subMonths($i)->startOfMonth(),
+                // start of month first: Oct 31 minus one month would overflow to Oct 1
+                default => $now->copy()->startOfMonth()->subMonths($i),
             };
             $periodEnd = match ($periodType) {
                 'week' => $periodStart->copy()->endOfWeek(),
