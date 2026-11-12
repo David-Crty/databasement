@@ -89,14 +89,38 @@
                             @endif
 
                             @if($server->backups_enabled)
-                                <span class="badge badge-success gap-1.5 whitespace-nowrap">
+                                <span class="badge badge-success gap-1.5 whitespace-nowrap" title="{{ __('When disabled, this server will be skipped during scheduled backup runs') }}">
                                     <x-icon name="o-check-circle" class="w-3.5 h-3.5" />
-                                    {{ trans_choice('{0} Backups enabled (no config)|{1} Backups enabled (:count config)|[2,*] Backups enabled (:count configs)', $server->backups->count(), ['count' => $server->backups->count()]) }}
+                                    {{ trans_choice('{0} Scheduled Backups (no config)|{1} Scheduled Backups (:count config)|[2,*] Scheduled Backups (:count configs)', $server->backups->count(), ['count' => $server->backups->count()]) }}
                                 </span>
                             @else
-                                <span class="badge badge-warning gap-1.5 whitespace-nowrap">
+                                <span class="badge badge-warning gap-1.5 whitespace-nowrap" title="{{ __('When disabled, this server will be skipped during scheduled backup runs') }}">
                                     <x-icon name="o-no-symbol" class="w-3.5 h-3.5" />
-                                    {{ __('Backups disabled') }}
+                                    {{ __('Scheduled Backups disabled') }}
+                                </span>
+                            @endif
+
+                            @if($server->allowsExport())
+                                <span class="badge badge-success gap-1.5 whitespace-nowrap" title="{{ __('When disabled, Backup cannot be run on this server (manual, API, or scheduled)') }}">
+                                    <x-icon name="o-check-circle" class="w-3.5 h-3.5" />
+                                    {{ __('Allow Backup') }}
+                                </span>
+                            @else
+                                <span class="badge badge-warning gap-1.5 whitespace-nowrap" title="{{ __('When disabled, Backup cannot be run on this server (manual, API, or scheduled)') }}">
+                                    <x-icon name="o-no-symbol" class="w-3.5 h-3.5" />
+                                    {{ __('Backup not allowed') }}
+                                </span>
+                            @endif
+
+                            @if($server->allowsRestore())
+                                <span class="badge badge-success gap-1.5 whitespace-nowrap" title="{{ __('When disabled, this server cannot be used as a Restore target') }}">
+                                    <x-icon name="o-check-circle" class="w-3.5 h-3.5" />
+                                    {{ __('Allow Restore') }}
+                                </span>
+                            @else
+                                <span class="badge badge-warning gap-1.5 whitespace-nowrap" title="{{ __('When disabled, this server cannot be used as a Restore target') }}">
+                                    <x-icon name="o-no-symbol" class="w-3.5 h-3.5" />
+                                    {{ __('Restore not allowed') }}
                                 </span>
                             @endif
                         </div>

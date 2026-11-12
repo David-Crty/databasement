@@ -52,6 +52,35 @@ test('show page lists backup configurations', function () {
         ->assertSee('my_app_db');
 });
 
+test('show page displays Allow Backup and Allow Restore capability badges', function () {
+    $user = User::factory()->withAbilities([])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create([
+        'exports_enabled' => true,
+        'restores_enabled' => true,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Show::class, ['server' => $server])
+        ->assertSee(__('Allow Backup'))
+        ->assertSee(__('Allow Restore'))
+        ->assertDontSee(__('Backup not allowed'))
+        ->assertDontSee(__('Restore disabled'));
+});
+
+test('show page shows warning badges when Backup or Restore is disallowed', function () {
+    $user = User::factory()->withAbilities([])->create();
+    $server = DatabaseServer::factory()->withoutBackups()->create([
+        'exports_enabled' => false,
+        'restores_enabled' => false,
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Show::class, ['server' => $server])
+        ->assertSee(__('Backup not allowed'))
+        ->assertSee(__('Restore not allowed'))
+        ->assertSee(__('Scheduled Backups disabled'));
+});
+
 test('delete removes the database server', function () {
     $user = User::factory()->withAbilities([Ability::ManageDatabaseServers->value])->create();
     $server = DatabaseServer::factory()->withoutBackups()->create();
