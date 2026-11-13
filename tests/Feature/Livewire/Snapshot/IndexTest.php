@@ -85,6 +85,22 @@ test('search filters by snapshot id', function () {
         ->assertDontSee('haystack_db');
 });
 
+test('search filters by comment', function () {
+    Snapshot::factory()->withFile()->create([
+        'database_name' => 'needle_db',
+        'comment' => 'Before upgrading to 1.37',
+    ]);
+    Snapshot::factory()->withFile()->create([
+        'database_name' => 'haystack_db',
+        'comment' => 'Routine weekly backup',
+    ]);
+
+    Livewire::test(Index::class)
+        ->set('search', 'upgrading')
+        ->assertSee('needle_db')
+        ->assertDontSee('haystack_db');
+});
+
 test('server filter narrows the list', function () {
     $a = DatabaseServer::factory()->create(['name' => 'AlphaServer']);
     $b = DatabaseServer::factory()->create(['name' => 'BetaServer']);
