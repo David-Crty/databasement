@@ -58,14 +58,14 @@ Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
 5. Re-encrypt the stored values with the new key:
 
    ```bash
-   docker compose exec app php artisan key:reencrypt
+   php artisan key:reencrypt
    ```
 
    It prints a count per column and is safe to run again. A value that neither key can decrypt is left unchanged and reported; enter that credential again in the UI.
 6. Confirm nothing needs the old key any more, then remove `APP_PREVIOUS_KEYS` and restart:
 
    ```bash
-   docker compose exec app php artisan key:reencrypt --check
+   php artisan key:reencrypt --check
    ```
 
    `--check` changes nothing and exits non-zero while a value still needs a previous key.
