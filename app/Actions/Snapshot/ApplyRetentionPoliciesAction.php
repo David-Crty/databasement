@@ -139,8 +139,7 @@ class ApplyRetentionPoliciesAction
     }
 
     /**
-     * Pick the newest snapshot of each of the last `$periods` weeks or months,
-     * with period boundaries in the display timezone.
+     * Pick the newest snapshot of each of the last `$periods` weeks or months.
      *
      * @param  Collection<int, Snapshot>  $snapshots  sorted newest first
      * @return Collection<int, Snapshot>
@@ -148,7 +147,7 @@ class ApplyRetentionPoliciesAction
     private function selectSnapshotsForPeriod(Collection $snapshots, int $periods, string $periodType): Collection
     {
         $selected = collect();
-        $now = now()->setTimezone(config('app.display_timezone'));
+        $now = now();
 
         for ($i = 0; $i < $periods; $i++) {
             $periodStart = match ($periodType) {
