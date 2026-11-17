@@ -35,6 +35,21 @@ test('can search snapshots by server name', function () {
         ->and($results->first()->databaseServer->name)->toBe('MySQL Production');
 });
 
+test('can search snapshots by comment', function () {
+    $server = DatabaseServer::factory()->create(['database_names' => ['db1', 'db2']]);
+
+    $needle = pendingSnapshot($server);
+    $needle->update(['database_name' => 'db1', 'comment' => 'Before upgrading to 1.37']);
+
+    $other = pendingSnapshot($server);
+    $other->update(['database_name' => 'db2', 'comment' => 'Routine weekly backup']);
+
+    $results = SnapshotQuery::buildFromParams(search: 'upgrading')->get();
+
+    expect($results)->toHaveCount(1)
+        ->and($results->first()->id)->toBe($needle->id);
+});
+
 test('can filter snapshots by status', function () {
     $server = DatabaseServer::factory()->create(['database_names' => ['test_db']]);
 
