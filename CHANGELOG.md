@@ -8,10 +8,14 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.10] - 2026-11-11
+## [1.10] - 2026-11-17
 
 ### Added
 
+- `1.10.12` Google Drive can be used as a backup volume, with OAuth credentials (client ID, client secret and refresh token) and an optional target folder ([#761](https://github.com/David-Crty/databasement/pull/761))
+- `1.10.12` The credentials of a volume that holds snapshots can be updated, so a rotated key or a revoked Google Drive token no longer strands its snapshots. The location stays locked, and new credentials are only saved if a connection test with them succeeds ([#786](https://github.com/David-Crty/databasement/pull/786))
+- `1.10.12` `php artisan key:reencrypt` re-encrypts every stored credential with the current `APP_KEY`, finishing a key rotation, and `--check` confirms that `APP_PREVIOUS_KEYS` can be dropped. The docs describe the full rotation procedure, including keeping encrypted backups readable ([#757](https://github.com/David-Crty/databasement/pull/757))
+- `1.10.12` The Snapshots search and the API filters also match snapshot comments ([#782](https://github.com/David-Crty/databasement/pull/782))
 - `1.10.11` Notifications can be sent to PushPlus, with an optional delivery channel and group topic, which the generic webhook could not reach. A message PushPlus rejects, such as one with a wrong token, makes the test notification fail instead of reporting success ([#774](https://github.com/David-Crty/databasement/pull/774))
 - `1.10.11` The database server list can be filtered by database type, like the Snapshots list ([#764](https://github.com/David-Crty/databasement/pull/764))
 - `1.10.9` `TLS_CA_BUNDLE` points SSO and remote agent connections at a PEM file to trust instead of the system CAs, so an identity provider or Databasement server whose certificate comes from a private CA, or is self-signed, can be used. `TLS_VERIFY=false` skips verification, for testing only ([#755](https://github.com/David-Crty/databasement/pull/755))
@@ -33,6 +37,9 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.10.12` GFS retention keeps the right snapshot for each month in its monthly tier when it runs at the end of a month, instead of skipping a shorter month, such as September on October 31, and deleting its snapshot ([#780](https://github.com/David-Crty/databasement/pull/780))
+- `1.10.12` A local SQLite restore keeps the existing database file's permissions instead of resetting them to 0640, so an application relying on group write access keeps it. A failed copy no longer leaves a partial new file behind ([#785](https://github.com/David-Crty/databasement/pull/785))
+- `1.10.12` SQLite backups over SFTP no longer fail when the WAL or SHM file is empty, as it is after an automatic checkpoint. An empty main database file still fails the backup ([#765](https://github.com/David-Crty/databasement/pull/765))
 - `1.10.9` Adminer is the official 6.2.0 release with the Hever design, which has a dark mode, so hovered links, the edit icon and the Limit and Text length fields display correctly again ([#756](https://github.com/David-Crty/databasement/pull/756))
 - `1.10.8` Choosing "Create new" for the SSH tunnel when editing a database server creates a new SSH configuration, instead of overwriting the existing one so that every other server sharing it silently tunnelled through the new host. The SSH connection test of a replacement private key no longer falls back to the stored passphrase, so a test can no longer pass while the next backup fails ([#738](https://github.com/David-Crty/databasement/pull/738))
 - `1.10.8` Warnings and errors from the app and the agent go to stderr and everything else to stdout, so journald, Cockpit and Kubernetes tooling show their real level instead of marking agent errors as info. The Docker image now sets `LOG_CHANNEL=stdio`, so the app's own logs reach the container output instead of a file inside the container ([#736](https://github.com/David-Crty/databasement/pull/736))
@@ -382,7 +389,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.11
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.12
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
