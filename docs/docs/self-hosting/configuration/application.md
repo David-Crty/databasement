@@ -41,6 +41,30 @@ docker run --rm davidcrty/databasement:1 php artisan key:generate --show
 
 Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
 
+### Rotating the Application Key
+
+`APP_KEY` encrypts every stored credential (database server and SSH passwords, SSH keys, volume and notification secrets, SSO tokens, two-factor secrets). Replacing it outright makes all of them unreadable, so rotate it in this order:
+
+1. Generate a new key (see above).
+2. Move the current key to `APP_PREVIOUS_KEYS` and set the new one as `APP_KEY`:
+
+   ```bash
+   APP_KEY=base64:new-key
+   APP_PREVIOUS_KEYS=base64:old-key
+   ```
+
+   `APP_PREVIOUS_KEYS` takes a comma-separated list if you rotate more than once.
+3. If `BACKUP_ENCRYPTION_KEY` is not set, set it to the **old** key. Encrypted backups use `APP_KEY` by default, and `APP_PREVIOUS_KEYS` does not apply to them, so without this step existing encrypted backups can no longer be restored. See [Encrypted Backups](./backup.md#encrypted-backups).
+4. Restart the application and the queue worker. Users are logged out once.
+
+New and updated values are encrypted with the new key, and existing values are decrypted with the previous one. Values are only re-encrypted when they are saved again, so keep the old key in `APP_PREVIOUS_KEYS`: removing it makes every credential that has not been re-saved since unreadable.
+
+:::warning
+This rotation keeps your data readable, but anyone holding the old key and a copy of the database can still decrypt the credentials stored before the rotation. If the old key leaked, also change the credentials themselves (database passwords, storage and notification secrets) at their source and update them in Databasement.
+:::
+
+Agents encrypt backups with their own `BACKUP_ENCRYPTION_KEY` (or `APP_KEY`), so rotating the server's key does not affect them.
+
 ### Timezone Configuration
 
 Set `APP_DISPLAY_TIMEZONE` to display dates, backup filenames, and schedule times in your local timezone. A cron like `0 2 * * *` will then fire at 02:00 in that zone.
