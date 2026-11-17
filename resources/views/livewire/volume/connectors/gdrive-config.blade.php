@@ -32,11 +32,4 @@
         type="text"
         :disabled="$readonly"
     />
-
-    @unless($readonly)
-        <x-alert class="alert-info" icon="o-information-circle">
-            {{ __('These credentials come from your own Google Cloud OAuth app, which must be published or its refresh token expires after 7 days.') }}
-            <a href="https://david-crty.github.io/databasement/user-guide/volumes/#google-drive" target="_blank" rel="noopener" class="link font-medium">{{ __('Setup guide') }}</a>
-        </x-alert>
-    @endunless
 </div>

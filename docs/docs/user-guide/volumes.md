@@ -6,6 +6,10 @@ sidebar_position: 7
 
 Storage volumes are the destinations where your backup files are stored. Databasement supports multiple storage backends to fit your infrastructure needs.
 
+:::tip
+Secrets (passwords, access keys, client secrets and tokens) are encrypted at rest in the database using Laravel's encryption. They are never stored in plain text.
+:::
+
 ## Volume Types
 
 ### Local Storage
@@ -52,10 +56,6 @@ S3 volumes store backups in AWS S3 or any S3-compatible object storage (MinIO, D
 Credentials are optional. When left blank, the AWS SDK uses its default credential chain: environment variables, EC2/ECS instance roles, and EKS IRSA. This allows deployments on AWS infrastructure to work without explicit keys.
 :::
 
-:::tip
-The secret access key is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
-:::
-
 ### SFTP Storage
 
 SFTP volumes store backups on a remote server via SSH File Transfer Protocol. This is ideal for storing backups on a dedicated backup server or NAS.
@@ -71,10 +71,6 @@ SFTP volumes store backups on a remote server via SSH File Transfer Protocol. Th
 
 :::note
 Only password authentication is currently supported. SSH key authentication is planned for a future release.
-:::
-
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
 ### FTP Storage
@@ -96,9 +92,18 @@ FTP volumes store backups on a remote FTP server. Both standard FTP and FTPS (FT
 Standard FTP transmits credentials and data in plain text. Enable SSL for secure transfers, or prefer SFTP for better security.
 :::
 
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
-:::
+### Azure Blob Storage
+
+Azure volumes store backups in an Azure Blob Storage container, authenticated with the storage account key.
+
+| Field | Description |
+|-------|-------------|
+| **Storage Account Name** | Name of the Azure storage account |
+| **Account Key** | Access key of the storage account |
+| **Container Name** | Blob container to store backups in |
+| **Prefix** | Optional path prefix within the container (e.g., `production/`) |
+| **Endpoint Suffix** | Change only for sovereign clouds (e.g., `core.usgovcloudapi.net`). Default: `core.windows.net` |
+| **Custom Blob Endpoint** | For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix |
 
 ### Google Drive
 
@@ -110,10 +115,6 @@ Google Drive volumes store backups in a personal Google Drive (My Drive), authen
 | **Client Secret** | OAuth client secret |
 | **Refresh Token** | Refresh token generated in the OAuth Playground (see below) |
 | **Folder ID** | Optional. The folder to store backups in, the last part of its URL (`https://drive.google.com/drive/folders/<folder-id>`). Leave blank to use the root of the drive |
-
-:::tip
-The client secret and refresh token are encrypted at rest in the database using Laravel's encryption. They are never stored in plain text.
-:::
 
 :::note
 Shared drives are not supported.
@@ -158,10 +159,6 @@ SMB volumes store backups on a Windows file share or a Samba server (common on N
 
 :::note
 SMB support is built into the Databasement Docker image and connects over SMB2/SMB3 — no host mounts or extra packages needed.
-:::
-
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
 ### NFS Storage

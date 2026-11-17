@@ -32,6 +32,35 @@ enum VolumeType: string
     /**
      * Get the Heroicon name for this volume type.
      */
+    public function description(): string
+    {
+        return match ($this) {
+            self::LOCAL => __('Stores backups on a path inside the container. On Docker, mount it as a volume, in both the web and worker containers when they run separately.'),
+            self::S3 => __('Works with AWS S3 and any S3-compatible storage (MinIO, DigitalOcean Spaces, Backblaze B2). Leave the keys blank to use the AWS default credential chain.'),
+            self::SFTP => __('Stores backups on a remote server over SSH. Only password authentication is supported.'),
+            self::FTP => __('Plain FTP sends credentials and data in clear text: enable SSL, or prefer SFTP.'),
+            self::AZURE => __('Stores backups in an Azure Blob Storage container, authenticated with the storage account key.'),
+            self::SMB => __('Connects natively to a Windows or Samba share over SMB2/SMB3, without mounting anything on the host.'),
+            self::GDRIVE => __('These credentials come from your own Google Cloud OAuth app, which must be published or its refresh token expires after 7 days.'),
+        };
+    }
+
+    /**
+     * Heading anchor of this type's section in the volumes user guide.
+     */
+    public function docsAnchor(): string
+    {
+        return match ($this) {
+            self::LOCAL => 'local-storage',
+            self::S3 => 's3-storage',
+            self::SFTP => 'sftp-storage',
+            self::FTP => 'ftp-storage',
+            self::AZURE => 'azure-blob-storage',
+            self::SMB => 'samba--smb-storage',
+            self::GDRIVE => 'google-drive',
+        };
+    }
+
     public function icon(): string
     {
         return match ($this) {

@@ -40,7 +40,7 @@ use App\Enums\VolumeType;
         @php $typeDisabled = $readonly || $form->volume !== null; @endphp
         <div>
             <label class="label label-text font-semibold mb-2">{{ __('Storage Type') }}</label>
-            <x-radio-card-group class="grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" :label="__('Storage Type')">
+            <x-radio-card-group class="grid-cols-2 sm:grid-cols-4 xl:grid-cols-7" :label="__('Storage Type')">
                 @foreach(VolumeType::cases() as $volumeType)
                     <x-radio-card
                         :active="$form->type === $volumeType->value"
@@ -53,6 +53,20 @@ use App\Enums\VolumeType;
                 @endforeach
             </x-radio-card-group>
         </div>
+
+        @php $selectedType = VolumeType::from($form->type); @endphp
+        <x-alert class="alert-info alert-vertical sm:alert-horizontal rounded-md" icon="o-information-circle">
+            {{ $selectedType->description() }}
+            <x-slot:actions>
+                <x-button
+                    :label="__('Learn more')"
+                    :link="'https://david-crty.github.io/databasement/user-guide/volumes/#'.$selectedType->docsAnchor()"
+                    external
+                    icon="o-book-open"
+                    class="btn-sm"
+                />
+            </x-slot:actions>
+        </x-alert>
     </div>
 
     <!-- Configuration -->
