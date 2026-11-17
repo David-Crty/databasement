@@ -1288,6 +1288,39 @@ docker run --rm davidcrty/databasement:1 php artisan key:generate --show
 
 Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
 
+### Rotating the Application Key
+
+`APP_KEY` encrypts every stored credential (database server and SSH passwords, SSH keys, volume and notification secrets, SSO tokens, two-factor secrets). Replacing it outright makes all of them unreadable, so rotate it in this order:
+
+1. Generate a new key (see above).
+2. Move the current key to `APP_PREVIOUS_KEYS` and set the new one as `APP_KEY`:
+
+   ```bash
+   APP_KEY=base64:new-key
+   APP_PREVIOUS_KEYS=base64:old-key
+   ```
+
+3. If `BACKUP_ENCRYPTION_KEY` is not set, set it to the **old** key. Encrypted backups use `APP_KEY` by default, and `APP_PREVIOUS_KEYS` does not apply to them, so without this step existing encrypted backups can no longer be restored. See [Encrypted Backups](./backup.md#encrypted-backups).
+4. Restart the application and the queue worker. Users are logged out once.
+5. Re-encrypt the stored values with the new key:
+
+   ```bash
+   php artisan key:reencrypt
+   ```
+
+   It prints a count per column and is safe to run again. A value that neither key can decrypt is left unchanged and reported; enter that credential again in the UI.
+6. Confirm nothing needs the old key any more, then remove `APP_PREVIOUS_KEYS` and restart:
+
+   ```bash
+   php artisan key:reencrypt --check
+   ```
+
+   `--check` changes nothing and exits non-zero while a value still needs a previous key.
+
+:::warning
+Copies of Databasement's own database taken before the rotation can still be decrypted with the old key. If the old key leaked, also change the credentials themselves (database passwords, storage and notification secrets) at their source and update them in Databasement, and in step 3 set `BACKUP_ENCRYPTION_KEY` to a newly generated key instead, so new backups do not use the leaked one. Keep the old key somewhere safe: restoring a backup encrypted before the rotation needs it set back as `BACKUP_ENCRYPTION_KEY` for that restore.
+:::
+
 ### Timezone Configuration
 
 Set `APP_DISPLAY_TIMEZONE` to display dates, backup filenames, and schedule times in your local timezone. A cron like `0 2 * * *` will then fire at 02:00 in that zone.
@@ -1543,7 +1576,7 @@ echo "base64:$(openssl rand -base64 32)"
 ```
 
 :::warning
-If you change the encryption key, you will not be able to restore backups that were encrypted with the previous key. Keep your encryption key safe and backed up separately.
+If you change the encryption key, you will not be able to restore backups that were encrypted with the previous key. Keep your encryption key safe and backed up separately. When `BACKUP_ENCRYPTION_KEY` is unset this includes rotating `APP_KEY`: see [Rotating the Application Key](./application.md#rotating-the-application-key).
 :::
 
 ### Decrypting a Backup Manually
@@ -2374,10 +2407,14 @@ Each section covers one minor version; every entry is prefixed with the patch re
 that shipped it. Releases before 1.0.0 are only listed on
 [GitHub Releases](https://github.com/David-Crty/databasement/releases).
 
-## [1.10] - 2026-11-11 {#v1-10}
+## [1.10] - 2026-11-17 {#v1-10}
 
 ### Added
 
+- `1.10.12` Google Drive can be used as a backup volume, with OAuth credentials (client ID, client secret and refresh token) and an optional target folder ([#761](https://github.com/David-Crty/databasement/pull/761))
+- `1.10.12` The credentials of a volume that holds snapshots can be updated, so a rotated key or a revoked Google Drive token no longer strands its snapshots. The location stays locked, and new credentials are only saved if a connection test with them succeeds ([#786](https://github.com/David-Crty/databasement/pull/786))
+- `1.10.12` `php artisan key:reencrypt` re-encrypts every stored credential with the current `APP_KEY`, finishing a key rotation, and `--check` confirms that `APP_PREVIOUS_KEYS` can be dropped. The docs describe the full rotation procedure, including keeping encrypted backups readable ([#757](https://github.com/David-Crty/databasement/pull/757))
+- `1.10.12` The Snapshots search and the API filters also match snapshot comments ([#782](https://github.com/David-Crty/databasement/pull/782))
 - `1.10.11` Notifications can be sent to PushPlus, with an optional delivery channel and group topic, which the generic webhook could not reach. A message PushPlus rejects, such as one with a wrong token, makes the test notification fail instead of reporting success ([#774](https://github.com/David-Crty/databasement/pull/774))
 - `1.10.11` The database server list can be filtered by database type, like the Snapshots list ([#764](https://github.com/David-Crty/databasement/pull/764))
 - `1.10.9` `TLS_CA_BUNDLE` points SSO and remote agent connections at a PEM file to trust instead of the system CAs, so an identity provider or Databasement server whose certificate comes from a private CA, or is self-signed, can be used. `TLS_VERIFY=false` skips verification, for testing only ([#755](https://github.com/David-Crty/databasement/pull/755))
@@ -2399,6 +2436,9 @@ that shipped it. Releases before 1.0.0 are only listed on
 
 ### Fixed
 
+- `1.10.12` GFS retention keeps the right snapshot for each month in its monthly tier when it runs at the end of a month, instead of skipping a shorter month, such as September on October 31, and deleting its snapshot ([#780](https://github.com/David-Crty/databasement/pull/780))
+- `1.10.12` A local SQLite restore keeps the existing database file's permissions instead of resetting them to 0640, so an application relying on group write access keeps it. A failed copy no longer leaves a partial new file behind ([#785](https://github.com/David-Crty/databasement/pull/785))
+- `1.10.12` SQLite backups over SFTP no longer fail when the WAL or SHM file is empty, as it is after an automatic checkpoint. An empty main database file still fails the backup ([#765](https://github.com/David-Crty/databasement/pull/765))
 - `1.10.9` Adminer is the official 6.2.0 release with the Hever design, which has a dark mode, so hovered links, the edit icon and the Limit and Text length fields display correctly again ([#756](https://github.com/David-Crty/databasement/pull/756))
 - `1.10.8` Choosing "Create new" for the SSH tunnel when editing a database server creates a new SSH configuration, instead of overwriting the existing one so that every other server sharing it silently tunnelled through the new host. The SSH connection test of a replacement private key no longer falls back to the stored passphrase, so a test can no longer pass while the next backup fails ([#738](https://github.com/David-Crty/databasement/pull/738))
 - `1.10.8` Warnings and errors from the app and the agent go to stderr and everything else to stdout, so journald, Cockpit and Kubernetes tooling show their real level instead of marking agent errors as info. The Docker image now sets `LOG_CHANNEL=stdio`, so the app's own logs reach the container output instead of a file inside the container ([#736](https://github.com/David-Crty/databasement/pull/736))
@@ -2748,7 +2788,7 @@ that shipped it. Releases before 1.0.0 are only listed on
 - `1.0.5` An empty `TRUSTED_PROXIES` value falls back to the default private network ranges instead of trusting no proxy at all, which broke fresh Kubernetes installs ([#184](https://github.com/David-Crty/databasement/pull/184))
 - `1.0.2` SQLite backups no longer miss recent writes on databases in WAL mode: the SQLite client's online backup is used instead of copying the file, remote SQLite over SFTP also fetches the `-wal` and `-shm` companion files (flagged best-effort when present), and a missing source file fails the backup instead of producing an empty one ([#174](https://github.com/David-Crty/databasement/pull/174))
 
-[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.11
+[1.10]: https://github.com/David-Crty/databasement/compare/v1.9.3...v1.10.12
 [1.9]: https://github.com/David-Crty/databasement/compare/v1.8.4...v1.9.3
 [1.8]: https://github.com/David-Crty/databasement/compare/v1.7.15...v1.8.4
 [1.7]: https://github.com/David-Crty/databasement/compare/v1.6.12...v1.7.15
@@ -2858,7 +2898,7 @@ Databasement uses standard CLI tools to perform backup and restore operations. T
 - **PostgreSQL**: Databasement ships both the v16 and the v18 client and runs whichever one matches the server: v16 for servers up to 16, v18 for 17 and later. A dump only replays into a server at least as new as the client that wrote it, so a single v18 client would produce snapshots that no server below 17 could restore, not even the one they came from. Each client dumps from any server back to 9.2. Versions below 12 have reached end-of-life and are not recommended.
 - **SQL Server**: Backups are extracted as `.dacpac` files (schema + table data) using Microsoft's `sqlpackage` CLI (`/Action:Extract`) and re-applied with `/Action:Publish`. Server-bound objects (logins, users, permissions, role memberships) are excluded so backups stay portable across instances and don't fail on Windows-auth principals like `[NT AUTHORITY\SYSTEM]`. Works against on-prem SQL Server 2017+ and Azure SQL Database. Connections use the `pdo_sqlsrv` PHP extension.
 - **MongoDB**: The MongoDB Database Tools (`mongodump` / `mongorestore`) officially support server versions 4.2 through 8.0.
-- **SQLite**: Backups are performed by copying the database file over SFTP. The SQLite 3.x file format has been backwards-compatible since 3.0.0 (2004).
+- **SQLite**: A file on the host running the backup is snapshotted with `sqlite3 .backup`; a file on another machine is copied over SFTP (see [SQLite](#sqlite) below). The SQLite 3.x file format has been backwards-compatible since 3.0.0 (2004).
 - **Firebird**: Backups use `gbak` to produce a portable `.fbk` transportable backup file; restore replays it with `gbak -rep`, which replaces the target `.fdb` if one already exists. Databasement ships the Firebird 5 client, which can back up and restore Firebird 3.x, 4.x, and 5.x servers. Each `.fdb` file on the server is its own database, so backup configuration is path-based (like SQLite) rather than name-based.
 - **Redis / Valkey**: `redis-cli --rdb` creates a point-in-time RDB snapshot via the replication protocol. Valkey 7.2+ is supported as a drop-in replacement for Redis. Restore is not supported.
 :::
@@ -3029,16 +3069,23 @@ Redis/Valkey supports backup only. Restore is not currently supported due to the
 
 ### SQLite
 
-SQLite databases are backed up by copying the database file directly. Databasement connects to the remote server via SFTP (through an SSH tunnel) to access the file.
+SQLite has no server to connect to, so Databasement reads the database file itself. How it does that depends on where the file lives:
+
+- **On the host running the backup** (SSH tunnel disabled): Databasement runs `sqlite3 <path> ".backup …"`, which uses SQLite's online backup API and produces a consistent snapshot even while the application is writing to the database, including in WAL mode.
+- **On another machine** (SSH tunnel enabled): Databasement downloads the database file over SFTP, along with its `-wal` and `-shm` files when present, then consolidates them locally. This is a plain file copy, so it is only consistent if no process has the database open during the transfer: even without new writes, the last connection closing can checkpoint the WAL mid-copy. A clean backup log does not prove a consistent copy, so shut the application down cleanly for the whole backup, or use a remote agent (see below).
 
 #### Connection settings
 
 | Field | Description |
 |-------|-------------|
-| Database paths | One or more absolute paths to `.sqlite` files on the remote server |
+| Database paths | One or more absolute paths to SQLite database files, on the host running the backup or, with the SSH tunnel enabled, on the remote server |
+
+:::tip Consistent backups of SQLite files on another machine
+Run a [remote agent](./agents.md) on the machine that holds the databases and register the server on that agent with the SSH tunnel disabled. The agent then takes the `sqlite3 .backup` snapshot locally, with no SFTP race. Mount the directory containing the databases into the agent container read-write (SQLite writes the `-shm` file even when only reading a WAL database), and enter the paths as they appear inside the container.
+:::
 
 :::note
-SQLite requires an SSH tunnel to access remote database files. Databasement uses SFTP over the tunnel to copy and restore files.
+Restoring writes the snapshot over the configured path: directly on the host running the restore, or over SFTP when the SSH tunnel is enabled. Before restoring, stop every application and connection using the database, then move the database file and any `-wal`, `-shm` or `-journal` file next to it to a safe place. SQLite would otherwise replay a leftover `-wal` or `-journal` onto the restored snapshot and corrupt it.
 :::
 
 ### Firebird
@@ -3223,6 +3270,10 @@ See [SSH Tunnel](./ssh-tunnel.md) for configuration and for backing up databases
 
 Storage volumes are the destinations where your backup files are stored. Databasement supports multiple storage backends to fit your infrastructure needs.
 
+:::tip
+Secrets (passwords, access keys, client secrets and tokens) are encrypted at rest in the database using Laravel's encryption. They are never stored in plain text.
+:::
+
 ## Volume Types
 
 ### Local Storage
@@ -3269,10 +3320,6 @@ S3 volumes store backups in AWS S3 or any S3-compatible object storage (MinIO, D
 Credentials are optional. When left blank, the AWS SDK uses its default credential chain: environment variables, EC2/ECS instance roles, and EKS IRSA. This allows deployments on AWS infrastructure to work without explicit keys.
 :::
 
-:::tip
-The secret access key is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
-:::
-
 ### SFTP Storage
 
 SFTP volumes store backups on a remote server via SSH File Transfer Protocol. This is ideal for storing backups on a dedicated backup server or NAS.
@@ -3288,10 +3335,6 @@ SFTP volumes store backups on a remote server via SSH File Transfer Protocol. Th
 
 :::note
 Only password authentication is currently supported. SSH key authentication is planned for a future release.
-:::
-
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
 ### FTP Storage
@@ -3313,9 +3356,57 @@ FTP volumes store backups on a remote FTP server. Both standard FTP and FTPS (FT
 Standard FTP transmits credentials and data in plain text. Enable SSL for secure transfers, or prefer SFTP for better security.
 :::
 
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
+### Azure Blob Storage
+
+Azure volumes store backups in an Azure Blob Storage container, authenticated with the storage account key.
+
+| Field | Description |
+|-------|-------------|
+| **Storage Account Name** | Name of the Azure storage account |
+| **Account Key** | Access key of the storage account |
+| **Container Name** | Blob container to store backups in |
+| **Prefix** | Optional path prefix within the container (e.g., `production/`) |
+| **Endpoint Suffix** | Change only for sovereign clouds (e.g., `core.usgovcloudapi.net`). Default: `core.windows.net` |
+| **Custom Blob Endpoint** | For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix |
+
+### Google Drive
+
+Google Drive volumes store backups in a personal Google Drive (My Drive), authenticated with your own OAuth client.
+
+| Field | Description |
+|-------|-------------|
+| **Client ID** | OAuth client ID from the Google Cloud Console |
+| **Client Secret** | OAuth client secret |
+| **Refresh Token** | Refresh token generated in the OAuth Playground (see below) |
+| **Folder ID** | Optional. The folder to store backups in, the last part of its URL (`https://drive.google.com/drive/folders/<folder-id>`). Leave blank to use the root of the drive |
+
+:::note
+Shared drives are not supported.
 :::
+
+#### Creating the OAuth client
+
+In the [Google Cloud Console](https://console.cloud.google.com/):
+
+1. Create a project, then enable the **Google Drive API** under **APIs & Services → Library**.
+2. Open **Google Auth Platform**, click **Get started**, and set the audience to **External** (or **Internal** with Google Workspace, which needs no publishing).
+3. On the **Branding** page, set a homepage and a privacy policy URL (for example `https://github.com/David-Crty/databasement`), add their domain under **Authorized domains**, and save. Don't upload a logo: it makes Google require verification.
+4. Under **Audience**, click **Publish app** and confirm. The `drive.file` scope needs no verification.
+5. Under **Clients → Create client**, pick **Web application** and add `https://developers.google.com/oauthplayground` as an **Authorized redirect URI**.
+6. Copy the client ID and secret right away: the secret is only shown once.
+
+:::warning
+Publish the app before generating the refresh token. While the app is in **Testing**, only its test users can sign in and Google expires their refresh tokens after 7 days, so backups fail with `invalid_grant`. A token generated before publishing keeps that limit: generate a new one.
+:::
+
+#### Generating the refresh token
+
+1. Open the [OAuth Playground](https://developers.google.com/oauthplayground/), click the ⚙️ icon, tick **Use your own OAuth credentials** and enter the client ID and secret.
+
+   ![OAuth Playground settings with your own OAuth credentials](./img/gdrive-oauth-playground.png)
+
+2. In **Step 1**, enter the scope `https://www.googleapis.com/auth/drive.file` and click **Authorize APIs**. Sign in and allow access.
+3. In **Step 2**, click **Exchange authorization code for tokens** and copy the **Refresh token**.
 
 ### Samba / SMB Storage
 
@@ -3332,10 +3423,6 @@ SMB volumes store backups on a Windows file share or a Samba server (common on N
 
 :::note
 SMB support is built into the Databasement Docker image and connects over SMB2/SMB3 — no host mounts or extra packages needed.
-:::
-
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
 ### NFS Storage
@@ -3366,15 +3453,17 @@ Then create a **Local** volume with path `/backups`. The same approach works for
 Before saving a volume, use the **Test Connection** button to verify:
 - The storage location is accessible
 - Write permissions are configured correctly
-- Credentials are valid (for S3/SFTP/FTP)
+- Credentials are valid (for S3/SFTP/FTP/Google Drive)
 
 The test creates a small temporary file, reads it back to verify integrity, then deletes it.
 
 ## Volume Immutability
 
-Once a volume has backup snapshots associated with it, the storage configuration becomes read-only. This protects backup integrity by ensuring snapshots always point to their original storage location.
+Once a volume has backup snapshots associated with it, its storage location becomes read-only (bucket, host, path, container, folder, and so on). This protects backup integrity by ensuring snapshots always point to their original storage location.
 
-You can still rename the volume, but the storage type and configuration cannot be changed. To use different storage settings, create a new volume.
+You can still rename the volume, change its storage limit, and update its credentials (passwords, keys, tokens). New credentials are saved only if they pass a connection test. A Google Drive volume keeps its client ID, since the `drive.file` scope only shows a client its own files.
+
+To use a different storage location, create a new volume.
 
 ---
 

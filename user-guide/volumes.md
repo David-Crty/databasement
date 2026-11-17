@@ -6,6 +6,10 @@
 
 Storage volumes are the destinations where your backup files are stored. Databasement supports multiple storage backends to fit your infrastructure needs.
 
+:::tip
+Secrets (passwords, access keys, client secrets and tokens) are encrypted at rest in the database using Laravel's encryption. They are never stored in plain text.
+:::
+
 ## Volume Types
 
 ### Local Storage
@@ -52,10 +56,6 @@ S3 volumes store backups in AWS S3 or any S3-compatible object storage (MinIO, D
 Credentials are optional. When left blank, the AWS SDK uses its default credential chain: environment variables, EC2/ECS instance roles, and EKS IRSA. This allows deployments on AWS infrastructure to work without explicit keys.
 :::
 
-:::tip
-The secret access key is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
-:::
-
 ### SFTP Storage
 
 SFTP volumes store backups on a remote server via SSH File Transfer Protocol. This is ideal for storing backups on a dedicated backup server or NAS.
@@ -71,10 +71,6 @@ SFTP volumes store backups on a remote server via SSH File Transfer Protocol. Th
 
 :::note
 Only password authentication is currently supported. SSH key authentication is planned for a future release.
-:::
-
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
 ### FTP Storage
@@ -96,9 +92,57 @@ FTP volumes store backups on a remote FTP server. Both standard FTP and FTPS (FT
 Standard FTP transmits credentials and data in plain text. Enable SSL for secure transfers, or prefer SFTP for better security.
 :::
 
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
+### Azure Blob Storage
+
+Azure volumes store backups in an Azure Blob Storage container, authenticated with the storage account key.
+
+| Field | Description |
+|-------|-------------|
+| **Storage Account Name** | Name of the Azure storage account |
+| **Account Key** | Access key of the storage account |
+| **Container Name** | Blob container to store backups in |
+| **Prefix** | Optional path prefix within the container (e.g., `production/`) |
+| **Endpoint Suffix** | Change only for sovereign clouds (e.g., `core.usgovcloudapi.net`). Default: `core.windows.net` |
+| **Custom Blob Endpoint** | For Azure-compatible storage (Azurite emulator, self-hosted gateways). Overrides the endpoint suffix |
+
+### Google Drive
+
+Google Drive volumes store backups in a personal Google Drive (My Drive), authenticated with your own OAuth client.
+
+| Field | Description |
+|-------|-------------|
+| **Client ID** | OAuth client ID from the Google Cloud Console |
+| **Client Secret** | OAuth client secret |
+| **Refresh Token** | Refresh token generated in the OAuth Playground (see below) |
+| **Folder ID** | Optional. The folder to store backups in, the last part of its URL (`https://drive.google.com/drive/folders/<folder-id>`). Leave blank to use the root of the drive |
+
+:::note
+Shared drives are not supported.
 :::
+
+#### Creating the OAuth client
+
+In the [Google Cloud Console](https://console.cloud.google.com/):
+
+1. Create a project, then enable the **Google Drive API** under **APIs & Services → Library**.
+2. Open **Google Auth Platform**, click **Get started**, and set the audience to **External** (or **Internal** with Google Workspace, which needs no publishing).
+3. On the **Branding** page, set a homepage and a privacy policy URL (for example `https://github.com/David-Crty/databasement`), add their domain under **Authorized domains**, and save. Don't upload a logo: it makes Google require verification.
+4. Under **Audience**, click **Publish app** and confirm. The `drive.file` scope needs no verification.
+5. Under **Clients → Create client**, pick **Web application** and add `https://developers.google.com/oauthplayground` as an **Authorized redirect URI**.
+6. Copy the client ID and secret right away: the secret is only shown once.
+
+:::warning
+Publish the app before generating the refresh token. While the app is in **Testing**, only its test users can sign in and Google expires their refresh tokens after 7 days, so backups fail with `invalid_grant`. A token generated before publishing keeps that limit: generate a new one.
+:::
+
+#### Generating the refresh token
+
+1. Open the [OAuth Playground](https://developers.google.com/oauthplayground/), click the ⚙️ icon, tick **Use your own OAuth credentials** and enter the client ID and secret.
+
+   ![OAuth Playground settings with your own OAuth credentials](./img/gdrive-oauth-playground.png)
+
+2. In **Step 1**, enter the scope `https://www.googleapis.com/auth/drive.file` and click **Authorize APIs**. Sign in and allow access.
+3. In **Step 2**, click **Exchange authorization code for tokens** and copy the **Refresh token**.
 
 ### Samba / SMB Storage
 
@@ -115,10 +159,6 @@ SMB volumes store backups on a Windows file share or a Samba server (common on N
 
 :::note
 SMB support is built into the Databasement Docker image and connects over SMB2/SMB3 — no host mounts or extra packages needed.
-:::
-
-:::tip
-The password is encrypted at rest in the database using Laravel's encryption. It is never stored in plain text.
 :::
 
 ### NFS Storage
@@ -149,12 +189,14 @@ Then create a **Local** volume with path `/backups`. The same approach works for
 Before saving a volume, use the **Test Connection** button to verify:
 - The storage location is accessible
 - Write permissions are configured correctly
-- Credentials are valid (for S3/SFTP/FTP)
+- Credentials are valid (for S3/SFTP/FTP/Google Drive)
 
 The test creates a small temporary file, reads it back to verify integrity, then deletes it.
 
 ## Volume Immutability
 
-Once a volume has backup snapshots associated with it, the storage configuration becomes read-only. This protects backup integrity by ensuring snapshots always point to their original storage location.
+Once a volume has backup snapshots associated with it, its storage location becomes read-only (bucket, host, path, container, folder, and so on). This protects backup integrity by ensuring snapshots always point to their original storage location.
 
-You can still rename the volume, but the storage type and configuration cannot be changed. To use different storage settings, create a new volume.
+You can still rename the volume, change its storage limit, and update its credentials (passwords, keys, tokens). New credentials are saved only if they pass a connection test. A Google Drive volume keeps its client ID, since the `drive.file` scope only shows a client its own files.
+
+To use a different storage location, create a new volume.

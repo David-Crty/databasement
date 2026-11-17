@@ -23,7 +23,7 @@ echo "base64:$(openssl rand -base64 32)"
 ```
 
 :::warning
-If you change the encryption key, you will not be able to restore backups that were encrypted with the previous key. Keep your encryption key safe and backed up separately.
+If you change the encryption key, you will not be able to restore backups that were encrypted with the previous key. Keep your encryption key safe and backed up separately. When `BACKUP_ENCRYPTION_KEY` is unset this includes rotating `APP_KEY`: see [Rotating the Application Key](./application.md#rotating-the-application-key).
 :::
 
 ### Decrypting a Backup Manually
