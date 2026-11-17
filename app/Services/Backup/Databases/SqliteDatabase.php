@@ -172,6 +172,10 @@ class SqliteDatabase implements DatabaseInterface
         $targetExisted = file_exists($targetPath);
 
         if (! @copy($inputPath, $targetPath)) {
+            if (! $targetExisted && file_exists($targetPath)) {
+                @unlink($targetPath);
+            }
+
             throw new RestoreException("Failed to copy SQLite file {$inputPath} to {$targetPath}");
         }
 
