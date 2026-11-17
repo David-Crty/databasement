@@ -88,7 +88,7 @@ class SqliteDatabase implements DatabaseInterface
             }
 
             $localPath = $localDb.$suffix;
-            $this->downloadRemoteFile($filesystem, $remotePath, $localPath);
+            $this->downloadRemoteFile($filesystem, $remotePath, $localPath, allowEmpty: true);
             $downloadedCompanions[] = $suffix;
         }
 
@@ -123,7 +123,7 @@ class SqliteDatabase implements DatabaseInterface
     /**
      * Download a single file from the SFTP filesystem to a local path.
      */
-    private function downloadRemoteFile(Filesystem $filesystem, string $remotePath, string $localPath): void
+    private function downloadRemoteFile(Filesystem $filesystem, string $remotePath, string $localPath, bool $allowEmpty = false): void
     {
         $source = $filesystem->readStream($remotePath);
 
@@ -135,7 +135,7 @@ class SqliteDatabase implements DatabaseInterface
 
         try {
             $bytes = stream_copy_to_stream($source, $dest);
-            if ($bytes === false || $bytes === 0) {
+            if ($bytes === false || ($bytes === 0 && ! $allowEmpty)) {
                 throw new DatabaseDumpException("Failed to copy remote SQLite file {$remotePath} to {$localPath}");
             }
         } finally {
@@ -169,10 +169,19 @@ class SqliteDatabase implements DatabaseInterface
         $targetPath = $this->config['sqlite_path'];
         $this->guardLocalTargetPath($targetPath);
 
+        $targetExisted = file_exists($targetPath);
+
         if (! @copy($inputPath, $targetPath)) {
+            if (! $targetExisted && file_exists($targetPath)) {
+                @unlink($targetPath);
+            }
+
             throw new RestoreException("Failed to copy SQLite file {$inputPath} to {$targetPath}");
         }
-        chmod($targetPath, 0640);
+
+        if (! $targetExisted) {
+            chmod($targetPath, 0640);
+        }
 
         return new DatabaseOperationResult(log: new DatabaseOperationLog(
             'Restored local SQLite database',

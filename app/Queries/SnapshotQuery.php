@@ -128,6 +128,7 @@ class SnapshotQuery
                     ->orWhereRaw('host LIKE ?', ["%{$search}%"]);
             })
                 ->orWhere('database_name', 'like', "%{$search}%")
+                ->orWhere('comment', 'like', "%{$search}%")
                 ->orWhereRaw('id LIKE ?', ["%{$search}%"]);
         });
     }

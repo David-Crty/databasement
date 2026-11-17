@@ -32,6 +32,7 @@ The working tree `docs/` is the *next* version; it goes live when the next tag i
 
 - Internal links: **relative `.md` file paths** — `./backups.md`, `../self-hosting/configuration/backup.md#anchor`. Never absolute URL paths like `/user-guide/backups`: they escape the version and always point to latest.
 - Images/static files: absolute `/img/...` (served from `static/`). Never `../static/...` — it breaks inside versioned snapshots.
+- A page's own screenshots live next to it (`user-guide/img/…`) and are linked relatively (`./img/…`), so they render in editor previews too and travel with each version snapshot.
 - External-file links (llms.txt etc.): `pathname:///llms.txt`.
 
 ## Structure & style

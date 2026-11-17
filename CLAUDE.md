@@ -330,7 +330,7 @@ These are rare, cross-cutting tasks with a fixed file-by-file checklist each. Th
 
 - **Adding a New Database Type** — `DatabaseInterface` + `DatabaseProvider`, dump/restore handlers, a `ConnectionRules` case in `app/Livewire/DatabaseServer/Connection/` plus a `connection/{type}.blade.php` partial for the form's connection section, Docker/CI services, fixtures.
 - **Adding a New Volume Type** — `BaseConfig` connector + `FilesystemInterface`, `Volume\Form` property, Flysystem adapter, connection-test dataset. (`azure` / Azure Blob Storage is the newest worked example.)
-- **Adding a New Notification Channel** — `NotificationMessage` + `HasChannelRouting` delegation, `AppConfigService` keys, Configuration UI.
+- **Adding a New Notification Channel** — a `NotificationChannelType` case, `NotificationMessage` + `HasChannelRouting` delegation, `NotificationChannelForm` and the notification view, plus a custom channel class or vendor config refresh.
 
 Adding a new **locale** is covered by the Localization section below (kept inline — that guidance applies to any translation work, not just new locales).
 

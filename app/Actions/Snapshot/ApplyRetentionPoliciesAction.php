@@ -139,7 +139,9 @@ class ApplyRetentionPoliciesAction
     }
 
     /**
-     * @param  Collection<int, Snapshot>  $snapshots
+     * Pick the newest snapshot of each of the last `$periods` weeks or months.
+     *
+     * @param  Collection<int, Snapshot>  $snapshots  sorted newest first
      * @return Collection<int, Snapshot>
      */
     private function selectSnapshotsForPeriod(Collection $snapshots, int $periods, string $periodType): Collection
@@ -150,17 +152,16 @@ class ApplyRetentionPoliciesAction
         for ($i = 0; $i < $periods; $i++) {
             $periodStart = match ($periodType) {
                 'week' => $now->copy()->subWeeks($i)->startOfWeek(),
-                default => $now->copy()->subMonths($i)->startOfMonth(),
+                default => $now->copy()->subMonthsNoOverflow($i)->startOfMonth(),
             };
             $periodEnd = match ($periodType) {
                 'week' => $periodStart->copy()->endOfWeek(),
                 default => $periodStart->copy()->endOfMonth(),
             };
 
-            $snapshotInPeriod = $snapshots
-                ->filter(fn (Snapshot $s) => $s->created_at->between($periodStart, $periodEnd))
-                ->sortByDesc('created_at')
-                ->first();
+            $snapshotInPeriod = $snapshots->first(
+                fn (Snapshot $s) => $s->created_at->between($periodStart, $periodEnd)
+            );
 
             if ($snapshotInPeriod) {
                 $selected->push($snapshotInPeriod);

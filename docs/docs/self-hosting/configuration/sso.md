@@ -187,6 +187,16 @@ When enabled (default), OAuth logins are automatically linked to existing users 
 OAUTH_AUTO_LINK_BY_EMAIL=true  # Default: true
 ```
 
+Linking keeps the user's password, so they can still sign in with it.
+
+With Generic OIDC, an email is only linked when the provider sends `email_verified: true`, so that nobody can take over an account by registering its address on the provider without owning the mailbox. A provider that sends `email_verified: false` is always refused. Some providers (Microsoft Entra ID among them) send no `email_verified` claim at all, and their logins are refused too unless you set:
+
+```env
+OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM=true  # Default: false
+```
+
+Only set it when users cannot choose or change their own email address on the provider. Users already linked keep signing in either way, since returning logins are matched on the provider's user ID, not the email.
+
 ## OIDC Group-Based Role Mapping
 
 When using a Generic OIDC provider (Keycloak, Authentik, Dex, etc.), you can map IdP groups to Databasement roles automatically. This lets you control who can access Databasement and what role they get — all from your identity provider.

@@ -138,12 +138,48 @@ test('dump returns sqlite3 backup command even for nonexistent file', function (
         ->and($result->command)->toContain('/nonexistent/source.sqlite');
 });
 
-test('dump throws when remote stream copy returns zero bytes', function () {
+test('dump succeeds when remote WAL file is empty (0 bytes)', function () {
     $sshConfig = DatabaseServerSshConfig::factory()->create([
         'host' => 'remote.example.com',
     ]);
 
-    // Return an empty stream (0 bytes)
+    $dbStream = fopen('php://memory', 'r+');
+    fwrite($dbStream, 'main db');
+    rewind($dbStream);
+
+    // WAL file exists but is empty (normal after a checkpoint)
+    $walStream = fopen('php://memory', 'r+');
+
+    $mockRemoteFs = Mockery::mock(Filesystem::class);
+    $mockRemoteFs->shouldReceive('readStream')->with('/data/app.sqlite')->andReturn($dbStream);
+    $mockRemoteFs->shouldReceive('fileExists')->with('/data/app.sqlite-wal')->andReturn(true);
+    $mockRemoteFs->shouldReceive('readStream')->with('/data/app.sqlite-wal')->andReturn($walStream);
+    $mockRemoteFs->shouldReceive('fileExists')->with('/data/app.sqlite-shm')->andReturn(false);
+
+    $mockSftp = Mockery::mock(SftpFilesystem::class);
+    $mockSftp->shouldReceive('getFromSshConfig')->andReturn($mockRemoteFs);
+
+    $db = new SqliteDatabase($mockSftp);
+    $db->setConfig(['sqlite_path' => '/data/app.sqlite', 'ssh_config' => $sshConfig]);
+
+    $outputPath = $this->tempDir.'/dump.db';
+    $result = $db->dump($outputPath);
+
+    $localDb = $this->tempDir.'/sftp_download.db';
+
+    expect($result->command)->toContain('sqlite3')
+        ->and($result->log->level)->toBe('warning')
+        ->and($result->log->context['wal_files'])->toBe(['-wal'])
+        ->and(file_get_contents($localDb))->toBe('main db')
+        ->and(file_exists($localDb.'-wal'))->toBeTrue()
+        ->and(file_get_contents($localDb.'-wal'))->toBe('');
+});
+
+test('dump throws when remote main database is empty (0 bytes)', function () {
+    $sshConfig = DatabaseServerSshConfig::factory()->create([
+        'host' => 'remote.example.com',
+    ]);
+
     $stream = fopen('php://memory', 'r+');
 
     $mockRemoteFs = Mockery::mock(Filesystem::class);
@@ -163,7 +199,7 @@ test('dump throws when remote stream copy returns zero bytes', function () {
     $db->dump($this->tempDir.'/dump.db');
 })->throws(DatabaseDumpException::class, 'Failed to copy remote SQLite file /data/remote.sqlite');
 
-test('restore copies local file and sets permissions', function () {
+test('restore copies local file and creates it with mode 0640', function () {
     $targetFile = $this->tempDir.'/target.sqlite';
     $inputFile = $this->tempDir.'/input.db';
     file_put_contents($inputFile, 'restored data');
@@ -173,10 +209,29 @@ test('restore copies local file and sets permissions', function () {
 
     $result = $db->restore($inputFile);
 
+    clearstatcache();
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
         ->and($result->command)->toBeNull()
         ->and($result->log->message)->toBe('Restored local SQLite database')
-        ->and(file_get_contents($targetFile))->toBe('restored data');
+        ->and(file_get_contents($targetFile))->toBe('restored data')
+        ->and(fileperms($targetFile) & 0777)->toBe(0640);
+});
+
+test('restore keeps the mode of an existing local file', function () {
+    $targetFile = $this->tempDir.'/target.sqlite';
+    file_put_contents($targetFile, 'old data');
+    chmod($targetFile, 0664);
+    $inputFile = $this->tempDir.'/input.db';
+    file_put_contents($inputFile, 'restored data');
+
+    $db = new SqliteDatabase;
+    $db->setConfig(['sqlite_path' => $targetFile]);
+
+    $db->restore($inputFile);
+
+    clearstatcache();
+    expect(file_get_contents($targetFile))->toBe('restored data')
+        ->and(fileperms($targetFile) & 0777)->toBe(0664);
 });
 
 test('restore uploads remote file via SFTP', function () {

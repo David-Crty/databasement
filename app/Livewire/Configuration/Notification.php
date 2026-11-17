@@ -7,8 +7,11 @@ use App\Livewire\Configuration\Concerns\GatesConfigurationWrites;
 use App\Models\NotificationChannel;
 use App\Services\NotificationService;
 use App\Traits\Toast;
+use GuzzleHttp\Exception\RequestException as GuzzleRequestException;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -99,8 +102,19 @@ class Notification extends Component
 
             $this->success(__('Test notification sent to: :channel', ['channel' => $channel->name]));
         } catch (\Throwable $e) {
+            Log::warning('Test notification failed', ['channel_id' => $channel->id, 'error' => $e->getMessage()]);
+
+            $status = match (true) {
+                $e instanceof RequestException => $e->response->status(),
+                $e instanceof GuzzleRequestException => $e->getResponse()?->getStatusCode(),
+                default => null,
+            };
+
             $this->error(
-                title: __('Failed to send test notification: :message', ['message' => $e->getMessage()]),
+                title: $status !== null
+                    ? __('Failed to send test notification: :message', ['message' => "HTTP {$status}"])
+                    : __('Failed to send test notification.'),
+                description: __('Check the Databasement logs for the full error.'),
                 timeout: 0
             );
         }

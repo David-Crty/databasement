@@ -43,6 +43,7 @@ Route::middleware(['auth:sanctum', 'user', 'throttle:api'])->name('api.')->prefi
     Route::post('volumes/s3', [VolumeController::class, 'storeS3'])->name('volumes.store.s3');
     Route::post('volumes/sftp', [VolumeController::class, 'storeSftp'])->name('volumes.store.sftp');
     Route::post('volumes/ftp', [VolumeController::class, 'storeFtp'])->name('volumes.store.ftp');
+    Route::post('volumes/gdrive', [VolumeController::class, 'storeGdrive'])->name('volumes.store.gdrive');
     Route::get('volumes/{volume}/test-connection', [VolumeController::class, 'testConnection'])->name('volumes.test-connection');
 
     Route::apiResource('backup-schedules', BackupScheduleController::class)

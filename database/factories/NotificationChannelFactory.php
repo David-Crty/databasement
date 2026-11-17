@@ -91,6 +91,16 @@ class NotificationChannelFactory extends Factory
         ]);
     }
 
+    public function pushplus(): static
+    {
+        return $this->state(fn () => [
+            'type' => 'pushplus',
+            'config' => [
+                'token' => 'pushplus-token-'.fake()->slug(),
+            ],
+        ]);
+    }
+
     public function webhook(): static
     {
         return $this->state(fn () => [

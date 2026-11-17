@@ -17,6 +17,7 @@ enum NotificationChannelType: string
     case Telegram = 'telegram';
     case Pushover = 'pushover';
     case Gotify = 'gotify';
+    case PushPlus = 'pushplus';
     case Webhook = 'webhook';
 
     public function label(): string
@@ -29,6 +30,7 @@ enum NotificationChannelType: string
             self::Telegram => 'Telegram',
             self::Pushover => 'Pushover',
             self::Gotify => 'Gotify',
+            self::PushPlus => 'PushPlus',
             self::Webhook => 'Webhook',
         };
     }
@@ -42,6 +44,7 @@ enum NotificationChannelType: string
             self::Telegram => 'o-paper-airplane',
             self::Pushover => 'o-device-phone-mobile',
             self::Gotify => 'o-bell',
+            self::PushPlus => 'o-bell-alert',
             self::Webhook => 'o-globe-alt',
         };
     }
@@ -61,6 +64,7 @@ enum NotificationChannelType: string
             self::Telegram => ['bot_token'],
             self::Pushover => ['token', 'user_key'],
             self::Gotify => ['token'],
+            self::PushPlus => ['token'],
             self::Webhook => ['secret'],
         };
     }
@@ -91,6 +95,7 @@ enum NotificationChannelType: string
             self::DiscordWebhook, self::Gotify, self::Webhook => $config['url'] ?? null,
             self::Telegram => $config['chat_id'] ?? null,
             self::Pushover => $config['user_key'] ?? null,
+            self::PushPlus => $config['token'] ?? null,
         };
     }
 
@@ -111,6 +116,7 @@ enum NotificationChannelType: string
             self::Telegram => array_filter(['Chat ID' => $config['chat_id'] ?? '', 'Topic ID' => $config['topic_id'] ?? '']),
             self::Pushover => ['Type' => 'Push'],
             self::Gotify => array_filter(['URL' => $config['url'] ?? '']),
+            self::PushPlus => ['Channel' => ($config['channel'] ?? '') ?: 'wechat'] + array_filter(['Topic' => $config['topic'] ?? '']),
             self::Webhook => array_filter(['URL' => $config['url'] ?? '']),
         };
     }

@@ -66,6 +66,20 @@ dataset('volume store payloads', [
         'expect' => ['data.type' => 'ftp', 'data.config.host' => 'ftp.example.com'],
         'hidden_config_keys' => ['password'],
     ]],
+    'gdrive' => [[
+        'endpoint' => '/api/v1/volumes/gdrive',
+        'payload' => [
+            'name' => 'Google Drive Backups',
+            'config' => [
+                'client_id' => 'my-client-id.apps.googleusercontent.com',
+                'client_secret' => 'secret',
+                'refresh_token' => 'refresh-token',
+                'folder_id' => '1aBcDeFgHiJkLmNoPqRsTuVwXyZ',
+            ],
+        ],
+        'expect' => ['data.type' => 'gdrive', 'data.config.client_id' => 'my-client-id.apps.googleusercontent.com'],
+        'hidden_config_keys' => ['client_secret', 'refresh_token'],
+    ]],
 ]);
 
 // ─── Store ───────────────────────────────────────────────────────────────────

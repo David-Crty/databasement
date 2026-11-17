@@ -47,7 +47,7 @@
 - **Built-in data browser** - Open Adminer in-app to inspect MySQL, PostgreSQL, and SQLite servers (admin-enabled, role-gated)
 - **Flexible storage** - Store backups locally, on S3-compatible storage (AWS S3, MinIO, etc.), Azure Blob Storage, Samba/SMB shares, or remote servers via SFTP/FTP
 - **Real-time monitoring** - Track backup and restore progress with detailed job logs
-- **Failure notifications** - Get alerted via Email, Slack, Discord, Telegram, Pushover, Gotify, or Webhook when jobs fail
+- **Failure notifications** - Get alerted via Email, Slack, Discord, Telegram, Pushover, Gotify, PushPlus, or Webhook when jobs fail
 - **Team ready** - Multi-tenant organizations with isolated workspaces, role-based access control, OAuth/SSO login (Google, GitHub, GitLab, OpenID Connect), and optional two-factor authentication
 - **Automation** - REST API and MCP server for scripting, CI/CD, and AI assistant integration
 - **Simple deployment** - Single Docker container with built-in web server, queue worker, and scheduler

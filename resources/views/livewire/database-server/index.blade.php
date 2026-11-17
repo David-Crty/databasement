@@ -1,17 +1,26 @@
 <div>
-    <x-index-header :title="__('Database Servers')" :search="$search">
-        @can('viewForm', App\Models\DatabaseServer::class)
-            <x-button :label="__('Add Server')" :link="route('database-servers.create')" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
-        @endcan
-    </x-index-header>
+    <x-header :title="__('Database Servers')" separator progress-indicator>
+        <x-slot:actions>
+            <div class="hidden lg:flex items-center gap-2">
+                @include('livewire.database-server._filters', ['variant' => 'desktop'])
+            </div>
+            @can('viewForm', App\Models\DatabaseServer::class)
+                <x-button :label="__('Add Server')" :link="route('database-servers.create')" icon="o-plus" class="btn-primary btn-sm" wire:navigate />
+            @endcan
+        </x-slot:actions>
+    </x-header>
+
+    <div class="lg:hidden mb-4" x-data="{ showFilters: false }">
+        @include('livewire.database-server._filters', ['variant' => 'mobile'])
+    </div>
 
     <!-- TABLE -->
     <x-card shadow>
         <x-table :headers="$headers" :rows="$servers" :sort-by="$sortBy" with-pagination class="table-fixed">
             <x-slot:empty>
                 <div class="text-center text-base-content/50 py-8">
-                    @if ($search)
-                        {{ __('No database servers found matching your search.') }}
+                    @if ($this->hasFilters)
+                        {{ __('No database servers found matching your filters.') }}
                     @else
                         {{ __('No database servers yet.') }}
                         <a href="{{ route('database-servers.create') }}" class="link link-primary" wire:navigate>

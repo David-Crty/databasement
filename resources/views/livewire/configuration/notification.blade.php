@@ -90,6 +90,10 @@
             @elseif ($channelForm->type === 'gotify')
                 <x-input wire:model="channelForm.config_url" :label="__('Server URL')" :placeholder="__('https://gotify.example.com')" required />
                 <x-password wire:model="channelForm.config_token" :label="__('App Token')" :placeholder="$channelForm->has_config_token ? '********' : ''" />
+            @elseif ($channelForm->type === 'pushplus')
+                <x-password wire:model="channelForm.config_token" :label="__('Token')" :placeholder="$channelForm->has_config_token ? '********' : ''" />
+                <x-input wire:model="channelForm.config_channel" :label="__('Channel (optional)')" placeholder="wechat" :hint="__('PushPlus delivery channel, e.g. wechat, app or mail. Defaults to wechat.')" />
+                <x-input wire:model="channelForm.config_topic" :label="__('Topic (optional)')" :hint="__('Group code to push to the members of a PushPlus group.')" />
             @elseif ($channelForm->type === 'webhook')
                 <x-input wire:model="channelForm.config_url" :label="__('Webhook URL')" required />
                 <x-password wire:model="channelForm.config_secret" :label="__('Secret (optional)')" :placeholder="$channelForm->has_config_secret ? '********' : ''" />
