@@ -56,11 +56,23 @@ Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
    `APP_PREVIOUS_KEYS` takes a comma-separated list if you rotate more than once.
 3. If `BACKUP_ENCRYPTION_KEY` is not set, set it to the **old** key. Encrypted backups use `APP_KEY` by default, and `APP_PREVIOUS_KEYS` does not apply to them, so without this step existing encrypted backups can no longer be restored. See [Encrypted Backups](./backup.md#encrypted-backups).
 4. Restart the application and the queue worker. Users are logged out once.
+5. Re-encrypt the stored values with the new key:
 
-New and updated values are encrypted with the new key, and existing values are decrypted with the previous one. Values are only re-encrypted when they are saved again, so keep the old key in `APP_PREVIOUS_KEYS`: removing it makes every credential that has not been re-saved since unreadable.
+   ```bash
+   docker compose exec app php artisan key:reencrypt
+   ```
+
+   It prints a count per column and is safe to run again. A value that neither key can decrypt is left unchanged and reported; enter that credential again in the UI.
+6. Confirm nothing needs the old key any more, then remove `APP_PREVIOUS_KEYS` and restart:
+
+   ```bash
+   docker compose exec app php artisan key:reencrypt --check
+   ```
+
+   `--check` changes nothing and exits non-zero while a value still needs a previous key.
 
 :::warning
-This rotation keeps your data readable, but anyone holding the old key and a copy of the database can still decrypt the credentials stored before the rotation. If the old key leaked, also change the credentials themselves (database passwords, storage and notification secrets) at their source and update them in Databasement.
+Copies of Databasement's own database taken before the rotation can still be decrypted with the old key. If the old key leaked, also change the credentials themselves (database passwords, storage and notification secrets) at their source and update them in Databasement.
 :::
 
 Agents encrypt backups with their own `BACKUP_ENCRYPTION_KEY` (or `APP_KEY`), so rotating the server's key does not affect them.
