@@ -21,11 +21,6 @@ See [Versioning](versioning) for available Docker image tags and Helm chart vers
 
 ## Requirements
 
-Databasement runs in a single container that includes:
-- FrankenPHP web server
-- Queue worker for async backup/restore jobs
-- Scheduler for automated backups
-
 The only external requirement is a database for the application itself:
 - **SQLite** (simplest, built into the container)
 - **MySQL/MariaDB** or **PostgreSQL** (recommended for production)
@@ -39,7 +34,7 @@ The only external requirement is a database for the application itself:
 | MariaDB    | 10.3+           | 11.x        |
 | PostgreSQL | 10.0+           | 16+         |
 
-These are the databases Databasement uses to store its own configuration, users, and backup metadata -- not the databases you back up (see [Supported Versions](../user-guide/database-servers#supported-versions) for that).
+These are the databases Databasement uses to store its own configuration, users, and backup metadata – not the databases you back up (see [Supported Versions](../user-guide/database-servers#supported-versions) for that).
 
 ## Quick Start
 
@@ -59,7 +54,7 @@ docker run -d \
 Then open http://localhost:2226 in your browser and create your first admin account.
 
 :::note
-This quick start uses SQLite for the application database. For production deployments, see the [Docker guide](docker) for recommended configurations.
+This quick start uses SQLite for the application database. For production deployments, see the [Docker Compose guide](docker-compose) for recommended configurations.
 :::
 
 ## Support
