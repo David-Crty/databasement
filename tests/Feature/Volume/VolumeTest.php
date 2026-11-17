@@ -134,6 +134,22 @@ dataset('volume types', function () {
             'expectedField' => 'container',
             'expectedValue' => 'new-container',
         ],
+        'gdrive' => [
+            'type' => VolumeType::GDRIVE,
+            'formData' => [
+                'client_id' => 'my-client-id.apps.googleusercontent.com',
+                'client_secret' => 'fake-client-secret',
+                'refresh_token' => 'fake-refresh-token',
+                'folder_id' => '1aBcDeFgHiJkLmNoPqRsTuVwXyZ',
+            ],
+            'expectedConfig' => [
+                'client_id' => 'my-client-id.apps.googleusercontent.com',
+                'folder_id' => '1aBcDeFgHiJkLmNoPqRsTuVwXyZ',
+            ],
+            'updateData' => ['folder_id' => 'new-folder-id'],
+            'expectedField' => 'folder_id',
+            'expectedValue' => 'new-folder-id',
+        ],
     ];
 });
 

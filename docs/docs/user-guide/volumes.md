@@ -102,62 +102,46 @@ The password is encrypted at rest in the database using Laravel's encryption. It
 
 ### Google Drive
 
-Google Drive volumes store backups in your personal Google Drive. This requires setting up OAuth 2.0 credentials in the Google Cloud Console.
+Google Drive volumes store backups in a personal Google Drive (My Drive), authenticated with your own OAuth client.
 
 | Field | Description |
 |-------|-------------|
-| **Client ID** | OAuth 2.0 Client ID from Google Cloud Console |
-| **Client Secret** | OAuth 2.0 Client Secret |
-| **Refresh Token** | OAuth refresh token for offline access |
-| **Folder ID** | Optional — the ID of a Google Drive folder to store backups in. Leave blank to use the root of the drive |
+| **Client ID** | OAuth client ID from the Google Cloud Console |
+| **Client Secret** | OAuth client secret |
+| **Refresh Token** | Refresh token generated in the OAuth Playground (see below) |
+| **Folder ID** | Optional. The folder to store backups in, the last part of its URL (`https://drive.google.com/drive/folders/<folder-id>`). Leave blank to use the root of the drive |
 
 :::tip
 The client secret and refresh token are encrypted at rest in the database using Laravel's encryption. They are never stored in plain text.
 :::
 
 :::note
-Only personal Google Drive (My Drive) folders are supported. Shared drives are not supported in this release.
+Shared drives are not supported.
 :::
 
-#### Obtaining Credentials
+#### Creating the OAuth client
 
-1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or select an existing one).
+In the [Google Cloud Console](https://console.cloud.google.com/):
 
-2. Navigate to **APIs & Services → Library**, search for **Google Drive API**, and enable it.
+1. Create a project, then enable the **Google Drive API** under **APIs & Services → Library**.
+2. Open **Google Auth Platform**, click **Get started**, and set the audience to **External** (or **Internal** with Google Workspace, which needs no publishing).
+3. On the **Branding** page, set a homepage and a privacy policy URL (for example `https://github.com/David-Crty/databasement`), add their domain under **Authorized domains**, and save. Don't upload a logo: it makes Google require verification.
+4. Under **Audience**, click **Publish app** and confirm. The `drive.file` scope needs no verification.
+5. Under **Clients → Create client**, pick **Web application** and add `https://developers.google.com/oauthplayground` as an **Authorized redirect URI**.
+6. Copy the client ID and secret right away: the secret is only shown once.
 
-3. Go to **APIs & Services → OAuth consent screen** and configure the consent screen. Set the user type to **External** (or Internal if using Google Workspace).
+:::warning
+Publish the app before generating the refresh token. While the app is in **Testing**, only its test users can sign in and Google expires their refresh tokens after 7 days, so backups fail with `invalid_grant`. A token generated before publishing keeps that limit: generate a new one.
+:::
 
-4. Go to **APIs & Services → Credentials → Create Credentials → OAuth client ID**. Select **Web application** as the application type.
+#### Generating the refresh token
 
-5. Under **Authorized redirect URIs**, add:
-   ```
-   https://developers.google.com/oauthplayground
-   ```
+1. Open the [OAuth Playground](https://developers.google.com/oauthplayground/), click the ⚙️ icon, tick **Use your own OAuth credentials** and enter the client ID and secret.
 
-6. Copy the **Client ID** and **Client Secret**.
+   ![OAuth Playground settings with your own OAuth credentials](/img/user-guide/gdrive-oauth-playground.png)
 
-#### Generating a Refresh Token
-
-1. Open the [Google OAuth Playground](https://developers.google.com/oauthplayground/).
-
-2. Click the ⚙️ gear icon (settings) in the top right and check **Use your own OAuth credentials**. Enter the Client ID and Client Secret from the previous step.
-
-3. In the left panel under **Step 1**, find **Google Drive API v3** and select the scope `https://www.googleapis.com/auth/drive.file`.
-
-4. Click **Authorize APIs** and sign in with your Google account. If you see a security warning, click **Advanced → Go to (app name)** to proceed.
-
-5. In **Step 2**, click **Exchange authorization code for tokens**.
-
-6. Copy the **Refresh Token** from the response.
-
-#### Finding a Folder ID
-
-To store backups in a specific folder, open the folder in Google Drive. The folder ID is the last part of the URL:
-
-```
-https://drive.google.com/drive/folders/1aBcDeFgHiJkLmNoPqRsTuVwXyZ
-                                        └── this is the folder ID
-```
+2. In **Step 1**, enter the scope `https://www.googleapis.com/auth/drive.file` and click **Authorize APIs**. Sign in and allow access.
+3. In **Step 2**, click **Exchange authorization code for tokens** and copy the **Refresh token**.
 
 ### Samba / SMB Storage
 

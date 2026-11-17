@@ -148,4 +148,20 @@ class VolumeFactory extends Factory
             ],
         ]);
     }
+
+    /**
+     * Indicate that the volume is a Google Drive type.
+     */
+    public function gdrive(): static
+    {
+        return $this->state(fn () => [
+            'type' => 'gdrive',
+            'config' => [
+                'client_id' => 'test-client-id.apps.googleusercontent.com',
+                'client_secret' => 'test-client-secret',
+                'refresh_token' => 'test-refresh-token-'.fake()->slug(),
+                'folder_id' => '',
+            ],
+        ]);
+    }
 }

@@ -35,7 +35,8 @@
 
     @unless($readonly)
         <x-alert class="alert-info" icon="o-information-circle">
-            {{ __('To obtain these credentials, create an OAuth 2.0 Client in the Google Cloud Console and enable the Google Drive API. To generate a refresh token, open the OAuth Playground, select "Use your own OAuth credentials" in the settings, and enter the same Client ID and Client Secret. Add https://developers.google.com/oauthplayground as an authorized redirect URI for the client.') }}
+            {{ __('These credentials come from your own Google Cloud OAuth app, which must be published or its refresh token expires after 7 days.') }}
+            <a href="https://david-crty.github.io/databasement/user-guide/volumes/#google-drive" target="_blank" rel="noopener" class="link font-medium">{{ __('Setup guide') }}</a>
         </x-alert>
     @endunless
 </div>
