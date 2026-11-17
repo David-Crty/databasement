@@ -9,6 +9,7 @@ use App\Models\Volume;
 use App\Services\CurrentOrganization;
 use App\Services\VolumeConnectionTester;
 use App\Support\Formatters;
+use Illuminate\Support\Arr;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Unique;
 use Illuminate\Validation\ValidationException;
@@ -147,19 +148,33 @@ class Form extends \Livewire\Form
     }
 
     /**
-     * Update a volume that is locked by existing snapshots: only the name and
-     * storage limit stay editable — the connector config is frozen because
-     * stored snapshots already depend on it.
+     * Update a volume that is locked by existing snapshots: only the name,
+     * storage limit and credentials stay editable, because stored snapshots
+     * already depend on its location.
      */
     public function updateLockedVolume(): void
     {
+        $volumeType = VolumeType::from($this->volume->type);
+        $credentialRules = Arr::only(
+            $volumeType->makeRulesOptionalForSensitiveFields($volumeType->configRules()),
+            array_map(fn (string $field): string => $volumeType->configPropertyName().'.'.$field, $volumeType->credentialFields()),
+        );
+
         $this->validate([
             'name' => ['required', 'string', 'max:255', $this->uniqueNameRule($this->volume->organization_id, ignoreId: $this->volume->id)],
             'maxStorageGb' => ['nullable', 'numeric', 'min:0.001'],
             'storageLimitNotifyOnly' => ['boolean'],
+            ...$credentialRules,
         ]);
 
-        UpdateVolumeAction::run($this->volume, $this->name, $this->applyMaxStorageToConfig($this->volume->getDecryptedConfig()));
+        try {
+            UpdateVolumeAction::run($this->volume, $this->name, $this->applyMaxStorageToConfig($this->getActiveConfig()));
+        } catch (ValidationException $e) {
+            $this->connectionTestSuccess = false;
+            $this->connectionTestMessage = $e->validator->errors()->first('config') ?: null;
+
+            throw $e;
+        }
     }
 
     /**

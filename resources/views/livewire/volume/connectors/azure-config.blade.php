@@ -13,7 +13,6 @@
             wire:model="{{ $configPrefix }}.account_key"
             :label="__('Account Key')"
             :placeholder="$isEditing ? __('Leave blank to keep current') : ''"
-            :disabled="$readonly"
             :required="!$isEditing"
         />
     </div>

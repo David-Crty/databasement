@@ -195,6 +195,8 @@ The test creates a small temporary file, reads it back to verify integrity, then
 
 ## Volume Immutability
 
-Once a volume has backup snapshots associated with it, the storage configuration becomes read-only. This protects backup integrity by ensuring snapshots always point to their original storage location.
+Once a volume has backup snapshots associated with it, its storage location becomes read-only (bucket, host, path, container, folder, and so on). This protects backup integrity by ensuring snapshots always point to their original storage location.
 
-You can still rename the volume, but the storage type and configuration cannot be changed. To use different storage settings, create a new volume.
+You can still rename the volume, change its storage limit, and update its credentials when they are rotated or revoked: the S3 access key pair, the SFTP, FTP or SMB password, the Azure account key, or the Google Drive client secret and refresh token. New credentials are saved only if a connection test with them succeeds, so a typo cannot cut the existing snapshots off from their storage. A Google Drive volume must keep its OAuth client ID, since the `drive.file` scope only lets a client see the files it created.
+
+To use a different storage location, create a new volume.

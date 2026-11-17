@@ -8,7 +8,7 @@
 
     @if($hasSnapshots)
         <x-alert class="alert-warning mb-6" icon="o-lock-closed">
-            {{ __('This volume has existing snapshots. Only the name and storage limit can be modified. Configuration changes are locked to protect backup integrity.') }}
+            {{ __('This volume has existing snapshots, so its storage location is locked. You can still change the name, the storage limit and the credentials. New credentials are saved only if they pass a connection test.') }}
         </x-alert>
     @endif
 

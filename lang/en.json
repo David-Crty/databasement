@@ -1055,7 +1055,7 @@
     "This user belongs to multiple organizations. Remove them from this organization instead.": "This user belongs to multiple organizations. Remove them from this organization instead.",
     "This user is already a member of this organization.": "This user is already a member of this organization.",
     "This user only belongs to this organization. Removing them would leave them without access.": "This user only belongs to this organization. Removing them would leave them without access.",
-    "This volume has existing snapshots. Only the name and storage limit can be modified. Configuration changes are locked to protect backup integrity.": "This volume has existing snapshots. Only the name and storage limit can be modified. Configuration changes are locked to protect backup integrity.",
+    "This volume has existing snapshots, so its storage location is locked. You can still change the name, the storage limit and the credentials. New credentials are saved only if they pass a connection test.": "This volume has existing snapshots, so its storage location is locked. You can still change the name, the storage limit and the credentials. New credentials are saved only if they pass a connection test.",
     "This will revoke the current token. The agent will need to be reconfigured with the new token.": "This will revoke the current token. The agent will need to be reconfigured with the new token.",
     "Tiered retention": "Tiered retention",
     "Timezone used for rendering datetimes in the UI and interpreting scheduled task cron expressions. Storage stays in UTC.": "Timezone used for rendering datetimes in the UI and interpreting scheduled task cron expressions. Storage stays in UTC.",

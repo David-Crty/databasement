@@ -33,7 +33,6 @@
             wire:model="{{ $configPrefix }}.password"
             :label="__('Password')"
             :placeholder="$isEditing ? __('Leave blank to keep current') : ''"
-            :disabled="$readonly"
             :required="!$isEditing"
         />
     </div>

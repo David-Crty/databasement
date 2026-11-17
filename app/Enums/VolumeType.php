@@ -119,6 +119,23 @@ enum VolumeType: string
     }
 
     /**
+     * Fields that authenticate to the storage rather than locate it, so they
+     * stay editable once snapshots depend on the volume.
+     *
+     * A Google Drive client ID stays locked: the `drive.file` scope only shows
+     * a client the files it created itself.
+     *
+     * @return string[]
+     */
+    public function credentialFields(): array
+    {
+        return match ($this) {
+            self::S3 => ['access_key_id', ...$this->sensitiveFields()],
+            default => $this->sensitiveFields(),
+        };
+    }
+
+    /**
      * Make validation rules optional for sensitive fields during update.
      *
      * @param  array<string, mixed>  $rules
