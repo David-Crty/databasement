@@ -126,6 +126,17 @@ dataset('remote volume types', function () {
             'identifierField' => 'host',
             'identifierValue' => 'fileserver.example.com',
         ],
+        'gdrive' => [
+            'type' => VolumeType::GDRIVE,
+            'config' => [
+                'client_id' => 'test-client-id.apps.googleusercontent.com',
+                'client_secret' => 'test-client-secret',
+                'refresh_token' => 'test-refresh-token',
+                'folder_id' => '',
+            ],
+            'identifierField' => 'client_id',
+            'identifierValue' => 'test-client-id.apps.googleusercontent.com',
+        ],
     ];
 });
 

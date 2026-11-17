@@ -8,6 +8,7 @@ use App\Enums\VolumeType;
 use App\Exceptions\Volume\VolumeFilesNotDeletedException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\Volume\StoreFtpVolumeRequest;
+use App\Http\Requests\Api\V1\Volume\StoreGdriveVolumeRequest;
 use App\Http\Requests\Api\V1\Volume\StoreLocalVolumeRequest;
 use App\Http\Requests\Api\V1\Volume\StoreS3VolumeRequest;
 use App\Http\Requests\Api\V1\Volume\StoreSftpVolumeRequest;
@@ -87,6 +88,16 @@ class VolumeController extends Controller
      * @response 201
      */
     public function storeFtp(StoreFtpVolumeRequest $request): JsonResponse
+    {
+        return $this->createVolume($request);
+    }
+
+    /**
+     * Create a Google Drive volume.
+     *
+     * @response 201
+     */
+    public function storeGdrive(StoreGdriveVolumeRequest $request): JsonResponse
     {
         return $this->createVolume($request);
     }

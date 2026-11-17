@@ -14,6 +14,7 @@ use App\Services\Backup\Filesystems\Awss3Filesystem;
 use App\Services\Backup\Filesystems\AzureFilesystem;
 use App\Services\Backup\Filesystems\FilesystemProvider;
 use App\Services\Backup\Filesystems\FtpFilesystem;
+use App\Services\Backup\Filesystems\GdriveFilesystem;
 use App\Services\Backup\Filesystems\LocalFilesystem;
 use App\Services\Backup\Filesystems\SftpFilesystem;
 use App\Services\Backup\Filesystems\SmbFilesystem;
@@ -79,6 +80,7 @@ class AppServiceProvider extends ServiceProvider
             $provider->add(new FtpFilesystem);
             $provider->add(new AzureFilesystem);
             $provider->add(new SmbFilesystem);
+            $provider->add(new GdriveFilesystem);
 
             return $provider;
         });
