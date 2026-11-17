@@ -3,12 +3,14 @@
 namespace App\Console\Commands;
 
 use App\Support\EncryptedColumns;
+use Closure;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use stdClass;
 
 class ReencryptStoredSecrets extends Command
 {
@@ -80,24 +82,45 @@ class ReencryptStoredSecrets extends Command
         $table = $model->getTable();
         $keyName = $model->getKeyName();
 
-        DB::transaction(function () use (&$counts, $table, $keyName, $column, $where, $check): void {
-            $rows = DB::table($table)
-                ->where($where)
-                ->whereNotNull($column)
-                ->where($column, '!=', '')
-                ->lazyById(200, $keyName);
+        $rows = DB::table($table)
+            ->where($where)
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->lazyById(200, $keyName);
 
-            foreach ($rows as $row) {
-                [$state, $reencrypted] = $this->reencrypt($row->{$column});
-                $counts[$state]++;
+        foreach ($rows as $row) {
+            [$state, $reencrypted] = $this->reencrypt($row->{$column});
+            $counts[$state]++;
 
-                if ($reencrypted !== null && ! $check) {
-                    DB::table($table)->where($keyName, $row->{$keyName})->update([$column => $reencrypted]);
-                }
+            if ($reencrypted !== null && ! $check) {
+                $this->updateLocked($table, $keyName, $row->{$keyName}, function (stdClass $fresh) use ($column): ?array {
+                    $value = $fresh->{$column};
+                    $reencrypted = is_string($value) && $value !== '' ? $this->reencrypt($value)[1] : null;
+
+                    return $reencrypted === null ? null : [$column => $reencrypted];
+                });
             }
-        });
+        }
 
         return $counts;
+    }
+
+    /**
+     * Re-reads the row under a lock and rewrites it from that fresh state, so
+     * a change saved since the scan read it is never overwritten.
+     *
+     * @param  Closure(stdClass): (array<string, mixed>|null)  $changesFor
+     */
+    private function updateLocked(string $table, string $keyName, mixed $id, Closure $changesFor): void
+    {
+        DB::transaction(function () use ($table, $keyName, $id, $changesFor): void {
+            $fresh = DB::table($table)->where($keyName, $id)->lockForUpdate()->first();
+            $changes = $fresh === null ? null : $changesFor($fresh);
+
+            if ($changes !== null) {
+                DB::table($table)->where($keyName, $id)->update($changes);
+            }
+        });
     }
 
     /**
@@ -110,40 +133,58 @@ class ReencryptStoredSecrets extends Command
         $table = $model->getTable();
         $keyName = $model->getKeyName();
 
-        DB::transaction(function () use (&$counts, $table, $keyName, $typeEnum, $check): void {
-            foreach (DB::table($table)->whereNotNull('config')->lazyById(200, $keyName) as $row) {
-                $config = json_decode($row->config, true);
-                $type = $typeEnum::tryFrom($row->type);
+        foreach (DB::table($table)->whereNotNull('config')->lazyById(200, $keyName) as $row) {
+            [$rowCounts, $config] = $this->reencryptConfig($row, $typeEnum);
 
-                if (! is_array($config) || $type === null) {
-                    continue;
-                }
-
-                $changed = false;
-
-                foreach ($type->sensitiveFields() as $field) {
-                    $value = $config[$field] ?? null;
-
-                    if (! is_string($value) || ! $this->isEncryptedPayload($value)) {
-                        continue;
-                    }
-
-                    [$state, $reencrypted] = $this->reencrypt($value);
-                    $counts[$state]++;
-
-                    if ($reencrypted !== null) {
-                        $config[$field] = $reencrypted;
-                        $changed = true;
-                    }
-                }
-
-                if ($changed && ! $check) {
-                    DB::table($table)->where($keyName, $row->{$keyName})->update(['config' => json_encode($config)]);
-                }
+            foreach ($rowCounts as $state => $count) {
+                $counts[$state] += $count;
             }
-        });
+
+            if ($config !== null && ! $check) {
+                $this->updateLocked($table, $keyName, $row->{$keyName}, function (stdClass $fresh) use ($typeEnum): ?array {
+                    $config = $this->reencryptConfig($fresh, $typeEnum)[1];
+
+                    return $config === null ? null : ['config' => $config];
+                });
+            }
+        }
 
         return $counts;
+    }
+
+    /**
+     * @param  class-string<\App\Enums\VolumeType>|class-string<\App\Enums\NotificationChannelType>  $typeEnum
+     * @return array{array{int, int, int}, ?string} the counts and the re-encrypted JSON, null when nothing changed
+     */
+    private function reencryptConfig(stdClass $row, string $typeEnum): array
+    {
+        $counts = [0, 0, 0];
+        $config = is_string($row->config) ? json_decode($row->config, true) : null;
+        $type = is_string($row->type) ? $typeEnum::tryFrom($row->type) : null;
+
+        if (! is_array($config) || $type === null) {
+            return [$counts, null];
+        }
+
+        $changed = false;
+
+        foreach ($type->sensitiveFields() as $field) {
+            $value = $config[$field] ?? null;
+
+            if (! is_string($value) || ! $this->isEncryptedPayload($value)) {
+                continue;
+            }
+
+            [$state, $reencrypted] = $this->reencrypt($value);
+            $counts[$state]++;
+
+            if ($reencrypted !== null) {
+                $config[$field] = $reencrypted;
+                $changed = true;
+            }
+        }
+
+        return [$counts, $changed ? (string) json_encode($config) : null];
     }
 
     /**

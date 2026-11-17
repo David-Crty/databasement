@@ -46,14 +46,13 @@ Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
 `APP_KEY` encrypts every stored credential (database server and SSH passwords, SSH keys, volume and notification secrets, SSO tokens, two-factor secrets). Replacing it outright makes all of them unreadable, so rotate it in this order:
 
 1. Generate a new key (see above).
-2. Move the current key to `APP_PREVIOUS_KEYS` and set the new one as `APP_KEY`:
+2. Add the current key to the front of `APP_PREVIOUS_KEYS` (a comma-separated list; keep any keys already in it) and set the new one as `APP_KEY`:
 
    ```bash
    APP_KEY=base64:new-key
-   APP_PREVIOUS_KEYS=base64:old-key
+   APP_PREVIOUS_KEYS=base64:current-key,base64:older-key
    ```
 
-   `APP_PREVIOUS_KEYS` takes a comma-separated list if you rotate more than once.
 3. If `BACKUP_ENCRYPTION_KEY` is not set, set it to the **old** key. Encrypted backups use `APP_KEY` by default, and `APP_PREVIOUS_KEYS` does not apply to them, so without this step existing encrypted backups can no longer be restored. See [Encrypted Backups](./backup.md#encrypted-backups).
 4. Restart the application and the queue worker. Users are logged out once.
 5. Re-encrypt the stored values with the new key:
@@ -72,10 +71,8 @@ Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
    `--check` changes nothing and exits non-zero while a value still needs a previous key.
 
 :::warning
-Copies of Databasement's own database taken before the rotation can still be decrypted with the old key. If the old key leaked, also change the credentials themselves (database passwords, storage and notification secrets) at their source and update them in Databasement.
+Copies of Databasement's own database taken before the rotation can still be decrypted with the old key. If the old key leaked, also change the credentials themselves (database passwords, storage and notification secrets) at their source and update them in Databasement, and in step 3 set `BACKUP_ENCRYPTION_KEY` to a newly generated key instead, so new backups do not use the leaked one. Keep the old key somewhere safe: restoring a backup encrypted before the rotation needs it set back as `BACKUP_ENCRYPTION_KEY` for that restore.
 :::
-
-Agents encrypt backups with their own `BACKUP_ENCRYPTION_KEY` (or `APP_KEY`), so rotating the server's key does not affect them.
 
 ### Timezone Configuration
 
