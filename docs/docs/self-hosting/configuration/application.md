@@ -46,11 +46,11 @@ Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
 `APP_KEY` encrypts every stored credential (database server and SSH passwords, SSH keys, volume and notification secrets, SSO tokens, two-factor secrets). Replacing it outright makes all of them unreadable, so rotate it in this order:
 
 1. Generate a new key (see above).
-2. Add the current key to the front of `APP_PREVIOUS_KEYS` (a comma-separated list; keep any keys already in it) and set the new one as `APP_KEY`:
+2. Move the current key to `APP_PREVIOUS_KEYS` and set the new one as `APP_KEY`:
 
    ```bash
    APP_KEY=base64:new-key
-   APP_PREVIOUS_KEYS=base64:current-key,base64:older-key
+   APP_PREVIOUS_KEYS=base64:old-key
    ```
 
 3. If `BACKUP_ENCRYPTION_KEY` is not set, set it to the **old** key. Encrypted backups use `APP_KEY` by default, and `APP_PREVIOUS_KEYS` does not apply to them, so without this step existing encrypted backups can no longer be restored. See [Encrypted Backups](./backup.md#encrypted-backups).
