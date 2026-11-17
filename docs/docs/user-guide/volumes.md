@@ -138,7 +138,7 @@ Publish the app before generating the refresh token. While the app is in **Testi
 
 1. Open the [OAuth Playground](https://developers.google.com/oauthplayground/), click the ⚙️ icon, tick **Use your own OAuth credentials** and enter the client ID and secret.
 
-   ![OAuth Playground settings with your own OAuth credentials](/img/user-guide/gdrive-oauth-playground.png)
+   ![OAuth Playground settings with your own OAuth credentials](./img/gdrive-oauth-playground.png)
 
 2. In **Step 1**, enter the scope `https://www.googleapis.com/auth/drive.file` and click **Authorize APIs**. Sign in and allow access.
 3. In **Step 2**, click **Exchange authorization code for tokens** and copy the **Refresh token**.
