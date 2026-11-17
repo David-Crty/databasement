@@ -169,10 +169,15 @@ class SqliteDatabase implements DatabaseInterface
         $targetPath = $this->config['sqlite_path'];
         $this->guardLocalTargetPath($targetPath);
 
+        $targetExisted = file_exists($targetPath);
+
         if (! @copy($inputPath, $targetPath)) {
             throw new RestoreException("Failed to copy SQLite file {$inputPath} to {$targetPath}");
         }
-        chmod($targetPath, 0640);
+
+        if (! $targetExisted) {
+            chmod($targetPath, 0640);
+        }
 
         return new DatabaseOperationResult(log: new DatabaseOperationLog(
             'Restored local SQLite database',

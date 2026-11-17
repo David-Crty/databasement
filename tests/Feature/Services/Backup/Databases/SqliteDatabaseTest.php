@@ -199,7 +199,7 @@ test('dump throws when remote main database is empty (0 bytes)', function () {
     $db->dump($this->tempDir.'/dump.db');
 })->throws(DatabaseDumpException::class, 'Failed to copy remote SQLite file /data/remote.sqlite');
 
-test('restore copies local file and sets permissions', function () {
+test('restore copies local file and creates it with mode 0640', function () {
     $targetFile = $this->tempDir.'/target.sqlite';
     $inputFile = $this->tempDir.'/input.db';
     file_put_contents($inputFile, 'restored data');
@@ -209,10 +209,29 @@ test('restore copies local file and sets permissions', function () {
 
     $result = $db->restore($inputFile);
 
+    clearstatcache();
     expect($result)->toBeInstanceOf(DatabaseOperationResult::class)
         ->and($result->command)->toBeNull()
         ->and($result->log->message)->toBe('Restored local SQLite database')
-        ->and(file_get_contents($targetFile))->toBe('restored data');
+        ->and(file_get_contents($targetFile))->toBe('restored data')
+        ->and(fileperms($targetFile) & 0777)->toBe(0640);
+});
+
+test('restore keeps the mode of an existing local file', function () {
+    $targetFile = $this->tempDir.'/target.sqlite';
+    file_put_contents($targetFile, 'old data');
+    chmod($targetFile, 0664);
+    $inputFile = $this->tempDir.'/input.db';
+    file_put_contents($inputFile, 'restored data');
+
+    $db = new SqliteDatabase;
+    $db->setConfig(['sqlite_path' => $targetFile]);
+
+    $db->restore($inputFile);
+
+    clearstatcache();
+    expect(file_get_contents($targetFile))->toBe('restored data')
+        ->and(fileperms($targetFile) & 0777)->toBe(0664);
 });
 
 test('restore uploads remote file via SFTP', function () {
