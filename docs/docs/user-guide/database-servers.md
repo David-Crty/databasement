@@ -201,20 +201,20 @@ Redis/Valkey supports backup only. Restore is not currently supported due to the
 SQLite has no server to connect to, so Databasement reads the database file itself. How it does that depends on where the file lives:
 
 - **On the host running the backup** (SSH tunnel disabled): Databasement runs `sqlite3 <path> ".backup …"`, which uses SQLite's online backup API and produces a consistent snapshot even while the application is writing to the database, including in WAL mode.
-- **On another machine** (SSH tunnel enabled): Databasement downloads the database file over SFTP, along with its `-wal` and `-shm` files when present, then consolidates them locally. The files are read one after the other, so a write or checkpoint between two reads can leave the snapshot inconsistent. The backup log flags this as a warning whenever WAL files were downloaded.
+- **On another machine** (SSH tunnel enabled): Databasement downloads the database file over SFTP, along with its `-wal` and `-shm` files when present, then consolidates them locally. This is a plain file copy, so it is only consistent if nothing writes to the database during the transfer. A write mid-transfer can leave a torn copy, and in WAL mode a write or checkpoint between two downloads can too. The backup log warns only when WAL files were downloaded, so a clean log does not mean a consistent copy: stop writes during the backup, or use a remote agent (see below).
 
 #### Connection settings
 
 | Field | Description |
 |-------|-------------|
-| Database paths | One or more absolute paths to `.sqlite` files, on the host running the backup or, with the SSH tunnel enabled, on the remote server |
+| Database paths | One or more absolute paths to SQLite database files, on the host running the backup or, with the SSH tunnel enabled, on the remote server |
 
 :::tip Consistent backups of SQLite files on another machine
 Run a [remote agent](./agents.md) on the machine that holds the databases and register the server on that agent with the SSH tunnel disabled. The agent then takes the `sqlite3 .backup` snapshot locally, with no SFTP race. Mount the directory containing the databases into the agent container read-write (SQLite writes the `-shm` file even when only reading a WAL database), and enter the paths as they appear inside the container.
 :::
 
 :::note
-Restoring writes the snapshot over the configured path: directly on the host running the restore, or over SFTP when the SSH tunnel is enabled. Stop the application using the database first.
+Restoring writes the snapshot over the configured path: directly on the host running the restore, or over SFTP when the SSH tunnel is enabled. Before restoring, stop every application and connection using the database, then move the database file and any `-wal` and `-shm` files next to it to a safe place. SQLite would otherwise replay a leftover `-wal` onto the restored snapshot and corrupt it.
 :::
 
 ### Firebird
