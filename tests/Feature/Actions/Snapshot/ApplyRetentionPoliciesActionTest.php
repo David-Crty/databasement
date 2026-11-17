@@ -324,9 +324,33 @@ test('GFS monthly tier keeps the right months when run on the 31st', function ()
     expect(Snapshot::find($today->id))->not->toBeNull()
         ->and(Snapshot::find($monthly[10]->id))->toBeNull()
         ->and(Snapshot::find($monthly[9]->id))->not->toBeNull()
+        ->and(Snapshot::find($monthly[8]->id))->not->toBeNull()
+        ->and(Snapshot::find($monthly[7]->id))->not->toBeNull()
         ->and(Snapshot::find($monthly[6]->id))->not->toBeNull()
         ->and(Snapshot::find($monthly[5]->id))->not->toBeNull()
         ->and(Snapshot::find($monthly[4]->id))->toBeNull();
+});
+
+test('GFS monthly tier uses month boundaries in the display timezone', function () {
+    config(['app.display_timezone' => 'Europe/Paris']);
+    $this->travelTo(\Carbon\Carbon::create(2026, 11, 15, 12, 0, 0, 'UTC'));
+
+    $server = DatabaseServer::factory()->create();
+    updateFirstBackup($server, [
+        'retention_policy' => 'gfs',
+        'retention_days' => null,
+        'gfs_keep_daily' => null,
+        'gfs_keep_weekly' => null,
+        'gfs_keep_monthly' => 2,
+    ]);
+
+    $october = createSnapshot($server, 'completed', \Carbon\Carbon::create(2026, 10, 15, 12, 0, 0, 'UTC'));
+    $novemberFirstInParis = createSnapshot($server, 'completed', \Carbon\Carbon::create(2026, 10, 31, 23, 30, 0, 'UTC'));
+
+    ApplyRetentionPoliciesAction::run();
+
+    expect(Snapshot::find($october->id))->not->toBeNull()
+        ->and(Snapshot::find($novemberFirstInParis->id))->not->toBeNull();
 });
 
 test('GFS retention applies per database_name', function () {
