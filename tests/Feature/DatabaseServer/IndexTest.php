@@ -49,6 +49,32 @@ test('can search database servers', function () {
         ->assertDontSee('Development PostgreSQL');
 });
 
+test('dbType filter narrows the list', function () {
+    // Viewing needs no ability — an org member with zero grants can list servers.
+    $user = User::factory()->withAbilities([])->create();
+
+    DatabaseServer::factory()->create(['name' => 'MySQL Server', 'database_type' => 'mysql']);
+    DatabaseServer::factory()->create(['name' => 'Postgres Server', 'database_type' => 'postgres']);
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('dbTypeFilter', 'mysql')
+        ->assertSee('MySQL Server')
+        ->assertDontSee('Postgres Server');
+});
+
+test('clear resets search and type filters', function () {
+    $user = User::factory()->withAbilities([])->create();
+
+    Livewire::actingAs($user)
+        ->test(Index::class)
+        ->set('search', 'prod')
+        ->set('dbTypeFilter', 'mysql')
+        ->call('clear')
+        ->assertSet('search', '')
+        ->assertSet('dbTypeFilter', '');
+});
+
 test('can sort by column', function () {
     // Viewing needs no ability — an org member with zero grants can list servers.
     $user = User::factory()->withAbilities([])->create();

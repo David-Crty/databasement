@@ -24,6 +24,7 @@ if [ "$(id -u)" = "0" ]; then
 
     export SUPERVISOR_USER="root"
     export APP_USER="application"
+    exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
 else
     if [ -n "${DATABASEMENT_URL:-}" ]; then
         echo "Agent mode"
@@ -31,7 +32,5 @@ else
     fi
 
     echo "Not running as root, skipping permission fix..."
-    sed -i '/^user=/d' /config/supervisord.conf
+    exec /usr/bin/supervisord -c /etc/supervisor/supervisord-nonroot.conf
 fi
-
-exec /usr/bin/supervisord -c /config/supervisord.conf

@@ -151,7 +151,14 @@ COPY --from=mysqlclient \
 COPY scripts/mysql-client/mysqldump scripts/mysql-client/mysql /opt/mysql-client/bin/
 RUN chmod 755 /opt/mysql-client/bin/mysqldump /opt/mysql-client/bin/mysql
 
-COPY supervisord.conf /config/supervisord.conf
+# Kept out of /config, which the app user can write (Caddy's XDG_CONFIG_HOME):
+# supervisord runs as root and starts whatever its config lists. The non-root
+# variant has no `user=` lines, since supervisord resolves them through
+# /etc/passwd and an arbitrary --user UID has no entry there.
+COPY supervisord.conf /etc/supervisor/supervisord.conf
+RUN sed '/^user=/d' /etc/supervisor/supervisord.conf > /etc/supervisor/supervisord-nonroot.conf && \
+    chmod 755 /etc/supervisor && \
+    chmod 644 /etc/supervisor/supervisord.conf /etc/supervisor/supervisord-nonroot.conf
 COPY php-custom-production.ini /usr/local/etc/php/php-custom-production.ini
 COPY php-custom.ini /usr/local/etc/php/conf.d/zz-php-custom.ini
 COPY Caddyfile /etc/frankenphp/Caddyfile

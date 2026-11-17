@@ -59,8 +59,7 @@ class OAuthService
             : null;
 
         if (config('oauth.auto_link_by_email') && $existingUser) {
-            $existingUser->password = null;
-            $existingUser->save();
+            $this->ensureEmailIsVerified($socialiteUser, $provider);
 
             $this->syncUserRole($existingUser, $socialiteUser, $provider, $resolvedRole);
 
@@ -83,6 +82,46 @@ class OAuthService
     }
 
     /**
+     * Refuse to link an OIDC login to an existing user unless the IdP vouches
+     * for the email address through the `email_verified` claim.
+     *
+     * @throws \RuntimeException when the email is unverified, or the claim is missing and not trusted
+     */
+    private function ensureEmailIsVerified(SocialiteUser $socialiteUser, string $provider): void
+    {
+        if ($provider !== 'oidc') {
+            return;
+        }
+
+        $emailVerified = $this->rawClaims($socialiteUser)['email_verified'] ?? null;
+
+        if ($emailVerified === null) {
+            if (config('oauth.providers.oidc.trust_email_without_verified_claim')) {
+                return;
+            }
+
+            throw new \RuntimeException(__(
+                'Your identity provider did not say whether this email address is verified, so it cannot be linked to the existing account. If the provider only issues verified addresses, an administrator can set :variable=true to allow it.',
+                ['variable' => 'OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM'],
+            ));
+        }
+
+        if (! filter_var($emailVerified, FILTER_VALIDATE_BOOLEAN)) {
+            throw new \RuntimeException(__(
+                'Your identity provider reports this email address as unverified, so it cannot be linked to the existing account. Verify it with your identity provider and try again.'
+            ));
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rawClaims(SocialiteUser $socialiteUser): array
+    {
+        return method_exists($socialiteUser, 'getRaw') ? $socialiteUser->getRaw() : [];
+    }
+
+    /**
      * Resolve user role from OIDC group claims.
      *
      * Returns the mapped role if a match is found, null if mapping is
@@ -99,8 +138,7 @@ class OAuthService
         }
 
         $claim = config('oauth.role_mapping.claim', 'groups');
-        $raw = method_exists($socialiteUser, 'getRaw') ? $socialiteUser->getRaw() : [];
-        $claimValue = $raw[$claim] ?? null;
+        $claimValue = $this->rawClaims($socialiteUser)[$claim] ?? null;
 
         if ($claimValue === null) {
             return $this->handleUnmappedUser();

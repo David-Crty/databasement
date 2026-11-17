@@ -140,6 +140,7 @@ return [
             'client_secret' => env('OAUTH_OIDC_CLIENT_SECRET'),
             'base_url' => env('OAUTH_OIDC_BASE_URL'),
             'extra_scopes' => env('OAUTH_OIDC_SCOPES', ''),
+            'trust_email_without_verified_claim' => env('OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM', false),
             'icon' => 'o-key',
             'label' => env('OAUTH_OIDC_LABEL', 'SSO'),
         ],

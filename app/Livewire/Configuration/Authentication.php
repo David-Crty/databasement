@@ -80,6 +80,11 @@ class Authentication extends Component
                 'value' => config('oauth.auto_link_by_email') ? 'true' : 'false',
                 'description' => __('Link OAuth logins to existing users with matching email.'),
             ],
+            [
+                'env' => 'OAUTH_OIDC_TRUST_EMAIL_WITHOUT_VERIFIED_CLAIM',
+                'value' => config('oauth.providers.oidc.trust_email_without_verified_claim') ? 'true' : 'false',
+                'description' => __('Link OIDC logins by email even when the provider sends no email_verified claim.'),
+            ],
         ];
     }
 

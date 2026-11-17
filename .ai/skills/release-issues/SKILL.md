@@ -70,6 +70,9 @@ finds nothing, stop: the release is not tagged yet.
      reporter uses an agent, say the agent must be updated to `x.y.z` as well.
    - When another PR in the same release also helps their case (the root cause
      they described, a symptom they mentioned), link it in one sentence.
+   - When the issue is closed, say that if it still happens for them after
+     updating, commenting `/reopen` on the issue reopens it. Address this to
+     the author only: nobody else can trigger it.
    - Close with one short line of thanks, specific to the report when it
      earned it (a reproduction, a proposed design that was followed).
    - Style: concise, no headings, no em dashes (use commas, parentheses or
