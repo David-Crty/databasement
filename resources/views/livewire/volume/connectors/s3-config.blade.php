@@ -33,14 +33,12 @@
             :label="__('Access Key ID')"
             :placeholder="__('Optional')"
             type="text"
-            :disabled="$readonly"
         />
 
         <x-password
             wire:model="{{ $configPrefix }}.secret_access_key"
             :label="__('Secret Access Key')"
             :placeholder="$isEditing ? __('Leave blank to keep current') : __('Optional')"
-            :disabled="$readonly"
         />
     </div>
 

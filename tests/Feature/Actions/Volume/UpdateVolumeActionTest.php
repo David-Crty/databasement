@@ -4,6 +4,10 @@ use App\Actions\Volume\UpdateVolumeAction;
 use App\Enums\VolumeType;
 use App\Models\Snapshot;
 use App\Models\Volume;
+use App\Services\Backup\Filesystems\FilesystemProvider;
+use Illuminate\Validation\ValidationException;
+use League\Flysystem\Filesystem;
+use League\Flysystem\Local\LocalFilesystemAdapter;
 
 function sftpVolume(): Volume
 {
@@ -48,13 +52,19 @@ test('a secret left blank keeps the stored one', function () {
     expect($volume->fresh()->getDecryptedConfig()['password'])->toBe('stored-secret');
 });
 
-test('a volume holding snapshots only changes its name and storage limit', function () {
+test('a volume holding snapshots keeps its location but takes new credentials that connect', function () {
     $volume = sftpVolume();
     Snapshot::factory()->onVolumes($volume)->withFile()->create();
 
+    $this->mock(FilesystemProvider::class)
+        ->shouldReceive('getForVolume')
+        ->once()
+        ->withArgs(fn (Volume $tested): bool => $tested->config['host'] === 'sftp.example.com' && $tested->config['password'] === 'rotated-secret')
+        ->andReturn(new Filesystem(new LocalFilesystemAdapter(sys_get_temp_dir())));
+
     UpdateVolumeAction::run($volume, 'Renamed', [
         'host' => 'elsewhere.example.com',
-        'password' => 'other-secret',
+        'password' => 'rotated-secret',
         'max_storage_bytes' => 5_000,
         'max_storage_notify_only' => true,
     ]);
@@ -62,8 +72,36 @@ test('a volume holding snapshots only changes its name and storage limit', funct
     expect($volume->fresh()->name)->toBe('Renamed')
         ->and($volume->fresh()->getDecryptedConfig())->toMatchArray([
             'host' => 'sftp.example.com',
-            'password' => 'stored-secret',
+            'password' => 'rotated-secret',
             'max_storage_bytes' => 5_000,
             'max_storage_notify_only' => true,
         ]);
+});
+
+test('new credentials that fail to connect leave a volume holding snapshots untouched', function () {
+    $volume = sftpVolume();
+    Snapshot::factory()->onVolumes($volume)->withFile()->create();
+
+    $this->mock(FilesystemProvider::class)
+        ->shouldReceive('getForVolume')
+        ->once()
+        ->andThrow(new RuntimeException('Authentication failed'));
+
+    expect(fn () => UpdateVolumeAction::run($volume, 'Renamed', ['password' => 'wrong-secret']))
+        ->toThrow(ValidationException::class, 'Authentication failed');
+
+    expect($volume->fresh()->name)->not->toBe('Renamed')
+        ->and($volume->fresh()->getDecryptedConfig()['password'])->toBe('stored-secret');
+});
+
+test('a volume holding snapshots skips the connection test when its credentials are unchanged', function () {
+    $volume = sftpVolume();
+    Snapshot::factory()->onVolumes($volume)->withFile()->create();
+
+    $this->mock(FilesystemProvider::class)->shouldNotReceive('getForVolume');
+
+    UpdateVolumeAction::run($volume, 'Renamed', ['host' => 'sftp.example.com', 'password' => '']);
+
+    expect($volume->fresh()->name)->toBe('Renamed')
+        ->and($volume->fresh()->getDecryptedConfig()['password'])->toBe('stored-secret');
 });

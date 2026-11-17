@@ -433,6 +433,41 @@ describe('volume immutability', function () {
         expect($volume->config['path'])->toBe($originalPath);
     });
 
+    test('credentials stay editable on a volume locked by its snapshots', function () {
+        $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
+        $volume = Volume::factory()->sftp()->create([
+            'config' => VolumeType::SFTP->encryptSensitiveFields([
+                'host' => 'sftp.example.com',
+                'port' => 22,
+                'username' => 'backup',
+                'password' => 'stored-secret',
+                'root' => '/backups',
+            ]),
+        ]);
+        Snapshot::factory()->onVolumes($volume)->withFile()->create();
+
+        $this->mock(FilesystemProvider::class)
+            ->shouldReceive('getForVolume')
+            ->andReturnUsing(fn (Volume $tested) => $tested->config['password'] === 'rotated-secret'
+                ? new League\Flysystem\Filesystem(new League\Flysystem\Local\LocalFilesystemAdapter(sys_get_temp_dir()))
+                : throw new RuntimeException('Authentication failed'));
+
+        $component = Livewire::actingAs($user)
+            ->test(Edit::class, ['volume' => $volume])
+            ->set('form.sftpConfig.password', 'wrong-secret')
+            ->call('save')
+            ->assertHasErrors('config')
+            ->assertSet('form.connectionTestSuccess', false);
+
+        expect($component->get('form.connectionTestMessage'))->toContain('Authentication failed');
+
+        $component->set('form.sftpConfig.password', 'rotated-secret')
+            ->call('save')
+            ->assertRedirect(route('volumes.index'));
+
+        expect($volume->fresh()->getDecryptedConfig()['password'])->toBe('rotated-secret');
+    });
+
     test('can edit volume without snapshots', function () {
         $user = User::factory()->withAbilities([Ability::ManageVolumes->value])->create();
         $volume = Volume::factory()->local()->create(['name' => 'Empty Volume']);

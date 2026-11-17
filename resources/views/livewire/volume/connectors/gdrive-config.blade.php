@@ -12,7 +12,6 @@
         wire:model="{{ $configPrefix }}.client_secret"
         :label="__('Client Secret')"
         :placeholder="$isEditing ? __('Leave blank to keep current') : __('Google OAuth Client Secret')"
-        :disabled="$readonly"
         :required="!$isEditing"
     />
 
@@ -20,7 +19,6 @@
         wire:model="{{ $configPrefix }}.refresh_token"
         :label="__('Refresh Token')"
         :placeholder="$isEditing ? __('Leave blank to keep current') : __('OAuth Refresh Token')"
-        :disabled="$readonly"
         :required="!$isEditing"
     />
 

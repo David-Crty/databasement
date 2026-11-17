@@ -1055,7 +1055,7 @@
   "This user belongs to multiple organizations. Remove them from this organization instead.": "此用户属于多个组织，请改为将其从当前组织中移除。",
   "This user is already a member of this organization.": "该用户已经是此组织的成员。",
   "This user only belongs to this organization. Removing them would leave them without access.": "该用户仅属于此组织，移除后他们将无法访问。",
-  "This volume has existing snapshots. Only the name and storage limit can be modified. Configuration changes are locked to protect backup integrity.": "此卷已存在 snapshot，仅可修改名称和存储限制。为保护 backup 完整性，其他配置项已被锁定。",
+  "This volume has existing snapshots, so its storage location is locked. You can still change the name, the storage limit and the credentials. New credentials are saved only if they pass a connection test.": "此卷已有 snapshot，存储位置已被锁定。你仍然可以修改名称、存储限制和凭据。新凭据只有通过连接测试后才会保存。",
   "This will revoke the current token. The agent will need to be reconfigured with the new token.": "这将撤销当前 token，agent 需要使用新 token 重新配置。",
   "Tiered retention": "分层保留",
   "Timezone used for rendering datetimes in the UI and interpreting scheduled task cron expressions. Storage stays in UTC.": "用于在界面中显示日期时间以及解析定时任务 cron 表达式的时区。存储始终使用 UTC。",
