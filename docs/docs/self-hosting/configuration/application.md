@@ -71,7 +71,9 @@ Copy the output (e.g., `base64:xxxx...`) and set it as `APP_KEY`.
    `--check` changes nothing and exits non-zero while a value still needs a previous key.
 
 :::warning
-Copies of Databasement's own database taken before the rotation can still be decrypted with the old key. If the old key leaked, also change the credentials themselves (database passwords, storage and notification secrets) at their source and update them in Databasement, and in step 3 set `BACKUP_ENCRYPTION_KEY` to a newly generated key instead, so new backups do not use the leaked one. Keep the old key somewhere safe: restoring a backup encrypted before the rotation needs it set back as `BACKUP_ENCRYPTION_KEY` for that restore.
+If backups were encrypted before rotating `APP_KEY`, keep the old key safe. To restore those backups, temporarily set it as `BACKUP_ENCRYPTION_KEY`.
+
+If the old key leaked, set `BACKUP_ENCRYPTION_KEY` to a newly generated key so future backups use a safe key.
 :::
 
 ### Timezone Configuration

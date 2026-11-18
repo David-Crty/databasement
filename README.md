@@ -83,8 +83,6 @@ Open http://localhost:2226 and create your first admin account.
 
 > **Note:** The container automatically handles volume permissions. You can use `PUID` and `PGID` environment variables to match your system's user/group IDs.
 
-For production deployments, see our [configuration guide](https://david-crty.github.io/databasement/self-hosting/configuration) for environment variables and best practices.
-
 ## Supported Database Versions
 
 | Engine     | Supported Versions            | CLI Tool                     | Restore |
