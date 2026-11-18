@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Laravel application for managing database server backups. It uses Livewire for reactive components and Mary UI (robsontenorio/mary, built on daisyUI and Tailwind CSS). The application allows users to register database servers (MySQL, PostgreSQL, MariaDB, SQLite, Redis/Valkey), test connections, and manage backup configurations. See Boost's Foundational Context below for exact package versions.
+This is a Laravel application for managing database server backups. It uses Livewire for reactive components and Mary UI (robsontenorio/mary, built on daisyUI and Tailwind CSS). The application allows users to register database servers (MySQL, PostgreSQL, MariaDB, Microsoft SQL Server, MongoDB, SQLite, Firebird, Redis/Valkey), test connections, and manage backup configurations. See Boost's Foundational Context below for exact package versions.
 
 ## Development Commands
 
