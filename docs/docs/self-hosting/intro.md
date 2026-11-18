@@ -12,12 +12,12 @@ Databasement is a web application for managing database server backups. It allow
 
 We provide guides to deploy Databasement using:
 
-- [**Docker**](docker) - Single container deployment, the quickest way to get started
-- [**Docker Compose**](docker-compose) - Multi-container setup with a dedicated database container (recommended for production)
-- [**Kubernetes + Helm**](kubernetes-helm) - For Kubernetes clusters
-- [**Native Ubuntu**](native-ubuntu) - Traditional installation without Docker
+- [**Docker**](./docker.md) - Single container deployment, the quickest way to get started
+- [**Docker Compose**](./docker-compose.md) - Multi-container setup with a dedicated database container (recommended for production)
+- [**Kubernetes + Helm**](./kubernetes-helm.md) - For Kubernetes clusters
+- [**Native Ubuntu**](./native-ubuntu.md) - Traditional installation without Docker
 
-See [Versioning](versioning) for available Docker image tags and Helm chart versions.
+See [Versioning](./versioning.md) for available Docker image tags and Helm chart versions.
 
 ## Requirements
 
@@ -34,7 +34,7 @@ The only external requirement is a database for the application itself:
 | MariaDB    | 10.3+           | 11.x        |
 | PostgreSQL | 10.0+           | 16+         |
 
-These are the databases Databasement uses to store its own configuration, users, and backup metadata – not the databases you back up (see [Supported Versions](../user-guide/database-servers#supported-versions) for that).
+These are the databases Databasement uses to store its own configuration, users, and backup metadata – not the databases you back up (see [Supported Versions](../user-guide/database-servers.md#supported-versions) for that).
 
 ## Quick Start
 
@@ -54,7 +54,7 @@ docker run -d \
 Then open http://localhost:2226 in your browser and create your first admin account.
 
 :::note
-This quick start uses SQLite for the application database. For production deployments, see the [Docker Compose guide](docker-compose) for recommended configurations.
+This quick start uses SQLite for the application database. For production deployments, see the [Docker Compose guide](./docker-compose.md) for recommended configurations.
 :::
 
 ## Support
