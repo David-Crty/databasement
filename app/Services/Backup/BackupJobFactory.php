@@ -309,14 +309,14 @@ class BackupJobFactory
         }
 
         // Record dump format for restore-time dispatch. Absent → plain (default for legacy snapshots).
-        if ($server->database_type === DatabaseType::POSTGRESQL
+        if ($server->database_type->isPostgresFamily()
             && $server->getExtraConfig('dump_format') === 'custom') {
             $metadata['dump_format'] = 'custom';
         }
 
         // Record whether ownership/privilege information was preserved in the dump.
         // Absent → stripped via --no-owner/--no-privileges (default for legacy snapshots).
-        if ($server->database_type === DatabaseType::POSTGRESQL
+        if ($server->database_type->isPostgresFamily()
             && (bool) $server->getExtraConfig('dump_privileges')) {
             $metadata['dump_privileges'] = true;
         }

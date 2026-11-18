@@ -39,6 +39,14 @@ return [
             'database' => env('TEST_POSTGRES_DATABASE', 'databasement_test'),
         ],
 
+        'timescaledb' => [
+            'host' => env('TEST_TIMESCALEDB_HOST', 'timescaledb'),
+            'port' => env('TEST_TIMESCALEDB_PORT', 5432),
+            'username' => env('TEST_TIMESCALEDB_USERNAME', 'root'),
+            'password' => env('TEST_TIMESCALEDB_PASSWORD', 'root'),
+            'database' => env('TEST_TIMESCALEDB_DATABASE', 'databasement_test'),
+        ],
+
         'redis' => [
             'host' => env('TEST_REDIS_HOST', 'redis'),
             'port' => env('TEST_REDIS_PORT', 6379),

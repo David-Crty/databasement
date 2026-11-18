@@ -242,6 +242,67 @@ test('postgres backup and restore workflow', function (?string $dumpFormat) {
     'custom dump format' => ['custom'],
 ]);
 
+// A hypertable must come back as a hypertable, which only works because the
+// handler brackets the restore with timescaledb_pre_restore()/post_restore()
+// and installs the extension on the target database first.
+test('timescaledb backup and restore workflow', function (?string $dumpFormat) {
+    AppConfig::set('backup.compression', 'gzip');
+
+    app()->forgetInstance(CompressorInterface::class);
+    app()->forgetInstance(BackupTask::class);
+    app()->forgetInstance(RestoreTask::class);
+
+    $this->volume = IntegrationTestHelpers::createVolume('timescaledb');
+    $this->databaseServer = IntegrationTestHelpers::createDatabaseServer('timescaledb');
+    if ($dumpFormat !== null) {
+        $this->databaseServer->update([
+            'extra_config' => array_merge(
+                $this->databaseServer->extra_config ?? [],
+                ['dump_format' => $dumpFormat],
+            ),
+        ]);
+    }
+    $this->backup = IntegrationTestHelpers::createBackup($this->databaseServer, $this->volume);
+    $this->databaseServer->load('backups.volumes');
+
+    IntegrationTestHelpers::loadTestData('timescaledb', $this->databaseServer);
+
+    $snapshots = $this->backupJobFactory->createSnapshots(
+        backup: $this->backup,
+        method: 'manual',
+    );
+    $this->snapshot = $snapshots[0];
+    ProcessBackupJob::dispatchSync($this->snapshot->id);
+    $this->snapshot->refresh();
+    $this->snapshot->load('job');
+
+    $expectedDumpExt = $dumpFormat === 'custom' ? 'dump' : 'sql';
+    expect($this->snapshot->job->status)->toBe(BackupJobStatus::Completed)
+        ->and($this->snapshot->file_size)->toBeGreaterThan(0)
+        ->and($this->snapshot->filename)->toEndWith(".{$expectedDumpExt}.gz");
+
+    $suffix = IntegrationTestHelpers::getParallelSuffix();
+    $this->restoredDatabaseName = 'testdb_restored_'.hrtime(true).$suffix;
+    $restore = $this->backupJobFactory->createRestore(
+        snapshot: $this->snapshot,
+        targetServer: $this->databaseServer,
+        schemaName: $this->restoredDatabaseName,
+    );
+    ProcessRestoreJob::dispatchSync($restore->id);
+
+    expect($restore->refresh()->job->status)->toBe(BackupJobStatus::Completed);
+
+    $pdo = IntegrationTestHelpers::connectToDatabase('timescaledb', $this->databaseServer, $this->restoredDatabaseName);
+    $tables = $pdo->query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name")->fetchAll(PDO::FETCH_COLUMN);
+    expect($tables)->toContain('sensor_data')->toContain('sensors')
+        ->and((int) $pdo->query('SELECT COUNT(*) FROM sensor_data')->fetchColumn())->toBe(3)
+        ->and((int) $pdo->query('SELECT COUNT(*) FROM sensors')->fetchColumn())->toBe(2)
+        ->and((int) $pdo->query("SELECT COUNT(*) FROM timescaledb_information.hypertables WHERE hypertable_name = 'sensor_data'")->fetchColumn())->toBe(1);
+})->with([
+    'plain format' => [null],
+    'custom dump format' => ['custom'],
+]);
+
 // The integration server connects as its bootstrap superuser, for which
 // PostgreSQL refuses REASSIGN OWNED BY outright (#607).
 test('postgres restore hands the database and its objects to the owner user', function (?string $dumpFormat) {

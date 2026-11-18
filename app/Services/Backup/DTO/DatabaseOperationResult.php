@@ -26,7 +26,7 @@ readonly class DatabaseOperationResult
      * Quoting stops the shell from reading the tokens, not the dump client, so
      * an output-redirecting option is refused here as well as at validation.
      * Stored configurations are not revalidated, so this is the only check that
-     * sees them.
+     * sees them, the TimescaleDB restore-correctness denials among them.
      *
      * @throws DatabaseDumpException
      */
@@ -37,6 +37,14 @@ readonly class DatabaseOperationResult
         if ($violation !== null) {
             throw new DatabaseDumpException(
                 "Dump flag '{$violation}' is not allowed: it redirects where the dump is written."
+            );
+        }
+
+        $restoreUnsafe = SafeDumpFlags::restoreUnsafeViolation($flags, $type);
+
+        if ($restoreUnsafe !== null) {
+            throw new DatabaseDumpException(
+                "Dump flag '{$restoreUnsafe}' is not allowed: it produces a dump that cannot restore hypertables."
             );
         }
 

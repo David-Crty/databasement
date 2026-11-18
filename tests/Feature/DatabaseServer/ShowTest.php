@@ -103,6 +103,20 @@ test('confirmRestore on a Redis server opens the redis info modal', function () 
         ->assertSet('showRedisRestoreModal', true);
 });
 
+// The dump-format card is a PostgreSQL-family detail, so a TimescaleDB server
+// shows it too (it is dumped with the same custom/plain format option).
+test('show page shows the dump format card for a TimescaleDB server', function () {
+    $user = User::factory()->withAbilities([])->create();
+    $server = DatabaseServer::factory()->timescaledb()->withoutBackups()->create([
+        'extra_config' => ['dump_format' => 'custom'],
+    ]);
+
+    Livewire::actingAs($user)
+        ->test(Show::class, ['server' => $server])
+        ->assertSee('Dump configuration')
+        ->assertSee('Custom (pg_restore)');
+});
+
 test('snapshot counter and total size only include completed snapshots', function () {
     // Viewing needs no ability — an org member with zero grants can view a server.
     $user = User::factory()->withAbilities([])->create();

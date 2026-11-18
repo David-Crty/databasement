@@ -13,6 +13,7 @@ enum DatabaseType: string
 
     case MYSQL = 'mysql';
     case POSTGRESQL = 'postgres';
+    case TIMESCALEDB = 'timescaledb';
     case SQLITE = 'sqlite';
     case REDIS = 'redis';
     case MONGODB = 'mongodb';
@@ -24,6 +25,7 @@ enum DatabaseType: string
         return match ($this) {
             self::MYSQL => 'MySQL / MariaDB',
             self::POSTGRESQL => 'PostgreSQL',
+            self::TIMESCALEDB => 'TimescaleDB',
             self::SQLITE => 'SQLite',
             self::REDIS => 'Redis / Valkey',
             self::MONGODB => 'MongoDB',
@@ -37,6 +39,9 @@ enum DatabaseType: string
         return match ($this) {
             self::MYSQL => 'devicon.mysql',
             self::POSTGRESQL => 'devicon.postgresql',
+            // No TimescaleDB glyph in devicon; it is a PostgreSQL extension, so the
+            // Postgres elephant is the honest icon.
+            self::TIMESCALEDB => 'devicon.postgresql',
             self::SQLITE => 'devicon.sqlite',
             self::REDIS => 'devicon.redis',
             self::MONGODB => 'devicon.mongodb',
@@ -64,13 +69,27 @@ enum DatabaseType: string
     }
 
     /**
+     * Whether this type speaks PostgreSQL and is served by the libpq client
+     * tooling (pg_dump, pg_restore, psql). TimescaleDB is a PostgreSQL
+     * extension, so it shares the wire protocol, the DSN, the client binaries
+     * and the dump options, and differs only in how a restore is sequenced.
+     */
+    public function isPostgresFamily(): bool
+    {
+        return match ($this) {
+            self::POSTGRESQL, self::TIMESCALEDB => true,
+            default => false,
+        };
+    }
+
+    /**
      * Whether the dump client can leave out individual tables:
      * `mariadb-dump --ignore-table` and `pg_dump --exclude-table-and-children`.
      */
     public function supportsExcludedTables(): bool
     {
         return match ($this) {
-            self::MYSQL, self::POSTGRESQL => true,
+            self::MYSQL, self::POSTGRESQL, self::TIMESCALEDB => true,
             default => false,
         };
     }
@@ -82,7 +101,7 @@ enum DatabaseType: string
     public function supportsSocketHost(): bool
     {
         return match ($this) {
-            self::MYSQL, self::POSTGRESQL => true,
+            self::MYSQL, self::POSTGRESQL, self::TIMESCALEDB => true,
             default => false,
         };
     }
@@ -97,6 +116,7 @@ enum DatabaseType: string
         return match ($this) {
             self::MYSQL => 3306,
             self::POSTGRESQL => 5432,
+            self::TIMESCALEDB => 5432,
             self::SQLITE => 0,
             self::REDIS => 6379,
             self::MONGODB => 27017,
@@ -130,7 +150,7 @@ enum DatabaseType: string
             self::MYSQL => $database
                 ? sprintf('mysql:host=%s;port=%d;dbname=%s', $host, $port, $database)
                 : sprintf('mysql:host=%s;port=%d', $host, $port),
-            self::POSTGRESQL => sprintf(
+            self::POSTGRESQL, self::TIMESCALEDB => sprintf(
                 'pgsql:host=%s;port=%d;dbname=%s',
                 $host,
                 $port,
@@ -249,7 +269,7 @@ enum DatabaseType: string
      */
     public function dumpExtension(?string $format = null): string
     {
-        if ($this === self::POSTGRESQL && $format === 'custom') {
+        if ($this->isPostgresFamily() && $format === 'custom') {
             return 'dump';
         }
 

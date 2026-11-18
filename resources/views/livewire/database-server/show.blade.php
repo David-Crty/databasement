@@ -9,12 +9,12 @@
         $sshConfig = $server->sshConfig;
         $agent = $server->agent;
         $isSqlite = $server->database_type === DatabaseType::SQLITE;
-        $isPostgres = $server->database_type === DatabaseType::POSTGRESQL;
+        $isPostgresFamily = $server->database_type->isPostgresFamily();
         $sslEnabled = (bool) $server->getExtraConfig('ssl_enabled', false);
         $authSource = $server->getExtraConfig('auth_source');
         $dumpFlags = $server->getExtraConfig('dump_flags');
-        $dumpFormat = $isPostgres ? ($server->getExtraConfig('dump_format', 'plain')) : null;
-        $showDumpCard = $dumpFlags || ($isPostgres && $dumpFormat === 'custom');
+        $dumpFormat = $isPostgresFamily ? ($server->getExtraConfig('dump_format', 'plain')) : null;
+        $showDumpCard = $dumpFlags || ($isPostgresFamily && $dumpFormat === 'custom');
 
         $trigger = $server->notification_trigger;
         $selection = $server->notification_channel_selection;
@@ -368,7 +368,7 @@
                 <div class="card card-border bg-base-100 shadow-sm overflow-hidden">
                     <x-detail-card-header icon="o-command-line" :title="__('Dump configuration')" />
                     <ul class="list">
-                        @if($isPostgres)
+                        @if($isPostgresFamily)
                             <x-detail-row icon="o-document-text" :label="__('Format')">
                                 <div class="mt-0.5 flex flex-wrap items-center gap-1.5">
                                     @if($dumpFormat === 'custom')

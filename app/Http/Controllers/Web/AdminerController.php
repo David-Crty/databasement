@@ -42,7 +42,7 @@ class AdminerController extends Controller
     {
         $driver = match ($server->database_type) { // @phpstan-ignore match.unhandled (supportsAdminer() filters unsupported types)
             DatabaseType::MYSQL => 'server',
-            DatabaseType::POSTGRESQL => 'pgsql',
+            DatabaseType::POSTGRESQL, DatabaseType::TIMESCALEDB => 'pgsql',
             DatabaseType::SQLITE => 'sqlite',
         };
 
