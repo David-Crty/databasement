@@ -11,6 +11,7 @@ use App\Models\DatabaseServer;
 use App\Models\ScheduledRestore;
 use App\Models\Snapshot;
 use App\Rules\SafeDatabaseName;
+use App\Services\Backup\DTO\RestoreOptions;
 use App\Traits\Toast;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -46,6 +47,8 @@ class Modal extends Component
         $this->reset([
             'currentStep', 'editingId', 'sourceServerId', 'sourceDatabaseName',
             'targetServerId', 'schemaName', 'forceDatabase', 'ownerUser', 'parallelRestore',
+            'selectedRestoreSchemas', 'selectedRestoreTables', 'selectedExcludeRestoreTables',
+            'restoreSchemasText', 'restoreTablesText', 'excludeRestoreTablesText',
             'name', 'backupScheduleId', 'enabled', 'existingDatabases',
         ]);
         $this->resetValidation();
@@ -62,6 +65,12 @@ class Modal extends Component
             $this->forceDatabase = (bool) $scheduledRestore->getOption('force_database', false);
             $this->ownerUser = (string) $scheduledRestore->getOption('owner_user', '');
             $this->parallelRestore = (bool) $scheduledRestore->getOption('parallel_restore', false);
+            $options = RestoreOptions::fromArray($scheduledRestore->options ?? []);
+            $this->fillRestoreSelection(
+                $options->restoreSchemas,
+                $options->restoreTables,
+                $options->excludeRestoreTables,
+            );
             $this->name = $scheduledRestore->name;
             $this->backupScheduleId = $scheduledRestore->backup_schedule_id;
             $this->enabled = $scheduledRestore->enabled;

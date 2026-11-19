@@ -6,6 +6,7 @@ use App\Exceptions\Backup\VolumeTransferException;
 use App\Services\Agent\AgentJobLogger;
 use App\Services\Backup\BackupTask;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\DumpContents;
 use App\Services\Backup\DTO\RestoreConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Services\Backup\RestoreTask;
@@ -137,6 +138,44 @@ test('processes a job and calls ack on success', function () {
         && $request['volumes'][0]['volume_id'] === 'vol-1'
         && $request['volumes'][1]['volume_id'] === 'vol-2'
         && $request['volumes'][1]['status'] === SnapshotFileStatus::Completed->value
+        && ! isset($request['contents'])
+    );
+});
+
+test('ack includes dump contents when the backup inventoried a custom-format archive', function () {
+    fakeAgentServer($this->jobPayload, ['job-123/ack']);
+
+    $mockResult = new BackupResult(
+        'backup_testdb.dump.gz',
+        54321,
+        'abc123hash',
+        [new VolumeTransferResult('vol-1', 'Test Volume', SnapshotFileStatus::Completed)],
+        new DumpContents([
+            [
+                'name' => 'public',
+                'tables' => [
+                    ['table_name' => 'users', 'comment' => '用户'],
+                ],
+            ],
+        ]),
+    );
+    $this->mock(BackupTask::class)
+        ->shouldReceive('execute')->once()
+        ->andReturn($mockResult);
+
+    $this->artisan('agent:run --once')->assertSuccessful();
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/ack')
+        && $request['contents'] === [
+            'schemas' => [
+                [
+                    'name' => 'public',
+                    'tables' => [
+                        ['table_name' => 'users', 'comment' => '用户'],
+                    ],
+                ],
+            ],
+        ]
     );
 });
 

@@ -10,6 +10,11 @@ use App\Models\SnapshotFile;
 
 readonly class RestoreConfig
 {
+    /**
+     * @param  list<string>  $restoreSchemas
+     * @param  list<array{schema: string, table: string}>  $restoreTables
+     * @param  list<array{schema: string, table: string}>  $excludeRestoreTables
+     */
     public function __construct(
         public DatabaseConnectionConfig $targetServer,
         public VolumeConfig $snapshotVolume,
@@ -26,11 +31,15 @@ readonly class RestoreConfig
         public bool $snapshotDumpPrivileges = false,
         public ?string $postRestoreScript = null,
         public bool $parallelRestore = false,
+        public array $restoreSchemas = [],
+        public array $restoreTables = [],
+        public array $excludeRestoreTables = [],
     ) {}
 
     public static function fromRestore(Restore $restore, SnapshotFile $sourceFile, string $workingDirectory): self
     {
         $snapshot = $restore->snapshot;
+        $options = RestoreOptions::fromArray((array) ($restore->options ?? []));
 
         return new self(
             targetServer: DatabaseConnectionConfig::fromServer($restore->targetServer),
@@ -42,29 +51,22 @@ readonly class RestoreConfig
             snapshotDatabaseName: $snapshot->database_name,
             schemaName: $restore->schema_name,
             workingDirectory: $workingDirectory,
-            forceDatabase: filter_var($restore->getOption('force_database', false), FILTER_VALIDATE_BOOLEAN),
-            ownerUser: is_string($value = $restore->getOption('owner_user')) && $value !== '' ? $value : null,
+            forceDatabase: $options->forceDatabase,
+            ownerUser: $options->ownerUser,
             snapshotDumpFormat: is_string($format = ($snapshot->metadata['dump_format'] ?? null)) ? $format : null,
             snapshotDumpPrivileges: (bool) ($snapshot->metadata['dump_privileges'] ?? false),
             postRestoreScript: AppConfig::get('backup.post_restore_script'),
-            parallelRestore: filter_var($restore->getOption('parallel_restore', false), FILTER_VALIDATE_BOOLEAN),
+            parallelRestore: $options->parallelRestore,
+            restoreSchemas: $options->restoreSchemas,
+            restoreTables: $options->restoreTables,
+            excludeRestoreTables: $options->excludeRestoreTables,
         );
     }
 
     /**
      * Serialize to a self-contained agent payload.
      *
-     * @return array{
-     *     server_name: string,
-     *     database: array<string, mixed>,
-     *     volume: array<string, mixed>,
-     *     snapshot: array{filename: string, file_size: int, compression_type: string, database_type: string, database_name: string, dump_format: string|null, dump_privileges: bool},
-     *     schema_name: string,
-     *     force_database: bool,
-     *     owner_user: string|null,
-     *     post_restore_script: string|null,
-     *     parallel_restore: bool,
-     * }
+     * @return array<string, mixed>
      */
     public function toPayload(): array
     {
@@ -86,25 +88,26 @@ readonly class RestoreConfig
             'owner_user' => $this->ownerUser,
             'post_restore_script' => $this->postRestoreScript,
             'parallel_restore' => $this->parallelRestore,
+            'restore_schemas' => $this->restoreSchemas,
+            'restore_tables' => $this->restoreTables,
+            'exclude_restore_tables' => $this->excludeRestoreTables,
         ];
     }
 
     /**
-     * @param  array{
-     *     server_name: string,
-     *     database: array{type: string, host?: string, port?: int, username?: string, password?: string, extra_config?: array<string, mixed>|null, id?: string},
-     *     volume: array{id?: string|null, type: string, name?: string, config?: array<string, mixed>},
-     *     snapshot: array{filename: string, file_size: int, compression_type: string, database_type: string, database_name: string, dump_format?: string|null, dump_privileges?: bool},
-     *     schema_name: string,
-     *     force_database?: bool,
-     *     owner_user?: string|null,
-     *     post_restore_script?: string|null,
-     *     parallel_restore?: bool,
-     * }  $payload
+     * @param  array<string, mixed>  $payload
      */
     public static function fromPayload(array $payload, string $workingDirectory): self
     {
         $snapshot = $payload['snapshot'];
+        $options = RestoreOptions::fromArray([
+            'force_database' => $payload['force_database'] ?? false,
+            'owner_user' => $payload['owner_user'] ?? null,
+            'parallel_restore' => $payload['parallel_restore'] ?? false,
+            'restore_schemas' => $payload['restore_schemas'] ?? [],
+            'restore_tables' => $payload['restore_tables'] ?? [],
+            'exclude_restore_tables' => $payload['exclude_restore_tables'] ?? [],
+        ]);
 
         return new self(
             targetServer: DatabaseConnectionConfig::fromPayload($payload['database'], $payload['server_name']),
@@ -116,12 +119,15 @@ readonly class RestoreConfig
             snapshotDatabaseName: $snapshot['database_name'],
             schemaName: $payload['schema_name'],
             workingDirectory: $workingDirectory,
-            forceDatabase: (bool) ($payload['force_database'] ?? false),
-            ownerUser: $payload['owner_user'] ?? null,
+            forceDatabase: $options->forceDatabase,
+            ownerUser: $options->ownerUser,
             snapshotDumpFormat: $snapshot['dump_format'] ?? null,
             snapshotDumpPrivileges: (bool) ($snapshot['dump_privileges'] ?? false),
             postRestoreScript: $payload['post_restore_script'] ?? null,
-            parallelRestore: (bool) ($payload['parallel_restore'] ?? false),
+            parallelRestore: $options->parallelRestore,
+            restoreSchemas: $options->restoreSchemas,
+            restoreTables: $options->restoreTables,
+            excludeRestoreTables: $options->excludeRestoreTables,
         );
     }
 }

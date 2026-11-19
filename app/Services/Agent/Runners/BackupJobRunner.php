@@ -41,12 +41,18 @@ class BackupJobRunner implements AgentJobRunner
 
             $result = $this->backupTask->execute($config, $logger);
 
-            $client->ack($job['id'], [
+            $ack = [
                 'filename' => $result->filename,
                 'file_size' => $result->fileSize,
                 'checksum' => $result->checksum,
                 'volumes' => $this->volumeResultPayloads($result->volumeResults),
-            ], $logger->unsentLogs());
+            ];
+
+            if ($result->contents !== null) {
+                $ack['contents'] = $result->contents->toArray();
+            }
+
+            $client->ack($job['id'], $ack, $logger->unsentLogs());
             $log("Job completed: {$result->filename}");
         } catch (JobRevokedException $e) {
             $log("Job {$job['id']} stopped: {$e->getMessage()}", 'warning');

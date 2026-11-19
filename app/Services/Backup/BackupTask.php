@@ -12,8 +12,10 @@ use App\Services\Backup\Compressors\CompressorInterface;
 use App\Services\Backup\Concerns\UsesSshTunnel;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\DumpContents;
 use App\Services\Backup\DTO\VolumeConfig;
 use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Services\Backup\Filesystems\FilesystemProvider;
@@ -69,7 +71,7 @@ class BackupTask
             );
 
             $compressor = $this->compressorFactory->make($config->compressionType, $config->compressionLevel, $config->compressionMultithread);
-            $archive = $this->dumpAndCompress($database, $workingFile, $compressor, $logger);
+            [$archive, $contents] = $this->dumpAndCompress($database, $workingFile, $compressor, $logger);
             $fileSize = filesize($archive);
             if ($fileSize === false) {
                 throw new \RuntimeException("Failed to get file size for: {$archive}");
@@ -91,7 +93,7 @@ class BackupTask
                 throw new \RuntimeException("Failed to calculate checksum for: {$archive}");
             }
 
-            $result = new BackupResult($filename, $fileSize, $checksum, $volumeResults);
+            $result = new BackupResult($filename, $fileSize, $checksum, $volumeResults, $contents);
 
             // Any failed upload fails the whole job — but only after every
             // volume was attempted, so the successful copies are recorded.
@@ -149,11 +151,15 @@ class BackupTask
     /**
      * Dump the database into a compressed archive. A dump written to stdout is
      * piped straight into the compressor, so only the archive ever lands on
-     * disk; otherwise the dump file is written first, then compressed.
+     * disk; otherwise the dump file is written first, inventoried when it is a
+     * PostgreSQL custom-format archive, then compressed.
+     *
+     * @return array{0: string, 1: DumpContents|null}
      */
-    private function dumpAndCompress(DatabaseInterface $database, string $workingFile, CompressorInterface $compressor, BackupLogger $logger): string
+    private function dumpAndCompress(DatabaseInterface $database, string $workingFile, CompressorInterface $compressor, BackupLogger $logger): array
     {
         $result = $database->dump($workingFile);
+        $contents = null;
 
         if ($result->writesToStdout && $result->command !== null) {
             $archive = $compressor->compressCommandOutput($result->command, $workingFile);
@@ -161,6 +167,11 @@ class BackupTask
             if ($result->command !== null) {
                 $this->shellProcessor->process($result->command);
             }
+
+            if ($database instanceof PostgresqlDatabase && file_exists($workingFile)) {
+                $contents = $this->inventoryCustomDump($database, $workingFile, $logger);
+            }
+
             $archive = $compressor->compress($workingFile);
         }
 
@@ -168,7 +179,38 @@ class BackupTask
             $logger->log($result->log->message, $result->log->level, $result->log->context ?? []);
         }
 
-        return $archive;
+        return [$archive, $contents];
+    }
+
+    /**
+     * Read schema/table names from a local custom-format dump via
+     * `pg_restore --list`. Failure is non-fatal: the backup still uploads,
+     * selective restore is just unavailable for that snapshot.
+     */
+    private function inventoryCustomDump(PostgresqlDatabase $database, string $dumpPath, BackupLogger $logger): ?DumpContents
+    {
+        try {
+            $list = $database->listDumpContents($dumpPath);
+            $toc = $this->shellProcessor->process($list->command);
+
+            if ($list->log !== null) {
+                $logger->log($list->log->message, $list->log->level, $list->log->context ?? []);
+            }
+
+            $contents = DumpContents::fromPgRestoreList($toc)
+                ->withComments($database->tableCommentMap());
+            $logger->log(sprintf(
+                'Recorded dump contents: %d schema(s), %d table(s)',
+                $contents->schemaCount(),
+                $contents->tableCount(),
+            ), 'info');
+
+            return $contents;
+        } catch (\Throwable $e) {
+            $logger->log('Could not list dump contents: '.$e->getMessage(), 'warning');
+
+            return null;
+        }
     }
 
     /**

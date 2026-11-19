@@ -96,13 +96,20 @@ test('plain restore stops on the first SQL error instead of exiting successfully
     expect($result->command)->toContain('--set=ON_ERROR_STOP=1');
 });
 
-test('dump appends --format=custom when dump_format is custom', function () {
+test('dump appends --format=custom and writes to a file when dump_format is custom', function () {
     $db = postgresHandler(['dump_format' => 'custom']);
 
-    $result = $db->dump('/tmp/dump.sql');
+    $result = $db->dump('/tmp/dump.dump');
 
-    expect($result->command)->toContain('--quote-all-identifiers --format=custom --host=')
-        ->and($result->command)->toEndWith("--dbname='myapp'");
+    expect($result->command)->toContain("--format=custom --file='/tmp/dump.dump' --host=")
+        ->and($result->command)->toEndWith("--dbname='myapp'")
+        ->and($result->writesToStdout)->toBeFalse();
+});
+
+test('listDumpContents builds a pg_restore --list command for a local archive', function () {
+    $result = postgresHandler(['dump_format' => 'custom'])->listDumpContents('/tmp/dump.dump');
+
+    expect($result->command)->toBe("pg_restore --list '/tmp/dump.dump'");
 });
 
 test('restore uses pg_restore when dump_format config is custom', function () {
@@ -122,6 +129,47 @@ test('custom format restore runs parallel jobs only when parallel_restore is req
     expect(postgresHandler(['dump_format' => 'custom'])->restore('/tmp/snapshot.sql')->command)->not->toContain('--jobs')
         ->and(postgresHandler(['dump_format' => 'custom', 'parallel_restore' => true])->restore('/tmp/snapshot.sql')->command)
         ->toContain('--no-privileges --jobs=4 --host=');
+});
+
+test('custom format restore uses paired --schema/--table flags for selective table restores', function () {
+    $result = postgresHandler([
+        'dump_format' => 'custom',
+        'restore_tables' => [
+            ['schema' => 'budget', 'table' => 's_saleorder'],
+            ['schema' => 'public', 'table' => 'users'],
+        ],
+    ])->restore('/tmp/snapshot.dump');
+
+    // Unqualified -t: pg_restore rejects schema-qualified -t names.
+    // Paired -n/-t per table avoids a global -n list intersecting badly.
+    expect($result->command)->toContain("--schema='budget' --table='s_saleorder'")
+        ->and($result->command)->toContain("--schema='public' --table='users'")
+        ->and($result->command)->not->toContain("--table='budget.s_saleorder'");
+});
+
+test('custom format restore appends --schema flags for selective schema restores', function () {
+    $result = postgresHandler([
+        'dump_format' => 'custom',
+        'restore_schemas' => ['budget', 'public'],
+    ])->restore('/tmp/snapshot.dump');
+
+    expect($result->command)->toContain("--schema='budget'")
+        ->and($result->command)->toContain("--schema='public'");
+});
+
+test('custom format restore prefers --use-list when a filtered list is provided', function () {
+    $result = postgresHandler([
+        'dump_format' => 'custom',
+        'restore_schemas' => ['budget'],
+        'restore_tables' => [
+            ['schema' => 'budget', 'table' => 's_saleorder'],
+        ],
+        'restore_use_list' => '/tmp/restore.list',
+    ])->restore('/tmp/snapshot.dump');
+
+    expect($result->command)->toContain("--use-list='/tmp/restore.list'")
+        ->and($result->command)->not->toContain('--schema=')
+        ->and($result->command)->not->toContain('--table=');
 });
 
 test('dump keeps ownership and privileges when dump_privileges is enabled', function () {

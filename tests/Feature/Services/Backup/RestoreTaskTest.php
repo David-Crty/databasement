@@ -320,16 +320,11 @@ test('execute establishes SSH tunnel when target server requires it', function (
     $mockProvider = Mockery::mock(DatabaseProvider::class);
     $mockProvider->shouldReceive('makeFromConfig')
         ->once()
-        ->with(
-            Mockery::on(fn ($c) => $c->host === 'private-db.internal'),
-            'restored_db',
-            '127.0.0.1',
-            54321,
-            'sourcedb',
-            null,
-            false,
-            false,
-        )
+        ->withArgs(fn (...$args) => ($args[0]->host ?? null) === 'private-db.internal'
+            && ($args[1] ?? null) === 'restored_db'
+            && ($args[2] ?? null) === '127.0.0.1'
+            && ($args[3] ?? null) === 54321
+            && ($args[4] ?? null) === 'sourcedb')
         ->andReturn($mockHandler);
 
     setupDownloadMock();

@@ -7,6 +7,7 @@ use App\Enums\CompressionType;
 use App\Enums\DatabaseType;
 use App\Enums\SnapshotFileStatus;
 use App\Models\Scopes\DatabaseServerOrganizationScope;
+use App\Services\Backup\DTO\DumpContents;
 use App\Support\Formatters;
 use Database\Factories\SnapshotFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -122,6 +123,24 @@ class Snapshot extends Model
     public function getAgentName(): ?string
     {
         return $this->metadata['agent']['name'] ?? null;
+    }
+
+    /**
+     * Schema/table inventory recorded at backup time for custom-format PostgreSQL
+     * dumps, or null when the snapshot has none (plain SQL, older backups, or a
+     * listing that failed).
+     *
+     * @return array{schemas: list<array{name: string, tables: list<array{table_name: string, comment: string|null}>}>}|null
+     */
+    public function getDumpContents(): ?array
+    {
+        $contents = $this->metadata['contents'] ?? null;
+
+        if (! is_array($contents)) {
+            return null;
+        }
+
+        return DumpContents::fromArray($contents)->toArray();
     }
 
     protected static function booted(): void

@@ -42,8 +42,11 @@ class ShellProcessor
      *
      * @param  array<string, string>  $env  Extra environment variables exposed to the command.
      * @param  string|null  $workingDirectory  Directory the command runs in, so it can name its files relative to it.
+     * @param  bool  $log  When false, run without writing a command entry to the job log
+     *                     (e.g. an intermediate `pg_restore --list` whose edited
+     *                     result is logged separately).
      */
-    public function process(string $command, array $env = [], ?string $workingDirectory = null): string
+    public function process(string $command, array $env = [], ?string $workingDirectory = null, bool $log = true): string
     {
         // Its own process group, so that stopping it also stops what it
         // started, such as the commands of a post-backup script.
@@ -64,7 +67,9 @@ class ShellProcessor
         // getOutput()/getErrorOutput() below.
         $output = $this->newOutputBuffer();
         $receivedOutput = false;
-        $logIndex = $this->reportSafely(fn () => $this->logger?->startCommandLog($sanitizedCommand));
+        $logIndex = $log
+            ? $this->reportSafely(fn () => $this->logger?->startCommandLog($sanitizedCommand))
+            : null;
 
         try {
             $process->start(function ($type, $data) use ($output, &$receivedOutput) {
@@ -74,7 +79,7 @@ class ShellProcessor
             $lastReport = microtime(true);
 
             while ($process->isRunning()) {
-                if (microtime(true) - $lastReport >= $this->progressIntervalSeconds) {
+                if ($log && microtime(true) - $lastReport >= $this->progressIntervalSeconds) {
                     $this->reportSafely(fn () => $this->reportCommand($logIndex, $output, $startTime));
                     $lastReport = microtime(true);
                 }
@@ -92,22 +97,26 @@ class ShellProcessor
             $process->wait();
         } catch (Throwable $e) {
             $this->stop($process);
-            rescue(fn () => $this->reportCommand($logIndex, $output, $startTime, ['status' => 'failed']), report: false);
+            if ($log) {
+                rescue(fn () => $this->reportCommand($logIndex, $output, $startTime, ['status' => 'failed']), report: false);
+            }
 
             throw $e;
         }
 
         $errorOutput = $process->getErrorOutput();
 
-        $finalOutput = $this->newOutputBuffer();
-        $finalOutput->append($process->getOutput());
-        $finalOutput->append("\n");
-        $finalOutput->append($errorOutput);
+        if ($log) {
+            $finalOutput = $this->newOutputBuffer();
+            $finalOutput->append($process->getOutput());
+            $finalOutput->append("\n");
+            $finalOutput->append($errorOutput);
 
-        $this->reportSafely(fn () => $this->reportCommand($logIndex, $finalOutput, $startTime, [
-            'exit_code' => $process->getExitCode(),
-            'status' => $process->isSuccessful() ? 'completed' : 'failed',
-        ]));
+            $this->reportSafely(fn () => $this->reportCommand($logIndex, $finalOutput, $startTime, [
+                'exit_code' => $process->getExitCode(),
+                'status' => $process->isSuccessful() ? 'completed' : 'failed',
+            ]));
+        }
 
         if (! $process->isSuccessful()) {
             // Bounded as well: this message ends up in `backup_jobs.error_message`,

@@ -29,11 +29,22 @@ class RecordBackupResultAction
     public function handle(Snapshot $snapshot, BackupResult $result): void
     {
         if ($result->filename !== '') {
-            $snapshot->update([
+            $attributes = [
                 'filename' => $result->filename,
                 'file_size' => $result->fileSize,
                 'checksum' => $result->checksum,
-            ]);
+            ];
+
+            // Merge into the metadata written at snapshot creation (dump_format,
+            // volumes, …) so selective-restore inventories survive alongside it.
+            if ($result->contents !== null) {
+                $attributes['metadata'] = [
+                    ...($snapshot->metadata ?? []),
+                    'contents' => $result->contents->toArray(),
+                ];
+            }
+
+            $snapshot->update($attributes);
         }
 
         $files = $snapshot->files()->get();

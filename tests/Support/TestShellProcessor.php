@@ -15,7 +15,7 @@ class TestShellProcessor extends ShellProcessor
     /** @var array<int, array<string, string>> */
     public array $executedEnv = [];
 
-    public function process(string $command, array $env = [], ?string $workingDirectory = null): string
+    public function process(string $command, array $env = [], ?string $workingDirectory = null, bool $log = true): string
     {
         // Capture the command and env
         $this->executedCommands[] = $command;
@@ -23,6 +23,21 @@ class TestShellProcessor extends ShellProcessor
 
         // Simulate file creation based on command patterns
         $this->simulateCommandEffects($command, $workingDirectory);
+
+        // pg_restore --list on a custom-format dump: return a small TOC so
+        // BackupTask can inventory schemas/tables in tests.
+        if (preg_match('/(?:^|\s)(?:pg_restore|\S*\/pg_restore)\s+.*(?:--list|-l)\s+/', $command) === 1) {
+            return <<<'TOC'
+;
+; Selected TOC Entries:
+;
+5; 2615 2200 SCHEMA - public postgres
+6; 2615 2201 SCHEMA - tb app
+187; 1259 16385 TABLE public users postgres
+188; 0 16385 TABLE DATA public users postgres
+191; 1259 16395 TABLE tb orders app
+TOC;
+        }
 
         return 'fake output';
     }
@@ -44,7 +59,8 @@ class TestShellProcessor extends ShellProcessor
 
         // For mysqldump/pg_dump: extract output path and create fake dump file
         if (preg_match('/>\s*([^\s]+)$/', $command, $matches)
-            || preg_match('/\s--result-file=(\'[^\']+\')/', $command, $matches)) {
+            || preg_match('/\s--result-file=(\'[^\']+\')/', $command, $matches)
+            || preg_match('/\s--file=(\'[^\']+\')/', $command, $matches)) {
             $outputPath = trim($matches[1], '"\'');
             if ($outputPath && $outputPath !== '&1') {
                 file_put_contents($outputPath, "-- Fake database dump\nCREATE TABLE test (id INT);\n");
