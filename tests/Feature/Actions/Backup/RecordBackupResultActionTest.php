@@ -7,6 +7,7 @@ use App\Models\Snapshot;
 use App\Models\Volume;
 use App\Notifications\StorageLimitWarningNotification;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\DumpContents;
 use App\Services\Backup\DTO\VolumeTransferResult;
 use Illuminate\Support\Facades\Notification;
 
@@ -36,6 +37,58 @@ test('a run that produced no archive records only the volumes', function () {
 
     expect($snapshot->fresh()->filename)->toBe('earlier.sql.gz')
         ->and($snapshot->files()->sole()->error)->toBe('Unreachable');
+});
+
+test('it merges dump contents into existing snapshot metadata', function () {
+    $volume = Volume::factory()->s3()->create();
+    $snapshot = Snapshot::factory()->onVolumes($volume)->create([
+        'checksum' => null,
+        'metadata' => [
+            'dump_format' => 'custom',
+            'database_server' => ['database_name' => 'myapp'],
+        ],
+    ]);
+
+    RecordBackupResultAction::run($snapshot, new BackupResult(
+        'app.dump.gz',
+        2048,
+        'abc123',
+        [new VolumeTransferResult($volume->id, $volume->name, SnapshotFileStatus::Completed)],
+        new DumpContents([
+            [
+                'name' => 'public',
+                'tables' => [
+                    ['table_name' => 'users', 'comment' => null],
+                ],
+            ],
+            [
+                'name' => 'tb',
+                'tables' => [
+                    ['table_name' => 'orders', 'comment' => '订单'],
+                ],
+            ],
+        ]),
+    ));
+
+    $fresh = $snapshot->fresh();
+    expect($fresh->metadata['dump_format'])->toBe('custom')
+        ->and($fresh->metadata['database_server']['database_name'])->toBe('myapp')
+        ->and($fresh->getDumpContents())->toBe([
+            'schemas' => [
+                [
+                    'name' => 'public',
+                    'tables' => [
+                        ['table_name' => 'users', 'comment' => null],
+                    ],
+                ],
+                [
+                    'name' => 'tb',
+                    'tables' => [
+                        ['table_name' => 'orders', 'comment' => '订单'],
+                    ],
+                ],
+            ],
+        ]);
 });
 
 test('it warns about a volume past its notify-only storage limit even when another volume failed', function () {

@@ -88,6 +88,9 @@ class DatabaseProvider
      * configuration being run, so they only ever apply to a dump.
      *
      * @param  list<string>  $excludedTables
+     * @param  list<string>  $restoreSchemas
+     * @param  list<array{schema: string, table: string}>  $restoreTables
+     * @param  list<array{schema: string, table: string}>  $excludeRestoreTables
      */
     public function makeFromConfig(
         DatabaseConnectionConfig $config,
@@ -99,6 +102,10 @@ class DatabaseProvider
         ?bool $snapshotDumpPrivileges = null,
         bool $parallelRestore = false,
         array $excludedTables = [],
+        array $restoreSchemas = [],
+        array $restoreTables = [],
+        array $excludeRestoreTables = [],
+        ?string $restoreUseList = null,
     ): DatabaseInterface {
         if ($config->databaseType === DatabaseType::SQLITE) {
             return $this->makeConfigured(DatabaseType::SQLITE, $this->sqliteConfig($databaseName, $config->sshConfig));
@@ -143,6 +150,22 @@ class DatabaseProvider
 
         if ($config->databaseType === DatabaseType::POSTGRESQL && $parallelRestore) {
             $dbConfig['parallel_restore'] = true;
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL && $restoreSchemas !== []) {
+            $dbConfig['restore_schemas'] = $restoreSchemas;
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL && $restoreTables !== []) {
+            $dbConfig['restore_tables'] = $restoreTables;
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL && $excludeRestoreTables !== []) {
+            $dbConfig['exclude_restore_tables'] = $excludeRestoreTables;
+        }
+
+        if ($config->databaseType === DatabaseType::POSTGRESQL && $restoreUseList !== null) {
+            $dbConfig['restore_use_list'] = $restoreUseList;
         }
 
         // Optional short timeout used by interactive UI lookups; jobs leave

@@ -11,6 +11,7 @@ use App\Models\BackupJob;
 use App\Models\Snapshot;
 use App\Rules\SafePath;
 use App\Services\Backup\DTO\BackupResult;
+use App\Services\Backup\DTO\DumpContents;
 use App\Services\Backup\DTO\VolumeTransferResult;
 use App\Support\QueueTimeouts;
 use RuntimeException;
@@ -43,6 +44,14 @@ class BackupJobHandler implements AgentJobHandler
             'filename' => ['required', 'string', 'max:1000', new SafePath],
             'file_size' => 'required|integer|min:0',
             'checksum' => 'nullable|string|max:255',
+            // Optional: agents that inventoried a custom-format dump before upload.
+            // Older agents omit it; selective restore is then unavailable for that snapshot.
+            'contents' => 'nullable|array',
+            'contents.schemas' => 'nullable|array|max:10000',
+            'contents.schemas.*.name' => 'required|string|max:255',
+            'contents.schemas.*.tables' => 'nullable|array|max:100000',
+            'contents.schemas.*.tables.*.table_name' => 'required|string|max:255',
+            'contents.schemas.*.tables.*.comment' => 'nullable|string|max:10000',
             ...self::volumeResultRules(),
         ];
     }
@@ -58,6 +67,9 @@ class BackupJobHandler implements AgentJobHandler
             fileSize: $result['file_size'],
             checksum: $result['checksum'] ?? null,
             volumeResults: $this->volumeResults($snapshot, ! empty($result['volumes']) ? $result['volumes'] : null),
+            contents: isset($result['contents']) && is_array($result['contents'])
+                ? DumpContents::fromArray($result['contents'])
+                : null,
         );
 
         RecordBackupResultAction::run($snapshot, $backupResult);

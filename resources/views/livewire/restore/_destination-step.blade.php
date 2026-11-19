@@ -22,12 +22,32 @@
           pg_dump custom-format archive, the only kind pg_restore can restore in
           parallel; unknown (null) for scheduled restores, which pick the
           snapshot at run time, so the option is offered
+      $snapshotDumpContents (array|null, optional) - schema/table inventory from
+          snapshot metadata; when present, selective restore checkboxes are shown
 --}}
 @php
     $type = $this->targetServer?->database_type;
     $isSqlite = $type === DatabaseType::SQLITE;
     $preservesPrivileges = $snapshotPreservesPrivileges ?? false;
     $offersParallelRestore = $type === DatabaseType::POSTGRESQL && ($snapshotIsCustomFormat ?? true);
+    $dumpContents = is_array($snapshotDumpContents ?? null) ? $snapshotDumpContents : null;
+    $restoreSchemaOptions = \App\Livewire\Concerns\InteractsWithTargetDatabases::restoreSchemaOptions($dumpContents);
+    $selectedSchemas = array_values(array_filter(
+        $this->selectedRestoreSchemas ?? [],
+        fn (mixed $schema): bool => is_string($schema) && $schema !== '',
+    ));
+    $restoreTableOptions = \App\Livewire\Concerns\InteractsWithTargetDatabases::restoreTableOptions(
+        $dumpContents,
+        $selectedSchemas,
+    );
+    // Remount table choices when the schema filter changes — Mary bakes options
+    // into Alpine x-data, which otherwise stays stale after the first Livewire update.
+    $restoreTableOptionsKey = implode(',', $selectedSchemas);
+    // Custom-format only. Restore modal knows the snapshot format; scheduled
+    // restores pick the snapshot at run time, so the fields stay available.
+    $offersSelectiveRestore = $type === DatabaseType::POSTGRESQL
+        && ($snapshotIsCustomFormat ?? true);
+    $offersInventoryChoices = $offersSelectiveRestore && $restoreSchemaOptions !== [];
 @endphp
 
 @unless($targetLocked)
@@ -95,6 +115,79 @@
             :label="__('Drop and recreate database before restore')"
             :hint="__('Not usually needed — dumps already include per-table DROP/CREATE statements. Use this only if you need a completely clean database (e.g. to remove tables not in the snapshot).')"
         />
+    @endif
+
+    @if($offersSelectiveRestore)
+        @if($offersInventoryChoices)
+            <div wire:key="restore-schemas-{{ md5(json_encode($restoreSchemaOptions)) }}">
+                <x-choices-offline
+                    wire:model.live="selectedRestoreSchemas"
+                    :label="__('Schemas')"
+                    :options="$restoreSchemaOptions"
+                    :placeholder="__('Leave empty to restore all schemas')"
+                    :hint="__('Optional. Limit the restore to selected schemas. Functions, procedures and other schema objects follow; tables follow the table fields below.')"
+                    :no-result-text="__('No results found.')"
+                    searchable
+                    clearable
+                />
+            </div>
+
+            <div wire:key="restore-tables-{{ $restoreTableOptionsKey }}">
+                <x-choices-offline
+                    wire:model.live="selectedRestoreTables"
+                    :label="__('Tables to restore')"
+                    :options="$restoreTableOptions"
+                    :placeholder="$selectedSchemas === []
+                        ? __('Select schemas first')
+                        : __('Leave empty to restore all tables')"
+                    :hint="__('Optional. Tables from the schemas above. Leave empty to restore all of them.')"
+                    :no-result-text="__('No results found.')"
+                    :disabled="$selectedSchemas === []"
+                    searchable
+                    clearable
+                />
+            </div>
+
+            <div wire:key="exclude-tables-{{ $restoreTableOptionsKey }}">
+                <x-choices-offline
+                    wire:model.live="selectedExcludeRestoreTables"
+                    :label="__('Tables to skip')"
+                    :options="$restoreTableOptions"
+                    :placeholder="$selectedSchemas === []
+                        ? __('Select schemas first')
+                        : __('Leave empty to skip none')"
+                    :hint="__('Optional. Tables to leave out of the restore.')"
+                    :no-result-text="__('No results found.')"
+                    :disabled="$selectedSchemas === []"
+                    searchable
+                    clearable
+                />
+            </div>
+        @else
+            <x-textarea
+                wire:model="restoreSchemasText"
+                :label="__('Schemas')"
+                :placeholder="__('e.g., budget, public')"
+                :hint="__('Optional. Schema names, separated by commas or new lines. Leave empty to restore all schemas.')"
+                rows="2"
+            />
+
+            <x-textarea
+                wire:model="restoreTablesText"
+                :label="__('Tables to restore')"
+                :placeholder="__('e.g., budget.s_saleorder, public.users')"
+                :hint="__('Optional. schema.table names, separated by commas or new lines. Leave empty to restore all tables (within the schemas above).')"
+                rows="3"
+            />
+
+            <x-textarea
+                wire:model="excludeRestoreTablesText"
+                :label="__('Tables to skip')"
+                :placeholder="__('e.g., budget.web_api_log')"
+                :hint="__('Optional. schema.table names to leave out of the restore.')"
+                rows="3"
+            />
+        @endif
     @endif
 
     @if($offersParallelRestore)

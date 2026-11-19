@@ -238,6 +238,58 @@ describe('job acknowledgement', function () {
             ->and($backupJob->logs[0]['message'])->toBe('Starting backup for database: testdb');
     });
 
+    test('ack stores dump contents on the snapshot metadata', function () {
+        ['agent' => $agent, 'token' => $token] = createAgentWithToken();
+        $agentJob = AgentJob::factory()->claimed($agent)->create();
+        $agentJob->snapshot->update(['metadata' => [
+            ...($agentJob->snapshot->metadata ?? []),
+            'dump_format' => 'custom',
+        ]]);
+
+        $this->withToken($token)
+            ->postJson("/api/v1/agent/jobs/{$agentJob->id}/ack", [
+                'filename' => 'backups/app.dump.gz',
+                'file_size' => 12345,
+                'checksum' => 'abc123',
+                'contents' => [
+                    'schemas' => [
+                        [
+                            'name' => 'public',
+                            'tables' => [
+                                ['table_name' => 'users', 'comment' => null],
+                            ],
+                        ],
+                        [
+                            'name' => 'tb',
+                            'tables' => [
+                                ['table_name' => 'orders', 'comment' => '订单'],
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $snapshot = $agentJob->snapshot->fresh();
+        expect($snapshot->metadata['dump_format'])->toBe('custom')
+            ->and($snapshot->getDumpContents())->toBe([
+                'schemas' => [
+                    [
+                        'name' => 'public',
+                        'tables' => [
+                            ['table_name' => 'users', 'comment' => null],
+                        ],
+                    ],
+                    [
+                        'name' => 'tb',
+                        'tables' => [
+                            ['table_name' => 'orders', 'comment' => '订单'],
+                        ],
+                    ],
+                ],
+            ]);
+    });
+
     test('the storage warning an agent reports on a volume reaches the recorded result', function () {
         ['agent' => $agent, 'token' => $token] = createAgentWithToken();
         $agentJob = AgentJob::factory()->claimed($agent)->create();

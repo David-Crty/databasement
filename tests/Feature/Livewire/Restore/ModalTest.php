@@ -551,3 +551,128 @@ test('parallel restore is offered for custom-format snapshots and reaches the re
         ->set('parallelRestore', true)
         ->call('restore');
 });
+
+test('selective restore schemas and tables reach the restore options', function () {
+    TriggerRestoreAction::shouldRun()->once()
+        ->withArgs(fn (Snapshot $restored, DatabaseServer $onto, string $schema, RestoreOptions $options) => $options->restoreSchemas === ['budget']
+            && $options->restoreTables === [
+                ['schema' => 'budget', 'table' => 's_saleorder'],
+            ]
+            && $options->excludeRestoreTables === [
+                ['schema' => 'budget', 'table' => 'web_api_log'],
+            ])
+        ->andReturn(new Restore);
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create([
+        'metadata' => [
+            'dump_format' => 'custom',
+            'contents' => [
+                'schemas' => [
+                    [
+                        'name' => 'budget',
+                        'tables' => [
+                            ['table_name' => 's_saleorder', 'comment' => '销售订单'],
+                            ['table_name' => 'web_api_log', 'comment' => null],
+                        ],
+                    ],
+                    [
+                        'name' => 'public',
+                        'tables' => [
+                            ['table_name' => 'users', 'comment' => null],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->assertSee('Schemas')
+        ->assertSee('Tables to restore')
+        ->assertSee('Tables to skip')
+        ->set('schemaName', 'restored_db')
+        ->set('selectedRestoreSchemas', ['budget'])
+        ->assertSet('selectedRestoreTables', [])
+        ->set('selectedRestoreTables', ['budget::s_saleorder'])
+        ->set('selectedExcludeRestoreTables', ['budget::web_api_log'])
+        ->call('restore');
+});
+
+test('selective restore table choices follow the selected schemas', function () {
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create([
+        'metadata' => [
+            'dump_format' => 'custom',
+            'contents' => [
+                'schemas' => [
+                    [
+                        'name' => 'budget',
+                        'tables' => [
+                            ['table_name' => 's_saleorder', 'comment' => null],
+                            ['table_name' => 'web_api_log', 'comment' => null],
+                        ],
+                    ],
+                    [
+                        'name' => 'public',
+                        'tables' => [
+                            ['table_name' => 'users', 'comment' => null],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->assertDontSee('budget.s_saleorder')
+        ->assertSee('Select schemas first')
+        ->set('selectedRestoreSchemas', ['budget'])
+        ->assertSee('budget.s_saleorder')
+        ->assertDontSee('public.users')
+        ->set('selectedRestoreTables', ['budget::s_saleorder', 'public::users'])
+        ->set('selectedExcludeRestoreTables', ['public::users'])
+        ->set('selectedRestoreSchemas', ['budget', 'public'])
+        ->assertSet('selectedRestoreTables', ['budget::s_saleorder', 'public::users'])
+        ->set('selectedRestoreSchemas', ['budget'])
+        ->assertSet('selectedRestoreTables', ['budget::s_saleorder'])
+        ->assertSet('selectedExcludeRestoreTables', []);
+});
+
+test('an empty selective restore selection restores the whole archive', function () {
+    TriggerRestoreAction::shouldRun()->once()
+        ->withArgs(fn (Snapshot $restored, DatabaseServer $onto, string $schema, RestoreOptions $options) => $options->restoreSchemas === []
+            && $options->restoreTables === []
+            && $options->excludeRestoreTables === [])
+        ->andReturn(new Restore);
+
+    $target = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $source = DatabaseServer::factory()->create(['database_type' => 'postgres']);
+    $snapshot = Snapshot::factory()->forServer($source)->withFile()->create([
+        'metadata' => [
+            'dump_format' => 'custom',
+            'contents' => [
+                'schemas' => [
+                    [
+                        'name' => 'public',
+                        'tables' => [
+                            ['table_name' => 'users', 'comment' => null],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    Livewire::test(Modal::class)
+        ->dispatch('open-restore-modal', mode: 'from-server', targetServerId: $target->id)
+        ->call('selectSnapshot', $snapshot->id)
+        ->set('schemaName', 'restored_db')
+        ->call('restore');
+});

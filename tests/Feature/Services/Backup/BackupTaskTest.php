@@ -7,6 +7,7 @@ use App\Services\Backup\BackupTask;
 use App\Services\Backup\Compressors\CompressorFactory;
 use App\Services\Backup\Databases\DatabaseInterface;
 use App\Services\Backup\Databases\DatabaseProvider;
+use App\Services\Backup\Databases\PostgresqlDatabase;
 use App\Services\Backup\DTO\BackupConfig;
 use App\Services\Backup\DTO\BackupResult;
 use App\Services\Backup\DTO\DatabaseConnectionConfig;
@@ -131,6 +132,65 @@ test('two backups of the same database started in the same second get their own 
     });
 
     expect($filenames->unique())->toHaveCount(2);
+});
+
+test('execute inventories a custom-format PostgreSQL dump before compressing', function () {
+    $handler = new PostgresqlDatabase;
+    $handler->setConfig([
+        'host' => 'pg.local',
+        'port' => 5432,
+        'user' => 'postgres',
+        'pass' => 'pg_secret',
+        'database' => 'myapp',
+        'dump_format' => 'custom',
+        // Inventory also probes the catalog for comments; keep the miss fast in tests.
+        'connect_timeout' => 1,
+    ]);
+
+    $mockProvider = Mockery::mock(DatabaseProvider::class);
+    $mockProvider->shouldReceive('makeFromConfig')->once()->andReturn($handler);
+
+    $this->filesystemProvider->shouldReceive('transferFromConfig')->once();
+
+    $config = new BackupConfig(
+        database: new DatabaseConnectionConfig(
+            databaseType: DatabaseType::POSTGRESQL,
+            serverName: 'PG Server',
+            host: 'pg.local',
+            port: 5432,
+            username: 'postgres',
+            password: 'pg_secret',
+            extraConfig: ['dump_format' => 'custom'],
+        ),
+        volumes: [buildVolumeConfig()],
+        databaseName: 'myapp',
+        workingDirectory: $this->tempDir.'/custom-dump-'.uniqid(),
+    );
+    mkdir($config->workingDirectory, 0755, true);
+
+    $result = makeBackupTask($mockProvider)->execute($config, new InMemoryBackupLogger);
+
+    expect($result->filename)->toEndWith('.dump.gz')
+        ->and($result->contents)->not->toBeNull()
+        ->and($result->contents->toArray())->toBe([
+            'schemas' => [
+                [
+                    'name' => 'public',
+                    'tables' => [
+                        ['table_name' => 'users', 'comment' => null],
+                    ],
+                ],
+                [
+                    'name' => 'tb',
+                    'tables' => [
+                        ['table_name' => 'orders', 'comment' => null],
+                    ],
+                ],
+            ],
+        ])
+        ->and(collect($this->shellProcessor->getCommands())->contains(
+            fn (string $command) => str_contains($command, 'pg_restore --list'),
+        ))->toBeTrue();
 });
 
 test('execute pipes a dump written to stdout straight into the compressor', function () {
@@ -410,13 +470,13 @@ test('execute logs warning and continues when post-backup script fails', functio
 
     $throwingShellProcessor = new class extends TestShellProcessor
     {
-        public function process(string $command, array $env = [], ?string $workingDirectory = null): string
+        public function process(string $command, array $env = [], ?string $workingDirectory = null, bool $log = true): string
         {
             if (str_contains($command, 'post-backup-script.sh')) {
                 throw new \App\Exceptions\ShellProcessFailed('Script exited with code 1');
             }
 
-            return parent::process($command, $env, $workingDirectory);
+            return parent::process($command, $env, $workingDirectory, $log);
         }
     };
 
@@ -459,13 +519,13 @@ test('execute deletes the uploaded copies of a job cancelled after its upload', 
 
     $cancellingShellProcessor = new class extends TestShellProcessor
     {
-        public function process(string $command, array $env = [], ?string $workingDirectory = null): string
+        public function process(string $command, array $env = [], ?string $workingDirectory = null, bool $log = true): string
         {
             if (str_contains($command, 'post-backup-script.sh')) {
                 throw new \App\Exceptions\Backup\JobCancelledException;
             }
 
-            return parent::process($command, $env, $workingDirectory);
+            return parent::process($command, $env, $workingDirectory, $log);
         }
     };
 

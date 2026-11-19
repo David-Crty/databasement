@@ -11,6 +11,7 @@ use App\Models\Restore;
 use App\Models\Snapshot;
 use App\Models\SnapshotFile;
 use App\Queries\SnapshotQuery;
+use App\Services\Backup\DTO\RestoreOptions;
 use App\Traits\Toast;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -77,7 +78,10 @@ class Modal extends Component
         $this->reset([
             'targetServer', 'targetServerId', 'selectedSnapshotId', 'selectedSnapshotFileId',
             'schemaName', 'forceDatabase',
-            'ownerUser', 'parallelRestore', 'currentStep', 'existingDatabases', 'snapshotSearch',
+            'ownerUser', 'parallelRestore', 'selectedRestoreSchemas',
+            'selectedRestoreTables', 'selectedExcludeRestoreTables',
+            'restoreSchemasText', 'restoreTablesText', 'excludeRestoreTablesText',
+            'currentStep', 'existingDatabases', 'snapshotSearch',
             'serverFilter', 'dbTypeFilter',
         ]);
         $this->resetPage('snapshots');
@@ -168,10 +172,28 @@ class Modal extends Component
         $this->forceDatabase = (bool) ($restore->options['force_database'] ?? false);
         $this->ownerUser = (string) ($restore->options['owner_user'] ?? '');
         $this->parallelRestore = (bool) ($restore->options['parallel_restore'] ?? false);
+        $options = RestoreOptions::fromArray($restore->options ?? []);
+        $this->fillRestoreSelection(
+            $options->restoreSchemas,
+            $options->restoreTables,
+            $options->excludeRestoreTables,
+        );
         $this->loadExistingDatabases($this->targetServer);
         $this->currentStep = 2;
 
         return true;
+    }
+
+    /**
+     * @return array{schemas?: list<array{name: string, tables?: list<array{table_name: string, comment: ?string}>}>}|null
+     */
+    protected function snapshotDumpContents(): ?array
+    {
+        if ($this->selectedSnapshotId === null) {
+            return null;
+        }
+
+        return Snapshot::find($this->selectedSnapshotId)?->getDumpContents();
     }
 
     public function selectSnapshot(string $snapshotId): void
@@ -179,6 +201,7 @@ class Modal extends Component
         $snapshot = Snapshot::findOrFail($snapshotId);
         $this->selectedSnapshotId = $snapshotId;
         $this->defaultSnapshotFile();
+        $this->fillRestoreSelection();
 
         if ($this->mode === RestoreModalMode::FromRestoreIndex) {
             // Need to pick target server next.

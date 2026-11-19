@@ -98,8 +98,12 @@ class PostgresqlDatabase implements DatabaseInterface
     public function dump(string $outputPath): DatabaseOperationResult
     {
         $options = $this->withPrivilegeOptions(self::DUMP_OPTIONS);
-        if (($this->config['dump_format'] ?? 'plain') === 'custom') {
+        // Custom format writes to a file (not stdout) so BackupTask can run
+        // `pg_restore --list` on it before compressing and uploading.
+        $custom = ($this->config['dump_format'] ?? 'plain') === 'custom';
+        if ($custom) {
             $options[] = '--format=custom';
+            $options[] = '--file='.escapeshellarg($outputPath);
         }
 
         $extraFlags = '';
@@ -129,7 +133,66 @@ class PostgresqlDatabase implements DatabaseInterface
             DatabaseOperationResult::escapeDatabaseName($this->config['database']),
         );
 
-        return new DatabaseOperationResult(command: $command, log: $this->legacyClientLog($binary, $major), writesToStdout: true);
+        return new DatabaseOperationResult(command: $command, log: $this->legacyClientLog($binary, $major), writesToStdout: ! $custom);
+    }
+
+    /**
+     * Build a `pg_restore --list` command for a local custom-format dump file.
+     * No database connection is needed; the TOC is read from the archive alone.
+     */
+    public function listDumpContents(string $dumpPath): DatabaseOperationResult
+    {
+        $major = $this->serverMajorVersion();
+        $binary = $this->binary('pg_restore', $major);
+
+        return new DatabaseOperationResult(
+            command: sprintf('%s --list %s', $binary, escapeshellarg($dumpPath)),
+            log: $this->legacyClientLog($binary, $major),
+        );
+    }
+
+    /**
+     * Table comments from the live catalog, keyed as `schema.table`.
+     *
+     * `pg_restore --list` records that a COMMENT object exists but not its
+     * text, so the inventory reads comments here after parsing the TOC.
+     *
+     * @return array<string, string|null>
+     */
+    public function tableCommentMap(): array
+    {
+        try {
+            $pdo = $this->createPdoForDatabase((string) $this->config['database']);
+            $statement = $pdo->query(<<<'SQL'
+SELECT n.nspname AS schema_name,
+       c.relname AS table_name,
+       obj_description(c.oid, 'pg_class') AS comment
+FROM pg_catalog.pg_class c
+JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'p')
+  AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+SQL);
+        } catch (\PDOException) {
+            return [];
+        }
+
+        if ($statement === false) {
+            return [];
+        }
+
+        $comments = [];
+        foreach ($statement->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $schema = $row['schema_name'] ?? null;
+            $table = $row['table_name'] ?? null;
+            if (! is_string($schema) || ! is_string($table)) {
+                continue;
+            }
+
+            $comment = $row['comment'] ?? null;
+            $comments[$schema.'.'.$table] = is_string($comment) && $comment !== '' ? $comment : null;
+        }
+
+        return $comments;
     }
 
     public function restore(string $inputPath): DatabaseOperationResult
@@ -148,6 +211,7 @@ class PostgresqlDatabase implements DatabaseInterface
                 implode(' ', [
                     ...$this->withPrivilegeOptions(self::RESTORE_CUSTOM_FORMAT_OPTIONS),
                     ...(empty($this->config['parallel_restore']) ? [] : ['--jobs=4']),
+                    ...$this->selectiveRestoreOptions(),
                 ]),
                 escapeshellarg($this->config['host']),
                 escapeshellarg((string) $this->config['port']),
@@ -279,6 +343,62 @@ class PostgresqlDatabase implements DatabaseInterface
         }
 
         return array_values(array_diff($options, self::PORTABILITY_OPTIONS));
+    }
+
+    /**
+     * Selective restore flags for a custom-format archive.
+     *
+     * Prefer `--use-list` (prepared by RestoreTask): `-n` skips CREATE SCHEMA,
+     * `-t` skips schema/indexes, and combining them drops the SCHEMA TOC line.
+     * The `-n`/`-t` fallback never combines both for that reason.
+     *
+     * @return list<string>
+     */
+    private function selectiveRestoreOptions(): array
+    {
+        if (! empty($this->config['restore_use_list']) && is_string($this->config['restore_use_list'])) {
+            return ['--use-list='.escapeshellarg($this->config['restore_use_list'])];
+        }
+
+        $tables = [];
+
+        foreach ($this->config['restore_tables'] ?? [] as $table) {
+            if (! is_array($table)) {
+                continue;
+            }
+
+            $schema = $table['schema'] ?? null;
+            $name = $table['table'] ?? null;
+
+            if (! is_string($schema) || $schema === '' || ! is_string($name) || $name === '') {
+                continue;
+            }
+
+            $tables[] = ['schema' => $schema, 'table' => $name];
+        }
+
+        // Table selection: -n schema -t name (unqualified). Never pass
+        // schema-qualified -t, and never mix a global -n list with -t.
+        if ($tables !== []) {
+            $flags = [];
+
+            foreach ($tables as $table) {
+                $flags[] = '--schema='.escapeshellarg($table['schema']);
+                $flags[] = '--table='.escapeshellarg($table['table']);
+            }
+
+            return $flags;
+        }
+
+        $flags = [];
+
+        foreach ($this->config['restore_schemas'] ?? [] as $schema) {
+            if (is_string($schema) && $schema !== '') {
+                $flags[] = '--schema='.escapeshellarg($schema);
+            }
+        }
+
+        return $flags;
     }
 
     public function prepareForRestore(string $schemaName, BackupLogger $logger, bool $forceDatabase = false): void

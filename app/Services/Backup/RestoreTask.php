@@ -76,6 +76,55 @@ class RestoreTask
             // Decompress the archive
             $workingFile = $compressor->decompress($compressedFile);
 
+            // Selective custom-format restores always go through a filtered
+            // --use-list. pg_restore -n does not CREATE SCHEMA, -t does not
+            // pull schema/indexes, and -n plus -t drops the SCHEMA TOC line.
+            $restoreSchemas = $config->restoreSchemas;
+            $restoreTables = $config->restoreTables;
+            $excludeTables = $config->excludeRestoreTables;
+            $restoreUseList = null;
+
+            $needsSelectiveList = $config->snapshotDumpFormat === 'custom'
+                && ($restoreSchemas !== [] || $restoreTables !== [] || $excludeTables !== []);
+
+            if ($needsSelectiveList) {
+                $lister = $this->databaseProvider->makeFromConfig(
+                    $target,
+                    $config->schemaName,
+                    $this->getConnectionHost($target),
+                    $this->getConnectionPort($target),
+                    $config->snapshotDatabaseName,
+                    $config->snapshotDumpFormat,
+                    $config->snapshotDumpPrivileges,
+                );
+
+                if ($lister instanceof Databases\PostgresqlDatabase) {
+                    // List quietly — the edited restore.list below is what operators need.
+                    $listCommand = $lister->listDumpContents($workingFile);
+                    $toc = $this->shellProcessor->process($listCommand->command, log: false);
+
+                    $filtered = Databases\PostgresqlRestoreList::filter(
+                        $toc,
+                        $restoreSchemas,
+                        $restoreTables,
+                        $excludeTables,
+                    );
+                    $restoreUseList = $config->workingDirectory.'/restore.list';
+                    file_put_contents($restoreUseList, $filtered);
+
+                    // Original TOC with unwanted lines commented out (;). Active
+                    // vs skipped objects are both visible here.
+                    $logger->logCommand(
+                        'cat '.escapeshellarg($restoreUseList).'  # pg_restore --use-list (;-commented)',
+                        $filtered,
+                        0,
+                    );
+
+                    $restoreSchemas = [];
+                    $restoreTables = [];
+                }
+            }
+
             $database = $this->databaseProvider->makeFromConfig(
                 $target,
                 $config->schemaName,
@@ -85,6 +134,9 @@ class RestoreTask
                 $config->snapshotDumpFormat,
                 $config->snapshotDumpPrivileges,
                 $config->parallelRestore,
+                restoreSchemas: $restoreSchemas,
+                restoreTables: $restoreTables,
+                restoreUseList: $restoreUseList,
             );
 
             $this->prepareDatabase($database, $config->schemaName, $logger, $config->forceDatabase);
